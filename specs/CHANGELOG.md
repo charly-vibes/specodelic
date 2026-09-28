@@ -6,6 +6,18 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #34 — `spk lint`/`graph`/`compile` search directories recursively; lint never silently succeeds on zero files
+
+`collect_specs` now walks directories depth-first (sorted, deterministic),
+so specs in nested directories are found (beads specodelic-6pi). Hidden
+and build directories (`.git`, anything dot-prefixed, `target`,
+`node_modules`) are never descended into — the explicitly named root is
+always searched. `spk lint` on a path set that yields zero spec files now
+fails with a remediation hint instead of a silent `ok:true` (a false
+green); the parse-error failure path is unchanged. Three integration
+tests pin the contract: nested specs are linted, hidden/build dirs are
+skipped, and the empty result fails with a hint.
+
 ## #33 — `spk doctor` dual-mode: self-hosting vs consumer + knowledge-currency warning
 
 `spk doctor` now classifies the workspace: `self_hosting` when

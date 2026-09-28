@@ -279,9 +279,36 @@ fn run(
     }
 }
 
-/// Collect spec files from paths (files, or directories ending in `.md`,
-/// skipping known non-spec files: no frontmatter).
+/// Collect spec files from paths (files, or directories searched
+/// recursively for `.md`, skipping hidden and build directories:
+/// `.git`, `target`, `node_modules`, anything dot-prefixed).
 fn collect_specs(paths: &[String]) -> Vec<std::path::PathBuf> {
+    /// Directories never descended into during recursive collection
+    /// (beads specodelic-6pi: recursion must not sweep VCS/build junk).
+    fn skipped_dir(p: &std::path::Path) -> bool {
+        match p.file_name().and_then(|n| n.to_str()) {
+            Some(name) => name.starts_with('.') || name == "target" || name == "node_modules",
+            None => true,
+        }
+    }
+    fn walk(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) {
+        let mut entries: Vec<_> = std::fs::read_dir(dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .collect();
+        entries.sort();
+        for p in entries {
+            if p.is_dir() {
+                if !skipped_dir(&p) {
+                    walk(&p, files);
+                }
+            } else if p.extension().is_some_and(|e| e == "md") {
+                files.push(p);
+            }
+        }
+    }
     let roots: Vec<std::path::PathBuf> = if paths.is_empty() {
         vec!["specs".into()]
     } else {
@@ -290,15 +317,9 @@ fn collect_specs(paths: &[String]) -> Vec<std::path::PathBuf> {
     let mut files = vec![];
     for root in roots {
         if root.is_dir() {
-            let mut dir_files: Vec<_> = std::fs::read_dir(&root)
-                .into_iter()
-                .flatten()
-                .flatten()
-                .map(|e| e.path())
-                .filter(|p| p.extension().is_some_and(|e| e == "md"))
-                .collect();
-            dir_files.sort();
-            files.extend(dir_files);
+            // The root itself is never skipped (the user named it);
+            // only nested directories are filtered.
+            walk(&root, &mut files);
         } else {
             files.push(root);
         }
@@ -359,9 +380,21 @@ fn cmd_lint(
     stderr: &mut impl std::io::Write,
 ) -> i32 {
     let (specs, notes) = parse_batch(paths, verbosity);
-    if specs.is_empty() && notes.iter().any(|n| n.contains("parse error")) {
-        let out: Output<serde_json::Value> = Output::failure("spec files failed to parse")
-            .with_next_step("fix the frontmatter/tables reported above");
+    if specs.is_empty() {
+        // Never a silent ok:true on zero files — that's a false green
+        // (beads specodelic-6pi).
+        let (msg, hint) = if notes.iter().any(|n| n.contains("parse error")) {
+            (
+                "spec files failed to parse",
+                "fix the frontmatter/tables reported above",
+            )
+        } else {
+            (
+                "no spec files found — nothing was linted",
+                "pass files or directories containing *.md specs with YAML frontmatter (directories are searched recursively; hidden and build dirs are skipped)",
+            )
+        };
+        let out: Output<serde_json::Value> = Output::failure(msg).with_next_step(hint);
         emit(&out, cli, format, verbosity, stdout, stderr);
         return 1;
     }

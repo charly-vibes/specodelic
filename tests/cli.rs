@@ -7,6 +7,87 @@ fn spk() -> Command {
     Command::cargo_bin("specodelic").unwrap()
 }
 
+fn write_bad_ears_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!("---\nid: {id}\nkind: intent\nstatement: \"the system should maybe work\"\n---\n"),
+    )
+    .unwrap();
+}
+
+// ---- specodelic-6pi: recursive spec collection, no silent empty success ----
+
+#[test]
+fn lint_finds_specs_in_nested_directories() {
+    // collect_specs must recurse: a spec in a subdirectory is linted,
+    // not silently ignored (beads specodelic-6pi).
+    let dir = tempfile::tempdir().unwrap();
+    let nested = dir.path().join("domain").join("deep");
+    std::fs::create_dir_all(&nested).unwrap();
+    write_bad_ears_spec(&nested.join("nested_spec.md"), "nested_spec");
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        stdout.contains("nested_spec.md"),
+        "nested spec must be linted: {stdout}"
+    );
+    assert!(stdout.contains("ears_syntax"));
+    assert_eq!(out.status.code(), Some(1));
+}
+
+#[test]
+fn lint_skips_hidden_and_build_directories() {
+    // Recursive collection must not sweep .git/, target/, node_modules/:
+    // exactly the top-level spec is linted, junk specs are never read.
+    let dir = tempfile::tempdir().unwrap();
+    write_bad_ears_spec(&dir.path().join("top_spec.md"), "top_spec");
+    for junk in [".git", "target", "node_modules"] {
+        let j = dir.path().join(junk);
+        std::fs::create_dir_all(&j).unwrap();
+        let id = format!("junk_{}", junk.trim_start_matches('.'));
+        write_bad_ears_spec(&j.join(format!("{id}.md")), &id);
+    }
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    assert_eq!(json["data"]["files_linted"], 1, "only the top-level spec");
+    let issues = json["data"]["issues"].as_array().unwrap();
+    assert!(!issues.is_empty(), "top_spec's ears_syntax must fire");
+    assert!(
+        issues.iter().all(|i| i["file"]
+            .as_str()
+            .map(|f| f.contains("top_spec.md"))
+            .unwrap_or(false)),
+        "no finding may come from hidden/build dirs: {issues:?}"
+    );
+}
+
+#[test]
+fn lint_fails_with_hint_when_no_specs_found() {
+    // A directory with no spec files must not yield a silent ok:true —
+    // that's a false green (beads specodelic-6pi). Failure message rides
+    // stderr even in JSON mode (convention of record).
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("README.md"), "# not a spec\n").unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(stderr.contains("no spec files found"), "stderr: {stderr}");
+    // JSON mode keeps the remediation hint inside the envelope (stdout);
+    // the footer prints to stderr only in human mode (convention of record)
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(stdout.contains("frontmatter"), "envelope hint: {stdout}");
+    assert_eq!(out.status.code(), Some(1));
+}
+
 #[test]
 fn lint_corpus_is_fully_clean() {
     // The corpus is the first dogfood target: every spec file must parse,
@@ -203,7 +284,7 @@ fn compile_corpus_succeeds_and_reports_all_artifacts() {
         );
         assert!(f["artifacts"]["props"].as_str().is_some());
         assert!(f["artifacts"]["tla"].as_str().unwrap().contains("MODULE "));
-        assert!(f["model_ir"]["states"].as_array().unwrap().len() >= 1);
+        assert!(!f["model_ir"]["states"].as_array().unwrap().is_empty());
         assert_eq!(f["written"].as_array().unwrap().len(), 3);
     }
     assert_eq!(cmd.status.code(), Some(0));
