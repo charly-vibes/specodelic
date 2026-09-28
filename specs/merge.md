@@ -73,6 +73,8 @@ before adding anything new.
 | disjoint_blast_radii_auto_merge              | unit | [[merge.semantic_conflict_iff_blast_radius_intersects]]   | `two_branches_touching_disjoint_namespaces_with_disjoint_blast_radii()`                                 | `check(merge) == merged` — no human review required                                                                  |
 | duplicate_sequential_number_renumbered       | unit | [[merge.sequential_number_reassigned_on_conflict]]        | `both_branches_add_a_CHANGELOG_entry_claiming_the_same_next_number()`                                   | `post_merge_repo has two distinct sequential numbers; neither is duplicated`                                         |
 | relint_gates_merge                           | unit | [[merge.post_merge_relint_required]]                      | `merge_where(linter.referential_integrity or linter.graph_shape: fails against the merged tree)`        | `check(merge) == failed` — mirrors `rename.md`'s `stray_ref_caught_by_verify`                                        |
+| blast_radius_recorded_before_apply           | unit | [[merge.blast_radii_recorded_pre_merge]]                  | `merge_history_where_edits_were_applied_before_both_branches'_radii_were_recorded()`                    | `check(merge) == failed` — apply never precedes the recording step, for either branch                                |
+| reachability_from_graph_artifact_only        | unit | [[merge.graph_reused_not_rederived]]                      | `merge_invoked_with_the_markdown_walker_patched_to_panic()`                                             | `merge of an otherwise-clean diverged repo succeeds` — collision and blast-radius checks only query [[graph]]'s artifact |
 
 ## Notes
 

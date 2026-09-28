@@ -66,6 +66,7 @@ already owns it.
 | external_completeness_failure_ignored  | unit | [[orchestrate.external_completeness_never_gates]]       | `repo_where(all_seven_checkers_and_pipeline_pass, declared_checklist: fails)`     | `orchestrate reaches succeeded`                                                                      |
 | rerun_idempotent                       | unit | [[orchestrate.deterministic_rerun]]                     | `run_orchestrator_twice_against_unchanged_repo()`                                | `report(run_1) == report(run_2)`                                                                     |
 | clean_repo_succeeds                    | unit | [[orchestrate.lint_gate_matches_checker_ownership]]     | `arbitrary_repo_that_independently_passes_lint_compile_model_check_verify()`      | `orchestrate reaches succeeded`                                                                      |
+| coverage_failure_holds_compile         | unit | [[orchestrate.compile_gate_matches_coverage]]           | `repo_where(linter.coverage: failed, every_other_checker_and_pipeline_stage: passed)` | `orchestrate halts at compile_stage` — never reaches model_check_stage, and by exactly the coverage checker's verdict, not a looser or stricter one |
 
 ## Notes
 

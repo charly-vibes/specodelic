@@ -73,6 +73,7 @@ about any single file's current shape.
 | constraint_kind_advisory_passes | unit | [[linter.schema_shape.constraint_kind_closed]]       | `constraint_row_with(kind: "advisory")`                             | `check(file) == passed`                                                    |
 | constraint_kind_effect_passes  | unit | [[linter.schema_shape.constraint_kind_closed]]        | `constraint_row_with(kind: "effect")`                               | `check(file) == passed`                                                    |
 | constraint_kind_extension_point_passes | unit | [[linter.schema_shape.constraint_kind_closed]] | `constraint_row_with(kind: "extension_point")`                      | `check(file) == passed`                                                    |
+| parser_ast_never_reads_prose    | unit | [[linter.schema_shape.no_prose_field_parsed]]         | `parser_audit_over_every_ast_construction_site()`                    | `no branch condition references the text of a rationale/description field` — the check itself is an implementation audit, see Notes |
 
 ## Notes
 

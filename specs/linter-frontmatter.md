@@ -43,6 +43,7 @@ for later checks to key off of.
 | wrong_kind_rejected  | unit | [[linter.frontmatter.has_kind]]         | `frontmatter_with_kind(≠ "intent")`       | `check(frontmatter) == failed`                                              |
 | valid_passes         | unit | [[linter.frontmatter.has_id]]           | `arbitrary_valid_frontmatter()`           | `check(frontmatter) == passed`                                              |
 | filename_mismatch    | unit | [[linter.frontmatter.id_matches_file]]  | `(id, filename)` pairs where `id ≠ stem(filename)` | `check(id, filename) == failed`                                    |
+| missing_statement_rejected | unit | [[linter.frontmatter.has_statement]] | `frontmatter_without("statement")` and `frontmatter_with(statement: "")` | `check(frontmatter) == failed` — absent and empty are both rejections |
 
 ## Notes
 

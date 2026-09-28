@@ -6,6 +6,25 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #30 — corpus reaches covered: 23 deriving Properties rows added, no schema change
+
+`spk lint specs` reported 23 coverage-rule findings (beads
+`specodelic-qc8`): constraints across nine corpus files had no deriving
+property, including fourteen in `specodelic.md` itself — the format's own
+description failing its own coverage invariant. Closed entirely on the
+corpus side, per `qc8`'s anti-goals: no lint rule was touched and no
+Notes-cited waiver was used. Each gap got a genuine deriving `unit`
+Property row whose generator/predicate test the constraint's own claim
+(e.g. `specodelic.prose_untouched` ← `prose_does_not_affect_lint`, a
+two-specs-differing-only-in-prose generator; `merge.graph_reused_not_rederived`
+← `reachability_from_graph_artifact_only`, a walker-patched-to-panic
+generator). `tests/cli.rs`'s corpus assertion was tightened from
+"coverage gaps are known and tracked" to "zero findings, exit 0".
+Also fixed `just lint-specs` failing on cargo's two-bin ambiguity
+(`default-run = "specodelic"` in `Cargo.toml`). This unblocks
+`specodelic-lnq` (compile), whose `compile` guard requires coverage to
+hold.
+
 ## #29 — `USAGE.md`: empirical runtime bounds (§2.8), no schema change
 
 Checked whether runtime/performance constraints belong in a spec at all.

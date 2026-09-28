@@ -59,6 +59,7 @@ separate passes.
 | incomplete_law_rejected       | unit | [[linter.coverage.every_law_has_cases]]              | `law_property_missing("identity")`                                    | `check(file) == failed`                                                   |
 | full_coverage_passes          | unit | [[linter.coverage.every_constraint_covered]]         | `arbitrary_fully_covered_spec_file()`                                 | `check(file) == passed`                                                   |
 | coverage_naturality           | law  | [[specodelic.rename_naturality]]                    | `arbitrary_spec_file(), arbitrary_id_rename()`                        | **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered |
+| computed_derives_from_rejected | unit | [[linter.coverage.coverage_is_computable]]          | `spec_file_with(computed_or_templated_derives_from_id: true)`         | `check(file) == failed` — a non-literal id cannot be counted from the parsed AST alone |
 
 ## Notes
 

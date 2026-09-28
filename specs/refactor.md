@@ -55,6 +55,7 @@ for splitting *before* the behavioral edit lands, not after.
 | related_fan_in_not_flagged        | unit | [[refactor.unrelated_fan_in_defined]]       | `node_referenced_only_by_dependents_within_its_own_namespace_subtree()`             | `check(node) == clean`                                                                              |
 | narrow_diff_flagged_low_fan_in    | unit | [[refactor.narrow_diff_heuristic]]          | `changeset_touching_one_of_five_constraints_owned_by_a_node_with_fan_in(1)`         | `check(node) == found` — flagged even though fan-in alone wouldn't trigger it                       |
 | emitted_finding_shape             | unit | [[refactor.advisory_finding_emitted]]       | `found state reached for node N with dependent_count 4, 2 unrelated`               | `emits(found) == {node_id: N, dependent_count: 4, unrelated_namespace_count: 2, suggested_split: true}` |
+| threshold_read_from_config        | unit | [[refactor.threshold_is_per_repo_setting]]  | `same_node_same_changeset_under_two_repo_configs_with_different_high_fan_in_values()` | `flagged(config_A) != flagged(config_B)` — the decision follows the repo's configured threshold, never a constant embedded in this file |
 
 ## Notes
 

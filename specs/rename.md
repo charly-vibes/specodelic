@@ -67,6 +67,7 @@ rather than merely being checked against it after the fact.
 | stray_ref_caught_by_verify    | unit | [[rename.old_id_fully_replaced]]           | `rename_that_misses_one_[[old_id]]_occurrence()`         | `check(request) == failed` — caught at `verify`, not silently accepted                                                                                                                        |
 | prose_mention_left_alone      | unit | [[rename.prose_untouched_by_rename]]       | `row_whose_rationale_prose_contains_the_old_id_as_a_word()` | `rationale_text(post_rename_row) == rationale_text(pre_rename_row)`                                                                                                                           |
 | clean_rename_passes           | unit | [[rename.old_id_fully_replaced]]           | `well_formed_repo(), id_not_used_elsewhere()`            | `check(request) == passed`                                                                                                                                                                    |
+| kind_preserved_by_rename      | unit | [[rename.kind_unchanged]]                  | `rename_of_a_constraint_row_to_a_new_id()`               | `assigned_kind(post_rename_row) == assigned_kind(pre_rename_row)` — both the five-object kind and, where present, the row's own kind column survive the rewrite                              |
 
 ## Notes
 

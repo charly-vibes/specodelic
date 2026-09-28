@@ -117,6 +117,20 @@ ears-syntax / schema-shape) run independently of each other.
 | emits_cannot_target_non_effect | unit | [[specodelic.ref_kind_compatible]] | `emits_field_pointing_at_an_invariant_constraint()` | `check(file) == failed` — same shape as `advisory_cannot_gate`, mirrored onto the other direction of the kind-split |
 | satisfies_wrong_kind_rejected | unit | [[specodelic.ref_kind_compatible]] | `satisfies_field_pointing_at_an_invariant_constraint()` | `check(file) == failed` — same shape as `advisory_cannot_gate` and `emits_cannot_target_non_effect`, mirrored onto the third kind-typed reference field |
 | extension_point_needs_no_reachability_carveout | unit | [[specodelic.single_root_reachable]] | `constraint_row_with(satisfies: an_extension_point_in_another_file, traces_to: own_file_intent)` | `check(row) == passed` — `satisfies` adds no reachability obligation; the row is reachable the ordinary way, through its own `traces_to` |
+| frontmatter_missing_field_rejected | unit | [[specodelic.frontmatter_valid]] | `frontmatter_missing(one of id, kind, statement)` | `check(file) == failed` |
+| guardless_transition_rejected | unit | [[specodelic.guard_required]] | `transition_row_with(empty guard cell)` | `check(file) == failed` |
+| non_ears_statement_rejected | unit | [[specodelic.ears_statement]] | `statement_outside_the_five_ears_patterns("the system should maybe work")` | `check(file) == failed` |
+| multi_intent_join_rejected | unit | [[specodelic.one_capability_per_row]] | `row_id_joined_to_two_intents_via_and()` | `check(file) == failed` |
+| coverage_gap_flagged | unit | [[specodelic.coverage]] | `spec_file_with(constraint_with_no_deriving_property: true)` | `lint(file) reports rule == failed` |
+| law_missing_case_rejected | unit | [[specodelic.law_requires_cases]] | `law_property_missing("associativity")` | `check(file) == failed` |
+| orphan_state_rejected | unit | [[specodelic.every_state_used]] | `state_appearing_in_no_transition()` | `check(file) == failed` |
+| missing_model_section_rejected | unit | [[specodelic.model_present]] | `spec_file_without_states_or_transitions()` | `check(file) == failed` |
+| invariant_violation_blocks_verify | unit | [[specodelic.no_counterexample]] | `model_with_a_violated_invariant()` | `check(model_check) == failed` |
+| failing_proptest_blocks_verify | unit | [[specodelic.properties_pass]] | `compiled_proptest_block_that_fails()` | `check(verify) == failed` |
+| prose_does_not_affect_lint | unit | [[specodelic.prose_untouched]] | `two_specs_identical_except_rationale_prose()` | `lint(a) == lint(b)` — differing prose never changes a lint result |
+| silently_shrunk_id_set_rejected | unit | [[specodelic.append_only_variants]] | `(r, r')` where a 𝒦-governed id-set member was removed with no Revision heading | `check(revisions) == failed` |
+| constraint_kind_out_of_set_rejected | unit | [[specodelic.constraint_kind_closed]] | `constraint_row_with(kind: "made_up")` | `check(file) == failed` |
+| property_kind_out_of_set_rejected | unit | [[specodelic.property_kind_closed]] | `property_row_with(kind: "audit")` | `check(file) == failed` |
 
 ## Notes
 

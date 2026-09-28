@@ -8,22 +8,17 @@ fn spk() -> Command {
 }
 
 #[test]
-fn lint_corpus_reports_coverage_gaps_but_parses_clean() {
-    // The corpus is the first dogfood target: every spec file must parse
-    // and every reference must resolve (0 total_refs / parse failures);
-    // known coverage gaps are tracked in beads (specodelic-*).
+fn lint_corpus_is_fully_clean() {
+    // The corpus is the first dogfood target: every spec file must parse,
+    // every reference must resolve, and every constraint must be covered
+    // by a deriving property (beads specodelic-qc8 closed the last gaps).
     let out = spk().args(["lint", "specs", "--json"]).output().unwrap();
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let data = &json["data"];
     assert_eq!(data["files_linted"], 18);
     let issues = data["issues"].as_array().unwrap();
-    let non_coverage: Vec<_> = issues.iter().filter(|i| i["rule"] != "coverage").collect();
-    assert!(
-        non_coverage.is_empty(),
-        "unexpected non-coverage lint findings: {non_coverage:?}"
-    );
-    // coverage gaps are known and tracked — lint exits 1 until they close
-    assert_eq!(out.status.code(), Some(1));
+    assert!(issues.is_empty(), "corpus lint findings: {issues:?}");
+    assert_eq!(out.status.code(), Some(0));
 }
 
 #[test]

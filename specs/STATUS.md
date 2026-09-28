@@ -156,6 +156,11 @@ same way a self-hosting compiler compiles its own source).
 exists.** `linted` (the join point of all six leaf checkers) and
 `compile`'s gate (`linter.coverage`) are both fully specified end to end.
 
+**The corpus lints clean.** As of CHANGELOG #30 every constraint in the
+corpus has a deriving property: `spk lint specs` reports 18 files, zero
+findings, exit 0 — the tool enforces its own description of itself
+without exemptions.
+
 ### Revision log for `specodelic.md`
 
 - **Revision 1**: initial constraint/model/property list, written before

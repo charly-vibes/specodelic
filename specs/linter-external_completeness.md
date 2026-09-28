@@ -67,6 +67,7 @@ see Notes for what it does gate instead.
 | fully_mapped_checklist_passes    | unit | [[linter.external_completeness.every_item_accounted]]      | `checklist_where_every_item_has_a_covered_or_waived_mapping()`            | `check(repo) == passed`                                                    |
 | no_checklist_not_applicable      | unit | [[linter.external_completeness]]                            | `repo_with_no_declared_checklist()`                                       | `check(repo) == not_applicable` — distinct from `passed`, see Notes         |
 | mapping_naturality               | law  | [[specodelic.rename_naturality]]                            | `arbitrary_repo_with_checklist(), arbitrary_id_rename()`                  | **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference |
+| malformed_checklist_rejected     | unit | [[linter.external_completeness.checklist_well_formed]]      | `declared_checklist_with(a_nested_item, an_item_missing_its_id)`          | `check(repo) == failed` |
 
 ## Notes
 
