@@ -73,13 +73,23 @@ append-only (same OCP bias as the format's tables).
 
 ### Decision 4: Format revision is a crate constant
 
-`pub const FORMAT_REVISION: &str = "specodelic.md Revision 7"` (name it
-after the corpus revision it mirrors, updated by hand when the corpus
-revision bumps; a corpus-lint style test greps
-`specs/specodelic.md`'s latest `Revision N` marker and fails if the
-constant is stale — the repo's own CI catches the drift, not the
-consumer). Surfaced in `--version --json` as `format_revision` and in
-every `explain` payload.
+`pub const FORMAT_REVISION: &str = "specodelic.md Revision 8"` (name it
+after the corpus revision it mirrors — the corpus currently carries
+`## Revision 8`; updated by hand when the corpus revision bumps; a
+corpus-lint style test extracts the latest `Revision N` heading from
+`specs/specodelic.md`, compares **numerically** so `Revision 10` >
+`Revision 9`, and fails if the constant is stale — the repo's own CI
+catches the drift, not the consumer). Surfaced in `--version --json` as
+`format_revision` and in every `explain` payload.
+
+Mechanism note: `genesis::cli::maybe_print_version_json` prints a
+hard-coded `{name, version}` payload with no extension point
+(genesis-vibes 0.7.0 `cli.rs`), so this tool stops calling the helper
+and hand-rolls the version envelope in `main.rs` from
+`genesis::envelope::{Envelope, EnvelopeKind}` — `format_revision` is
+domain data and stays local per the genesis boundary rule. If a second
+tool needs the same field, upstream an `extra: Option<serde_json::Value>`
+param then.
 
 ### Decision 5: Doctor mode detection by marker file
 
@@ -87,10 +97,12 @@ Self-hosting mode ⇔ `specs/specodelic.md` exists; consumer mode
 otherwise (including no `specs/` at all). Consumer mode checks: specs
 dir present/absent (informational), beads config (informational, as
 today), embedded guide revision (always ok), and — when a local corpus
-exists — parses its latest `Revision N` marker and *warns* (not fails)
-if it is newer than `FORMAT_REVISION`. Self-hosting mode preserves
-today's checks. No marker file format is invented; the existing
-`Revision N` heading in `specs/specodelic.md` is the marker.
+exists — extracts its latest `Revision N` heading (numerically largest
+trailing integer) and *warns* (not fails) if it is newer than
+`FORMAT_REVISION`. A corpus with no `Revision` heading at all skips the
+currency check with an informational note — never an error. Self-hosting
+mode preserves today's checks. No marker file format is invented; the
+existing `Revision N` headings in `specs/specodelic.md` are the marker.
 
 ### Decision 6: Scaffold guidance as HTML comments
 
@@ -130,4 +142,5 @@ Rollback: revert the commit; no data or corpus changes.
   eventually (e.g. `explain linter.coverage`) vs the single
   `lint-rules` catalog? Deferred until the remaining checkers
   (`specodelic-b15`) land; the catalog already carries per-rule
-  semantics, so the per-rule topics are sugar.
+  semantics, so the per-rule topics are sugar. Decision trigger: the
+  first `linter.*` rule that grows a semantics string past one line.

@@ -20,8 +20,8 @@ emit it through the standard genesis JSON envelope (human-readable under
 #### Scenario: Topic listing
 
 - **WHEN** `spk explain` runs with no topic argument
-- **THEN** it exits 0 and the envelope `data.topics` lists exactly
-  `format`, `ears`, `kinds`, `references`, `lifecycle`, `lint-rules`
+- **THEN** it exits 0 and the envelope `data.topics` lists exactly the
+  topics enumerated in the Guide Topics requirement
 
 #### Scenario: Unknown topic
 
@@ -55,7 +55,7 @@ with a one-line semantics string).
 ### Requirement: Embedded Format Revision Pinning
 
 The binary SHALL declare a `FORMAT_REVISION` constant naming the corpus
-revision it mirrors (e.g. `specodelic.md Revision 7`); `spk --version
+revision it mirrors (e.g. `specodelic.md Revision 8`); `spk --version
 --json` SHALL include it as `format_revision` and every `explain`
 payload SHALL include it.
 
@@ -67,14 +67,22 @@ payload SHALL include it.
 ### Requirement: Guide-Drift Guard
 
 The repo's test suite SHALL fail if `FORMAT_REVISION` is stale relative
-to the latest `Revision N` marker in `specs/specodelic.md`, so binary
-knowledge cannot silently lag the corpus.
+to the latest `Revision N` heading in `specs/specodelic.md`, comparing
+the trailing integers numerically, so binary knowledge cannot silently
+lag the corpus.
 
 #### Scenario: Corpus revision bumped without updating the constant
 
 - **WHEN** `specs/specodelic.md` gains a newer `Revision N` marker than
   `FORMAT_REVISION` and the test suite runs
 - **THEN** a unit test fails naming both revisions
+
+#### Scenario: Double-digit revision ordering
+
+- **WHEN** the corpus's latest heading is `Revision 10` and
+  `FORMAT_REVISION` names `Revision 9`
+- **THEN** the comparison reports the corpus as newer (numeric, not
+  lexicographic, comparison)
 
 ### Requirement: Scaffold Teaches the Format
 

@@ -47,6 +47,11 @@ Not in scope: implementing the still-specced pipeline commands
 (`rename`, `merge`, `refactor`, `model-check`, `verify`, `orchestrate`).
 Their stubs keep exiting non-zero with hints.
 
+All envelope changes are **additive only** — new fields on lint
+findings, `--version --json`, and `doctor` data; no existing field is
+removed, retyped, or resemanticized, so envelope consumers tolerating
+unknown fields are unaffected.
+
 ## Impact
 
 - Affected specs: `embedded-guide`, `lint-findings`, `doctor` (new
@@ -56,6 +61,6 @@ Their stubs keep exiting non-zero with hints.
 - Affected code: new `src/guide.rs` (+ embedded `src/guide.md`), thin
   wiring in `src/main.rs` (new subcommand, version payload, doctor
   checks), `src/lint.rs` (rule id + semantics on findings), `tests/cli.rs`
-- Beads: consolidates the AIX-knowledge half of `specodelic-mp1`
-  ("decide open spec questions before pipeline v1"); doctor consumer-mode
-  overlaps nothing currently tracked — file `specodelic-*` on approval
+- Beads: on approval, file a `specodelic-*` bead for the embedded
+  guide and note the decision outcome on `specodelic-mp1` (which
+  currently holds the open question this change resolves)

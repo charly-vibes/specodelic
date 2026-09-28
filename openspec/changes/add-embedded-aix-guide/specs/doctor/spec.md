@@ -31,10 +31,12 @@ report the detected mode in its envelope data.
 
 ### Requirement: Doctor Reports Knowledge Currency
 
-In consumer mode with a local corpus present, `spk doctor` SHALL parse
-the latest `Revision N` marker from the local `specs/specodelic.md` and
-SHALL emit a warning — not a failure — when that revision is newer than
-the binary's embedded `FORMAT_REVISION`.
+In consumer mode with a local corpus present, `spk doctor` SHALL extract
+the latest `Revision N` heading (numerically largest trailing integer)
+from the local `specs/specodelic.md` and SHALL emit a warning — not a
+failure — when that revision is newer than the binary's embedded
+`FORMAT_REVISION`. A corpus with no `Revision` heading skips the
+currency check with an informational note.
 
 #### Scenario: Binary lags local corpus
 
@@ -49,3 +51,10 @@ the binary's embedded `FORMAT_REVISION`.
 - **WHEN** `spk doctor` runs in a consumer workspace whose corpus
   revision equals the embedded `FORMAT_REVISION`
 - **THEN** no knowledge-currency warning is emitted
+
+#### Scenario: Corpus carries no revision headings
+
+- **WHEN** `spk doctor` runs in a consumer workspace whose
+  `specs/specodelic.md` contains no `Revision N` heading
+- **THEN** the currency check is skipped with an informational note and
+  the command neither warns nor fails
