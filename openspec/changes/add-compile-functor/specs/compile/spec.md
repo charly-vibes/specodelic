@@ -25,21 +25,20 @@ transformation.
 - **WHEN** an arbitrary Constraint row is compiled and the emitted TOML is re-parsed
 - **THEN** the parsed entry equals the source row's four fields
 
-### Requirement: Model section compiles to TLA+ module
-The system SHALL compile the Model section to one TLA+ module: each
-State becomes a value in the state variable's range, each Transition
-becomes one disjunct of the `Next` action guarded by its guard field,
-and a State with an `emits` field becomes one entry in an `Output`
-function from that state value to the effect-kind Constraint's `expr` —
-absent for states with no `emits`, never a default or null entry.
+### Requirement: Model section extracts to backend-neutral IR
+The system SHALL extract the Model section into a backend-neutral
+intermediate representation — states, guarded transitions, and the
+`emits`→effect-Constraint mapping — from which a model-checker module
+(TLA+ or Alloy, per beads `specodelic-mp1` row 6) can be emitted without
+re-parsing the markdown.
 
-#### Scenario: Disjunct count matches transitions
-- **WHEN** a Model section with n transitions is compiled
-- **THEN** the emitted module's `Next` action contains exactly n disjuncts
+#### Scenario: IR captures guarded transitions
+- **WHEN** a Model section with n transitions is extracted
+- **THEN** the IR contains exactly n transitions, each with its from/to states and guard
 
-#### Scenario: Output covers emitting states only
+#### Scenario: IR captures emitting states only
 - **WHEN** a Model has e states with `emits` and s states without
-- **THEN** the emitted `Output` function's domain is exactly the e emitting states
+- **THEN** the IR's emits mapping has exactly e entries — no entry for the rest, never a default or null
 
 ### Requirement: Properties table compiles to proptest blocks
 The system SHALL compile each Property row to at least one `proptest!`
@@ -56,9 +55,10 @@ associativity, …).
 - **THEN** exactly two blocks are emitted for that row
 
 ### Requirement: Compile is total
-The system SHALL either produce all three artifacts or report, for
-exactly one of them, which stage failed and why — never a silent
-partial result.
+The system SHALL either produce all artifacts due under the current
+backend decision (TOML + proptest sources; plus the model module once
+`mp1` row 6 lands) or report, for exactly one of them, which stage
+failed and why — never a silent partial result.
 
 #### Scenario: Failure is labeled, not partial
 - **WHEN** a compilation stage fails on an otherwise lint-clean file
@@ -68,10 +68,12 @@ partial result.
 ### Requirement: Compile preserves ids
 The system SHALL make every id present in the source file appear,
 unchanged, in at least one compiled artifact — no id silently dropped.
+Ids whose only home is the model artifact (states, transitions) are
+preserved in the `ModelIR` until the backend lands.
 
 #### Scenario: Ids in ⊆ ids out
 - **WHEN** a lint-clean spec file is compiled
-- **THEN** the set of source ids is a subset of the ids appearing across the three artifacts
+- **THEN** the set of source ids is a subset of the ids appearing across the emitted artifacts and the model IR
 
 ### Requirement: Compile round-trips without semantic drift
 The system SHALL be idempotent under its own round trip: re-parsing the
