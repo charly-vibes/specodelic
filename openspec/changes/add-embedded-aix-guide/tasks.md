@@ -5,18 +5,18 @@ lands before any behavior change.
 
 ## 1. Single-source the closed sets (pure refactor)
 
-- [ ] 1.1 Create `src/guide.rs` (with the repo-standard
+- [x] 1.1 Create `src/guide.rs` (with the repo-standard
       Purpose/Responsibilities/Rationale header doc comment) with
       `pub const` slices for intent kinds, constraint kinds, property
       kinds, and the reference-typing pairs; add the module to
       `src/lib.rs`
-- [ ] 1.2 Replace inline literal matches in `src/spec.rs` / `src/lint.rs`
+- [x] 1.2 Replace inline literal matches in `src/spec.rs` / `src/lint.rs`
       with the constants; all existing tests pass unchanged
-- [ ] 1.3 Add `pub const FORMAT_REVISION: &str` to `src/guide.rs`
+- [x] 1.3 Add `pub const FORMAT_REVISION: &str` to `src/guide.rs`
 
 ## 2. Embedded guide + `spk explain`
 
-- [ ] 2.1 Write `src/guide.md` (six topics' prose; closed sets are
+- [x] 2.1 Write `src/guide.md` (six topics' prose; closed sets are
       *not* duplicated in prose — rendered from constants) and
       `include_str!` it
 - [ ] 2.2 Implement `spk explain [TOPIC]` in `guide.rs` + thin clap
@@ -43,10 +43,10 @@ lands before any behavior change.
 
 ## 4. Scaffold guidance
 
-- [ ] 4.1 Upgrade the `spk new` template with per-layer HTML-comment
+- [x] 4.1 Upgrade the `spk new` template with per-layer HTML-comment
       guidance (constraint kinds, guard citation rules, law-case
       requirements)
-- [ ] 4.2 Test: scaffolded file carries guidance; linting a valid spec
+- [x] 4.2 Test: scaffolded file carries guidance; linting a valid spec
       containing the comments yields no findings
 
 ## 5. Doctor dual-mode

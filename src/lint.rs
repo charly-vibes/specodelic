@@ -12,6 +12,7 @@ use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ears;
+use crate::guide;
 use crate::spec::Spec;
 
 /// One lint finding.
@@ -69,8 +70,9 @@ fn lint_one(spec: &Spec, report: &mut Report) {
         .map(|p| p.display().to_string())
         .unwrap_or_else(|| format!("<{}>", spec.intent.id));
 
-    // frontmatter_valid — kind must be `intent` (parse already required the fields).
-    if spec.intent.kind != "intent" {
+    // frontmatter_valid — kind must be in the closed intent-kind set
+    // (parse already required the fields).
+    if !guide::INTENT_KINDS.contains(&spec.intent.kind.as_str()) {
         report.issues.push(Issue {
             rule: "frontmatter_valid".into(),
             file: file.clone(),

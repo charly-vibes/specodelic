@@ -62,8 +62,17 @@ fn new_scaffolds_a_spec_file() {
     assert_eq!(out.status.code(), Some(0));
     let content = std::fs::read_to_string(dir.path().join("demo-thing.md")).unwrap();
     assert!(content.contains("id: demo.thing"));
+    // the scaffold carries per-layer guidance comments that teach the
+    // format in place (task 4.1); closed sets render from the guide
+    // constants
+    assert!(content.contains("<!-- Intent layer:"));
+    assert!(content.contains("<!-- kind: one of invariant | advisory | effect | extension_point"));
+    assert!(content.contains("<!-- kind: one of unit | law"));
+    assert!(content.contains("<!-- guard: must cite an invariant Constraint"));
     // the scaffold is lintable shape-wise: model sections present with a
-    // placeholder transition, Ubiquitous EARS statement
+    // placeholder transition, Ubiquitous EARS statement — i.e. linting a
+    // valid spec containing the guidance comments yields no findings
+    // (task 4.2; the linter never parses prose/comments)
     let lint = spk()
         .args(["lint", dir.path().to_str().unwrap(), "--json"])
         .output()
