@@ -361,6 +361,7 @@ fn cmd_compile(
                             "artifacts": {
                                 "toml": c.toml,
                                 "props": c.props,
+                                "tla": c.tla,
                             },
                             "model_ir": c.model_ir,
                             "written": files,
@@ -428,13 +429,17 @@ fn write_artifacts(
         .map_err(|e| format!("could not create out-dir {out_dir}: {e}"))?;
     let toml_path = std::path::Path::new(out_dir).join(format!("{stem}.toml"));
     let props_path = std::path::Path::new(out_dir).join(format!("{stem}_props.rs"));
+    let tla_path = std::path::Path::new(out_dir).join(format!("{stem}.tla"));
     std::fs::write(&toml_path, &compiled.toml)
         .map_err(|e| format!("could not write {}: {e}", toml_path.display()))?;
     std::fs::write(&props_path, &compiled.props)
         .map_err(|e| format!("could not write {}: {e}", props_path.display()))?;
+    std::fs::write(&tla_path, &compiled.tla)
+        .map_err(|e| format!("could not write {}: {e}", tla_path.display()))?;
     Ok(vec![
         toml_path.display().to_string(),
         props_path.display().to_string(),
+        tla_path.display().to_string(),
     ])
 }
 

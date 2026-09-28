@@ -56,6 +56,16 @@ fn states_with_emits_yield_typed_links() {
 }
 
 #[test]
+fn backticked_state_bullets_do_not_leak_backticks_into_ids() {
+    // beads specodelic-cl3: a lone backticked bullet `- `active`` used to
+    // parse the state id as "active`" (trailing backtick kept), which made
+    // state ids incoherent with the bare from/to cells of transitions.
+    let spec = parse_str(SIMPLE).unwrap();
+    let ids: Vec<_> = spec.states.iter().map(|s| s.id.as_str()).collect();
+    assert_eq!(ids, vec!["active", "refunded"]);
+}
+
+#[test]
 fn subsection_under_constraints_does_not_swallow_its_table() {
     // mirrors specodelic.md's `### Reference Typing` under `## Constraints`
     let text = "---\nid: s\nkind: intent\nstatement: \"THE system SHALL work.\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[s]] |\n\n### Reference Typing\n\n| Field | Appears on | Must resolve to |\n|-------|-----------|-----------------|\n| `traces_to` | Constraint | Intent |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[s.a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[s.a]] | `g()` | `x` |\n";

@@ -118,8 +118,9 @@ fn compile_corpus_succeeds_and_reports_all_artifacts() {
                 .contains("[constraints]")
         );
         assert!(f["artifacts"]["props"].as_str().is_some());
+        assert!(f["artifacts"]["tla"].as_str().unwrap().contains("MODULE "));
         assert!(f["model_ir"]["states"].as_array().unwrap().len() >= 1);
-        assert_eq!(f["written"].as_array().unwrap().len(), 2);
+        assert_eq!(f["written"].as_array().unwrap().len(), 3);
     }
     assert_eq!(cmd.status.code(), Some(0));
 }
@@ -163,11 +164,17 @@ fn compile_round_trip_is_byte_stable() {
     spk().args(args).assert().success();
     let first_toml = std::fs::read_to_string(out.path().join("compile.toml")).unwrap();
     let first_props = std::fs::read_to_string(out.path().join("compile_props.rs")).unwrap();
+    let first_tla = std::fs::read_to_string(out.path().join("compile.tla")).unwrap();
     spk().args(args).assert().success();
     let second_toml = std::fs::read_to_string(out.path().join("compile.toml")).unwrap();
     let second_props = std::fs::read_to_string(out.path().join("compile_props.rs")).unwrap();
+    let second_tla = std::fs::read_to_string(out.path().join("compile.tla")).unwrap();
     assert_eq!(first_toml, second_toml);
     assert_eq!(first_props, second_props);
+    assert_eq!(first_tla, second_tla);
+    // the model artifact always ships: transitions → Next disjuncts
+    assert!(first_tla.contains("MODULE compile"));
+    assert!(first_tla.contains("\\/ vpc = \"not_started\""));
     // ids preserved: the source file's intent id anchors the TOML document
     assert!(first_toml.contains("source = \"compile\""));
     assert!(first_toml.contains("id = \"compile_is_total\""));

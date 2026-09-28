@@ -425,7 +425,7 @@ fn parse_state_bullet(bullet: &str) -> (String, Option<String>) {
             None => (bullet, None),
         },
     };
-    let id = head.trim().to_string();
+    let id = head.trim().trim_matches('`').to_string();
     let emits = rest.and_then(|r| {
         let r = r.trim_start_matches(['(', '—', '-', ':']).trim();
         let r = r
