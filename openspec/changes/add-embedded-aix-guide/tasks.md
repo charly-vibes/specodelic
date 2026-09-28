@@ -51,14 +51,14 @@ lands before any behavior change.
 
 ## 5. Doctor dual-mode
 
-- [ ] 5.1 Implement mode detection (`self_hosting` vs `consumer`) and
+- [x] 5.1 Implement mode detection (`self_hosting` vs `consumer`) and
       mode-conditional checks in `cmd_doctor`; report
       `format_revision` in consumer mode
-- [ ] 5.2 Implement the corpus-revision-vs-`FORMAT_REVISION` warning
+- [x] 5.2 Implement the corpus-revision-vs-`FORMAT_REVISION` warning
       (extract `Revision N` headings, compare numerically; skip with an
       informational note when the corpus has no revision headings;
       warn, never fail)
-- [ ] 5.3 Integration tests: self-hosting (this repo), consumer with
+- [x] 5.3 Integration tests: self-hosting (this repo), consumer with
       specs dir, consumer empty, and the lag-warning tempdir fixture
       with a synthetic `Revision 99` corpus
 

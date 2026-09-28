@@ -6,6 +6,20 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #33 — `spk doctor` dual-mode: self-hosting vs consumer + knowledge-currency warning
+
+`spk doctor` now classifies the workspace: `self_hosting` when
+`specs/specodelic.md` exists, `consumer` otherwise, and reports the mode
+in its envelope data. Consumer mode never fails on the missing corpus —
+it reports the embedded guide's `format_revision` and suggests
+`spk new` in an empty workspace. Whenever a local corpus exists, the
+doctor compares its latest `## Revision N` heading (numerically largest
+trailing integer) against the binary's embedded `FORMAT_REVISION` and
+warns — on the envelope's warnings channel, never failing — when the
+corpus is newer than the binary; a corpus with no revision headings
+skips the check with an informational note (specodelic-amg,
+add-embedded-aix-guide tasks 5.1-5.3, 6.2).
+
 ## #32 — Self-describing lint findings + `explain lint-rules` catalog
 
 Every lint finding now carries a stable `linter.<name>` `rule_id` and a

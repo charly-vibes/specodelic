@@ -672,22 +672,41 @@ fn cmd_doctor(
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) -> i32 {
-    let mut checks: Vec<(String, String)> = vec![];
+    // Workspace mode: self-hosting when the repo carries the format's own
+    // core spec, consumer otherwise (add-embedded-aix-guide task 5.1).
+    let core = std::path::Path::new("specs/specodelic.md");
+    let mode = if core.is_file() {
+        "self_hosting"
+    } else {
+        "consumer"
+    };
+    let mut checks: Vec<(String, String)> = vec![(
+        "mode".into(),
+        if mode == "self_hosting" {
+            "self_hosting — the corpus lives here".into()
+        } else {
+            "consumer — the format is provided by the installed binary".into()
+        },
+    )];
     checks.push((
         "specs/ directory".into(),
         if std::path::Path::new("specs").is_dir() {
             "ok".into()
         } else {
-            "missing — no spec corpus found".into()
+            "missing — start a corpus with: spk new".into()
         },
     ));
-    let core = std::path::Path::new("specs/specodelic.md");
     checks.push((
         "core format spec".into(),
-        if core.is_file() {
+        if mode == "self_hosting" {
             "ok (specs/specodelic.md)".into()
         } else {
-            "missing — expected specs/specodelic.md".into()
+            // consumers don't carry the corpus — informational, never a
+            // failure (the embedded guide serves the format instead)
+            format!(
+                "not present (consumer mode — the binary embeds {})",
+                guide::FORMAT_REVISION
+            )
         },
     ));
     checks.push((
@@ -698,8 +717,61 @@ fn cmd_doctor(
             "not initialized — run: bd init".into()
         },
     ));
-    let payload = serde_json::json!({ "checks": checks });
-    let out = Output::success(payload).with_next_step("run: specodelic lint");
+
+    let out = Output::success(serde_json::json!({
+        "mode": mode,
+        "checks": checks,
+        "format_revision": guide::FORMAT_REVISION,
+    }));
+
+    // Knowledge currency (task 5.2): whenever a local specs/specodelic.md
+    // exists, compare its latest `Revision N` heading (numerically)
+    // against the binary's embedded FORMAT_REVISION — a vendored consumer
+    // corpus can lag or lead. Warn — never fail.
+    let mut out = out;
+    if core.is_file() {
+        out = currency_check(core, out);
+    }
+    if mode == "consumer" {
+        if !std::path::Path::new("specs").is_dir() {
+            out = out.with_next_step("start a corpus with: spk new <intent.id>");
+        } else {
+            out = out.with_next_step("run: specodelic lint specs");
+        }
+    } else {
+        out = out.with_next_step("run: specodelic lint");
+    }
     emit(&out, cli, format, verbosity, stdout, stderr);
     0
+}
+
+/// Knowledge-currency check (task 5.2): compare the local corpus' latest
+/// `Revision N` heading (numerically) against the binary's embedded
+/// `guide::FORMAT_REVISION`. Warn — never fail — when the corpus is
+/// newer; skip with an informational note when the corpus carries no
+/// revision headings.
+fn currency_check(
+    core: &std::path::Path,
+    out: Output<serde_json::Value>,
+) -> Output<serde_json::Value> {
+    let text = match std::fs::read_to_string(core) {
+        Ok(text) => text,
+        Err(_) => return out, // no corpus — nothing to compare against
+    };
+    match guide::latest_revision(&text) {
+        None => out.with_warning(
+            "corpus has no `Revision N` headings — knowledge-currency check skipped".to_string(),
+        ),
+        Some(latest) => {
+            let embedded = guide::revision_number(guide::FORMAT_REVISION).unwrap_or(0);
+            if latest > embedded {
+                out.with_warning(format!(
+                    "local corpus is at {} while this binary embeds {} — upgrade specodelic or re-read the guide with: spk explain",
+                    latest, embedded
+                ))
+            } else {
+                out
+            }
+        }
+    }
 }

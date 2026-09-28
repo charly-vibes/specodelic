@@ -353,3 +353,111 @@ fn version_json_reports_format_revision() {
     assert_eq!(json["data"]["name"], "specodelic");
     assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 8");
 }
+
+#[test]
+fn doctor_self_hosting_reports_mode() {
+    // this repo carries specs/specodelic.md → mode self_hosting
+    let out = spk().args(["doctor", "--json"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    assert_eq!(json["data"]["mode"], "self_hosting");
+}
+
+#[test]
+fn doctor_consumer_with_corpus_reports_format_revision() {
+    // consumer workspace: a corpus without the core spec still diagnoses
+    // cleanly and reports the embedded guide's format_revision as ok
+    let dir = tempfile::tempdir().unwrap();
+    let specs = dir.path().join("specs");
+    std::fs::create_dir(&specs).unwrap();
+    std::fs::write(
+        specs.join("my_tool.md"),
+        "---\nid: my.tool\nkind: intent\nstatement: \"THE tool SHALL work\"\n---\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["doctor", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    assert_eq!(json["data"]["mode"], "consumer");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 8");
+}
+
+#[test]
+fn doctor_empty_consumer_suggests_new() {
+    let dir = tempfile::tempdir().unwrap();
+    // human mode: the next-step footer (with the suggestion) prints to
+    // stderr; JSON mode keeps everything in the envelope on stdout
+    let out = spk()
+        .args(["doctor", "--human"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(stderr.contains("spk new"), "footer: {stderr}");
+}
+
+#[test]
+fn doctor_warns_when_binary_lags_corpus() {
+    // synthetic corpus declares Revision 99 while the binary embeds
+    // Revision 8 → warning naming both revisions, exit 0 (never fails)
+    let dir = tempfile::tempdir().unwrap();
+    let specs = dir.path().join("specs");
+    std::fs::create_dir(&specs).unwrap();
+    std::fs::write(
+        specs.join("specodelic.md"),
+        "---\nid: specodelic\nkind: intent\nstatement: \"THE format SHALL be described\"\n---\n\n## Revision 1\n\n## Revision 99\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["doctor", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "warn, never fail");
+    // the warning rides the success envelope's warnings channel — repo
+    // convention: only failure messages go to stderr, even in JSON mode
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    let warnings: Vec<String> = json["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|w| w["message"].as_str().unwrap().to_string())
+        .collect();
+    assert!(
+        warnings.iter().any(|w| w.contains("99") && w.contains("8")),
+        "warning names both revisions: {warnings:?}"
+    );
+}
+
+#[test]
+fn doctor_current_consumer_emits_no_currency_warning() {
+    // corpus at the embedded revision (8) → no warning; also covers the
+    // no-revision-heading skip via a second fixture
+    let dir = tempfile::tempdir().unwrap();
+    let specs = dir.path().join("specs");
+    std::fs::create_dir(&specs).unwrap();
+    std::fs::write(
+        specs.join("specodelic.md"),
+        "---\nid: specodelic\nkind: intent\nstatement: \"THE format SHALL be described\"\n---\n\n## Revision 8\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["doctor", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    assert!(
+        !String::from_utf8(out.stderr)
+            .unwrap()
+            .contains("newer than")
+    );
+}
