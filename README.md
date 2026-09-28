@@ -31,7 +31,9 @@ $ specodelic lint specs      # check the invariants (linter-*.md)
 $ specodelic graph specs     # derive the typed reference graph
 $ specodelic new order.cancel --file order-cancel.md   # scaffold a spec
 $ specodelic explain lint-rules   # embedded format guide + lint rule catalog
-$ specodelic doctor          # diagnose the workspace
+$ specodelic init            # write the SPECODELIC rules block into AGENTS.md
+$ specodelic doctor          # diagnose the workspace + block currency
+$ specodelic feedback bug --dry-run   # file an issue against upstream
 ```
 
 Pipeline commands (`compile`, `model-check`, `verify`, `rename`,

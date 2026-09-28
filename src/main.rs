@@ -16,7 +16,7 @@ use genesis::envelope::{Envelope, EnvelopeKind};
 use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
-use specodelic::{compile, graph, guide, lint, spec};
+use specodelic::{blocks, compile, graph, guide, lint, spec};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -108,6 +108,24 @@ enum Commands {
     },
     /// Diagnose the Specodelic workspace setup
     Doctor,
+    /// Write/refresh the SPECODELIC managed block in AGENTS.md (agent
+    /// facing: lint rules + format revision + core commands)
+    Init {
+        /// Overwrite even if a newer block version was hand-edited
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// File an issue against the upstream repo via gh
+    Feedback {
+        /// Kind of feedback: bug, feature, question, or chore
+        kind: String,
+        /// Print the issue body and gh command without submitting
+        #[arg(long)]
+        dry_run: bool,
+        /// Read the last error from scratch to auto-populate the body
+        #[arg(long)]
+        from_last_error: bool,
+    },
     /// Generate shell completions
     Completions {
         /// Shell to generate completions for
@@ -222,6 +240,95 @@ fn cmd_explain(
     }
 }
 
+/// `spk init` — write/refresh the SPECODELIC managed block in AGENTS.md
+/// (specodelic-ze4). Idempotent: injects when missing, updates in place
+/// when present; surrounding content is never touched. `--force` is
+/// accepted for explicit refresh intent (the injector always rewrites the
+/// block body — force exists so scripts record the intent).
+fn cmd_init(
+    _force: bool,
+    cli: &Cli,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let path = std::path::Path::new(blocks::BLOCK_FILE);
+    match blocks::inject_into(path) {
+        Ok(result) => {
+            let action = match result {
+                genesis::managed_block::InjectResult::Created => "created",
+                genesis::managed_block::InjectResult::Prepended => "injected",
+                genesis::managed_block::InjectResult::Updated => "updated",
+            };
+            let out: Output<serde_json::Value> = Output::success(serde_json::json!({
+                "file": blocks::BLOCK_FILE,
+                "block": action,
+                "format_revision": guide::FORMAT_REVISION,
+            }))
+            .with_next_step(
+                "agents in this repo now see the spec rules; check specs with: spk lint",
+            );
+            emit(&out, cli, format, verbosity, stdout, stderr);
+            0
+        }
+        Err(e) => {
+            let out: Output<serde_json::Value> = Output::failure(format!(
+                "could not write {}: {e}",
+                blocks::BLOCK_FILE
+            ))
+            .with_next_step("check directory permissions, or pass an explicit path once AGENTS.md support lands elsewhere");
+            emit(&out, cli, format, verbosity, stdout, stderr);
+            1
+        }
+    }
+}
+
+/// `spk feedback` — file an issue against charly-vibes/specodelic via the
+/// genesis unified feedback handler (espectacular pattern). Kind is
+/// validated with typo suggestions; --dry-run previews without gh;
+/// --from-last-error auto-populates from the scratch error record.
+/// Report-only verb: always human-readable on stderr, never envelope JSON
+/// (the envelope is for pipeline data; feedback is an interactive side
+/// channel).
+fn cmd_feedback(kind: &str, dry_run: bool, from_last_error: bool) -> i32 {
+    let args = genesis::feedback::FeedbackArgs {
+        kind: kind.to_string(),
+        dry_run,
+        from_last_error,
+    };
+    let project_root = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    match genesis::feedback::handle_feedback(
+        &args,
+        "spk",
+        VERSION,
+        "charly-vibes/specodelic",
+        &project_root,
+    ) {
+        Ok(result) => {
+            match result {
+                genesis::feedback::gh::GhResult::Created { url, number } => {
+                    eprintln!("filed issue #{number}: {url}");
+                }
+                genesis::feedback::gh::GhResult::FallbackUrl(url) => {
+                    eprintln!("open: {url}");
+                }
+                genesis::feedback::gh::GhResult::LocalFile(path) => {
+                    eprintln!(
+                        "gh unavailable — issue body saved to {}; file it manually",
+                        path.display()
+                    );
+                }
+            }
+            0
+        }
+        Err(msg) => {
+            eprintln!("{msg}");
+            2
+        }
+    }
+}
+
 fn run(
     cli: &Cli,
     format: OutputFormat,
@@ -264,6 +371,12 @@ fn run(
             cmd_explain(topic.as_deref(), cli, format, verbosity, stdout, stderr)
         }
         Commands::Doctor => cmd_doctor(cli, format, verbosity, stdout, stderr),
+        Commands::Init { force } => cmd_init(*force, cli, format, verbosity, stdout, stderr),
+        Commands::Feedback {
+            kind,
+            dry_run,
+            from_last_error,
+        } => cmd_feedback(kind, *dry_run, *from_last_error),
         Commands::Completions { shell } => {
             let mut cmd = Cli::command();
             match generate_completions(&mut cmd, *shell) {
@@ -751,6 +864,42 @@ fn cmd_doctor(
         },
     ));
 
+    // Managed-block currency (specodelic-ze4): AGENTS.md should carry the
+    // SPECODELIC block so agents see the rules without reading upstream.
+    // Advisory: missing/stale → hint to run `spk init`, never a failure.
+    let agents = std::path::Path::new(blocks::BLOCK_FILE);
+    let (block_check, block_current) = if !blocks::has_block(agents) {
+        (
+            "missing — agents in this repo can't see the spec rules; run: spk init".to_string(),
+            false,
+        )
+    } else {
+        match blocks::block_format_revision(agents) {
+            Some(rev) => {
+                let embedded = guide::revision_number(guide::FORMAT_REVISION).unwrap_or(0);
+                if rev < embedded {
+                    (
+                        format!(
+                            "stale — block names Revision {rev}, binary embeds {} ; run: spk init",
+                            guide::FORMAT_REVISION
+                        ),
+                        false,
+                    )
+                } else {
+                    (
+                        "ok (Revision {rev} ≥ embedded)".replace("{rev}", &rev.to_string()),
+                        true,
+                    )
+                }
+            }
+            None => (
+                "present but names no revision — run: spk init to refresh".into(),
+                false,
+            ),
+        }
+    };
+    checks.push(("SPECODELIC block".into(), block_check));
+
     let out = Output::success(serde_json::json!({
         "mode": mode,
         "checks": checks,
@@ -774,6 +923,11 @@ fn cmd_doctor(
         }
     } else {
         out = out.with_next_step("run: specodelic lint");
+    }
+    if !block_current {
+        // Advisory rides the warnings channel — the primary next-step
+        // stays the workspace-appropriate one (spk new / spk lint).
+        out = out.with_warning("SPECODELIC block missing or stale in AGENTS.md — run: spk init");
     }
     emit(&out, cli, format, verbosity, stdout, stderr);
     0

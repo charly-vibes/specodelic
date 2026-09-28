@@ -578,3 +578,152 @@ fn doctor_skips_currency_check_with_note_on_unreadable_corpus() {
     // and it must not claim currency: no lag warning, no fake-ok
     assert!(!warnings.iter().any(|w| w.contains("newer than")));
 }
+
+// ---- specodelic-ze4: spk feedback + spk init (managed block) ----
+
+#[test]
+fn feedback_dry_run_previews_issue_without_filing() {
+    // dry-run must print the redacted body + the would-file command,
+    // never invoke gh, and exit 0; content comes from piped stdin
+    // (genesis handle_feedback contract) — --from-last-error is the
+    // other source
+    let dir = tempfile::tempdir().unwrap();
+    let out = spk()
+        .args(["feedback", "bug", "--dry-run"])
+        .current_dir(dir.path())
+        .env("NO_COLOR", "1")
+        .write_stdin("spk lint crashes on empty dirs\n")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "dry-run never fails");
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(stderr.contains("Would file"), "preview: {stderr}");
+    assert!(
+        stderr.contains("charly-vibes/specodelic"),
+        "target repo: {stderr}"
+    );
+}
+
+#[test]
+fn feedback_rejects_unknown_kind_with_hint() {
+    let out = spk().args(["feedback", "bugg"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(stderr.contains("bug"), "valid kinds suggested: {stderr}");
+}
+
+#[test]
+fn init_injects_specodelic_block_into_agents_md() {
+    // spk init writes/refreshes a <!-- SPECODELIC:START/END --> block in
+    // AGENTS.md carrying the lint rule catalog + format_revision
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("AGENTS.md"), "# My repo\n\nAgent notes.\n").unwrap();
+    let out = spk()
+        .args(["init", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let agents = std::fs::read_to_string(dir.path().join("AGENTS.md")).unwrap();
+    assert!(
+        agents.contains("<!-- SPECODELIC:START -->"),
+        "block injected: {agents}"
+    );
+    assert!(agents.contains("<!-- SPECODELIC:END -->"));
+    // existing content is preserved (block prepends, never replaces)
+    assert!(agents.contains("# My repo"));
+    assert!(agents.contains("Agent notes."));
+    // block content is self-describing: rule catalog + revision + commands
+    assert!(agents.contains("linter.ears_syntax"));
+    assert!(agents.contains("linter.frontmatter_valid"));
+    assert!(agents.contains("specodelic.md Revision 8"));
+    assert!(agents.contains("spk lint"));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["data"]["block"], "injected");
+    assert_eq!(json["data"]["file"], "AGENTS.md");
+}
+
+#[test]
+fn init_updates_stale_block_in_place() {
+    // second run updates the block in place: content between the markers
+    // is refreshed, surrounding text preserved, exactly one block
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("AGENTS.md"), "# My repo\n\n<!-- SPECODELIC:START -->\nstale specodelic content\n<!-- SPECODELIC:END -->\n").unwrap();
+    let out = spk()
+        .args(["init", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let agents = std::fs::read_to_string(dir.path().join("AGENTS.md")).unwrap();
+    assert!(
+        !agents.contains("stale specodelic content"),
+        "refreshed: {agents}"
+    );
+    assert!(agents.contains("# My repo"));
+    assert_eq!(agents.matches("SPECODELIC:START").count(), 1);
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["data"]["block"], "updated");
+}
+
+#[test]
+fn init_creates_agents_md_when_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = spk()
+        .args(["init", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let agents = std::fs::read_to_string(dir.path().join("AGENTS.md")).unwrap();
+    assert!(agents.contains("<!-- SPECODELIC:START -->"));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["data"]["block"], "created");
+}
+
+#[test]
+fn doctor_reports_missing_or_stale_block() {
+    // doctor: fresh block → silent ok; missing block → hint to run spk init
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("AGENTS.md"), "# My repo\n").unwrap();
+    let out = spk()
+        .args(["doctor", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "advisory, never fails");
+    let stdout_str = String::from_utf8(out.stdout.clone()).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout_str).unwrap();
+    let hints: Vec<String> = json["hints"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|h| h["command"].as_str().unwrap_or_default().to_string())
+        .chain(json["data"]["next_step"].as_str().map(|s| s.to_string()))
+        .collect();
+    // the doctor must point at `spk init` when the block is absent/stale
+    // (advisory: warnings channel in JSON, stderr footer in human mode)
+    let out2 = spk()
+        .args(["doctor", "--human"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8(out2.stderr).unwrap();
+    let stdout = String::from_utf8(out2.stdout).unwrap();
+    assert!(
+        stderr.contains("spk init") || stdout.contains("spk init"),
+        "doctor should suggest spk init when block missing: {stderr} | {stdout}"
+    );
+    let json2: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let warnings: Vec<String> = json2["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|w| w["message"].as_str().unwrap_or_default().to_string())
+        .collect();
+    assert!(
+        warnings.iter().any(|w| w.contains("spk init")),
+        "warning names the remediation: {warnings:?}"
+    );
+    let _ = hints;
+}

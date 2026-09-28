@@ -10,6 +10,7 @@
 //! library so the binary stays thin and the corpus can be dogfooded from
 //! integration tests.
 
+pub mod blocks;
 pub mod compile;
 pub mod ears;
 pub mod graph;

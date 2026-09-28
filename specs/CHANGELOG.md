@@ -6,6 +6,21 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #35 — `spk init` (SPECODELIC managed block in AGENTS.md) and `spk feedback`
+
+`spk init` writes or refreshes a `<!-- SPECODELIC:START/END -->` managed
+block in the repo's `AGENTS.md` (genesis::managed_block injector — same
+convention wai and espectacular use): the lint rule catalog rendered from
+the same RULE_TABLE findings name, the embedded `format_revision`, and
+the core commands. Idempotent — injected when missing, updated in place
+when present, surrounding content never touched; parses its own revision
+so `spk doctor` can warn (never fail) when the block is missing, stale,
+or declares no revision. `spk feedback` files an issue against
+charly-vibes/specodelic via the genesis unified feedback handler:
+`spk feedback bug --dry-run` previews (content via stdin or
+`--from-last-error`); gh-unavailable fallback writes the body to a local
+file. Both ship in the 0.1.0 release (beads specodelic-ze4).
+
 ## #34 — `spk lint`/`graph`/`compile` search directories recursively; lint never silently succeeds on zero files
 
 `collect_specs` now walks directories depth-first (sorted, deterministic),
