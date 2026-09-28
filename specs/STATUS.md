@@ -1,0 +1,380 @@
+# specodelic — Status & Plan
+
+*Read this file first, on its own, with no other context. It is written to
+be self-sufficient: a reader who has never seen the conversation that
+produced this project should be able to understand what it is, what
+exists, and what to do next from this document alone.*
+
+---
+
+## 1. What this project is
+
+`specodelic` is a markdown-based specification format for software
+features, designed so that one file gives you four things at once:
+
+1. **Something a human can read** — plain prose intent, EARS-style
+   requirement statements, ordinary markdown.
+2. **Something a machine can lint** — because every structured field lives
+   in YAML frontmatter or a markdown table with a fixed column schema, not
+   free text.
+3. **Something you can refactor automatically** — every id that's
+   *defined* appears once, in a table cell; every place that id is *used*
+   appears as a `[[wiki-link]]`. A rename tool changes the definition and
+   find/replaces every link — safely, because links and definitions are
+   syntactically distinguishable.
+4. **Something you can simulate before writing code** — the `Model`
+   section of a spec is a state machine (states + guarded transitions)
+   that compiles to TLA+ or Alloy, so a model checker can find
+   deadlocks, unreachable states, or violated invariants before any
+   implementation exists. The same guards compile to property-based test
+   (`proptest!`-style) generators, so verification and PBT come from the
+   *same* source data instead of being written twice.
+
+### The four layers, present in every spec file
+
+| Layer | Where it lives in the file | Purpose |
+|---|---|---|
+| **Intent** | YAML frontmatter (`id`, `kind`, `statement`) + opening prose | Human-readable purpose; `statement` must match one of the 5 EARS patterns |
+| **Constraints** | A `## Constraints` table: `id \| kind \| expr \| traces_to` | Invariants, formalized enough to check, each tracing to an Intent |
+| **Model** | `## Model` — `### States` (a list) and `### Transitions` (a table: `id \| from \| to \| guard`) | A finite state machine; guards reference Constraints by `[[id]]` |
+| **Properties** | A `## Properties` table: `id \| kind \| derives_from \| generator \| predicate` | PBT-style checks, one `kind = "law"` variant that requires associativity/identity cases |
+
+### The core design decisions and why
+
+- **One feature = one markdown file.** Keeps the reference graph
+  acyclic-by-construction at the file level and matches this ecosystem's
+  existing convention (one tool = one repo).
+- **`[[id]]` wiki-links, not prose references.** This is what makes
+  rename-refactoring mechanical: find every `[[old_id]]`, replace with
+  `[[new_id]]`, done. No natural-language matching required.
+- **Frontmatter + tables only are parsed; prose is never inspected.**
+  The linter must never branch on the content of a `rationale` or free-text
+  paragraph — only on structured fields. This keeps linting deterministic
+  and keeps the format from trying to formalize writing quality (a
+  separate, already-solved problem — see §2).
+- **Data-oriented, Clojure-flavored bias.** Every section is the same
+  underlying shape (rows of a map with an `id` and a `kind` column),
+  differentiated by `kind` rather than by bespoke per-section parsers —
+  one generic table-extractor and one reference-resolver serve every
+  section. Ids are namespaced keys (`order.cancel.refund_bounded`), not
+  nominal types. This is a deliberate echo of `clojure.spec`: validate
+  plain data with predicates, don't model concepts as class hierarchies.
+- **Extension is append-only.** New cases are added as new table rows,
+  never edited into an existing `match`/`switch`-shaped structure. This is
+  what makes certain code-smell categories *impossible to write*, not just
+  linted against (see §2).
+
+### The formal guarantees, in plain terms
+
+- The five kinds are a **fixed schema**: every row in every spec file is
+  one of exactly `Intent`, `Constraint`, `State`, `Transition`, `Property`.
+- The reference fields (`traces_to`, `derives_from`, `guard`, `from`/`to`,
+  `supersedes`, `emits`) are **typed foreign keys** — each must point at a
+  specific kind of row, never any kind (see the Reference Typing table in
+  `specodelic.md`).
+- **One spec file is a document conforming to that schema** — the same
+  relationship a JSON file has to its JSON Schema.
+- **Linting = schema validation + referential integrity + coverage**: no
+  dangling reference, and every constraint has a matching test.
+- **Refactoring = safe rename**: renaming an id updates its definition and
+  every reference to it, with a guarantee that nothing breaks — the same
+  guarantee an IDE's "rename symbol" gives for source code.
+- **Cross-file ids are qualified names**: `order.cancel.refund_bounded` is
+  `file.local_id`, the same idea as a qualified name in any module system.
+
+None of this needs anything beyond the above to *use* the format. It has a
+precise mathematical restatement (categories, functors, natural
+transformations, the Grothendieck construction) so the guarantees above
+are provable facts rather than ad hoc prose rules — that restatement lives
+in full, exactly once, in **`theory.md`**; every other file, including
+this one, links there instead of repeating it.
+
+---
+
+## 2. Where this came from: the diagnostician mapping
+
+The format's specific irrepresentability rules were derived by taking a
+public list of code-smell "diagnosticians" (invalid-states,
+composability, modularity, rigidity, mutability, error-handling,
+specification-evaluation, testability-implementability) and asking, for
+each: *can the pathology this flags be made ungrammatical in the schema,
+rather than merely lint-flagged after the fact?* Concretely:
+
+| Pathology | Made irrepresentable by |
+|---|---|
+| Boolean blindness / ad-hoc state machines | No boolean column type exists; states must be named variants |
+| Unconstrained optionality | `guard` is a required, non-empty field on every transition |
+| Switch/case rigidity (OCP violation, *within* one file's own governed set) | Extension points are open, append-only tables — a new case is an insert, not an edit |
+| Switch/case rigidity (OCP violation, *across* files — a consumer extends your interface without ever editing it) | An `extension_point`-kind Constraint publishes the contract; a consumer's own file points `satisfies` back at it (`specodelic.md` Revision 7, `USAGE.md` §2.6) — a different mechanism from the row above, not a restatement of it |
+| Side-effect entanglement | Guards (pure) and actions (effectful) are syntactically distinct row kinds; actions can't appear inside a guard expression |
+| Flattened generic errors | Failure constraints must be a tagged variant, not a free-text `error` string |
+| Missing algebraic laws | A `kind = "law"` property requires associativity/identity cases as a schema-level requirement, not a suggestion |
+| God object / cyclic dependency | One file = one feature id; the `traces_to`/`derives_from` graph must be a DAG (checked) |
+
+One diagnostician category — weak phrases, passive voice, vague temporals
+in prose (`testability-implementability-evaluator`) — was explicitly kept
+**out of scope**. That's a prose-quality judgment, and the format's own
+rule is that prose is never parsed. It's a separate tool that should run
+on the compiled `statement` field, not something this schema should try to
+absorb.
+
+---
+
+## 3. Inventory — what exists right now
+
+All files are markdown, in `specodelic`'s own format, describing
+`specodelic` and its linter using themselves (a self-hosting spec, the
+same way a self-hosting compiler compiles its own source).
+
+| File | Kind / id | Describes | Status |
+|---|---|---|---|
+| `specodelic.md` | `specodelic` | The format itself: its own constraints, its own lifecycle (`draft → parsed → linted → compiled → model_checked → verified`), the Reference Typing table, the Checker Ownership table | **Done — Revision 7** |
+| `kinds.md` | `kinds` | Canonical field set and closed `kind`-column value set for each of `𝒦`'s five objects (Intent, Constraint, State, Transition, Property) | **Done — Revision 4** |
+| `USAGE.md` | — | How to point the four layers at a real domain: quick-start, pattern catalog (sealed enumerations, Moore output, multi-implementation conformance, staged/lazy evaluation, extended law cases, consumer-extended contracts, event-sourced logs, empirical runtime bounds), and a migration guide from artifact-per-purpose formats (e.g. OpenSpec) | Living document |
+| `theory.md` | — | Every category-theoretic claim in this repo, stated once, each paired with a plain-language restatement; every other file links here instead of restating the math locally | Done (Changelog #24) |
+| `graph.md` | `graph` | Mechanically derived, queryable reference graph over every typed edge in the repo — blast-radius (transitive closure) queries, never re-derived by other tools independently | Done (Changelog #25) |
+| `refactor.md` | `refactor` | Non-gating tidy-first advisor: flags a node with high, unrelated fan-in (or a changeset touching only part of a node) as a split candidate, via `graph.md` queries | Done (Changelog #25) |
+| `merge.md` | `merge` | Semantic conflict detection across two divergent branches (id collisions, rename-vs-new-reference splits) that a textual git merge can't see, via `graph.md` and `rename.md` | Done (Changelog #25) |
+| `compile.md` | `compile` | The `Compile` functor: `Constraints → TOML`, `Model → TLA+/Alloy`, `Properties → proptest!`, plus totality/id-preservation/round-trip guarantees | Done |
+| `model_check.md` | `model_check` | What actually running the model checker means: bounded, re-runnable, minimal-counterexample reporting; clarifies `model_checked` vs `no_counterexample` | Done |
+| `verify.md` | `verify` | Executes `compile.md`'s proptest! blocks and combines the result with `model_check.md`'s clean/counterexample outcome into `specodelic.md`'s `verified` gate | Done |
+| `rename.md` | `rename` | The rename/refactor tool itself: a single `(old_id, new_id)` request's own lifecycle (validate → apply → verify), and the local invariants (id-availability, filename-matching, atomicity, kind-preservation, prose non-interference) that make `rename_naturality` a law of an actual process | Done |
+| `linter-external_completeness.md` | `linter.external_completeness` | Optional, per-repo check that every item in a declared external checklist has an explicit `covered`/`waived` mapping to a real constraint or property, or a stated rationale — mechanizes "nothing was silently unconsulted," not "the repo is complete" | Done |
+| `orchestrate.md` | `orchestrate` | The top-level orchestrator: drives `parsed → verified` in stage order, gating each stage on the prior stage's exact `specodelic.md` guard, skipping dependents of a failed checker while independent branches keep running | Done |
+| `linter-frontmatter.md` | `linter.frontmatter` | First gate: frontmatter has `id`/`kind`/`statement`, `id` matches filename | Done |
+| `linter-referential_integrity.md` | `linter.referential_integrity` | No duplicate ids, no dangling `[[refs]]`, refs point at a kind-compatible target | Done |
+| `linter-graph_shape.md` | `linter.graph_shape` | `traces_to`/`derives_from` graph is a DAG, every row reachable from its own file's Intent | Done |
+| `linter-model_shape.md` | `linter.model_shape` | Every transition has a guard, states/transitions reference each other validly, no boolean columns in the model | Done |
+| `linter-ears_syntax.md` | `linter.ears_syntax` | `statement` matches an EARS pattern; ids don't encode two capabilities or universal quantifiers | Done |
+| `linter-schema_shape.md` | `linter.schema_shape` | Variant tables only grow across revisions; the parser never branches on prose content | Done |
+| `linter-coverage.md` | `linter.coverage` | Every constraint has a deriving property; every law has its required cases | Done |
+| `CHANGELOG.md` | — | Append-only, chronological record of what changed, across all files | Living document |
+| `AGENTS.md` | — | Standing operating instructions for any agent working in this repo | Living document |
+| `STATUS.md` (this file) | — | Status, plan, and self-contained primer | Living document |
+
+**Every checker file in `specodelic.md`'s Checker Ownership table now
+exists.** `linted` (the join point of all six leaf checkers) and
+`compile`'s gate (`linter.coverage`) are both fully specified end to end.
+
+### Revision log for `specodelic.md`
+
+- **Revision 1**: initial constraint/model/property list, written before
+  any checker was decomposed.
+- **Revision 2**: folded in four gaps that decomposing the checkers into
+  separate files surfaced by inspection (not by any mechanism yet — see
+  the open problem in §4, P2): `id_matches_file`, `ref_kind_compatible` (with
+  an explicit Reference Typing table), `single_root_reachable`, and the
+  `every_state_used`/`every_transition_valid` pair. Also replaced the
+  flat seven-clause `lint` guard with a reference to the Checker
+  Ownership table, since the flat conjunction was itself an instance of
+  the God-transition / God-object pathology from §2, just written in a
+  guard field instead of a class.
+- **Revision 3**: a Rule-of-5 review (`rule-of-5-universal`) of the full
+  corpus found `id_matches_file` was CRITICAL-broken — its hyphen→dot
+  reversal wasn't a well-defined function, since hyphens were also
+  standing in for underscores within a segment, and applying the rule
+  literally would have made the linter reject 5 of its own 7 checker
+  files. Fixed by reserving `-` for the namespace dot only and preserving
+  `_` literally in filenames. **Five files were renamed** as part of this
+  fix (see the corrected inventory table below). Also corrected two
+  documentation-drift bugs the same review found: a miscounted claim in
+  `linter-coverage.md` ("seven checker files" — the Checker Ownership
+  table has six, and coverage isn't a row in it), and stale
+  "not yet written" notes in `specodelic.md` left over from before
+  `linter-schema_shape.md` and `linter-coverage.md` existed.
+- **Revision 4**: writing `kinds.md` surfaced that a Constraint/Property
+  row's own `kind` column had no closed set anywhere. Added
+  `constraint_kind_closed` and `property_kind_closed`, both enforced by
+  `linter-schema_shape.md` the same session.
+- **Revision 5**: checked against ten features from an unrelated polyglot
+  tool ecosystem. Seven needed no schema change (non-gating signals,
+  confidence-scored properties, feedback loops, cross-language adapter
+  contracts — see `specodelic.md`'s own Revision 5 for the reasoning on
+  each). Two did: `advisory` added to `Constraint.kind` (non-gating by
+  typing, since `guard` narrows to `kind == invariant` only), and
+  `supersedes` added as a self-typed Reference Typing field so a row can
+  declare what it replaces, checked as its own acyclic graph independent
+  of `traces_to`/`derives_from`.
+- **Revision 6**: checked against a second unrelated domain (a lazy,
+  category-theoretic data library). Most of what looked missing was an
+  existing pattern aimed at the wrong section — now written up on its own
+  in `USAGE.md` rather than repeated per-checker. One real addition:
+  `emits`, an optional field on `State` (Reference Typing: `State →
+  Constraint, kind == effect`), giving a Model the output half of a Moore
+  machine that had nowhere to live before. One simplification:
+  `append_only_variants`, `kind_field_extensible`, and
+  `reference_field_extensible` — the same "grows only, only via Revision"
+  rule, discovered three times with wordings that had already drifted out
+  of sync — collapsed into one statement of `append_only_variants`
+  covering all three id-sets it governs. One latent wording bug fixed in
+  `linter-referential_integrity.md`: `ref_kind_compatible`'s `expr` named
+  three reference fields by hand and had already gone stale (missing
+  `supersedes`); reworded to read the Reference Typing table generically,
+  matching what the implementation was already doing.
+
+---
+
+## 4. What's NOT specced yet — prioritized
+
+Ordered by dependency (earlier items block later ones) and by how
+structurally central the gap is, not just by when it was noticed.
+
+### Done — the compile/verify pipeline
+`Compile`, `model_check`, and `verify` — `specodelic.md`'s
+`linted → compiled → model_checked → verified` lifecycle — are now fully
+specified: `compile.md` (the `Set^𝒦 → TOML`/`TLA+`/`proptest!` functor),
+`model_check.md` (what running the checker against `compile.md`'s output
+means, and the `model_checked` vs. `no_counterexample` distinction —
+CLAR-003), and `verify.md` (executing `compile.md`'s proptest! blocks and
+combining that with `model_check.md`'s outcome into one gate).
+
+### Done — the rename/refactor tool
+`rename_naturality` appeared as a property in three different files
+(`specodelic.md`, `linter-referential_integrity.md`,
+`linter-graph_shape.md`'s `topo_sort_naturality`) before the tool itself —
+its own Intent, states, constraints, and properties — was written up as a
+feature in its own right. `rename.md` now specifies it: a single
+`(old_id, new_id)` request's own lifecycle, ending in a `verify` step that
+re-runs `linter.referential_integrity` and `linter.graph_shape` before
+reporting `passed`. One `Needs Human Review` item opened there: whether a
+batch (whole-namespace) rename is one atomic transaction or `n`
+independent ones — not decided yet.
+
+### Done — external completeness checking
+`linter-external_completeness.md` closes this. It doesn't make internal
+consistency into completeness — that gap is irreducible from inside the
+framework, and the file's own Notes say so plainly. What it mechanizes
+instead: given a declared external checklist, every item must carry an
+explicit human claim — `covered` (mapped to a real constraint/property id)
+or `waived` (with a stated rationale) — so the checklist can never be
+silently unconsulted, even though whether a given mapping is *semantically
+correct* stays outside what any checker here can verify. It's optional per
+repo and doesn't gate `linted`/`compiled`/`verified`; see its Notes for why.
+One open question surfaced and left `Needs Human Review`: whether a
+checklist's mapping table is a sixth kind of artifact outside `𝒦` or a
+degenerate spec file reusing the existing four-layer shape — the answer
+decides whether `rename.md` and `linter.referential_integrity` need to
+reach into it, and `mapping_naturality` there is asserted aspirationally
+until that's settled.
+
+### Done — orchestration
+`orchestrate.md` closes this. A top-level `idle → lint_stage →
+compile_stage → model_check_stage → verify_stage → succeeded/failed`
+driver that calls the six Checker Ownership checkers in dependency order
+(skipping a checker's dependents, not failing them, when a dependency
+fails; letting independent branches run and report regardless of each
+other), then `linter.coverage`, `compile.md`, `model_check.md`, and
+`verify.md` in sequence, gating each stage transition on the exact guard
+`specodelic.md` already specifies for it — never a looser or stricter
+check invented at the orchestration layer. `linter.external_completeness`
+runs when a checklist is declared but never gates any stage. Explicitly
+out of scope: driving `rename` — that stays a separate, on-demand
+operation a pipeline run never triggers implicitly. One `Needs Human
+Review` item opened: whether the orchestrator should also own each file's
+own `draft → parsed` transition, or stay scoped to `parsed → verified` as
+specified.
+
+**Every item this section had prioritized (the old P0 through P2) is now
+specced.** What's left below are the lower-severity, already-flagged loose
+ends — none block each other or anything above.
+
+### Done — the reference graph, tidy-first advisor, and merge check
+Three files, building on each other: `graph.md` turns the cross-file
+reference graph into a derived, queryable artifact instead of something
+only reconstructible by hand; `refactor.md` uses it to flag a node with
+high, unrelated fan-in as a tidy-first split candidate, always non-gating
+(`kind == effect`, already excluded from every `guard` by
+`specodelic.md`'s existing typing — no new "never gates" invariant was
+needed, see `orchestrate.md`'s Notes); `merge.md` uses it to catch what a
+textual git merge can't see — id collisions and a rename left dangling by
+a reference minted on a different branch — before reporting a merge
+complete. Three `Needs Human Review` items opened, none resolved yet:
+- `graph.md`: whether `linter-referential_integrity.md` and
+  `linter-graph_shape.md` should be refactored to query this artifact
+  internally instead of independently re-deriving reachability.
+- `refactor.md`: whether "unrelated fan-in" should key off the id
+  namespace or physical directory placement, since a flat namespace
+  convention would make the advisory fire on almost everything.
+- `merge.md`: what "a human has explicitly approved" a flagged merge
+  means operationally (a review comment, a CI gate, a role) — left open
+  the same way `rename.md` leaves batch-rename atomicity open.
+
+### One acknowledged loose end inside an existing file
+`linter-schema_shape.md`'s `no_prose_field_parsed` property doesn't fit
+the generator/predicate shape every other property here uses — it's a
+claim about the parser's own implementation (verified by code audit, not
+by a runnable PBT case), not a claim about spec-file content. This is
+flagged in that file as `Needs Human Review` and hasn't been resolved;
+it may need a sixth property `kind` (e.g. `kind = "audit"`) added to the
+schema rather than being forced into `unit`/`law`.
+
+### One guideline, three instances (not three unrelated items)
+`CLAR-001`, `CLAR-002`, and `CLAR-003` were originally filed separately;
+they're the same class of problem — two names sharing a token differ in
+what they actually guarantee, without a disambiguating rename — now
+stated once as a standing guideline in `AGENTS.md` #6. Listed together
+rather than under three headings, since fixing one likely wants the same
+disambiguating-rename treatment applied to all three in one Revision:
+- **CLAR-001**: the constraint id `coverage` (in `specodelic.md`) and the
+  checker id `linter.coverage` (a whole file) are easy to conflate on a
+  skim — plausibly what caused the "seven checker files" miscount that
+  Revision 3 fixed. Consider renaming the constraint to
+  `constraint_coverage`.
+- **CLAR-002**: "kind" is overloaded — `𝒦`'s five objects (Intent,
+  Constraint, State, Transition, Property) vs. the `kind` column that
+  Constraint rows (`invariant`) and Property rows (`unit`/`law`) each
+  separately carry. Not resolved yet: the fix is a column rename and
+  should go through `rename_naturality` rather than be done by hand.
+- **CLAR-003**: `specodelic.md`'s lifecycle state `model_checked` sounds
+  like "the model was checked and holds," but its guard (`model_present`)
+  only confirms a Model section exists; whether a run happened and found a
+  counterexample are separate facts (`model_check.checker_invoked`,
+  `specodelic.no_counterexample`), already spelled out in `model_check.md`'s
+  Notes but not fixed by renaming the state.
+- **EXCL-001**: a related but distinct shape (a missing `kind`, not a
+  confusable name) — add a `kind = "audit"` property type in a future
+  revision. Now homed in `kinds.md`'s `property_row_shape` constraint
+  (`kind ∈ {unit, law}`); actioning this means a Revision to `kinds.md`,
+  not just `linter-schema_shape.md`.
+
+---
+
+## 5. How to resume this in a fresh session
+
+1. Read `AGENTS.md` first — standing rules that apply regardless of which
+   task you're picking up.
+2. Read `specodelic.md` in full — it is the root of everything else.
+3. Read `kinds.md` — the canonical definition of the five objects every
+   other file in this repo instantiates.
+3a. Read `USAGE.md` if the task ahead is writing a spec for a piece of
+   software rather than another checker file — it has the pattern catalog
+   (worked out against a real external domain) for the cases that don't
+   obviously fit the four-layer shape at first glance.
+4. Read `compile.md`, `model_check.md`, and `verify.md` — together they
+   specify `specodelic.md`'s whole `linted → compiled → model_checked →
+   verified` lifecycle.
+5. Skim `CHANGELOG.md` for the chronological "what happened and why," if
+   the reasoning behind a past decision isn't clear from the file itself.
+6. Read the six checker files in Checker Ownership order:
+   `frontmatter → referential_integrity → graph_shape → model_shape`,
+   and separately `ears_syntax`, `schema_shape` (these last two are
+   parallel branches, not sequential continuations).
+7. Read `linter-coverage.md`, then `rename.md`,
+   `linter-external_completeness.md`, and `orchestrate.md` — the tooling
+   layer built on top of the checker files, in that order (each depends on
+   facts the ones before it establish).
+8. Every item §4 once prioritized (compile/verify pipeline, rename,
+   external completeness, orchestration) is now specced. Pick the next
+   thing to work on from the lower-severity loose ends below
+   (`CLAR-001` through `CLAR-003`, `EXCL-001`, the acknowledged
+   `no_prose_field_parsed` shape mismatch, or either file's own `Needs
+   Human Review` notes) unless the person names something else.
+9. When writing a new spec file, follow the same self-check every prior
+   file used: does every constraint trace to an intent, does every
+   property derive from a constraint, does the model's guard set match
+   what `linter-model_shape.md` requires? For a domain spec specifically,
+   also check `USAGE.md` §2 before concluding something doesn't fit — most
+   things that look unsupported are an existing pattern aimed at the wrong
+   section. If a new file surfaces a genuine gap in `specodelic.md`
+   itself, fold it back in as a new Revision, the way Revision 2 did,
+   rather than letting gaps accumulate unaddressed across files.

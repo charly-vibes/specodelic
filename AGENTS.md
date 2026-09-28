@@ -1,96 +1,45 @@
-# Agent Instructions
+# AGENTS.md
 
-This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
+Standing instructions for any agent working in this repo.
 
-> **Architecture in one line:** Issues live in a local Dolt database
-> (`.beads/dolt/`); cross-machine sync uses `bd dolt push/pull` (a
-> git-compatible protocol), stored under `refs/dolt/data` on your git
-> remote — separate from `refs/heads/*` where your code lives.
-> `.beads/issues.jsonl` is a passive export, not the wire protocol.
->
-> See [SYNC_CONCEPTS.md](https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md)
-> for the one-screen overview and anti-patterns (don't treat JSONL as the
-> source of truth; don't `bd import` during normal operation; don't
-> reach for third-party Dolt hosting before trying the default).
+## What this repo is
 
-## Quick Reference
+**specodelic** — a Rust CLI (`ddl`) for the Specodelic specification
+format (formerly `spec-format`). The format corpus lives in `specs/`:
+every file there is a markdown spec written in the format it describes.
+`specs/specodelic.md` is the core; `specs/STATUS.md` §1 is the primer.
 
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work atomically
-bd close <id>         # Complete work
-bd dolt push          # Push beads data to remote
-```
+- Format questions → `specs/specodelic.md` (single source of truth).
+- Checker semantics → the matching `specs/linter-*.md` file.
+- Tool semantics → `specs/compile.md`, `verify.md`, `rename.md`,
+  `merge.md`, `graph.md`, `refactor.md`, `orchestrate.md`,
+  `model_check.md`.
+- Repo workflow (file naming, revision discipline) → `specs/AGENTS.md`.
 
-## Non-Interactive Shell Commands
+## Conventions
 
-**ALWAYS use non-interactive flags** with file operations to avoid hanging on confirmation prompts.
+- **Genesis baseline**: shared CLI/AIX infrastructure comes from the
+  `genesis-vibes` crate — envelope output (`Output`/`Envelope`), CLI
+  helpers (completions, `--version --json`), verbosity/format flags.
+  Domain logic stays here; only cross-cutting pieces go upstream.
+- **Binary name is `ddl`**, crate name is `specodelic`.
+- **Output discipline**: every command emits through
+  `genesis::guide::Output::emit` — JSON envelope by default for pipes,
+  human-readable for TTYs. Errors must carry a remediation hint.
+- **Rename provenance**: the corpus was renamed from `spec-format` to
+  `specodelic` on import (2026-09-28). `specs/USAGE.md`'s title records
+  it. Don't reintroduce `spec-format` references.
+- **Issue tracking**: `bd` (beads) in no-db mode — `.beads/issues.jsonl`
+  is the source of truth, tracked in git. No Dolt database.
+- **Quality gates**: `just ci` (fmt-check, clippy `-D warnings`, tests,
+  release build) must pass before pushing.
+- **Dogfooding**: `just lint-specs` lints the corpus with the tool
+  itself. Known coverage gaps are tracked as beads issues, not ignored.
 
-Shell commands like `cp`, `mv`, and `rm` may be aliased to include `-i` (interactive) mode on some systems, causing the agent to hang indefinitely waiting for y/n input.
+## File naming (from the format — non-negotiable)
 
-**Use these forms instead:**
-```bash
-# Force overwrite without prompting
-cp -f source dest           # NOT: cp source dest
-mv -f source dest           # NOT: mv source dest
-rm -f file                  # NOT: rm file
-
-# For recursive operations
-rm -rf directory            # NOT: rm -r directory
-cp -rf source dest          # NOT: cp -r source dest
-```
-
-**Other commands that may prompt:**
-- `scp` - use `-o BatchMode=yes` for non-interactive
-- `ssh` - use `-o BatchMode=yes` to fail instead of prompting
-- `apt-get` - use `-y` flag
-- `brew` - use `HOMEBREW_NO_AUTO_UPDATE=1` env var
-
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:7510c1e2 -->
-## Beads Issue Tracker
-
-This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
-
-### Quick Reference
-
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>         # Complete work
-```
-
-### Rules
-
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
-
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
-
-## Session Completion
-
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
-
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
-<!-- END BEADS INTEGRATION -->
+A spec file's frontmatter `id` equals its filename stem with `-` ⇔ `.`:
+`linter-graph_shape.md` ⇔ `id: linter.graph_shape`. `_` is literal in
+both. Non-spec files (no frontmatter) are exempt: `AGENTS.md`,
+`STATUS.md`, `USAGE.md`, `CHANGELOG.md`, `theory.md` (in `specs/`), and
+this file.

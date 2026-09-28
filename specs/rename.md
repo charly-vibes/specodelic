@@ -1,0 +1,116 @@
+---
+id: rename
+kind: intent
+checked_against_core: clear
+statement: "WHEN a user requests renaming a spec row's id, THE rename tool SHALL update the defining row and every referencing [[link]] as a single atomic operation, or leave the repo unchanged."
+---
+
+# Rename Tool
+
+`rename_naturality` is asserted as a property in three other files
+(`specodelic.md`, `linter-referential_integrity.md`,
+`linter-graph_shape.md`'s `topo_sort_naturality`), but the tool those
+properties are *about* has never had its own Intent, Constraints, Model, or
+Properties (`STATUS.md` §4, P0). This file is that spec: what a rename
+request actually does, step by step, and what must hold before it's allowed
+to report success.
+
+A rename is the concrete operation whose existence makes `η : I ⇒ I'`
+(`STATUS.md` §1's natural transformation between two instances of `𝒦`) more
+than a formal description — it's the thing that has to actually construct
+`I'` from `I` and a single `(old_id, new_id)` pair, honoring naturality
+rather than merely being checked against it after the fact.
+
+## Constraints
+
+| id                        | kind      | expr                                                                                                                              | traces_to |
+|----------------------------|-----------|----------------------------------------------------------------------------------------------------------------------------------|-----------|
+| new_id_available           | invariant | `new_id ∉ index(repo)` — renaming never collides with an existing id                                                              | [[rename]] |
+| new_id_matches_filename    | invariant | `if the renamed row is a file's own Intent, [[specodelic.id_matches_file]] must hold between new_id and the (possibly also renamed) filename` | [[rename]] |
+| old_id_fully_replaced      | invariant | `∀ [[old_id]] reference anywhere in repo: rewritten to [[new_id]]; zero occurrences of old_id remain post-rename`                  | [[rename]] |
+| atomic_operation           | invariant | `the definition-row update, every reference rewrite, and any required filename change apply as one transaction: all succeed, or the repo is left byte-identical to its pre-rename state` | [[rename]] |
+| kind_unchanged             | invariant | `assigned_kind(row) is the same before and after rename — both 𝒦's five-object kind and, where present, the row's own kind/sub-kind column` — see [[kinds.kind_shape_naturality]] | [[rename]] |
+| prose_untouched_by_rename  | invariant | `rename rewrites only [[id]] wiki-link syntax and structured id fields (frontmatter id, table id/traces_to/derives_from/guard/from/to cells) — it never edits rationale/description prose, even if the prose happens to mention the old name in words` | [[rename]] |
+
+## Model
+
+### States
+- `requested`
+- `checked`
+- `applying`
+- `applied`
+- `verifying`
+- `passed`
+- `failed`
+
+### Transitions
+
+| id            | from        | to          | guard                                                                                                |
+|---------------|-------------|-------------|-------------------------------------------------------------------------------------------------------|
+| validate      | requested   | checked     | [[rename.new_id_available]] ∧ [[rename.new_id_matches_filename]]                                      |
+| validate_fail | requested   | failed      | `¬validate.guard`                                                                                      |
+| apply         | checked     | applying    | [[rename.atomic_operation]]                                                                            |
+| apply_ok      | applying    | applied     | [[rename.old_id_fully_replaced]] ∧ [[rename.kind_unchanged]] ∧ [[rename.prose_untouched_by_rename]]     |
+| apply_fail    | applying    | failed      | `¬apply_ok.guard` — atomic_operation requires this path to roll back to the pre-rename repo, not to leave a partial edit |
+| verify        | applied     | verifying   | `linter.referential_integrity and linter.graph_shape are re-run against the renamed repo`               |
+| accept        | verifying   | passed      | [[linter.referential_integrity.ref_resolves]] ∧ [[linter.graph_shape.acyclic]]                          |
+| reject        | verifying   | failed      | `¬accept.guard`                                                                                         |
+
+## Properties
+
+| id                          | kind | derives_from                          | generator                                          | predicate                                                                                                                                                                                    |
+|-------------------------------|------|--------------------------------------------|---------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| rename_naturality             | law  | [[rename.old_id_fully_replaced]]           | `arbitrary_spec_repo(), arbitrary_id_rename()`           | **identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`                             |
+| collision_rejected            | unit | [[rename.new_id_available]]                | `(repo_with_id: "x", new_id: "x_taken_by_other_row")`    | `check(request) == failed`                                                                                                                                                                    |
+| filename_mismatch_rejected    | unit | [[rename.new_id_matches_filename]]         | `rename_of_a_files_own_intent_id_without_a_matching_filename_change()` | `check(request) == failed`                                                                                                                                                                    |
+| partial_failure_rolls_back    | unit | [[rename.atomic_operation]]                | `apply_interrupted_after_definition_row_updated_but_before_all_refs_rewritten()` | `post_state(repo) == pre_state(repo)`                                                                                                                                                          |
+| stray_ref_caught_by_verify    | unit | [[rename.old_id_fully_replaced]]           | `rename_that_misses_one_[[old_id]]_occurrence()`         | `check(request) == failed` — caught at `verify`, not silently accepted                                                                                                                        |
+| prose_mention_left_alone      | unit | [[rename.prose_untouched_by_rename]]       | `row_whose_rationale_prose_contains_the_old_id_as_a_word()` | `rationale_text(post_rename_row) == rationale_text(pre_rename_row)`                                                                                                                           |
+| clean_rename_passes           | unit | [[rename.old_id_fully_replaced]]           | `well_formed_repo(), id_not_used_elsewhere()`            | `check(request) == passed`                                                                                                                                                                    |
+
+## Notes
+
+`checked_against_core: clear` (see `AGENTS.md`'s convention). The
+properties this file needs (atomicity, prose-non-interference,
+kind-preservation) are local to what a *rename operation* must guarantee,
+the same way `compile.md`, `model_check.md`, and `verify.md` each carry
+constraints specific to their own step of the lifecycle without requiring
+new entries in
+`specodelic.md` itself — this file's Intent is the fourth instance of
+that pattern, not an exception to it.
+
+`rename_naturality` now exists in four places (`specodelic.md`,
+`linter-referential_integrity.md`, `linter-graph_shape.md`'s
+`topo_sort_naturality`, and here). That's intentional, not duplication to
+clean up: each site states the same law at the altitude that site owns —
+`specodelic.md` as the format's top-level refactor-safety guarantee,
+the two linter files as "this is exactly the check that would catch a
+naive rename tool," and this file as the actual operation those laws are
+*about*. This file is the one whose `apply`/`apply_ok`/`apply_fail`
+transitions give the law something to be a law of, rather than a fact
+asserted with no corresponding process.
+
+**Why `verify` re-runs two checkers instead of all six.** `apply_ok`
+already establishes `old_id_fully_replaced` (no dangling old-id refs) and
+`kind_unchanged` directly as this file's own constraints. What `apply_ok`
+*can't* see on its own is whether the rewrite altered anything at the
+repo-graph level it wasn't watching for — a same-file collision the local
+check missed, or a graph edge that only becomes visible once every file's
+refs are re-indexed together. `linter.referential_integrity` and
+`linter.graph_shape` are exactly the two checkers whose owned constraints
+(`unique_across_repo`, `ref_resolves`, `acyclic`, `single_root_reachable`)
+depend on cross-file state a single-rename's local bookkeeping can't fully
+self-certify. The other four checkers (`model_shape`, `ears_syntax`,
+`schema_shape`, `coverage`) check properties a rename can't perturb — it
+never changes a transition's guard-presence, a statement's EARS pattern,
+a table's column shape, or whether a constraint has a deriving property —
+so re-running them would be redundant `Needs Human Review` overhead, not
+signal.
+
+**Open question, `Needs Human Review`:** this file specifies a single
+`(old_id, new_id)` rename. A batch rename (renaming a whole namespace
+prefix, e.g. every `linter.foo.*` to `checker.foo.*` at once) is a
+different operation with its own atomicity question — is a batch one
+transaction, or `n` independent ones that can partially succeed? Not
+specified here; flagging rather than assuming either answer, since the
+choice changes what `atomic_operation` means at batch scope.
