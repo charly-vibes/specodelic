@@ -367,6 +367,52 @@ fn model_check_without_compiled_artifact_is_a_labeled_error() {
 }
 
 #[test]
+fn model_check_rejects_a_spec_edited_after_compile() {
+    // CORR-001 (ro5): the run interprets the live spec's IR, so a module
+    // compiled from an older Model section must be a labeled error —
+    // never a clean run against a mixed (IR, artifact) pair.
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("mc_demo.md");
+    write_model_check_spec(&spec, "mc_demo");
+    let out_dir = dir.path().join("specodelic");
+    spk()
+        .args([
+            "compile",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out_dir.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    // Edit the Model section WITHOUT recompiling: add a third state.
+    let text = std::fs::read_to_string(&spec)
+        .unwrap()
+        .replace("- s2", "- s2\n- s3");
+    std::fs::write(&spec, text).unwrap();
+    let out = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out_dir.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let failed = &json["data"]["failed"][0];
+    assert_eq!(failed["stage"], "stale_artifact");
+    assert!(
+        failed["message"]
+            .as_str()
+            .unwrap()
+            .contains("specodelic compile")
+    );
+}
+
+#[test]
 fn model_check_timed_out_when_bound_cannot_be_exhausted() {
     let dir = tempfile::tempdir().unwrap();
     let spec = dir.path().join("mc_demo.md");

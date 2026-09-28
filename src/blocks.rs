@@ -58,6 +58,8 @@ Write specs so `spk lint` passes; embedded format revision: {rev}
 - `spk lint <dir>` — check the invariants (fails with a hint on zero files)
 - `spk graph <dir>` — typed reference graph + blast-radius
 - `spk compile <files>` — emit TOML / proptest / TLA+ artifacts
+- `spk model-check <files>` — run the model checker against compiled
+  output (stateright; reports land as `*.check.json`)
 - `spk explain [topic]` — the embedded format primer (works offline)
 - `spk doctor` — diagnose workspace + block currency
 - `spk feedback bug --dry-run` — file an issue against upstream
@@ -105,6 +107,9 @@ mod tests {
         }
         assert!(content.contains(crate::guide::FORMAT_REVISION));
         assert!(content.contains("spk lint"));
+        // the command catalog stays current: every implemented pipeline
+        // command is advertised to consumer-repo agents
+        assert!(content.contains("spk model-check"));
     }
 
     #[test]

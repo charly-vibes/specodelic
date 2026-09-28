@@ -52,6 +52,16 @@ The report always restates the applied bound (`exhaustive_within_bound`:
 in `model_check.md`'s Notes — the earlier "Bound type shape" question
 from the mp1 row-6 session is resolved by this mapping.
 
+*Post-review amendments (rule-of-5, 2026-09-28):* (1) stateright's knobs
+are `NonZeroUsize`, so a `0` flag value is clamped to `1` rather than
+silently ignored; (2) `depth_reached == cap` is ambiguous ("stopped at
+cap" vs "the space ends at cap") — when the depth cap is the only
+constraint, a confirmation re-run at `cap+1` resolves it: completing
+below `cap+1` proves the space ends at depth ≤ cap and the run reports
+`no_counterexample`; hitting `cap+1` too reports `timed_out`. Runs with
+a simultaneous state/time cap stay conservative (`timed_out` on any
+reached cap), since the confirmation could itself be truncated.
+
 ### Decision 3 — what the native backend checks (HITL — needs approval)
 
 There is nothing executable to violate yet: guards/predicates are prose.
@@ -82,6 +92,13 @@ report schema carries (and TLC will populate in ug3); the native v0
 backend simply never emits it. Tests pin that honesty: a spec with
 prose invariants yields `no_counterexample` + `invariants_checked: []`,
 never a fabricated violation.
+
+*Post-review amendment (rule-of-5, 2026-09-28):* Option A additionally
+required an artifact-consistency guard — the run interprets the live
+spec's IR, so the on-disk `.tla` is parsed (StateValues set + Next
+disjunct ids) and compared against the IR before any run; a mismatch is
+a labeled `stale_artifact` error with a `spk compile` hint, closing the
+mixed-(IR, artifact) hole `checker_invoked` forbids.
 
 ### Decision 4 — run reports persist; staleness by content hash
 

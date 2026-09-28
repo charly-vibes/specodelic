@@ -33,6 +33,21 @@ next to the compile artifacts, carrying the consumed module's SHA-256 —
 specodelic-ug3. Dogfood: all 18 corpus files check clean
 (`no_counterexample`) within the default bound (beads specodelic-nx7).
 
+Rule-of-5 review of the implementation set (converged stage 4, verdict
+READY WITH_NOTES → all fixes applied): (1) artifact-consistency guard —
+the run interprets the live spec's IR, so the committed `.tla` is parsed
+(StateValues set + Next disjunct ids) and compared before any run; a
+mismatch is a labeled `stale_artifact` error with a `spk compile` hint,
+closing a drift hole where a run would check the new model while hashing
+the old artifact (reproduced before the fix); (2) `depth_reached == cap`
+ambiguity resolved — a confirmation re-run at cap+1 (depth-cap-only runs)
+proves exhaustiveness, so `--max-depth` equal to the model's diameter now
+reports `no_counterexample` instead of a false `timed_out`; (3)
+`RunReport`/`Backend`/`Bound`/`Outcome` derive `Deserialize` (verify's
+read path); (4) the SPECODELIC managed block advertises
+`spk model-check`; (5) cycle/self-loop fixture test; design.md Decision
+2/3 carry the post-review amendments.
+
 ## #35 — `spk init` (SPECODELIC managed block in AGENTS.md) and `spk feedback`
 
 `spk init` writes or refreshes a `<!-- SPECODELIC:START/END -->` managed

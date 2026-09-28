@@ -18,7 +18,7 @@
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use stateright::{Checker, Model, Property};
 
@@ -35,7 +35,7 @@ pub const BACKEND_VERSION: &str = "0.31.0";
 /// The stated bound (`exhaustive_within_bound`): a run may only report
 /// `no_counterexample` after exploring all reachable states up to this
 /// bound. The bound is part of the report.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Bound {
     pub max_depth: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -56,7 +56,7 @@ impl Default for Bound {
 
 /// The run outcome — `model_check.md`'s terminal states. `timed_out` is
 /// a real outcome, never collapsed into clean or counterexample.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Outcome {
     NoCounterexample,
@@ -66,7 +66,7 @@ pub enum Outcome {
 
 /// Backend attribution (`backend_identified`): engine + version, so two
 /// backends' reports on the same compiled model are comparable.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Backend {
     pub engine: String,
     pub version: String,
@@ -74,7 +74,7 @@ pub struct Backend {
 
 /// One completed run — the payload persisted as `<stem>.check.json` and
 /// consumed by `verify` (`no_counterexample_feeds_verify`).
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RunReport {
     pub backend: Backend,
     pub bound: Bound,
@@ -137,6 +137,15 @@ struct PcModel {
     transitions: Vec<(usize, usize)>,
 }
 
+impl Clone for PcModel {
+    fn clone(&self) -> Self {
+        PcModel {
+            init: self.init,
+            transitions: self.transitions.clone(),
+        }
+    }
+}
+
 impl Model for PcModel {
     type State = usize;
     type Action = usize;
@@ -186,10 +195,6 @@ pub fn run(ir: &ModelIr, tla_artifact: &[u8], bound: &Bound) -> Result<RunReport
         engine: BACKEND_ENGINE.into(),
         version: BACKEND_VERSION.into(),
     };
-    // Native v0 checks no semantic invariants (Decision 3 Option A) —
-    // reported honestly as empty. Keep the binding self-documenting.
-    let invariants_checked = Vec::<String>::new();
-    let _ = &invariants_checked;
     let states = &ir.states;
     if states.is_empty() {
         return Err(err(
@@ -197,6 +202,12 @@ pub fn run(ir: &ModelIr, tla_artifact: &[u8], bound: &Bound) -> Result<RunReport
             "the compiled model has no states — model_present requires a Model section with states and transitions",
         ));
     }
+    // checker_invoked's consistency half: the run must be against the
+    // *current compiled model* — the IR extracted from the live spec and
+    // the on-disk `.tla` must describe the same automaton, or the run
+    // would check one model while hashing another (the stale-claim trap,
+    // inverted).
+    assert_artifact_consistent(ir, tla_artifact)?;
     // Program-counter indices; unknown from/to refs are a labeled failure
     // (lint's every_transition_valid should have caught these upstream).
     let mut state_index: BTreeMap<&str, usize> = BTreeMap::new();
@@ -234,26 +245,38 @@ pub fn run(ir: &ModelIr, tla_artifact: &[u8], bound: &Bound) -> Result<RunReport
     // The bound maps 1:1 onto the checker's knobs. Targets are
     // NonZeroUsize upstream, so 0 would be silently ignored — clamp to 1.
     let max_depth = bound.max_depth.max(1) as usize;
-    let mut builder = model.checker().target_max_depth(max_depth);
-    if let Some(n) = bound.max_states {
-        builder = builder.target_state_count(n.max(1) as usize);
-    }
-    let started = Instant::now();
-    if let Some(secs) = bound.timeout_secs {
-        builder = builder.timeout(Duration::from_secs(secs));
-    }
-    let checker = builder.spawn_bfs().join();
-    let elapsed = started.elapsed();
-    let states_explored = checker.unique_state_count() as u64;
-    let depth_reached = checker.max_depth();
+    let (checker, elapsed) = explore(model.clone(), bound, max_depth);
+    let mut states_explored = checker.unique_state_count() as u64;
 
     // exhaustive_within_bound: a run may report clean only when the whole
-    // reachable space was explored within the stated bound. If a cap was
-    // actually reached, exhaustiveness cannot be proven — report the
-    // budget-exhausted outcome (`timed_out`), conservatively. This can
-    // mislabel a space whose true diameter equals the cap, which is the
-    // honest direction: never claim clean without proof.
-    let depth_capped = depth_reached >= max_depth;
+    // reachable space was explored within the stated bound. `depth_reached
+    // == cap` is ambiguous — the space may end exactly at the cap. When the
+    // depth cap was the ONLY constraint, resolve it with one confirmation
+    // re-run at cap+1: completing below cap+1 proves the space is finite
+    // and ends at depth ≤ cap, so the stated bound WAS reached (honest
+    // clean); hitting cap+1 too means genuinely truncated (`timed_out`).
+    // With a simultaneous state/time cap the confirmation could itself be
+    // truncated by the other budget and falsely confirm, so those stay
+    // conservative. Bounded cost (≤ 2 runs); never flips toward false clean.
+    let depth_was_hit = checker.max_depth() >= max_depth;
+    let mut confirmed_exhaustive = false;
+    if depth_was_hit && bound.max_states.is_none() && bound.timeout_secs.is_none() {
+        let deeper_bound = Bound {
+            max_depth: max_depth as u32 + 1,
+            ..bound.clone()
+        };
+        let (deeper, _) = explore(model.clone(), &deeper_bound, max_depth + 1);
+        if deeper.max_depth() < max_depth + 1 {
+            confirmed_exhaustive = true;
+            // The completed exploration saw every reachable state.
+            states_explored = deeper.unique_state_count() as u64;
+        }
+    }
+    // Remaining caps: a cap that was actually reached without confirmation
+    // means exhaustiveness cannot be proven — report the budget-exhausted
+    // outcome (`timed_out`), conservatively. This can mislabel a space
+    // whose true size equals a state/time cap, which is the honest
+    // direction: never claim clean without proof.
     let states_capped = bound
         .max_states
         .map(|n| states_explored >= n.max(1))
@@ -262,7 +285,9 @@ pub fn run(ir: &ModelIr, tla_artifact: &[u8], bound: &Bound) -> Result<RunReport
         .timeout_secs
         .map(|s| elapsed >= Duration::from_secs(s))
         .unwrap_or(false);
-    let outcome = if depth_capped || states_capped || time_capped {
+    let outcome = if confirmed_exhaustive {
+        Outcome::NoCounterexample
+    } else if depth_was_hit || states_capped || time_capped {
         Outcome::TimedOut
     } else {
         Outcome::NoCounterexample
@@ -278,6 +303,91 @@ pub fn run(ir: &ModelIr, tla_artifact: &[u8], bound: &Bound) -> Result<RunReport
         artifact_sha256,
         states_explored,
     })
+}
+
+/// Spawn the BFS checker under the given effective depth cap and join it.
+/// Returns the joined checker and the wall time the exploration took.
+fn explore(model: PcModel, bound: &Bound, max_depth: usize) -> (impl Checker<PcModel>, Duration) {
+    let mut builder = model.checker().target_max_depth(max_depth);
+    if let Some(n) = bound.max_states {
+        builder = builder.target_state_count(n.max(1) as usize);
+    }
+    let started = Instant::now();
+    if let Some(secs) = bound.timeout_secs {
+        builder = builder.timeout(Duration::from_secs(secs));
+    }
+    let checker = builder.spawn_bfs().join();
+    (checker, started.elapsed())
+}
+
+/// `checker_invoked`'s consistency half: the on-disk `.tla` module and the
+/// IR extracted from the live spec must describe the same automaton.
+/// Parses the machine-generated format `add-tla-emitter` commits (the
+/// `StateValues` set line and the per-disjunct `\* <id>: <from> -> <to>`
+/// comments) and compares both against the IR; any mismatch is a stale
+/// artifact — a labeled error, never a run against a mixed pair.
+fn assert_artifact_consistent(ir: &ModelIr, tla_artifact: &[u8]) -> Result<(), ModelCheckError> {
+    let stale = |what: &str| {
+        err(
+            "stale_artifact",
+            format!(
+                "{what} — the compiled module does not match the spec's current Model section (run: specodelic compile <files>)"
+            ),
+        )
+    };
+    let text = std::str::from_utf8(tla_artifact).map_err(|_| {
+        err(
+            "artifact_unreadable",
+            "the compiled .tla module is not valid UTF-8",
+        )
+    })?;
+    let state_values = text
+        .lines()
+        .find(|l| l.trim_start().starts_with("StateValues =="))
+        .ok_or_else(|| {
+            err(
+                "artifact_unreadable",
+                "the compiled .tla module has no StateValues line — not a compile-emitted module",
+            )
+        })?;
+    let artifact_states: std::collections::BTreeSet<&str> = state_values
+        .split("==")
+        .nth(1)
+        .unwrap_or("")
+        .trim()
+        .trim_start_matches('{')
+        .trim_end_matches('}')
+        .split(',')
+        .map(|s| s.trim().trim_matches('"'))
+        .filter(|s| !s.is_empty())
+        .collect();
+    let ir_states: std::collections::BTreeSet<&str> =
+        ir.states.iter().map(|s| s.id.as_str()).collect();
+    if artifact_states != ir_states {
+        return Err(stale(
+            "the module's StateValues differ from the spec's states",
+        ));
+    }
+    let mut artifact_transitions: Vec<&str> = vec![];
+    for line in text.lines() {
+        let comment = line.trim_start().strip_prefix("\\*").map(str::trim_start);
+        if let Some(c) = comment
+            && c.contains(" -> ")
+            && c.contains("(guard:")
+            && let Some(id) = c.split(':').next()
+        {
+            artifact_transitions.push(id.trim());
+        }
+    }
+    let mut ir_transitions: Vec<&str> = ir.transitions.iter().map(|t| t.id.as_str()).collect();
+    artifact_transitions.sort_unstable();
+    ir_transitions.sort_unstable();
+    if artifact_transitions != ir_transitions {
+        return Err(stale(
+            "the module's Next disjuncts differ from the spec's transitions",
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -301,7 +411,29 @@ mod tests {
     }
 
     fn artifact() -> Vec<u8> {
-        b"fake tla module".to_vec()
+        // A compile-emitted-format module for chain_ir() — the consistency
+        // check parses this shape (StateValues + disjunct comments).
+        artifact_for(&["a", "b", "c"], &[("t1", "a", "b"), ("t2", "b", "c")])
+    }
+
+    /// A minimal `.tla` module in exactly the shape `add-tla-emitter`
+    /// commits: one StateValues line, one comment+disjunct per transition.
+    fn artifact_for(states: &[&str], transitions: &[(&str, &str, &str)]) -> Vec<u8> {
+        let mut out = String::new();
+        out.push_str(&format!(
+            "StateValues == {{{}}}\n\nNext ==\n",
+            states
+                .iter()
+                .map(|s| format!("\"{s}\""))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+        for (id, from, to) in transitions {
+            out.push_str(&format!(
+                "  \\* {id}: {from} -> {to} (guard: some-guard)\n  \\/ vpc = \"{from}\" /\\ vpc' = \"{to}\"\n"
+            ));
+        }
+        out.into_bytes()
     }
 
     #[test]
@@ -361,7 +493,8 @@ mod tests {
         // Only states reachable from `a` are explored — `c` is outside.
         let mut ir = chain_ir();
         ir.transitions.truncate(1); // keep only a → b
-        let report = run(&ir, &artifact(), &Bound::default()).unwrap();
+        let artifact = artifact_for(&["a", "b", "c"], &[("t1", "a", "b")]);
+        let report = run(&ir, &artifact, &Bound::default()).unwrap();
         assert_eq!(report.states_explored, 2);
     }
 
@@ -439,6 +572,91 @@ mod tests {
         let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap();
         assert!(!is_stale(&report, &artifact_sha256(&artifact())));
         assert!(is_stale(&report, &artifact_sha256(b"edited module")));
+    }
+
+    #[test]
+    fn edited_model_without_recompile_is_a_stale_artifact_error() {
+        // CORR-001: the run interprets the live spec's IR, so an on-disk
+        // module compiled from an older Model section must be rejected —
+        // never a run against a mixed (IR, artifact) pair.
+        let drifted = artifact_for(
+            &["a", "b", "c", "d"], // spec gained a state the module lacks
+            &[("t1", "a", "b"), ("t2", "b", "c")],
+        );
+        let e = run(&chain_ir(), &drifted, &Bound::default()).unwrap_err();
+        assert_eq!(e.stage, "stale_artifact");
+        assert!(e.message.contains("specodelic compile"));
+    }
+
+    #[test]
+    fn edited_transitions_without_recompile_are_rejected_too() {
+        let drifted = artifact_for(&["a", "b", "c"], &[("t1", "a", "b")]); // t2 missing
+        let e = run(&chain_ir(), &drifted, &Bound::default()).unwrap_err();
+        assert_eq!(e.stage, "stale_artifact");
+    }
+
+    #[test]
+    fn non_emitted_module_is_rejected_not_silently_run() {
+        let e = run(&chain_ir(), b"not a module", &Bound::default()).unwrap_err();
+        assert_eq!(e.stage, "artifact_unreadable");
+    }
+
+    #[test]
+    fn depth_cap_equal_to_the_diameter_still_reports_clean() {
+        // CORR-002: cap == diameter is ambiguous ("stopped at cap" vs "the
+        // space ends at cap"); the confirmation re-run at cap+1 proves the
+        // space is exhausted, so the stated bound WAS reached.
+        let bound = Bound {
+            max_depth: 3,
+            ..Default::default()
+        };
+        let report = run(&chain_ir(), &artifact(), &bound).unwrap();
+        assert_eq!(report.outcome, Outcome::NoCounterexample);
+        assert_eq!(report.states_explored, 3);
+    }
+
+    #[test]
+    fn genuinely_truncated_depth_budget_still_yields_timed_out() {
+        // cap 1: the confirmation re-run at 2 also hits its cap — truncated.
+        let bound = Bound {
+            max_depth: 1,
+            ..Default::default()
+        };
+        let report = run(&chain_ir(), &artifact(), &bound).unwrap();
+        assert_eq!(report.outcome, Outcome::TimedOut);
+    }
+
+    #[test]
+    fn depth_cap_confirmation_never_runs_alongside_other_caps() {
+        // A state cap alongside the depth cap stays conservative: the
+        // confirmation could itself be truncated by the other budget.
+        let bound = Bound {
+            max_depth: 3,
+            max_states: Some(1),
+            ..Default::default()
+        };
+        let report = run(&chain_ir(), &artifact(), &bound).unwrap();
+        assert_eq!(report.outcome, Outcome::TimedOut);
+    }
+
+    #[test]
+    fn cyclic_automaton_terminates_and_explores_each_state_once() {
+        // EDGE-001: a self-loop must not hang the exploration.
+        let ir: ModelIr = serde_json::from_str(
+            r#"{
+                "states": [{"id": "a"}, {"id": "b"}],
+                "transitions": [
+                    {"id": "loop", "from": "a", "to": "a", "guard": null},
+                    {"id": "t", "from": "a", "to": "b", "guard": null}
+                ],
+                "emits": {}
+            }"#,
+        )
+        .unwrap();
+        let artifact = artifact_for(&["a", "b"], &[("loop", "a", "a"), ("t", "a", "b")]);
+        let report = run(&ir, &artifact, &Bound::default()).unwrap();
+        assert_eq!(report.outcome, Outcome::NoCounterexample);
+        assert_eq!(report.states_explored, 2);
     }
 
     #[test]
