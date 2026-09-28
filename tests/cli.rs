@@ -78,7 +78,8 @@ fn bad_ears_finding_carries_rule_id_and_semantics() {
         .find(|i| i["rule_id"] == "linter.ears_syntax")
         .expect("bad-EARS fixture must yield a linter.ears_syntax finding");
     assert!(!ears["rule_semantics"].as_str().unwrap().is_empty());
-    assert_eq!(ears["rule"], "ears_syntax");
+    // the bare `rule` field was dropped in the review pass — rule_id is
+    // the single naming (rule ids are stable, linter.<name>)
 }
 
 #[test]
@@ -115,11 +116,14 @@ fn explain_lint_rules_renders_the_rule_catalog() {
     let json: serde_json::Value =
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     let body = json["data"]["body"].as_str().unwrap();
-    assert!(body.contains("linter.ears_syntax"));
-    assert!(body.contains("linter.guard_required"));
-    assert!(body.contains("linter.coverage"));
     assert!(!body.contains("{{"));
     assert!(!body.contains("shipped with the self-describing lint findings change"));
+    // the rendered catalog enumerates every rule id the linter can emit
+    // (review EDGE-001b) — loop over the lib's RULE_TABLE directly
+    for (name, _) in specodelic::lint::RULE_TABLE {
+        let id = format!("linter.{name}");
+        assert!(body.contains(&id), "catalog missing rule id {id}");
+    }
 }
 
 #[test]
@@ -460,4 +464,36 @@ fn doctor_current_consumer_emits_no_currency_warning() {
             .unwrap()
             .contains("newer than")
     );
+}
+
+#[test]
+fn doctor_skips_currency_check_with_note_on_unreadable_corpus() {
+    // review EDGE-001: an unreadable corpus must be skipped with an
+    // informational warning, never silently treated as current
+    let dir = tempfile::tempdir().unwrap();
+    let specs = dir.path().join("specs");
+    std::fs::create_dir(&specs).unwrap();
+    std::fs::write(specs.join("specodelic.md"), b"\xff\xfe\x00binary").unwrap();
+    let out = spk()
+        .args(["doctor", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "warn, never fail");
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    let warnings: Vec<String> = json["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|w| w["message"].as_str().unwrap().to_string())
+        .collect();
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.contains("could not read") && w.contains("currency check skipped")),
+        "expected an informational read-error note: {warnings:?}"
+    );
+    // and it must not claim currency: no lag warning, no fake-ok
+    assert!(!warnings.iter().any(|w| w.contains("newer than")));
 }

@@ -728,10 +728,11 @@ fn cmd_doctor(
     // exists, compare its latest `Revision N` heading (numerically)
     // against the binary's embedded FORMAT_REVISION — a vendored consumer
     // corpus can lag or lead. Warn — never fail.
-    let mut out = out;
-    if core.is_file() {
-        out = currency_check(core, out);
-    }
+    let mut out = if core.is_file() {
+        currency_check(core, out)
+    } else {
+        out
+    };
     if mode == "consumer" {
         if !std::path::Path::new("specs").is_dir() {
             out = out.with_next_step("start a corpus with: spk new <intent.id>");
@@ -756,7 +757,15 @@ fn currency_check(
 ) -> Output<serde_json::Value> {
     let text = match std::fs::read_to_string(core) {
         Ok(text) => text,
-        Err(_) => return out, // no corpus — nothing to compare against
+        // unreadable corpus (review EDGE-001): skip the check, but say so
+        // — a silent skip would make the doctor look current when it
+        // simply couldn't see the corpus
+        Err(e) => {
+            return out.with_warning(format!(
+                "could not read {}: knowledge-currency check skipped ({e})",
+                core.display()
+            ));
+        }
     };
     match guide::latest_revision(&text) {
         None => out.with_warning(

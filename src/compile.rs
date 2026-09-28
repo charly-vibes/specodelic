@@ -513,7 +513,7 @@ pub fn precondition_satisfied(spec: &Spec, report: &Report) -> Result<(), Compil
     if issues.is_empty() {
         return Ok(());
     }
-    let names: Vec<&str> = issues.iter().map(|i| i.rule.as_str()).collect();
+    let names: Vec<&str> = issues.iter().map(|i| i.rule_id.as_str()).collect();
     Err(CompileError {
         stage: "precondition_satisfied".into(),
         message: format!(

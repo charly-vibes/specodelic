@@ -22,9 +22,8 @@ use crate::spec::Spec;
 /// string from [`RULE_TABLE`], in both JSON and human output.
 #[derive(Debug, Clone, Serialize)]
 pub struct Issue {
-    /// Which invariant fired, e.g. `guard_required` (bare name).
-    pub rule: String,
-    /// Stable rule identifier: `linter.<name>`.
+    /// Stable rule identifier: `linter.<name>` (review CORR: the bare
+    /// `rule` field was dropped — `rule_id` is the single naming).
     pub rule_id: String,
     /// One-line semantics: what the rule requires (from [`RULE_TABLE`]).
     pub rule_semantics: String,
@@ -42,7 +41,6 @@ impl Issue {
         let semantics = rule_semantics(rule)
             .unwrap_or_else(|| panic!("rule `{rule}` is not in lint::RULE_TABLE"));
         Issue {
-            rule: rule.into(),
             rule_id: rule_id(rule),
             rule_semantics: semantics.to_string(),
             file: file.into(),
@@ -477,7 +475,11 @@ mod tests {
     #[test]
     fn catalog_covers_every_rule_the_linter_can_emit() {
         let report = lint_corpus(&fixture_corpus());
-        let emitted: BTreeSet<&str> = report.issues.iter().map(|i| i.rule.as_str()).collect();
+        let emitted: BTreeSet<&str> = report
+            .issues
+            .iter()
+            .map(|i| i.rule_id.strip_prefix("linter.").expect("rule_id prefix"))
+            .collect();
         let catalog: BTreeSet<&str> = RULE_TABLE.iter().map(|(name, _)| *name).collect();
         assert_eq!(
             emitted, catalog,
@@ -494,7 +496,7 @@ mod tests {
         for issue in &report.issues {
             assert_eq!(
                 issue.rule_id,
-                format!("linter.{}", issue.rule),
+                rule_id(issue.rule_id.strip_prefix("linter.").unwrap()),
                 "rule_id must be the stable linter.<name> identifier"
             );
             assert!(
@@ -504,7 +506,7 @@ mod tests {
             );
             assert_eq!(
                 issue.rule_semantics,
-                rule_semantics(&issue.rule).unwrap(),
+                rule_semantics(issue.rule_id.strip_prefix("linter.").unwrap()).unwrap(),
                 "rule_semantics must come from the rule table"
             );
         }
