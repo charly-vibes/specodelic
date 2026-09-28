@@ -1,7 +1,7 @@
-# specodelic justfile — local/CI workflow for the ddl CLI
+# specodelic justfile — local/CI workflow for the specodelic CLI
 #
 # Run `just` for default (build + test), `just ci` for the full gate.
-# The specs/ directory is the dogfood corpus: `just lint` runs ddl on the
+# The specs/ directory is the dogfood corpus: `just lint` runs specodelic on the
 # format's own spec files.
 
 set shell := ["bash", "-uc"]
@@ -41,7 +41,7 @@ lint:
 
 # === Spec Commands ===
 
-# Lint the corpus with the freshly built ddl (coverage gaps tracked in beads)
+# Lint the corpus with the freshly built specodelic (coverage gaps tracked in beads)
 lint-specs:
     cargo run -q -- lint specs
 

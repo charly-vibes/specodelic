@@ -7,7 +7,7 @@
 //!
 //! This parser is deliberately dumb: frontmatter and fixed-schema markdown
 //! tables only, `[[wiki-link]]` references from structured cells. It is the
-//! substrate every `ddl` command builds on.
+//! substrate every specodelic command builds on.
 
 use serde::Serialize;
 use std::collections::BTreeMap;

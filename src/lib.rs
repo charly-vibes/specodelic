@@ -1,4 +1,4 @@
-//! specodelic — the Specodelic format library shared by the `ddl` CLI.
+//! specodelic — the Specodelic format library shared by the `specodelic` CLI (binary `specodelic`, alias `spk`).
 //!
 //! Purpose: model the four-layer markdown spec format (Intent /
 //! Constraints / Model / Properties) so the CLI commands and tests all

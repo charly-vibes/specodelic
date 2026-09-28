@@ -1,4 +1,4 @@
-//! `ddl` — the Specodelic CLI.
+//! `specodelic` (alias `spk`) — the Specodelic CLI.
 //!
 //! Purpose: lint, compile, verify, graph, and refactor Specodelic spec
 //! files (the four-layer markdown format in `specs/specodelic.md`).
@@ -21,7 +21,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Parser)]
 #[command(
-    name = "ddl",
+    name = "specodelic",
     version = VERSION,
     about = "Specodelic — lint, compile, verify, and refactor the four-layer markdown spec format",
     after_help = genesis::guide::Verbosity::help_footer()
@@ -107,7 +107,7 @@ enum Commands {
 
 fn main() {
     // Handle `--version --json` before normal parsing (genesis convention).
-    if maybe_print_version_json("ddl", VERSION) {
+    if maybe_print_version_json("specodelic", VERSION) {
         return;
     }
     let cli = Cli::parse();
@@ -148,7 +148,7 @@ fn run(
         Commands::Orchestrate { .. } => {
             let out: Output<serde_json::Value> =
                 Output::failure("not yet implemented — specced in specs/orchestrate.md (lint → compile → model_check → verify)")
-                    .with_next_step("run the stages individually: ddl lint specs && ddl graph specs");
+                    .with_next_step("run the stages individually: specodelic lint specs && specodelic graph specs");
             out.emit(VERSION, format, verbosity, stdout, stderr).ok();
             1
         }
@@ -267,7 +267,7 @@ fn cmd_lint(
     if failures > 0 {
         out = out.with_next_step("fix the reported invariants, or cite the governing constraint in Notes if it's a false positive");
     } else {
-        out = out.with_next_step("run: ddl graph");
+        out = out.with_next_step("run: specodelic graph");
     }
     emit(&out, cli, format, verbosity, stdout, stderr);
     if failures > 0 { 1 } else { 0 }
@@ -289,7 +289,7 @@ fn cmd_graph(
         out = out.with_warning(n.clone());
     }
     if report.dangling.is_empty() {
-        out = out.with_next_step("every reference resolves — run: ddl lint");
+        out = out.with_next_step("every reference resolves — run: specodelic lint");
     } else {
         out = out.with_next_step(
             "resolve the dangling references (see specs/linter-referential_integrity.md)",
@@ -331,7 +331,7 @@ fn cmd_new(
         Ok(()) => {
             let out =
                 Output::success(format!("created {}", path.display())).with_next_step(format!(
-                    "fill in the four layers, then run: ddl lint {0}",
+                    "fill in the four layers, then run: specodelic lint {0}",
                     path.display()
                 ));
             emit(&out, cli, format, verbosity, stdout, stderr);
@@ -380,7 +380,7 @@ fn cmd_doctor(
         },
     ));
     let payload = serde_json::json!({ "checks": checks });
-    let out = Output::success(payload).with_next_step("run: ddl lint");
+    let out = Output::success(payload).with_next_step("run: specodelic lint");
     emit(&out, cli, format, verbosity, stdout, stderr);
     0
 }

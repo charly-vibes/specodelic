@@ -10,7 +10,12 @@ keywords = ["specification", "linter", "verification", "cli", "tla-plus"]
 categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
-name = "ddl"
+name = "specodelic"
+path = "src/main.rs"
+
+# Suite alias convention (see dont: `dt`): short form for interactive use.
+[[bin]]
+name = "spk"
 path = "src/main.rs"
 
 [lib]

@@ -1,10 +1,29 @@
+<!-- OPENSPEC:START -->
+# OpenSpec Instructions
+
+These instructions are for AI assistants working in this project.
+
+Always open `@/openspec/AGENTS.md` when the request:
+- Mentions planning or proposals (words like proposal, spec, change, plan)
+- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
+- Sounds ambiguous and you need the authoritative spec before coding
+
+Use `@/openspec/AGENTS.md` to learn:
+- How to create and apply change proposals
+- Spec format and conventions
+- Project structure and guidelines
+
+Keep this managed block so 'openspec update' can refresh the instructions.
+
+<!-- OPENSPEC:END -->
+
 # AGENTS.md
 
 Standing instructions for any agent working in this repo.
 
 ## What this repo is
 
-**specodelic** — a Rust CLI (`ddl`) for the Specodelic specification
+**specodelic** — a Rust CLI (`specodelic` (alias `spk`)) for the Specodelic specification
 format (formerly `spec-format`). The format corpus lives in `specs/`:
 every file there is a markdown spec written in the format it describes.
 `specs/specodelic.md` is the core; `specs/STATUS.md` §1 is the primer.
@@ -22,7 +41,7 @@ every file there is a markdown spec written in the format it describes.
   `genesis-vibes` crate — envelope output (`Output`/`Envelope`), CLI
   helpers (completions, `--version --json`), verbosity/format flags.
   Domain logic stays here; only cross-cutting pieces go upstream.
-- **Binary name is `ddl`**, crate name is `specodelic`.
+- **Binary name is `specodelic` (alias `spk`)**, crate name is `specodelic`.
 - **Output discipline**: every command emits through
   `genesis::guide::Output::emit` — JSON envelope by default for pipes,
   human-readable for TTYs. Errors must carry a remediation hint.

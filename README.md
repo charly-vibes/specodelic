@@ -1,7 +1,7 @@
 # Specodelic
 
 > A markdown specification format — one file gives you Intent,
-> Constraints, a state Model, and Properties — and `ddl`, the CLI that
+> Constraints, a state Model, and Properties — and `specodelic` (alias `spk`), the CLI that
 > lints, compiles, verifies, and refactors it.
 
 Specodelic (formerly `spec-format`) is a self-hosting specification
@@ -24,13 +24,13 @@ Every spec file is the same four sections:
 Humans read markdown; machines parse frontmatter and fixed-schema tables
 only — prose is never inspected.
 
-## The `ddl` CLI
+## The `specodelic` (alias `spk`) CLI
 
 ```console
-$ ddl lint specs      # check the invariants (linter-*.md)
-$ ddl graph specs     # derive the typed reference graph
-$ ddl new order.cancel --file order-cancel.md   # scaffold a spec
-$ ddl doctor          # diagnose the workspace
+$ specodelic lint specs      # check the invariants (linter-*.md)
+$ specodelic graph specs     # derive the typed reference graph
+$ specodelic new order.cancel --file order-cancel.md   # scaffold a spec
+$ specodelic doctor          # diagnose the workspace
 ```
 
 Pipeline commands (`compile`, `model-check`, `verify`, `rename`,
@@ -65,5 +65,5 @@ CLI/envelope/self-healing infrastructure.
 - ⏳ `compile`, `model-check`, `verify`, `rename`, `refactor`, `merge`,
   `orchestrate` — specced, not implemented
 
-Known corpus gaps (found by dogfooding `ddl lint specs`) are tracked in
+Known corpus gaps (found by dogfooding `specodelic lint specs`) are tracked in
 beads: `bd list`.

@@ -1,10 +1,10 @@
-//! Integration tests — run the `ddl` binary against the repo's own corpus.
+//! Integration tests — run the `specodelic` binary against the repo's own corpus.
 
 use assert_cmd::Command;
 use predicates::str::contains;
 
-fn ddl() -> Command {
-    Command::cargo_bin("ddl").unwrap()
+fn spk() -> Command {
+    Command::cargo_bin("specodelic").unwrap()
 }
 
 #[test]
@@ -12,7 +12,7 @@ fn lint_corpus_reports_coverage_gaps_but_parses_clean() {
     // The corpus is the first dogfood target: every spec file must parse
     // and every reference must resolve (0 total_refs / parse failures);
     // known coverage gaps are tracked in beads (specodelic-*).
-    let out = ddl().args(["lint", "specs", "--json"]).output().unwrap();
+    let out = spk().args(["lint", "specs", "--json"]).output().unwrap();
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let data = &json["data"];
     assert_eq!(data["files_linted"], 18);
@@ -28,7 +28,7 @@ fn lint_corpus_reports_coverage_gaps_but_parses_clean() {
 
 #[test]
 fn graph_corpus_is_fully_resolved() {
-    let out = ddl().args(["graph", "specs", "--json"]).output().unwrap();
+    let out = spk().args(["graph", "specs", "--json"]).output().unwrap();
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let data = &json["data"];
@@ -45,7 +45,7 @@ fn lint_synthetically_bad_file_fails_with_rule_name() {
         "---\nid: bad_spec\nkind: intent\nstatement: \"the system should maybe work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[bad_spec]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s2 | |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[bad_spec.a]] | `g()` | `x` |\n",
     )
     .unwrap();
-    let out = ddl()
+    let out = spk()
         .args(["lint", dir.path().to_str().unwrap(), "--json"])
         .output()
         .unwrap();
@@ -59,7 +59,7 @@ fn lint_synthetically_bad_file_fails_with_rule_name() {
 #[test]
 fn new_scaffolds_a_spec_file() {
     let dir = tempfile::tempdir().unwrap();
-    let out = ddl()
+    let out = spk()
         .args(["new", "demo.thing", "--file", "demo-thing.md"])
         .current_dir(dir.path())
         .output()
@@ -69,7 +69,7 @@ fn new_scaffolds_a_spec_file() {
     assert!(content.contains("id: demo.thing"));
     // the scaffold is lintable shape-wise: model sections present with a
     // placeholder transition, Ubiquitous EARS statement
-    let lint = ddl()
+    let lint = spk()
         .args(["lint", dir.path().to_str().unwrap(), "--json"])
         .output()
         .unwrap();
@@ -81,7 +81,7 @@ fn new_scaffolds_a_spec_file() {
 
 #[test]
 fn doctor_checks_workspace() {
-    ddl()
+    spk()
         .args(["doctor", "--json"])
         .assert()
         .success()
@@ -90,10 +90,10 @@ fn doctor_checks_workspace() {
 
 #[test]
 fn unimplemented_pipeline_commands_exit_nonzero() {
-    ddl()
+    spk()
         .args(["compile", "specs/specodelic.md"])
         .assert()
         .failure();
-    ddl().args(["verify"]).assert().failure();
-    ddl().args(["orchestrate"]).assert().failure();
+    spk().args(["verify"]).assert().failure();
+    spk().args(["orchestrate"]).assert().failure();
 }
