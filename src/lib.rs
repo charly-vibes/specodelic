@@ -16,4 +16,5 @@ pub mod ears;
 pub mod graph;
 pub mod guide;
 pub mod lint;
+pub mod model_check;
 pub mod spec;

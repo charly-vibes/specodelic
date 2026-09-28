@@ -16,7 +16,7 @@ use genesis::envelope::{Envelope, EnvelopeKind};
 use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
-use specodelic::{blocks, compile, graph, guide, lint, spec};
+use specodelic::{blocks, compile, graph, guide, lint, model_check, spec};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -50,8 +50,7 @@ enum Commands {
         /// Files or directories (defaults to ./specs)
         paths: Vec<String>,
     },
-    /// Translate a linted spec file into TOML / proptest artifacts (the
-    /// model module lands once the model-check backend is decided)
+    /// Translate a linted spec file into TOML / proptest / TLA+ artifacts
     Compile {
         /// Spec files to compile
         paths: Vec<String>,
@@ -64,6 +63,19 @@ enum Commands {
     ModelCheck {
         /// Spec files whose compiled module to check
         paths: Vec<String>,
+        /// Directory holding the compiled artifacts (must match compile's
+        /// out-dir — model_check never re-compiles)
+        #[arg(long, default_value = "specodelic")]
+        out_dir: String,
+        /// Stated depth bound (exhaustive_within_bound — part of the report)
+        #[arg(long, default_value_t = 100)]
+        max_depth: u32,
+        /// Optional state-count budget
+        #[arg(long)]
+        max_states: Option<u64>,
+        /// Optional wall-clock budget in seconds
+        #[arg(long)]
+        timeout_secs: Option<u64>,
     },
     /// Run compiled proptest blocks and gate on the model_check outcome
     Verify {
@@ -342,11 +354,32 @@ fn run(
         Commands::Compile { paths, out_dir } => {
             cmd_compile(paths, out_dir, cli, format, verbosity, stdout, stderr)
         }
-        Commands::ModelCheck { .. } | Commands::Verify { .. } => {
-            let out: Output<serde_json::Value> = Output::failure(
-                "not yet implemented — specced in specs/model_check.md and specs/verify.md",
-            )
-            .with_next_step("track progress: bd ready");
+        Commands::ModelCheck {
+            paths,
+            out_dir,
+            max_depth,
+            max_states,
+            timeout_secs,
+        } => cmd_model_check(
+            paths,
+            CheckTarget {
+                out_dir: out_dir.clone(),
+                bound: model_check::Bound {
+                    max_depth: *max_depth,
+                    max_states: *max_states,
+                    timeout_secs: *timeout_secs,
+                },
+            },
+            cli,
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        ),
+        Commands::Verify { .. } => {
+            let out: Output<serde_json::Value> =
+                Output::failure("not yet implemented — specced in specs/verify.md")
+                    .with_next_step("track progress: bd ready");
             out.emit(VERSION, format, verbosity, stdout, stderr).ok();
             1
         }
@@ -674,6 +707,133 @@ fn artifact_stem(spec: &Spec) -> String {
         .and_then(|p| p.file_stem().and_then(|s| s.to_str()))
         .map(str::to_string)
         .unwrap_or_else(|| spec.intent.id.replace('.', "-"))
+}
+
+/// The model-check invocation parameters beyond the spec paths — the
+/// artifact directory plus the stated bound, grouped to keep the shared
+/// emit plumbing (cli/format/verbosity/streams) within the arg lint.
+struct CheckTarget {
+    out_dir: String,
+    bound: model_check::Bound,
+}
+
+/// Run `spk model-check` — the model_check step (specs/model_check.md).
+/// Never re-compiles: consumes the compiled `<stem>.tla` artifact from
+/// `out_dir`, runs the native stateright backend within the stated
+/// bound, and persists a `<stem>.check.json` run report carrying the
+/// artifact's SHA-256 so `verify` can detect stale clean results.
+fn cmd_model_check(
+    paths: &[String],
+    target: CheckTarget,
+    cli: &Cli,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let out_dir = target.out_dir.as_str();
+    let (specs, notes) = parse_batch(paths, verbosity);
+    if specs.is_empty() {
+        let out: Output<serde_json::Value> = Output::failure("no spec files to model-check")
+            .with_next_step(
+                "pass spec files or a directory; each must have compiled artifacts (run: specodelic compile <files>)",
+            );
+        emit(&out, cli, format, verbosity, stdout, stderr);
+        return 1;
+    }
+
+    let mut checked: Vec<serde_json::Value> = vec![];
+    let mut failed: Vec<serde_json::Value> = vec![];
+    let warnings: Vec<String> = notes;
+    for spec in &specs {
+        let file = spec
+            .path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| format!("<{}>", spec.intent.id));
+        let stem = artifact_stem(spec);
+        let tla_path = std::path::Path::new(out_dir).join(format!("{stem}.tla"));
+        // The compiled module is the run's input — a missing artifact is
+        // a labeled error with a remediation hint, never a run.
+        let tla_artifact = match std::fs::read(&tla_path) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                failed.push(serde_json::json!({
+                    "file": file,
+                    "id": spec.intent.id,
+                    "stage": "missing_artifact",
+                    "message": format!(
+                        "no compiled module at {}: {e} — model-check consumes compile's output, it never re-compiles (run: specodelic compile <files>)",
+                        tla_path.display()
+                    ),
+                }));
+                continue;
+            }
+        };
+        let ir = compile::extract_model_ir(spec);
+        match model_check::run(&ir, &tla_artifact, &target.bound) {
+            Ok(report) => {
+                let report_path = std::path::Path::new(out_dir).join(format!("{stem}.check.json"));
+                let report_json =
+                    serde_json::to_string_pretty(&report).expect("RunReport serializes");
+                if let Err(e) = std::fs::write(&report_path, &report_json) {
+                    failed.push(serde_json::json!({
+                        "file": file,
+                        "id": spec.intent.id,
+                        "stage": "write_report",
+                        "message": format!(
+                            "could not write {}: {e}",
+                            report_path.display()
+                        ),
+                    }));
+                    continue;
+                }
+                checked.push(serde_json::json!({
+                    "file": file,
+                    "id": spec.intent.id,
+                    "outcome": report.outcome,
+                    "backend": report.backend,
+                    "bound": report.bound,
+                    "invariants_checked": report.invariants_checked,
+                    "states_explored": report.states_explored,
+                    "artifact_sha256": report.artifact_sha256,
+                    "written": report_path.display().to_string(),
+                }));
+            }
+            Err(e) => {
+                failed.push(serde_json::json!({
+                    "file": file,
+                    "id": spec.intent.id,
+                    "stage": e.stage,
+                    "message": e.message,
+                }));
+            }
+        }
+    }
+
+    let mut payload = serde_json::json!({
+        "files_checked": checked.len(),
+        "files_failed": failed.len(),
+        "checked": checked,
+        "failed": failed,
+    });
+    // Meter contract: `.data.outcome` for the single-file case.
+    if checked.len() == 1 {
+        payload["outcome"] = checked[0]["outcome"].clone();
+    }
+    let mut out = Output::success(payload);
+    for w in &warnings {
+        out = out.with_warning(w.clone());
+    }
+    if failed.is_empty() {
+        out = out.with_next_step("run: specodelic verify (consumes the *.check.json reports)");
+    } else {
+        out = out.with_next_step(
+            "fix the labeled failures (missing artifacts: run specodelic compile first)",
+        );
+    }
+    emit(&out, cli, format, verbosity, stdout, stderr);
+    if failed.is_empty() { 0 } else { 1 }
 }
 
 /// Write `<stem>.toml`, `<stem>_props.rs`, and `<stem>.tla` into `out_dir`. Byte-stable

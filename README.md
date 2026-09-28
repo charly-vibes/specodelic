@@ -70,8 +70,14 @@ CLI/envelope/self-healing infrastructure.
 - ✅ `new`, `doctor`, `completions`
 - ✅ `explain` — embedded AIX guide (format/ears/kinds/references/
   lifecycle/lint-rules topics) plus `format_revision` in `--version --json`
-- ⏳ `compile`, `model-check`, `verify`, `rename`, `refactor`, `merge`,
-  `orchestrate` — specced, not implemented
+- ✅ `compile` — Constraints → TOML, Model → TLA+ module, Properties →
+  proptest! scaffolding (backend-neutral ModelIR), byte-stable artifacts
+- ✅ `model-check` — native stateright backend over the compiled model,
+  exhaustive-within-bound runs, persisted `.check.json` reports with
+  artifact provenance (no executable predicate language yet — reports
+  `invariants_checked: []` honestly)
+- ⏳ `verify`, `rename`, `refactor`, `merge`, `orchestrate` — specced, not
+  implemented
 
 Known corpus gaps (found by dogfooding `specodelic lint specs`) are tracked in
 beads: `bd list`.

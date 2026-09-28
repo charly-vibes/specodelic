@@ -6,6 +6,33 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #36 — `spk model-check`: the model_check step with the native stateright backend
+
+`spk model-check <files>` runs `specs/model_check.md`'s run state machine
+against compile's output — it never re-compiles: a missing
+`<stem>.tla` artifact is a labeled `missing_artifact` error with a
+`spk compile` hint, never a silent run. The native default backend
+(stateright, embedded — no external binary) interprets the compiled
+`ModelIR` as a program-counter model: initial state = first listed,
+transitions as always-enabled actions, exactly the semantics the
+committed `.tla` emission commits to. The run explores exhaustively
+within the stated bound (`--max-depth` default 100, `--max-states`,
+`--timeout-secs`) and reports `no_counterexample` or `timed_out` — a
+reached cap means exhaustiveness cannot be proven, so it is reported
+`timed_out`, never collapsed into clean.
+
+Honesty note (openspec `add-model-check` Decision 3, Option A — approved):
+the corpus language has no executable predicate semantics, so the native
+backend checks no user invariants and reports `invariants_checked: []`
+rather than implying a semantic check that never ran; the counterexample
+leg of model_check's contract awaits a predicate-fragment decision
+(beads specodelic-mp1). Run reports persist as `<stem>.check.json`
+next to the compile artifacts, carrying the consumed module's SHA-256 —
+`verify` (specodelic-1pv) reads that hash to reject stale clean results
+(`rerun_on_model_change`). TLC stays opt-in and moves to
+specodelic-ug3. Dogfood: all 18 corpus files check clean
+(`no_counterexample`) within the default bound (beads specodelic-nx7).
+
 ## #35 — `spk init` (SPECODELIC managed block in AGENTS.md) and `spk feedback`
 
 `spk init` writes or refreshes a `<!-- SPECODELIC:START/END -->` managed

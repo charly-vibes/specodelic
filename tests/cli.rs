@@ -15,6 +15,33 @@ fn write_bad_ears_spec(path: &std::path::Path, id: &str) {
     .unwrap();
 }
 
+/// A lint-clean spec with a two-state model — the model-check fixture.
+fn write_model_check_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL be a model-check fixture\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | c1 | invariant | `holds` | [[{id}]] |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1\n\
+             - s2\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s2 | [[{id}.c1]] |\n\
+             \n## Properties\n\
+             \n| id | kind | derives_from | generator | predicate |\n\
+             |----|------|--------------|-----------|------------|\n\
+             | p | unit | [[{id}.c1]] | `g()` | `x` |\n"
+        ),
+    )
+    .unwrap();
+}
+
 // ---- specodelic-6pi: recursive spec collection, no silent empty success ----
 
 #[test]
@@ -250,11 +277,128 @@ fn doctor_checks_workspace() {
 
 #[test]
 fn unimplemented_pipeline_commands_exit_nonzero() {
-    // `compile` is implemented (specodelic-lnq); model_check and verify
-    // keep their stubs until their tickets land.
-    spk().args(["model-check"]).assert().failure();
+    // `compile` and `model-check` are implemented (specodelic-lnq,
+    // specodelic-nx7); verify and orchestrate keep their stubs until
+    // their tickets land.
     spk().args(["verify"]).assert().failure();
     spk().args(["orchestrate"]).assert().failure();
+}
+
+// ---- specodelic-nx7: the model_check step (add-model-check) ----
+
+#[test]
+fn model_check_reports_no_counterexample_after_compile() {
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("mc_demo.md");
+    write_model_check_spec(&spec, "mc_demo");
+    let out_dir = dir.path().join("specodelic");
+    spk()
+        .args([
+            "compile",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out_dir.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    let out = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out_dir.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let data = &json["data"];
+    // Meter contract: .data.outcome for the single-file case.
+    assert_eq!(data["outcome"], "no_counterexample");
+    assert_eq!(data["files_checked"], 1);
+    let checked = &data["checked"][0];
+    assert_eq!(checked["backend"]["engine"], "stateright");
+    assert!(
+        checked["backend"]["version"]
+            .as_str()
+            .unwrap()
+            .starts_with("0.")
+    );
+    assert_eq!(checked["bound"]["max_depth"], 100);
+    assert_eq!(checked["invariants_checked"].as_array().unwrap().len(), 0);
+    // states: s1 (init) -> s2
+    assert_eq!(checked["states_explored"], 2);
+    // The run report persists with artifact provenance.
+    let report_path = out_dir.join("mc_demo.check.json");
+    let report: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&report_path).unwrap()).unwrap();
+    assert_eq!(report["outcome"], "no_counterexample");
+    assert_eq!(report["artifact_sha256"].as_str().unwrap().len(), 64);
+}
+
+#[test]
+fn model_check_without_compiled_artifact_is_a_labeled_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("mc_demo.md");
+    write_model_check_spec(&spec, "mc_demo");
+    let out = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            dir.path().join("nowhere").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let failed = &json["data"]["failed"][0];
+    assert_eq!(failed["stage"], "missing_artifact");
+    // remediation hint, never a silent no_counterexample
+    assert!(
+        failed["message"]
+            .as_str()
+            .unwrap()
+            .contains("specodelic compile")
+    );
+}
+
+#[test]
+fn model_check_timed_out_when_bound_cannot_be_exhausted() {
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("mc_demo.md");
+    write_model_check_spec(&spec, "mc_demo");
+    let out_dir = dir.path().join("specodelic");
+    spk()
+        .args([
+            "compile",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out_dir.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    // The model's diameter (1) reaches the stated depth cap, so
+    // exhaustiveness within the bound cannot be proven.
+    let out = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out_dir.to_str().unwrap(),
+            "--max-depth",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["data"]["outcome"], "timed_out");
 }
 
 #[test]
