@@ -6,6 +6,31 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #31 — `model_check` made backend-pluggable: stateright default, TLC opt-in; Alloy dropped from the corpus
+
+Neither TLC nor Alloy has native Rust bindings — both are JVM
+subprocesses — but `stateright` is an embedded Rust model-checking crate
+whose API already satisfies `model_check.md`'s whole contract:
+breadth-first exploration gives `counterexample_is_minimal` by
+construction, `target_max_depth`/`timeout` give
+`exhaustive_within_bound`'s stated bound and `timed_out`, and named
+properties give `counterexample_names_violated_invariant`.
+`model_check.md` now specifies a backend contract instead of naming
+engines in its invariants: stateright is the default (no JDK, unit-
+testable inside `cargo test`), TLC stays as the opt-in reference engine
+run against the `.tla` module, and a new `backend_identified` invariant
+requires every run report to name its engine and version (with its
+deriving property, keeping the corpus at zero coverage gaps).
+`compile.md` keeps emitting the `.tla` module unconditionally — it is
+the engine-portable, human-reviewable artifact, independent of backend
+choice. Alloy is gone corpus-wide (`specodelic.md` Revision 8,
+`compile.md`, `STATUS.md`, `USAGE.md`, `linter-model_shape.md`):
+a SAT-based engine returns *an* instance, not a minimal trace, which
+fights `counterexample_is_minimal`. `specodelic.md`'s
+`no_counterexample` now says "the selected model-check backend" instead
+of "(TLC/Alloy)". Implementation of the two backends tracked as beads
+`specodelic-ug3`.
+
 ## #30 — corpus reaches covered: 23 deriving Properties rows added, no schema change
 
 `spk lint specs` reported 23 coverage-rule findings (beads

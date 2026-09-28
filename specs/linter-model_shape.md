@@ -59,7 +59,7 @@ and "ad-hoc state machine" signals, made structural rather than advisory.
 guard exists, not that the state machine around it is internally
 consistent (an unreferenced state, or a transition pointing at a state
 that was never declared). Both are structural prerequisites for the
-`model_check` transition in `specodelic.md` to mean anything: a TLA+/Alloy
+`model_check` transition in `specodelic.md` to mean anything: a TLA+
 generator handed a dangling `to` field would either crash or silently
 model-check a different graph than the author wrote. Fourth candidate to
 fold back into `specodelic.md`'s constraint table.

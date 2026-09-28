@@ -2,7 +2,7 @@
 id: compile
 kind: intent
 checked_against_core: clear
-statement: "THE Compile transition SHALL translate a linted-and-covered spec file's Constraints table, Model section, and Properties table into a TOML document, a TLA+ (or Alloy) module, and a set of proptest! blocks respectively, without dropping or altering any id."
+statement: "THE Compile transition SHALL translate a linted-and-covered spec file's Constraints table, Model section, and Properties table into a TOML document, a TLA+ module, and a set of proptest! blocks respectively, without dropping or altering any id."
 ---
 
 # Compile
@@ -11,7 +11,7 @@ statement: "THE Compile transition SHALL translate a linted-and-covered spec fil
 `compiled`, gated on `coverage` and `law_requires_cases`, but never
 specifies what compiling actually *produces* (`STATUS.md` §4, P0). This
 file is that specification: `Compile` is the functor `Set^𝒦 → TOML`
-(constraints), `Set^𝒦 → TLA+/Alloy` (the model), and
+(constraints), `Set^𝒦 → TLA+` (the model), and
 `Set^𝒦 → proptest!` (properties) that `STATUS.md` §1 describes — one
 functor with three target categories, not three unrelated tools that
 happen to run at the same pipeline stage.
@@ -22,7 +22,7 @@ happen to run at the same pipeline stage.
 |-----------------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------|-----------|
 | precondition_satisfied       | invariant | `Compile only runs on a file that has passed both lint and coverage` — restates [[specodelic.compile]]'s own guard (transition, not row) | [[compile]] |
 | constraint_table_to_toml     | invariant | `every Constraint row compiles to one TOML table entry {id, kind, expr, traces_to}, field-for-field, with no lossy transformation`      | [[compile]] |
-| model_to_tla                 | invariant | `the Model section compiles to one TLA+ (or Alloy) module: each State becomes a value in the module's state variable's range, each Transition becomes one disjunct of the Next action guarded by its guard field; a State with an `emits` field additionally becomes one entry in an `Output` function from that state value to the effect-kind Constraint's `expr` — absent for a state with no `emits`, never a default/null entry` | [[compile]] |
+| model_to_tla                 | invariant | `the Model section compiles to one TLA+ module — always emitted, regardless of which model_check backend (native stateright or TLC) later runs against the model: each State becomes a value in the module's state variable's range, each Transition becomes one disjunct of the Next action guarded by its guard field; a State with an `emits` field additionally becomes one entry in an `Output` function from that state value to the effect-kind Constraint's `expr` — absent for a state with no `emits`, never a default/null entry` | [[compile]] |
 | properties_to_proptest       | invariant | `each Property row compiles to one proptest! block: generator becomes the block's input strategy, predicate becomes its assertion body; a law-kind property compiles to one block per required case (identity, associativity, ...)` | [[compile]] |
 | compile_is_total             | invariant | `∀ file that has passed lint and coverage: Compile either produces all three artifacts or reports, for exactly one of them, which stage failed and why — it never returns a silent partial result` | [[compile]] |
 | compile_preserves_ids        | invariant | `every id present in the source file appears, unchanged, in at least one compiled artifact — no id is silently dropped in translation` | [[compile]] |
@@ -96,9 +96,19 @@ constraint here traces to this file's own intent rather than to a
 top-level invariant, the same shape `linter-frontmatter.md` through
 `linter-coverage.md` use for constraints scoped entirely to one feature.
 
+**The `.tla` module is a product of `compile` alone, not of any checker
+choice.** `model_check` may run a native interpreter backend that never
+reads the module (see `model_check.md`'s Notes on backends), but the
+module is still emitted: it is the human-reviewable, engine-portable form
+of the compiled model, and TLC — the opt-in reference engine — consumes it
+directly. Correspondingly the corpus language no longer offers "or
+Alloy": with a native default backend and a reference TLA+ engine it had
+no remaining role, and dropping it keeps `model_to_tla` a single, fully
+specified translation.
+
 `model_check` and `verify` (`STATUS.md` §4, both now done — see
 `model_check.md` and `verify.md`) both consume this
-file's output directly: `model_check` runs a model checker against the
-TLA+/Alloy module `model_to_tla` produces, and `verify` runs the
+file's output directly: `model_check` runs a model-check backend against
+the TLA+ module `model_to_tla` produces, and `verify` runs the
 proptest! blocks `properties_to_proptest` produces. Neither has its own
 spec yet.

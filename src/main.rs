@@ -54,7 +54,7 @@ enum Commands {
         /// Spec files to compile
         paths: Vec<String>,
     },
-    /// Run the model checker (TLC/Alloy) against compiled output
+    /// Run the model checker (stateright default, TLC opt-in) against compiled output
     ModelCheck {
         /// Spec files whose compiled module to check
         paths: Vec<String>,

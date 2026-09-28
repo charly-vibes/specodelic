@@ -2,7 +2,7 @@
 id: model_check
 kind: intent
 checked_against_core: clear
-statement: "THE model_check step SHALL run a model checker (TLC or Alloy) against the module compile.md's model_to_tla produces, and SHALL report either that no counterexample was found within a stated bound, or a minimal counterexample trace naming the violated invariant."
+statement: "THE model_check step SHALL run a model-check backend — stateright (embedded, default) or TLC (opt-in) — against the model compile.md's model_to_tla produces, and SHALL report either that no counterexample was found within a stated bound, or a minimal counterexample trace naming the violated invariant."
 ---
 
 # Model check
@@ -21,10 +21,11 @@ contain.
 
 | id                                | kind      | expr                                                                                                                                        | traces_to     |
 |--------------------------------------|-----------|----------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
-| checker_invoked                       | invariant | `reaching model_checked always corresponds to an actual TLC/Alloy run against the current compiled module — model_present's structural check is not itself that run` | [[model_check]] |
+| checker_invoked                       | invariant | `reaching model_checked always corresponds to an actual checker run, by the selected backend, against the current compiled model — model_present's structural check is not itself that run` | [[model_check]] |
 | exhaustive_within_bound               | invariant | `a run explores all reachable states up to a stated bound (state-space size or step count) before it may report no counterexample; the bound is part of the report, since unbounded checking of a spec with no finite state space never terminates` | [[model_check]] |
 | counterexample_is_minimal             | invariant | `when a run finds a counterexample, it reports the shortest violating transition sequence found, not merely the first one encountered`               | [[model_check]] |
 | counterexample_names_violated_invariant | invariant | `a counterexample report names exactly one violated invariant, by its Constraints-table id, together with the full state trace leading to it`     | [[model_check]] |
+| backend_identified                     | invariant | `a run report names the backend engine and version that produced it, so two backends' reports on the same compiled model and bound are attributable and comparable` | [[model_check]] |
 | no_counterexample_feeds_verify        | invariant | `[[specodelic.no_counterexample]] holds iff the most recent run on the current compiled module reported clean within its stated bound`             | [[model_check]] |
 | rerun_on_model_change                 | invariant | `a run's clean result does not satisfy [[specodelic.no_counterexample]] once the Model section (States or Transitions) has changed since that run — the model must be re-run, not assumed still clean` | [[model_check]] |
 
@@ -54,6 +55,7 @@ contain.
 | bound_must_be_stated                     | unit | [[model_check.exhaustive_within_bound]]                     | `run_report_with_no_stated_bound()`                                       | `check(report) == invalid`                                                 |
 | shortest_counterexample_reported         | unit | [[model_check.counterexample_is_minimal]]                   | `model_with(two_violating_traces_of_different_length: true)`              | `reported_trace(check(model)) == the_shorter_of_the_two`                   |
 | violated_invariant_named                 | unit | [[model_check.counterexample_names_violated_invariant]]     | `model_with_exactly_one_violated_invariant()`                             | `check(model).violated_invariant_id == the_expected_id`                   |
+| backend_named_in_report                  | unit | [[model_check.backend_identified]]                          | `run_report_from_any_backend()`                                           | `check(report).backend == a named engine and version`                     |
 | clean_run_satisfies_verify_gate          | unit | [[model_check.no_counterexample_feeds_verify]]              | `arbitrary_model_with_no_violation_within_bound()`                        | `no_counterexample(file) == true`                                          |
 | stale_result_invalidated_by_edit         | unit | [[model_check.rerun_on_model_change]]                       | `(clean_run, model_edited_afterward_with_no_rerun)`                       | `no_counterexample(file) == false` — until re-run                          |
 | clean_model_passes                       | unit | [[model_check.checker_invoked]]                             | `arbitrary_model_with_no_violation_within_bound()`                        | `check(model) == clean`                                                    |
@@ -80,7 +82,24 @@ count.
 `timed_out` is a real terminal outcome, not a failure this file
 papers over as "counterexample" or "clean" by default: an unbounded or
 very large state space may exhaust its budget before `exhaustive_within_bound`
-is satisfied either way. `verify`'s downstream guard treats `timed_out`
+is satisfied either way. **Backends.** The contract above is engine-neutral,
+and any backend satisfying it sits behind the same state machine. Two are
+specified: **stateright** (default) — an embedded Rust model-checking crate,
+no external dependencies: its breadth-first exploration makes
+`counterexample_is_minimal` hold by construction (the first counterexample
+found is the shortest), `target_max_depth`/`timeout`/`target_state_count`
+give `exhaustive_within_bound`'s stated bound and `timed_out`'s
+budget-exhausted outcome directly, and its named properties give
+`counterexample_names_violated_invariant` when each property is named after
+the Constraint id it derives from. The native backend *interprets* the
+compiled model (states as values, transitions as actions) rather than
+generating Rust source. **TLC** (opt-in) — the mature JVM reference engine,
+run as a subprocess against the `.tla` module `compile.md` emits, with
+`-depth` as the stated bound. Alloy was dropped from the corpus language
+alongside this change: with a native default and a reference TLA+ engine it
+had no remaining role, and a SAT-based engine returns *an* instance, not a
+minimal trace — which would fight `counterexample_is_minimal` rather than
+satisfy it. `verify`'s downstream guard treats `timed_out`
 the same as `counterexample_found` for the purpose of
 `no_counterexample` (both are not-clean), but they are reported
 differently, since a timeout is not evidence of a violation — just of an

@@ -24,7 +24,8 @@ features, designed so that one file gives you four things at once:
    syntactically distinguishable.
 4. **Something you can simulate before writing code** — the `Model`
    section of a spec is a state machine (states + guarded transitions)
-   that compiles to TLA+ or Alloy, so a model checker can find
+   that compiles to TLA+, so a model checker backend (stateright by
+   default, TLC opt-in — see `model_check.md`) can find
    deadlocks, unreachable states, or violated invariants before any
    implementation exists. The same guards compile to property-based test
    (`proptest!`-style) generators, so verification and PBT come from the
@@ -135,8 +136,8 @@ same way a self-hosting compiler compiles its own source).
 | `graph.md` | `graph` | Mechanically derived, queryable reference graph over every typed edge in the repo — blast-radius (transitive closure) queries, never re-derived by other tools independently | Done (Changelog #25) |
 | `refactor.md` | `refactor` | Non-gating tidy-first advisor: flags a node with high, unrelated fan-in (or a changeset touching only part of a node) as a split candidate, via `graph.md` queries | Done (Changelog #25) |
 | `merge.md` | `merge` | Semantic conflict detection across two divergent branches (id collisions, rename-vs-new-reference splits) that a textual git merge can't see, via `graph.md` and `rename.md` | Done (Changelog #25) |
-| `compile.md` | `compile` | The `Compile` functor: `Constraints → TOML`, `Model → TLA+/Alloy`, `Properties → proptest!`, plus totality/id-preservation/round-trip guarantees | Done |
-| `model_check.md` | `model_check` | What actually running the model checker means: bounded, re-runnable, minimal-counterexample reporting; clarifies `model_checked` vs `no_counterexample` | Done |
+| `compile.md` | `compile` | The `Compile` functor: `Constraints → TOML`, `Model → TLA+`, `Properties → proptest!`, plus totality/id-preservation/round-trip guarantees | Done |
+| `model_check.md` | `model_check` | What actually running the model checker means: bounded, re-runnable, minimal-counterexample reporting, backend-pluggable (stateright default, TLC opt-in); clarifies `model_checked` vs `no_counterexample` | Done |
 | `verify.md` | `verify` | Executes `compile.md`'s proptest! blocks and combines the result with `model_check.md`'s clean/counterexample outcome into `specodelic.md`'s `verified` gate | Done |
 | `rename.md` | `rename` | The rename/refactor tool itself: a single `(old_id, new_id)` request's own lifecycle (validate → apply → verify), and the local invariants (id-availability, filename-matching, atomicity, kind-preservation, prose non-interference) that make `rename_naturality` a law of an actual process | Done |
 | `linter-external_completeness.md` | `linter.external_completeness` | Optional, per-repo check that every item in a declared external checklist has an explicit `covered`/`waived` mapping to a real constraint or property, or a stated rationale — mechanizes "nothing was silently unconsulted," not "the repo is complete" | Done |

@@ -28,7 +28,7 @@ written in the specodelic, about the specodelic.
 | append_only_variants     | invariant | `∀ id-set S governed by 𝒦 — a variant-table's ids (chiefly States), a Constraint/Property row's own `kind` value-set, or the Reference Typing table's field set — across revisions r < r': S(r) ⊆ S(r'), grown only under a new Revision heading, never silently; an existing member's typing may narrow only in the same Revision that introduces the kind-split it depends on, and only if the narrowing invalidates nothing valid at r` | [[specodelic]]  |
 | prose_untouched          | invariant | `parser never inspects rationale/description content`                      | [[specodelic]]  |
 | model_present            | invariant | `[[model.state]] and [[model.transition]] sections both exist`             | [[specodelic]]  |
-| no_counterexample        | invariant | `model checker (TLC/Alloy) finds no violated invariant`                    | [[specodelic]]  |
+| no_counterexample        | invariant | `the selected model-check backend (see [[model_check]]) finds no violated invariant`                    | [[specodelic]]  |
 | properties_pass          | invariant | `all compiled proptest! blocks pass`                                       | [[specodelic]]  |
 | id_matches_file          | invariant | `frontmatter.id == replace(stem(path), "-", ".")` — `-` maps only to the namespace dot; `_` is preserved literally within a segment. E.g. `linter-graph_shape.md` declares `id: linter.graph_shape` | [[specodelic]]  |
 | ref_kind_compatible      | invariant | `∀ ref: target.kind ∈ allowed_targets(field)` — see Reference Typing below | [[specodelic]]  |
@@ -170,7 +170,7 @@ now resolved and folded in above:
   under the wrong id.
 - **`every_state_used` / `every_transition_valid`** — folded in as
   prerequisites for `model_present` to mean anything downstream, since a
-  dangling `to` field would otherwise reach the TLA+/Alloy generator
+  dangling `to` field would otherwise reach the TLA+ generator
   undetected.
 
 The `lint` transition's guard was also restructured: the flat seven-clause
@@ -493,3 +493,33 @@ read as the same mechanism solving the same problem twice, which is
 exactly the kind of same-token-different-guarantee confusion `AGENTS.md`
 #6 already tracks (`CLAR-001` through `CLAR-003`) — flagged here rather
 than silently left for a future reviewer to notice on their own.
+
+## Revision 8
+
+The model-checking story became backend-pluggable, and Alloy left the
+corpus language. `no_counterexample`'s expr named "TLC/Alloy" — a tool
+coupling that `model_check.md` had already outgrown: its contract
+(bounded exploration, minimal counterexample, invariant named by id) is
+engine-neutral, so naming engines in the core invariant list pinned an
+implementation detail into the format itself.
+
+- `no_counterexample` now says "the selected model-check backend", and
+  `model_check.md`'s Notes specify the backends: **stateright** (default,
+  an embedded Rust model-checking crate — BFS exploration gives
+  `counterexample_is_minimal` by construction;
+  `target_max_depth`/`timeout` give the stated bound and `timed_out`) and
+  **TLC** (opt-in, JVM subprocess, the reference engine for the `.tla`
+  module).
+- Alloy was dropped everywhere (`compile.md`, `STATUS.md`, `USAGE.md`,
+  `linter-model_shape.md`): with a native default and a reference TLA+
+  engine it had no remaining role, and a SAT-based engine returns *an*
+  instance, not a minimal trace — which would fight
+  `counterexample_is_minimal` rather than satisfy it.
+- `model_check.backend_identified` is new: a run report names the engine
+  and version that produced it, so reports from different backends are
+  attributable and comparable.
+
+No variant table changed — this Revision rewords one constraint's expr
+and adds one constraint to a non-core file, so `append_only_variants` is
+satisfied trivially. The `.tla` module remains an unconditional compile
+artifact regardless of backend (see `compile.md`'s Notes).

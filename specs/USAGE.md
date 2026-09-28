@@ -320,7 +320,7 @@ over Constraints-typed events, not a State.
 
 **Don't** route this through the model checker. `model_check.md` is
 explicit that unbounded checking never terminates, and — the reason this
-case needs its own note rather than just citing that line — TLA+/Alloy
+case needs its own note rather than just citing that line — TLA+
 verify discrete state reachability against a specified model, not wall-
 clock behavior against real hardware. "This state machine always responds
 within 50ms" isn't a deeper version of `no_counterexample`, it's a
