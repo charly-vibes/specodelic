@@ -30,6 +30,7 @@ only — prose is never inspected.
 $ specodelic lint specs      # check the invariants (linter-*.md)
 $ specodelic graph specs     # derive the typed reference graph
 $ specodelic new order.cancel --file order-cancel.md   # scaffold a spec
+$ specodelic explain lint-rules   # embedded format guide + lint rule catalog
 $ specodelic doctor          # diagnose the workspace
 ```
 
@@ -59,9 +60,14 @@ CLI/envelope/self-healing infrastructure.
 ## Status
 
 - ✅ `lint` — frontmatter, filename↔id mapping, id uniqueness, guards,
-  EARS grammar, coverage, total reference resolution
+  EARS grammar, coverage, total reference resolution; every finding is
+  self-describing: it carries its `linter.<name>` rule id and a one-line
+  semantics string (rendered by `specodelic explain lint-rules` from the
+  same table the linter emits from)
 - ✅ `graph` — derived typed reference graph, dangling detection
 - ✅ `new`, `doctor`, `completions`
+- ✅ `explain` — embedded AIX guide (format/ears/kinds/references/
+  lifecycle/lint-rules topics) plus `format_revision` in `--version --json`
 - ⏳ `compile`, `model-check`, `verify`, `rename`, `refactor`, `merge`,
   `orchestrate` — specced, not implemented
 

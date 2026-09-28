@@ -162,6 +162,15 @@ corpus has a deriving property: `spk lint specs` reports 18 files, zero
 findings, exit 0 — the tool enforces its own description of itself
 without exemptions.
 
+**Lint findings are self-describing, and the format guide is embedded.**
+Every finding carries a stable `linter.<name>` `rule_id` and a one-line
+`rule_semantics` (from the same `src/lint.rs` rule table the linter emits
+from), so an agent can read a violation without repo access;
+`spk explain` serves the embedded primer (`spk explain lint-rules`
+renders that same catalog), and `--version --json` reports
+`format_revision` (`specodelic.md Revision 8`) so a consumer can detect
+corpus drift against their installed binary.
+
 ### Revision log for `specodelic.md`
 
 - **Revision 1**: initial constraint/model/property list, written before

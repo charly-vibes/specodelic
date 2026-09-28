@@ -6,6 +6,20 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #32 — Self-describing lint findings + `explain lint-rules` catalog
+
+Every lint finding now carries a stable `linter.<name>` `rule_id` and a
+one-line `rule_semantics` stating what the rule requires, in both the
+JSON envelope and human output (`src/lint.rs`). The semantics come from a
+single `RULE_TABLE` — the same table `spk explain lint-rules` renders its
+catalog from, so the documentation can never disagree with what the
+linter emits. The EARS rule was renamed to the stable id
+`linter.ears_syntax` (matching `specs/linter-ears_syntax.md`'s id), and
+the `{{lint_rules}}` placeholder in the embedded primer is no longer a
+stub. Unit tests pin the catalog to exactly the rule ids the linter can
+emit; `--version --json` already reports `format_revision` (specodelic-2kc,
+add-embedded-aix-guide tasks 3.1–3.3, 6.2, 6.3).
+
 ## #31 — `model_check` made backend-pluggable: stateright default, TLC opt-in; Alloy dropped from the corpus
 
 Neither TLC nor Alloy has native Rust bindings — both are JVM

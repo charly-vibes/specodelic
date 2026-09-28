@@ -34,11 +34,11 @@ lands before any behavior change.
 
 ## 3. Self-describing lint findings
 
-- [ ] 3.1 Add a rule table to `src/lint.rs` mapping rule id →
+- [x] 3.1 Add a rule table to `src/lint.rs` mapping rule id →
       one-line semantics; thread `rule_id`/`rule_semantics` into every
       emitted finding (JSON + human)
-- [ ] 3.2 Make `explain lint-rules` render from that same table
-- [ ] 3.3 Unit test: catalog covers every rule id the linter can emit;
+- [x] 3.2 Make `explain lint-rules` render from that same table
+- [x] 3.3 Unit test: catalog covers every rule id the linter can emit;
       integration test: `linter.ears_syntax` finding carries semantics
 
 ## 4. Scaffold guidance
@@ -67,8 +67,8 @@ lands before any behavior change.
 - [x] 6.1 Unit test extracting the latest `Revision N` heading from
       `specs/specodelic.md` against `FORMAT_REVISION` (numeric
       comparison incl. `10 > 9`; fails the suite if stale)
-- [ ] 6.2 Run `just ci` (fmt, clippy `-D warnings`, tests, release
+- [x] 6.2 Run `just ci` (fmt, clippy `-D warnings`, tests, release
       build), `spk lint specs` — corpus must stay clean — and
       `openspec validate add-embedded-aix-guide --strict`
-- [ ] 6.3 Update `README.md` AIX section + `specs/STATUS.md` §3
+- [x] 6.3 Update `README.md` AIX section + `specs/STATUS.md` §3
       inventory with the new command; file/adjust beads issues

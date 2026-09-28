@@ -45,10 +45,81 @@ fn lint_synthetically_bad_file_fails_with_rule_name() {
         .output()
         .unwrap();
     let stdout = String::from_utf8(out.stdout).unwrap();
-    // ears_statement (no SHALL) + guard_required (empty guard) both fire
-    assert!(stdout.contains("ears_statement"));
+    // ears_syntax (no SHALL) + guard_required (empty guard) both fire
+    assert!(stdout.contains("ears_syntax"));
     assert!(stdout.contains("guard_required"));
+    // self-describing findings: rule id + semantics in the JSON payload
+    assert!(stdout.contains("linter.ears_syntax"));
+    assert!(stdout.contains("rule_semantics"));
     assert_eq!(out.status.code(), Some(1));
+}
+
+#[test]
+fn bad_ears_finding_carries_rule_id_and_semantics() {
+    // spec scenario: agent reads a finding without repo access — the
+    // JSON finding names the rule id and states what the rule requires
+    let dir = tempfile::tempdir().unwrap();
+    let bad = dir.path().join("bad_spec.md");
+    std::fs::write(
+        &bad,
+        "---\nid: bad_spec\nkind: intent\nstatement: \"the system should maybe work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[bad_spec]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s2 | |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[bad_spec.a]] | `g()` | `x` |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    let ears = json["data"]["issues"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["rule_id"] == "linter.ears_syntax")
+        .expect("bad-EARS fixture must yield a linter.ears_syntax finding");
+    assert!(!ears["rule_semantics"].as_str().unwrap().is_empty());
+    assert_eq!(ears["rule"], "ears_syntax");
+}
+
+#[test]
+fn human_output_shows_rule_id() {
+    // spec scenario: human output shows the rule id
+    let dir = tempfile::tempdir().unwrap();
+    let bad = dir.path().join("bad_spec.md");
+    std::fs::write(
+        &bad,
+        "---\nid: bad_spec\nkind: intent\nstatement: \"the system should maybe work\"\n---\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--human"])
+        .output()
+        .unwrap();
+    assert_ne!(out.status.code(), Some(0));
+    assert!(
+        String::from_utf8(out.stdout)
+            .unwrap()
+            .contains("linter.ears_syntax")
+    );
+}
+
+#[test]
+fn explain_lint_rules_renders_the_rule_catalog() {
+    // `explain lint-rules` renders from the same table the linter emits
+    // from — the rendered catalog is exactly the emittable rule id set
+    let out = spk()
+        .args(["explain", "lint-rules", "--json"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    let body = json["data"]["body"].as_str().unwrap();
+    assert!(body.contains("linter.ears_syntax"));
+    assert!(body.contains("linter.guard_required"));
+    assert!(body.contains("linter.coverage"));
+    assert!(!body.contains("{{"));
+    assert!(!body.contains("shipped with the self-describing lint findings change"));
 }
 
 #[test]

@@ -127,7 +127,7 @@ fn fill_placeholders(body: &str) -> String {
         .replace("{{constraint_kinds}}", &code_list(CONSTRAINT_KINDS))
         .replace("{{property_kinds}}", &code_list(PROPERTY_KINDS))
         .replace("{{reference_typing}}", &reference_typing_rows())
-        .replace("{{lint_rules}}", LINT_RULES_STUB)
+        .replace("{{lint_rules}}", &lint_rules_catalog())
 }
 
 /// Backtick-join a closed set: `` `invariant`, `advisory`, ... ``.
@@ -154,11 +154,24 @@ fn reference_typing_rows() -> String {
     rows.join("\n")
 }
 
-/// Placeholder filler for the `lint-rules` topic until the rule table
-/// with per-rule semantics ships with the self-describing findings change
-/// (task 3.x of add-embedded-aix-guide). Swapped for the generated
-/// catalog then.
-const LINT_RULES_STUB: &str = "The complete catalog — every rule id with a one-line semantics string — is generated from the linter's rule table; it ships with the self-describing lint findings change. Until then, every lint finding names its rule id inline.";
+/// Render the lint rule catalog from [`crate::lint::RULE_TABLE`] — the
+/// same table every finding's `rule_id`/`rule_semantics` come from, so
+/// the rendered catalog can never disagree with what the linter emits
+/// (task 3.2).
+fn lint_rules_catalog() -> String {
+    let mut rows = vec![
+        "| Rule id | Requires |".to_string(),
+        "|---------|----------|".to_string(),
+    ];
+    for (name, semantics) in crate::lint::RULE_TABLE {
+        rows.push(format!(
+            "| `{}` | {} |",
+            crate::lint::rule_id(name),
+            semantics
+        ));
+    }
+    rows.join("\n")
+}
 
 /// Extract the trailing revision number from a `## Revision N` heading
 /// (or any string carrying `Revision N`), numerically. Returns `None` for

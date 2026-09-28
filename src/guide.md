@@ -57,7 +57,7 @@ patterns, with an imperative `SHALL`:
 
 Conformance is shape-only grammar checking — word choice inside the
 slots is never judged. A statement without `SHALL` fails
-`ears_statement`; so does a statement matching no pattern.
+`ears_syntax`; so does a statement matching no pattern.
 
 <!-- topic: kinds -->
 # kinds
