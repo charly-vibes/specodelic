@@ -19,16 +19,16 @@ lands before any behavior change.
 - [x] 2.1 Write `src/guide.md` (six topics' prose; closed sets are
       *not* duplicated in prose — rendered from constants) and
       `include_str!` it
-- [ ] 2.2 Implement `spk explain [TOPIC]` in `guide.rs` + thin clap
+- [x] 2.2 Implement `spk explain [TOPIC]` in `guide.rs` + thin clap
       wiring in `src/main.rs`: no arg → topic list; known topic →
       `{topic, format_revision, body}`; unknown → envelope failure with
       hint listing topics
-- [ ] 2.3 Add `format_revision` to the `--version --json` payload by
+- [x] 2.3 Add `format_revision` to the `--version --json` payload by
       hand-rolling the version envelope in `main.rs` from
       `genesis::envelope::{Envelope, EnvelopeKind}` (stop calling
       `maybe_print_version_json` — its payload is fixed; see design
       Decision 4)
-- [ ] 2.4 Integration tests in `tests/cli.rs`: consumer-dir scenario
+- [x] 2.4 Integration tests in `tests/cli.rs`: consumer-dir scenario
       (tempdir, no specs), topic list exactness, unknown-topic hint,
       version payload field
 
@@ -64,7 +64,7 @@ lands before any behavior change.
 
 ## 6. Drift guard + gates
 
-- [ ] 6.1 Unit test extracting the latest `Revision N` heading from
+- [x] 6.1 Unit test extracting the latest `Revision N` heading from
       `specs/specodelic.md` against `FORMAT_REVISION` (numeric
       comparison incl. `10 > 9`; fails the suite if stale)
 - [ ] 6.2 Run `just ci` (fmt, clippy `-D warnings`, tests, release

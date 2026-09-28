@@ -95,3 +95,184 @@ pub const REFERENCE_TYPING: &[RefTyping] = &[
 ///   into rendered output is a bug, and a unit test asserts no topic
 ///   body contains `{{`.
 pub const GUIDE_MD: &str = include_str!("guide.md");
+
+/// The guide topics as `(id, title)` pairs, in serving order. Append-only:
+/// new topics are added at the end, never renumbered (same OCP bias as the
+/// format's tables).
+pub const TOPICS: &[(&str, &str)] = &[
+    ("format", "Format overview — the four layers"),
+    ("ears", "The five EARS statement patterns"),
+    ("kinds", "Closed kind value sets"),
+    ("references", "Reference typing — typed foreign keys"),
+    ("lifecycle", "The artifact lifecycle and stage gates"),
+    ("lint-rules", "Lint rule catalog"),
+];
+
+/// Render a topic's markdown body: slice [`GUIDE_MD`] at the
+/// `<!-- topic: id -->` markers and fill the `{{placeholder}}` slots from
+/// the constants above. `None` when the topic id is unknown.
+pub fn topic_body(topic: &str) -> Option<String> {
+    let marker = format!("<!-- topic: {topic} -->");
+    let start = GUIDE_MD.find(&marker)?;
+    let after = &GUIDE_MD[start + marker.len()..];
+    let end = after.find("\n<!-- topic: ").unwrap_or(after.len());
+    Some(fill_placeholders(after[..end].trim()))
+}
+
+/// Fill the primer's placeholder slots. Every closed set renders from the
+/// constants — the enforced values and the rendered guide cannot disagree
+/// (design Decision 2).
+fn fill_placeholders(body: &str) -> String {
+    body.replace("{{intent_kinds}}", &code_list(INTENT_KINDS))
+        .replace("{{constraint_kinds}}", &code_list(CONSTRAINT_KINDS))
+        .replace("{{property_kinds}}", &code_list(PROPERTY_KINDS))
+        .replace("{{reference_typing}}", &reference_typing_rows())
+        .replace("{{lint_rules}}", LINT_RULES_STUB)
+}
+
+/// Backtick-join a closed set: `` `invariant`, `advisory`, ... ``.
+fn code_list(values: &[&str]) -> String {
+    values
+        .iter()
+        .map(|v| format!("`{v}`"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Render [`REFERENCE_TYPING`] as markdown table rows (with header).
+fn reference_typing_rows() -> String {
+    let mut rows = vec![
+        "| Field | Appears on | Must resolve to |".to_string(),
+        "|-------|------------|-----------------|".to_string(),
+    ];
+    for r in REFERENCE_TYPING {
+        rows.push(format!(
+            "| `{}` | {} | {} |",
+            r.field, r.appears_on, r.resolves_to
+        ));
+    }
+    rows.join("\n")
+}
+
+/// Placeholder filler for the `lint-rules` topic until the rule table
+/// with per-rule semantics ships with the self-describing findings change
+/// (task 3.x of add-embedded-aix-guide). Swapped for the generated
+/// catalog then.
+const LINT_RULES_STUB: &str = "The complete catalog — every rule id with a one-line semantics string — is generated from the linter's rule table; it ships with the self-describing lint findings change. Until then, every lint finding names its rule id inline.";
+
+/// Extract the trailing revision number from a `## Revision N` heading
+/// (or any string carrying `Revision N`), numerically. Returns `None` for
+/// headings without a trailing integer.
+pub fn revision_number(heading: &str) -> Option<u32> {
+    let rest = heading.trim().rsplit_once("Revision ")?.1;
+    rest.split_whitespace().next()?.parse().ok()
+}
+
+/// The numerically largest `## Revision N` heading in a corpus file, or
+/// `None` when it declares no revisions (the doctor currency check then
+/// skips with an informational note — never an error).
+pub fn latest_revision(text: &str) -> Option<u32> {
+    text.lines()
+        .filter(|l| l.trim_start().starts_with("## "))
+        .filter_map(revision_number)
+        .max()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn topic_bodies_render_for_all_six_topics() {
+        // every declared topic renders non-empty (design Decision 2's
+        // prose-drift test)
+        assert_eq!(TOPICS.len(), 6);
+        for (id, _title) in TOPICS {
+            let body = topic_body(id).unwrap_or_else(|| panic!("topic `{id}` missing"));
+            assert!(!body.trim().is_empty(), "topic `{id}` body is empty");
+            // a surviving {{placeholder}} means a closed set leaked into
+            // prose or a slot was never filled
+            assert!(
+                !body.contains("{{"),
+                "topic `{id}` has unfilled placeholders"
+            );
+            assert!(
+                !body.contains("<!-- topic: "),
+                "topic `{id}` leaked a marker"
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_topic_renders_none() {
+        assert!(topic_body("nope").is_none());
+    }
+
+    #[test]
+    fn closed_sets_render_from_constants() {
+        // kinds topic: the rendered kind sets equal the enforced constants
+        let kinds = topic_body("kinds").unwrap();
+        for k in CONSTRAINT_KINDS {
+            assert!(
+                kinds.contains(&format!("`{k}`")),
+                "constraint kind `{k}` not rendered"
+            );
+        }
+        for k in PROPERTY_KINDS {
+            assert!(
+                kinds.contains(&format!("`{k}`")),
+                "property kind `{k}` not rendered"
+            );
+        }
+        // references topic: the rendered table has one row per typing pair
+        let refs = topic_body("references").unwrap();
+        for r in REFERENCE_TYPING {
+            assert!(
+                refs.contains(&format!("`{}`", r.field)),
+                "field `{}` not rendered",
+                r.field
+            );
+            assert!(
+                refs.contains(r.resolves_to),
+                "target `{}` not rendered",
+                r.resolves_to
+            );
+        }
+    }
+
+    #[test]
+    fn primer_prose_does_not_duplicate_closed_sets() {
+        // the embedded prose never lists the sets bare — only via
+        // placeholders (design Decision 2)
+        assert!(!GUIDE_MD.contains("{invariant, advisory, effect, extension_point}"));
+        assert!(!GUIDE_MD.contains("{unit, law}"));
+    }
+
+    #[test]
+    fn revision_comparison_is_numeric() {
+        // double-digit ordering: 10 > 9 numerically (the drift guard must
+        // not compare lexicographically)
+        assert!(revision_number("Revision 10").unwrap() > revision_number("Revision 9").unwrap());
+        assert_eq!(revision_number("## Revision 8"), Some(8));
+        assert_eq!(revision_number("## Model"), None);
+        assert_eq!(revision_number("## Revision abc"), None);
+    }
+
+    #[test]
+    fn format_revision_matches_corpus() {
+        // guide-drift guard (task 6.1): FORMAT_REVISION must name the
+        // latest Revision N heading in specs/specodelic.md — the suite
+        // fails here, naming both revisions, when the corpus bumps
+        // without the constant following.
+        let corpus = std::fs::read_to_string("specs/specodelic.md")
+            .expect("specs/specodelic.md must be readable from the crate root");
+        let corpus_rev =
+            latest_revision(&corpus).expect("specs/specodelic.md declares no Revision headings");
+        let format_rev = revision_number(FORMAT_REVISION)
+            .unwrap_or_else(|| panic!("FORMAT_REVISION `{FORMAT_REVISION}` carries no Revision N"));
+        assert_eq!(
+            corpus_rev, format_rev,
+            "format knowledge drift: corpus is at `Revision {corpus_rev}` but the binary embeds `Revision {format_rev}` ({FORMAT_REVISION}) — bump FORMAT_REVISION in src/guide.rs",
+        );
+    }
+}

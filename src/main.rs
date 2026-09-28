@@ -11,7 +11,8 @@
 
 use clap::CommandFactory;
 use clap::{Parser, Subcommand};
-use genesis::cli::{generate_completions, maybe_print_version_json};
+use genesis::cli::generate_completions;
+use genesis::envelope::{Envelope, EnvelopeKind};
 use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
@@ -100,6 +101,11 @@ enum Commands {
         #[arg(short, long)]
         file: Option<String>,
     },
+    /// Explain the Specodelic format — embedded guide, works offline
+    Explain {
+        /// Topic to explain; omit to list the topics
+        topic: Option<String>,
+    },
     /// Diagnose the Specodelic workspace setup
     Doctor,
     /// Generate shell completions
@@ -112,7 +118,9 @@ enum Commands {
 
 fn main() {
     // Handle `--version --json` before normal parsing (genesis convention).
-    if maybe_print_version_json("specodelic", VERSION) {
+    // Hand-rolled (design Decision 4): the payload carries `format_revision`,
+    // domain data genesis's fixed helper cannot express.
+    if print_version_json() {
         return;
     }
     let cli = Cli::parse();
@@ -124,6 +132,94 @@ fn main() {
 
     let exit_code = run(&cli, format, verbosity, &mut stdout, &mut stderr);
     std::process::exit(exit_code);
+}
+
+/// `--version --json` handled pre-parse (genesis convention) with a
+/// domain-extended payload: `{name, version, format_revision}` — genesis's
+/// `maybe_print_version_json` prints a fixed `{name, version}` payload with
+/// no extension point, so the envelope is hand-rolled here (design
+/// Decision 4). Plain `--version` falls through to clap.
+fn print_version_json() -> bool {
+    let args: Vec<String> = std::env::args().collect();
+    let has_version = args.iter().any(|a| a == "--version" || a == "-V");
+    let has_json = args.iter().any(|a| a == "--json" || a == "-j");
+    if !(has_version && has_json) {
+        return false;
+    }
+    let envelope = Envelope::success(
+        VERSION,
+        EnvelopeKind::Version,
+        serde_json::json!({
+            "name": "specodelic",
+            "version": VERSION,
+            "format_revision": guide::FORMAT_REVISION,
+        }),
+        vec![],
+        vec![],
+    );
+    println!("{}", serde_json::to_string(&envelope).unwrap());
+    true
+}
+
+/// `spk explain [TOPIC]` — serve the embedded format guide through the
+/// envelope. Bare call lists topics; a known topic returns
+/// `{topic, format_revision, body}`; an unknown topic fails with a hint
+/// listing the valid topics (design Decision 3). Works offline: the body
+/// is embedded via `include_str!`, no repo access needed.
+fn cmd_explain(
+    topic: Option<&str>,
+    cli: &Cli,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let Some(topic) = topic else {
+        let topics: Vec<serde_json::Value> = guide::TOPICS
+            .iter()
+            .map(|(id, title)| serde_json::json!({ "id": id, "title": title }))
+            .collect();
+        let out: Output<serde_json::Value> =
+            Output::success(serde_json::json!({ "topics": topics }))
+                .with_next_step("run: specodelic explain <topic> — try: specodelic explain format");
+        emit(&out, cli, format, verbosity, stdout, stderr);
+        return 0;
+    };
+    match guide::topic_body(topic) {
+        Some(body) => {
+            let payload = serde_json::json!({
+                "topic": topic,
+                "format_revision": guide::FORMAT_REVISION,
+                "body": body,
+            });
+            let out = Output::success(payload)
+                .with_next_step("apply the format, then check with: specodelic lint");
+            // Decision 3: human mode prints the body itself, not the Debug
+            // form of the payload — raise the output's verbosity threshold
+            // so emit skips the data but still writes the next-step footer.
+            if format == OutputFormat::Human {
+                writeln!(stdout, "{body}").ok();
+                out.with_verbosity(Verbosity::MAX + 1)
+                    .emit(VERSION, format, verbosity, stdout, stderr)
+                    .ok();
+            } else {
+                emit(&out, cli, format, verbosity, stdout, stderr);
+            }
+            0
+        }
+        None => {
+            let valid = guide::TOPICS
+                .iter()
+                .map(|(id, _)| *id)
+                .collect::<Vec<_>>()
+                .join(" | ");
+            let out: Output<serde_json::Value> =
+                Output::failure(format!("unknown topic `{topic}` — valid topics: {valid}"))
+                    .with_next_step("run: specodelic explain (no argument) to list the topics");
+            emit(&out, cli, format, verbosity, stdout, stderr);
+            1
+        }
+    }
 }
 
 fn run(
@@ -163,6 +259,9 @@ fn run(
         }
         Commands::New { id, file } => {
             cmd_new(id, file.as_deref(), cli, format, verbosity, stdout, stderr)
+        }
+        Commands::Explain { topic } => {
+            cmd_explain(topic.as_deref(), cli, format, verbosity, stdout, stderr)
         }
         Commands::Doctor => cmd_doctor(cli, format, verbosity, stdout, stderr),
         Commands::Completions { shell } => {

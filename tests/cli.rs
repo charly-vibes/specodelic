@@ -188,3 +188,97 @@ fn compile_round_trip_is_byte_stable() {
     assert!(first_toml.contains("source = \"compile\""));
     assert!(first_toml.contains("id = \"compile_is_total\""));
 }
+
+#[test]
+fn explain_bare_lists_exactly_the_six_topics() {
+    let out = spk().args(["explain", "--json"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    let ids: Vec<&str> = json["data"]["topics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        [
+            "format",
+            "ears",
+            "kinds",
+            "references",
+            "lifecycle",
+            "lint-rules"
+        ]
+    );
+}
+
+#[test]
+fn explain_known_topic_works_offline_in_consumer_dir() {
+    // consumer repo: no specs/ at all — the guide is embedded in the
+    // binary, so the envelope still carries the full body
+    let dir = tempfile::tempdir().unwrap();
+    let out = spk()
+        .args(["explain", "format", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["data"]["topic"], "format");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 8");
+    let body = json["data"]["body"].as_str().unwrap();
+    assert!(body.contains("## Constraints"));
+    assert!(body.contains("## Properties"));
+    assert!(body.contains("lifecycle"));
+    assert!(
+        !body.contains("{{"),
+        "placeholders must be filled at render time"
+    );
+}
+
+#[test]
+fn explain_kinds_renders_enforced_closed_sets() {
+    // the rendered kind sets equal the constants the linter enforces,
+    // because both come from the same pub const source (spec scenario)
+    let out = spk().args(["explain", "kinds", "--json"]).output().unwrap();
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    let body = json["data"]["body"].as_str().unwrap();
+    assert!(body.contains("`invariant`, `advisory`, `effect`, `extension_point`"));
+    assert!(body.contains("`unit`, `law`"));
+}
+
+#[test]
+fn explain_unknown_topic_fails_with_topic_hint() {
+    let out = spk().args(["explain", "nope", "--json"]).output().unwrap();
+    assert_ne!(out.status.code(), Some(0));
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    assert_eq!(json["envelope_kind"], "error");
+    // the failure message names every valid topic (repo convention: failure
+    // messages go to stderr even in JSON mode)
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(stderr.contains("unknown topic `nope`"));
+    assert!(stderr.contains("format | ears | kinds | references | lifecycle | lint-rules"));
+    assert!(json["hints"].as_array().unwrap().iter().any(|h| {
+        h["command"]
+            .as_str()
+            .unwrap()
+            .contains("specodelic explain")
+    }));
+}
+
+#[test]
+fn version_json_reports_format_revision() {
+    let out = spk().args(["--version", "--json"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    assert_eq!(json["envelope_kind"], "version");
+    assert_eq!(json["data"]["name"], "specodelic");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 8");
+}
