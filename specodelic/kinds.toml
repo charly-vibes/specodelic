@@ -1,0 +1,43 @@
+source = "kinds"
+
+[[constraints]]
+id = "kind_enum_closed"
+kind = "invariant"
+expr = "`the five kinds are exactly {Intent, Constraint, State, Transition, Property}, one per top-level section of a spec file (frontmatter, Constraints table, Model/States, Model/Transitions, Properties table)`"
+traces_to = "[[kinds]]"
+
+[[constraints]]
+id = "intent_row_shape"
+kind = "invariant"
+expr = """`an Intent row is the file's frontmatter block; its fields are exactly {id, kind, statement}, with kind == "intent"`"""
+traces_to = "[[kinds]]"
+
+[[constraints]]
+id = "constraint_row_shape"
+kind = "invariant"
+expr = "`a Constraint row is one row of the Constraints table; its fields are exactly {id, kind, expr, traces_to}, with kind ∈ {invariant, advisory, effect, extension_point}`"
+traces_to = "[[kinds]]"
+
+[[constraints]]
+id = "state_row_shape"
+kind = "invariant"
+expr = """`a State row is one bullet under Model/States; its fields are exactly {id, emits?} and it has no kind column of its own — states are named variants, never a typed column; `emits` is optional and, when present, must resolve to a Constraint with kind == "effect" (see `specodelic.md`'s Reference Typing table) — a state with no `emits` is a bare automaton state, not a Moore state, and both are well-formed`"""
+traces_to = "[[kinds]]"
+
+[[constraints]]
+id = "transition_row_shape"
+kind = "invariant"
+expr = "`a Transition row is one row of the Model/Transitions table; its fields are exactly {id, from, to, guard}, with no kind column of its own`"
+traces_to = "[[kinds]]"
+
+[[constraints]]
+id = "property_row_shape"
+kind = "invariant"
+expr = "`a Property row is one row of the Properties table; its fields are exactly {id, kind, derives_from, generator, predicate}, with kind ∈ {unit, law}`"
+traces_to = "[[kinds]]"
+
+[[constraints]]
+id = "kind_field_extensible"
+kind = "invariant"
+expr = "`a Constraint or Property row's own kind value-set is one instance of [[specodelic.append_only_variants]] — it grows only under a new Revision heading in this file, never silently`"
+traces_to = "[[kinds]]"

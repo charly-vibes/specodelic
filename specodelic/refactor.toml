@@ -1,0 +1,31 @@
+source = "refactor"
+
+[[constraints]]
+id = "fan_in_read_from_graph"
+kind = "invariant"
+expr = "`the advisor's dependent-count for node N is [[graph]]'s blast_radius(N) restricted to incoming edges — never independently recomputed by walking markdown`"
+traces_to = "[[refactor]]"
+
+[[constraints]]
+id = "unrelated_fan_in_defined"
+kind = "invariant"
+expr = '`a dependent is "unrelated" to N when N and the dependent share no namespace segment below the repo root — i.e. their nearest common ancestor in the id namespace is the root itself`'
+traces_to = "[[refactor]]"
+
+[[constraints]]
+id = "narrow_diff_heuristic"
+kind = "invariant"
+expr = "`a changeset naming a strict subset of node N's owned Constraint/Property rows as its actual target, while depending on none of N's other owned rows, is flagged regardless of N's fan-in count`"
+traces_to = "[[refactor]]"
+
+[[constraints]]
+id = "threshold_is_per_repo_setting"
+kind = "invariant"
+expr = """`the fan-in count that counts as "high" is a configured value, not a number fixed in this file — "high" is relative to a given repo's typical fan-in`"""
+traces_to = "[[refactor]]"
+
+[[constraints]]
+id = "advisory_finding_emitted"
+kind = "effect"
+expr = "`output == {node_id, dependent_count, unrelated_namespace_count, suggested_split: bool}`"
+traces_to = "[[refactor]]"

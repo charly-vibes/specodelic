@@ -15,7 +15,7 @@ use genesis::cli::{generate_completions, maybe_print_version_json};
 use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
-use specodelic::{graph, lint, spec};
+use specodelic::{compile, graph, lint, spec};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -49,10 +49,15 @@ enum Commands {
         /// Files or directories (defaults to ./specs)
         paths: Vec<String>,
     },
-    /// Translate a linted spec file into TOML / TLA+ / proptest artifacts
+    /// Translate a linted spec file into TOML / proptest artifacts (the
+    /// model module lands once the model-check backend is decided)
     Compile {
         /// Spec files to compile
         paths: Vec<String>,
+        /// Directory for the written artifacts (default `specodelic/`,
+        /// committed — byte-stable output makes reruns diff-visible)
+        #[arg(long, default_value = "specodelic")]
+        out_dir: String,
     },
     /// Run the model checker (stateright default, TLC opt-in) against compiled output
     ModelCheck {
@@ -131,10 +136,14 @@ fn run(
     match &cli.command {
         Commands::Lint { paths } => cmd_lint(paths, cli, format, verbosity, stdout, stderr),
         Commands::Graph { paths } => cmd_graph(paths, cli, format, verbosity, stdout, stderr),
-        Commands::Compile { .. } | Commands::ModelCheck { .. } | Commands::Verify { .. } => {
-            let out: Output<serde_json::Value> =
-                Output::failure("not yet implemented — the pipeline is specced in specs/compile.md, specs/model_check.md, and specs/verify.md")
-                    .with_next_step("track progress: bd ready");
+        Commands::Compile { paths, out_dir } => {
+            cmd_compile(paths, out_dir, cli, format, verbosity, stdout, stderr)
+        }
+        Commands::ModelCheck { .. } | Commands::Verify { .. } => {
+            let out: Output<serde_json::Value> = Output::failure(
+                "not yet implemented — specced in specs/model_check.md and specs/verify.md",
+            )
+            .with_next_step("track progress: bd ready");
             out.emit(VERSION, format, verbosity, stdout, stderr).ok();
             1
         }
@@ -297,6 +306,136 @@ fn cmd_graph(
     }
     emit(&out, cli, format, verbosity, stdout, stderr);
     if report.dangling.is_empty() { 0 } else { 1 }
+}
+
+fn cmd_compile(
+    paths: &[String],
+    out_dir: &str,
+    cli: &Cli,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let (specs, notes) = parse_batch(paths, verbosity);
+    if specs.is_empty() {
+        let out: Output<serde_json::Value> =
+            Output::failure("no spec files to compile").with_next_step(
+                "pass spec files or a directory (defaults to ./specs); parse errors, if any, are reported as warnings",
+            );
+        emit(&out, cli, format, verbosity, stdout, stderr);
+        return 1;
+    }
+
+    // precondition_satisfied — the gate reuses the existing lint pass; a
+    // file compiles only when lint reports zero issues for it.
+    let report = lint::lint_corpus(&specs);
+
+    let mut compiled: Vec<serde_json::Value> = vec![];
+    let mut failed: Vec<serde_json::Value> = vec![];
+    let warnings: Vec<String> = notes;
+    for spec in &specs {
+        let file = spec
+            .path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| format!("<{}>", spec.intent.id));
+        if let Err(e) = compile::precondition_satisfied(spec, &report) {
+            failed.push(serde_json::json!({
+                "file": file,
+                "id": spec.intent.id,
+                "stage": e.stage,
+                "message": e.message,
+            }));
+            continue;
+        }
+        match compile::compile_spec(spec) {
+            Ok(c) => {
+                let written = write_artifacts(spec, &c, out_dir);
+                match written {
+                    Ok(files) => {
+                        compiled.push(serde_json::json!({
+                            "file": file,
+                            "id": spec.intent.id,
+                            "status": "compiled",
+                            "artifacts": {
+                                "toml": c.toml,
+                                "props": c.props,
+                            },
+                            "model_ir": c.model_ir,
+                            "written": files,
+                        }));
+                    }
+                    Err(e) => {
+                        // compile_is_total: a write failure is a labeled
+                        // failure, never a silent partial on disk.
+                        failed.push(serde_json::json!({
+                            "file": file,
+                            "id": spec.intent.id,
+                            "stage": "write_artifacts",
+                            "message": e,
+                        }));
+                    }
+                }
+            }
+            Err(e) => {
+                failed.push(serde_json::json!({
+                    "file": file,
+                    "id": spec.intent.id,
+                    "stage": e.stage,
+                    "message": e.message,
+                }));
+            }
+        }
+    }
+
+    let payload = serde_json::json!({
+        "files_compiled": compiled.len(),
+        "files_failed": failed.len(),
+        "compiled": compiled,
+        "failed": failed,
+    });
+    let mut out = Output::success(payload);
+    for w in &warnings {
+        out = out.with_warning(w.clone());
+    }
+    if failed.is_empty() {
+        out = out.with_next_step("run: specodelic verify (consumes the *_props.rs artifacts)");
+    } else {
+        out = out.with_next_step(
+            "fix the labeled stage failures (lint findings first — compile requires a linted-and-covered file)",
+        );
+    }
+    emit(&out, cli, format, verbosity, stdout, stderr);
+    if failed.is_empty() { 0 } else { 1 }
+}
+
+/// Write `<stem>.toml` and `<stem>_props.rs` into `out_dir`. Byte-stable
+/// output: the same input always produces the same bytes, so committed
+/// artifacts make reruns diff-visible. Returns the written paths.
+fn write_artifacts(
+    spec: &Spec,
+    compiled: &compile::Compiled,
+    out_dir: &str,
+) -> Result<Vec<String>, String> {
+    let stem = spec
+        .path
+        .as_ref()
+        .and_then(|p| p.file_stem().and_then(|s| s.to_str()))
+        .map(str::to_string)
+        .unwrap_or_else(|| spec.intent.id.replace('.', "-"));
+    std::fs::create_dir_all(out_dir)
+        .map_err(|e| format!("could not create out-dir {out_dir}: {e}"))?;
+    let toml_path = std::path::Path::new(out_dir).join(format!("{stem}.toml"));
+    let props_path = std::path::Path::new(out_dir).join(format!("{stem}_props.rs"));
+    std::fs::write(&toml_path, &compiled.toml)
+        .map_err(|e| format!("could not write {}: {e}", toml_path.display()))?;
+    std::fs::write(&props_path, &compiled.props)
+        .map_err(|e| format!("could not write {}: {e}", props_path.display()))?;
+    Ok(vec![
+        toml_path.display().to_string(),
+        props_path.display().to_string(),
+    ])
 }
 
 fn cmd_new(

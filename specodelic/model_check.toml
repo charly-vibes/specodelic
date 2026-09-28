@@ -1,0 +1,43 @@
+source = "model_check"
+
+[[constraints]]
+id = "checker_invoked"
+kind = "invariant"
+expr = "`reaching model_checked always corresponds to an actual checker run, by the selected backend, against the current compiled model — model_present's structural check is not itself that run`"
+traces_to = "[[model_check]]"
+
+[[constraints]]
+id = "exhaustive_within_bound"
+kind = "invariant"
+expr = "`a run explores all reachable states up to a stated bound (state-space size or step count) before it may report no counterexample; the bound is part of the report, since unbounded checking of a spec with no finite state space never terminates`"
+traces_to = "[[model_check]]"
+
+[[constraints]]
+id = "counterexample_is_minimal"
+kind = "invariant"
+expr = "`when a run finds a counterexample, it reports the shortest violating transition sequence found, not merely the first one encountered`"
+traces_to = "[[model_check]]"
+
+[[constraints]]
+id = "counterexample_names_violated_invariant"
+kind = "invariant"
+expr = "`a counterexample report names exactly one violated invariant, by its Constraints-table id, together with the full state trace leading to it`"
+traces_to = "[[model_check]]"
+
+[[constraints]]
+id = "backend_identified"
+kind = "invariant"
+expr = "`a run report names the backend engine and version that produced it, so two backends' reports on the same compiled model and bound are attributable and comparable`"
+traces_to = "[[model_check]]"
+
+[[constraints]]
+id = "no_counterexample_feeds_verify"
+kind = "invariant"
+expr = "`[[specodelic.no_counterexample]] holds iff the most recent run on the current compiled module reported clean within its stated bound`"
+traces_to = "[[model_check]]"
+
+[[constraints]]
+id = "rerun_on_model_change"
+kind = "invariant"
+expr = "`a run's clean result does not satisfy [[specodelic.no_counterexample]] once the Model section (States or Transitions) has changed since that run — the model must be re-run, not assumed still clean`"
+traces_to = "[[model_check]]"

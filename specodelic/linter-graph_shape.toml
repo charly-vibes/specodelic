@@ -1,0 +1,25 @@
+source = "linter.graph_shape"
+
+[[constraints]]
+id = "acyclic"
+kind = "invariant"
+expr = "`the directed graph formed by traces_to ∪ derives_from ∪ guard-as-edge has no cycle`"
+traces_to = "[[specodelic.acyclic_traces]]"
+
+[[constraints]]
+id = "single_root_reachable"
+kind = "invariant"
+expr = "`∀ constraint/property/state/transition row: reachable(row, some intent row)`"
+traces_to = "[[specodelic.acyclic_traces]]"
+
+[[constraints]]
+id = "no_self_ref"
+kind = "invariant"
+expr = "`∀ row: row.traces_to != row.id and row.derives_from != row.id`"
+traces_to = "[[specodelic.acyclic_traces]]"
+
+[[constraints]]
+id = "supersedes_dag"
+kind = "invariant"
+expr = "`the directed graph formed by supersedes edges alone (Constraint→Constraint, Property→Property) has no cycle`"
+traces_to = "[[specodelic.supersedes_acyclic]]"

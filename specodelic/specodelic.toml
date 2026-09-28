@@ -1,0 +1,139 @@
+source = "specodelic"
+
+[[constraints]]
+id = "frontmatter_valid"
+kind = "invariant"
+expr = "`frontmatter has id, kind, statement; kind ∈ {intent}`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "unique_id"
+kind = "invariant"
+expr = "`∀ row ∈ file: unique(row.id)`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "total_refs"
+kind = "invariant"
+expr = "`∀ ref ∈ file: resolves(ref)` — no dangling `[[...]]`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "acyclic_traces"
+kind = "invariant"
+expr = "`the traces_to/derives_from graph is a DAG`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "guard_required"
+kind = "invariant"
+expr = "`∀ transition: guard != null`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "ears_statement"
+kind = "invariant"
+expr = "`intent.statement matches one of the 5 EARS patterns`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "one_capability_per_row"
+kind = "invariant"
+expr = '`no row.id joins two intents via "and"/"or"`'
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "coverage"
+kind = "invariant"
+expr = "`∀ constraint: ∃ property. property.derives_from == constraint.id`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "law_requires_cases"
+kind = "invariant"
+expr = """`∀ property where kind == "law": has(associativity) and has(identity)` — a floor, not a ceiling: a given law may require further named cases (e.g. unit, counit, naturality, triangle identity) in addition, listed in that property's own predicate"""
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "no_boolean_columns"
+kind = "invariant"
+expr = "`schema defines no bool column type; states are named variants only`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "append_only_variants"
+kind = "invariant"
+expr = "`∀ id-set S governed by 𝒦 — a variant-table's ids (chiefly States), a Constraint/Property row's own `kind` value-set, or the Reference Typing table's field set — across revisions r < r': S(r) ⊆ S(r'), grown only under a new Revision heading, never silently; an existing member's typing may narrow only in the same Revision that introduces the kind-split it depends on, and only if the narrowing invalidates nothing valid at r`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "prose_untouched"
+kind = "invariant"
+expr = "`parser never inspects rationale/description content`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "model_present"
+kind = "invariant"
+expr = "`[[model.state]] and [[model.transition]] sections both exist`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "no_counterexample"
+kind = "invariant"
+expr = "`the selected model-check backend (see [[model_check]]) finds no violated invariant`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "properties_pass"
+kind = "invariant"
+expr = "`all compiled proptest! blocks pass`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "id_matches_file"
+kind = "invariant"
+expr = '`frontmatter.id == replace(stem(path), "-", ".")` — `-` maps only to the namespace dot; `_` is preserved literally within a segment. E.g. `linter-graph_shape.md` declares `id: linter.graph_shape`'
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "ref_kind_compatible"
+kind = "invariant"
+expr = "`∀ ref: target.kind ∈ allowed_targets(field)` — see Reference Typing below"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "single_root_reachable"
+kind = "invariant"
+expr = "`∀ constraint/property/state/transition row in file: reachable(row, file's own intent row)`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "every_state_used"
+kind = "invariant"
+expr = "`∀ state: state appears as from or to in ≥ 1 transition`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "every_transition_valid"
+kind = "invariant"
+expr = "`∀ transition: from ∈ states and to ∈ states`"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "constraint_kind_closed"
+kind = "invariant"
+expr = "`∀ Constraint row: row.kind ∈ {invariant, advisory, effect, extension_point}` — see [[kinds.constraint_row_shape]]"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "property_kind_closed"
+kind = "invariant"
+expr = "`∀ Property row: row.kind ∈ {unit, law}` — see [[kinds.property_row_shape]]"
+traces_to = "[[specodelic]]"
+
+[[constraints]]
+id = "supersedes_acyclic"
+kind = "invariant"
+expr = "`the directed graph formed by supersedes edges alone (Constraint→Constraint, Property→Property) contains no cycle`"
+traces_to = "[[specodelic]]"

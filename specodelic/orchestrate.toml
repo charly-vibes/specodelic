@@ -1,0 +1,43 @@
+source = "orchestrate"
+
+[[constraints]]
+id = "lint_gate_matches_checker_ownership"
+kind = "invariant"
+expr = "`orchestrator reports lint success iff every terminal node of specodelic.md's Checker Ownership table reports passed — never a subset or a superset of that table`"
+traces_to = "[[orchestrate]]"
+
+[[constraints]]
+id = "dependency_respecting_skip"
+kind = "invariant"
+expr = "`a checker is invoked only after every checker listed in its Checker Ownership 'Depends on' column has reported passed; if a dependency reports failed, its dependents are skipped (not invoked, not reported as failed) rather than run against input the failed checker hasn't validated`"
+traces_to = "[[orchestrate]]"
+
+[[constraints]]
+id = "independent_branches_run_regardless"
+kind = "invariant"
+expr = "`two checkers with no dependency relation between them (referential_integrity→graph_shape→model_shape vs. ears_syntax vs. schema_shape) each run and report independently — one branch failing never skips or blocks the other`"
+traces_to = "[[orchestrate]]"
+
+[[constraints]]
+id = "compile_gate_matches_coverage"
+kind = "invariant"
+expr = "`orchestrator advances to model_check iff linter.coverage reports passed — exactly specodelic.md's compile guard ([[specodelic.coverage]] ∧ [[specodelic.law_requires_cases]]), not a looser or stricter check`"
+traces_to = "[[orchestrate]]"
+
+[[constraints]]
+id = "stage_order_fixed"
+kind = "invariant"
+expr = "`compile is never invoked before every file's lint stage reports passed; model_check is never invoked before compile reports compiled; verify is never invoked before model_check reports model_checked`"
+traces_to = "[[orchestrate]]"
+
+[[constraints]]
+id = "external_completeness_never_gates"
+kind = "invariant"
+expr = "`linter.external_completeness runs only if the repo declares a checklist, and its outcome (passed/failed/not_applicable) never blocks or delays lint, compile, model_check, or verify`"
+traces_to = "[[orchestrate]]"
+
+[[constraints]]
+id = "deterministic_rerun"
+kind = "invariant"
+expr = "`running the orchestrator twice against an unchanged repo produces byte-identical reports`"
+traces_to = "[[orchestrate]]"

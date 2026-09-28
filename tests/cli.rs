@@ -85,10 +85,90 @@ fn doctor_checks_workspace() {
 
 #[test]
 fn unimplemented_pipeline_commands_exit_nonzero() {
-    spk()
-        .args(["compile", "specs/specodelic.md"])
-        .assert()
-        .failure();
+    // `compile` is implemented (specodelic-lnq); model_check and verify
+    // keep their stubs until their tickets land.
+    spk().args(["model-check"]).assert().failure();
     spk().args(["verify"]).assert().failure();
     spk().args(["orchestrate"]).assert().failure();
+}
+
+#[test]
+fn compile_corpus_succeeds_and_reports_all_artifacts() {
+    let out = tempfile::tempdir().unwrap();
+    let cmd = spk()
+        .args([
+            "compile",
+            "specs",
+            "--json",
+            "--out-dir",
+            out.path().to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&cmd.stdout).unwrap();
+    let data = &json["data"];
+    assert_eq!(data["files_failed"], 0);
+    // 18 corpus spec files (the exemption list's non-spec files are skipped)
+    assert_eq!(data["files_compiled"], 18);
+    for f in data["compiled"].as_array().unwrap() {
+        assert!(
+            f["artifacts"]["toml"]
+                .as_str()
+                .unwrap()
+                .contains("[constraints]")
+        );
+        assert!(f["artifacts"]["props"].as_str().is_some());
+        assert!(f["model_ir"]["states"].as_array().unwrap().len() >= 1);
+        assert_eq!(f["written"].as_array().unwrap().len(), 2);
+    }
+    assert_eq!(cmd.status.code(), Some(0));
+}
+
+#[test]
+fn compile_refuses_lint_dirty_file_naming_precondition() {
+    let dir = tempfile::tempdir().unwrap();
+    let bad = dir.path().join("bad_spec.md");
+    std::fs::write(
+        &bad,
+        "---\nid: bad_spec\nkind: intent\nstatement: \"the system should maybe work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[bad_spec]] |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s2 | |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[bad_spec.a]] | `g()` | `x` |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args([
+            "compile",
+            dir.path().to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            dir.path().join("artifacts").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let failed = json["data"]["failed"].as_array().unwrap();
+    assert_eq!(failed.len(), 1);
+    assert_eq!(failed[0]["stage"], "precondition_satisfied");
+    assert_eq!(out.status.code(), Some(1));
+    // compile_is_total: no artifacts written for the refused file
+    assert!(!dir.path().join("artifacts").exists());
+}
+
+#[test]
+fn compile_round_trip_is_byte_stable() {
+    let out = tempfile::tempdir().unwrap();
+    let od = out.path().to_str().unwrap();
+    // Reference resolution is corpus-wide (total_refs), so compile the
+    // whole corpus; artifacts land in a tempdir out-dir.
+    let args = ["compile", "specs", "--json", "--out-dir", od];
+    spk().args(args).assert().success();
+    let first_toml = std::fs::read_to_string(out.path().join("compile.toml")).unwrap();
+    let first_props = std::fs::read_to_string(out.path().join("compile_props.rs")).unwrap();
+    spk().args(args).assert().success();
+    let second_toml = std::fs::read_to_string(out.path().join("compile.toml")).unwrap();
+    let second_props = std::fs::read_to_string(out.path().join("compile_props.rs")).unwrap();
+    assert_eq!(first_toml, second_toml);
+    assert_eq!(first_props, second_props);
+    // ids preserved: the source file's intent id anchors the TOML document
+    assert!(first_toml.contains("source = \"compile\""));
+    assert!(first_toml.contains("id = \"compile_is_total\""));
 }

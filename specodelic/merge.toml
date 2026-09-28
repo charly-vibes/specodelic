@@ -1,0 +1,43 @@
+source = "merge"
+
+[[constraints]]
+id = "graph_reused_not_rederived"
+kind = "invariant"
+expr = "`merge's collision and blast-radius checks query [[graph]]'s artifact for both branch tips; merge never independently re-walks markdown for reachability`"
+traces_to = "[[merge]]"
+
+[[constraints]]
+id = "no_new_id_collision"
+kind = "invariant"
+expr = "`∀ id ∈ index(branch_A) ∩ index(branch_B): id was already defined, identically, in the common ancestor` — an id newly minted by both branches independently is a collision, not a merge"
+traces_to = "[[merge]]"
+
+[[constraints]]
+id = "blast_radii_recorded_pre_merge"
+kind = "invariant"
+expr = "`before applying the union of edits, merge records [[graph]].blast_radius(touched_ids) for each branch separately, against the common ancestor's graph`"
+traces_to = "[[merge]]"
+
+[[constraints]]
+id = "semantic_conflict_iff_blast_radius_intersects"
+kind = "invariant"
+expr = "`blast_radius_A(touched_A) ∩ blast_radius_B(touched_B) ≠ ∅ ⟹ the merge requires human review, even when the two branches' literal file diffs don't overlap`"
+traces_to = "[[merge]]"
+
+[[constraints]]
+id = "rename_replayed_onto_foreign_edits"
+kind = "invariant"
+expr = "`if branch A contains a [[rename]] application of (old_id, new_id) and branch B independently adds a new [[old_id]] reference within blast_radius_A, the merge rewrites that reference to [[new_id]] using rename.md's own rewrite mechanism — it is never left dangling and never silently dropped`"
+traces_to = "[[merge]]"
+
+[[constraints]]
+id = "post_merge_relint_required"
+kind = "invariant"
+expr = "`merge is not reported passed until [[linter.referential_integrity]] and [[linter.graph_shape]] are re-run against the merged tree and both report passed`"
+traces_to = "[[merge]]"
+
+[[constraints]]
+id = "sequential_number_reassigned_on_conflict"
+kind = "invariant"
+expr = "`if both branches independently claim the same next sequential number (a CHANGELOG entry or Revision heading), the merge tool renumbers one of the two rather than allowing a silent duplicate`"
+traces_to = "[[merge]]"
