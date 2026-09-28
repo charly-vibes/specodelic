@@ -72,6 +72,53 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 Standing instructions for any agent working in this repo.
 
+## Sibling-tool constraints (hard blockers)
+
+Non-negotiable boundaries for charly-family tools that touch this repo.
+Violations are bugs, not preferences. Established 2026-09-28.
+
+### pretender (structural quality; native git-hook shims)
+
+- **MUST NOT claim `core.hooksPath`** — beads owns it (`.beads/hooks`,
+  verified in this repo's git config). Any hook pretender installs here
+  must be marker-guarded and **chain to** the existing `.beads/hooks`
+  pre-commit, never replace it.
+- No unguarded writes to `.git/hooks/*`; refuse to overwrite or uninstall
+  hooks it does not own (pattern: pretender `main.rs:1196-1259`).
+- **Blocker**: `spk hooks install` (specodelic-cxr) stays blocked until
+  genesis-vibes ships a `genesis::hooks` module implementing the
+  claim-or-chain strategy. Do not hand-roll a repo-local workaround.
+
+### espectacular (scenario-conformance over openspec specs)
+
+- **READ-ONLY over `openspec/specs/` and `openspec/changes/`**: never
+  edit, regenerate, or run `openspec archive` from espectacular.
+- The only sanctioned write path for capability specs is the dual-format
+  archive recipe (`openspec archive <id> --skip-specs` + verbatim cp):
+  default archive **destroys** the specodelic layer (frontmatter +
+  Constraints/Model/Properties tables) — see the spike findings under
+  `openspec/changes/archive/2026-09-28-spike-dual-format/`.
+- Spec files here are dual-format; espectacular may only read the
+  `#### Scenario:` blocks under openspec requirement headers. It MUST
+  NOT enforce anything against the `specs/` domain corpus (that is
+  specodelic's own format, governed by `spk lint`).
+- **Blockers**: adoption decision pending in specodelic-4ae (decision
+  note only — no wiring before it lands); specodelic-6pi (non-recursive
+  `spk lint <dir>`) must be fixed before any CI gate chains lint +
+  scenario-conformance checks.
+
+### vampiro (seam/composition checks over source)
+
+- **READ-ONLY over `src/` and `tests/`**: vampiro findings may gate CI
+  but must never drive code edits directly.
+- Rust frontend data-flow edges are **partial** (vampiro README v0.3.1):
+  treat Rust-scope findings as advisory (warn), not blocking (deny),
+  until frontend parity; any future deny-level gate requires an explicit
+  waiver mechanism agreed here first.
+- **Blocker**: no integration ticket exists — do not wire vampiro into
+  this repo's CI before the dual-format CI gates (blocked by
+  specodelic-6pi) land; file a ticket first when that work starts.
+
 ## What this repo is
 
 **specodelic** — a Rust CLI (`specodelic` (alias `spk`)) for the Specodelic specification
