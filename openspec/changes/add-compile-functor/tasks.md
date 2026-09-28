@@ -26,7 +26,7 @@ every step.
 
 - [ ] 4.1 Implement `precondition_satisfied`: run the existing `lint` pass internally; refuse with labeled failure + remediation hint when any issue exists
 - [ ] 4.2 Enforce `compile_is_total` (all artifacts due under the current backend decision, or one labeled failure), `compile_preserves_ids` (source ids ⊆ artifact ids + `ModelIR`), `no_semantic_drift` (TOML round-trip byte-identical)
-- [ ] 4.3 Split the shared stub arm in `main.rs`: `Compile` emits the envelope (artifacts + `ModelIR` stats) and writes `<stem>.toml` / `<stem>_props.rs` to `--out-dir` (default `compiled/`, gitignored); `ModelCheck`/`Verify` keep the stub
+- [ ] 4.3 Split the shared stub arm in `main.rs`: `Compile` emits the envelope (artifacts + `ModelIR` stats) and writes `<stem>.toml` / `<stem>_props.rs` to `--out-dir` (default `specodelic/`, committed — not gitignored; byte-stable output so committed artifacts make reruns diff-visible); `ModelCheck`/`Verify` keep the stub
 - [ ] 4.4 Integration tests in `tests/cli.rs`: `spk compile specs --json` exits 0 corpus-wide; lint-dirty synthetic file exits non-zero naming `precondition_satisfied`; round-trip stability on one corpus file
 
 ## 5. Close out

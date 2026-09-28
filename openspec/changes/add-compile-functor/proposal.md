@@ -34,7 +34,9 @@ it lands in a follow-up once `mp1` row 6 is decided.
   carry a remediation hint, never silent partials (`compile_is_total`)
 - Wire the `Compile` subcommand in `main.rs` (currently a not-implemented
   stub) to emit the artifacts through the genesis envelope and to
-  `--out-dir` on disk — TOML + proptest sources now, the model module
+  `--out-dir` on disk (default `specodelic/`, committed — the compiled
+  corpus is shareable and standardized; byte-stable output makes
+  reruns diff-visible) — TOML + proptest sources now, the model module
   after the backend decision
 - Add the `proptest` dependency (emitted-code support; the emitted `.rs`
   sources reference it)

@@ -33,12 +33,17 @@ end-to-end today.
   function), so extraction now is work either way; emission is the only
   backend-specific part.
 - **Decision: artifacts as text, emitted both in the envelope and to
-  disk.** Artifacts are strings; TOML is also kept as parsed echo for
-  validation. The envelope's `data` carries them plus per-file stats;
-  `--out-dir` (default `compiled/`) writes `<stem>.toml` and
-  `<stem>_props.rs` now, `<stem>.tla`/`<stem>.alloy` after the decision.
-  Rationale: `1pv` consumes the `.rs` text; disk artifacts make outputs
-  inspectable and testable without a process boundary.
+  disk — committed, not gitignored.** Artifacts are strings; TOML is
+  also kept as parsed echo for validation. The envelope's `data` carries
+  them plus per-file stats; `--out-dir` (default `specodelic/`) writes
+  `<stem>.toml` and `<stem>_props.rs` now, `<stem>.tla`/`<stem>.alloy`
+  after the backend decision, all committed to the repo. Rationale: the
+  compiled corpus is a shareable, standardized artifact set — anyone
+  consuming the specs gets the compiled form without running the tool —
+  and committed output makes `orchestrate.deterministic_rerun`
+  (byte-identical reports) visible in diffs instead of assumed. `1pv`
+  consumes the `.rs` text; disk artifacts are inspectable and testable
+  without a process boundary.
 - **Decision: precondition gate = internal lint.** `compile` runs the
   existing `lint` pass on the file and refuses when any issue exists —
   the coverage rule is the binding one today, and the corpus is clean.
@@ -90,6 +95,6 @@ revert the enum-arm split.
 
 - ~~TLA+ vs Alloy~~ → deferred to beads `specodelic-mp1` row 6; gates
   the model-emission follow-up only.
-- Should `--out-dir` default to `compiled/` in-repo (gitignored) or
-  require an explicit flag? (Default proposed: `compiled/`, added to
-  `.gitignore`.)
+- ~~`--out-dir` default~~ → decided: `specodelic/` in-repo, committed
+  (shareable, standardized, diff-visible determinism). Layout in
+  `design.md`'s artifact decision.
