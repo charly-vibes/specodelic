@@ -14,6 +14,7 @@ vars == <<vpc>>
 
 TypeOK == vpc \in StateValues
 
+\* Initial state: first listed in the spec (the format has no explicit initial marker).
 Init == vpc = "idle"
 
 Next ==
@@ -25,8 +26,8 @@ Next ==
   \/ vpc = "analyzing" /\ vpc' = "clean"
 
 \* One entry per state with an `emits` field — domain is exactly
-\* the emitting states (spec emits text quoted verbatim).
+\* the emitting states; each value is the effect-Constraint's expr.
 Output ==
-"found" :> "advisory_finding_emitted"
+"found" :> "`output == {node_id, dependent_count, unrelated_namespace_count, suggested_split: bool}`"
 
 ============================================================================

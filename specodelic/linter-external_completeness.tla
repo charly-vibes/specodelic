@@ -14,6 +14,7 @@ vars == <<vpc>>
 
 TypeOK == vpc \in StateValues
 
+\* Initial state: first listed in the spec (the format has no explicit initial marker).
 Init == vpc = "not_applicable"
 
 Next ==

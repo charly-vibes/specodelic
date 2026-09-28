@@ -13,7 +13,7 @@
 //! or altered — the emitted artifacts are the machine half of the
 //! self-hosting contract.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -180,11 +180,22 @@ struct PropBlock {
 /// here and only fails when executed — execution is `verify`'s (1pv) job.
 pub fn properties_to_proptest(spec: &Spec) -> String {
     let file_id = &spec.intent.id;
-    let blocks: Vec<PropBlock> = spec
+    let mut blocks: Vec<PropBlock> = spec
         .properties
         .iter()
         .flat_map(|p| blocks_for_row(p.id.clone(), p.kind.as_deref(), p))
         .collect();
+    // Two distinct ids can sanitize to the same Rust fn name (e.g. `p.1`
+    // and `p_1`) — disambiguate so the artifact never has duplicate fns.
+    let mut used: BTreeSet<String> = BTreeSet::new();
+    for b in &mut blocks {
+        let base = b.fn_name.clone();
+        let mut n = 2;
+        while !used.insert(b.fn_name.clone()) {
+            b.fn_name = format!("{base}_{n}");
+            n += 1;
+        }
+    }
 
     let mut out = String::new();
     out.push_str(&format!(
@@ -374,7 +385,10 @@ pub fn model_to_tla(spec: &Spec) -> String {
     out.push_str("VARIABLES vpc   \\* the state variable (program counter)\n\nvars == <<vpc>>\n\n");
     out.push_str("TypeOK == vpc \\in StateValues\n\n");
 
-    // Init
+    // Init — the first listed state: the format has no explicit initial
+    // marker, so the first State in the spec is the module's initial value
+    // (recorded here and in the emitted comment so the choice is visible).
+    out.push_str("\\* Initial state: first listed in the spec (the format has no explicit initial marker).\n");
     out.push_str(&format!("Init == vpc = \"{init}\"\n\n"));
 
     // Next: one disjunct per transition, guarded on from; the spec's own
@@ -399,11 +413,30 @@ pub fn model_to_tla(spec: &Spec) -> String {
             "\\* No state carries an `emits` field — Output is simply empty.\nOutput == << >>\n",
         );
     } else {
-        out.push_str("\\* One entry per state with an `emits` field — domain is exactly\n\\* the emitting states (spec emits text quoted verbatim).\nOutput ==\n");
+        out.push_str("\\* One entry per state with an `emits` field — domain is exactly\n\\* the emitting states; each value is the effect-Constraint's expr.\nOutput ==\n");
+        // Per `model_to_tla`, each entry maps the state value to the
+        // effect-kind Constraint's `expr` (verbatim; the raw reference as
+        // fallback when the target is not a local constraint row).
+        let exprs: BTreeMap<&str, &str> = spec
+            .constraints
+            .iter()
+            .map(|c| {
+                (
+                    c.id.as_str(),
+                    c.cells.get("expr").map(String::as_str).unwrap_or(""),
+                )
+            })
+            .collect();
         let entries: Vec<String> = ir
             .emits
             .iter()
-            .map(|(state, constraint)| format!("\"{state}\" :> \"{constraint}\""))
+            .map(|(state, constraint)| {
+                let value = exprs
+                    .get(constraint.as_str())
+                    .copied()
+                    .unwrap_or(constraint);
+                format!("\"{state}\" :> \"{value}\"")
+            })
             .collect();
         out.push_str(&entries.join(" @@\n"));
         out.push('\n');
@@ -484,7 +517,7 @@ pub fn precondition_satisfied(spec: &Spec, report: &Report) -> Result<(), Compil
     Err(CompileError {
         stage: "precondition_satisfied".into(),
         message: format!(
-            "file has {} lint finding(s) — compile requires a linted-and-covered file (fired: {})",
+            "file has {} lint finding(s) — compile requires a linted-and-covered file (fired: {}). Note: lint is corpus-wide, so a file that references other specs only passes in the whole-corpus context — run `spk compile specs`",
             issues.len(),
             names.join(", ")
         ),
@@ -494,6 +527,15 @@ pub fn precondition_satisfied(spec: &Spec, report: &Report) -> Result<(), Compil
 /// Compile one spec file through the full contract. Idempotent and
 /// byte-stable: the same input yields byte-identical artifacts.
 pub fn compile_spec(spec: &Spec) -> Result<Compiled, CompileError> {
+    // model_to_tla needs a non-empty state range; lint's `model_present`
+    // gate covers this for CLI runs, but the lib contract is total — a
+    // spec without states fails labeled, never with a malformed module.
+    if spec.states.is_empty() {
+        return Err(CompileError {
+            stage: "model_to_tla".into(),
+            message: "Model section has no states — nothing to compile into a module".into(),
+        });
+    }
     let toml = constraints_to_toml(spec);
     let model_ir = extract_model_ir(spec);
     let props = properties_to_proptest(spec);
@@ -517,12 +559,24 @@ pub fn compile_spec(spec: &Spec) -> Result<Compiled, CompileError> {
     }
 
     // compile_preserves_ids — every source id appears, unchanged, in at
-    // least one artifact (states/transitions ride in the ModelIR).
-    let artifact_text = format!("{toml}{props}");
+    // least one artifact. Compared as structured id sets, not substrings:
+    // constraint ids from the TOML doc, the verbatim `// id:` lines in the
+    // props artifact, the intent id in the TOML `source` field, and
+    // state/transition ids in the ModelIR.
+    let mut artifact_ids: BTreeSet<String> = BTreeSet::new();
+    artifact_ids.insert(doc.source.clone());
+    for c in &doc.constraints {
+        artifact_ids.insert(c.id.clone());
+    }
+    for line in props.lines() {
+        if let Some(id) = line.trim().strip_prefix("// id: ") {
+            artifact_ids.insert(id.trim().to_string());
+        }
+    }
     let missing: Vec<String> = spec
         .defined_ids()
         .into_iter()
-        .filter(|id| !artifact_text.contains(id.as_str()) && !ir_contains_id(&model_ir, id))
+        .filter(|id| !artifact_ids.contains(id) && !ir_contains_id(&model_ir, id))
         .collect();
     if !missing.is_empty() {
         return Err(CompileError {
@@ -666,8 +720,9 @@ mod tests {
     fn tla_output_covers_emitting_states_only() {
         let spec = sample();
         let src = model_to_tla(&spec);
-        // domain is exactly the emitting states — s1 has no entry
-        assert!(src.contains("\"s2\" :> \"b\""));
+        // domain is exactly the emitting states — s1 has no entry; the
+        // value is the effect-Constraint's `expr`, not its id
+        assert!(src.contains("\"s2\" :> \"`y fires`\""));
         assert!(!src.contains("\"s1\" :>"));
     }
 
@@ -698,6 +753,33 @@ mod tests {
     }
 
     // --- 4.2 contract invariants ---
+
+    #[test]
+    fn compile_refuses_stateless_spec_with_labeled_failure() {
+        // lib-level totality: lint's model_present gate covers CLI runs,
+        // but compile_spec itself must fail labeled, never emit a
+        // malformed module.
+        let spec = parse_str(
+            "---\nid: demo.bare\nkind: intent\nstatement: \"THE system SHALL work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[demo.bare]] |\n",
+        )
+        .unwrap();
+        let err = compile_spec(&spec).expect_err("stateless spec must fail");
+        assert_eq!(err.stage, "model_to_tla");
+    }
+
+    #[test]
+    fn colliding_fn_names_are_disambiguated() {
+        // `p.1` and `p_1` sanitize to the same fn name — the second gets a
+        // suffix instead of emitting duplicate fns.
+        let spec = parse_str(
+            "---\nid: demo.coll\nkind: intent\nstatement: \"THE system SHALL work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[demo.coll]] |\n\n## Model\n\n### States\n\n- s\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s | s | [[demo.coll.a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p.1 | unit | [[demo.coll.a]] | `g()` | `x` |\n| p_1 | unit | [[demo.coll.a]] | `g()` | `x` |\n",
+        )
+        .unwrap();
+        let src = properties_to_proptest(&spec);
+        assert!(src.contains("fn p_1("));
+        assert!(src.contains("fn p_1_2("));
+        assert_eq!(src.matches("fn p_1(").count(), 1);
+    }
 
     #[test]
     fn compile_preserves_every_source_id() {

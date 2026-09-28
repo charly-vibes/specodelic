@@ -333,7 +333,8 @@ fn cmd_compile(
 
     let mut compiled: Vec<serde_json::Value> = vec![];
     let mut failed: Vec<serde_json::Value> = vec![];
-    let warnings: Vec<String> = notes;
+    let mut warnings: Vec<String> = notes;
+    let mut seen_stems: std::collections::BTreeMap<String, String> = Default::default();
     for spec in &specs {
         let file = spec
             .path
@@ -354,6 +355,15 @@ fn cmd_compile(
                 let written = write_artifacts(spec, &c, out_dir);
                 match written {
                     Ok(files) => {
+                        // Two files with the same stem (different dirs)
+                        // would silently overwrite each other's artifacts.
+                        let stem = artifact_stem(spec);
+                        if let Some(first) = seen_stems.get(&stem) {
+                            warnings.push(format!(
+                                "stem collision: `{stem}` artifacts from {first} and {file} share one out-dir — the later file wins",
+                            ));
+                        }
+                        seen_stems.insert(stem, file.clone());
                         compiled.push(serde_json::json!({
                             "file": file,
                             "id": spec.intent.id,
@@ -411,7 +421,17 @@ fn cmd_compile(
     if failed.is_empty() { 0 } else { 1 }
 }
 
-/// Write `<stem>.toml` and `<stem>_props.rs` into `out_dir`. Byte-stable
+/// The artifact filename stem for a spec: the file stem when on disk,
+/// else the intent id with `.` → `-`.
+fn artifact_stem(spec: &Spec) -> String {
+    spec.path
+        .as_ref()
+        .and_then(|p| p.file_stem().and_then(|s| s.to_str()))
+        .map(str::to_string)
+        .unwrap_or_else(|| spec.intent.id.replace('.', "-"))
+}
+
+/// Write `<stem>.toml`, `<stem>_props.rs`, and `<stem>.tla` into `out_dir`. Byte-stable
 /// output: the same input always produces the same bytes, so committed
 /// artifacts make reruns diff-visible. Returns the written paths.
 fn write_artifacts(
@@ -419,12 +439,7 @@ fn write_artifacts(
     compiled: &compile::Compiled,
     out_dir: &str,
 ) -> Result<Vec<String>, String> {
-    let stem = spec
-        .path
-        .as_ref()
-        .and_then(|p| p.file_stem().and_then(|s| s.to_str()))
-        .map(str::to_string)
-        .unwrap_or_else(|| spec.intent.id.replace('.', "-"));
+    let stem = artifact_stem(spec);
     std::fs::create_dir_all(out_dir)
         .map_err(|e| format!("could not create out-dir {out_dir}: {e}"))?;
     let toml_path = std::path::Path::new(out_dir).join(format!("{stem}.toml"));

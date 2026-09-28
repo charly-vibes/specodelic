@@ -8,10 +8,10 @@ regardless of which model_check backend later runs against the model:
 each State becomes a value in the module's state variable's range, each
 Transition becomes one disjunct of the `Next` action, and a State with an
 `emits` field additionally becomes one entry in an `Output` function from
-that state value to the effect-Constraint reference — absent for a state
-with no `emits`, never a default or null entry. Spec-side guard and emits
-text is not TLA+; it SHALL be carried verbatim in comments while the
-emitted disjuncts are valid TLA+ over the state variable.
+that state value to the effect-Constraint's `expr` — absent for a state
+with no `emits`, never a default or null entry. Spec-side guard and
+emits text is not TLA+; it SHALL be carried verbatim in comments while
+the emitted disjuncts are valid TLA+ over the state variable.
 
 #### Scenario: Disjunct count matches transitions
 - **WHEN** a Model section with n transitions is compiled
