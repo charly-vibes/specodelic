@@ -16,8 +16,27 @@ truth for the format; `specs/STATUS.md` §1 is the primer.
 
 Relation to OpenSpec: openspec manages the *engineering change workflow*
 of this repo (proposals → tasks → archive). Specodelic is a *domain spec
-format* the repo also implements tooling for. Keep both; don't conflate
-them (see "Domain Context").
+format* the repo also implements tooling for. The two share requirement
+content through the **dual-format protocol**:
+
+- Every change delta file is a *dual-format file* — YAML frontmatter +
+  `## Constraints`/`## Model`/`## Properties` tables (specodelic)
+  alongside `## Purpose` + `## ADDED Requirements` + `## Requirements`
+  (openspec). Requirement text is authored once, validated by both
+  parsers, and linted by `spk lint` throughout the lifecycle.
+- Dual-format files declare `id: spec` (openspec hard-requires the
+  delta filename `spec.md`; the naming law's `-` ⇔ `.` mapping makes
+  `id: spec` the legal id). Uniqueness is per-file, so any number of
+  `id: spec` files coexist; deltas stay self-contained — wiki-refs
+  resolve only within the file, domain semantics are referenced by
+  prose path (`specs/<name>.md`), never `[[wiki-link]]`.
+- The `## ADDED Requirements` and `## Requirements` sections carry
+  identical text; the section-sync check in `just ci` fails on drift.
+- **Archive recipe**: `openspec archive <id> --skip-specs` (the
+  archiver's own regeneration drops the specodelic layer), then copy
+  each dual-format file verbatim from the archive directory to
+  `openspec/specs/<cap>/spec.md` — `just archive-change id=<id>` does
+  both. Archived capability specs remain lint-clean specodelic files.
 
 ## Tech Stack
 

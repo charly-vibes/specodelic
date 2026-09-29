@@ -6,6 +6,28 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #37 — Dual-format protocol: openspec engineering truth is specodelic-lintable
+
+The repo's two spec systems now share requirement content instead of
+duplicating it. Every openspec change delta is a *dual-format file* —
+frontmatter + `Constraints`/`Model`/`Properties` tables alongside the
+openspec `## ADDED Requirements`/`## Requirements` grammar — authored
+once, validated by both parsers (`openspec validate --strict` and
+`spk lint`), and lintable after archive. Because openspec hard-requires
+the filename `spec.md`, dual-format files declare `id: spec`; the
+reference index in `lint.rs` and `graph.rs` was fixed to aggregate row
+sets per file id (several `id: spec` files previously overwrote each
+other, dangling every cross-row link — found by linting the real openspec
+tree). Archive runs `openspec archive <id> --skip-specs` and copies the
+delta verbatim into `openspec/specs/<cap>/spec.md` (`just
+archive-change`), bypassing the archiver's lossy regeneration; the
+section-sync check (`scripts/check_section_sync.py`, wired into `just
+ci`) fails any drift between a file's ADDED and Requirements sections.
+All four archived capability specs (compile, doctor, embedded-guide,
+lint-findings) are migrated to dual format — `just ci` now gates
+`openspec validate --all --strict`, `spk lint openspec`, and section
+sync (beads specodelic-3gd, openspec add-dual-format-deltas).
+
 ## #36 — `spk model-check`: the model_check step with the native stateright backend
 
 `spk model-check <files>` runs `specs/model_check.md`'s run state machine

@@ -1,7 +1,45 @@
+---
+id: spec
+kind: intent
+statement: "THE doctor command SHALL classify the workspace mode and warn — never fail — when the binary's embedded format knowledge lags the local corpus."
+---
+
 # doctor Specification
 
 ## Purpose
-TBD - created by archiving change add-embedded-aix-guide. Update Purpose after archive.
+Diagnose a workspace's specodelic setup from inside the binary:
+classify the workspace as self-hosting or consumer, check the local
+corpus against the embedded format knowledge, and report findings over
+the standard envelope without failing on informational conditions.
+
+## Constraints
+
+| id                | kind      | expr                                                                                                                                                          | traces_to |
+|-------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
+| mode_detection    | invariant | `workspace classifies as self_hosting when specs/specodelic.md exists and consumer otherwise, with the mode reported in envelope data`                          | [[spec]]  |
+| currency_warning  | invariant | `whenever a local corpus exists, the latest Revision N heading is compared numerically against FORMAT_REVISION; a lagging binary warns without failing; unreadable or revision-less corpora skip with an informational note` | [[spec]]  |
+
+## Model
+
+### States
+- `probed`
+- `classified`
+- `currency_checked`
+
+### Transitions
+
+| id       | from        | to               | guard                      |
+|----------|-------------|------------------|----------------------------|
+| classify | probed      | classified       | [[spec.mode_detection]]    |
+| currency | classified  | currency_checked | [[spec.currency_warning]]  |
+
+## Properties
+
+| id          | kind | derives_from              | generator                  | predicate                                     |
+|-------------|------|---------------------------|----------------------------|-----------------------------------------------|
+| p_mode      | unit | [[spec.mode_detection]]   | `arbitrary_workspace()`    | `mode == expected(ws) ∧ mode ∈ envelope_data`  |
+| p_currency  | unit | [[spec.currency_warning]] | `arbitrary_corpus_state()` | `lag ⇒ warning ∧ ¬failure ∧ skip ⇒ note`       |
+
 ## Requirements
 ### Requirement: Workspace Mode Detection
 
@@ -68,4 +106,3 @@ currency check with an informational note.
   `specs/specodelic.md` contains no `Revision N` heading
 - **THEN** the currency check is skipped with an informational note and
   the command neither warns nor fails
-

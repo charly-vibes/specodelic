@@ -1,7 +1,41 @@
+---
+id: spec
+kind: intent
+statement: "THE linter SHALL make every finding self-describing by carrying its stable rule id and a one-line rule semantics string in both JSON and human output."
+---
+
 # lint-findings Specification
 
 ## Purpose
-TBD - created by archiving change add-embedded-aix-guide. Update Purpose after archive.
+Turn each lint finding into its own documentation: a stable
+`linter.<name>` rule id plus a one-line semantics string, present in
+the JSON envelope and the human-readable output, so agents and humans
+can act on a finding without repository access.
+
+## Constraints
+
+| id               | kind      | expr                                                                                                                      | traces_to |
+|------------------|-----------|----------------------------------------------------------------------------------------------------------------------------|-----------|
+| self_describing  | invariant | `every finding carries rule_id linter.<name> and a non-empty one-line rule_semantics sourced from the rule table, in JSON and human output` | [[spec]]  |
+
+## Model
+
+### States
+- `found`
+- `emitted`
+
+### Transitions
+
+| id     | from  | to       | guard                     |
+|--------|-------|----------|---------------------------|
+| emit   | found | emitted  | [[spec.self_describing]]  |
+
+## Properties
+
+| id       | kind | derives_from              | generator             | predicate                                   |
+|----------|------|---------------------------|-----------------------|---------------------------------------------|
+| p_finding | unit | [[spec.self_describing]] | `arbitrary_finding()` | `finding.rule_id stable ∧ semantics non-empty in both output modes` |
+
 ## Requirements
 ### Requirement: Self-Describing Lint Findings
 
@@ -25,4 +59,3 @@ this requirement.
 
 - **WHEN** `spk lint bad-spec.md --human` runs on an invalid file
 - **THEN** each printed finding includes its `rule_id`
-

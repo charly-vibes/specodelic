@@ -49,9 +49,40 @@ lint-specs:
 graph-specs:
     cargo run -q -- graph specs
 
+# Validate every active change and every capability spec (openspec, strict,
+# non-interactive — CI safe)
+openspec-validate:
+    openspec validate --all --strict --no-interactive
+
+# Lint the openspec tree with the freshly built spk: dual-format files
+# (frontmatter + tables) are checked; plain prose files are exempt
+# (no frontmatter — not a spec file)
+lint-deltas:
+    cargo run -q -- lint openspec
+
+# Section-sync check: in every dual-format file the ADDED Requirements
+# and Requirements sections must carry identical requirement text
+sync-sections:
+    python3 scripts/check_section_sync.py openspec
+
+# Archive a change bypassing the lossy spec regeneration, then copy each
+# dual-format delta verbatim into openspec/specs/ (the specodelic layer
+# survives into engineering truth)
+archive-change id:
+    openspec archive {{id}} --skip-specs --yes
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dir=$(find openspec/changes/archive -maxdepth 1 -type d -name "*-{{id}}" | sort | tail -1)
+    for f in "$dir"/specs/*/spec.md; do
+    cap=$(basename "$(dirname "$f")")
+    mkdir -p "openspec/specs/$cap"
+    cp "$f" "openspec/specs/$cap/spec.md"
+    echo "archived: openspec/specs/$cap/spec.md (dual-format, verbatim)"
+    done
+
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release
+ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections
 
 # Session start
 prime:

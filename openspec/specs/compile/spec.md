@@ -1,7 +1,59 @@
+---
+id: spec
+kind: intent
+statement: "THE compile step SHALL turn a lint-clean spec file into its full artifact set (TOML constraints, proptest sources, TLA+ module) without loss or silent partial results."
+---
+
 # compile Specification
 
 ## Purpose
-TBD - created by archiving change add-compile-functor. Update Purpose after archive.
+Compile a lint-clean specodelic file into the artifact set downstream
+consumers run against: a TOML projection of the Constraints table,
+proptest scaffolding from the Properties table, and a TLA+ module from
+the Model section — total, id-preserving, and byte-stable.
+
+## Constraints
+
+| id                    | kind      | expr                                                                                                                        | traces_to |
+|-----------------------|-----------|-----------------------------------------------------------------------------------------------------------------------------|-----------|
+| precondition_gate     | invariant | `compile runs only on a file passing lint with zero issues; refusal is labeled precondition_satisfied with a remediation hint` | [[spec]]  |
+| constraints_to_toml   | invariant | `every Constraint row compiles to one TOML entry {id, kind, expr, traces_to} field-for-field, losslessly`                      | [[spec]]  |
+| model_to_ir           | invariant | `the Model section extracts to a backend-neutral IR — states, guarded transitions, and an emits mapping covering emitting states only` | [[spec]]  |
+| properties_to_proptest | invariant | `each Property row compiles to at least one proptest block; law-kind rows expand to one block per required case`               | [[spec]]  |
+| compile_total         | invariant | `compile produces the full artifact set due under the backend decision or reports exactly which stage failed — never a silent partial result` | [[spec]]  |
+| preserves_ids         | invariant | `every source id appears unchanged in at least one compiled artifact or the ModelIR`                                          | [[spec]]  |
+| round_trip_stable     | invariant | `re-parsing the compiled TOML and re-emitting it yields output byte-identical to the original compile`                         | [[spec]]  |
+| model_to_tla          | invariant | `one TLA+ module per compiled file, always: one Next disjunct per transition, Output defined on emitting states only, spec text carried verbatim in comments` | [[spec]]  |
+
+## Model
+
+### States
+- `received`
+- `precondition_ok`
+- `emitted`
+- `failed`
+
+### Transitions
+
+| id            | from           | to             | guard                         |
+|---------------|----------------|----------------|-------------------------------|
+| lint_gate     | received       | precondition_ok | [[spec.precondition_gate]]   |
+| emit_all      | precondition_ok | emitted       | [[spec.compile_total]]       |
+| label_failure | precondition_ok | failed        | [[spec.compile_total]]       |
+
+## Properties
+
+| id             | kind | derives_from             | generator                  | predicate                                   |
+|----------------|------|--------------------------|----------------------------|---------------------------------------------|
+| p_precondition | unit | [[spec.precondition_gate]] | `arbitrary_spec_file()`   | `lint(f) == passed ∨ exit_names_precondition` |
+| p_toml         | unit | [[spec.constraints_to_toml]] | `arbitrary_constraint_row()` | `reparse(emit(row)) == row`             |
+| p_ir           | unit | [[spec.model_to_ir]]     | `arbitrary_model_section()` | `ir.transitions.len == n ∧ emits.domain == emitting_states` |
+| p_proptest     | unit | [[spec.properties_to_proptest]] | `arbitrary_property_row()` | `blocks_for(row) >= 1 ∧ law_cases_expanded` |
+| p_total        | unit | [[spec.compile_total]]   | `failing_stage()`          | `report.names(stage) ∧ ¬partial_reported`   |
+| p_ids          | unit | [[spec.preserves_ids]]   | `arbitrary_lint_clean_file()` | `source_ids ⊆ artifact_ids ∪ model_ir_ids` |
+| p_roundtrip    | unit | [[spec.round_trip_stable]] | `arbitrary_lint_clean_file()` | `reemit(reparse(toml)) == toml`          |
+| p_tla          | unit | [[spec.model_to_tla]]    | `arbitrary_model_section()` | `disjuncts == n ∧ output.domain == emitting_states` |
+
 ## Requirements
 ### Requirement: Compile precondition gate
 The system SHALL run `compile` only on a spec file that passes lint with
@@ -109,4 +161,3 @@ the emitted disjuncts are valid TLA+ over the state variable.
 - **WHEN** a lint-clean spec file is compiled
 - **THEN** the command writes `<stem>.tla` alongside the TOML and proptest artifacts
 - **AND** recompiling yields byte-identical module text
-

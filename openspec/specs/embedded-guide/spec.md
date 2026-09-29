@@ -1,7 +1,50 @@
+---
+id: spec
+kind: intent
+statement: "THE CLI SHALL serve an embedded, repository-free guide to the format through spk explain and keep that knowledge pinned to a corpus revision."
+---
+
 # embedded-guide Specification
 
 ## Purpose
-TBD - created by archiving change add-embedded-aix-guide. Update Purpose after archive.
+Make the format's knowledge travel with the binary: `spk explain`
+serves a distilled machine-facing guide embedded via `include_str!`,
+the embedded knowledge is pinned to a corpus revision and guarded
+against drift, and `spk new` scaffolds files that teach their own
+tables.
+
+## Constraints
+
+| id               | kind      | expr                                                                                                                                              | traces_to |
+|------------------|-----------|----------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
+| explain_topics   | invariant | `spk explain serves exactly six topics — format, ears, kinds, references, lifecycle, lint-rules — over the standard envelope; unknown topics fail with a hint listing valid ones` | [[spec]]  |
+| revision_pinned  | invariant | `FORMAT_REVISION names the mirrored corpus revision and appears in spk --version --json and every explain payload`                                  | [[spec]]  |
+| drift_guard      | invariant | `the test suite fails when FORMAT_REVISION lags the corpus's latest Revision N heading, compared numerically`                                       | [[spec]]  |
+| scaffold_teaches | invariant | `spk new generates per-layer guidance comments that the linter ignores`                                                                             | [[spec]]  |
+
+## Model
+
+### States
+- `queried`
+- `resolved`
+- `rendered`
+
+### Transitions
+
+| id       | from     | to       | guard                    |
+|----------|----------|----------|--------------------------|
+| resolve  | queried  | resolved | [[spec.explain_topics]]  |
+| render   | resolved | rendered | [[spec.revision_pinned]] |
+
+## Properties
+
+| id         | kind | derives_from             | generator             | predicate                                   |
+|------------|------|--------------------------|-----------------------|---------------------------------------------|
+| p_topics   | unit | [[spec.explain_topics]]  | `arbitrary_topic()`   | `known ⇒ body_nonempty ∧ unknown ⇒ hint`     |
+| p_revision | unit | [[spec.revision_pinned]] | `arbitrary_version()` | `payload.contains(format_revision)`          |
+| p_drift    | unit | [[spec.drift_guard]]     | `stale_constant()`    | `numeric(latest) > numeric(FORMAT_REVISION) ⇒ test_fails` |
+| p_scaffold | unit | [[spec.scaffold_teaches]] | `arbitrary_new_file()` | `guidance_present ∧ lint(f) == zero_issues` |
+
 ## Requirements
 ### Requirement: Embedded Format Guide Command
 
@@ -104,4 +147,3 @@ results, because the linter never parses prose.
 - **WHEN** a fully filled-in spec containing the scaffold guidance
   comments is linted
 - **THEN** the guidance produces no findings
-
