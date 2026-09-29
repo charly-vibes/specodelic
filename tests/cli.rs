@@ -1246,3 +1246,121 @@ fn hooks_uninstall_strips_only_the_block() {
         "only block lines removed:\n{after}"
     );
 }
+
+// ---- specodelic-suz: hostile-input ingestion hardening ----
+
+/// A FIFO named `*.md` must be rejected with a labeled message inside the
+/// timeout — never ingested (a blocking read would hang the command
+/// forever, reproduced 2026-09-28 with `mkfifo /tmp/x.md`).
+#[cfg(unix)]
+#[test]
+fn lint_on_a_fifo_is_rejected_never_blocks() {
+    let dir = tempfile::tempdir().unwrap();
+    let fifo = dir.path().join("pipe.md");
+    std::process::Command::new("mkfifo")
+        .arg(&fifo)
+        .status()
+        .unwrap()
+        .success()
+        .then_some(())
+        .expect("mkfifo must succeed");
+    let out = spk()
+        .args(["lint", fifo.to_str().unwrap(), "--json"])
+        .timeout(std::time::Duration::from_secs(10))
+        .output()
+        .expect("lint must finish — a FIFO must never block the read");
+    // A rejected input is a labeled failure when nothing else was linted.
+    assert!(!out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("not a regular file"),
+        "labeled rejection required: {stdout}"
+    );
+    assert!(
+        stdout.contains("pipe.md"),
+        "the offending path must be named: {stdout}"
+    );
+}
+
+/// A char device (`/dev/zero`-class) must never be ingested — the
+/// unbounded read OOM-kills (confirmed mechanism, tested under ulimit).
+#[cfg(unix)]
+#[test]
+fn lint_on_a_char_device_is_rejected_never_reads_unbounded() {
+    let out = spk()
+        .args(["lint", "/dev/zero", "--json"])
+        .timeout(std::time::Duration::from_secs(10))
+        .output()
+        .expect("lint must finish — a device file must never be read unbounded");
+    // A rejected input is a labeled failure when nothing else was linted.
+    assert!(!out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("not a regular file"),
+        "labeled rejection required: {stdout}"
+    );
+}
+
+/// A regular file over the 2 MiB input cap (corpus files are ~10-50 KB)
+/// must be rejected with a labeled message naming the cap — never read
+/// unbounded into memory.
+#[test]
+fn lint_on_an_oversized_file_names_the_cap() {
+    let dir = tempfile::tempdir().unwrap();
+    let big = dir.path().join("big.md");
+    let mut content = String::from("---\nid: big\nkind: intent\nstatement: \"THE system SHALL be oversized\"\n---\n\n");
+    content.push_str(&"x".repeat(3 * 1024 * 1024));
+    std::fs::write(&big, content).unwrap();
+    let out = spk()
+        .args(["lint", big.to_str().unwrap(), "--json"])
+        .timeout(std::time::Duration::from_secs(10))
+        .output()
+        .unwrap();
+    // A rejected input is a labeled failure when nothing else was linted.
+    assert!(!out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("2 MiB"),
+        "the cap must be named: {stdout}"
+    );
+    assert!(
+        stdout.contains("big.md"),
+        "the offending path must be named: {stdout}"
+    );
+}
+
+/// A FIFO alongside a valid spec is skipped with a labeled note — the
+/// valid spec still lints.
+#[cfg(unix)]
+#[test]
+fn lint_skips_a_fifo_alongside_valid_specs_with_a_note() {
+    let dir = tempfile::tempdir().unwrap();
+    write_model_check_spec(&dir.path().join("ok.md"), "ok");
+    let fifo = dir.path().join("pipe.md");
+    std::process::Command::new("mkfifo")
+        .arg(&fifo)
+        .status()
+        .unwrap()
+        .success()
+        .then_some(())
+        .expect("mkfifo must succeed");
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .timeout(std::time::Duration::from_secs(10))
+        .output()
+        .expect("lint must finish — a FIFO must never block the read");
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("not a regular file") && stdout.contains("pipe.md"),
+        "the FIFO is labeled and skipped: {stdout}"
+    );
+    assert!(
+        stdout.contains("\"issues\":[]"),
+        "no lint issues — the valid spec lints clean: {stdout}"
+    );
+    assert!(
+        stdout.contains("\"files_linted\":1"),
+        "the valid spec was ingested and linted: {stdout}"
+    );
+}

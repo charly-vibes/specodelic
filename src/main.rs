@@ -693,10 +693,42 @@ fn collect_specs(paths: &[String]) -> Vec<std::path::PathBuf> {
 }
 
 /// Parse a batch, skipping non-spec files (no frontmatter) with a note.
+/// The ingestion size cap (hostile-input gate, specodelic-suz): a
+/// spec file is prose — corpus files are ~10-50 KB; anything beyond
+/// this bound is not a spec, and reading it is an unbounded-memory risk.
+const MAX_INPUT_BYTES: u64 = 2 * 1024 * 1024;
+
+/// Parse a batch, skipping non-spec files (no frontmatter) with a note.
 fn parse_batch(paths: &[String], verbosity: Verbosity) -> (Vec<Spec>, Vec<String>) {
     let mut specs = vec![];
     let mut notes = vec![];
     for f in collect_specs(paths) {
+        // Hostile-input gate (specodelic-suz): only regular files of a
+        // bounded size are ever read. A FIFO named *.md blocks forever;
+        // a char device (/dev/zero) reads unbounded and OOM-kills; an
+        // oversized regular file bloats memory. All are labeled, name
+        // the offending path, and are skipped — never read.
+        let meta = match std::fs::metadata(&f) {
+            Ok(m) => m,
+            Err(e) => {
+                notes.push(format!("{}: unreadable ({e})", f.display()));
+                continue;
+            }
+        };
+        if !meta.is_file() {
+            notes.push(format!(
+                "{}: skipped (not a regular file — only regular files are ingested, never a FIFO, device, or other special file)",
+                f.display()
+            ));
+            continue;
+        }
+        if meta.len() > MAX_INPUT_BYTES {
+            notes.push(format!(
+                "{}: skipped (exceeds the 2 MiB input cap — corpus files are ~10-50 KB; split or move the file)",
+                f.display()
+            ));
+            continue;
+        }
         let text = match std::fs::read_to_string(&f) {
             Ok(t) => t,
             Err(e) => {
@@ -759,7 +791,14 @@ fn cmd_lint(
                 "pass files or directories containing *.md specs with YAML frontmatter (directories are searched recursively; hidden and build dirs are skipped)",
             )
         };
-        let out: Output<serde_json::Value> = Output::failure(msg).with_next_step(hint);
+        let mut out: Output<serde_json::Value> = Output::failure(msg).with_next_step(hint);
+        // The labeled notes surface even on the nothing-linted path — a
+        // hostile-input rejection (FIFO, device, oversized) or a parse
+        // error must name itself, never vanish into a generic failure
+        // (specodelic-suz).
+        for n in &notes {
+            out = out.with_warning(n.clone());
+        }
         emit(&out, cli, format, verbosity, stdout, stderr);
         return 1;
     }
