@@ -69,15 +69,17 @@ sync-sections:
 # dual-format delta verbatim into openspec/specs/ (the specodelic layer
 # survives into engineering truth)
 archive-change id:
-    openspec archive {{id}} --skip-specs --yes
     #!/usr/bin/env bash
     set -euo pipefail
+    if openspec list 2>/dev/null | grep -q "{{id}}"; then
+        openspec archive {{id}} --skip-specs --yes
+    fi
     dir=$(find openspec/changes/archive -maxdepth 1 -type d -name "*-{{id}}" | sort | tail -1)
     for f in "$dir"/specs/*/spec.md; do
-    cap=$(basename "$(dirname "$f")")
-    mkdir -p "openspec/specs/$cap"
-    cp "$f" "openspec/specs/$cap/spec.md"
-    echo "archived: openspec/specs/$cap/spec.md (dual-format, verbatim)"
+        cap=$(basename "$(dirname "$f")")
+        mkdir -p "openspec/specs/$cap"
+        cp "$f" "openspec/specs/$cap/spec.md"
+        echo "archived: openspec/specs/$cap/spec.md (dual-format, verbatim)"
     done
 
 # Build the docs book locally, mirroring the docs.yml workflow steps

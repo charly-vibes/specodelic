@@ -16,7 +16,7 @@
 ## 4. Validation
 - [x] 4.1 `just docs-build` succeeds locally; `docs/book/index.html` exists; all 22 spec pages render (18 corpus + 4 capability), zero mdbook warnings
 - [x] 4.2 `just ci` still green (docs changes add no new gates; existing gates unaffected)
-- [ ] 4.3 After merge: site live at https://charly-vibes.github.io/specodelic/ with llms.txt at root (verify on first workflow run)
+- [x] 4.3 After merge (verified: workflow run 36567173739 success; site 200, llms.txt 200, spec pages 200): site live at https://charly-vibes.github.io/specodelic/ with llms.txt at root (verify on first workflow run)
 
 ## 5. Follow-up filing
-- [ ] 5.1 File beads issue: CI check that every `specs/*.md` and `openspec/specs/*/spec.md` appears in `docs/src/SUMMARY.md` (dual-format section-sync pattern)
+- [x] 5.1 File beads issue (specodelic-b3p): CI check that every `specs/*.md` and `openspec/specs/*/spec.md` appears in `docs/src/SUMMARY.md` (dual-format section-sync pattern)
