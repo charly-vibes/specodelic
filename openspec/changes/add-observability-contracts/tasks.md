@@ -27,9 +27,13 @@ Tidying commits are separate from feature commits.
       `specs/linter-graph_shape.md` — note that `acyclic`'s edge set is
       unchanged (D4).
 - [ ] 1.5 **GREEN (format)**: new `specs/linter-observability.md` — the
-      check's semantics: every effect is observed or reported, advisory,
-      cross-file, no waivers in v1, never gates (model on
-      `linter-external_completeness.md`'s file shape).
+      check's semantics: the observation universe is the lint invocation's
+      file set (corpus-wide `just lint-specs` is the canonical run);
+      every effect in scope is observed or reported; advisory severity;
+      no waivers in v1 (model on `linter-external_completeness.md`'s file
+      shape); a dangling observes is a referential-integrity failure,
+      never an observability finding — the two checks compose without
+      double-reporting the same row.
 - [ ] 1.6 **REFACTOR**: re-read the corpus diffs against `AGENTS.md`'s
       Revision discipline (nothing silent, one Revision heading per
       widening); `just lint-specs` clean or gaps filed to beads.
