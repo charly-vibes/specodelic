@@ -78,8 +78,9 @@ def check(path: Path) -> list[str]:
                 f"{path}: capability spec has no frontmatter — not a dual-format "
                 "file (plain openspec regeneration output); see the migration "
                 "recipe in openspec/project.md: add id:spec frontmatter + "
-                "## Constraints/## Model/## Properties, then mirror "
-                "## Requirements"
+                "## Constraints/## Model/## Properties, then the ## Requirements "
+                "sibling (deltas: mirror the ADDED text; capability specs: keep "
+                "## Requirements)"
             ]
         return [
             f"{path}: capability spec carries frontmatter but is missing the "

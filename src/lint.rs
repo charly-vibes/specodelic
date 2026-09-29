@@ -89,7 +89,7 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
     ),
     (
         "total_refs",
-        "every structured-field [[link]] must resolve to a definition somewhere in the corpus",
+        "every structured-field [[link]] must resolve to a definition somewhere in the corpus — dual-format `id: spec` files are self-contained: their refs must resolve within the file itself",
     ),
     (
         "coverage",
@@ -322,9 +322,11 @@ struct Index {
 impl Index {
     /// Aggregate row sets per file id: several files may legally share an
     /// id (openspec naming law forces every dual-format file to be
-    /// `spec.md` → `id: spec`), and a link resolves when the row is
-    /// defined *somewhere in the corpus* — so same-id row sets merge
-    /// instead of overwriting.
+    /// `spec.md` → `id: spec`), so same-id row sets merge instead of
+    /// overwriting (the #37 bug). How the merged set is USED depends on
+    /// the caller: `lint_references` resolves non-`spec` ids corpus-wide
+    /// but scopes `id: spec` files to their own rows (self-contained
+    /// deltas — #42).
     fn build(specs: &[Spec]) -> Index {
         let mut files: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         for spec in specs {
@@ -394,15 +396,27 @@ fn is_metasyntactic(target: &str, index: &Index) -> bool {
 /// total_refs — every structured-field `[[link]]` resolves somewhere in the
 /// corpus.
 fn lint_references(specs: &[Spec], report: &mut Report) {
-    let index = Index::build(specs);
+    let full = Index::build(specs);
     for spec in specs {
+        // Dual-format self-containment (spec-integration law): `id: spec`
+        // files resolve against their OWN rows only — the corpus-wide
+        // union would silently false-resolve any ref that collides with
+        // a row in another dual-format file. Other file ids keep
+        // corpus-wide resolution.
+        let scoped;
+        let index = if spec.intent.id == "spec" {
+            scoped = Index::build(std::slice::from_ref(spec));
+            &scoped
+        } else {
+            &full
+        };
         let file = spec
             .path
             .as_ref()
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| format!("<{}>", spec.intent.id));
         for link in &spec.links {
-            if is_metasyntactic(&link.target, &index) {
+            if is_metasyntactic(&link.target, index) {
                 continue;
             }
             // Skip example links inside expr cells of non-resolvable shape
@@ -646,8 +660,10 @@ mod tests {
 
     /// Two files sharing the same id (openspec naming law forces every
     /// dual-format delta/capability file to be `spec.md` → `id: spec`)
-    /// must not erase each other from the reference index: refs resolve
-    /// "somewhere in the corpus", so row sets aggregate per file id.
+    /// must not erase each other from the reference index: every file's
+    /// OWN rows stay resolvable (the #37 bug was an overwrite erasing
+    /// them). Since #42's self-containment law they must also NOT see
+    /// each other's rows — see the next test.
     #[test]
     fn same_id_files_do_not_collide_in_reference_resolution() {
         let make = |c: &str, p: &str, path: &str| {
@@ -665,6 +681,36 @@ mod tests {
             report.issues.is_empty(),
             "same-id files must not dangle each other's rows: {:?}",
             report.issues
+        );
+    }
+
+    /// The dual-format self-containment law (spec-integration: "deltas
+    /// stay self-contained — wiki-refs resolve only within the file"):
+    /// for `id: spec` files a dotted ref must resolve against the file's
+    /// OWN rows only. The corpus-wide union false-resolves any typo that
+    /// collides with a row in another dual-format file (Rule-of-5
+    /// CORR-001, demonstrated empirically).
+    #[test]
+    fn same_id_files_resolve_file_scoped_self_containment() {
+        let a = spec_at(
+            "---\nid: spec\nkind: intent\nstatement: \"THE a SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| local_a | invariant | `x` | |\n| cross | invariant | `y` | [[spec.row_in_b]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[spec.local_a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pa | unit | [[spec.local_a]] | `g()` | `x` |\n| pc | unit | [[spec.cross]] | `g()` | `y` |\n\n## Requirements\n\n### Requirement: A\nThe system SHALL hold.\n",
+            "a/spec.md",
+        );
+        let b = spec_at(
+            "---\nid: spec\nkind: intent\nstatement: \"THE b SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| row_in_b | invariant | `z` | |\n\n## Model\n\n### States\n\n- `s2`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s2 | s2 | [[spec.row_in_b]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pb | unit | [[spec.row_in_b]] | `g()` | `z` |\n\n## Requirements\n\n### Requirement: B\nThe system SHALL hold.\n",
+            "b/spec.md",
+        );
+        let report = lint_corpus(&[a, b]);
+        let refs: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.total_refs")
+            .collect();
+        assert_eq!(refs.len(), 1, "cross-file ref must dangle: {:?}", refs);
+        assert!(
+            refs[0].message.contains("spec.row_in_b"),
+            "names the self-containment violation: {}",
+            refs[0].message
         );
     }
 }

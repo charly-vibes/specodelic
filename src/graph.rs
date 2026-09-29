@@ -42,8 +42,10 @@ pub struct GraphReport {
 pub fn build(specs: &[Spec]) -> GraphReport {
     // Resolution index: file id -> defined ids (intent + rows).
     // Same-id files (openspec `spec.md` → `id: spec`) aggregate their
-    // row sets — a link resolves when the row exists somewhere in the
-    // corpus, mirroring the linter's total_refs semantics.
+    // row sets so a file's OWN rows are never erased by a same-id file
+    // (#37) — but each `id: spec` file resolves against its own row set
+    // only (self-contained deltas, mirroring the linter's file-scoped
+    // total_refs semantics, #42); other file ids resolve corpus-wide.
     let mut file_rows: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for spec in specs {
         file_rows
@@ -66,11 +68,21 @@ pub fn build(specs: &[Spec]) -> GraphReport {
 
     for spec in specs {
         let file_id = &spec.intent.id;
+        // `id: spec` files resolve file-scoped (self-contained deltas);
+        // others against the corpus-wide map.
+        let scoped_rows: BTreeMap<String, Vec<String>> = if file_id == "spec" {
+            BTreeMap::from([(
+                file_id.clone(),
+                spec.defined_ids().into_iter().collect::<Vec<_>>(),
+            )])
+        } else {
+            file_rows.clone()
+        };
         for link in &spec.links {
-            let resolved = resolve(&file_rows, file_id, &link.target);
+            let resolved = resolve(&scoped_rows, file_id, &link.target);
             // Metasyntactic example links (`[[old_id]]`, `[[...]]`) are
             // format documentation inside expr cells — not graph edges.
-            let metasyn = !link.target.contains('.') && !file_rows.contains_key(&link.target)
+            let metasyn = !link.target.contains('.') && !scoped_rows.contains_key(&link.target)
                 || link.target == "..."
                 || link.target == "…";
             if metasyn {

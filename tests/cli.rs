@@ -165,6 +165,37 @@ fn graph_corpus_is_fully_resolved() {
 }
 
 #[test]
+fn graph_same_id_files_are_file_scoped() {
+    // Dual-format self-containment (Rule-of-5 CORR-001): two id:spec
+    // files share one file id, but a ref in one must NOT resolve against
+    // the other's rows — corpus-wide union false-resolves typos.
+    let dir = tempfile::tempdir().unwrap();
+    let a = dir.path().join("a");
+    let b = dir.path().join("b");
+    std::fs::create_dir_all(&a).unwrap();
+    std::fs::create_dir_all(&b).unwrap();
+    std::fs::write(
+        a.join("spec.md"),
+        "---\nid: spec\nkind: intent\nstatement: \"THE a SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| local_a | invariant | `x` | [[spec.row_in_b]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[spec.local_a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pa | unit | [[spec.local_a]] | `g()` | `x` |\n",
+    )
+    .unwrap();
+    std::fs::write(
+        b.join("spec.md"),
+        "---\nid: spec\nkind: intent\nstatement: \"THE b SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| row_in_b | invariant | `z` | |\n\n## Model\n\n### States\n\n- `s2`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s2 | s2 | [[spec.row_in_b]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pb | unit | [[spec.row_in_b]] | `g()` | `z` |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        stdout.contains("[[spec.row_in_b]]"),
+        "cross-file ref must dangle in the graph: {stdout}"
+    );
+}
+
+#[test]
 fn lint_synthetically_bad_file_fails_with_rule_name() {
     let dir = tempfile::tempdir().unwrap();
     let bad = dir.path().join("bad_spec.md");

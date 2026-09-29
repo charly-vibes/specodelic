@@ -6,6 +6,25 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #42 — total_refs file-scoped for `id: spec` files: the self-containment law is enforced
+
+A Rule-of-5 review of the unification change set demonstrated that the
+spec-integration law "deltas stay self-contained — wiki-refs resolve
+only within the file" was unenforced: all `id: spec` files shared one
+resolution bucket, so a dotted ref resolved against ANY dual-format
+file's rows — a typo colliding with any row anywhere passed CI
+(demonstrated empirically). Fix: `total_refs` and the graph's dangling
+detection resolve `id: spec` files against the file's OWN rows only
+(other file ids keep corpus-wide resolution; all current dual-format
+refs are local, zero churn). Also: the capability-format check's
+remediation now distinguishes deltas (mirror the ADDED text) from
+capability specs (keep ## Requirements), and the migrated model-check
+spec cites `specs/model_check.md` by prose path instead of a
+metasyntactically-skipped `[[model_check]]` link. Residual, by design:
+a single-segment file-id ref from a dual-format file (e.g.
+`[[specodelic]]`) is skipped as metasyntactic rather than flagged —
+none exist; revisit if one appears.
+
 ## #41 — `spk explain dual-format`: the protocol + migration recipe served offline
 
 The embedded primer gained a seventh topic: the spec/openspec dual-
