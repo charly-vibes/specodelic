@@ -1,0 +1,16 @@
+# lefthook.yml — sibling-tool constraint guards for specodelic.
+#
+# The beads shims in .beads/hooks (core.hooksPath) already chain to lefthook,
+# so this config is the sanctioned extension point — no tool may claim
+# core.hooksPath or write .git/hooks directly (AGENTS.md hard blockers).
+# The same guard runs in CI via `just ci` (guard-siblings recipe).
+
+pre-commit:
+  commands:
+    sibling-blockers:
+      run: scripts/guards/sibling-blockers.sh .
+
+pre-push:
+  commands:
+    sibling-blockers:
+      run: scripts/guards/sibling-blockers.sh .

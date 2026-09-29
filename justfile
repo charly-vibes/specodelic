@@ -95,7 +95,12 @@ docs-build:
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections
+ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections guard-siblings
+
+# Sibling-tool constraint guard (AGENTS.md hard blockers) — also wired into
+# pre-commit/pre-push via lefthook.yml and the .beads/hooks shim chain
+guard-siblings:
+    scripts/guards/sibling-blockers.sh .
 
 # Session start
 prime:
