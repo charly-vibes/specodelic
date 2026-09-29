@@ -134,6 +134,17 @@ pub fn model_check(payload: &serde_json::Value) -> String {
 
 /// `spk verify` — per-file verdict; blocked files carry the blocking
 /// stage message.
+pub fn merge(report: &crate::merge::MergeReport) -> String {
+    let mut out = format!("merge: {}", report.verdict);
+    for f in &report.findings {
+        out.push_str(&format!("\n  [{}] {}", f.kind, f.message));
+    }
+    if report.findings.is_empty() {
+        out.push_str(" — no findings");
+    }
+    out
+}
+
 pub fn verify(payload: &serde_json::Value) -> String {
     let mut out = format!(
         "verify: {} verified, {} blocked",

@@ -134,9 +134,31 @@ remediation hints.
 
 - Spec: [rename](specs/rename.md)
 
+## Merge check
+
+`spk merge --branch <incoming-tree> [--base <ancestor-tree>] [current-tree]`
+checks what a textually clean 3-way merge cannot see
+([merge](specs/merge.md)), over the two branch tips' spec trees:
+
+- **id collisions** — an id minted on both branches (absent from the
+  ancestor, or divergently edited on both) is flagged as a collision.
+- **dangling renames** — a rename on one branch plus a fresh reference
+  to the old name on the other is flagged for replay (`spk rename` does
+  the rewriting after the trees are joined).
+- **blast radii** — each branch's touched ids get a fan-in/fan-out
+  closure computed from that branch's own graph artifact; intersecting
+  radii require human review (`needs_review`) even when the file diffs
+  don't overlap.
+- **relint gate** — the union tree must re-lint clean with zero dangling
+  references before the merge reports `merged`.
+
+Exit 0 = merged, 1 = findings (verdict `needs_review` or `failed`),
+2 = invalid invocation (missing `--branch`, empty incoming tree).
+
+- Spec: [merge](specs/merge.md)
+
 ## Pipeline stubs
 
-`spk merge`, `spk refactor`, `spk orchestrate` are fully specced
-([merge](specs/merge.md), [refactor](specs/refactor.md),
-[orchestrate](specs/orchestrate.md)) and currently exit non-zero with
-hints until implemented.
+`spk refactor` and `spk orchestrate` are fully specced
+([refactor](specs/refactor.md), [orchestrate](specs/orchestrate.md)) and
+currently exit non-zero with hints until implemented.

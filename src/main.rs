@@ -16,7 +16,9 @@ use genesis::envelope::{Envelope, EnvelopeKind};
 use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
-use specodelic::{blocks, compile, graph, guide, human, lint, model_check, rename, spec, verify};
+use specodelic::{
+    blocks, compile, graph, guide, human, lint, merge, model_check, rename, spec, verify,
+};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -124,9 +126,15 @@ enum Commands {
     },
     /// Detect id collisions and dangling renames before a branch merge
     Merge {
-        /// Branch being merged in (defaults to current diff)
+        /// Incoming (branch) spec tree directory
         #[arg(long)]
         branch: Option<String>,
+        /// Common-ancestor spec tree directory (omit for a conservative
+        /// check where every id shared by both tips counts as new)
+        #[arg(long)]
+        base: Option<String>,
+        /// Current spec tree (defaults to ./specs)
+        paths: Vec<String>,
     },
     /// Run the full lint → compile → model_check → verify pipeline
     Orchestrate {
@@ -643,13 +651,26 @@ fn run(
             new_id,
             paths,
         } => cmd_rename(old_id, new_id, paths, format, verbosity, stdout, stderr),
-        Commands::Refactor { .. } | Commands::Merge { .. } => {
+        Commands::Refactor { .. } => {
             let out: Output<serde_json::Value> =
-                Output::failure("not yet implemented — specced in specs/rename.md, specs/refactor.md, and specs/merge.md")
+                Output::failure("not yet implemented — specced in specs/refactor.md")
                     .with_next_step("track progress: bd ready");
             emit_report(out, None, format, verbosity, stdout, stderr);
             1
         }
+        Commands::Merge {
+            branch,
+            base,
+            paths,
+        } => cmd_merge(
+            branch.as_deref(),
+            base.as_deref(),
+            paths,
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        ),
         Commands::Orchestrate { .. } => {
             let out: Output<serde_json::Value> =
                 Output::failure("not yet implemented — specced in specs/orchestrate.md (lint → compile → model_check → verify)")
@@ -1064,6 +1085,114 @@ fn cmd_rename(
             1
         }
     }
+}
+
+/// Read one spec tree for the merge check, returning (relative path,
+/// text) pairs plus hostile-input notes. Same gate as `cmd_rename`
+/// (specodelic-suz): only regular files under the cap are ever read.
+fn read_tree(dir: &str) -> (Vec<(String, String)>, Vec<String>) {
+    let root = std::path::PathBuf::from(dir);
+    let mut files: Vec<(String, String)> = vec![];
+    let mut notes: Vec<String> = vec![];
+    for f in collect_specs(std::slice::from_ref(&dir.to_string())) {
+        let rel = match f.strip_prefix(&root) {
+            Ok(r) => r.to_string_lossy().into_owned(),
+            Err(_) => f.display().to_string(),
+        };
+        let meta = match std::fs::metadata(&f) {
+            Ok(m) => m,
+            Err(e) => {
+                notes.push(format!("{}: unreadable ({e})", f.display()));
+                continue;
+            }
+        };
+        if !meta.is_file() {
+            notes.push(format!(
+                "{}: skipped (not a regular file — only regular files are ingested)",
+                f.display()
+            ));
+            continue;
+        }
+        if meta.len() > MAX_INPUT_BYTES {
+            notes.push(format!(
+                "{}: skipped (exceeds the 2 MiB input cap)",
+                f.display()
+            ));
+            continue;
+        }
+        match std::fs::read_to_string(&f) {
+            Ok(t) => files.push((rel, t)),
+            Err(e) => notes.push(format!("{}: unreadable ({e})", f.display())),
+        }
+    }
+    (files, notes)
+}
+
+fn cmd_merge(
+    branch: Option<&str>,
+    base: Option<&str>,
+    paths: &[String],
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let Some(branch_dir) = branch else {
+        let out: Output<serde_json::Value> = Output::failure(
+            "spk merge needs the incoming tree: --branch <dir> (and ideally --base <ancestor-tree>)",
+        )
+        .with_next_step(
+            "pass the two branch tips' spec directories: spk merge --branch ../other/specs --base ../base/specs specs",
+        );
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    };
+    let current_tree = paths
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "specs".to_string());
+    let (a_files, notes_a) = read_tree(&current_tree);
+    let (b_files, notes_b) = read_tree(branch_dir);
+    let (base_files, notes_base) = match base {
+        Some(b) => read_tree(b),
+        None => (vec![], vec![]),
+    };
+    if b_files.is_empty() {
+        let mut out: Output<serde_json::Value> = Output::failure(
+            "no spec files found in the incoming tree (--branch) — nothing to merge",
+        )
+        .with_next_step("pass the incoming branch's spec directory: spk merge --branch <dir>");
+        for n in notes_b.iter().chain(&notes_a) {
+            out = out.with_warning(n.clone());
+        }
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
+
+    let report = merge::run(&base_files, &a_files, &b_files);
+    let payload = serde_json::to_value(&report).unwrap_or_default();
+    let mut out = Output::success(payload.clone());
+    let next = match report.verdict.as_str() {
+        "merged" => "run: specodelic graph to confirm zero dangling after joining".to_string(),
+        "needs_review" => {
+            "review the flagged blast radii / rename replays, resolve, then re-run spk merge"
+                .to_string()
+        }
+        _ => "resolve the findings in the branch trees, then re-run spk merge".to_string(),
+    };
+    out = out.with_next_step(next);
+    for n in notes_a.iter().chain(&notes_base).chain(&notes_b) {
+        out = out.with_warning(n.clone());
+    }
+    emit_report(
+        out,
+        Some(human::merge(&report)),
+        format,
+        verbosity,
+        stdout,
+        stderr,
+    );
+    if report.verdict == "merged" { 0 } else { 1 }
 }
 
 fn cmd_compile(

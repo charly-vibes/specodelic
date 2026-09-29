@@ -18,6 +18,7 @@ pub mod guide;
 pub mod hooks;
 pub mod human;
 pub mod lint;
+pub mod merge;
 pub mod model_check;
 pub mod rename;
 pub mod spec;

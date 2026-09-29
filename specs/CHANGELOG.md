@@ -6,6 +6,31 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #53 — merge: pre-merge id-collision + dangling-rename check (specodelic-7oq)
+
+`spk merge --branch <incoming-tree> [--base <ancestor-tree>] [current-tree]`
+per specs/merge.md — the check that runs after git's 3-way merge succeeds,
+over the two branch tips' spec trees (never runs git, writes nothing).
+- `no_new_id_collision`: ids defined on both tips are flagged unless the
+  ancestor defines them identically (newly minted on both, or edited on
+  both with divergent bodies = collision); inherited-and-unchanged ids are
+  never falsely flagged.
+- `blast_radii_recorded_pre_merge` + intersection → `needs_review`: per-
+  branch touched ids (files changed vs ancestor) and blast radii computed
+  from each branch's OWN `graph` artifact (graph_reused_not_rederived —
+  fan-in/fan-out closure, no independent markdown walk).
+- `rename_replayed_onto_foreign_edits` flagged (replay itself delegated to
+  `spk rename`): an id renamed away on one branch while the other branch
+  mints a structured `[[old]]` reference is named with a remediation hint.
+- `post_merge_relint_required`: the union tree (A wins deletions; files A
+  left untouched take B's version) must re-parse, re-lint clean, and show
+  zero dangling, or the merge is `failed`.
+- Findings kinds: `id_collision`, `rename_replay`,
+  `blast_radius_intersection`, `textual_conflict`, `relint_failure`,
+  `unparsable`. Verdicts: merged (exit 0) / needs_review (1) / failed
+  (exit 1). The human-approval semantics of the `resolved` transition
+  remain open in specodelic-mp1.
+
 ## #52 — rename: atomic id rename with link rewrite (specodelic-ams)
 
 `spk rename <old_id> <new_id> [files|dirs]` per specs/rename.md. The
