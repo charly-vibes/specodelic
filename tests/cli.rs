@@ -1894,3 +1894,196 @@ fn human_hooks_uninstall_renders_text() {
         "the outcome appears as human text: {stdout}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// rename (specodelic-ams, specs/rename.md)
+// ---------------------------------------------------------------------------
+
+/// Two-file fixture: `alpha` defines constraint `c1` (with a deriving
+/// property and rationale prose that mentions "alpha" in words);
+/// `beta` references `[[alpha.c1]]` cross-file.
+fn write_rename_fixture(dir: &tempfile::TempDir) {
+    std::fs::write(
+        dir.path().join("alpha.md"),
+        "---\nid: alpha\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n\
+         ## Constraints\n\n\
+         | id | kind | expr | traces_to |\n\
+         |----|------|------|-----------|\n\
+         | c1 | invariant | `x holds` | [[alpha]] |\n\n\
+         Rationale: alpha is the root because alpha anchors the model.\n\n\
+         ## Properties\n\n\
+         | id | kind | derives_from | generator | predicate |\n\
+         |----|------|--------------|-----------|-----------|\n\
+         | p1 | unit | [[alpha.c1]] | `arbitrary_row()` | `check(x) == ok` |\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("beta.md"),
+        "---\nid: beta\nkind: intent\nstatement: \"THE system SHALL reference\"\n---\n\n\
+         ## Constraints\n\n\
+         | id | kind | expr | traces_to |\n\
+         |----|------|------|-----------|\n\
+         | d1 | invariant | `z holds` | [[alpha.c1]] |\n",
+    )
+    .unwrap();
+}
+
+/// clean_rename_passes + old_id_fully_replaced + prose_mention_left_alone:
+/// renaming a row rewrites the definition cell and every [[link]] (including
+/// derives_from, cross-file), leaves zero old-id occurrences, and never
+/// touches prose that mentions the old id in words.
+#[test]
+fn rename_of_a_row_rewrites_definition_and_all_refs() {
+    let dir = tempfile::tempdir().unwrap();
+    write_rename_fixture(&dir);
+    let out = spk()
+        .args([
+            "rename",
+            "alpha.c1",
+            "alpha.c1_renamed",
+            dir.path().join("alpha.md").to_str().unwrap(),
+            dir.path().join("beta.md").to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "clean rename must pass: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let alpha = std::fs::read_to_string(dir.path().join("alpha.md")).unwrap();
+    let beta = std::fs::read_to_string(dir.path().join("beta.md")).unwrap();
+    assert!(
+        alpha.contains("| c1_renamed |"),
+        "definition cell rewritten: {alpha}"
+    );
+    assert!(
+        alpha.contains("[[alpha.c1_renamed]]"),
+        "derives_from rewritten: {alpha}"
+    );
+    assert!(
+        !alpha.contains("[[alpha.c1]]"),
+        "zero old refs remain: {alpha}"
+    );
+    assert!(
+        beta.contains("[[alpha.c1_renamed]]"),
+        "cross-file ref rewritten: {beta}"
+    );
+    assert!(
+        alpha.contains("Rationale: alpha is the root because alpha anchors"),
+        "prose untouched: {alpha}"
+    );
+    // The renamed repo passes both verify-gate linters (referential_integrity
+    // + graph_shape): zero dangling.
+    let graph = spk()
+        .args([
+            "graph",
+            dir.path().join("alpha.md").to_str().unwrap(),
+            dir.path().join("beta.md").to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        graph.status.success()
+            && !String::from_utf8_lossy(&graph.stdout).contains("\"dangling\":[{"),
+        "post-rename graph has zero dangling refs: {}",
+        String::from_utf8_lossy(&graph.stdout)
+    );
+}
+
+/// new_id_matches_filename: renaming a file's own Intent id also renames
+/// the file per the naming law (`-` ⇔ `.`), and cross-file refs follow.
+#[test]
+fn rename_of_a_files_intent_id_renames_the_file() {
+    let dir = tempfile::tempdir().unwrap();
+    write_rename_fixture(&dir);
+    let out = spk()
+        .args([
+            "rename",
+            "alpha",
+            "alpha.prime",
+            dir.path().join("alpha.md").to_str().unwrap(),
+            dir.path().join("beta.md").to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "intent rename must pass: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(!dir.path().join("alpha.md").exists(), "old filename gone");
+    let renamed = std::fs::read_to_string(dir.path().join("alpha-prime.md")).unwrap();
+    assert!(
+        renamed.starts_with("---\nid: alpha.prime\n"),
+        "frontmatter id rewritten: {renamed}"
+    );
+    let beta = std::fs::read_to_string(dir.path().join("beta.md")).unwrap();
+    assert!(
+        beta.contains("[[alpha.prime.c1]]"),
+        "child refs follow the rename: {beta}"
+    );
+}
+
+/// new_id_available + atomic_operation: a collision is a labeled failure
+/// and every file is byte-identical to its pre-rename state.
+#[test]
+fn rename_to_an_existing_id_is_rejected_and_leaves_the_repo_byte_identical() {
+    let dir = tempfile::tempdir().unwrap();
+    write_rename_fixture(&dir);
+    let before: Vec<_> = ["alpha.md", "beta.md"]
+        .iter()
+        .map(|f| (f, std::fs::read(dir.path().join(f)).unwrap()))
+        .collect();
+    let out = spk()
+        .args([
+            "rename",
+            "alpha.c1",
+            "p1", // collides with the property row id
+            dir.path().join("alpha.md").to_str().unwrap(),
+            dir.path().join("beta.md").to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(!out.status.success(), "collision must fail");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("p1"),
+        "the collision must be named: {stdout}"
+    );
+    for (f, bytes) in before {
+        assert_eq!(
+            std::fs::read(dir.path().join(f)).unwrap(),
+            bytes,
+            "{f} must be byte-identical after a failed rename"
+        );
+    }
+}
+
+/// An unknown old_id is a labeled failure — nothing is written.
+#[test]
+fn rename_of_an_unknown_id_is_rejected() {
+    let dir = tempfile::tempdir().unwrap();
+    write_rename_fixture(&dir);
+    let out = spk()
+        .args([
+            "rename",
+            "nope.such",
+            "whatever",
+            dir.path().join("alpha.md").to_str().unwrap(),
+            dir.path().join("beta.md").to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(!out.status.success(), "unknown id must fail");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("nope.such"),
+        "the unknown id must be named: {stdout}"
+    );
+}

@@ -9,6 +9,24 @@
 
 use crate::graph::GraphReport;
 use crate::lint::Report as LintReport;
+use crate::rename::RenameOutcome;
+
+/// `spk rename` — what moved, and which files now carry the new id.
+pub fn rename(outcome: &RenameOutcome) -> String {
+    let mut out = format!(
+        "rename: {} → {} across {} file(s)",
+        outcome.old_id,
+        outcome.new_id,
+        outcome.writes.len()
+    );
+    for (path, _) in &outcome.writes {
+        out.push_str(&format!("\n  rewritten: {}", path.display()));
+    }
+    if let Some(old) = &outcome.remove {
+        out.push_str(&format!("\n  moved: {} → (new name above)", old.display()));
+    }
+    out
+}
 
 /// `spk lint` — one summary line, then one line per finding carrying the
 /// self-describing rule id (`linter.<name>`, the agent-facing anchor).

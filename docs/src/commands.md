@@ -120,9 +120,23 @@ created from scratch) and an `openspec/` tree; husky and prek repos
 get a labeled refusal with a manual-wiring hint. `spk hooks
 uninstall` strips only the managed block.
 
+## `spk rename <old_id> <new_id> [files|dirs]`
+
+The atomic rename (specs/rename.md): updates the defining row (an
+Intent frontmatter id or a table row's qualified id) and every
+referencing `[[link]]` — including child refs like `[[old_id.child]]` —
+as one transaction. A file whose Intent id is renamed also gets its
+filename renamed per the `-` ⇔ `.` naming law. Everything is computed
+and verified in memory (re-parse + zero dangling) before any byte is
+written, so a failed rename leaves the repo byte-identical: collisions,
+unknown ids, and verify-gate rejections are labeled failures with
+remediation hints.
+
+- Spec: [rename](specs/rename.md)
+
 ## Pipeline stubs
 
-`spk rename`, `spk merge`, `spk refactor`, `spk orchestrate` are fully
-specced ([rename](specs/rename.md), [merge](specs/merge.md),
-[refactor](specs/refactor.md), [orchestrate](specs/orchestrate.md)) and
-currently exit non-zero with hints until implemented.
+`spk merge`, `spk refactor`, `spk orchestrate` are fully specced
+([merge](specs/merge.md), [refactor](specs/refactor.md),
+[orchestrate](specs/orchestrate.md)) and currently exit non-zero with
+hints until implemented.

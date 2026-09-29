@@ -16,7 +16,7 @@ use genesis::envelope::{Envelope, EnvelopeKind};
 use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
-use specodelic::{blocks, compile, graph, guide, human, lint, model_check, spec, verify};
+use specodelic::{blocks, compile, graph, guide, human, lint, model_check, rename, spec, verify};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -108,11 +108,14 @@ enum Commands {
         out_dir: String,
     },
     /// Rename a spec row id, updating the definition and every [[link]]
+    /// atomically (all-or-nothing, verified against the linters)
     Rename {
         /// Current id (e.g. compile.compile_is_total)
         old_id: String,
         /// New id
         new_id: String,
+        /// Files or directories to operate on (defaults to ./specs)
+        paths: Vec<String>,
     },
     /// Advise on tidy-first splits for high unrelated fan-in nodes
     Refactor {
@@ -635,7 +638,12 @@ fn run(
         Commands::Verify { paths, out_dir } => {
             cmd_verify(paths, out_dir, format, verbosity, stdout, stderr)
         }
-        Commands::Rename { .. } | Commands::Refactor { .. } | Commands::Merge { .. } => {
+        Commands::Rename {
+            old_id,
+            new_id,
+            paths,
+        } => cmd_rename(old_id, new_id, paths, format, verbosity, stdout, stderr),
+        Commands::Refactor { .. } | Commands::Merge { .. } => {
             let out: Output<serde_json::Value> =
                 Output::failure("not yet implemented — specced in specs/rename.md, specs/refactor.md, and specs/merge.md")
                     .with_next_step("track progress: bd ready");
@@ -917,6 +925,145 @@ fn cmd_graph(
         stderr,
     );
     if report.dangling.is_empty() { 0 } else { 1 }
+}
+
+fn cmd_rename(
+    old_id: &str,
+    new_id: &str,
+    paths: &[String],
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    // Same hostile-input gate as parse_batch (specodelic-suz): only
+    // regular files under the cap are ever read.
+    let mut files: Vec<(std::path::PathBuf, String)> = vec![];
+    let mut notes: Vec<String> = vec![];
+    for f in collect_specs(paths) {
+        let meta = match std::fs::metadata(&f) {
+            Ok(m) => m,
+            Err(e) => {
+                notes.push(format!("{}: unreadable ({e})", f.display()));
+                continue;
+            }
+        };
+        if !meta.is_file() {
+            notes.push(format!(
+                "{}: skipped (not a regular file — only regular files are ingested, never a FIFO, device, or other special file)",
+                f.display()
+            ));
+            continue;
+        }
+        if meta.len() > MAX_INPUT_BYTES {
+            notes.push(format!(
+                "{}: skipped (exceeds the 2 MiB input cap — corpus files are ~10-50 KB; split or move the file)",
+                f.display()
+            ));
+            continue;
+        }
+        match std::fs::read_to_string(&f) {
+            Ok(t) => files.push((f, t)),
+            Err(e) => notes.push(format!("{}: unreadable ({e})", f.display())),
+        }
+    }
+    if files.is_empty() {
+        let mut out: Output<serde_json::Value> = Output::failure("no spec files to rename")
+            .with_next_step("pass spec files or a directory (defaults to ./specs)");
+        for n in &notes {
+            out = out.with_warning(n.clone());
+        }
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
+
+    match rename::run(&files, old_id, new_id) {
+        Ok(outcome) => {
+            // Apply: write every new/changed file first, then remove the
+            // moved file's old path last — between the two there is never
+            // a moment where the definition is missing.
+            let mut changed: Vec<String> = vec![];
+            for (path, text) in &outcome.writes {
+                if let Err(e) = std::fs::write(path, text) {
+                    let out: Output<serde_json::Value> = Output::failure(format!(
+                        "rename could not write {}: {e} — earlier files may already be rewritten; re-run after fixing the permission issue",
+                        path.display()
+                    ))
+                    .with_next_step("make the target writable, then re-run the same rename");
+                    emit_report(out, None, format, verbosity, stdout, stderr);
+                    return 1;
+                }
+                changed.push(path.display().to_string());
+            }
+            if let Some(old) = &outcome.remove
+                && let Err(e) = std::fs::remove_file(old)
+            {
+                let out: Output<serde_json::Value> = Output::failure(format!(
+                        "rename could not remove {}: {e} — the new file exists; remove the old one manually",
+                        old.display()
+                    ))
+                    .with_next_step("delete the stale old file, then re-run spk graph to confirm zero dangling");
+                emit_report(out, None, format, verbosity, stdout, stderr);
+                return 1;
+            }
+            let payload = serde_json::json!({
+                "old_id": outcome.old_id,
+                "new_id": outcome.new_id,
+                "files_changed": changed,
+            });
+            let mut out = Output::success(payload).with_next_step(format!(
+                "run: specodelic lint {} && specodelic graph {}",
+                paths.first().map(String::as_str).unwrap_or("specs"),
+                paths.first().map(String::as_str).unwrap_or("specs")
+            ));
+            for n in &notes {
+                out = out.with_warning(n.clone());
+            }
+            emit_report(
+                out,
+                Some(human::rename(&outcome)),
+                format,
+                verbosity,
+                stdout,
+                stderr,
+            );
+            0
+        }
+        Err(e) => {
+            let (msg, hint) = match &e {
+                rename::RenameError::UnknownId(id) => (
+                    format!("{id} matches no row or intent id in the corpus"),
+                    "check the id with: specodelic graph (every defined id is a node)",
+                ),
+                rename::RenameError::Collision { new_id, holder } => (
+                    format!("{new_id} already exists — defined in {holder}"),
+                    "pick a new_id that is not in the corpus (rename.new_id_available)",
+                ),
+                rename::RenameError::InvalidNewId(id) => (
+                    format!("{id:?} is not a usable id (empty, whitespace, or link/table syntax)"),
+                    "ids are dotted identifiers like compile.compile_is_total",
+                ),
+                rename::RenameError::Ambiguous(id) => (
+                    format!(
+                        "{id} matches more than one row — the corpus already violates unique_across_repo"
+                    ),
+                    "fix the duplicate ids first (specodelic lint reports them)",
+                ),
+                rename::RenameError::VerifyFailed { .. } => (
+                    "rename rejected at the verify gate — nothing was written".to_string(),
+                    "fix the reported issues; the repo is byte-identical to before",
+                ),
+            };
+            let mut out: Output<serde_json::Value> = Output::failure(msg).with_next_step(hint);
+            if let rename::RenameError::VerifyFailed { details } = &e {
+                for d in details {
+                    out = out.with_warning(d.clone());
+                }
+            }
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            1
+        }
+    }
 }
 
 fn cmd_compile(

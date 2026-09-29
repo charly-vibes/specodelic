@@ -6,6 +6,32 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #52 — rename: atomic id rename with link rewrite (specodelic-ams)
+
+`spk rename <old_id> <new_id> [files|dirs]` per specs/rename.md. The
+single-`(old_id, new_id)` rename lifecycle: validate → apply → verify.
+- Owner lookup by QUALIFIED id (intents by frontmatter id; rows by
+  `intent.id` + local cell id — links carry the qualified id, table
+  cells the local one; this distinction is the whole lookup).
+- Rewrites: `[[old_id]]` and child refs `[[old_id.x]]` anywhere (link
+  syntax only — prose mentioning the old id in words is untouched,
+  `prose_untouched_by_rename`); exact-id table cells and state bullets
+  in the definition file only; the frontmatter `id:` line. A row rename
+  must stay in its file's namespace (`intent.id.<new-local>`).
+- Intent renames also rename the file per `-` ⇔ `.` (writes new file,
+  removes old last — the definition is never momentarily missing).
+- Atomicity by construction: the full write set is computed and
+  verified in memory (re-parse + `linter.referential_integrity` zero
+  dangling — the two checkers specs/rename.md's Notes select) before
+  any write, so collisions (`new_id_available`), unknown ids, and
+  verify-gate rejections leave the repo byte-identical. Identity
+  rename (`a → a`) is a no-op success (rename_naturality identity).
+- 4 integration tests (row rename + cross-file refs + prose untouched,
+  intent rename + file move, collision rollback byte-identical, unknown
+  id) + 2 unit tests; dogfooded on the real corpus (row + intent
+  renames, 0 dangling / 0 lint issues after).
+- Exit codes: 0 renamed, 1 labeled rejection, 2 no files ingested.
+
 ## #51 — Ro5 review of the hostile-input hardening set: hostile notes ride every verb's empty failure envelope (suz follow-up)
 
 Rule-of-5 review of #46 (`f3e27f5` + `6f99b4a`): verdict READY WITH_NOTES,

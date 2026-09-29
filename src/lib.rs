@@ -19,5 +19,6 @@ pub mod hooks;
 pub mod human;
 pub mod lint;
 pub mod model_check;
+pub mod rename;
 pub mod spec;
 pub mod verify;
