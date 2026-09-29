@@ -561,7 +561,7 @@ fn compile_round_trip_is_byte_stable() {
 }
 
 #[test]
-fn explain_bare_lists_exactly_the_six_topics() {
+fn explain_bare_lists_exactly_the_seven_topics() {
     let out = spk().args(["explain", "--json"]).output().unwrap();
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value =
@@ -580,8 +580,39 @@ fn explain_bare_lists_exactly_the_six_topics() {
             "kinds",
             "references",
             "lifecycle",
-            "lint-rules"
+            "lint-rules",
+            "dual-format"
         ]
+    );
+}
+
+#[test]
+fn explain_dual_format_topic_serves_the_migration_recipe() {
+    // The dual-format topic must carry the protocol's naming law and the
+    // migration path — the guidance a consumer needs when a
+    // dual_format_valid finding confuses them (Rule-of-5 DRAFT-001).
+    let out = spk()
+        .args(["explain", "dual-format", "--json"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    let body = json["data"]["body"].as_str().unwrap();
+    assert!(body.contains("id: spec"), "naming law: {body}");
+    assert!(body.contains("## ADDED Requirements"), "delta half: {body}");
+    assert!(body.contains("## Requirements"), "capability half: {body}");
+    assert!(
+        body.to_lowercase().contains("migration"),
+        "migration path: {body}"
+    );
+    assert!(
+        body.contains("dual_format_valid"),
+        "enforcing rule named: {body}"
+    );
+    assert!(
+        !body.contains("{{"),
+        "no unfilled placeholder slots: {body}"
     );
 }
 

@@ -81,7 +81,7 @@ pub const REFERENCE_TYPING: &[RefTyping] = &[
     },
 ];
 
-/// The embedded primer (`src/guide.md`) — six topics' machine-facing
+/// The embedded primer (`src/guide.md`) — seven topics' machine-facing
 /// prose, rendered by `spk explain` (task 2.2). Conventions:
 ///
 /// - Topics are delimited by `<!-- topic: <id> -->` markers; the topic
@@ -106,6 +106,10 @@ pub const TOPICS: &[(&str, &str)] = &[
     ("references", "Reference typing — typed foreign keys"),
     ("lifecycle", "The artifact lifecycle and stage gates"),
     ("lint-rules", "Lint rule catalog"),
+    (
+        "dual-format",
+        "The spec/openspec dual-format protocol — one file, two parsers, migration recipe",
+    ),
 ];
 
 /// Render a topic's markdown body: slice [`GUIDE_MD`] at the
@@ -196,10 +200,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn topic_bodies_render_for_all_six_topics() {
+    fn topic_bodies_render_for_all_seven_topics() {
         // every declared topic renders non-empty (design Decision 2's
         // prose-drift test)
-        assert_eq!(TOPICS.len(), 6);
+        assert_eq!(TOPICS.len(), 7);
         for (id, _title) in TOPICS {
             let body = topic_body(id).unwrap_or_else(|| panic!("topic `{id}` missing"));
             assert!(!body.trim().is_empty(), "topic `{id}` body is empty");

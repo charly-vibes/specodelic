@@ -32,7 +32,7 @@ spk model-check order.cancel.md
 ```sh
 spk doctor        # diagnose the workspace (self-hosting vs consumer mode)
 spk init          # write the SPECODELIC managed block into AGENTS.md
-spk explain       # the embedded format guide — six topics, no repo access needed
+spk explain       # the embedded format guide — seven topics, no repo access needed
 spk feedback      # send feedback about the tool
 ```
 

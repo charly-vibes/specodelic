@@ -38,10 +38,10 @@ fan-in/out and dangling detection), `spk rename` / `spk merge` /
 ## For agents
 
 No repo access needed: `spk explain` serves the distilled format guide
-from inside the binary — six topics (`format`, `ears`, `kinds`,
-`references`, `lifecycle`, `lint-rules`), and every lint finding carries
-its own `rule_id` and one-line semantics. See `llms.txt` at the site
-root for a machine summary.
+from inside the binary — seven topics (`format`, `ears`, `kinds`,
+`references`, `lifecycle`, `lint-rules`, `dual-format`), and every lint
+finding carries its own `rule_id` and one-line semantics. See `llms.txt`
+at the site root for a machine summary.
 
 ## Install
 

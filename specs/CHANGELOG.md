@@ -6,6 +6,17 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #41 — `spk explain dual-format`: the protocol + migration recipe served offline
+
+The embedded primer gained a seventh topic: the spec/openspec dual-
+format protocol — both grammars, the `id: spec` naming law, the
+enforcing rule (`linter.dual_format_valid`), and the migration recipe —
+so a consumer hit by a dual_format_valid finding can act without repo
+access. Topic ids grow at the end, never renumbered (OCP bias). README
+and docs pages updated (six → seven topics). CHANGELOG #40 added the
+CI-side capability-format check; this closes the primer-side gap the
+same Rule-of-5 review flagged (DRAFT-001).
+
 ## #40 — Migration recipe + capability-format CI check (Rule-of-5 review of the unification)
 
 A Rule-of-5 review of the unification code asked whether migration to

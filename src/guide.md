@@ -137,3 +137,44 @@ same table the linter uses — it enumerates exactly the rule ids this
 binary can emit.
 
 {{lint_rules}}
+<!-- topic: dual-format -->
+# dual-format
+
+Where specodelic meets **OpenSpec**: this repo manages its engineering
+change workflow in openspec (proposals → tasks → archive), and every
+change delta is also a lint-clean specodelic file. One markdown file,
+two parsers, requirement text authored once.
+
+A **dual-format file** carries both grammars:
+
+- Specodelic half: YAML frontmatter (`id: spec`, `kind: intent`, an
+  EARS `statement`) plus the `## Constraints`, `## Model`, and
+  `## Properties` tables.
+- Openspec half: `## Purpose`, `## ADDED Requirements`, and a sibling
+  `## Requirements` section with identical text.
+
+**Naming law**: openspec hard-requires the delta filename `spec.md`,
+so dual-format files declare `id: spec` (the `-` ⇔ `.` mapping makes
+that the legal id). Uniqueness is per-file — any number of `id: spec`
+files coexist. Deltas stay self-contained: `[[wiki-refs]]` resolve
+only within the file; domain semantics are cited by prose path
+(`specs/<name>.md`), never wiki-link.
+
+**Enforcement**: `linter.dual_format_valid` — a file carrying
+`## ADDED Requirements` must declare `id: spec` and pair it with the
+sibling `## Requirements` section; a capability spec under
+`openspec/specs/` must be dual-format or CI fails. The section-sync
+check fails on drift between the two requirement sections.
+
+**Migration** (plain openspec file → compliant):
+
+1. Add the frontmatter: `id: spec`, `kind: intent`, one EARS `SHALL`
+   statement condensing the requirements.
+2. Derive the tables: one `invariant` Constraint per MUST the
+   requirements imply, a Model covering the scenarios, one unit
+   Property deriving from each constraint (the coverage rule).
+3. Mirror `## Requirements` (identical text to `## ADDED
+   Requirements`); a plain capability spec keeps only
+   `## Requirements`.
+4. Gates: `spk lint <file>`, `openspec validate --all --strict`, and
+   the section-sync check must all pass.
