@@ -1744,10 +1744,7 @@ fn usage_quick_start_example_is_lint_clean() {
         .expect("quick-start has a markdown block")
         + start
         + "```markdown\n".len();
-    let block_end = usage[block_start..]
-        .find("\n```")
-        .expect("block is closed")
-        + block_start;
+    let block_end = usage[block_start..].find("\n```").expect("block is closed") + block_start;
     let body = &usage[block_start..block_end];
 
     // The example must name its file (the id↔filename law): order.cancel
@@ -1765,5 +1762,9 @@ fn usage_quick_start_example_is_lint_clean() {
         .output()
         .unwrap();
     let stdout = String::from_utf8(out.stdout).unwrap();
-    assert_eq!(out.status.code(), Some(0), "quick-start spec must lint clean: {stdout}");
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "quick-start spec must lint clean: {stdout}"
+    );
 }
