@@ -49,13 +49,25 @@ Compiles a lint-clean spec into three artifacts: `<stem>.toml`
 
 ## `spk model-check <files>`
 
-Runs the compiled model through the embedded stateright backend within
-a stated bound (`--max-depth`, `--max-states`, `--timeout-secs`).
-The native backend interprets guards as prose and executes no invariant
-predicates, so it reports `exploration_only` (space exhausted within the
-bound) or `timed_out` — never `no_counterexample`, which is reserved for
-a backend that actually executed invariant predicates; run reports
-persist as `<stem>.check.json` with the consumed module's SHA-256.
+Runs the compiled model through a model-check backend within a stated
+bound (`--max-depth`, `--max-states`, `--timeout-secs`). Two backends:
+
+- **stateright** (default) — embedded BFS exploration; interprets guards
+  as prose and executes no invariant predicates, so it reports
+  `exploration_only` (space exhausted within the bound) or `timed_out`.
+- **tlc** (opt-in, `--backend tlc --tlc-jar <tla2tools.jar>`) — the TLA+
+  TLC reference engine as a JVM subprocess over the compiled module,
+  `-depth` as the stated bound (`--max-states` has no TLC equivalent and
+  is a labeled error). The JVM binary comes from `PATH` or `SPK_TLC_JAVA`;
+  a missing binary or jar is a `missing_checker` error, never a verdict.
+
+The same prose-predicate honesty applies to both: no corpus invariant is
+executable yet (Decision 3, Option A), so a completed run is
+`exploration_only` — never `no_counterexample`, which is reserved for a
+backend that actually executed invariant predicates. Run reports persist
+as `<stem>.check.json` with the consumed module's SHA-256 and the
+backend engine + version, so backends' reports are attributable and
+comparable.
 
 - Spec: [model_check](specs/model_check.md)
 

@@ -61,6 +61,17 @@ enum HooksAction {
     Uninstall,
 }
 
+/// The model-check backend selection (specs/model_check.md, Backends).
+#[derive(clap::ValueEnum, Clone, PartialEq)]
+enum ModelBackend {
+    /// Embedded stateright BFS exploration (default — exhaustive runs
+    /// report exploration_only, never no_counterexample)
+    Stateright,
+    /// The TLA+ TLC reference engine — JVM subprocess over the compiled
+    /// module; requires --tlc-jar
+    Tlc,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Lint spec files against the Specodelic invariants
@@ -99,6 +110,14 @@ enum Commands {
         /// Optional wall-clock budget in seconds
         #[arg(long)]
         timeout_secs: Option<u64>,
+        /// Model-check backend (specs/model_check.md: stateright embedded
+        /// default; tlc = the JVM reference engine over the compiled .tla)
+        #[arg(long, value_enum, default_value_t = ModelBackend::Stateright)]
+        backend: ModelBackend,
+        /// Path to tla2tools.jar (required for --backend tlc; the JVM
+        /// binary comes from PATH or SPK_TLC_JAVA)
+        #[arg(long)]
+        tlc_jar: Option<String>,
     },
     /// Run compiled proptest blocks and gate on the model_check outcome
     Verify {
@@ -628,6 +647,8 @@ fn run(
             max_depth,
             max_states,
             timeout_secs,
+            backend,
+            tlc_jar,
         } => cmd_model_check(
             paths,
             CheckTarget {
@@ -637,6 +658,8 @@ fn run(
                     max_states: *max_states,
                     timeout_secs: *timeout_secs,
                 },
+                backend: backend.clone(),
+                tlc_jar: tlc_jar.clone(),
             },
             format,
             verbosity,
@@ -1330,11 +1353,14 @@ fn artifact_stem(spec: &Spec) -> String {
 }
 
 /// The model-check invocation parameters beyond the spec paths — the
-/// artifact directory plus the stated bound, grouped to keep the shared
-/// emit plumbing (cli/format/verbosity/streams) within the arg lint.
+/// artifact directory, the stated bound, and the backend selection,
+/// grouped to keep the shared emit plumbing (cli/format/verbosity/
+/// streams) within the arg lint.
 struct CheckTarget {
     out_dir: String,
     bound: model_check::Bound,
+    backend: ModelBackend,
+    tlc_jar: Option<String>,
 }
 
 /// Run `spk model-check` — the model_check step (specs/model_check.md).
@@ -1351,6 +1377,35 @@ fn cmd_model_check(
     stderr: &mut impl std::io::Write,
 ) -> i32 {
     let out_dir = target.out_dir.as_str();
+    // Backend selection first: an unusable backend configuration is an
+    // invocation error (specodelic-7rr), never a run or a verdict.
+    let tlc_paths = match target.backend {
+        ModelBackend::Tlc => {
+            let Some(jar) = target.tlc_jar.clone() else {
+                let out: Output<serde_json::Value> =
+                    Output::failure("--backend tlc requires --tlc-jar <tla2tools.jar>")
+                        .with_next_step(
+                            "download tla2tools.jar from https://github.com/tlaplus/tlaplus/releases and pass it via --tlc-jar (the JVM binary comes from PATH or SPK_TLC_JAVA)",
+                        );
+                emit_report(out, None, format, verbosity, stdout, stderr);
+                return 2;
+            };
+            Some(model_check::TlcPaths {
+                // SPK_TLC_JAVA is a test/ops seam for the JVM binary —
+                // documented, read at invocation time.
+                java: std::env::var("SPK_TLC_JAVA")
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or_else(|_| std::path::PathBuf::from("java")),
+                jar: std::path::PathBuf::from(jar),
+            })
+        }
+        ModelBackend::Stateright => {
+            if target.tlc_jar.is_some() {
+                eprintln!("warning: --tlc-jar is only used by --backend tlc; ignoring it");
+            }
+            None
+        }
+    };
     let (specs, notes) = parse_batch(paths, verbosity);
     if specs.is_empty() {
         let mut out: Output<serde_json::Value> = Output::failure("no spec files to model-check")
@@ -1395,7 +1450,11 @@ fn cmd_model_check(
             }
         };
         let ir = compile::extract_model_ir(spec);
-        match model_check::run(&ir, &tla_artifact, &target.bound) {
+        let result = match &tlc_paths {
+            Some(tlc) => model_check::run_tlc(&ir, &tla_path, &tla_artifact, &target.bound, tlc),
+            None => model_check::run(&ir, &tla_artifact, &target.bound),
+        };
+        match result {
             Ok(report) => {
                 let report_path = std::path::Path::new(out_dir).join(format!("{stem}.check.json"));
                 let report_json =

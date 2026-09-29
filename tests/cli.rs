@@ -2087,3 +2087,191 @@ fn rename_of_an_unknown_id_is_rejected() {
         "the unknown id must be named: {stdout}"
     );
 }
+
+// ---- specodelic-ug3: the opt-in TLC backend ----
+
+/// The TLC JVM test seam: a fake `java` (SPK_TLC_JAVA) that answers the
+/// `-version` probe instantly and prints canned run output otherwise, plus
+/// a placeholder tla2tools.jar. Real-TLC agreement is external evidence
+/// (the conformance suite, vv8) — the CLI contract is what's pinned here.
+#[cfg(unix)]
+fn tlc_seam(dir: &tempfile::TempDir, run_output: &str, exit_code: i32) {
+    use std::os::unix::fs::PermissionsExt;
+    let shim = dir.path().join("fake-java.sh");
+    let script = format!(
+        "#!/bin/sh\nfor arg in \"$@\"; do case \"$arg\" in -version) echo 'TLC2 version 1.20.0 of 12 May 2024'; exit 0;; esac; done\ncat <<'TLCOUT'\n{run_output}\nTLCOUT\nexit {exit_code}\n"
+    );
+    std::fs::write(&shim, script).unwrap();
+    std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::write(dir.path().join("tla2tools.jar"), b"placeholder").unwrap();
+}
+
+#[cfg(unix)]
+fn write_tlc_module_and_report(spec: &std::path::Path, out_dir: &std::path::Path) {
+    spk()
+        .args([
+            "compile",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out_dir.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+}
+
+#[cfg(unix)]
+#[test]
+fn model_check_tlc_backend_without_jar_is_an_invocation_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("mc_demo.md");
+    write_model_check_spec(&spec, "mc_demo");
+    let out_dir = dir.path().join("specodelic");
+    write_tlc_module_and_report(&spec, &out_dir);
+    let out = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out_dir.to_str().unwrap(),
+            "--backend",
+            "tlc",
+        ])
+        .output()
+        .unwrap();
+    // Invocation error (specodelic-7rr): invalid invocations exit 2.
+    assert_eq!(out.status.code(), Some(2));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["envelope_kind"], "error");
+    // Failure messages ride the warnings channel (genesis convention).
+    let message = json["warnings"][0]["message"].as_str().unwrap();
+    assert!(
+        message.contains("--tlc-jar"),
+        "the remediation must name the flag: {message}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn model_check_tlc_backend_missing_checker_binary_is_a_labeled_error() {
+    // MUST (specodelic-ug3): a missing checker binary is an ERROR — never
+    // a no_counterexample result.
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("mc_demo.md");
+    write_model_check_spec(&spec, "mc_demo");
+    let out_dir = dir.path().join("specodelic");
+    write_tlc_module_and_report(&spec, &out_dir);
+    std::fs::write(dir.path().join("tla2tools.jar"), b"placeholder").unwrap();
+    let out = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out_dir.to_str().unwrap(),
+            "--backend",
+            "tlc",
+            "--tlc-jar",
+            dir.path().join("tla2tools.jar").to_str().unwrap(),
+        ])
+        .env(
+            "SPK_TLC_JAVA",
+            dir.path().join("no-such-java").to_str().unwrap(),
+        )
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let failed = &json["data"]["failed"][0];
+    assert_eq!(failed["stage"], "missing_checker");
+    assert!(
+        failed["message"].as_str().unwrap().contains("SPK_TLC_JAVA"),
+        "the remediation must name the JVM seam: {}",
+        failed["message"]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn model_check_tlc_backend_reports_a_comparable_run_report() {
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("mc_demo.md");
+    write_model_check_spec(&spec, "mc_demo");
+    let out_dir = dir.path().join("specodelic");
+    write_tlc_module_and_report(&spec, &out_dir);
+    tlc_seam(
+        &dir,
+        "Model checking completed. No error has been found.\n7 states generated, 7 distinct states found, 0 states left on queue.",
+        0,
+    );
+    let out = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out_dir.to_str().unwrap(),
+            "--backend",
+            "tlc",
+            "--tlc-jar",
+            dir.path().join("tla2tools.jar").to_str().unwrap(),
+        ])
+        .env(
+            "SPK_TLC_JAVA",
+            dir.path().join("fake-java.sh").to_str().unwrap(),
+        )
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let checked = &json["data"]["checked"][0];
+    assert_eq!(checked["backend"]["engine"], "tlc");
+    assert_eq!(checked["backend"]["version"], "1.20.0");
+    // Zero corpus invariants are executable (prose — Decision 3): even the
+    // reference engine's completed run is exploration_only, never
+    // no_counterexample — the two backends' reports are comparable.
+    assert_eq!(checked["outcome"], "exploration_only");
+    assert_eq!(checked["states_explored"], 7);
+    // The persisted report carries the same attribution.
+    let report: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(out_dir.join("mc_demo.check.json")).unwrap())
+            .unwrap();
+    assert_eq!(report["backend"]["engine"], "tlc");
+    assert_eq!(report["artifact_sha256"], checked["artifact_sha256"]);
+}
+
+#[cfg(unix)]
+#[test]
+fn model_check_tlc_backend_depth_cutoff_reports_timed_out() {
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("mc_demo.md");
+    write_model_check_spec(&spec, "mc_demo");
+    let out_dir = dir.path().join("specodelic");
+    write_tlc_module_and_report(&spec, &out_dir);
+    tlc_seam(
+        &dir,
+        "The behavior up to this point is error-free.\n2 states generated, 2 distinct states found.",
+        0,
+    );
+    let out = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out_dir.to_str().unwrap(),
+            "--backend",
+            "tlc",
+            "--tlc-jar",
+            dir.path().join("tla2tools.jar").to_str().unwrap(),
+        ])
+        .env(
+            "SPK_TLC_JAVA",
+            dir.path().join("fake-java.sh").to_str().unwrap(),
+        )
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["data"]["outcome"], "timed_out");
+}

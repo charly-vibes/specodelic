@@ -3,13 +3,16 @@
 //!
 //! Purpose: implement `specs/model_check.md`'s run state machine —
 //! `not_run → running → clean | counterexample_found | timed_out` — over
-//! the compiled `ModelIR`, with a native default backend (stateright,
-//! embedded) and a run report that `verify` can consume with artifact
-//! provenance (`rerun_on_model_change`). Responsibilities: interpret the
-//! compiled automaton (program counter, transitions as actions — the same
+//! the compiled `ModelIR`, with the two specced backends and a run report
+//! that `verify` can consume with artifact provenance
+//! (`rerun_on_model_change`). Responsibilities: interpret the compiled
+//! automaton (program counter, transitions as actions — the same
 //! semantics the committed `.tla` emission commits to), explore
 //! exhaustively within a stated bound, and attribute the report to the
-//! backend engine + version (`backend_identified`). Rationale: guards and
+//! backend engine + version (`backend_identified`) — the embedded
+//! stateright default and the opt-in TLC JVM reference engine (`run_tlc`,
+//! `--backend tlc`; a missing binary/jar is a `missing_checker` error,
+//! never a verdict). Rationale: guards and
 //! predicates in the corpus language are prose (no executable predicate
 //! language exists — openspec change `add-model-check`, Decision 3
 //! Option A), so the native backend honestly reports
@@ -29,6 +32,19 @@ use crate::compile::ModelIr;
 
 /// The native default backend's engine name (`backend_identified`).
 pub const BACKEND_ENGINE: &str = "stateright";
+
+/// The opt-in TLC backend's engine name (`backend_identified`) — the JVM
+/// reference engine run as a subprocess over the compiled `.tla` module
+/// (specs/model_check.md, Backends).
+pub const TLC_ENGINE: &str = "tlc";
+
+/// The resolved TLC invocation: the JVM binary and the `tla2tools.jar`
+/// classpath entry. A missing binary or jar is a `missing_checker` error —
+/// never a verdict (specodelic-ug3 MUST).
+pub struct TlcPaths {
+    pub java: std::path::PathBuf,
+    pub jar: std::path::PathBuf,
+}
 
 /// The native backend's engine version — must match the `stateright`
 /// entry in Cargo.toml. A const (not read at runtime) so the report is
@@ -325,6 +341,260 @@ pub fn run(ir: &ModelIr, tla_artifact: &[u8], bound: &Bound) -> Result<RunReport
         artifact_sha256,
         states_explored,
     })
+}
+
+// ---------------------------------------------------------------------------
+// TLC backend: the JVM reference engine as a subprocess (opt-in)
+// ---------------------------------------------------------------------------
+
+/// The classification of one TLC run's output. The parse is pinned to the
+/// tla2tools output shapes external differential runs agreed with (25/25,
+/// vv8's harness carries the in-repo conformance evidence).
+pub(crate) struct TlcOutput {
+    /// `Model checking completed` — the full reachable space was explored.
+    pub completed: bool,
+    /// `The behavior up to this point is error-free` — a behavior was cut
+    /// at the `-depth` bound before the space was exhausted.
+    pub depth_cutoff: bool,
+    /// An invariant TLC executed was violated — by its module-local name.
+    pub violated_invariant: Option<String>,
+    /// The run's `N states generated` stat.
+    pub states_generated: Option<u64>,
+}
+
+/// Classify TLC's combined stdout+stderr. Unknown shapes classify as
+/// neither completed nor cut — the caller fails closed on them.
+pub(crate) fn parse_tlc_output(text: &str) -> TlcOutput {
+    let mut violated_invariant = None;
+    for line in text.lines() {
+        // "Error: Invariant <name> is violated."
+        if let Some(rest) = line.trim().strip_prefix("Error: Invariant ")
+            && let Some(name) = rest.strip_suffix(" is violated.")
+        {
+            violated_invariant = Some(name.trim().to_string());
+        }
+    }
+    let states_generated = text.lines().find_map(|l| {
+        let idx = l.find(" states generated")?;
+        let start = l[..idx]
+            .rsplit(|c: char| !c.is_ascii_digit())
+            .next()
+            .filter(|d| !d.is_empty())?;
+        start.parse().ok()
+    });
+    TlcOutput {
+        completed: text.contains("Model checking completed"),
+        depth_cutoff: text.contains("The behavior up to this point is error-free"),
+        violated_invariant,
+        states_generated,
+    }
+}
+
+/// Parse the version probe's output (`tlc2.TLC -version`, e.g.
+/// `TLC2 version 1.20.0 of 12 May 2024`) — `backend_identified`'s version.
+pub(crate) fn parse_tlc_version(text: &str) -> Option<String> {
+    text.lines().find_map(|l| {
+        let rest = l.trim().strip_prefix("TLC2 version ")?;
+        Some(rest.split_whitespace().next()?.to_string())
+    })
+}
+
+/// Run the TLC backend against the compiled module. `tla_path` is the
+/// on-disk module TLC reads (copied into a scratch dir — TLC drops
+/// `states/` artifacts beside its input); `tla_artifact` is the same
+/// module's bytes, hashed for provenance exactly like the native backend.///
+/// The contract mirrors `run` (same RunReport, same IR/artifact
+/// validation) so the two backends' reports are attributable and
+/// comparable (`backend_identified`). MUST: a missing JVM binary or jar
+/// is a `missing_checker` error, never a verdict. Zero corpus invariants
+/// are executable in the module (prose predicates — Decision 3, Option
+/// A), so a completed run reports `exploration_only`, never
+/// `no_counterexample` — the same honesty the native backend reports.
+/// The counterexample leg waits on mp1's predicate-fragment decision; a
+/// violated engine invariant (TypeOK — not a Constraints-table id) is a
+/// labeled error, never `counterexample_found`.
+pub fn run_tlc(
+    ir: &ModelIr,
+    tla_path: &std::path::Path,
+    tla_artifact: &[u8],
+    bound: &Bound,
+    paths: &TlcPaths,
+) -> Result<RunReport, ModelCheckError> {
+    // Same integrity half as the native run: the IR must be well-formed
+    // and agree with the on-disk module (checker_invoked).
+    if ir.states.is_empty() {
+        return Err(err(
+            "empty_model",
+            "the compiled model has no states — model_present requires a Model section with states and transitions",
+        ));
+    }
+    assert_artifact_consistent(ir, tla_artifact)?;
+    if bound.max_states.is_some() {
+        return Err(err(
+            "unsupported_bound",
+            "--max-states has no TLC equivalent (its stated bound is -depth); drop it or use the stateright backend",
+        ));
+    }
+    if !paths.jar.is_file() {
+        return Err(err(
+            "missing_checker",
+            format!(
+                "no tla2tools.jar at {} — the TLC backend needs the tla2tools distribution (download from https://github.com/tlaplus/tlaplus/releases and pass it via --tlc-jar)",
+                paths.jar.display()
+            ),
+        ));
+    }
+    // Version probe (`backend_identified`): doubles as the binary/jar
+    // smoke test — a JVM that cannot run tlc2.TLC cannot run the module.
+    let probe = std::process::Command::new(&paths.java)
+        .arg("-cp")
+        .arg(&paths.jar)
+        .arg("tlc2.TLC")
+        .arg("-version")
+        .output()
+        .map_err(|e| missing_checker(&paths.java, &e))?;
+    let version = if probe.status.success() {
+        String::from_utf8_lossy(&probe.stdout)
+    } else {
+        String::from_utf8_lossy(&probe.stderr)
+    };
+    let version = parse_tlc_version(&version).ok_or_else(|| {
+        err(
+            "missing_checker",
+            format!(
+                "{} -cp {} tlc2.TLC -version did not report a version — is this a tla2tools.jar?",
+                paths.java.display(),
+                paths.jar.display()
+            ),
+        )
+    })?;
+
+    // Scratch dir: TLC writes `states/` beside its input — never beside
+    // the committed artifact. The module keeps its (emitter-sanitized)
+    // name: TLA+ module names must be identifiers.
+    let stem = tla_path
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "module".to_string());
+    let scratch = scratch_dir(&stem)?;
+    let module_in_scratch = scratch.join(format!("{stem}.tla"));
+    std::fs::write(&module_in_scratch, tla_artifact)
+        .map_err(|e| err("scratch_dir", e.to_string()))?;
+
+    let mut command = std::process::Command::new(&paths.java);
+    command
+        .arg("-cp")
+        .arg(&paths.jar)
+        .arg("tlc2.TLC")
+        .arg("-depth")
+        .arg(bound.max_depth.max(1).to_string())
+        .arg(&module_in_scratch)
+        .current_dir(&scratch)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    let mut child = command
+        .spawn()
+        .map_err(|e| missing_checker(&paths.java, &e))?;
+    let started = Instant::now();
+    let budget = bound.timeout_secs.map(Duration::from_secs);
+    // The backend enforces the wall-clock bound itself — a JVM ignoring
+    // its budget is killed and the run reports timed_out (the bound was
+    // not reached before the budget expired, model_check.md's
+    // finish_timeout guard).
+    let mut killed = false;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) => {
+                if !killed && budget.is_some_and(|t| started.elapsed() >= t) {
+                    killed = child.kill().is_ok();
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            Err(e) => return Err(err("tlc_error", e.to_string())),
+        }
+    }
+    let out = child
+        .wait_with_output()
+        .map_err(|e| err("tlc_error", e.to_string()))?;
+    let mut output_bytes = out.stdout;
+    output_bytes.extend_from_slice(&out.stderr);
+    let output_text = String::from_utf8_lossy(&output_bytes);
+    let parsed = parse_tlc_output(&output_text);
+    // Best-effort scratch cleanup — every return path below is final.
+    let _ = std::fs::remove_dir_all(&scratch);
+    if let Some(name) = parsed.violated_invariant {
+        return Err(err(
+            "tlc_invariant_violated",
+            format!(
+                "TLC violated engine invariant `{name}` — not a Constraints-table id, so this is never a counterexample verdict; the emitted module's TypeOK should be unviolatable (an emitter bug), and corpus predicates are prose (Decision 3, Option A)"
+            ),
+        ));
+    }
+    let outcome = if killed || parsed.depth_cutoff {
+        // Killed on the wall-clock budget, or a depth-cut behavior: the
+        // bound was not exhausted — timed_out, never a verdict either way.
+        Outcome::TimedOut
+    } else if parsed.completed {
+        Outcome::ExplorationOnly
+    } else {
+        // Zero exit but no known verdict shape — fail closed.
+        return Err(err(
+            "tlc_error",
+            format!(
+                "TLC exited without a recognizable verdict — output tail: {}",
+                tail(&output_text, 400)
+            ),
+        ));
+    };
+    Ok(RunReport {
+        backend: Backend {
+            engine: TLC_ENGINE.into(),
+            version,
+        },
+        bound: bound.clone(),
+        outcome,
+        invariants_checked: vec![],
+        violated_invariant_id: None,
+        trace: None,
+        artifact_sha256: artifact_sha256(tla_artifact),
+        states_explored: parsed.states_generated.unwrap_or(0),
+    })
+}
+
+/// A fresh scratch directory for one TLC run (pid + a process-local
+/// counter — unique across sequential runs in one invocation). Removed
+/// best-effort when the run finishes; a leftover from a killed process
+/// is harmless (the next run of the same stem creates it anew).
+fn scratch_dir(stem: &str) -> Result<std::path::PathBuf, ModelCheckError> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("spk-tlc-{}-{n}-{stem}", std::process::id()));
+    std::fs::create_dir_all(&dir).map_err(|e| err("scratch_dir", e.to_string()))?;
+    Ok(dir)
+}
+
+/// The missing-checker labeled error with its remediation hint — the
+/// specodelic-ug3 MUST: a missing checker binary is an ERROR, never a
+/// no_counterexample result.
+fn missing_checker(java: &std::path::Path, e: &std::io::Error) -> ModelCheckError {
+    err(
+        "missing_checker",
+        format!(
+            "cannot run the TLC backend ({}): {e} — the JVM binary must be on PATH (or SPK_TLC_JAVA) and --tlc-jar must point at a tla2tools.jar",
+            java.display()
+        ),
+    )
+}
+
+fn tail(text: &str, max: usize) -> &str {
+    let trimmed = text.trim_end();
+    if trimmed.len() <= max {
+        trimmed
+    } else {
+        &trimmed[trimmed.len() - max..]
+    }
 }
 
 /// Spawn the BFS checker under the given effective depth cap and join it.
@@ -997,5 +1267,236 @@ mod tests {
         // backend_identified honesty: the const must track Cargo.toml.
         let cargo = include_str!("../Cargo.toml");
         assert!(cargo.contains(&format!("stateright = \"{}\"", BACKEND_VERSION)));
+    }
+
+    // ---- specodelic-ug3: the opt-in TLC backend (JVM reference engine) ----
+
+    /// The version probe's output shape (`java -cp tla2tools.jar tlc2.TLC
+    /// -version`): a single line naming the engine and its version.
+    #[test]
+    fn tlc_version_line_parses() {
+        assert_eq!(
+            parse_tlc_version("TLC2 version 1.20.0 of 12 May 2024\n"),
+            Some("1.20.0".to_string())
+        );
+        assert_eq!(parse_tlc_version("Error: could not open jar"), None);
+    }
+
+    #[test]
+    fn tlc_completed_run_parses_as_completed_with_states() {
+        let out = parse_tlc_output(
+            "Model checking completed. No error has been found.\n\
+             43 states generated, 42 distinct states found, 0 states left on queue.\n",
+        );
+        assert!(out.completed);
+        assert!(!out.depth_cutoff);
+        assert_eq!(out.states_generated, Some(43));
+        assert_eq!(out.violated_invariant, None);
+    }
+
+    #[test]
+    fn tlc_depth_cutoff_parses_as_not_completed() {
+        // TLC's depth-bound stop message: behaviors cut at -depth are
+        // reported as "error-free so far" — the run did NOT complete.
+        let out = parse_tlc_output(
+            "The behavior up to this point is error-free.\n\
+             5 states generated, 5 distinct states found.\n",
+        );
+        assert!(!out.completed);
+        assert!(out.depth_cutoff);
+        assert_eq!(out.states_generated, Some(5));
+    }
+
+    #[test]
+    fn tlc_invariant_violation_is_detected() {
+        let out = parse_tlc_output(
+            "Error: Invariant TypeOK is violated.\n\
+             3 states generated.\n",
+        );
+        assert_eq!(out.violated_invariant, Some("TypeOK".to_string()));
+        assert!(!out.completed);
+    }
+
+    #[test]
+    fn tlc_run_with_missing_binary_is_a_labeled_error_never_a_verdict() {
+        // MUST (specodelic-ug3): a missing checker binary is an ERROR —
+        // it can never degrade into a no_counterexample result.
+        let dir = tempfile::tempdir().unwrap();
+        let module = dir.path().join("chain.tla");
+        std::fs::write(&module, artifact()).unwrap();
+        let paths = TlcPaths {
+            java: dir.path().join("no-such-java"),
+            jar: dir.path().join("tla2tools.jar"),
+        };
+        let e = run_tlc(&chain_ir(), &module, &artifact(), &Bound::default(), &paths).unwrap_err();
+        assert_eq!(e.stage, "missing_checker");
+    }
+
+    #[test]
+    fn tlc_run_with_missing_jar_is_a_labeled_error_never_a_verdict() {
+        let dir = tempfile::tempdir().unwrap();
+        let module = dir.path().join("chain.tla");
+        std::fs::write(&module, artifact()).unwrap();
+        let paths = TlcPaths {
+            java: std::path::PathBuf::from("sh"),
+            jar: dir.path().join("no-such.jar"),
+        };
+        let e = run_tlc(&chain_ir(), &module, &artifact(), &Bound::default(), &paths).unwrap_err();
+        assert_eq!(e.stage, "missing_checker");
+    }
+
+    /// A stand-in JVM: prints the canned version line for `-version`, and
+    /// the given run output for any other invocation — the seam the TLC
+    /// backend drives, so the classification logic is testable without a
+    /// real JVM (real-TLC agreement is external evidence, vv8).
+    #[cfg(unix)]
+    fn fake_java(dir: &tempfile::TempDir, run_output: &str, exit_code: i32) -> TlcPaths {
+        let shim = dir.path().join("fake-java.sh");
+        let script = format!(
+            "#!/bin/sh\nfor arg in \"$@\"; do case \"$arg\" in -version) echo 'TLC2 version 1.20.0 of 12 May 2024'; exit 0;; esac; done\ncat <<'TLCOUT'\n{run_output}\nTLCOUT\nexit {exit_code}\n"
+        );
+        std::fs::write(&shim, script).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::write(dir.path().join("tla2tools.jar"), b"placeholder jar").unwrap();
+        TlcPaths {
+            java: shim,
+            jar: dir.path().join("tla2tools.jar"),
+        }
+    }
+
+    #[cfg(unix)]
+    fn module_file(dir: &tempfile::TempDir) -> std::path::PathBuf {
+        let module = dir.path().join("chain.tla");
+        std::fs::write(&module, artifact()).unwrap();
+        module
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn tlc_completed_run_reports_backend_tlc_and_exploration_only() {
+        // Zero corpus invariants are executable in the module (prose —
+        // Decision 3, Option A), so even the reference engine's completed
+        // run is exploration_only, never no_counterexample — the two
+        // backends' reports are comparable (backend_identified).
+        let dir = tempfile::tempdir().unwrap();
+        let module = module_file(&dir);
+        let paths = fake_java(
+            &dir,
+            "Model checking completed. No error has been found.\n43 states generated, 42 distinct states found, 0 states left on queue.",
+            0,
+        );
+        let report = run_tlc(&chain_ir(), &module, &artifact(), &Bound::default(), &paths).unwrap();
+        assert_eq!(report.backend.engine, "tlc");
+        assert_eq!(report.backend.version, "1.20.0");
+        assert_eq!(report.outcome, Outcome::ExplorationOnly);
+        assert_eq!(report.states_explored, 43);
+        assert!(report.invariants_checked.is_empty());
+        assert_eq!(report.artifact_sha256, artifact_sha256(&artifact()));
+        assert_eq!(report.bound, Bound::default());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn tlc_depth_cutoff_reports_timed_out() {
+        let dir = tempfile::tempdir().unwrap();
+        let module = module_file(&dir);
+        let paths = fake_java(
+            &dir,
+            "The behavior up to this point is error-free.\n5 states generated, 5 distinct states found.",
+            0,
+        );
+        let report = run_tlc(&chain_ir(), &module, &artifact(), &Bound::default(), &paths).unwrap();
+        assert_eq!(report.outcome, Outcome::TimedOut);
+        assert_eq!(report.backend.engine, "tlc");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn tlc_engine_invariant_violation_is_a_labeled_error_not_a_counterexample() {
+        // The module's only invariant is TypeOK — engine-generated, not a
+        // Constraints-table id. The contract requires a counterexample to
+        // name a corpus invariant (counterexample_names_violated_invariant,
+        // deferred on mp1's predicate-fragment decision), so an engine-
+        // invariant violation is a labeled error, never counterexample_found.
+        let dir = tempfile::tempdir().unwrap();
+        let module = module_file(&dir);
+        let paths = fake_java(
+            &dir,
+            "Error: Invariant TypeOK is violated.\n3 states generated.",
+            1,
+        );
+        let e = run_tlc(&chain_ir(), &module, &artifact(), &Bound::default(), &paths).unwrap_err();
+        assert_eq!(e.stage, "tlc_invariant_violated");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn tlc_nonzero_exit_without_completion_is_a_labeled_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let module = module_file(&dir);
+        let paths = fake_java(&dir, "Exception in thread main ...", 1);
+        let e = run_tlc(&chain_ir(), &module, &artifact(), &Bound::default(), &paths).unwrap_err();
+        assert_eq!(e.stage, "tlc_error");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn tlc_exit_zero_without_a_known_verdict_fails_closed() {
+        // Unrecognized output on a zero exit is never silently mapped to a
+        // verdict — the run reports a labeled error instead.
+        let dir = tempfile::tempdir().unwrap();
+        let module = module_file(&dir);
+        let paths = fake_java(&dir, "something unexpected", 0);
+        let e = run_tlc(&chain_ir(), &module, &artifact(), &Bound::default(), &paths).unwrap_err();
+        assert_eq!(e.stage, "tlc_error");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn tlc_wall_clock_budget_exhaustion_kills_the_run_as_timed_out() {
+        // A shim that ignores its budget: the backend must enforce the
+        // wall-clock bound itself (kill the JVM), reporting timed_out.
+        let dir = tempfile::tempdir().unwrap();
+        let module = module_file(&dir);
+        let shim = dir.path().join("slow-java.sh");
+        std::fs::write(
+            &shim,
+            "#!/bin/sh\nfor arg in \"$@\"; do case \"$arg\" in -version) echo 'TLC2 version 1.20.0 of 12 May 2024'; exit 0;; esac; done\nexec sleep 30\n",
+        )
+        .unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::write(dir.path().join("tla2tools.jar"), b"placeholder").unwrap();
+        let paths = TlcPaths {
+            java: shim,
+            jar: dir.path().join("tla2tools.jar"),
+        };
+        let bound = Bound {
+            timeout_secs: Some(0),
+            ..Default::default()
+        };
+        let report = run_tlc(&chain_ir(), &module, &artifact(), &bound, &paths).unwrap();
+        assert_eq!(report.outcome, Outcome::TimedOut);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn tlc_max_states_budget_is_unsupported_and_labeled() {
+        // TLC has no state-count cap (its bound is -depth); an unsupported
+        // budget is a labeled error, never silently ignored.
+        let dir = tempfile::tempdir().unwrap();
+        let module = module_file(&dir);
+        let paths = fake_java(
+            &dir,
+            "Model checking completed. No error has been found.\n1 states generated.",
+            0,
+        );
+        let bound = Bound {
+            max_states: Some(10),
+            ..Default::default()
+        };
+        let e = run_tlc(&chain_ir(), &module, &artifact(), &bound, &paths).unwrap_err();
+        assert_eq!(e.stage, "unsupported_bound");
     }
 }

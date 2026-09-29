@@ -6,6 +6,35 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #54 — model-check: opt-in TLC backend — the JVM reference engine (specodelic-ug3)
+
+`spk model-check --backend tlc --tlc-jar <tla2tools.jar>` runs the TLA+
+TLC reference engine as a JVM subprocess over the compiled `<stem>.tla`
+module, `-depth` as the stated bound. MUST held by construction: a
+missing JVM binary (PATH or `SPK_TLC_JAVA` seam) or jar is a labeled
+`missing_checker` error — never a `no_counterexample` result.
+
+- Same run-report contract as the stateright default (`backend_identified`):
+  the report carries `engine: "tlc"` + the version parsed from TLC's
+  `-version` probe, so two backends' reports on the same compiled model
+  and bound are attributable and comparable.
+- Same honesty as the native backend: zero corpus invariants are
+  executable (prose — Decision 3, Option A), so a completed TLC run is
+  `exploration_only`, never `no_counterexample`; a depth-cut behavior
+  (`The behavior up to this point is error-free`) and a wall-clock
+  budget the backend enforces itself (poll + kill) report `timed_out`.
+- Fail-closed classification: unrecognized output on a zero exit, a
+  nonzero exit, and a violated engine invariant (TypeOK — not a
+  Constraints-table id) are labeled `tlc_error` /
+  `tlc_invariant_violated` errors; the counterexample leg waits on
+  specodelic-mp1's predicate-fragment decision.
+- `--max-states` has no TLC equivalent — labeled `unsupported_bound`,
+  never silently ignored. The module runs in a scratch dir (TLC drops
+  `states/` beside its input — never beside the committed artifact).
+- Classification pinned by unit + integration tests through a fake-JVM
+  seam; real-TLC agreement remains external evidence (25/25 differential,
+  conformance suite specodelic-vv8).
+
 ## #53 — merge: pre-merge id-collision + dangling-rename check (specodelic-7oq)
 
 `spk merge --branch <incoming-tree> [--base <ancestor-tree>] [current-tree]`
