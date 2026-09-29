@@ -6,6 +6,21 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #51 — Ro5 review of the hostile-input hardening set: hostile notes ride every verb's empty failure envelope (suz follow-up)
+
+Rule-of-5 review of #46 (`f3e27f5` + `6f99b4a`): verdict READY WITH_NOTES,
+converged at Stage 4. One MEDIUM fixed (CORR-001): the labeled
+hostile-input/parse notes were attached to the `specs.is_empty()` failure
+envelope only in lint and graph — compile, model-check, and verify still
+dropped them into a bare "no spec files to …" failure, the exact
+vanishing-diagnostic class #46 closed for lint. Now all five verbs carry
+the notes on the empty path (new integration test pins it for the three
+fixed verbs). LOW residuals documented, not fixed: the metadata→read
+gap is a TOCTOU race (airtight fix = open with `O_NOFOLLOW | O_NONBLOCK`
++ fstat on the fd — not worth the platform surface for a local CLI), and
+a duplicated doc-comment line above `MAX_INPUT_BYTES` was removed
+(CLAR-001).
+
 ## #50 — output-contract residuals: exit codes for invalid invocations, human text everywhere (specodelic-7rr follow-up)
 
 Pre-release sweep of the remaining 7rr-class warts:

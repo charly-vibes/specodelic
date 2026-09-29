@@ -733,7 +733,6 @@ fn collect_specs(paths: &[String]) -> Vec<std::path::PathBuf> {
     files
 }
 
-/// Parse a batch, skipping non-spec files (no frontmatter) with a note.
 /// The ingestion size cap (hostile-input gate, specodelic-suz): a
 /// spec file is prose — corpus files are ~10-50 KB; anything beyond
 /// this bound is not a spec, and reading it is an unbounded-memory risk.
@@ -930,10 +929,14 @@ fn cmd_compile(
 ) -> i32 {
     let (specs, notes) = parse_batch(paths, verbosity);
     if specs.is_empty() {
-        let out: Output<serde_json::Value> =
+        let mut out: Output<serde_json::Value> =
             Output::failure("no spec files to compile").with_next_step(
                 "pass spec files or a directory (defaults to ./specs); parse errors, if any, are reported as warnings",
             );
+        // Hostile-input/parse notes name themselves even here (suz Ro5, CORR-001).
+        for n in &notes {
+            out = out.with_warning(n.clone());
+        }
         emit_report(out, None, format, verbosity, stdout, stderr);
         // Invocation error: nothing to compile (specodelic-7rr item 2).
         return 2;
@@ -1074,10 +1077,14 @@ fn cmd_model_check(
     let out_dir = target.out_dir.as_str();
     let (specs, notes) = parse_batch(paths, verbosity);
     if specs.is_empty() {
-        let out: Output<serde_json::Value> = Output::failure("no spec files to model-check")
+        let mut out: Output<serde_json::Value> = Output::failure("no spec files to model-check")
             .with_next_step(
                 "pass spec files or a directory; each must have compiled artifacts (run: specodelic compile <files>)",
             );
+        // Hostile-input/parse notes name themselves even here (suz Ro5, CORR-001).
+        for n in &notes {
+            out = out.with_warning(n.clone());
+        }
         emit_report(out, None, format, verbosity, stdout, stderr);
         // Invocation error: nothing to check (specodelic-7rr item 2).
         return 2;
@@ -1202,10 +1209,14 @@ fn cmd_verify(
     let dir = std::path::Path::new(out_dir);
     let (specs, notes) = parse_batch(paths, verbosity);
     if specs.is_empty() {
-        let out: Output<serde_json::Value> = Output::failure("no spec files to verify")
+        let mut out: Output<serde_json::Value> = Output::failure("no spec files to verify")
             .with_next_step(
                 "pass spec files or a directory; each must have compiled artifacts (run: specodelic compile <files>)",
             );
+        // Hostile-input/parse notes name themselves even here (suz Ro5, CORR-001).
+        for n in &notes {
+            out = out.with_warning(n.clone());
+        }
         emit_report(out, None, format, verbosity, stdout, stderr);
         // Invocation error: nothing to verify (specodelic-7rr item 2).
         return 2;

@@ -1498,6 +1498,37 @@ fn lint_on_an_oversized_file_names_the_cap() {
     );
 }
 
+/// The hostile-input note surfaces on EVERY verb's empty failure path,
+/// not just lint/graph — a rejected input must name itself wherever the
+/// batch comes up empty (specodelic-suz Ro5 follow-up, CORR-001).
+#[test]
+fn hostile_note_rides_the_empty_failure_envelope_of_every_verb() {
+    let dir = tempfile::tempdir().unwrap();
+    let big = dir.path().join("big.md");
+    let mut content = String::from(
+        "---\nid: big\nkind: intent\nstatement: \"THE system SHALL be oversized\"\n---\n\n",
+    );
+    content.push_str(&"x".repeat(3 * 1024 * 1024));
+    std::fs::write(&big, content).unwrap();
+    for verb in ["compile", "model-check", "verify"] {
+        let out = spk()
+            .args([verb, big.to_str().unwrap(), "--json"])
+            .timeout(std::time::Duration::from_secs(10))
+            .output()
+            .unwrap();
+        assert!(!out.status.success(), "{verb}: must fail on zero specs");
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            stdout.contains("2 MiB"),
+            "{verb}: the cap must be named: {stdout}"
+        );
+        assert!(
+            stdout.contains("big.md"),
+            "{verb}: the offending path must be named: {stdout}"
+        );
+    }
+}
+
 /// A FIFO alongside a valid spec is skipped with a labeled note — the
 /// valid spec still lints.
 #[cfg(unix)]
