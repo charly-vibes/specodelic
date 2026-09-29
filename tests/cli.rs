@@ -2743,3 +2743,157 @@ fn bare_row_ref_lints_clean_in_a_dual_format_file() {
         json["data"]["issues"]
     );
 }
+
+// ---- specodelic-7l3: observability contracts (observes, advisory warning, boundary) ----
+
+/// Publisher fixture: an invariant + an effect Constraint (emitted by a
+/// state), lint-clean on its own.
+const OBSERVABILITY_PUB: &str = "---\nid: pub\nkind: intent\nstatement: \"THE publisher SHALL emit output\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| inv_ok | invariant | `value is finite` | [[pub]] |\n| eff_out | effect | `output == {value}` | [[pub]] |\n\n## Model\n\n### States\n\n- `idle`\n- `emitting` `emits: [[pub.eff_out]]`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| emit | idle | emitting | [[pub.inv_ok]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[pub.inv_ok]] | `g()` | `x` |\n| p_eff | unit | [[pub.eff_out]] | `g()` | `x` |\n";
+
+/// Consumer fixture: an invariant row observing a published effect
+/// cross-file (the `observes` optional column).
+const OBSERVABILITY_CON: &str = "---\nid: con\nkind: intent\nstatement: \"THE consumer SHALL observe the publisher output\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | observes |\n|----|------|------|-----------|----------|\n| watch | invariant | `output seen` | [[con]] | [[pub.eff_out]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[con.watch]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_w | unit | [[con.watch]] | `g()` | `x` |\n";
+
+fn write_observability_pair(dir: &std::path::Path, consumer_observes: &str) {
+    let con = OBSERVABILITY_CON.replace("[[pub.eff_out]] |", consumer_observes);
+    std::fs::write(dir.join("pub.md"), OBSERVABILITY_PUB).unwrap();
+    std::fs::write(dir.join("con.md"), con).unwrap();
+}
+
+#[test]
+fn observes_cross_file_edge_extracts_and_types_clean() {
+    // The observes column is a typed outbound reference: cross-file
+    // observation extracts exactly one edge and types clean (no
+    // violation, no dangling).
+    let dir = tempfile::tempdir().unwrap();
+    write_observability_pair(dir.path(), "[[pub.eff_out]] |");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let violations = json["data"]["violations"].as_array().unwrap();
+    assert!(
+        violations.is_empty(),
+        "observes → effect must type clean: {violations:?}"
+    );
+    let edge = json["data"]["edges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["kind"] == "constraints.observes")
+        .expect("the observes edge must be extracted");
+    assert_eq!(edge["from"], "con.watch");
+    assert_eq!(edge["to"], "pub.eff_out");
+}
+
+#[test]
+fn observes_wrong_target_rejected_with_hint() {
+    // observes must resolve to an effect Constraint — pointing it at an
+    // invariant row is a labeled typing violation, never a recorded edge.
+    let dir = tempfile::tempdir().unwrap();
+    write_observability_pair(dir.path(), "[[pub.inv_ok]] |");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let violations = json["data"]["violations"].as_array().unwrap();
+    let v = violations
+        .iter()
+        .find(|v| v["edge_kind"] == "constraints.observes")
+        .expect("observes → invariant must be a labeled violation");
+    assert!(
+        v["reason"]
+            .as_str()
+            .unwrap()
+            .contains("effect Constraint"),
+        "the reason must name the rule and the actual target kind: {v:?}"
+    );
+}
+
+#[test]
+fn mutual_observation_is_not_a_cycle() {
+    // observes is a claim, not a dependency — two files mutually
+    // observing each other's effects stay acyclic (D4).
+    let dir = tempfile::tempdir().unwrap();
+    // pub's eff_out is observed by con.watch; con's eff_back is observed
+    // by pub.watch — a crossed mutual pair. Acyclic's edge set
+    // (traces_to ∪ derives_from ∪ guard) never sees it.
+    let a = "---\nid: pub\nkind: intent\nstatement: \"THE publisher SHALL emit output\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | observes |\n|----|------|------|-----------|----------|\n| inv_ok | invariant | `value is finite` | [[pub]] | |\n| eff_out | effect | `output == {value}` | [[pub]] | [[con.eff_back]] |\n\n## Model\n\n### States\n\n- `idle`\n- `emitting` `emits: [[pub.eff_out]]`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| emit | idle | emitting | [[pub.inv_ok]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[pub.inv_ok]] | `g()` | `x` |\n| p_eff | unit | [[pub.eff_out]] | `g()` | `x` |\n";
+    let b = "---\nid: con\nkind: intent\nstatement: \"THE consumer SHALL observe the publisher output\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | observes |\n|----|------|------|-----------|----------|\n| inv_seen | invariant | `output seen` | [[con]] | |\n| eff_back | effect | `ack == {value}` | [[con]] | [[pub.eff_out]] |\n\n## Model\n\n### States\n\n- `idle`\n- `acking` `emits: [[con.eff_back]]`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| ack | idle | acking | [[con.inv_seen]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[con.inv_seen]] | `g()` | `x` |\n| p_eff | unit | [[con.eff_back]] | `g()` | `x` |\n";
+    std::fs::write(dir.path().join("pub.md"), a).unwrap();
+    std::fs::write(dir.path().join("con.md"), b).unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(
+        json["data"]["issues"].as_array().unwrap().is_empty(),
+        "mutual observation must not trip acyclic: {}",
+        json["data"]["issues"]
+    );
+    assert!(
+        json["warnings"].as_array().unwrap().is_empty(),
+        "both effects are observed — no warnings either: {}",
+        json["warnings"]
+    );
+}
+
+#[test]
+fn unobserved_effect_warns_exit_zero() {
+    // A declared output nobody observes is an advisory warning on the
+    // warnings channel — exit 0, never a failure (design D5; the doctor
+    // knowledge-currency precedent).
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("pub.md"), OBSERVABILITY_PUB).unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "an unobserved effect is advisory, never a failure"
+    );
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let warnings = json["warnings"].as_array().unwrap();
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.as_str().unwrap().contains("linter.observability")
+                && w.as_str().unwrap().contains("pub.eff_out")),
+        "the unobserved effect must be warned with rule id + row id: {warnings:?}"
+    );
+    assert!(
+        json["data"]["issues"].as_array().unwrap().is_empty(),
+        "the warning must not ride the issues channel: {}",
+        json["data"]["issues"]
+    );
+}
+
+#[test]
+fn graph_classifies_extension_point_host_as_external_boundary() {
+    // A file hosting ≥1 extension_point Constraint is an external
+    // boundary — derived from published contracts, never authored.
+    let dir = tempfile::tempdir().unwrap();
+    let pub_ext = OBSERVABILITY_PUB.replace(
+        "| eff_out | effect | `output == {value}` | [[pub]] |",
+        "| contract | extension_point | `interface == Output` | [[pub]] |\n| eff_out | effect | `output == {value}` | [[pub]] |",
+    );
+    std::fs::write(dir.path().join("pub.md"), pub_ext).unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let boundaries = json["data"]["external_boundaries"]
+        .as_array()
+        .expect("external_boundaries must be in the graph payload");
+    assert!(
+        boundaries.iter().any(|b| b == "pub"),
+        "pub hosts an extension_point row — it is an external boundary: {boundaries:?}"
+    );
+}
