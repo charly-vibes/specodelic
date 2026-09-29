@@ -446,12 +446,17 @@ pub fn run_tlc(
     }
     // Version probe (`backend_identified`): doubles as the binary/jar
     // smoke test — a JVM that cannot run tlc2.TLC cannot run the module.
-    let probe = std::process::Command::new(&paths.java)
+    let mut probe_cmd = std::process::Command::new(&paths.java);
+    probe_cmd
         .arg("-cp")
         .arg(&paths.jar)
         .arg("tlc2.TLC")
         .arg("-version")
-        .output()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    let probe = spawn_with_etxtbsy_retry(&mut probe_cmd)
+        .map_err(|e| missing_checker(&paths.java, &e))?
+        .wait_with_output()
         .map_err(|e| missing_checker(&paths.java, &e))?;
     let version = if probe.status.success() {
         String::from_utf8_lossy(&probe.stdout)
@@ -492,9 +497,8 @@ pub fn run_tlc(
         .current_dir(&scratch)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
-    let mut child = command
-        .spawn()
-        .map_err(|e| missing_checker(&paths.java, &e))?;
+    let mut child =
+        spawn_with_etxtbsy_retry(&mut command).map_err(|e| missing_checker(&paths.java, &e))?;
     let started = Instant::now();
     let budget = bound.timeout_secs.map(Duration::from_secs);
     // The backend enforces the wall-clock bound itself — a JVM ignoring
@@ -586,6 +590,28 @@ fn missing_checker(java: &std::path::Path, e: &std::io::Error) -> ModelCheckErro
             java.display()
         ),
     )
+}
+
+/// Spawn a command, retrying the `ETXTBSY` race (os error 26): spawning a
+/// just-written script shim can hit `Text file busy` under parallel test
+/// load — a fresh write's close and the exec raced on some filesystems.
+/// A handful of short retries removes the flake without masking genuinely
+/// missing binaries (any other error, or exhaustion, surfaces immediately).
+fn spawn_with_etxtbsy_retry(
+    command: &mut std::process::Command,
+) -> std::io::Result<std::process::Child> {
+    const ETXTBSY: i32 = 26;
+    const MAX_ATTEMPTS: u32 = 10;
+    for attempt in 0..=MAX_ATTEMPTS {
+        match command.spawn() {
+            Ok(child) => return Ok(child),
+            Err(e) if e.raw_os_error() == Some(ETXTBSY) && attempt < MAX_ATTEMPTS => {
+                std::thread::sleep(Duration::from_millis(20 * (attempt as u64 + 1)));
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    unreachable!("retry loop returns on success or error")
 }
 
 fn tail(text: &str, max: usize) -> &str {

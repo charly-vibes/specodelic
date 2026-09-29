@@ -27,9 +27,11 @@ the failure envelope.
 
 ## `spk graph <files|dirs>`
 
-Derives the reference graph from `[[wiki-links]]`: nodes, edges, fan-in/
-fan-out per row, dangling references. The rename/merge/refactor
-advisors build on it.
+Derives the reference graph from every typed reference field: nodes,
+edges (including a Transition's `from`/`to` state edges), fan-in/fan-out
+per row, dangling references, typing violations (the Reference Typing
+table — forbidden edges are reported, never recorded), and supersedes
+cycles. The rename/merge/refactor advisors build on it.
 
 - Spec: [graph](specs/graph.md)
 

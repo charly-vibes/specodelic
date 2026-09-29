@@ -159,11 +159,18 @@ fn lint_corpus_is_fully_clean() {
 #[test]
 fn graph_corpus_is_fully_resolved() {
     let out = spk().args(["graph", "specs", "--json"]).output().unwrap();
-    assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let data = &json["data"];
     assert!(data["dangling"].as_array().unwrap().is_empty());
     assert!(data["edges"].as_array().unwrap().len() > 300);
+    // The corpus still carries typing-forbidden edges (traces_to →
+    // Constraint rows et al.) — reconciled by specodelic-cxq; until then
+    // the graph reports them as violations and exits 1. What must hold
+    // here: every violation is typed, and none is silently recorded.
+    for v in data["violations"].as_array().unwrap() {
+        assert!(v["reason"].as_str().unwrap().contains("Reference Typing"));
+    }
+    assert_eq!(out.status.code(), Some(1));
 }
 
 #[test]
@@ -195,6 +202,129 @@ fn graph_same_id_files_are_file_scoped() {
         stdout.contains("[[spec.row_in_b]]"),
         "cross-file ref must dangle in the graph: {stdout}"
     );
+}
+
+/// total_extraction (specs/graph.md): a Transition's `from`/`to` cells are
+/// typed reference fields (→ State) and must yield exactly one edge each.
+#[test]
+fn graph_extracts_from_to_state_edges() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("t.md"),
+        "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `x` | [[t]] |\n\n## Model\n\n### States\n\n- `a`\n- `b`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| go | a | b | [[t.c1]] |\n| bad | a | zz | [[t.c1]] |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let data = &json["data"];
+    let edges = data["edges"].as_array().unwrap();
+    for (kind, to) in [("transitions.from", "t.a"), ("transitions.to", "t.b")] {
+        assert!(
+            edges
+                .iter()
+                .any(|e| e["kind"] == kind && e["from"] == "t.go" && e["to"] == to),
+            "missing {kind} state edge: {edges:?}"
+        );
+    }
+    // An unknown state in from/to dangles — never silently dropped.
+    let dangling = data["dangling"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d.as_str().unwrap())
+        .collect::<Vec<_>>()
+        .join("; ");
+    assert!(
+        dangling.contains("zz"),
+        "unknown from/to state must dangle: {dangling}"
+    );
+}
+
+/// edge_kind_matches_typing (specs/graph.md): the graph never records an
+/// edge the Reference Typing table wouldn't allow — a Constraint's
+/// `traces_to` must resolve to an Intent, so a traces_to→Constraint row
+/// surfaces as a labeled violation instead of a silent edge.
+#[test]
+fn graph_typing_forbidden_edge_is_reported_not_recorded() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("t.md"),
+        "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `x` | [[t]] |\n| c2 | invariant | `y` | [[t.c1]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p1 | unit | [[t.c1]] | `g()` | `x` |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let data = &json["data"];
+    let edges = data["edges"].as_array().unwrap();
+    // Control: the legal derives_from edge is still recorded.
+    assert!(
+        edges
+            .iter()
+            .any(|e| e["kind"] == "properties.derives_from" && e["to"] == "t.c1"),
+        "legal derives_from edge must be recorded: {edges:?}"
+    );
+    assert!(
+        !edges
+            .iter()
+            .any(|e| e["kind"] == "constraints.traces_to" && e["to"] == "t.c1"),
+        "typing-forbidden edge must not be recorded: {edges:?}"
+    );
+    let violations = data["violations"].as_array().unwrap();
+    assert!(
+        violations
+            .iter()
+            .any(|v| v["edge_kind"] == "constraints.traces_to" && v["to"] == "t.c1"),
+        "forbidden edge must surface as a labeled violation: {violations:?}"
+    );
+    assert_eq!(out.status.code(), Some(1));
+}
+
+/// supersedes_dag (specs/linter-graph_shape.md) + total_extraction: the
+/// `supersedes` column yields edges (Constraint→Constraint, Property→
+/// Property), a supersedes cycle is reported rather than silently served,
+/// and a cross-kind supersedes is a typing violation.
+#[test]
+fn graph_supersedes_edges_cycle_and_typing() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("t.md"),
+        "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | supersedes |\n|----|------|------|-----------|------------|\n| c1 | invariant | `x` | [[t]] | [[t.c2]] |\n| c2 | invariant | `y` | [[t]] | [[t.c1]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate | supersedes |\n|----|------|--------------|-----------|------------|------------|\n| p1 | unit | [[t.c1]] | `g()` | `x` | [[t.c1]] |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let data = &json["data"];
+    let edges = data["edges"].as_array().unwrap();
+    assert!(
+        edges.iter().any(|e| e["kind"] == "constraints.supersedes"
+            && e["from"] == "t.c1"
+            && e["to"] == "t.c2"),
+        "supersedes edge must be recorded: {edges:?}"
+    );
+    let cycles = data["supersedes_cycles"].as_array().unwrap();
+    assert!(
+        cycles
+            .iter()
+            .any(|c| c.as_str().unwrap().contains("t.c1") && c.as_str().unwrap().contains("t.c2")),
+        "supersedes cycle must be reported: {cycles:?}"
+    );
+    let violations = data["violations"].as_array().unwrap();
+    assert!(
+        violations
+            .iter()
+            .any(|v| v["edge_kind"] == "properties.supersedes"),
+        "cross-kind supersedes must be a typing violation: {violations:?}"
+    );
+    assert_eq!(out.status.code(), Some(1));
 }
 
 #[test]
@@ -1901,7 +2031,9 @@ fn human_hooks_uninstall_renders_text() {
 
 /// Two-file fixture: `alpha` defines constraint `c1` (with a deriving
 /// property and rationale prose that mentions "alpha" in words);
-/// `beta` references `[[alpha.c1]]` cross-file.
+/// `beta` references `[[alpha.c1]]` cross-file (a Property's derives_from —
+/// the typing-valid cross-file row ref: a Constraint's traces_to may only
+/// target an Intent per the Reference Typing table).
 fn write_rename_fixture(dir: &tempfile::TempDir) {
     std::fs::write(
         dir.path().join("alpha.md"),
@@ -1923,7 +2055,11 @@ fn write_rename_fixture(dir: &tempfile::TempDir) {
          ## Constraints\n\n\
          | id | kind | expr | traces_to |\n\
          |----|------|------|-----------|\n\
-         | d1 | invariant | `z holds` | [[alpha.c1]] |\n",
+         | d1 | invariant | `z holds` | [[alpha]] |\n\n\
+         ## Properties\n\n\
+         | id | kind | derives_from | generator | predicate |\n\
+         |----|------|--------------|-----------|-----------|\n\
+         | pb1 | unit | [[alpha.c1]] | `arbitrary_row()` | `check(z) == ok` |\n",
     )
     .unwrap();
 }

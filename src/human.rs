@@ -45,17 +45,29 @@ pub fn lint(report: &LintReport) -> String {
     out
 }
 
-/// `spk graph` — one summary line; dangling references are listed by id.
+/// `spk graph` — one summary line; dangling references, typing violations
+/// and supersedes cycles are listed below it.
 pub fn graph(report: &GraphReport) -> String {
     let mut out = format!(
-        "graph: {} file(s), {} node(s), {} edge(s), {} dangling",
+        "graph: {} file(s), {} node(s), {} edge(s), {} dangling, {} typing violation(s), {} supersedes cycle(s)",
         report.files,
         report.nodes,
         report.edges.len(),
-        report.dangling.len()
+        report.dangling.len(),
+        report.violations.len(),
+        report.supersedes_cycles.len()
     );
     for d in &report.dangling {
         out.push_str(&format!("\n  dangling: {d}"));
+    }
+    for v in &report.violations {
+        out.push_str(&format!(
+            "\n  typing violation: {} -[[{}]]→ {} ({})",
+            v.from, v.edge_kind, v.to, v.reason
+        ));
+    }
+    for c in &report.supersedes_cycles {
+        out.push_str(&format!("\n  supersedes cycle: {c}"));
     }
     out
 }
@@ -274,6 +286,8 @@ mod tests {
             nodes: 3,
             edges: vec![],
             dangling: vec!["nowhere.void".to_string()],
+            violations: vec![],
+            supersedes_cycles: vec![],
             fan_in: Default::default(),
             fan_out: Default::default(),
         };
@@ -334,6 +348,8 @@ mod tests {
                 nodes: 0,
                 edges: vec![],
                 dangling: vec![],
+                violations: vec![],
+                supersedes_cycles: vec![],
                 fan_in: Default::default(),
                 fan_out: Default::default(),
             }),

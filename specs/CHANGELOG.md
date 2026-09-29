@@ -6,6 +6,38 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #55 — graph: the full edge contract — state edges, typing violations, supersedes cycles (specodelic-7pi)
+
+`spk graph` now extracts every typed reference field instead of only the
+wiki-link columns. A Transition's `from`/`to` cells are typed reference
+fields (→ State, same file) and yield `transitions.from`/`transitions.to`
+edges — the corpus graph grew from 407 to 569 edges; an unknown state in
+`from`/`to` dangles rather than vanishing. The Reference Typing table
+(`specs/specodelic.md`) is now enforced at graph-build time: a typed
+reference column whose resolved target kind is forbidden (31 corpus
+`traces_to`→Constraint rows, 4 `derives_from`, 3 `guard` citing non-
+invariant Constraints) surfaces as a labeled **violation** in the report
+and is never recorded as an edge (`specs/graph.md`'s
+`edge_kind_matches_typing`) — previously those edges were silently
+recorded. The report carries `violations` and `supersedes_cycles`; the
+`supersedes` edge set is cycle-checked (`supersedes_dag`,
+`specs/linter-graph_shape.md`), rotation-normalized so a cycle reports
+once. The command exits 1 when anything is dangling, violated, or cyclic.
+The corpus's own typing debts are tracked for reconciliation in
+specodelic-cxq — until then `just graph-specs` honestly reports them.
+The `spk init` managed block no longer advertises blast-radius (not yet
+implemented; re-added when it ships).
+
+## #56 — model-check: TLC shim spawn retries the `ETXTBSY` race
+
+The TLC backend's process spawns (version probe + run) retry a few times
+with short backoff on `ETXTBSY` (`Text file busy`, os error 26) —
+spawning a just-written script shim raced its write-close under parallel
+test load, flaking the TLC test harness ~2/15 on a clean tree with a
+spurious `missing_checker`. Any other spawn error, or exhausted retries,
+still surface immediately as the same labeled error — a genuinely
+missing JVM binary is never masked.
+
 ## #54 — model-check: opt-in TLC backend — the JVM reference engine (specodelic-ug3)
 
 `spk model-check --backend tlc --tlc-jar <tla2tools.jar>` runs the TLA+

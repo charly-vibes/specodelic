@@ -953,13 +953,20 @@ fn cmd_graph(
     for n in &notes {
         out = out.with_warning(n.clone());
     }
-    if report.dangling.is_empty() {
-        out = out.with_next_step("every reference resolves — run: specodelic lint");
+    let clean = report.dangling.is_empty()
+        && report.violations.is_empty()
+        && report.supersedes_cycles.is_empty();
+    out = if clean {
+        out.with_next_step("every reference resolves — run: specodelic lint")
+    } else if !report.violations.is_empty() || !report.supersedes_cycles.is_empty() {
+        out.with_next_step(
+            "resolve the typing violations / supersedes cycles (see specs/specodelic.md's Reference Typing table and specs/linter-graph_shape.md)",
+        )
     } else {
-        out = out.with_next_step(
+        out.with_next_step(
             "resolve the dangling references (see specs/linter-referential_integrity.md)",
-        );
-    }
+        )
+    };
     emit_report(
         out,
         Some(human::graph(&report)),
@@ -968,7 +975,7 @@ fn cmd_graph(
         stdout,
         stderr,
     );
-    if report.dangling.is_empty() { 0 } else { 1 }
+    if clean { 0 } else { 1 }
 }
 
 fn cmd_rename(

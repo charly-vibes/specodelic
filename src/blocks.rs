@@ -56,7 +56,8 @@ Write specs so `spk lint` passes; embedded format revision: {rev}
 ### Commands
 
 - `spk lint <dir>` — check the invariants (fails with a hint on zero files)
-- `spk graph <dir>` — typed reference graph + blast-radius
+- `spk graph <dir>` — typed reference graph (state edges, typing
+  violations, supersedes cycles; blast-radius lands later)
 - `spk compile <files>` — emit TOML / proptest / TLA+ artifacts
 - `spk model-check <files>` — run the model checker against compiled
   output (stateright; reports land as `*.check.json`)
