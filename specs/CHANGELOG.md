@@ -6,6 +6,36 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #48 — output contract: exit codes 0/1/2, real human text, ok:false errors (specodelic-7rr)
+
+The output contract tightened on four fronts (the `ok:false` half rides
+upstream — see below):
+
+- **Exit codes** are pinned and documented (`--help` after-help,
+  README, [docs/src/commands.md](../docs/src/commands.md)): `0` =
+  success (lint with zero findings counts); `1` = the stage produced
+  findings or a tool-level failure; `2` = invocation error — nothing
+  was processed (path not found, no spec files matched, unreadable
+  input). All five report verbs now exit 2 on an empty corpus — `graph`
+  previously returned exit 0 with an empty report on a typoed path, a
+  silent green. The JSON envelope's `envelope_kind` agrees (`"error"`).
+- **`--human` renders real text**: new `src/human.rs` — one formatter
+  per report verb (lint/graph/compile/model-check/verify/doctor), each
+  rendering from the same report values the JSON envelope carries, so
+  the human story and the JSON story cannot drift. The Rust `{:?}`
+  Debug dump is suppressed (verbosity-threshold trick, the `explain`
+  pattern); failure paths print nothing to stdout — message, notes, and
+  footer go to stderr. Snapshot regression tests pin "no Debug markers"
+  for every report verb.
+- **Error envelopes carry `ok:false`**: root cause was upstream —
+  genesis `Envelope::success` hardcoded `ok:true` even when
+  `to_envelope` passed `kind = Error`. Fixed in genesis (genesis-r13,
+  hint commands also now carry the bare runnable command — no more
+  `→ Run: run:` doubling). The local regression test
+  (`error_envelope_serializes_ok_false`) is `#[ignore]`d until the
+  fixed genesis release lands in Cargo.toml; verified RED against
+  0.8.1.
+
 ## #47 — verify: both gates, really executed (specodelic-1pv)
 
 `spk verify <files>` — the `model_checked → verified` transition. The

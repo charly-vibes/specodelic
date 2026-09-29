@@ -137,7 +137,9 @@ fn lint_fails_with_hint_when_no_specs_found() {
     // the footer prints to stderr only in human mode (convention of record)
     let stdout = String::from_utf8(out.stdout).unwrap();
     assert!(stdout.contains("frontmatter"), "envelope hint: {stdout}");
-    assert_eq!(out.status.code(), Some(1));
+    // Invocation error exits 2 (specodelic-7rr item 2) — distinct from
+    // findings (1); the envelope kind agrees (error).
+    assert_eq!(out.status.code(), Some(2));
 }
 
 #[test]
@@ -1529,5 +1531,198 @@ fn lint_skips_a_fifo_alongside_valid_specs_with_a_note() {
     assert!(
         stdout.contains("\"files_linted\":1"),
         "the valid spec was ingested and linted: {stdout}"
+    );
+}
+
+// ---- specodelic-7rr: output contract (exit codes, human formatters, ok:false) ----
+
+/// Debug-rendering markers that must never appear in `--human` stdout:
+/// the report verbs render real human text (per-verb formatters);
+/// Rust's `{:?}` Debug dump stays internal (specodelic-7rr item 3).
+fn assert_human_text(stdout: &str, context: &str) {
+    for marker in [
+        "Object {",
+        "Report {",
+        "Issue {",
+        "GraphReport {",
+        "String(",
+    ] {
+        assert!(
+            !stdout.contains(marker),
+            "{context}: --human must render human text, not Rust Debug — found {marker:?} in:\n{stdout}"
+        );
+    }
+}
+
+#[test]
+#[ignore = "genesis-r13: Output::to_envelope must serialize ok:false on errors — activates when the fixed genesis (post-0.8.1) lands in Cargo.toml"]
+fn error_envelope_serializes_ok_false() {
+    // An invocation error must never read {"ok":true,"envelope_kind":"error"}
+    // — machine consumers gate on `ok`.
+    let dir = tempfile::tempdir().unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["ok"], serde_json::json!(false), "envelope: {json}");
+    assert_eq!(json["envelope_kind"], serde_json::json!("error"));
+}
+
+#[test]
+fn invocation_errors_exit_two() {
+    // Exit-code contract (specodelic-7rr item 2, CLARITY-pinned):
+    // 0 = success; 1 = findings/tool-level failure; 2 = invocation error
+    // (nothing processed: path not found, no spec files matched).
+    // Consumers must distinguish "your spec is bad" (1) from "you typoed
+    // the path" (2).
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("README.md"), "# not a spec\n").unwrap();
+    for verb in ["lint", "graph", "compile", "model-check", "verify"] {
+        let out = spk()
+            .args([verb, dir.path().to_str().unwrap(), "--json"])
+            .output()
+            .unwrap();
+        assert_eq!(
+            out.status.code(),
+            Some(2),
+            "{verb} on a directory with no spec files must exit 2 (invocation error), got {:?}",
+            out.status.code()
+        );
+        // ...and the envelope must not silently claim success either way.
+        let stdout = String::from_utf8(out.stdout).unwrap();
+        assert!(
+            stdout.contains("error"),
+            "{verb}: envelope_kind must be error on an invocation error: {stdout}"
+        );
+    }
+}
+
+#[test]
+fn lint_findings_exit_one() {
+    // Findings are a tool-level failure (exit 1), distinct from the
+    // invocation error (exit 2).
+    let dir = tempfile::tempdir().unwrap();
+    let bad = dir.path().join("bad_spec.md");
+    std::fs::write(
+        &bad,
+        "---\nid: bad_spec\nkind: intent\nstatement: \"the system should maybe work\"\n---\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+}
+
+#[test]
+fn help_documents_exit_codes() {
+    let out = spk().arg("--help").output().unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        stdout.contains("Exit codes") && stdout.contains("invocation error"),
+        "--help must document the exit-code mapping:\n{stdout}"
+    );
+}
+
+#[test]
+fn human_lint_is_text_not_debug() {
+    let dir = tempfile::tempdir().unwrap();
+    let bad = dir.path().join("bad_spec.md");
+    std::fs::write(
+        &bad,
+        "---\nid: bad_spec\nkind: intent\nstatement: \"the system should maybe work\"\n---\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--human"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_human_text(&stdout, "lint");
+    assert!(
+        stdout.contains("linter.ears_syntax"),
+        "findings carry the rule id: {stdout}"
+    );
+    assert!(
+        stdout.contains("finding"),
+        "a summary line names the counts: {stdout}"
+    );
+}
+
+#[test]
+fn human_graph_is_text_not_debug() {
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("gdemo.md");
+    write_model_check_spec(&spec, "gdemo");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--human"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_human_text(&stdout, "graph");
+    assert!(
+        stdout.contains("dangling"),
+        "the summary names dangling count: {stdout}"
+    );
+}
+
+#[test]
+fn human_compile_is_text_not_debug() {
+    let td = tempfile::tempdir().unwrap();
+    let (spec, out_dir) = compile_fixture(&td, "hcomp", "        let _ = v0;");
+    let out = spk()
+        .args(["compile", &spec, "--human", "--out-dir", &out_dir])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_human_text(&stdout, "compile");
+    assert!(
+        stdout.contains("compiled"),
+        "summary names compiled count: {stdout}"
+    );
+}
+
+#[test]
+fn human_model_check_is_text_not_debug() {
+    let td = tempfile::tempdir().unwrap();
+    let (spec, out_dir) = compile_fixture(&td, "hmc", "        let _ = v0;");
+    let out = spk()
+        .args(["model-check", &spec, "--human", "--out-dir", &out_dir])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_human_text(&stdout, "model-check");
+    assert!(
+        stdout.contains("exploration_only") || stdout.contains("outcome"),
+        "the run outcome appears in human text: {stdout}"
+    );
+}
+
+#[test]
+fn human_verify_is_text_not_debug() {
+    let td = tempfile::tempdir().unwrap();
+    let (spec, out_dir) = compile_fixture(&td, "hver", "        let _ = v0;");
+    let out = spk()
+        .args(["verify", &spec, "--human", "--out-dir", &out_dir])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_human_text(&stdout, "verify");
+    assert!(
+        stdout.contains("verified") || stdout.contains("blocked"),
+        "the verdict appears in human text: {stdout}"
+    );
+}
+
+#[test]
+fn human_doctor_is_text_not_debug() {
+    let out = spk().args(["doctor", "--human"]).output().unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_human_text(&stdout, "doctor");
+    assert!(
+        stdout.contains("mode"),
+        "doctor renders its checks as lines: {stdout}"
     );
 }

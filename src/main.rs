@@ -16,16 +16,29 @@ use genesis::envelope::{Envelope, EnvelopeKind};
 use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
-use specodelic::{blocks, compile, graph, guide, lint, model_check, spec, verify};
+use specodelic::{blocks, compile, graph, guide, human, lint, model_check, spec, verify};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Exit-code contract (specodelic-7rr item 2, CLARITY-pinned):
+/// 0 = success (lint with zero findings counts); 1 = the stage produced
+/// findings / a tool-level failure; 2 = invocation error — nothing was
+/// processed (path not found, no spec files matched, unreadable input).
+/// clap's own argument-parse failures also exit 2, so the mapping is
+/// uniform. Documented here, in README.md, and in specs/USAGE.md.
+fn exit_code_footer() -> String {
+    format!(
+        "{}\n\nExit codes:\n  0 = success\n  1 = findings or tool-level failure\n  2 = invocation error (path not found, no spec files matched)",
+        genesis::guide::Verbosity::help_footer()
+    )
+}
 
 #[derive(Parser)]
 #[command(
     name = "specodelic",
     version = VERSION,
     about = "Specodelic — lint, compile, verify, and refactor the four-layer markdown spec format",
-    after_help = genesis::guide::Verbosity::help_footer()
+    after_help = exit_code_footer(),
 )]
 struct Cli {
     #[command(subcommand)]
@@ -563,10 +576,10 @@ fn run(
     stderr: &mut impl std::io::Write,
 ) -> i32 {
     match &cli.command {
-        Commands::Lint { paths } => cmd_lint(paths, cli, format, verbosity, stdout, stderr),
-        Commands::Graph { paths } => cmd_graph(paths, cli, format, verbosity, stdout, stderr),
+        Commands::Lint { paths } => cmd_lint(paths, format, verbosity, stdout, stderr),
+        Commands::Graph { paths } => cmd_graph(paths, format, verbosity, stdout, stderr),
         Commands::Compile { paths, out_dir } => {
-            cmd_compile(paths, out_dir, cli, format, verbosity, stdout, stderr)
+            cmd_compile(paths, out_dir, format, verbosity, stdout, stderr)
         }
         Commands::ModelCheck {
             paths,
@@ -584,14 +597,13 @@ fn run(
                     timeout_secs: *timeout_secs,
                 },
             },
-            cli,
             format,
             verbosity,
             stdout,
             stderr,
         ),
         Commands::Verify { paths, out_dir } => {
-            cmd_verify(paths, out_dir, cli, format, verbosity, stdout, stderr)
+            cmd_verify(paths, out_dir, format, verbosity, stdout, stderr)
         }
         Commands::Rename { .. } | Commands::Refactor { .. } | Commands::Merge { .. } => {
             let out: Output<serde_json::Value> =
@@ -613,7 +625,7 @@ fn run(
         Commands::Explain { topic } => {
             cmd_explain(topic.as_deref(), cli, format, verbosity, stdout, stderr)
         }
-        Commands::Doctor => cmd_doctor(cli, format, verbosity, stdout, stderr),
+        Commands::Doctor => cmd_doctor(format, verbosity, stdout, stderr),
         Commands::Init { force } => cmd_init(*force, cli, format, verbosity, stdout, stderr),
         Commands::Feedback {
             kind,
@@ -768,9 +780,33 @@ fn emit<T: serde::Serialize + std::fmt::Debug>(
     let _ = cli;
 }
 
+/// Emit a report in the requested format. Human mode prints the per-verb
+/// human text (specodelic-7rr item 3 — real text, not a Rust Debug dump)
+/// and suppresses the Debug rendering by raising the output's verbosity
+/// threshold (the explain pattern, design Decision 3); JSON mode emits
+/// the envelope as usual. Footer and warnings keep genesis's rendering.
+fn emit_report<T: serde::Serialize + std::fmt::Debug>(
+    out: Output<T>,
+    human_text: Option<String>,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) {
+    if format == OutputFormat::Human {
+        if let Some(text) = &human_text {
+            writeln!(stdout, "{text}").ok();
+        }
+        out.with_verbosity(Verbosity::MAX + 1)
+            .emit(VERSION, format, verbosity, stdout, stderr)
+            .ok();
+    } else {
+        out.emit(VERSION, format, verbosity, stdout, stderr).ok();
+    }
+}
+
 fn cmd_lint(
     paths: &[String],
-    cli: &Cli,
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl std::io::Write,
@@ -799,13 +835,14 @@ fn cmd_lint(
         for n in &notes {
             out = out.with_warning(n.clone());
         }
-        emit(&out, cli, format, verbosity, stdout, stderr);
-        return 1;
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        // Invocation error (specodelic-7rr item 2): nothing was processed.
+        return 2;
     }
     let report = lint::lint_corpus(&specs);
     let payload = serde_json::to_value(&report).unwrap_or_default();
     let failures = report.failures();
-    let mut out = Output::success(payload);
+    let mut out = Output::success(payload.clone());
     for n in &notes {
         out = out.with_warning(n.clone());
     }
@@ -814,22 +851,42 @@ fn cmd_lint(
     } else {
         out = out.with_next_step("run: specodelic graph");
     }
-    emit(&out, cli, format, verbosity, stdout, stderr);
+    emit_report(
+        out,
+        Some(human::lint(&report)),
+        format,
+        verbosity,
+        stdout,
+        stderr,
+    );
     if failures > 0 { 1 } else { 0 }
 }
 
 fn cmd_graph(
     paths: &[String],
-    cli: &Cli,
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) -> i32 {
     let (specs, notes) = parse_batch(paths, verbosity);
+    if specs.is_empty() {
+        // Never a silent empty graph on zero files — a typoed path would
+        // read as a fully-resolved corpus (specodelic-6pi precedent), and
+        // the exit code must say invocation error, not success (7rr item 2).
+        let mut out: Output<serde_json::Value> = Output::failure(
+            "no spec files found — nothing was graphed",
+        )
+        .with_next_step("pass files or directories containing *.md specs with YAML frontmatter");
+        for n in &notes {
+            out = out.with_warning(n.clone());
+        }
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
     let report = graph::build(&specs);
     let payload = serde_json::to_value(&report).unwrap_or_default();
-    let mut out = Output::success(payload);
+    let mut out = Output::success(payload.clone());
     for n in &notes {
         out = out.with_warning(n.clone());
     }
@@ -840,14 +897,20 @@ fn cmd_graph(
             "resolve the dangling references (see specs/linter-referential_integrity.md)",
         );
     }
-    emit(&out, cli, format, verbosity, stdout, stderr);
+    emit_report(
+        out,
+        Some(human::graph(&report)),
+        format,
+        verbosity,
+        stdout,
+        stderr,
+    );
     if report.dangling.is_empty() { 0 } else { 1 }
 }
 
 fn cmd_compile(
     paths: &[String],
     out_dir: &str,
-    cli: &Cli,
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl std::io::Write,
@@ -859,8 +922,9 @@ fn cmd_compile(
             Output::failure("no spec files to compile").with_next_step(
                 "pass spec files or a directory (defaults to ./specs); parse errors, if any, are reported as warnings",
             );
-        emit(&out, cli, format, verbosity, stdout, stderr);
-        return 1;
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        // Invocation error: nothing to compile (specodelic-7rr item 2).
+        return 2;
     }
 
     // precondition_satisfied — the gate reuses the existing lint pass; a
@@ -942,7 +1006,7 @@ fn cmd_compile(
         "compiled": compiled,
         "failed": failed,
     });
-    let mut out = Output::success(payload);
+    let mut out = Output::success(payload.clone());
     for w in &warnings {
         out = out.with_warning(w.clone());
     }
@@ -953,7 +1017,14 @@ fn cmd_compile(
             "fix the labeled stage failures (lint findings first — compile requires a linted-and-covered file)",
         );
     }
-    emit(&out, cli, format, verbosity, stdout, stderr);
+    emit_report(
+        out,
+        Some(human::compile(&payload)),
+        format,
+        verbosity,
+        stdout,
+        stderr,
+    );
     if failed.is_empty() { 0 } else { 1 }
 }
 
@@ -983,7 +1054,6 @@ struct CheckTarget {
 fn cmd_model_check(
     paths: &[String],
     target: CheckTarget,
-    cli: &Cli,
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl std::io::Write,
@@ -996,8 +1066,9 @@ fn cmd_model_check(
             .with_next_step(
                 "pass spec files or a directory; each must have compiled artifacts (run: specodelic compile <files>)",
             );
-        emit(&out, cli, format, verbosity, stdout, stderr);
-        return 1;
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        // Invocation error: nothing to check (specodelic-7rr item 2).
+        return 2;
     }
 
     let mut checked: Vec<serde_json::Value> = vec![];
@@ -1079,7 +1150,7 @@ fn cmd_model_check(
     if checked.len() == 1 {
         payload["outcome"] = checked[0]["outcome"].clone();
     }
-    let mut out = Output::success(payload);
+    let mut out = Output::success(payload.clone());
     for w in &warnings {
         out = out.with_warning(w.clone());
     }
@@ -1090,7 +1161,14 @@ fn cmd_model_check(
             "fix the labeled failures (missing artifacts: run specodelic compile first)",
         );
     }
-    emit(&out, cli, format, verbosity, stdout, stderr);
+    emit_report(
+        out,
+        Some(human::model_check(&payload)),
+        format,
+        verbosity,
+        stdout,
+        stderr,
+    );
     if failed.is_empty() { 0 } else { 1 }
 }
 
@@ -1104,7 +1182,6 @@ fn cmd_model_check(
 fn cmd_verify(
     paths: &[String],
     out_dir: &str,
-    cli: &Cli,
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl std::io::Write,
@@ -1117,8 +1194,9 @@ fn cmd_verify(
             .with_next_step(
                 "pass spec files or a directory; each must have compiled artifacts (run: specodelic compile <files>)",
             );
-        emit(&out, cli, format, verbosity, stdout, stderr);
-        return 1;
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        // Invocation error: nothing to verify (specodelic-7rr item 2).
+        return 2;
     }
 
     let runner = verify::CargoRunner;
@@ -1164,7 +1242,7 @@ fn cmd_verify(
         payload["message"] = first["message"].clone();
         payload["hint"] = first["hint"].clone();
     }
-    let mut out = Output::success(payload);
+    let mut out = Output::success(payload.clone());
     for w in &notes {
         out = out.with_warning(w.clone());
     }
@@ -1176,7 +1254,14 @@ fn cmd_verify(
         let hint = blocked[0]["hint"].as_str().unwrap_or_default().to_string();
         out = out.with_next_step(hint);
     }
-    emit(&out, cli, format, verbosity, stdout, stderr);
+    emit_report(
+        out,
+        Some(human::verify(&payload)),
+        format,
+        verbosity,
+        stdout,
+        stderr,
+    );
     if blocked.is_empty() { 0 } else { 1 }
 }
 
@@ -1364,7 +1449,6 @@ Full format guide: spk explain -->
 }
 
 fn cmd_doctor(
-    cli: &Cli,
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl std::io::Write,
@@ -1452,11 +1536,12 @@ fn cmd_doctor(
     };
     checks.push(("SPECODELIC block".into(), block_check));
 
-    let out = Output::success(serde_json::json!({
+    let payload = serde_json::json!({
         "mode": mode,
         "checks": checks,
         "format_revision": guide::FORMAT_REVISION,
-    }));
+    });
+    let out = Output::success(payload.clone());
 
     // Knowledge currency (task 5.2): whenever a local specs/specodelic.md
     // exists, compare its latest `Revision N` heading (numerically)
@@ -1481,7 +1566,14 @@ fn cmd_doctor(
         // stays the workspace-appropriate one (spk new / spk lint).
         out = out.with_warning("SPECODELIC block missing or stale in AGENTS.md — run: spk init");
     }
-    emit(&out, cli, format, verbosity, stdout, stderr);
+    emit_report(
+        out,
+        Some(human::doctor(&payload)),
+        format,
+        verbosity,
+        stdout,
+        stderr,
+    );
     0
 }
 

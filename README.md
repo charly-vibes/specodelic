@@ -46,7 +46,16 @@ yet; track progress with `bd ready`.
 
 Output follows the [genesis-vibes](https://github.com/charly-vibes/genesis)
 envelope convention: JSON envelopes by default for agents/pipes,
-`--human` for terminals.
+`--human` for terminals (real report text, never a Rust Debug dump).
+
+**Exit codes** — consumers distinguish "your spec is bad" from "you
+typoed the path":
+
+- `0` — success (lint with zero findings counts)
+- `1` — the stage produced findings, or a tool-level failure
+- `2` — invocation error: nothing was processed (path not found, no spec
+  files matched, unreadable input); argument-parse failures exit 2 too.
+  The JSON envelope's `envelope_kind` agrees (`"error"`).
 
 ## Development
 

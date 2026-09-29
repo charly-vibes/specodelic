@@ -1,5 +1,12 @@
 # Command Reference
 
+**Exit codes** (uniform across verbs): `0` = success (lint with zero
+findings counts); `1` = the stage produced findings or a tool-level
+failure; `2` = invocation error — nothing was processed (path not found,
+no spec files matched, unreadable input). clap argument-parse failures
+also exit 2. The JSON envelope's `envelope_kind` is `"error"` whenever
+the exit code is nonzero-by-invocation.
+
 All commands emit through the genesis envelope: JSON for pipes,
 human-readable for TTYs (`--human` / `--format json` to override).
 Failures carry a remediation hint.

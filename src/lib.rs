@@ -16,6 +16,7 @@ pub mod ears;
 pub mod graph;
 pub mod guide;
 pub mod hooks;
+pub mod human;
 pub mod lint;
 pub mod model_check;
 pub mod spec;
