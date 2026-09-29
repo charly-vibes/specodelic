@@ -333,11 +333,179 @@ fn doctor_checks_workspace() {
 
 #[test]
 fn unimplemented_pipeline_commands_exit_nonzero() {
-    // `compile` and `model-check` are implemented (specodelic-lnq,
-    // specodelic-nx7); verify and orchestrate keep their stubs until
-    // their tickets land.
-    spk().args(["verify"]).assert().failure();
+    // `compile`, `model-check`, and `verify` are implemented
+    // (specodelic-lnq/nx7/1pv); orchestrate keeps its stub until its
+    // ticket lands.
     spk().args(["orchestrate"]).assert().failure();
+}
+
+// ---- specodelic-1pv: the verify step (specs/verify.md) ----
+
+/// A lint-clean spec with no Properties rows — the properties gate
+/// passes vacuously, so the fast verify paths never invoke cargo.
+fn write_verify_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE fixture SHALL verify cleanly\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | c1 | invariant | `holds` | [[{id}]] |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1\n\
+             - s2\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s2 | [[{id}.c1]] |\n"
+        ),
+    )
+    .unwrap();
+}
+
+/// A lint-clean spec with one unit property — compile requires coverage,
+/// so the properties gate always has a block to execute. `body_line`
+/// replaces the artifact's `todo_predicate!(...)` body: a hand-translation
+/// (metadata fingerprint unchanged, so the artifact stays current).
+fn compile_fixture(td: &tempfile::TempDir, id: &str, body_line: &str) -> (String, String) {
+    let spec = td.path().join(format!("{id}.md"));
+    write_model_check_spec(&spec, id);
+    let out = td.path().join("out");
+    spk()
+        .args([
+            "compile",
+            spec.to_str().unwrap(),
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    let props = out.join(format!("{id}_props.rs"));
+    let src = std::fs::read_to_string(&props).unwrap();
+    let translated = src
+        .lines()
+        .map(|l| {
+            if l.trim().starts_with("todo_predicate!") {
+                body_line.to_string()
+            } else {
+                l.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(&props, translated).unwrap();
+    (
+        spec.to_str().unwrap().to_string(),
+        out.to_str().unwrap().to_string(),
+    )
+}
+
+#[test]
+fn verify_reports_missing_properties_artifact() {
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("vfix.md");
+    write_verify_spec(&spec, "vfix");
+    spk()
+        .args([
+            "verify",
+            spec.to_str().unwrap(),
+            "--out-dir",
+            td.path().join("out").to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stdout(contains("missing_properties_artifact"));
+}
+
+#[test]
+fn verify_requires_a_current_model_run() {
+    let td = tempfile::tempdir().unwrap();
+    let (spec, out) = compile_fixture(&td, "vfix", "        let _ = v0;");
+    spk()
+        .args(["verify", &spec, "--out-dir", &out])
+        .assert()
+        .failure()
+        .stdout(contains("missing_model_run"));
+}
+
+#[test]
+fn verify_rejects_native_backend_exploration_only() {
+    let td = tempfile::tempdir().unwrap();
+    let (spec, out) = compile_fixture(&td, "vfix", "        let _ = v0;");
+    spk()
+        .args(["model-check", &spec, "--out-dir", &out])
+        .assert()
+        .success();
+    // The native backend executes no invariant predicates — its
+    // exploration_only outcome can never satisfy the model gate
+    // (both_gates_required; verify.md's single_gate_insufficient).
+    spk()
+        .args(["verify", &spec, "--out-dir", &out, "--json"])
+        .assert()
+        .failure()
+        .stdout(contains("model_not_clean"))
+        .stdout(contains("exploration_only"));
+}
+
+#[test]
+fn verify_rejects_stale_model_run() {
+    let td = tempfile::tempdir().unwrap();
+    let (spec, out) = compile_fixture(&td, "vfix", "        let _ = v0;");
+    spk()
+        .args(["model-check", &spec, "--out-dir", &out])
+        .assert()
+        .success();
+    // The compiled module changed after the run — the stored clean-ish
+    // report predates the artifact and fails closed as stale.
+    let tla = td.path().join("out").join("vfix.tla");
+    std::fs::write(&tla, "MODULE vfix edited").unwrap();
+    spk()
+        .args(["verify", &spec, "--out-dir", &out, "--json"])
+        .assert()
+        .failure()
+        .stdout(contains("stale_model_run"));
+}
+
+#[test]
+fn verify_accepts_clean_report_with_current_artifacts() {
+    let td = tempfile::tempdir().unwrap();
+    let (spec, out) = compile_fixture(&td, "vfix", "        let _ = v0;");
+    spk()
+        .args(["model-check", &spec, "--out-dir", &out])
+        .assert()
+        .success();
+    // The native backend never reports no_counterexample — fabricate a
+    // clean run report for the gate test (keeping the real artifact
+    // sha so the staleness key stays current). This is the METER case:
+    // .data.status == "verified" exactly under the conjunction.
+    let report_path = td.path().join("out").join("vfix.check.json");
+    let mut report: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&report_path).unwrap()).unwrap();
+    report["outcome"] = serde_json::json!("no_counterexample");
+    std::fs::write(&report_path, serde_json::to_string(&report).unwrap()).unwrap();
+    spk()
+        .args(["verify", &spec, "--out-dir", &out, "--json"])
+        .assert()
+        .success()
+        .stdout(contains("\"status\":\"verified\""));
+}
+
+#[test]
+fn verify_executes_failing_predicate_blocks() {
+    // Cargo-backed honest-execution path: the translated predicate body
+    // fails for real, and the failure is reported as properties_failed
+    // with the block's captured output — never a skip.
+    let td = tempfile::tempdir().unwrap();
+    let (spec, out) = compile_fixture(&td, "vfix", "        panic!(\"forced failure for 1pv\");");
+    spk()
+        .args(["verify", &spec, "--out-dir", &out, "--json"])
+        .timeout(std::time::Duration::from_secs(600))
+        .assert()
+        .failure()
+        .stdout(contains("properties_failed"))
+        .stdout(contains("forced failure for 1pv"));
 }
 
 // ---- specodelic-nx7: the model_check step (add-model-check) ----

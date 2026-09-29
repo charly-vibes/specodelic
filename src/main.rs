@@ -16,7 +16,7 @@ use genesis::envelope::{Envelope, EnvelopeKind};
 use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
-use specodelic::{blocks, compile, graph, guide, lint, model_check, spec};
+use specodelic::{blocks, compile, graph, guide, lint, model_check, spec, verify};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -89,6 +89,10 @@ enum Commands {
     Verify {
         /// Spec files to verify
         paths: Vec<String>,
+        /// Directory holding the compiled artifacts (must match compile's
+        /// out-dir — verify never re-compiles)
+        #[arg(long, default_value = "specodelic")]
+        out_dir: String,
     },
     /// Rename a spec row id, updating the definition and every [[link]]
     Rename {
@@ -586,12 +590,8 @@ fn run(
             stdout,
             stderr,
         ),
-        Commands::Verify { .. } => {
-            let out: Output<serde_json::Value> =
-                Output::failure("not yet implemented — specced in specs/verify.md")
-                    .with_next_step("track progress: bd ready");
-            out.emit(VERSION, format, verbosity, stdout, stderr).ok();
-            1
+        Commands::Verify { paths, out_dir } => {
+            cmd_verify(paths, out_dir, cli, format, verbosity, stdout, stderr)
         }
         Commands::Rename { .. } | Commands::Refactor { .. } | Commands::Merge { .. } => {
             let out: Output<serde_json::Value> =
@@ -1092,6 +1092,140 @@ fn cmd_model_check(
     }
     emit(&out, cli, format, verbosity, stdout, stderr);
     if failed.is_empty() { 0 } else { 1 }
+}
+
+/// Run `spk verify` — the verified transition (specs/verify.md).
+/// Never re-compiles and never re-runs the model checker: consumes the
+/// `*_props.rs` artifact (staleness-checked against the current spec,
+/// then really executed block by block) and the `<stem>.check.json` run
+/// report (staleness-checked against the current `<stem>.tla`).
+/// `verified` is the conjunction — either gate alone fails, and every
+/// blocking stage is named with a remediation hint.
+fn cmd_verify(
+    paths: &[String],
+    out_dir: &str,
+    cli: &Cli,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let dir = std::path::Path::new(out_dir);
+    let (specs, notes) = parse_batch(paths, verbosity);
+    if specs.is_empty() {
+        let out: Output<serde_json::Value> = Output::failure("no spec files to verify")
+            .with_next_step(
+                "pass spec files or a directory; each must have compiled artifacts (run: specodelic compile <files>)",
+            );
+        emit(&out, cli, format, verbosity, stdout, stderr);
+        return 1;
+    }
+
+    let runner = verify::CargoRunner;
+    let mut verified: Vec<serde_json::Value> = vec![];
+    let mut blocked: Vec<serde_json::Value> = vec![];
+    for spec in &specs {
+        let file = spec
+            .path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| format!("<{}>", spec.intent.id));
+        let stem = artifact_stem(spec);
+        let properties = verify::evaluate_properties_gate(spec, dir, &runner);
+        let model = verify::evaluate_model_gate(dir, &stem);
+        let v = verify::verdict(&properties.state, &model);
+        let entry = serde_json::json!({
+            "file": file,
+            "id": spec.intent.id,
+            "status": v.status,
+            "message": v.message,
+            "hint": v.hint,
+            "properties": props_gate_json(&properties),
+            "model": model_gate_json(&model),
+        });
+        if v.status == "verified" {
+            verified.push(entry);
+        } else {
+            blocked.push(entry);
+        }
+    }
+
+    let mut payload = serde_json::json!({
+        "files_verified": verified.len(),
+        "files_blocked": blocked.len(),
+        "verified": verified,
+        "blocked": blocked,
+    });
+    // Meter contract: `.data.status` for the single-file case —
+    // "verified" exactly when both gates hold, else the blocking stage.
+    let first = verified.first().or_else(|| blocked.first());
+    if let Some(first) = first {
+        payload["status"] = first["status"].clone();
+        payload["message"] = first["message"].clone();
+        payload["hint"] = first["hint"].clone();
+    }
+    let mut out = Output::success(payload);
+    for w in &notes {
+        out = out.with_warning(w.clone());
+    }
+    if blocked.is_empty() {
+        out = out.with_next_step(
+            "verified is not cached — re-run verify after any edit to the spec or its artifacts",
+        );
+    } else {
+        let hint = blocked[0]["hint"].as_str().unwrap_or_default().to_string();
+        out = out.with_next_step(hint);
+    }
+    emit(&out, cli, format, verbosity, stdout, stderr);
+    if blocked.is_empty() { 0 } else { 1 }
+}
+
+/// The properties gate as envelope JSON: state name plus per-block
+/// results (id, case, pass, and the shrunk-input detail for failures).
+fn props_gate_json(gate: &verify::PropertiesGate) -> serde_json::Value {
+    let state = match &gate.state {
+        verify::PropsGateState::Pass => "pass",
+        verify::PropsGateState::Failed(_) => "failed",
+        verify::PropsGateState::Stale => "stale",
+        verify::PropsGateState::MissingArtifact => "missing_artifact",
+        verify::PropsGateState::Uncompilable(_) => "uncompilable",
+        verify::PropsGateState::RunnerUnavailable(_) => "runner_unavailable",
+    };
+    let detail = match &gate.state {
+        verify::PropsGateState::Failed(s)
+        | verify::PropsGateState::Uncompilable(s)
+        | verify::PropsGateState::RunnerUnavailable(s) => Some(s.clone()),
+        _ => None,
+    };
+    serde_json::json!({
+        "state": state,
+        "detail": detail,
+        "blocks": gate.blocks.iter().map(|b| serde_json::json!({
+            "id": b.id,
+            "case": b.case,
+            "fn": b.fn_name,
+            "passed": b.passed,
+            "detail": b.detail,
+        })).collect::<Vec<_>>(),
+    })
+}
+
+/// The model gate as envelope JSON: state name, the outcome when the
+/// report was readable, and the staleness detail.
+fn model_gate_json(gate: &verify::ModelGateState) -> serde_json::Value {
+    match gate {
+        verify::ModelGateState::Clean => serde_json::json!({"state": "clean"}),
+        verify::ModelGateState::NotClean { outcome } => serde_json::json!({
+            "state": "not_clean",
+            "outcome": outcome,
+        }),
+        verify::ModelGateState::Stale { detail } => {
+            serde_json::json!({"state": "stale", "detail": detail})
+        }
+        verify::ModelGateState::Missing { detail } => {
+            serde_json::json!({"state": "missing", "detail": detail})
+        }
+    }
 }
 
 /// Write `<stem>.toml`, `<stem>_props.rs`, and `<stem>.tla` into `out_dir`. Byte-stable

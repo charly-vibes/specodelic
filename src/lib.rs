@@ -19,3 +19,4 @@ pub mod hooks;
 pub mod lint;
 pub mod model_check;
 pub mod spec;
+pub mod verify;
