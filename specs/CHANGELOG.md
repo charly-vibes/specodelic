@@ -6,6 +6,34 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #56 — docs/lint DX: the file-qualified ref law is now taught where authors trip over it (specodelic-ar2, gh#3)
+
+An adopter authoring a dual-format delta wrote `derives_from: C-foo`
+(bare id), then bare text `spec.C-foo` — both invisible to the parser,
+which collects only `[[wiki-links]]` from structured cells; every
+property came back orphaned and coverage failed with no hint at the
+actual fix. Now the law is documented where the author already is:
+
+- `spk explain references` gains the file-qualification paragraph: refs
+  are `[[<file-id>.<row-id>]]`, bare ids and bare text do not resolve,
+  and a dual-format delta cites its own rows with the `spec.` prefix
+  (`[[spec.<constraint-id>]]`); `spk explain format` no longer teaches
+  the bare `by [[id]]` form in the layer walkthrough.
+- `spk new` scaffold: the States/Transitions/Properties guidance
+  comments render a concrete self-file example from the new spec's own
+  id (e.g. `[[demo.thing.c1]]`) and state the bare-id warning. Examples
+  live only in comments — a dotted ref in an actual cell would dangle
+  in a single-file corpus (metasyntactic skip is dotless-only).
+- Lint findings teach the fix: `no_orphan_property` now hints
+  "derives_from takes a file-qualified wiki-link like
+  `[[<file-id>.<constraint-id>]]`" using the finding's own file id, and
+  the `coverage` message shows the required target as the literal cell
+  text to type (`write `[[t.c]]` in the property's derives_from cell`).
+- `specs/STATUS.md` §1 primer Model row matches the law.
+
+Gates: just ci (140 lib + integration) + lint-specs 18/0 + graph 0
+dangling + openspec strict 8/8.
+
 ## #55 — graph: the full edge contract — state edges, typing violations, supersedes cycles (specodelic-7pi)
 
 `spk graph` now extracts every typed reference field instead of only the

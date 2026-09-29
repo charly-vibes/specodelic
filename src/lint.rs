@@ -458,7 +458,7 @@ fn lint_coverage(specs: &[Spec], report: &mut Report) {
             let full = format!("{file_id}.{cid}");
             if !derived.contains(&full) && !derived.contains(*cid) {
                 report.issues.push(Issue::new("coverage", file_id.clone(), format!(
-                        "constraint `{cid}` has no deriving property — ∃ property.derives_from == `{full}` is required"
+                        "constraint `{cid}` has no deriving property — ∃ property.derives_from == `{full}` is required — write `[[{full}]]` in the property's derives_from cell"
                     )));
             }
         }
@@ -472,7 +472,9 @@ fn lint_coverage(specs: &[Spec], report: &mut Report) {
                 report.issues.push(Issue::new(
                     "no_orphan_property",
                     file_id.clone(),
-                    format!("property `{pid}` derives from nothing"),
+                    format!(
+                        "property `{pid}` derives from nothing — derives_from takes a file-qualified wiki-link like `[[{file_id}.<constraint-id>]]` (bare ids and bare text do not resolve)",
+                    ),
                 ));
             }
         }
@@ -541,6 +543,56 @@ mod tests {
             "the rule table and the emittable rule ids must coincide — \
              a rule missing from the table panics at construction, one \
              missing from the corpus means the fixture stopped covering it"
+        );
+    }
+
+    #[test]
+    fn no_orphan_property_hint_teaches_wiki_link_syntax() {
+        // gh#3: a bare id (or bare text) in derives_from is invisible to
+        // the parser — the orphan finding must teach the file-qualified
+        // wiki-link form, concretely for the file it fires in (for a
+        // dual-format delta that is `[[spec.<constraint-id>]]`).
+        let spec = spec_at(
+            "---\nid: spec\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | `x` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | c | `g()` | `x` |\n",
+            "spec.md",
+        );
+        let report = lint_corpus(&[spec]);
+        let orphan = report
+            .issues
+            .iter()
+            .find(|i| i.rule_id == "linter.no_orphan_property")
+            .expect("orphan finding fires for the bare-text cell");
+        assert!(
+            orphan.message.contains("[[spec."),
+            "hint must show the self-file wiki-link form: {}",
+            orphan.message
+        );
+        assert!(
+            orphan.message.to_lowercase().contains("bare"),
+            "hint must state that bare ids / bare text do not resolve: {}",
+            orphan.message
+        );
+    }
+
+    #[test]
+    fn coverage_finding_suggests_the_wiki_link_form() {
+        // gh#3: the coverage message states the required target as plain
+        // `file-id.constraint-id`; the fix the author must TYPE is the
+        // wiki-link — say so.
+        let spec = spec_at(
+            "---\nid: t\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | `x` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | `[[t.other]]` | `g()` | `x` |\n",
+            "t.md",
+        );
+        let report = lint_corpus(&[spec]);
+        let cov = report
+            .issues
+            .iter()
+            .find(|i| i.rule_id == "linter.coverage")
+            .expect("coverage finding fires — wrong target");
+        assert!(
+            cov.message.contains("[[spec.c]]") || cov.message.contains("[[t.c]]"),
+            "coverage hint must show the wiki-link form of the required target: {}",
+            cov.message
         );
     }
 

@@ -37,7 +37,7 @@ features, designed so that one file gives you four things at once:
 |---|---|---|
 | **Intent** | YAML frontmatter (`id`, `kind`, `statement`) + opening prose | Human-readable purpose; `statement` must match one of the 5 EARS patterns |
 | **Constraints** | A `## Constraints` table: `id \| kind \| expr \| traces_to` | Invariants, formalized enough to check, each tracing to an Intent |
-| **Model** | `## Model` — `### States` (a list) and `### Transitions` (a table: `id \| from \| to \| guard`) | A finite state machine; guards reference Constraints by `[[id]]` |
+| **Model** | `## Model` — `### States` (a list) and `### Transitions` (a table: `id \| from \| to \| guard`) | A finite state machine; guards reference Constraints by file-qualified `[[wiki-link]]` (`[[<file-id>.<row-id>]]` — bare ids do not resolve) |
 | **Properties** | A `## Properties` table: `id \| kind \| derives_from \| generator \| predicate` | PBT-style checks, one `kind = "law"` variant that requires associativity/identity cases |
 
 ### The core design decisions and why

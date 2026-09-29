@@ -455,6 +455,29 @@ fn new_scaffolds_a_spec_file() {
 }
 
 #[test]
+fn new_scaffold_shows_file_qualified_ref_examples() {
+    // gh#3: derives_from / guard cells take file-qualified wiki-links,
+    // not bare ids — the scaffold's guidance comments must show the
+    // concrete self-file form rendered from the new spec's own id.
+    let dir = tempfile::tempdir().unwrap();
+    let out = spk()
+        .args(["new", "demo.thing", "--file", "demo-thing.md"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let content = std::fs::read_to_string(dir.path().join("demo-thing.md")).unwrap();
+    assert!(
+        content.contains("[[demo.thing."),
+        "scaffold must render a file-qualified example ref from the spec's own id"
+    );
+    assert!(
+        content.to_lowercase().contains("bare"),
+        "scaffold guidance must state that bare ids / bare text do not resolve"
+    );
+}
+
+#[test]
 fn doctor_checks_workspace() {
     spk()
         .args(["doctor", "--json"])
@@ -974,6 +997,24 @@ fn explain_known_topic_works_offline_in_consumer_dir() {
         !body.contains("{{"),
         "placeholders must be filled at render time"
     );
+}
+
+#[test]
+fn explain_references_documents_file_qualified_refs() {
+    // gh#3: the references topic must teach the file-qualification law —
+    // [[<file-id>.<row-id>]], the `spec.` self-file prefix for dual-format
+    // deltas, and that bare ids / bare text do not resolve.
+    let out = spk()
+        .args(["explain", "references", "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    let body = json["data"]["body"].as_str().unwrap();
+    assert!(body.contains("file-qualified"));
+    assert!(body.contains("[[<file-id>.<row-id>]]"));
+    assert!(body.contains("[[spec."));
+    assert!(body.to_lowercase().contains("bare"));
 }
 
 #[test]

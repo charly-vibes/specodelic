@@ -24,7 +24,8 @@ A spec file is:
    machine-checkable claim.
 3. **Model** — a `## Model` section with a `### States` bullet list and
    a `### Transitions` table (`id`, `from`, `to`, `guard`). The machine
-   reads the lifecycle; the guard cell cites a Constraint by `[[id]]`.
+   reads the lifecycle; the guard cell cites a Constraint with a
+   file-qualified wiki-link (topic `references`).
 4. **Properties** — a `## Properties` table (`id`, `kind`,
    `derives_from`, `generator`, `predicate`). Every Constraint needs a
    deriving Property (`coverage`).
@@ -95,6 +96,13 @@ may be a file id (`specodelic`), a row id (`specodelic.model_present`),
 a section anchor (`model.state`), or a row member
 (`specodelic.model.parse`). Every structured-field reference must
 resolve somewhere in the corpus (`total_refs`).
+
+**Refs are file-qualified**: the general shape is
+`[[<file-id>.<row-id>]]`. Bare row ids and bare text in a structured
+cell do not resolve — `derives_from: C-foo` and `[[C-foo]]` both fail;
+the cell must carry the file prefix. A dual-format delta (`id: spec`)
+cites its own rows with the self-file prefix: `[[spec.<constraint-id>]]`
+in `derives_from` and in transition `guard` cells.
 
 Each reference field is a typed foreign key (`ref_kind_compatible`):
 

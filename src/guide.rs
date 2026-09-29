@@ -221,6 +221,41 @@ mod tests {
     }
 
     #[test]
+    fn references_topic_documents_file_qualified_ref_syntax() {
+        // gh#3: refs are file-qualified wiki-links `[[<file-id>.<row-id>]]`;
+        // bare ids and bare text do not resolve. A dual-format delta cites
+        // its own rows with the `spec.` self-file prefix.
+        let refs = topic_body("references").unwrap();
+        assert!(
+            refs.contains("file-qualified"),
+            "references topic must state the file-qualification law"
+        );
+        assert!(
+            refs.contains("[[<file-id>.<row-id>]]"),
+            "references topic must show the general wiki-link shape"
+        );
+        assert!(
+            refs.contains("[[spec."),
+            "references topic must document the `spec.` self-file prefix for dual-format deltas"
+        );
+        assert!(
+            refs.to_lowercase().contains("bare"),
+            "references topic must state that bare ids / bare text do not resolve"
+        );
+    }
+
+    #[test]
+    fn format_topic_points_at_the_file_qualified_ref_law() {
+        // gh#3: the format topic's layer walkthrough mentions the guard
+        // cell; it must not teach the bare `[[id]]` form.
+        let format = topic_body("format").unwrap();
+        assert!(
+            !format.contains("by `[[id]]`"),
+            "format topic must not advertise bare-id refs"
+        );
+    }
+
+    #[test]
     fn unknown_topic_renders_none() {
         assert!(topic_body("nope").is_none());
     }

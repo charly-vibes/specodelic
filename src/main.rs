@@ -1767,15 +1767,18 @@ spk explain kinds -->
 
 ### States
 
-<!-- `emits: [[<effect-constraint>]]` may follow a state that outputs. -->
+<!-- `emits: [[<effect-constraint>]]` may follow a state that outputs.
+Refs are file-qualified wiki-links: `[[{id}.<constraint-id>]]`. -->
 
 - `initial`
 
 ### Transitions
 
-<!-- guard: must cite an invariant Constraint by [[id]] — typed, not
-conventional (advisory constraints can never gate a transition). Every
-state must appear as a from or to of at least one transition. -->
+<!-- guard: must cite an invariant Constraint by a file-qualified
+[[wiki-link]], e.g. [[{id}.c1]] — typed, not conventional (advisory
+constraints can never gate a transition). Bare ids and bare text do not
+resolve. Every state must appear as a from or to of at least one
+transition. -->
 
 | id | from | to | guard |
 |----|------|----|-------|
@@ -1784,8 +1787,9 @@ state must appear as a from or to of at least one transition. -->
 ## Properties
 
 <!-- kind: one of {property_kinds}. Every property must cite a constraint
-in derives_from; a `law` predicate requires **identity:** and
-**associativity:** case labels (law_requires_cases). -->
+in derives_from — as a file-qualified wiki-link, e.g. [[{id}.c1]]
+(bare ids and bare text do not resolve); a `law` predicate requires
+**identity:** and **associativity:** case labels (law_requires_cases). -->
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
