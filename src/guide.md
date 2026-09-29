@@ -120,7 +120,10 @@ Each reference field is a typed foreign key (`ref_kind_compatible`):
 Notable consequences: a transition guard cites only `invariant`
 Constraints; a state's `emits` cites only `effect` Constraints;
 `satisfies` is an outbound pointer to a contract published elsewhere
-and is not a reachability edge.
+and is not a reachability edge; `observes` points from a consuming row
+at an effect Constraint — a declared observable — and, like
+`satisfies`, is not a reachability edge and joins no acyclic set
+(mutual cross-file observation is well-formed).
 
 <!-- topic: lifecycle -->
 # lifecycle

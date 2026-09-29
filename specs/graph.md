@@ -29,11 +29,12 @@ constraint.
 | id                              | kind      | expr                                                                                                                                                              | traces_to |
 |-----------------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
 | graph_is_derived_not_authored     | invariant | `every edge in the graph artifact is produced by extraction from repo files; the artifact contains no information a hand edit to it could add that isn't already present in some file's reference field` | [[graph]] |
-| total_extraction                  | invariant | `∀ reference field instance (traces_to/derives_from/guard/from/to/supersedes/emits) in any parsed file: exactly one corresponding edge exists in the graph` — a guard's conjunction of several `[[id]]` citations counts as one edge per citation, not one edge per transition | [[graph]] |
+| total_extraction                  | invariant | `∀ reference field instance (traces_to/derives_from/guard/from/to/supersedes/emits/observes) in any parsed file: exactly one corresponding edge exists in the graph` — a guard's conjunction of several `[[id]]` citations counts as one edge per citation, not one edge per transition | [[graph]] |
 | edge_kind_matches_typing          | invariant | `∀ edge (source, field, target): (source.kind, field, target.kind) ∈ [[specodelic]]'s Reference Typing table — the graph never records an edge the typing table wouldn't allow, whether or not the underlying file is otherwise well-formed` | [[graph]] |
 | deterministic_derivation          | invariant | `re-deriving the graph from an unchanged repo produces a byte-identical artifact` | [[graph]] |
 | blast_radius_is_transitive_closure | invariant | `blast_radius(id) == the forward and backward transitive closure of edges reachable from id, computed entirely within the derived artifact — never by re-walking source files` | [[graph]] |
 | stale_graph_detected               | invariant | `∃ file whose on-disk content hash differs from the hash recorded at the artifact's last extraction ⟹ the artifact reports itself stale rather than silently serving an outdated query result` | [[graph]] |
+| external_boundary_derived          | invariant | `a file is classified as an external boundary iff it hosts ≥1 extension_point Constraint — the classification is a pure derivation over extracted structure, never an authored tag: removing the rows removes the classification, so a stale boundary tag cannot exist` | [[graph]] |
 
 ## Model
 
@@ -65,6 +66,8 @@ constraint.
 | blast_radius_bidirectional    | unit | [[graph.blast_radius_is_transitive_closure]] | `edge(a → b)`                                                     | `a ∈ blast_radius(b) ∧ b ∈ blast_radius(a)` — renaming `a` must be able to find dependent `b`, and vice versa |
 | stale_detected_on_edit        | unit | [[graph.stale_graph_detected]]           | `edit_one_reference_field_without_re_extracting()`                     | `check(artifact) == stale`                                                                              |
 | hand_authored_edge_rejected   | unit | [[graph.graph_is_derived_not_authored]]  | `graph_artifact_with_a_manually_inserted_edge_absent_from_any_file()`  | `check(artifact) == rejected`                                                                            |
+| boundary_tracks_extension_points | unit | [[graph.external_boundary_derived]] | `file_hosting_extension_point_row_then_all_removed()` | `classified(file) == true before, == false after removal — no authored residue` |
+| observes_edge_extracted       | unit | [[graph.total_extraction]]               | `constraint_row_carrying_observes_pointing_at_effect()` | `exactly one edge, kind constraints.observes — and zero edges when the column is absent`               |
 
 ## Notes
 
@@ -73,6 +76,16 @@ ambiguity worth recording anyway: `total_extraction` counts each `[[id]]`
 citation inside a conjunctive guard (`A ∧ B ∧ C`) as its own edge, not the
 whole guard as one edge — otherwise `blast_radius` would under-count what a
 transition actually depends on.
+
+**`observes` (specodelic.md Revision 9) joins `total_extraction` but no
+cycle set.** An observation claim is not a dependency: the acyclic
+invariant's edge set (`linter-graph_shape.md`) is a closed union that
+`observes` deliberately does not join — `satisfies` and `emits` are
+excluded by the same closure — so mutual cross-file observation is
+well-formed. The external-boundary classification is the same
+derived-not-authored discipline applied to visibility: a file is an
+external boundary because it *published a contract*, and the fact
+disappears when the publication does.
 
 **Scope boundary, `Needs Human Review`:** this file does not replace
 `linter-referential_integrity.md`'s `total_refs`/`unique_id` or

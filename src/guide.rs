@@ -17,7 +17,7 @@
 /// hand when the corpus revision bumps; a corpus-lint style drift test
 /// (task 6.1) compares this numerically against the corpus so staleness
 /// fails CI, not consumers.
-pub const FORMAT_REVISION: &str = "specodelic.md Revision 8";
+pub const FORMAT_REVISION: &str = "specodelic.md Revision 9";
 
 /// The closed set of Intent `kind` values (frontmatter).
 pub const INTENT_KINDS: &[&str] = &["intent"];
@@ -78,6 +78,11 @@ pub const REFERENCE_TYPING: &[RefTyping] = &[
         field: "satisfies",
         appears_on: "Constraint",
         resolves_to: "Constraint, kind == `extension_point` only",
+    },
+    RefTyping {
+        field: "observes",
+        appears_on: "Constraint",
+        resolves_to: "Constraint, kind == `effect` only",
     },
 ];
 

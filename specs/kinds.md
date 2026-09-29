@@ -22,7 +22,7 @@ checkable fact instead of an unstated assumption.
 |------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
 | kind_enum_closed        | invariant | `the five kinds are exactly {Intent, Constraint, State, Transition, Property}, one per top-level section of a spec file (frontmatter, Constraints table, Model/States, Model/Transitions, Properties table)` | [[kinds]] |
 | intent_row_shape        | invariant | `an Intent row is the file's frontmatter block; its fields are exactly {id, kind, statement}, with kind == "intent"`                                    | [[kinds]] |
-| constraint_row_shape    | invariant | `a Constraint row is one row of the Constraints table; its fields are exactly {id, kind, expr, traces_to}, with kind ∈ {invariant, advisory, effect, extension_point}`   | [[kinds]] |
+| constraint_row_shape    | invariant | `a Constraint row is one row of the Constraints table; its base fields are exactly {id, kind, expr, traces_to}, optionally followed by typed reference columns — each such column must be declared in `specodelic.md`'s Reference Typing table (currently `satisfies`, `observes`) and carries no meaning beyond that typing; kind ∈ {invariant, advisory, effect, extension_point}`   | [[kinds]] |
 | state_row_shape         | invariant | `a State row is one bullet under Model/States; its fields are exactly {id, emits?} and it has no kind column of its own — states are named variants, never a typed column; `emits` is optional and, when present, must resolve to a Constraint with kind == "effect" (see `specodelic.md`'s Reference Typing table) — a state with no `emits` is a bare automaton state, not a Moore state, and both are well-formed` | [[kinds]] |
 | transition_row_shape    | invariant | `a Transition row is one row of the Model/Transitions table; its fields are exactly {id, from, to, guard}, with no kind column of its own`              | [[kinds]] |
 | property_row_shape      | invariant | `a Property row is one row of the Properties table; its fields are exactly {id, kind, derives_from, generator, predicate}, with kind ∈ {unit, law}`     | [[kinds]] |
@@ -174,3 +174,28 @@ types a new field, `satisfies`, at `Constraint, kind == extension_point
 only`. `constraint_row_extension_point_accepted` above is the matching
 acceptance case, added the same way `constraint_row_advisory_accepted`
 and `constraint_row_effect_accepted` were.
+
+## Revision 5
+
+`constraint_row_shape` stated its fields as *exactly*
+`{id, kind, expr, traces_to}` — but the format already carries optional
+typed reference columns beside `traces_to`: Revision 7 of
+`specodelic.md` added `satisfies` (USAGE §2.6's five-column example), and
+Revision 9 adds `observes`. The "exactly four fields" reading and the
+Reference Typing table contradicted each other — HITL ticket
+`specodelic-mp1` row 9 asked which governs; this Revision answers: the
+table governs.
+
+- `constraint_row_shape` now states the general rule: base fields are
+  exactly `{id, kind, expr, traces_to}`, plus optional typed reference
+  columns — each such column must be declared in `specodelic.md`'s
+  Reference Typing table, and carries no meaning beyond that typing (the
+  table row is the whole contract). No `observes` special case — the
+  next field costs one typing row, zero shape edits.
+- No existing file changes meaning: every optional column in use
+  (`satisfies`) was already valid under the table-driven reading; the
+  narrowing "exactly four" was the only reading it violated, and no
+  checker enforced it.
+
+Row shape is otherwise untouched — the same
+general-rule-instead-of-special-case move as `kind_field_extensible`.

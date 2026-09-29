@@ -77,3 +77,11 @@ row, and a cycle in one says nothing about the other —
 `supersedes_dag_ignores_traces_cycle` exists specifically to pin that
 independence down, so a future edit can't accidentally merge the two
 graphs back into one God-check.
+
+**`observes` (specodelic.md Revision 9) is deliberately absent from
+`acyclic`'s edge set.** The union above is closed — `satisfies` and
+`emits` never joined it either — and an observation claim is not a
+dependency: two files mutually observing each other's effects are
+well-formed. The edge set grows only under a new Revision of this file
+(same discipline as `supersedes_dag`'s independence, pinned by
+`supersedes_dag_ignores_traces_cycle`).

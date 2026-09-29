@@ -54,6 +54,7 @@ is a [typed foreign key](theory.md#typed-foreign-keys-generating-morphisms).
 | `supersedes`  | Constraint, Property | same kind as the row it appears on (Constraint→Constraint, Property→Property) |
 | `emits`       | State       | Constraint, kind == `effect` only — a state's declared Moore-machine output; optional and absent on a state with no output of its own |
 | `satisfies`   | Constraint, any file | Constraint, kind == `extension_point` only — one-directional, outbound from a *consumer's* file to a contract published elsewhere, possibly in a file the consumer's author never edits or fully reads. The row carrying `satisfies` still has its own ordinary `traces_to` pointing at its own file's Intent, so `single_root_reachable` needs no carve-out: `satisfies` is an extra outbound pointer, exactly like `guard` or `emits`, not a second reachability edge |
+| `observes`    | Constraint, any file | Constraint, kind == `effect` only — a declared observable: an outbound pointer from the row that consumes/monitors the output to the effect row that publishes it, possibly cross-file. The row carrying `observes` still has its own ordinary `traces_to` pointing at its own file's Intent, so `single_root_reachable` needs no carve-out: `observes` is an extra outbound pointer, exactly like `guard`, `emits`, or `satisfies` — not a second reachability edge, and it joins no acyclic edge set (an observation claim is not a dependency; mutual cross-file observation is well-formed). Checking "every effect is observed" is `linter-observability.md`'s contract — advisory, never gating in this Revision |
 
 ## Model
 
@@ -523,3 +524,34 @@ No variant table changed — this Revision rewords one constraint's expr
 and adds one constraint to a non-core file, so `append_only_variants` is
 satisfied trivially. The `.tla` module remains an unconditional compile
 artifact regardless of backend (see `compile.md`'s Notes).
+
+## Revision 9
+
+Declared outputs became observable claims. Revision 7 added
+`extension_point`/`satisfies` (a published contract and its outbound
+consumers) and Revision 6 added `emits` (a state's Moore-machine
+output) — but nothing distinguished an effect that something must
+observe from one nobody watches: a spec could declare outputs that
+nothing observes and lint clean.
+
+- The Reference Typing table gains `observes`: Constraint, any file →
+  Constraint, kind == `effect` only — mirroring the `satisfies`
+  precedent end to end (one optional column, one typed row,
+  `ref_kind_compatible` needs zero special cases). A row carrying
+  `observes` keeps its own ordinary `traces_to`, so
+  `single_root_reachable` needs no carve-out.
+- `observes` joins no acyclic edge set: `linter-graph_shape.md`'s
+  `acyclic` union is closed and unchanged — an observation claim is not
+  a dependency, so mutual cross-file observation is well-formed.
+- Checking "every effect is observed" is `linter-observability.md`'s
+  contract: advisory severity (warnings channel, exit 0), never gating a
+  lifecycle transition in this Revision; gating is decided after
+  dogfooding produces real friction evidence.
+- `kinds.md` Revision 5 states the general rule this row relies on:
+  optional typed reference columns may appear beside `traces_to`
+  (`satisfies`, `observes`), superseding the "exactly four fields"
+  reading of `constraint_row_shape` (HITL ticket `specodelic-mp1` row
+  9, resolved by that Revision).
+
+No variant table changed — one new Reference Typing row, grown under
+this heading per `append_only_variants`.
