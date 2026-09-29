@@ -129,7 +129,7 @@ same way a self-hosting compiler compiles its own source).
 
 | File | Kind / id | Describes | Status |
 |---|---|---|---|
-| `specodelic.md` | `specodelic` | The format itself: its own constraints, its own lifecycle (`draft → parsed → linted → compiled → model_checked → verified`), the Reference Typing table, the Checker Ownership table | **Done — Revision 7** |
+| `specodelic.md` | `specodelic` | The format itself: its own constraints, its own lifecycle (`draft → parsed → linted → compiled → model_checked → verified`), the Reference Typing table, the Checker Ownership table | **Done — Revision 8** |
 | `kinds.md` | `kinds` | Canonical field set and closed `kind`-column value set for each of `𝒦`'s five objects (Intent, Constraint, State, Transition, Property) | **Done — Revision 4** |
 | `USAGE.md` | — | How to point the four layers at a real domain: quick-start, pattern catalog (sealed enumerations, Moore output, multi-implementation conformance, staged/lazy evaluation, extended law cases, consumer-extended contracts, event-sourced logs, empirical runtime bounds), and a migration guide from artifact-per-purpose formats (e.g. OpenSpec) | Living document |
 | `theory.md` | — | Every category-theoretic claim in this repo, stated once, each paired with a plain-language restatement; every other file links here instead of restating the math locally | Done (Changelog #24) |

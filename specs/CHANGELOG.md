@@ -6,6 +6,23 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #49 — docs drift: STATUS revision row, USAGE quick-start lint-clean (specodelic-vpx)
+
+- `specs/STATUS.md`'s corpus table recorded `specodelic.md — Done —
+  Revision 7` while the binary embeds Revision 8 (and the same file
+  already referenced Revision 8 two sections later). Row corrected to
+  Revision 8; the §2.6 citation of Revision 7 stays — it dates when
+  `extension_point`/`satisfies` was introduced.
+- The `USAGE.md` §1 quick-start example failed the tool's own lint: it
+  never told the reader the filename (`order.cancel` must live in
+  `order-cancel.md` — the `id_matches_file` law), and `refund_timely`
+  had no deriving property (`linter.coverage`). The example now names
+  the file up front and gains the `refund_within_term` unit property.
+- Kept honest without the CI-hardening ticket's doc-example lint step:
+  `usage_quick_start_example_is_lint_clean` extracts the §1 markdown
+  block from `specs/USAGE.md` and lints it — the new user's first
+  copy-paste can no longer rot silently.
+
 ## #48 — output contract: exit codes 0/1/2, real human text, ok:false errors (specodelic-7rr)
 
 The output contract tightened on four fronts (the `ok:false` half rides

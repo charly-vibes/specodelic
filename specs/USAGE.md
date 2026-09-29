@@ -11,7 +11,10 @@ few shapes that don't look like they fit until you see where they go.*
 ## 1. Quick start: writing a new domain spec
 
 Every file is the same four sections, in this order, whether it's a
-five-line CRUD endpoint or `specodelic.md` itself:
+five-line CRUD endpoint or `specodelic.md` itself. Save the example
+below as `order-cancel.md` — the filename stem must equal the frontmatter
+id with `.` mapped to `-` (`order.cancel` → `order-cancel.md`; `_` is
+literal in both):
 
 ```markdown
 ---
@@ -52,6 +55,7 @@ reads this paragraph — see `prose_untouched` in `specodelic.md`).
 | id              | kind | derives_from                    | generator                    | predicate                          |
 |------------------|------|----------------------------------|-------------------------------|--------------------------------------|
 | full_refund_only | unit | [[order.cancel.refund_bounded]] | `arbitrary_paid_order()`      | `refund(cancel(order)) == order.paid_amount` |
+| refund_within_term | unit | [[order.cancel.refund_timely]] | `arbitrary_paid_order()`    | `days_between(cancelled_at, refund_issued_at) <= 5` |
 ```
 
 That's the whole shape. The rest of this guide is about the parts that

@@ -1726,3 +1726,44 @@ fn human_doctor_is_text_not_debug() {
         "doctor renders its checks as lines: {stdout}"
     );
 }
+
+// ---- specodelic-vpx: docs drift (STATUS revision, USAGE quick-start lint-clean) ----
+
+#[test]
+fn usage_quick_start_example_is_lint_clean() {
+    // The §1 quick-start is a new user's first copy-paste — it must pass
+    // the tool's own lint (specodelic-vpx): filename instruction present
+    // (id_matches_file) and every constraint has a deriving property
+    // (coverage).
+    let usage = std::fs::read_to_string("specs/USAGE.md").unwrap();
+    let start = usage
+        .find("## 1. Quick start")
+        .expect("USAGE §1 quick-start exists");
+    let block_start = usage[start..]
+        .find("```markdown\n")
+        .expect("quick-start has a markdown block")
+        + start
+        + "```markdown\n".len();
+    let block_end = usage[block_start..]
+        .find("\n```")
+        .expect("block is closed")
+        + block_start;
+    let body = &usage[block_start..block_end];
+
+    // The example must name its file (the id↔filename law): order.cancel
+    // lives in order-cancel.md.
+    assert!(
+        usage[start..block_start].contains("order-cancel.md"),
+        "the quick-start prose must tell the reader to save the spec as order-cancel.md (id_matches_file law)"
+    );
+
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("order-cancel.md");
+    std::fs::write(&spec, body).unwrap();
+    let out = spk()
+        .args(["lint", spec.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "quick-start spec must lint clean: {stdout}");
+}
