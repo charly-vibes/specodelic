@@ -45,7 +45,7 @@ features, designed so that one file gives you four things at once:
 - **One feature = one markdown file.** Keeps the reference graph
   acyclic-by-construction at the file level and matches this ecosystem's
   existing convention (one tool = one repo).
-- **`[[id]]` wiki-links, not prose references.** This is what makes
+- **`[[wiki-link]]` references, not prose references.** This is what makes
   rename-refactoring mechanical: find every `[[old_id]]`, replace with
   `[[new_id]]`, done. No natural-language matching required.
 - **Frontmatter + tables only are parsed; prose is never inspected.**

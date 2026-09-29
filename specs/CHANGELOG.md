@@ -6,6 +6,26 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #57 — Ro5 correction: the file-qualification doc must match checker behavior (specodelic-ar2 follow-up)
+
+Rule-of-5 over #56 caught a doc/behavior mismatch in the very paragraph
+that change added: `spk explain references` claimed bare `[[C-foo]]`
+"fails", but empirically a bare dotless `[[row-id]]` is skipped as
+metasyntactic — lint stays green, the coverage rule's bare-id arm even
+counts it as covering (`src/lint.rs` `derived.contains(*cid)`), and the
+graph silently drops the edge (0 findings, 0 dangling, 0 edges on the
+fixture). Only the bare-TEXT form fails loudly (no reference at all →
+`no_orphan_property`).
+
+Fixed: the references topic now states both behaviors accurately (bare
+text → orphan; bare bracketed → metasyntactic silent-vanish, "nothing
+fails but nothing resolves"); the `spk new` guard placeholder cell no
+longer demonstrates the bare `[[id]]` form and the `emits` placeholder
+is file-qualified too; STATUS.md's design-decisions section drops the
+bare `[[id]]` shorthand. The checker-side gap (coverage accepting the
+bare form; metasyntactic skip eating refs) is the open subject of
+specodelic-15g.
+
 ## #56 — docs/lint DX: the file-qualified ref law is now taught where authors trip over it (specodelic-ar2, gh#3)
 
 An adopter authoring a dual-format delta wrote `derives_from: C-foo`

@@ -1767,8 +1767,9 @@ spk explain kinds -->
 
 ### States
 
-<!-- `emits: [[<effect-constraint>]]` may follow a state that outputs.
-Refs are file-qualified wiki-links: `[[{id}.<constraint-id>]]`. -->
+<!-- `emits: [[{id}.<effect-constraint-id>]]` may follow a state that
+outputs. Refs are file-qualified wiki-links — bare ids and bare text do
+not resolve. -->
 
 - `initial`
 
@@ -1782,7 +1783,7 @@ transition. -->
 
 | id | from | to | guard |
 |----|------|----|-------|
-| t1 | initial | initial | TODO — cite a Constraint by [[id]] |
+| t1 | initial | initial | TODO — cite a Constraint (see guidance above) |
 
 ## Properties
 

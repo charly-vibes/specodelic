@@ -475,6 +475,12 @@ fn new_scaffold_shows_file_qualified_ref_examples() {
         content.to_lowercase().contains("bare"),
         "scaffold guidance must state that bare ids / bare text do not resolve"
     );
+    // Ro5 CORR-002: the placeholder guard cell must not itself demonstrate
+    // the bare-id form the guidance just forbid.
+    assert!(
+        !content.contains("by [[id]]"),
+        "scaffold must not show a bare [[id]] ref anywhere"
+    );
 }
 
 #[test]

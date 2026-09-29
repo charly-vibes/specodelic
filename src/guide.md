@@ -98,11 +98,14 @@ a section anchor (`model.state`), or a row member
 resolve somewhere in the corpus (`total_refs`).
 
 **Refs are file-qualified**: the general shape is
-`[[<file-id>.<row-id>]]`. Bare row ids and bare text in a structured
-cell do not resolve — `derives_from: C-foo` and `[[C-foo]]` both fail;
-the cell must carry the file prefix. A dual-format delta (`id: spec`)
-cites its own rows with the self-file prefix: `[[spec.<constraint-id>]]`
-in `derives_from` and in transition `guard` cells.
+`[[<file-id>.<row-id>]]`. A bare-text cell (`derives_from: C-foo`)
+produces no reference at all — the property reports as orphaned. A bare
+`[[C-foo]]` (no dot in the target) is skipped as metasyntactic: lint
+stays green and coverage counts it, but the edge silently vanishes from
+the graph. Neither form resolves — always write the file-qualified form.
+A dual-format delta (`id: spec`) cites its own rows with the self-file
+prefix: `[[spec.<constraint-id>]]` in `derives_from` and in transition
+`guard` cells.
 
 Each reference field is a typed foreign key (`ref_kind_compatible`):
 

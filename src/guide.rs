@@ -242,6 +242,18 @@ mod tests {
             refs.to_lowercase().contains("bare"),
             "references topic must state that bare ids / bare text do not resolve"
         );
+        // The claim must match actual behavior (Ro5 CORR-001): bare TEXT
+        // produces no reference (orphan), but a bare dotless [[row-id]] is
+        // skipped as metasyntactic — it silently vanishes from the graph,
+        // nothing "fails".
+        assert!(
+            refs.contains("metasyntactic"),
+            "references topic must describe the metasyntactic skip accurately"
+        );
+        assert!(
+            !refs.contains("both fail"),
+            "references topic must not claim the bare bracketed form fails"
+        );
     }
 
     #[test]
