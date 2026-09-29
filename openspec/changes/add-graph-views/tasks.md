@@ -76,8 +76,8 @@ Tidying commits are separate from feature commits.
 - [ ] 4.2 Run the pipeline over `../bajan/specs` (out-of-CI, manual check
       recorded in the change notes): views derive with zero
       corpus-specific code.
-- [ ] 4.3 File the bajan corpus-feedback beads issue (extension-point
-      wiring in prose, not typed cells) — cross-repo, references this
-      change.
+- [ ] 4.3 ~~File the bajan corpus-feedback beads issue~~ **done ahead of
+      implementation — bajan-ac8 filed 2026-09-29 (issue-review pass); the
+      implementer only verifies it's still open and cross-references it**.
 - [ ] 4.4 Verify `tasks.md` all checked; `just ci` and
       `openspec validate add-graph-views --strict` pass.

@@ -1803,6 +1803,7 @@ spk explain kinds -->
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
+| c1 | invariant | TODO — what must always hold | [[{id}]] |
 
 ## Model
 
@@ -1824,7 +1825,7 @@ transition. -->
 
 | id | from | to | guard |
 |----|------|----|-------|
-| t1 | initial | initial | TODO — cite a Constraint (see guidance above) |
+| t1 | initial | initial | [[{id}.c1]] |
 
 ## Properties
 
@@ -1835,6 +1836,7 @@ in derives_from — as a file-qualified wiki-link, e.g. [[{id}.c1]]
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
+| p1 | unit | [[{id}.c1]] | TODO — a generator | TODO — the property holds |
 
 <!-- Delete each guidance comment as you fill the layer in.
 Full format guide: spk explain -->

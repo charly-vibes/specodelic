@@ -6,6 +6,55 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #62 — lint totality: model_shape remainder + graph_shape enforced (specodelic-b15)
+
+Five rules that four checker files specced but no checker enforced are now
+lint rules (append-only additions to the rule table, TDD red-first):
+
+- `every_state_used` — a declared state no transition enters or leaves is
+  machinery the model can never reach.
+- `every_transition_valid` — `from`/`to` must name declared states; a
+  dangling `to` makes the model-checker simulate a different graph than
+  the author wrote.
+- `no_self_ref` — a row tracing to itself via `traces_to`/`derives_from`
+  has no owning purpose.
+- `acyclic` — the directed graph formed by traces_to ∪ derives_from ∪
+  guard-as-edge rejects cycles (rotation-normalized, reported once per
+  cycle; self-loops are `no_self_ref`'s beat, never double-reported).
+- `single_root_reachable` — every constraint/property/state/transition row
+  connects to some intent row (undirected connectivity over traces_to,
+  derives_from, guard, from/to, emits — an outbound-only reading would
+  flag every non-emitting state, which no corpus satisfies). Which
+  intents count (any vs the file's own) is specodelic-mp1 row 8's open
+  question; this implements the checker spec text as written.
+
+Decision of record (ticket comment): **reference typing stays
+graph-layer-owned** (`spk graph`'s labeled violations + non-zero exit) —
+duplicating `ref_kind_compatible` in lint would double-report the same
+edges and pre-decide mp1 rows 7–9. The graph-shape rules land in lint
+because `linter-graph_shape.md` owns them and neither layer enforced
+acyclic/self-ref/reachability until now.
+
+Dogfood consequences, all resolved in this change:
+
+- `specs/` corpus: 18 files, **zero findings** under the new rules.
+- `spk new` scaffold: the placeholder model was an island (empty
+  constraints table + prose guard) — the scaffold now ships a connected
+  minimal loop (`c1` invariant tracing to the intent, `t1` guard citing
+  it, `p1` deriving from it) that lints clean out of the box and teaches
+  the connected-shape law by example.
+- openspec tree bridges: `hooks` capability guards carry typed citations
+  (prose kept, citation appended — the typing table's guard→invariant
+  law); `model-check`'s `no_fabrication` gained `[[spec]]` beside its
+  prose pointer (`specs/model_check.md` — a bare prose path produces no
+  edge, so the constraint and its deriving property were an island).
+  `lint openspec` and `lint specs` both report zero findings.
+- `external_completeness` (the fourth checker file) remains
+  unimplemented: the checklist manifest format is Needs-Human-Review in
+  the checker spec's own Notes (a checklist file sits outside the
+  four-layer shape; a sixth kind is explicitly deferred) — filed as
+  specodelic-mp1 row 10.
+
 ## #61 — bare row refs resolve in id:spec files (Option A) — specodelic-15g, gh#2.1
 
 Adopter report (gh#2 point 1): in a dual-format delta (`id: spec`), a

@@ -20,7 +20,7 @@ implied semantic check that did not run.
 | honest_outcome    | invariant | `every reported outcome is one of no_counterexample / counterexample_found / timed_out, and timed_out is never collapsed into no_counterexample`    | [[spec]]        |
 | backend_identified | invariant | `a run report names the backend engine and version that produced it, and the stated bound is restated`                                              | [[spec.honest_outcome]] |
 | provenance        | invariant | `each stored run report carries the SHA-256 of the compiled .tla module it consumed, so verify can detect stale clean results`                      | [[spec.honest_outcome]] |
-| no_fabrication    | advisory  | `prose invariants produce no executable predicate; invariants_checked stays empty rather than implying a semantic check that never ran`             | specs/model_check.md |
+| no_fabrication    | advisory  | `prose invariants produce no executable predicate; invariants_checked stays empty rather than implying a semantic check that never ran`             | [[spec]] — prose pointer: specs/model_check.md |
 
 ## Model
 

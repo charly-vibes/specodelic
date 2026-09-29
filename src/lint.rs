@@ -107,6 +107,26 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
         "dual_format_valid",
         "a file carrying `## ADDED Requirements` must be a dual-format file — declare `id: spec` and pair it with a sibling `## Requirements` section",
     ),
+    (
+        "every_state_used",
+        "every declared state must appear as from or to in at least one transition — a state no transition reaches is machinery the model can never enter or leave",
+    ),
+    (
+        "every_transition_valid",
+        "every transition's from and to must name states declared in the same file's States section",
+    ),
+    (
+        "no_self_ref",
+        "a row must not reference itself via traces_to or derives_from — a self-tracing row has no owning purpose",
+    ),
+    (
+        "acyclic",
+        "the directed graph formed by traces_to ∪ derives_from ∪ guard-as-edge must contain no cycle (a reference cycle has no derivation order)",
+    ),
+    (
+        "single_root_reachable",
+        "every constraint/property/state/transition row must be connected to some intent row through the reference graph (traces_to, derives_from, guard, from/to, emits) — no orphaned islands",
+    ),
 ];
 
 /// The stable rule identifier for a bare rule name: `linter.<name>`.
@@ -155,7 +175,308 @@ pub fn lint_corpus(specs: &[Spec]) -> Report {
     }
     lint_references(specs, &mut report);
     lint_coverage(specs, &mut report);
+    lint_graph_shape(specs, &mut report);
     report
+}
+
+/// Corpus-wide graph-shape pass (specs/linter-graph_shape.md): build the
+/// resolved reference graph once, then check `no_self_ref`, `acyclic`
+/// (over traces_to ∪ derives_from ∪ guard-as-edge — a self-loop is
+/// `no_self_ref`'s beat, never double-reported as a cycle), and
+/// `single_root_reachable` (every row connected to some intent row
+/// through the reference graph: traces_to, derives_from, guard,
+/// from/to, emits). Resolution reuses [`Index`] with the same
+/// metasyntactic skip as [`lint_references`]; dangling targets are
+/// `total_refs`'s job, not ours — the two checks compose without
+/// double-reporting the same row.
+fn lint_graph_shape(specs: &[Spec], report: &mut Report) {
+    let full = Index::build(specs);
+    // (source node, target node, field, column) per resolved link.
+    let mut edges: Vec<(String, String, &str, &str)> = vec![];
+    // transition → state edges (structural: from/to are plain row ids,
+    // not [[wiki-links]]) for the connectivity graph only.
+    let mut conn_edges: Vec<(String, String)> = vec![];
+    let mut intent_nodes: BTreeSet<String> = BTreeSet::new();
+    let mut all_rows: BTreeSet<String> = BTreeSet::new();
+    for spec in specs {
+        let scoped;
+        let index = if spec.intent.id == "spec" {
+            scoped = Index::build(std::slice::from_ref(spec));
+            &scoped
+        } else {
+            &full
+        };
+        let file_id = spec.intent.id.clone();
+        intent_nodes.insert(file_id.clone());
+        for r in rows(spec) {
+            all_rows.insert(format!("{file_id}.{}", r.1.id));
+        }
+        for t in &spec.transitions {
+            let t_node = format!("{file_id}.{}", t.id);
+            all_rows.insert(t_node.clone());
+            // from/to resolve within the file's own states (validated
+            // separately by every_transition_valid — a ghost endpoint
+            // creates no edge here).
+            for endpoint in [&t.from, &t.to] {
+                if spec.states.iter().any(|s| s.id == *endpoint) {
+                    conn_edges.push((t_node.clone(), format!("{file_id}.{endpoint}")));
+                }
+            }
+        }
+        for link in &spec.links {
+            // Same skip rules as total_refs (specodelic-15g Option A:
+            // bare-local rows in id:spec files resolve).
+            let bare_local = file_id == "spec"
+                && !link.target.contains('.')
+                && index
+                    .files
+                    .get(&file_id)
+                    .is_some_and(|rows| rows.contains(&link.target));
+            if !bare_local && is_metasyntactic(&link.target, index) {
+                continue;
+            }
+            let Some(target) = resolve_node(index, &file_id, &link.target) else {
+                continue; // dangling — total_refs already reported it
+            };
+            // Frontmatter links anchor on the intent (no row source);
+            // they join the connectivity graph but never the typed
+            // acyclic edge set.
+            let source = if link.source == file_id {
+                file_id.clone()
+            } else {
+                format!("{file_id}.{}", link.source)
+            };
+            edges.push((source, target, link.field.as_str(), link.column.as_str()));
+        }
+    }
+
+    // no_self_ref — a row referencing itself via traces_to or
+    // derives_from traces to nothing that owns it
+    // (specs/linter-graph_shape.md no_self_ref).
+    for (source, target, field, column) in &edges {
+        if ((*field == "constraints" && *column == "traces_to")
+            || (*field == "properties" && *column == "derives_from"))
+            && source == target
+        {
+            report.issues.push(Issue::new(
+                "no_self_ref",
+                source.clone(),
+                format!(
+                    "row `{source}` references itself via {column} — a self-tracing row has no owning purpose"
+                ),
+            ));
+        }
+    }
+
+    // acyclic — the directed graph formed by traces_to ∪ derives_from ∪
+    // guard-as-edge has no cycle (specs/linter-graph_shape.md). Self-loops
+    // are `no_self_ref`'s beat and excluded here.
+    let mut ref_edges: BTreeSet<(String, String)> = BTreeSet::new();
+    for (source, target, field, column) in &edges {
+        let is_ref_edge = matches!(
+            (*field, *column),
+            ("constraints", "traces_to")
+                | ("properties", "derives_from")
+                | ("transitions", "guard")
+        );
+        if is_ref_edge && source != target {
+            ref_edges.insert((source.clone(), target.clone()));
+        }
+    }
+    for cycle in find_cycles(&ref_edges) {
+        // Close the walk for display: the last element steps back to the first.
+        let mut display = cycle.clone();
+        if let Some(first) = cycle.first() {
+            display.push(first.clone());
+        }
+        let path = display.join(" → ");
+        report.issues.push(Issue::new(
+            "acyclic",
+            cycle[0].clone(),
+            format!(
+                "reference cycle: {path} (the traces_to/derives_from/guard graph must stay a DAG)"
+            ),
+        ));
+    }
+
+    // single_root_reachable — undirected connectivity: every row's
+    // component contains some intent row. The edge set is the full
+    // resolved reference graph (any typed column, incl. frontmatter)
+    // plus the model's own from/to edges — a state reaches its intent
+    // through the transitions that reference it, so the check is
+    // connectivity, not outbound-only reachability (an outbound-only
+    // reading would flag every state that does not emit, which no
+    // corpus satisfies). Which intents count (any vs the file's own)
+    // is specodelic-mp1 row 8's open question — this implements the
+    // checker spec text as written ("reachable(row, some intent row)").
+    let mut adj: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for (source, target, _, _) in &edges {
+        if source != target {
+            adj.entry(source.clone())
+                .or_default()
+                .insert(target.clone());
+            adj.entry(target.clone())
+                .or_default()
+                .insert(source.clone());
+        }
+    }
+    for (a, b) in &conn_edges {
+        adj.entry(a.clone()).or_default().insert(b.clone());
+        adj.entry(b.clone()).or_default().insert(a.clone());
+    }
+    let mut visited: BTreeSet<String> = BTreeSet::new();
+    let mut islands: Vec<(String, Vec<String>)> = vec![];
+    for node in all_rows.iter().cloned().collect::<Vec<_>>() {
+        if visited.contains(&node) {
+            continue;
+        }
+        let mut comp: Vec<String> = vec![];
+        let mut stack = vec![node.clone()];
+        visited.insert(node.clone());
+        while let Some(n) = stack.pop() {
+            comp.push(n.clone());
+            for m in adj.get(&n).into_iter().flatten() {
+                if visited.insert(m.clone()) {
+                    stack.push(m.clone());
+                }
+            }
+        }
+        if !comp.iter().any(|n| intent_nodes.contains(n)) {
+            let anchor = comp.iter().min().cloned().unwrap_or_default();
+            comp.sort();
+            islands.push((anchor, comp));
+        }
+    }
+    for (_, rows) in islands {
+        let shown: Vec<String> = rows.iter().take(5).cloned().collect();
+        let more = if rows.len() > shown.len() {
+            format!(" (and {} more)", rows.len() - shown.len())
+        } else {
+            String::new()
+        };
+        let shown = shown.join(", ");
+        let file = rows[0]
+            .rsplit_once('.')
+            .map(|(f, _)| f.to_string())
+            .unwrap_or_else(|| rows[0].clone());
+        report.issues.push(Issue::new(
+            "single_root_reachable",
+            file,
+            format!(
+                "{} row(s) unreachable from any intent row — an orphaned island (traces_to/derives_from/guard/from-to/emits): {shown}{more}",
+                rows.len()
+            ),
+        ));
+    }
+}
+
+/// Resolve a link target to its canonical graph node: the file id for an
+/// intent target, `file_id.row_id` for a row (a `file.row.member` anchor
+/// resolves to the row). Mirrors [`Index::resolves`]'s arms; keep in sync.
+fn resolve_node(index: &Index, source_file: &str, target: &str) -> Option<String> {
+    // Section anchors name no row — no edge.
+    if target == "model.state" || target == "model.transition" {
+        return None;
+    }
+    if index.files.contains_key(target) {
+        return Some(target.to_string());
+    }
+    if !target.contains('.')
+        && index
+            .files
+            .get(source_file)
+            .is_some_and(|rows| rows.contains(target))
+    {
+        return Some(format!("{source_file}.{target}"));
+    }
+    if let Some((file_id, rest)) = target.rsplit_once('.') {
+        if let Some(rows) = index.files.get(file_id) {
+            if rows.contains(rest) {
+                return Some(target.to_string());
+            }
+            if let Some((row_id, _member)) = rest.split_once('.')
+                && rows.contains(row_id)
+            {
+                return Some(format!("{file_id}.{row_id}"));
+            }
+        }
+        if let Some((file_id, rest)) = target.split_once('.')
+            && let Some(rows) = index.files.get(file_id)
+            && rows.contains(rest)
+        {
+            return Some(target.to_string());
+        }
+    }
+    None
+}
+
+/// Rotation-normalized directed cycles over an edge set: each distinct
+/// cycle is reported once, starting at its smallest node (the same
+/// approach as the supersedes cycle finder in `crate::graph`).
+fn find_cycles(edges: &BTreeSet<(String, String)>) -> Vec<Vec<String>> {
+    let mut adj: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for (a, b) in edges {
+        adj.entry(a.as_str()).or_default().push(b.as_str());
+    }
+    let mut found: Vec<Vec<String>> = vec![];
+    let mut seen: BTreeSet<Vec<String>> = BTreeSet::new();
+    let starts: Vec<&str> = adj.keys().copied().collect();
+    for start in starts {
+        let mut path: Vec<String> = vec![start.to_string()];
+        let mut on_path: BTreeSet<String> = BTreeSet::from([start.to_string()]);
+        dfs_cycles(
+            start,
+            start,
+            &adj,
+            &mut path,
+            &mut on_path,
+            &mut found,
+            &mut seen,
+        );
+    }
+    found
+}
+
+fn dfs_cycles(
+    start: &str,
+    current: &str,
+    adj: &BTreeMap<&str, Vec<&str>>,
+    path: &mut Vec<String>,
+    on_path: &mut BTreeSet<String>,
+    found: &mut Vec<Vec<String>>,
+    seen: &mut BTreeSet<Vec<String>>,
+) {
+    let Some(nexts) = adj.get(current) else {
+        return;
+    };
+    for &next in nexts {
+        if next == start {
+            // Canonicalize: rotate so the smallest member leads — the
+            // same cycle is discovered from each of its members
+            // (graph.rs rotation pattern). The walk holds distinct
+            // nodes; the closing step back to `start` is implied. The
+            // live DFS path is left untouched.
+            let mut cycle = path.clone();
+            if let Some(pos) = cycle
+                .iter()
+                .position(|p| p == &cycle.iter().min().cloned().unwrap_or_default())
+            {
+                cycle.rotate_left(pos);
+            }
+            if seen.insert(cycle.clone()) {
+                found.push(cycle);
+            }
+            continue;
+        }
+        if on_path.contains(next) {
+            continue; // an inner cycle is found from its own smallest node
+        }
+        path.push(next.to_string());
+        on_path.insert(next.to_string());
+        dfs_cycles(start, next, adj, path, on_path, found, seen);
+        path.pop();
+        on_path.remove(next);
+    }
 }
 
 /// Per-file invariants.
@@ -276,6 +597,48 @@ fn lint_one(spec: &Spec, report: &mut Report) {
                 spec.states.len(),
                 spec.transitions.len()
             )));
+    }
+
+    // every_state_used — a declared state no transition reaches is
+    // machinery the model can never enter or leave (specs/
+    // linter-model_shape.md).
+    let state_ids: BTreeSet<&str> = spec.states.iter().map(|s| s.id.as_str()).collect();
+    let used: BTreeSet<&str> = spec
+        .transitions
+        .iter()
+        .flat_map(|t| [t.from.as_str(), t.to.as_str()])
+        .collect();
+    for sid in &spec.states {
+        if !spec.transitions.is_empty() && !used.contains(sid.id.as_str()) {
+            report.issues.push(Issue::new(
+                "every_state_used",
+                file.clone(),
+                format!(
+                    "state `{}` is declared but no transition enters or leaves it — every state must appear as from or to in at least one transition",
+                    sid.id
+                ),
+            ));
+        }
+    }
+
+    // every_transition_valid — from/to must name declared states; a
+    // dangling `to` makes the model-checker simulate a different graph
+    // than the author wrote.
+    for t in &spec.transitions {
+        for (label, endpoint) in [("from", &t.from), ("to", &t.to)] {
+            if !state_ids.contains(endpoint.as_str()) {
+                report.issues.push(Issue::new(
+                    "every_transition_valid",
+                    file.clone(),
+                    format!(
+                        "transition `{}` has {label} `{}` — not a declared state (states: {:?})",
+                        t.id,
+                        endpoint,
+                        state_ids.iter().copied().collect::<Vec<_>>()
+                    ),
+                ));
+            }
+        }
     }
 
     // ears_syntax — the intent statement matches one of the 5 EARS patterns.
@@ -605,6 +968,24 @@ mod tests {
                 "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds BUT THE MIRROR DRIFTED\n",
                 "spec.md",
             ),
+            // fires every_state_used (s2 unused) AND single_root_reachable
+            // (s2 is an island — no transition, no link touches it)
+            spec_at(
+                "---\nid: b.spec\nkind: intent\nstatement: \"the system should maybe work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | |\n| a | invariant | `y` | |\n\n## Model\n\n### States\n\n- `s1`\n- `s2`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | |\n",
+                "b-spec.md",
+            ),
+            // fires every_transition_valid (to a state that was never
+            // declared) and no_self_ref (row tracing to itself)
+            spec_at(
+                "---\nid: b.spec\nkind: intent\nstatement: \"THE b SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| self_ref | invariant | `[[b.spec.self_ref]]` | [[b.spec.self_ref]] |\n| other | invariant | `y` | |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | ghost | [[b.spec.other]] |\n",
+                "b-spec.md",
+            ),
+            // fires acyclic (two constraints mutually tracing via
+            // traces_to — the checker spec's edge set)
+            spec_at(
+                "---\nid: b.cycle\nkind: intent\nstatement: \"THE b SHALL cycle\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| x | invariant | `x` | [[b.cycle.y]] |\n| y | invariant | `y` | [[b.cycle.x]] |\n",
+                "b-cycle.md",
+            ),
         ]
     }
 
@@ -929,5 +1310,170 @@ mod tests {
             "names the self-containment violation: {}",
             refs[0].message
         );
+    }
+
+    // --- specodelic-b15: model_shape remainder + graph_shape ---
+
+    /// model_shape.every_state_used: a declared state that no transition
+    /// references is a mode the machine can never enter or leave.
+    #[test]
+    fn unused_state_fails_every_state_used() {
+        let spec = spec_at(
+            "---\nid: d.shape\nkind: intent\nstatement: \"THE system SHALL shape\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | [[d.shape]] |\n\n## Model\n\n### States\n\n- `s1`\n- `s2`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | `g` |\n",
+            "d-shape.md",
+        );
+        let report = lint_corpus(&[spec]);
+        let hits: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.every_state_used")
+            .collect();
+        assert_eq!(hits.len(), 1, "s2 is declared but never used: {:?}", hits);
+        assert!(
+            hits[0].message.contains("s2"),
+            "finding must name the unused state: {}",
+            hits[0].message
+        );
+    }
+
+    #[test]
+    fn every_state_in_a_transition_passes() {
+        let spec = spec_at(
+            "---\nid: d.shape\nkind: intent\nstatement: \"THE system SHALL shape\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | [[d.shape]] |\n\n## Model\n\n### States\n\n- `s1`\n- `s2`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s2 | `g` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[d.shape.c]] | `g()` | `x` |\n",
+            "d-shape.md",
+        );
+        let report = lint_corpus(&[spec]);
+        assert!(
+            !report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.every_state_used"),
+            "all states used — no finding: {:?}",
+            report.issues
+        );
+    }
+
+    /// model_shape.every_transition_valid: from/to must name declared
+    /// states — a dangling `to` would make the model-checker simulate a
+    /// different graph than the author wrote.
+    #[test]
+    fn transition_to_undeclared_state_fails_every_transition_valid() {
+        let spec = spec_at(
+            "---\nid: d.shape\nkind: intent\nstatement: \"THE system SHALL shape\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | [[d.shape]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | ghost | `g` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[d.shape.c]] | `g()` | `x` |\n",
+            "d-shape.md",
+        );
+        let report = lint_corpus(&[spec]);
+        let hits: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.every_transition_valid")
+            .collect();
+        assert_eq!(hits.len(), 1, "`ghost` is not a declared state: {:?}", hits);
+        assert!(
+            hits[0].message.contains("ghost"),
+            "finding must name the undeclared state: {}",
+            hits[0].message
+        );
+    }
+
+    /// graph_shape.no_self_ref: a row referencing itself traces to
+    /// nothing that owns it.
+    #[test]
+    fn self_referencing_row_fails_no_self_ref() {
+        let spec = spec_at(
+            "---\nid: d.self\nkind: intent\nstatement: \"THE system SHALL not self-reference\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[d.self.a]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[d.self.a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[d.self.a]] | `g()` | `x` |\n",
+            "d-self.md",
+        );
+        let report = lint_corpus(&[spec]);
+        let hits: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.no_self_ref")
+            .collect();
+        assert_eq!(hits.len(), 1, "a traces_to itself: {:?}", hits);
+        assert!(
+            hits[0].message.contains("traces_to"),
+            "finding names the offending column: {}",
+            hits[0].message
+        );
+    }
+
+    /// graph_shape.acyclic: a traces_to cycle is rejected. The edge set
+    /// is traces_to ∪ derives_from ∪ guard-as-edge (spec text) — a
+    /// two-row mutual trace is the minimal cycle.
+    #[test]
+    fn mutual_traces_cycle_fails_acyclic() {
+        let spec = spec_at(
+            "---\nid: d.cycle\nkind: intent\nstatement: \"THE system SHALL stay acyclic\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[d.cycle.b]] |\n| b | invariant | `y` | [[d.cycle.a]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[d.cycle.a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[d.cycle.a]] | `g()` | `x` |\n",
+            "d-cycle.md",
+        );
+        let report = lint_corpus(&[spec]);
+        let hits: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.acyclic")
+            .collect();
+        assert_eq!(hits.len(), 1, "one 2-cycle, one finding: {:?}", hits);
+        assert!(
+            hits[0].message.contains("a") && hits[0].message.contains("b"),
+            "finding names the cycle members: {}",
+            hits[0].message
+        );
+    }
+
+    /// graph_shape.single_root_reachable: every row must be connected to
+    /// some intent row through the reference graph (traces_to, derives_from,
+    /// guard-as-edge, from/to, emits) — an island of rows tracing only to
+    /// each other has no owning purpose.
+    #[test]
+    fn orphan_cluster_fails_single_root_reachable() {
+        let spec = spec_at(
+            "---\nid: d.island\nkind: intent\nstatement: \"THE system SHALL anchor every row\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| anchored | invariant | `x` | [[d.island]] |\n| lost | invariant | `y` | |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[d.island.anchored]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[d.island.lost]] | `g()` | `y` |\n",
+            "d-island.md",
+        );
+        let report = lint_corpus(&[spec]);
+        let hits: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.single_root_reachable")
+            .collect();
+        assert_eq!(
+            hits.len(),
+            1,
+            "`lost` has no path to any intent: {:?}",
+            hits
+        );
+        assert!(
+            hits[0].message.contains("lost"),
+            "finding names the disconnected row: {}",
+            hits[0].message
+        );
+    }
+
+    #[test]
+    fn well_formed_file_passes_graph_and_model_shape() {
+        // A well-formed file (every state used, valid transitions, no
+        // self-refs, everything anchored) emits none of the new rules.
+        let spec = spec_at(
+            "---\nid: ok.shape\nkind: intent\nstatement: \"THE system SHALL shape\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | [[ok.shape]] |\n\n## Model\n\n### States\n\n- `s1`\n- `s2`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t1 | s1 | s2 | [[ok.shape.c]] |\n| t2 | s2 | s1 | `x` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[ok.shape.c]] | `g()` | `x` |\n",
+            "ok-shape.md",
+        );
+        let report = lint_corpus(&[spec]);
+        for rule in [
+            "every_state_used",
+            "every_transition_valid",
+            "no_self_ref",
+            "acyclic",
+            "single_root_reachable",
+        ] {
+            assert!(
+                !report
+                    .issues
+                    .iter()
+                    .any(|i| i.rule_id == format!("linter.{rule}")),
+                "well-formed file must not fire {rule}: {:?}",
+                report.issues
+            );
+        }
     }
 }

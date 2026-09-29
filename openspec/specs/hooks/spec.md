@@ -32,11 +32,11 @@ lefthook) keeps flowing untouched.
 
 | id                | from     | to       | guard                                                      |
 |-------------------|----------|----------|-------------------------------------------------------------|
-| install_ok        | unwired  | wired    | `lefthook config exists and the stage is anchorable`         |
-| reinstall_ok      | wired    | wired    | `the managed block is already present`                       |
-| refuse            | unwired  | refused  | `no lefthook config, unsupported framework, or no anchor`    |
-| uninstall_ok      | wired    | unwired  | `the managed block markers are present`                      |
-| uninstall_notwired| unwired  | unwired  | `no managed block present — reported, not an error`          |
+| install_ok        | unwired  | wired    | `lefthook config exists and the stage is anchorable — [[spec.chain_preserved]]`         |
+| reinstall_ok      | wired    | wired    | `the managed block is already present — [[spec.idempotent_lifecycle]]`                       |
+| refuse            | unwired  | refused  | `no lefthook config, unsupported framework, or no anchor — [[spec.honest_anchor]]`    |
+| uninstall_ok      | wired    | unwired  | `the managed block markers are present — [[spec.chain_preserved]]`                      |
+| uninstall_notwired| unwired  | unwired  | `no managed block present — reported, not an error — [[spec.idempotent_lifecycle]]`          |
 
 ## Properties
 
