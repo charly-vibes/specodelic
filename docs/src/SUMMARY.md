@@ -42,3 +42,5 @@
 - [doctor — capability](openspec/doctor/spec.md)
 - [embedded-guide — capability](openspec/embedded-guide/spec.md)
 - [lint-findings — capability](openspec/lint-findings/spec.md)
+- [model-check — capability](openspec/model-check/spec.md)
+- [spec-integration — capability](openspec/spec-integration/spec.md)

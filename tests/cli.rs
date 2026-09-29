@@ -795,6 +795,32 @@ fn feedback_dry_run_previews_issue_without_filing() {
 }
 
 #[test]
+fn feedback_title_flag_overrides_derived_title() {
+    // genesis 0.8 FeedbackArgs.title: a user-supplied --title must override
+    // the stdin-derived title and land verbatim in the would-file command
+    let dir = tempfile::tempdir().unwrap();
+    let out = spk()
+        .args([
+            "feedback",
+            "bug",
+            "--dry-run",
+            "--title",
+            "lint crashes on empty dirs",
+        ])
+        .current_dir(dir.path())
+        .env("NO_COLOR", "1")
+        .write_stdin("body text\n")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "dry-run never fails");
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        stderr.contains("--title \"[bug] lint crashes on empty dirs\""),
+        "supplied title in would-file command: {stderr}"
+    );
+}
+
+#[test]
 fn feedback_rejects_unknown_kind_with_hint() {
     let out = spk().args(["feedback", "bugg"]).output().unwrap();
     assert_eq!(out.status.code(), Some(2));

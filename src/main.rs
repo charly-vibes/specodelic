@@ -137,6 +137,9 @@ enum Commands {
         /// Read the last error from scratch to auto-populate the body
         #[arg(long)]
         from_last_error: bool,
+        /// Override the issue title (wins over derived titles)
+        #[arg(long)]
+        title: Option<String>,
     },
     /// Generate shell completions
     Completions {
@@ -303,11 +306,12 @@ fn cmd_init(
 /// Report-only verb: always human-readable on stderr, never envelope JSON
 /// (the envelope is for pipeline data; feedback is an interactive side
 /// channel).
-fn cmd_feedback(kind: &str, dry_run: bool, from_last_error: bool) -> i32 {
+fn cmd_feedback(kind: &str, dry_run: bool, from_last_error: bool, title: Option<&str>) -> i32 {
     let args = genesis::feedback::FeedbackArgs {
         kind: kind.to_string(),
         dry_run,
         from_last_error,
+        title: title.map(str::to_string),
     };
     let project_root = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     match genesis::feedback::handle_feedback(
@@ -409,7 +413,8 @@ fn run(
             kind,
             dry_run,
             from_last_error,
-        } => cmd_feedback(kind, *dry_run, *from_last_error),
+            title,
+        } => cmd_feedback(kind, *dry_run, *from_last_error, title.as_deref()),
         Commands::Completions { shell } => {
             let mut cmd = Cli::command();
             match generate_completions(&mut cmd, *shell) {

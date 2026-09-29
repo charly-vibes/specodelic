@@ -6,6 +6,16 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #38 — Unification closed: spec-integration + model-check capability specs archived
+
+The two remaining complete-but-unarchived openspec changes were archived,
+completing the dual-format unification: `add-dual-format-deltas` via the
+verbatim recipe (`just archive-change` — its dual-format delta is now
+byte-identical at `openspec/specs/spec-integration/spec.md`), and
+`add-model-check` via plain archive (its plain delta seeded the new
+`openspec/specs/model-check/spec.md`). `spk feedback` gained `--title`
+passthrough for genesis-vibes 0.8's `FeedbackArgs.title`.
+
 ## #37 — Dual-format protocol: openspec engineering truth is specodelic-lintable
 
 The repo's two spec systems now share requirement content instead of
