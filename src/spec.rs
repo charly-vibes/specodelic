@@ -68,6 +68,12 @@ pub struct Spec {
     pub transitions: Vec<Transition>,
     /// `## Properties` rows.
     pub properties: Vec<Row>,
+    /// True when the raw text carries an `## ADDED Requirements` heading
+    /// (the openspec delta half of a dual-format file).
+    pub has_added_requirements: bool,
+    /// True when the raw text carries a `## Requirements` heading (the
+    /// specodelic capability half of a dual-format file).
+    pub has_requirements_section: bool,
     /// All `[[wiki-links]]` found in *structured* fields (frontmatter and
     /// table cells) — never prose. Each link is the raw inner text, which may
     /// be a file id (`specodelic`), a row id (`specodelic.model_present`), or
@@ -217,6 +223,8 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
         states: vec![],
         transitions: vec![],
         properties: vec![],
+        has_added_requirements: false,
+        has_requirements_section: false,
         links: vec![],
     };
     spec.links
@@ -239,6 +247,14 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
                 "Model" => TableKind::Model,
                 _ => TableKind::None,
             };
+            // Dual-format markers (spec-integration protocol): the
+            // openspec delta half and the capability-spec half.
+            if h == "ADDED Requirements" {
+                spec.has_added_requirements = true;
+            }
+            if h == "Requirements" {
+                spec.has_requirements_section = true;
+            }
             in_states = false;
             headers = vec![];
             continue;

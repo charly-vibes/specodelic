@@ -6,6 +6,23 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #39 — `linter.dual_format_valid`: the dual-format protocol is tool-enforced
+
+A new lint rule recognizes dual-format files structurally: any file
+carrying an `## ADDED Requirements` section must declare `id: spec`
+(openspec hard-requires the `spec.md` filename) and pair it with a
+sibling `## Requirements` section — a half-format file is now a lint
+finding, not a convention. The parser records both marker headings, so
+the rule needs no disk re-reads; plain corpus specs (no ADDED section)
+are exempt. The two spike fixtures in
+`openspec/changes/archive/2026-09-28-spike-dual-format/` were completed
+to full dual format (mirrored `## Requirements` siblings) so the
+protocol's own evidence lints clean. Unification of the two spec systems
+is now closed end to end: `add-dual-format-deltas` archived via the
+verbatim recipe (`spec-integration` capability), `add-model-check`
+archived and migrated to dual format, and the protocol enforced by
+`spk lint` (#38 archived the changes).
+
 ## #38 — Unification closed: spec-integration + model-check capability specs archived
 
 The two remaining complete-but-unarchived openspec changes were archived,

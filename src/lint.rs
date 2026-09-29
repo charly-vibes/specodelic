@@ -99,6 +99,10 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
         "no_orphan_property",
         "every property must derive from at least one constraint",
     ),
+    (
+        "dual_format_valid",
+        "a file carrying `## ADDED Requirements` must be a dual-format file — declare `id: spec` and pair it with a sibling `## Requirements` section",
+    ),
 ];
 
 /// The stable rule identifier for a bare rule name: `linter.<name>`.
@@ -183,6 +187,32 @@ fn lint_one(spec: &Spec, report: &mut Report) {
                     "frontmatter id `{}` does not match filename (expected `{}` — `-` in filename maps to `.` in id; `_` is literal)",
                     spec.intent.id, expected
                 )));
+        }
+    }
+
+    // dual_format_valid — a file carrying `## ADDED Requirements` (the
+    // openspec delta half) must be a dual-format file: declare `id: spec`
+    // (openspec hard-requires the spec.md filename) and pair the ADDED
+    // section with a sibling `## Requirements` section (the capability
+    // half that survives archiving). Plain corpus specs (no ADDED
+    // section) are exempt.
+    if spec.has_added_requirements {
+        if spec.intent.id != "spec" {
+            report.issues.push(Issue::new(
+                "dual_format_valid",
+                file.clone(),
+                format!(
+                    "file carries `## ADDED Requirements` but declares id `{}` — dual-format files must declare `id: spec` (openspec requires the spec.md filename)",
+                    spec.intent.id
+                ),
+            ));
+        }
+        if !spec.has_requirements_section {
+            report.issues.push(Issue::new(
+                "dual_format_valid",
+                file.clone(),
+                "file carries `## ADDED Requirements` without a sibling `## Requirements` section — not a dual-format file (the capability half is missing; run scripts/check_section_sync.py for drift between the halves)".to_string(),
+            ));
         }
     }
 
@@ -474,6 +504,12 @@ mod tests {
                 "---\nid: bare_spec\nkind: intent\nstatement: \"THE system SHALL exist\"\n---\n",
                 "bare-spec.md",
             ),
+            // fires dual_format_valid (## ADDED Requirements without the
+            // sibling ## Requirements section)
+            spec_at(
+                "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## Purpose\nHalf a dual-format file.\n\n## ADDED Requirements\n\n### Requirement: Something\nThe system SHALL do the thing.\n",
+                "spec.md",
+            ),
         ]
     }
 
@@ -491,6 +527,87 @@ mod tests {
             "the rule table and the emittable rule ids must coincide — \
              a rule missing from the table panics at construction, one \
              missing from the corpus means the fixture stopped covering it"
+        );
+    }
+
+    #[test]
+    fn dual_format_file_with_both_halves_is_clean() {
+        // A complete dual-format file — frontmatter id: spec +
+        // ## ADDED Requirements + ## Requirements — must not emit
+        // dual_format_valid.
+        let spec = spec_at(
+            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## Purpose\nBoth halves present.\n\n## ADDED Requirements\n\n### Requirement: Something\nThe system SHALL do the thing.\n\n## Requirements\n\n### Requirement: Something\nThe system SHALL do the thing.\n",
+            "spec.md",
+        );
+        let report = lint_corpus(&[spec]);
+        assert!(
+            !report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.dual_format_valid"),
+            "complete dual-format file must be clean: {:?}",
+            report.issues
+        );
+    }
+
+    #[test]
+    fn dual_format_added_without_requirements_section_fires() {
+        let spec = spec_at(
+            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: Something\nThe system SHALL do the thing.\n",
+            "spec.md",
+        );
+        let report = lint_corpus(&[spec]);
+        let issues: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.dual_format_valid")
+            .collect();
+        assert_eq!(issues.len(), 1, "missing ## Requirements: {:?}", issues);
+        assert!(
+            issues[0].message.contains("## Requirements"),
+            "message names the missing half: {}",
+            issues[0].message
+        );
+    }
+
+    #[test]
+    fn dual_format_file_with_wrong_id_fires() {
+        // id: spec is the naming law for openspec-housed dual-format
+        // files (openspec hard-requires the spec.md filename).
+        let spec = spec_at(
+            "---\nid: other.thing\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: Something\nThe system SHALL do the thing.\n\n## Requirements\n\n### Requirement: Something\nThe system SHALL do the thing.\n",
+            "other-thing.md",
+        );
+        let report = lint_corpus(&[spec]);
+        let issues: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.dual_format_valid")
+            .collect();
+        assert_eq!(issues.len(), 1, "wrong id: {:?}", issues);
+        assert!(
+            issues[0].message.contains("id: spec"),
+            "message names the required id: {}",
+            issues[0].message
+        );
+    }
+
+    #[test]
+    fn plain_spec_without_added_section_is_exempt() {
+        // Corpus files (no ## ADDED Requirements) must not be touched
+        // by the dual-format rule.
+        let spec = spec_at(
+            "---\nid: plain.spec\nkind: intent\nstatement: \"THE system SHALL behave\"\n---\n\n## Requirements\n\nSome requirements.\n",
+            "plain-spec.md",
+        );
+        let report = lint_corpus(&[spec]);
+        assert!(
+            !report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.dual_format_valid"),
+            "plain spec is exempt: {:?}",
+            report.issues
         );
     }
 

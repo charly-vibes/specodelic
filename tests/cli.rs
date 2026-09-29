@@ -42,6 +42,31 @@ fn write_model_check_spec(path: &std::path::Path, id: &str) {
     .unwrap();
 }
 
+// ---- specodelic-zo9: dual_format_valid lint rule ----
+
+#[test]
+fn lint_flags_half_format_dual_file_via_cli() {
+    // A file with frontmatter + ## ADDED Requirements but no sibling
+    // ## Requirements is half a dual-format file — the rule fires so the
+    // spec-integration protocol is tool-enforced, not convention.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("spec.md"),
+        "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: Something\nThe system SHALL do the thing.\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        stdout.contains("dual_format_valid"),
+        "half-format file flagged: {stdout}"
+    );
+    assert_eq!(out.status.code(), Some(1));
+}
+
 // ---- specodelic-6pi: recursive spec collection, no silent empty success ----
 
 #[test]
