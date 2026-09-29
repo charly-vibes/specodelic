@@ -2606,3 +2606,140 @@ fn doctor_reports_a_missing_corpus_with_the_discovery_rule() {
         "doctor carries the discovery check: {stdout}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Bare row refs in id:spec dual-format files (gh#2.1, specodelic-15g,
+// Option A): within a self-contained file a dotless target naming an own
+// row has exactly one possible meaning — the local row — so it resolves
+// (canonical `spec.<row>`) instead of vanishing into the metasyntactic
+// skip. Dotful spellings are unchanged (ambiguous with `file.row`); the
+// gh#5 self-file hint stays for them.
+// ---------------------------------------------------------------------------
+
+/// An id:spec dual-format file: constraint c1; a property that derives
+/// from it BARE (`[[c1]]`); a second constraint tracing to it bare
+/// (traces_to must resolve to an Intent — this is a typing violation).
+fn dual_file_with_bare_refs() -> String {
+    "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n\
+     ## Constraints\n\n\
+     | id | kind | expr | traces_to |\n\
+     |----|------|------|-----------|\n\
+     | c1 | invariant | `x` | |\n\
+     | c2 | invariant | `y` | [[c1]] |\n\
+     \n## Model\n\n\
+     ### States\n\n- `s1`\n\n\
+     ### Transitions\n\n\
+     | id | from | to | guard |\n\
+     |----|------|----|-------|\n\
+     | t | s1 | s1 | [[c1]] |\n\n\
+     ## Properties\n\n\
+     | id | kind | derives_from | generator | predicate |\n\
+     |----|------|--------------|-----------|------------|\n\
+     | p | unit | [[c1]] | `g()` | `x` |\n"
+        .to_string()
+}
+
+fn write_dual(dir: &std::path::Path, body: &str) -> std::path::PathBuf {
+    let path = dir.join("spec.md");
+    std::fs::write(&path, body).unwrap();
+    path
+}
+
+#[test]
+fn bare_row_ref_in_a_dual_format_file_resolves_to_an_edge() {
+    let dir = tempfile::tempdir().unwrap();
+    let f = write_dual(dir.path(), &dual_file_with_bare_refs());
+    let out = spk()
+        .args(["graph", f.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let edges: Vec<&serde_json::Value> = json["data"]["edges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["kind"] == "properties.derives_from")
+        .collect();
+    assert!(
+        edges
+            .iter()
+            .any(|e| e["to"] == "spec.c1" && e["from"] == "spec.p"),
+        "bare [[c1]] derives_from resolves to an edge: {}",
+        json["data"]["edges"]
+    );
+    assert!(
+        json["data"]["dangling"].as_array().unwrap().is_empty(),
+        "no dangling from the bare form: {}",
+        json["data"]["dangling"]
+    );
+}
+
+#[test]
+fn bare_row_ref_typing_violation_is_reported_not_swallowed() {
+    let dir = tempfile::tempdir().unwrap();
+    let f = write_dual(dir.path(), &dual_file_with_bare_refs());
+    let out = spk()
+        .args(["graph", f.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let violations = json["data"]["violations"].as_array().unwrap();
+    assert!(
+        violations
+            .iter()
+            .any(|v| v["edge_kind"] == "constraints.traces_to" && v["to"] == "spec.c1"),
+        "the bare traces_to ref resolves and then violates typing — never silently skipped: {:?}",
+        violations
+    );
+}
+
+#[test]
+fn unknown_bare_targets_still_skip_as_metasyntactic() {
+    // Option A is narrow: bare targets that name NO own row keep the
+    // metasyntactic skip (template placeholders like [[...]] and docs
+    // examples like [[x]] stay invisible).
+    let dir = tempfile::tempdir().unwrap();
+    let body = dual_file_with_bare_refs().replace("[[c1]]", "[[nope]]");
+    let f = write_dual(dir.path(), &body);
+    let out = spk()
+        .args(["graph", f.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(json["data"]["dangling"].as_array().unwrap().is_empty());
+    let link_edges: Vec<&serde_json::Value> = json["data"]["edges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["kind"] == "properties.derives_from" || e["kind"] == "constraints.traces_to")
+        .collect();
+    assert!(
+        link_edges.is_empty(),
+        "an unknown bare target mints no reference edge: {:?}",
+        link_edges
+    );
+}
+
+#[test]
+fn bare_row_ref_lints_clean_in_a_dual_format_file() {
+    // lint and graph agree: the bare form resolves — no dangling finding,
+    // and the guard (a structured traces_to cell) resolves too.
+    let dir = tempfile::tempdir().unwrap();
+    let f = write_dual(dir.path(), &dual_file_with_bare_refs());
+    let out = spk()
+        .args(["lint", f.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let dangling: Vec<&serde_json::Value> = json["data"]["issues"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|i| i["rule_id"] == "linter.total_refs")
+        .collect();
+    assert!(
+        dangling.is_empty(),
+        "bare own-row refs must not dangle: {}",
+        json["data"]["issues"]
+    );
+}

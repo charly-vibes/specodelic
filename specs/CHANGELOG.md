@@ -6,6 +6,38 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #61 — bare row refs resolve in id:spec files (Option A) — specodelic-15g, gh#2.1
+
+Adopter report (gh#2 point 1): in a dual-format delta (`id: spec`), a
+bare `[[c1]]` vanished — the metasyntactic skip ate the dotless target
+silently: lint stayed green, coverage counted it, but the graph edge
+never existed. Decision of record (ticket comment, user-approved):
+**Option A — bare row refs resolve against the file's own rows**.
+
+- One rule: an `id:spec` file is self-contained (#42), so a dotless
+  target naming one of its own rows has exactly one possible meaning —
+  the local row. It now resolves (canonical `spec.<row>`) in BOTH lint
+  (`total_refs`) and `graph` — the two paths share the law instead of
+  graph resolving while lint skips.
+- Robustness preserved: the rule is fail-loud, not fail-open — a bare
+  target naming NO own row still skips as metasyntactic (template
+  placeholders), and typing violations on bare refs are now VISIBLE
+  (a bare `traces_to [[c1]]` resolves and then violates Reference
+  Typing — reported, never swallowed).
+- Dotful spellings unchanged: `[[thing.one]]`-style local ids keep
+  dangling with the gh#5 self-file hint (a bare dotful target is
+  genuinely ambiguous with `file.row`).
+- Coverage message fixed: it claimed "bare ids do not resolve" while
+  its own check accepted the bare form — the claim is gone.
+- `spk explain references` updated: either spelling works inside a
+  delta; files outside always use the file-qualified form.
+- Corpus churn: zero — the dogfood gates lint/graph the whole openspec
+  tree every commit; no dual file used bare refs.
+
+RED→GREEN: 4 tests (edge, visible typing violation, narrowness guard,
+lint agreement). Gates: just ci + lint-specs 18/0 + graph 0 dangling +
+openspec strict 9/9.
+
 ## #60 — corpus discovery: consumer repos' openspec/ tree is named where bare lint/graph/doctor dead-end (specodelic-ag5, gh#2.2)
 
 Adopter report (gh#2 point 2): in an openspec-managed consumer repo, bare

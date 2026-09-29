@@ -103,12 +103,15 @@ resolve somewhere in the corpus (`total_refs`).
 **Refs are file-qualified**: the general shape is
 `[[<file-id>.<row-id>]]`. A bare-text cell (`derives_from: C-foo`)
 produces no reference at all — the property reports as orphaned. A bare
-`[[C-foo]]` (no dot in the target) is skipped as metasyntactic: lint
-stays green and coverage counts it, but the edge silently vanishes from
-the graph. Neither form resolves — always write the file-qualified form.
-A dual-format delta (`id: spec`) cites its own rows with the self-file
-prefix: `[[spec.<constraint-id>]]` in `derives_from` and in transition
-`guard` cells.
+`[[C-foo]]` (no dot in the target) is skipped as metasyntactic — except
+in a dual-format delta (`id: spec`), where a bare target naming one of
+the file's own rows resolves to that row: `[[c1]]` is exactly
+`[[spec.c1]]` there, because the file is self-contained and the bare
+form has one possible meaning. A dotless target naming no own row stays
+metasyntactic in every file. A dual-format delta cites its own rows
+with either spelling — `[[c1]]` or `[[spec.c1]]` — in `derives_from`
+and in transition `guard` cells; files outside the delta always use the
+file-qualified form.
 
 Each reference field is a typed foreign key (`ref_kind_compatible`):
 

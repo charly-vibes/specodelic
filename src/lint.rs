@@ -368,13 +368,28 @@ impl Index {
     /// Resolve a link target: a file id, `file_id.row_id`, a
     /// `model.state`/`model.transition` section anchor (bare or
     /// `file_id.model.…`), or a member of a row (`file_id.row.member`).
-    fn resolves(&self, target: &str) -> bool {
+    /// `source_file` enables the bare-local row arm (specodelic-15g,
+    /// Option A): the source file's own rows resolve in bare spelling —
+    /// only id:spec files reach this arm bare (the metasyntactic skip
+    /// masks bare targets elsewhere); the scoped index makes it the
+    /// file's own rows.
+    fn resolves(&self, source_file: &str, target: &str) -> bool {
         // Bare section anchors.
         if target == "model.state" || target == "model.transition" {
             return true;
         }
         // Exact file id.
         if self.files.contains_key(target) {
+            return true;
+        }
+        // Bare-local row: the source file's own rows in bare spelling
+        // (canonical `file_id.row_id` is the dotted form's job below).
+        if !target.contains('.')
+            && self
+                .files
+                .get(source_file)
+                .is_some_and(|rows| rows.contains(target))
+        {
             return true;
         }
         // file_id + "." + rest (split at the LAST dot so file ids with dots,
@@ -443,12 +458,24 @@ fn lint_references(specs: &[Spec], report: &mut Report) {
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| format!("<{}>", spec.intent.id));
         for link in &spec.links {
+            // Bare-local rows (specodelic-15g, Option A): in an id:spec
+            // file a dotless target naming one of the file's own rows has
+            // exactly one possible meaning — the local row — so it
+            // resolves instead of vanishing into the metasyntactic skip.
+            // Dotful spellings keep the skip/hint (ambiguous with
+            // `file.row`); other files keep corpus-wide behavior.
+            let bare_local = spec.intent.id == "spec"
+                && !link.target.contains('.')
+                && index
+                    .files
+                    .get(&spec.intent.id)
+                    .is_some_and(|rows| rows.contains(&link.target));
             // Dotless unknown targets skip as metasyntactic (e.g. `[[id]]`
             // used as format documentation).
-            if is_metasyntactic(&link.target, index) {
+            if !bare_local && is_metasyntactic(&link.target, index) {
                 continue;
             }
-            if !index.resolves(&link.target) {
+            if !index.resolves(&spec.intent.id, &link.target) {
                 let mut msg = format!(
                     "dangling reference `[[{}]]` from {}{} — target not defined in any spec file",
                     link.target,
@@ -519,7 +546,7 @@ fn lint_coverage(specs: &[Spec], report: &mut Report) {
                     "no_orphan_property",
                     file_id.clone(),
                     format!(
-                        "property `{pid}` derives from nothing — derives_from takes a file-qualified wiki-link like `[[{file_id}.<constraint-id>]]` (bare ids and bare text do not resolve)",
+                        "property `{pid}` derives from nothing — derives_from takes a wiki-link like `[[{file_id}.<constraint-id>]]` (in an id:spec file the bare row form `[[<constraint-id>]]` resolves too)",
                     ),
                 ));
             }

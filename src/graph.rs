@@ -302,11 +302,23 @@ pub fn build(specs: &[Spec]) -> GraphReport {
         };
         for link in &spec.links {
             let resolved = resolve(&scoped_rows, file_id, &link.target);
+            // Bare-local rows (specodelic-15g, Option A): in an id:spec
+            // file a dotless target naming one of the file's own rows has
+            // exactly one possible meaning — the local row — so it
+            // resolves instead of vanishing into the metasyntactic skip.
+            // Dotful spellings keep the skip (ambiguous with `file.row`);
+            // other files keep corpus-wide behavior.
+            let bare_local = file_id == "spec"
+                && !link.target.contains('.')
+                && scoped_rows
+                    .get(file_id)
+                    .is_some_and(|rows| rows.contains(&link.target));
             // Metasyntactic example links (`[[old_id]]`, `[[...]]`) are
             // format documentation inside expr cells — not graph edges.
-            let metasyn = !link.target.contains('.') && !scoped_rows.contains_key(&link.target)
-                || link.target == "..."
-                || link.target == "…";
+            let metasyn = !bare_local
+                && (!link.target.contains('.') && !scoped_rows.contains_key(&link.target)
+                    || link.target == "..."
+                    || link.target == "…");
             if metasyn {
                 continue;
             }
@@ -381,6 +393,17 @@ fn resolve(
     }
     if file_rows.contains_key(target) {
         return Some(target.to_string());
+    }
+    // Bare-local row (specodelic-15g, Option A): the source file's own
+    // rows resolve in bare spelling (canonical `file.row`). For non-dual
+    // files the metasyntactic skip masks bare targets, so this arm only
+    // fires for id:spec files.
+    if !target.contains('.')
+        && file_rows
+            .get(source_file)
+            .is_some_and(|rows| rows.iter().any(|r| r == target))
+    {
+        return Some(format!("{source_file}.{target}"));
     }
     // Try last-dot split (handles dotted file ids like linter.frontmatter).
     if let Some((file_id, rest)) = target.rsplit_once('.')
