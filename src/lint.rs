@@ -290,13 +290,18 @@ struct Index {
 }
 
 impl Index {
+    /// Aggregate row sets per file id: several files may legally share an
+    /// id (openspec naming law forces every dual-format file to be
+    /// `spec.md` → `id: spec`), and a link resolves when the row is
+    /// defined *somewhere in the corpus* — so same-id row sets merge
+    /// instead of overwriting.
     fn build(specs: &[Spec]) -> Index {
-        let mut files = BTreeMap::new();
+        let mut files: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         for spec in specs {
-            files.insert(
-                spec.intent.id.clone(),
-                spec.defined_ids().into_iter().collect(),
-            );
+            files
+                .entry(spec.intent.id.clone())
+                .or_default()
+                .extend(spec.defined_ids());
         }
         Index { files }
     }
@@ -519,6 +524,30 @@ mod tests {
             names.len(),
             RULE_TABLE.len(),
             "duplicate rule names in table"
+        );
+    }
+
+    /// Two files sharing the same id (openspec naming law forces every
+    /// dual-format delta/capability file to be `spec.md` → `id: spec`)
+    /// must not erase each other from the reference index: refs resolve
+    /// "somewhere in the corpus", so row sets aggregate per file id.
+    #[test]
+    fn same_id_files_do_not_collide_in_reference_resolution() {
+        let make = |c: &str, p: &str, path: &str| {
+            spec_at(
+                &format!(
+                    "---\nid: spec\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| {c} | invariant | `x` | [[spec]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[spec.{c}]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| {p} | unit | [[spec.{c}]] | `g()` | `x` |\n"
+                ),
+                path,
+            )
+        };
+        let a = make("ca", "pa", "a/spec.md");
+        let b = make("cb", "pb", "b/spec.md");
+        let report = lint_corpus(&[a, b]);
+        assert!(
+            report.issues.is_empty(),
+            "same-id files must not dangle each other's rows: {:?}",
+            report.issues
         );
     }
 }

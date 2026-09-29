@@ -41,9 +41,15 @@ pub struct GraphReport {
 /// Build the graph for a corpus of parsed specs.
 pub fn build(specs: &[Spec]) -> GraphReport {
     // Resolution index: file id -> defined ids (intent + rows).
+    // Same-id files (openspec `spec.md` → `id: spec`) aggregate their
+    // row sets — a link resolves when the row exists somewhere in the
+    // corpus, mirroring the linter's total_refs semantics.
     let mut file_rows: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for spec in specs {
-        file_rows.insert(spec.intent.id.clone(), spec.defined_ids());
+        file_rows
+            .entry(spec.intent.id.clone())
+            .or_default()
+            .extend(spec.defined_ids());
     }
     let mut report = GraphReport {
         files: specs.len(),
