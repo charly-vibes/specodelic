@@ -1,0 +1,237 @@
+---
+id: spec
+kind: intent
+statement: "THE graph-views capability SHALL emit a deterministic edge-list projection with canonical ids and annotated typing violations from any specodelic-compliant corpus, and SHALL derive per-file state-machine, file-level traceability, and revision-labeled schema views from that artifact and guide's closed value sets alone — never from prose."
+---
+
+# graph-views Specification
+
+## Purpose
+Make the typed reference graph of any specodelic-compliant corpus
+thinkable-with rather than merely machine-readable: a deterministic,
+pipeline-friendly edge list as the single projection boundary, and
+human-readable views (per-file state machines, file-level traceability,
+the schema's own shape) rendered from that boundary at build time. Views
+are derived facts — never authored, never committed, never cleaner than
+the artifact they came from.
+
+## Constraints
+
+| id                       | kind      | expr                                                                                                                                                                                                                                                                  | traces_to |
+|--------------------------|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
+| canonical_ids            | invariant | `every edge-list endpoint is a frontmatter id value; display labels (e.g. `refactor (intent)`-style label-qualified nodes) never appear in the projection — normalization happens at or before projection`                                                                 | [[spec]]  |
+| deterministic_projection | invariant | `re-running the projection over an unchanged corpus produces a byte-identical edge list — rows sorted, no timestamps, no iteration-order leakage`                                                                                                                        | [[spec]]  |
+| violations_annotated     | invariant | `every violation in the graph artifact appears as an annotation row in the edge list; a view rendered from a corpus with violations is never silently clean — dashed/annotated rendering is mandatory, omission forbidden`                                                | [[spec]]  |
+| derived_views_only       | invariant | `each view consumes only the edge-list artifact plus guide's closed value sets and format revision; no view parses prose, re-walks markdown, or embeds hand-authored structure`                                                                                            | [[spec]]  |
+| build_time_generation    | invariant | `rendered views are generated into the docs build at build time and never committed; no hand-edit path exists, so graph_is_derived_not_authored holds by construction and no staleness check is needed`                                                                    | [[spec]]  |
+| empty_corpus_valid       | invariant | `a corpus with zero spec files, and a corpus with a single intent and no cross-file edges, each yield a well-formed (possibly empty) projection and a sane rendered view — no crash, no garbage, no silent failure`                                                        | [[spec]]  |
+| corpus_scope_operational | invariant | `a corpus is in scope iff spk lint over it reports no invariant-rule findings and ≥1 intent file parses; corpora failing this (e.g. openspec-layout repositories) are out of scope until a parse-boundary adapter change lands — no view special-cases them`                                | [[spec]]  |
+
+## Model
+
+### States
+- `proposed`
+- `approved`
+- `implemented`
+- `archived`
+
+### Transitions
+
+| id          | from        | to          | guard                                                                                     |
+|-------------|-------------|-------------|-------------------------------------------------------------------------------------------|
+| approve     | proposed    | approved    | `proposal reviewed and approved by the maintainer`                                         |
+| implement   | approved    | implemented | `all tasks.md items complete; spk lint, transform tests, and openspec validate --strict pass` |
+| archive     | implemented | archived    | `just archive-change id=add-graph-views ran with the dual-format recipe`                    |
+
+## Properties
+
+| id                            | kind | derives_from                     | generator                                             | predicate                                                                 |
+|-------------------------------|------|-----------------------------------|-----------------------------------------------------------------------------------------------------|
+| ids_never_labels              | unit | [[spec.canonical_ids]]           | `corpus_parsed_then_projected()`                      | `no TSV field matches a label-qualified node pattern`                     |
+| rerun_byte_identical          | unit | [[spec.deterministic_projection]] | `same_corpus_projected_twice()`                       | `both runs byte-identical; also holds across invocation order of files`   |
+| violations_survive_projection | unit | [[spec.violations_annotated]]    | `corpus_with_known_typing_violations()`               | `edge list contains one annotation row per violation, none missing`       |
+| clean_corpus_no_annotations   | unit | [[spec.violations_annotated]]    | `lint_clean_corpus()`                                 | `edge list contains zero annotation rows`                                 |
+| views_from_artifact_only      | unit | [[spec.derived_views_only]]      | `view_rendered_with_prose_perturbation()`             | `rendered view byte-identical after perturbing prose blocks`              |
+| schema_view_revision_labeled  | unit | [[spec.derived_views_only]]      | `guide_value_sets_rendered()`                         | `schema view names the format revision it was derived from`               |
+| build_output_not_committed    | unit | [[spec.build_time_generation]]   | `docs_build_completed()`                              | `git status clean — no rendered artifact tracked or staged`               |
+| empty_corpus_projection       | unit | [[spec.empty_corpus_valid]]      | `directory_with_zero_spec_files()`                    | `projection exits 0 with empty output; view renders a sane empty diagram` |
+| single_intent_sane            | unit | [[spec.empty_corpus_valid]]      | `corpus_with_one_intent_no_cross_file_edges()`        | `file-level view renders one node; no crash`                              |
+| out_of_scope_refused          | unit | [[spec.corpus_scope_operational]] | `corpus_with_invariant_findings_or_no_intents()`      | `transform exits non-zero with a remediation hint naming the failed gate` |
+
+## ADDED Requirements
+
+### Requirement: Deterministic edge-list projection
+The system SHALL provide `spk graph --format edges` emitting a sorted TSV
+edge list (source id, source kind, typed reference field, target kind,
+target id, annotation) with exactly one row per recorded edge — plus
+annotation rows per the violations requirement below — using frontmatter
+ids only, byte-identical across re-runs on an unchanged corpus. When
+`--format edges` is given, raw TSV goes to stdout, overriding envelope
+formatting.
+
+#### Scenario: Projection over a compliant corpus
+- **WHEN** `spk graph --format edges` runs over a corpus with ≥1 lint-clean intent
+- **THEN** the output is a sorted TSV whose every endpoint is a frontmatter id
+
+#### Scenario: Re-run determinism
+- **WHEN** the projection runs twice over an unchanged corpus
+- **THEN** both outputs are byte-identical
+
+#### Scenario: Display labels excluded
+- **WHEN** the corpus contains label-qualified pseudo-nodes in the raw graph output
+- **THEN** the projection contains only canonical ids — no label-qualified endpoints
+
+### Requirement: Violations never silently hidden
+The edge-list projection SHALL include one annotation row per violation in
+the graph artifact, and views SHALL render violations as annotated (not
+omitted, not silently clean) elements.
+
+#### Scenario: Violation-bearing corpus projects annotated rows
+- **WHEN** the graph artifact reports N typing violations
+- **THEN** the edge list contains exactly N annotation rows
+
+#### Scenario: Views annotate rather than omit
+- **WHEN** a view is rendered from an artifact carrying violations
+- **THEN** each violation appears rendered as a dashed/annotated element
+
+### Requirement: Derived per-file state-machine view
+The system SHALL derive, per corpus file whose artifact contains
+transition edges, a state-machine view from `transitions.from`,
+`transitions.to`, and `transitions.guard` edges alone — no re-walking of
+markdown.
+
+#### Scenario: State machine from edges only
+- **WHEN** a file's spec defines states and guarded transitions
+- **THEN** the derived view shows the same states, transitions, and guard annotations as the file's Model tables
+
+#### Scenario: File without transitions skipped cleanly
+- **WHEN** a file has no transition edges
+- **THEN** no state-machine view is emitted for it and the build succeeds
+
+### Requirement: Derived file-level traceability view
+The system SHALL derive a corpus-level view collapsing all edges to intent
+(file) granularity, annotating fan-in per intent, from the edge list alone.
+
+#### Scenario: Collapse to intents
+- **WHEN** the projection is derived from the specodelic corpus
+- **THEN** the view's node set equals the corpus's intent set and edges connect only intents
+
+#### Scenario: Fan-in annotation
+- **WHEN** an intent is the target of edges from k distinct intents
+- **THEN** the view annotates that intent with fan-in k
+
+### Requirement: Derived revision-labeled schema view
+The system SHALL derive the schema view (kinds as nodes, typed reference
+fields as typed edges with allowed targets) from the closed value sets
+served by the new `spk guide --json` subcommand alone, labeled with the
+format revision it was derived from.
+
+#### Scenario: Schema from guide value sets
+- **WHEN** the schema view is rendered
+- **THEN** its nodes and typed edges match the value sets served by `spk guide --json`, and the format revision is named in the output
+
+#### Scenario: Revision bump changes the view
+- **WHEN** a new Revision adds a Reference Typing field and guide reflects it
+- **THEN** the regenerated schema view includes the new field without any renderer change
+
+### Requirement: Build-time generation, never committed
+Rendered views SHALL be generated into the docs build at build time via a
+`just docs-graphs` recipe and SHALL NOT be committed to version control;
+no hand-edit path exists.
+
+#### Scenario: Build leaves the worktree clean
+- **WHEN** `just docs-graphs` runs and the docs build completes
+- **THEN** `git status` reports no new or modified tracked files from view generation
+
+#### Scenario: Empty corpus renders sanely
+- **WHEN** views are generated over a directory with zero spec files
+- **THEN** generation exits 0 and renders a well-formed empty view
+
+## Requirements
+
+### Requirement: Deterministic edge-list projection
+The system SHALL provide `spk graph --format edges` emitting a sorted TSV
+edge list (source id, source kind, typed reference field, target kind,
+target id, annotation) with exactly one row per recorded edge — plus
+annotation rows per the violations requirement below — using frontmatter
+ids only, byte-identical across re-runs on an unchanged corpus. When
+`--format edges` is given, raw TSV goes to stdout, overriding envelope
+formatting.
+
+#### Scenario: Projection over a compliant corpus
+- **WHEN** `spk graph --format edges` runs over a corpus with ≥1 lint-clean intent
+- **THEN** the output is a sorted TSV whose every endpoint is a frontmatter id
+
+#### Scenario: Re-run determinism
+- **WHEN** the projection runs twice over an unchanged corpus
+- **THEN** both outputs are byte-identical
+
+#### Scenario: Display labels excluded
+- **WHEN** the corpus contains label-qualified pseudo-nodes in the raw graph output
+- **THEN** the projection contains only canonical ids — no label-qualified endpoints
+
+### Requirement: Violations never silently hidden
+The edge-list projection SHALL include one annotation row per violation in
+the graph artifact, and views SHALL render violations as annotated (not
+omitted, not silently clean) elements.
+
+#### Scenario: Violation-bearing corpus projects annotated rows
+- **WHEN** the graph artifact reports N typing violations
+- **THEN** the edge list contains exactly N annotation rows
+
+#### Scenario: Views annotate rather than omit
+- **WHEN** a view is rendered from an artifact carrying violations
+- **THEN** each violation appears rendered as a dashed/annotated element
+
+### Requirement: Derived per-file state-machine view
+The system SHALL derive, per corpus file whose artifact contains
+transition edges, a state-machine view from `transitions.from`,
+`transitions.to`, and `transitions.guard` edges alone — no re-walking of
+markdown.
+
+#### Scenario: State machine from edges only
+- **WHEN** a file's spec defines states and guarded transitions
+- **THEN** the derived view shows the same states, transitions, and guard annotations as the file's Model tables
+
+#### Scenario: File without transitions skipped cleanly
+- **WHEN** a file has no transition edges
+- **THEN** no state-machine view is emitted for it and the build succeeds
+
+### Requirement: Derived file-level traceability view
+The system SHALL derive a corpus-level view collapsing all edges to intent
+(file) granularity, annotating fan-in per intent, from the edge list alone.
+
+#### Scenario: Collapse to intents
+- **WHEN** the projection is derived from the specodelic corpus
+- **THEN** the view's node set equals the corpus's intent set and edges connect only intents
+
+#### Scenario: Fan-in annotation
+- **WHEN** an intent is the target of edges from k distinct intents
+- **THEN** the view annotates that intent with fan-in k
+
+### Requirement: Derived revision-labeled schema view
+The system SHALL derive the schema view (kinds as nodes, typed reference
+fields as typed edges with allowed targets) from the closed value sets
+served by the new `spk guide --json` subcommand alone, labeled with the
+format revision it was derived from.
+
+#### Scenario: Schema from guide value sets
+- **WHEN** the schema view is rendered
+- **THEN** its nodes and typed edges match the value sets served by `spk guide --json`, and the format revision is named in the output
+
+#### Scenario: Revision bump changes the view
+- **WHEN** a new Revision adds a Reference Typing field and guide reflects it
+- **THEN** the regenerated schema view includes the new field without any renderer change
+
+### Requirement: Build-time generation, never committed
+Rendered views SHALL be generated into the docs build at build time via a
+`just docs-graphs` recipe and SHALL NOT be committed to version control;
+no hand-edit path exists.
+
+#### Scenario: Build leaves the worktree clean
+- **WHEN** `just docs-graphs` runs and the docs build completes
+- **THEN** `git status` reports no new or modified tracked files from view generation
+
+#### Scenario: Empty corpus renders sanely
+- **WHEN** views are generated over a directory with zero spec files
+- **THEN** generation exits 0 and renders a well-formed empty view
