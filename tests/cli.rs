@@ -2504,3 +2504,105 @@ fn model_check_tlc_backend_depth_cutoff_reports_timed_out() {
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(json["data"]["outcome"], "timed_out");
 }
+
+// ---------------------------------------------------------------------------
+// Corpus discovery (gh#2.2, specodelic-ag5): a consumer repo keeps its specs
+// under an openspec/ tree — bare `spk lint` must not dead-end at "no spec
+// files found" without naming the tree.
+// ---------------------------------------------------------------------------
+
+/// A minimal valid spec file for the consumer-repo fixtures.
+fn consumer_repo_spec(id: &str) -> String {
+    format!(
+        "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n\
+         ## Constraints\n\n\
+         | id | kind | expr | traces_to |\n\
+         |----|------|------|-----------|\n\
+         | c1 | invariant | `holds` | [[{id}]] |\n\
+         \n## Model\n\n\
+         ### States\n\n- s1\n- s2\n\n\
+         ### Transitions\n\n\
+         | id | from | to | guard |\n\
+         |----|------|----|-------|\n\
+         | t | s1 | s2 | [[{id}.c1]] |\n\
+         \n## Properties\n\n\
+         | id | kind | derives_from | generator | predicate |\n\
+         |----|------|--------------|-----------|------------|\n\
+         | p | unit | [[{id}.c1]] | `g()` | `x` |\n"
+    )
+}
+
+/// Consumer-repo shape: no specs/ dir, a parseable spec under
+/// openspec/changes/<change>/specs/<cap>/spec.md.
+fn openspec_consumer_repo(dir: &std::path::Path) {
+    let spec = dir.join("openspec/changes/add-x/specs/x").join("spec.md");
+    std::fs::create_dir_all(spec.parent().unwrap()).unwrap();
+    std::fs::write(&spec, consumer_repo_spec("spec")).unwrap();
+}
+
+#[test]
+fn bare_lint_in_an_openspec_consumer_repo_hints_at_the_tree() {
+    let dir = tempfile::tempdir().unwrap();
+    openspec_consumer_repo(dir.path());
+    let out = spk()
+        .args(["lint", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        stdout.contains("openspec"),
+        "the zero-files failure names the openspec tree: {stdout}"
+    );
+}
+
+#[test]
+fn bare_graph_in_an_openspec_consumer_repo_hints_at_the_tree() {
+    let dir = tempfile::tempdir().unwrap();
+    openspec_consumer_repo(dir.path());
+    let out = spk()
+        .args(["graph", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        stdout.contains("openspec"),
+        "the zero-files failure names the openspec tree: {stdout}"
+    );
+}
+
+#[test]
+fn doctor_names_the_openspec_corpus_in_a_consumer_repo() {
+    let dir = tempfile::tempdir().unwrap();
+    openspec_consumer_repo(dir.path());
+    let out = spk()
+        .args(["doctor", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        stdout.contains("corpus discovery") && stdout.contains("lint openspec"),
+        "doctor discovers the openspec corpus: {stdout}"
+    );
+}
+
+#[test]
+fn doctor_reports_a_missing_corpus_with_the_discovery_rule() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = spk()
+        .args(["doctor", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        stdout.contains("corpus discovery"),
+        "doctor carries the discovery check: {stdout}"
+    );
+}

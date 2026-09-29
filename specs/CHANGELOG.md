@@ -6,6 +6,32 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #60 — corpus discovery: consumer repos' openspec/ tree is named where bare lint/graph/doctor dead-end (specodelic-ag5, gh#2.2)
+
+Adopter report (gh#2 point 2): in an openspec-managed consumer repo, bare
+`spk lint` said "no spec files found" even with 14 dual-format files
+present; the working invocation `spk lint openspec` had to be found by
+trial. Now (option (b)+(c) from the ticket — minimal, composes with the
+exit-code contract):
+
+- **lint/graph zero-files failures name the tree** — when cwd carries an
+  `openspec/` directory, the exit-2 hint becomes "found an openspec/ tree
+  — try: specodelic lint openspec" (graph likewise). The parse-error
+  branch is untouched.
+- **doctor gains a `corpus discovery` check** — reports `ok (specs/)` in
+  self-hosting repos, the openspec tree with a spec-file count in
+  consumer repos, or the discovery rule ("pass a directory containing
+  *.md specs; hidden and build dirs are skipped") otherwise. The
+  consumer next-step prefers `spk lint openspec` when the tree exists.
+- Decision of record (ticket comment): option (a) — a configured corpus
+  path (env var / managed-block line) — deliberately deferred; (b)+(c)
+  fix the discoverability gap without new config surface. Revisit only
+  if adopters report the hint is not enough.
+
+RED→GREEN: 4 tests (lint hint, graph hint, doctor openspec naming,
+doctor missing-corpus rule). Gates: just ci + lint-specs 18/0 + graph 0
+dangling + openspec strict 9/9.
+
 ## #59 — Ro5 review of bc39f9d..main: merge modify/delete conflicts, deletion blast radii, CRLF-safe rename
 
 Review sweep over everything shipped since the suz Ro5 (verify, output

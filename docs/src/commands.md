@@ -19,6 +19,10 @@ carries `rule_id` (`linter.<name>`) and `rule_semantics`.
 
 - Spec: [linter rules](specs/linter-frontmatter.md) (one file per rule family)
 
+When nothing was found and the repo carries an `openspec/` tree (consumer
+repos keep their corpus under `openspec/changes/*/specs/`), the failure
+hint names it — `spk lint openspec` (gh#2.2).
+
 Ingestion is hostile-input hardened (specodelic-suz): only regular files
 under a 2 MiB cap are ever read — a FIFO, device file, or oversized file
 named `*.md` is labeled, named, and skipped (never blocking or
@@ -34,6 +38,9 @@ table — forbidden edges are reported, never recorded), and supersedes
 cycles. The rename/merge/refactor advisors build on it.
 
 - Spec: [graph](specs/graph.md)
+
+Same discovery hint as `lint`: with an `openspec/` tree present, the
+zero-files failure suggests `spk graph openspec`.
 
 ## `spk new <id>`
 
@@ -107,7 +114,9 @@ never re-runs the model checker.
 
 Classifies the workspace (`self_hosting` vs `consumer`), checks the
 local corpus's `Revision N` against the binary's embedded
-`format_revision` — warns, never fails, on lag.
+`format_revision` — warns, never fails, on lag. A `corpus discovery`
+check names where the specs live (`specs/`, an `openspec/` tree with a
+file count, or the discovery rule).
 
 ## `spk explain [topic]`
 

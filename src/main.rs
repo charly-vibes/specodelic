@@ -794,6 +794,16 @@ fn collect_specs(paths: &[String]) -> Vec<std::path::PathBuf> {
 /// this bound is not a spec, and reading it is an unbounded-memory risk.
 const MAX_INPUT_BYTES: u64 = 2 * 1024 * 1024;
 
+/// Corpus discovery (gh#2.2, specodelic-ag5): consumer repos keep their
+/// specs under an openspec/ tree (openspec/changes/*/specs/…), while bare
+/// `spk lint`/`spk graph` scan `specs/` — so the natural invocation finds
+/// nothing and the working one is undiscoverable. When cwd carries an
+/// openspec/ tree, the zero-files failures and doctor name it instead of
+/// leaving trial-and-error.
+fn openspec_tree_present() -> bool {
+    std::path::Path::new("openspec").is_dir()
+}
+
 /// Parse a batch, skipping non-spec files (no frontmatter) with a note.
 fn parse_batch(paths: &[String], verbosity: Verbosity) -> (Vec<Spec>, Vec<String>) {
     let mut specs = vec![];
@@ -891,7 +901,11 @@ fn cmd_lint(
         } else {
             (
                 "no spec files found — nothing was linted",
-                "pass files or directories containing *.md specs with YAML frontmatter (directories are searched recursively; hidden and build dirs are skipped)",
+                if openspec_tree_present() {
+                    "found an openspec/ tree — try: specodelic lint openspec"
+                } else {
+                    "pass files or directories containing *.md specs with YAML frontmatter (directories are searched recursively; hidden and build dirs are skipped)"
+                },
             )
         };
         let mut out: Output<serde_json::Value> = Output::failure(msg).with_next_step(hint);
@@ -943,10 +957,13 @@ fn cmd_graph(
         // Never a silent empty graph on zero files — a typoed path would
         // read as a fully-resolved corpus (specodelic-6pi precedent), and
         // the exit code must say invocation error, not success (7rr item 2).
-        let mut out: Output<serde_json::Value> = Output::failure(
-            "no spec files found — nothing was graphed",
-        )
-        .with_next_step("pass files or directories containing *.md specs with YAML frontmatter");
+        let hint = if openspec_tree_present() {
+            "found an openspec/ tree — try: specodelic graph openspec"
+        } else {
+            "pass files or directories containing *.md specs with YAML frontmatter"
+        };
+        let mut out: Output<serde_json::Value> =
+            Output::failure("no spec files found — nothing was graphed").with_next_step(hint);
         for n in &notes {
             out = out.with_warning(n.clone());
         }
@@ -1931,6 +1948,19 @@ fn cmd_doctor(
     };
     checks.push(("SPECODELIC block".into(), block_check));
 
+    // Corpus discovery (gh#2.2): name where the specs actually live so
+    // the working invocation is never trial-and-error.
+    let discovery = if std::path::Path::new("specs").is_dir() {
+        "ok (specs/)".to_string()
+    } else if openspec_tree_present() {
+        let n = collect_specs(&["openspec".to_string()]).len();
+        format!("found openspec/ ({n} spec file(s)) — lint it with: spk lint openspec")
+    } else {
+        "no corpus — pass a directory containing *.md specs; hidden and build dirs are skipped"
+            .to_string()
+    };
+    checks.push(("corpus discovery".into(), discovery));
+
     let payload = serde_json::json!({
         "mode": mode,
         "checks": checks,
@@ -1949,7 +1979,11 @@ fn cmd_doctor(
     };
     if mode == "consumer" {
         if !std::path::Path::new("specs").is_dir() {
-            out = out.with_next_step("start a corpus with: spk new <intent.id>");
+            if openspec_tree_present() {
+                out = out.with_next_step("run: specodelic lint openspec");
+            } else {
+                out = out.with_next_step("start a corpus with: spk new <intent.id>");
+            }
         } else {
             out = out.with_next_step("run: specodelic lint specs");
         }
