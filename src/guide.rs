@@ -268,6 +268,32 @@ mod tests {
     }
 
     #[test]
+    fn dual_format_topic_documents_self_intent_trace_and_drift_rule() {
+        // gh#5.3: `[[spec]]` (the file's own frontmatter id) is the
+        // intended traces_to target for self-contained deltas.
+        // gh#4: drift between the requirement sections is lint-enforced.
+        let dual = topic_body("dual-format").unwrap();
+        assert!(
+            dual.contains("[[spec]]"),
+            "dual-format topic must document the self-intent traces_to target"
+        );
+        assert!(
+            dual.contains("requirement_drift"),
+            "dual-format topic must state that spk lint enforces mirror sync"
+        );
+    }
+
+    #[test]
+    fn format_topic_documents_escaped_pipes() {
+        // gh#6.5: cells containing a literal pipe must escape it.
+        let format = topic_body("format").unwrap();
+        assert!(
+            format.contains("\\|"),
+            "format topic must document escaped pipes in table cells"
+        );
+    }
+
+    #[test]
     fn unknown_topic_renders_none() {
         assert!(topic_body("nope").is_none());
     }

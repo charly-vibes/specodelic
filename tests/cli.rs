@@ -484,6 +484,52 @@ fn new_scaffold_shows_file_qualified_ref_examples() {
 }
 
 #[test]
+fn help_does_not_leak_flattened_struct_docs_and_labels_orchestrate_stub() {
+    // gh#6.3: the genesis CliFormat doc comment leaked above Usage.
+    // gh#6.4: orchestrate is a stub — the subcommand list must say so.
+    let out = spk().args(["--help"]).output().unwrap();
+    let text = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        !text.contains("Clap-derivable"),
+        "help must not leak internal struct docs"
+    );
+    assert!(text.contains("Specodelic — lint, compile"));
+    let orch = text
+        .lines()
+        .find(|l| l.trim_start().starts_with("orchestrate"))
+        .expect("orchestrate listed in help");
+    assert!(
+        orch.contains("not yet implemented"),
+        "orchestrate must be labeled a stub: {orch}"
+    );
+}
+
+#[test]
+fn lint_failure_hint_does_not_reference_a_notes_field() {
+    // gh#4: the format has no Notes field — the remediation hint must
+    // point at what exists (spk explain lint-rules).
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("bad-spec.md"),
+        "---\nid: bad.spec\nkind: intent\nstatement: \"the system should maybe work\"\n---\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        !stdout.contains("in Notes"),
+        "hint must not cite the nonexistent Notes field"
+    );
+    assert!(
+        stdout.contains("explain lint-rules"),
+        "hint must point at the rule catalog"
+    );
+}
+
+#[test]
 fn doctor_checks_workspace() {
     spk()
         .args(["doctor", "--json"])

@@ -40,6 +40,10 @@ fn exit_code_footer() -> String {
     name = "specodelic",
     version = VERSION,
     about = "Specodelic — lint, compile, verify, and refactor the four-layer markdown spec format",
+    // Without an explicit long_about, clap promotes the flattened
+    // genesis CliFormat struct's doc comment above Usage in `--help`
+    // (gh#6.3: internal dev docs leaked into user help).
+    long_about = "Specodelic — lint, compile, verify, and refactor the four-layer markdown spec format",
     after_help = exit_code_footer(),
 )]
 struct Cli {
@@ -155,7 +159,7 @@ enum Commands {
         /// Current spec tree (defaults to ./specs)
         paths: Vec<String>,
     },
-    /// Run the full lint → compile → model_check → verify pipeline
+    /// Run the full lint → compile → model_check → verify pipeline (not yet implemented — stub)
     Orchestrate {
         /// Files or directories (defaults to ./specs)
         paths: Vec<String>,
@@ -910,7 +914,9 @@ fn cmd_lint(
         out = out.with_warning(n.clone());
     }
     if failures > 0 {
-        out = out.with_next_step("fix the reported invariants, or cite the governing constraint in Notes if it's a false positive");
+        out = out.with_next_step(
+            "fix the reported invariants — each rule's semantics: spk explain lint-rules",
+        );
     } else {
         out = out.with_next_step("run: specodelic graph");
     }

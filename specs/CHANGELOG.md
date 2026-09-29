@@ -6,6 +6,38 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #58 — adopter feedback round 2: drift is lint-enforced, self-file ref hint, help/DX papercuts (gh#4/#5/#6)
+
+Second adopter migration (poco, 25 deltas) surfaced three issues; all
+claims verified on main before filing. Shipped:
+
+- **`linter.requirement_drift` (gh#4)** — the dual-format mirror is now
+  enforced by `spk lint` itself: a file carrying both `## ADDED
+  Requirements` and `## Requirements` must hold identical requirement
+  text (per-line trailing space and blank lines ignored — same
+  normalization as `scripts/check_section_sync.py`, which remains the
+  repo-CI form). Previously drift was silently clean; the explain
+  topic's claim outran the checker.
+- **total_refs self-file hint (gh#5)** — a dangling ref whose target
+  names a row defined in the same file now appends: "hint: row `X` is
+  defined in this file; refs must be file-qualified:
+  `[[<file-id>.X]]`" — no more corpus-hunting for a local fix.
+- **explain dual-format** documents `traces_to: [[spec]]` as the
+  intended self-intent edge (gh#5) and credits `spk lint` (not the repo
+  script) with drift enforcement (gh#4).
+- **lint failure hint** no longer cites the nonexistent `Notes` field —
+  it points at `spk explain lint-rules` (gh#4).
+- **`spk --help`** no longer leaks the genesis CliFormat doc comment
+  above Usage (fixed with an explicit `long_about`; upstream note for
+  genesis pending) and the `orchestrate` stub is labeled "not yet
+  implemented" in the subcommand list (gh#6).
+- **explain format** documents escaped pipes (`\|`) in table cells
+  (gh#6).
+
+Already-fixed-on-main credits: gh#5's scaffold complaint was addressed
+in #56 (df1671e). Filed follow-ups: `spk migrate` (gh#6 item 1,
+highest-value), corpus discovery = specodelic-ag5.
+
 ## #57 — Ro5 correction: the file-qualification doc must match checker behavior (specodelic-ar2 follow-up)
 
 Rule-of-5 over #56 caught a doc/behavior mismatch in the very paragraph

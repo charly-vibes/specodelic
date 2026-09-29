@@ -74,6 +74,11 @@ pub struct Spec {
     /// True when the raw text carries a `## Requirements` heading (the
     /// specodelic capability half of a dual-format file).
     pub has_requirements_section: bool,
+    /// Body of `## ADDED Requirements` (lines rstripped, joined) — the
+    /// drift check compares it against [`Spec::requirements_body`] (gh#4).
+    pub added_requirements_body: String,
+    /// Body of `## Requirements` (lines rstripped, joined).
+    pub requirements_body: String,
     /// All `[[wiki-links]]` found in *structured* fields (frontmatter and
     /// table cells) — never prose. Each link is the raw inner text, which may
     /// be a file id (`specodelic`), a row id (`specodelic.model_present`), or
@@ -225,6 +230,8 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
         properties: vec![],
         has_added_requirements: false,
         has_requirements_section: false,
+        added_requirements_body: String::new(),
+        requirements_body: String::new(),
         links: vec![],
     };
     spec.links
@@ -234,13 +241,37 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
     let mut current_table: TableKind = TableKind::None;
     let mut headers: Vec<String> = vec![];
     let mut in_states = false;
+    // Which dual-format requirement section (if any) we are inside —
+    // bodies are captured verbatim (line-rstripped) for the drift check.
+    let mut dual_section = 0u8; // 0 none · 1 ADDED Requirements · 2 Requirements
 
     for (n, line) in lines {
         let lineno = n + 1;
         let t = line.trim();
 
+        // Capture the requirement-section bodies (every line except the
+        // `## ` headings themselves; `### Requirement:` lines included).
+        if !t.starts_with("## ") {
+            match dual_section {
+                1 => {
+                    spec.added_requirements_body.push_str(line.trim_end());
+                    spec.added_requirements_body.push('\n');
+                }
+                2 => {
+                    spec.requirements_body.push_str(line.trim_end());
+                    spec.requirements_body.push('\n');
+                }
+                _ => {}
+            }
+        }
+
         if let Some(heading) = t.strip_prefix("## ") {
             let h = heading.trim();
+            dual_section = match h {
+                "ADDED Requirements" => 1,
+                "Requirements" => 2,
+                _ => 0,
+            };
             current_table = match h {
                 "Constraints" => TableKind::Constraints,
                 "Properties" => TableKind::Properties,

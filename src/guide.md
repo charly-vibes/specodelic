@@ -39,6 +39,9 @@ File naming law: the frontmatter `id` equals the filename stem with
 
 Prose is never parsed (`prose_untouched`): rationale and description
 text stay free-form. Only frontmatter and the fixed-schema tables carry
+structure. Inside a table cell a literal `|` must be escaped as `\|`
+(e.g. a union type `int \| float \| str`) — the parser splits cells on
+unescaped pipes.
 machine-checkable content, so the linter and compiler inspect
 structured fields exclusively.
 
@@ -174,8 +177,12 @@ only within the file; domain semantics are cited by prose path
 **Enforcement**: `linter.dual_format_valid` — a file carrying
 `## ADDED Requirements` must declare `id: spec` and pair it with the
 sibling `## Requirements` section; a capability spec under
-`openspec/specs/` must be dual-format or CI fails. The section-sync
-check fails on drift between the two requirement sections.
+`openspec/specs/` must be dual-format or CI fails.
+`linter.requirement_drift` (enforced by `spk lint` itself) fails when
+the two requirement sections drift apart (blank lines and trailing
+space ignored). Self-contained deltas trace to their own intent with
+the file's own frontmatter id: `traces_to: [[spec]]` is the intended
+constraint → intent edge for a `id: spec` file.
 
 **Migration** (plain openspec file → compliant):
 

@@ -100,6 +100,10 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
         "every property must derive from at least one constraint",
     ),
     (
+        "requirement_drift",
+        "a dual-format file's ## Requirements mirror must hold the same requirement text as ## ADDED Requirements (blank lines and trailing space ignored)",
+    ),
+    (
         "dual_format_valid",
         "a file carrying `## ADDED Requirements` must be a dual-format file — declare `id: spec` and pair it with a sibling `## Requirements` section",
     ),
@@ -212,6 +216,29 @@ fn lint_one(spec: &Spec, report: &mut Report) {
                 "dual_format_valid",
                 file.clone(),
                 "file carries `## ADDED Requirements` without a sibling `## Requirements` section — not a dual-format file (the capability half is missing; migrate per the recipe in openspec/project.md: mirror the requirement content into ## Requirements, keep the specodelic tables alongside, then gates: spk lint + openspec validate + scripts/check_section_sync.py for drift)".to_string(),
+            ));
+        }
+    }
+
+    // requirement_drift — when both halves of a dual-format file are
+    // present, the mirror must match (gh#4: the migration recipe has
+    // agents hand-create the mirror, so drift is easy and was previously
+    // only caught by this repo's local section-sync script, never by
+    // `spk lint`). Normalization mirrors scripts/check_section_sync.py:
+    // per-line trailing space and blank lines are ignored.
+    if spec.has_added_requirements && spec.has_requirements_section {
+        let norm = |body: &str| -> String {
+            body.lines()
+                .map(str::trim_end)
+                .filter(|l| !l.trim().is_empty())
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        if norm(&spec.added_requirements_body) != norm(&spec.requirements_body) {
+            report.issues.push(Issue::new(
+                "requirement_drift",
+                file.clone(),
+                "## Requirements does not match ## ADDED Requirements — the mirror must hold identical requirement text (blank lines and trailing space ignored); regenerate it from the ADDED section".to_string(),
             ));
         }
     }
@@ -416,18 +443,37 @@ fn lint_references(specs: &[Spec], report: &mut Report) {
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| format!("<{}>", spec.intent.id));
         for link in &spec.links {
+            // Dotless unknown targets skip as metasyntactic (e.g. `[[id]]`
+            // used as format documentation).
             if is_metasyntactic(&link.target, index) {
                 continue;
             }
-            // Skip example links inside expr cells of non-resolvable shape
-            // (e.g. `[[x.y]]` used as format documentation).
             if !index.resolves(&link.target) {
-                report.issues.push(Issue::new("total_refs", file.clone(), format!(
-                        "dangling reference `[[{}]]` from {}{} — target not defined in any spec file",
-                        link.target,
-                        link.field,
-                        if link.column.is_empty() { String::new() } else { format!(".{}", link.column) }
-                    )));
+                let mut msg = format!(
+                    "dangling reference `[[{}]]` from {}{} — target not defined in any spec file",
+                    link.target,
+                    link.field,
+                    if link.column.is_empty() {
+                        String::new()
+                    } else {
+                        format!(".{}", link.column)
+                    }
+                );
+                // gh#5: when the unresolved target names a row that lives
+                // in this very file, the fix is local — say so and show
+                // the file-qualified form instead of sending the author
+                // corpus-hunting.
+                if let Some(rows) = index.files.get(&spec.intent.id)
+                    && rows.contains(&link.target)
+                {
+                    msg.push_str(&format!(
+                        " — hint: row `{}` is defined in this file; refs must be file-qualified: `[[{}.{}]]`",
+                        link.target, spec.intent.id, link.target
+                    ));
+                }
+                report
+                    .issues
+                    .push(Issue::new("total_refs", file.clone(), msg));
             }
         }
     }
@@ -526,6 +572,12 @@ mod tests {
                 "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## Purpose\nHalf a dual-format file.\n\n## ADDED Requirements\n\n### Requirement: Something\nThe system SHALL do the thing.\n",
                 "spec.md",
             ),
+            // fires requirement_drift (mirrored ## Requirements drifted
+            // from ## ADDED Requirements — gh#4)
+            spec_at(
+                "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds BUT THE MIRROR DRIFTED\n",
+                "spec.md",
+            ),
         ]
     }
 
@@ -593,6 +645,92 @@ mod tests {
             cov.message.contains("[[spec.c]]") || cov.message.contains("[[t.c]]"),
             "coverage hint must show the wiki-link form of the required target: {}",
             cov.message
+        );
+    }
+
+    #[test]
+    fn requirement_drift_fires_on_mirrored_section_drift() {
+        // gh#4: explain dual-format promises a drift check; the mirror
+        // must match the ADDED section (normalized like
+        // scripts/check_section_sync.py: per-line trailing space and
+        // blank lines ignored).
+        let drifted = spec_at(
+            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds BUT THE MIRROR DRIFTED\n",
+            "spec.md",
+        );
+        let report = lint_corpus(&[drifted]);
+        let drift = report
+            .issues
+            .iter()
+            .find(|i| i.rule_id == "linter.requirement_drift")
+            .expect("drift finding fires on mismatched mirrors");
+        assert!(
+            drift.message.contains("## Requirements"),
+            "finding must name the mirror section: {}",
+            drift.message
+        );
+        // Identical mirrors (differing only in blank lines / trailing
+        // space) stay clean.
+        let clean = spec_at(
+            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds  \n\n\n",
+            "spec.md",
+        );
+        let report = lint_corpus(&[clean]);
+        assert!(
+            !report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.requirement_drift"),
+            "blank-line/trailing-space-only differences must not fire: {:?}",
+            report.issues
+        );
+    }
+
+    #[test]
+    fn total_refs_hint_points_at_the_file_qualified_form() {
+        // gh#5: a bare dotted row ref in a self-contained dual-format file
+        // dangles with 'not defined in any spec file' — the finding must
+        // hint that the row exists right here and show the fixed form.
+        let spec = spec_at(
+            "---\nid: spec\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| thing.one | invariant | `x` | [[spec]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t1 | s1 | s1 | [[thing.one]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[spec.thing.one]] | `g()` | `x` |\n",
+            "spec.md",
+        );
+        let report = lint_corpus(&[spec]);
+        let dangling = report
+            .issues
+            .iter()
+            .find(|i| i.rule_id == "linter.total_refs")
+            .expect("bare dotted row ref dangles");
+        assert!(
+            dangling.message.contains("[[spec.thing.one]]"),
+            "hint must show the file-qualified fix: {}",
+            dangling.message
+        );
+        assert!(
+            dangling.message.contains("defined in this file"),
+            "hint must say the row is local: {}",
+            dangling.message
+        );
+    }
+
+    #[test]
+    fn total_refs_hint_absent_for_genuinely_unknown_targets() {
+        // gh#5: the hint only fires when the row actually exists in the
+        // same file — unknown targets keep the plain message.
+        let spec = spec_at(
+            "---\nid: spec\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | [[spec]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t1 | s1 | s1 | [[spec.nope]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[spec.c]] | `g()` | `x` |\n",
+            "spec.md",
+        );
+        let report = lint_corpus(&[spec]);
+        let dangling = report
+            .issues
+            .iter()
+            .find(|i| i.rule_id == "linter.total_refs")
+            .expect("unknown row dangles");
+        assert!(
+            !dangling.message.contains("defined in this file"),
+            "no hint for a target that exists nowhere: {}",
+            dangling.message
         );
     }
 
