@@ -4,7 +4,7 @@
 \* self-contained so any engine can open it.
 
 \* Each State becomes a value in the state variable's range.
-StateValues == {"not_run", "running", "clean", "counterexample_found", "timed_out"}
+StateValues == {"not_run", "running", "clean", "counterexample_found", "timed_out", "exploration_only"}
 
 VARIABLES vpc   \* the state variable (program counter)
 
@@ -24,6 +24,8 @@ Next ==
   \/ vpc = "running" /\ vpc' = "counterexample_found"
   \* finish_timeout: running -> timed_out (guard: `the stated bound was not reached before the run's time/state budget expired`)
   \/ vpc = "running" /\ vpc' = "timed_out"
+  \* finish_exploration: running -> exploration_only (guard: [[model_check.exhaustive_within_bound]] ∧ `the backend executed no invariant predicates — a completed exploration is evidence the space ends within the bound, never that the model holds`)
+  \/ vpc = "running" /\ vpc' = "exploration_only"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc

@@ -46,6 +46,10 @@ pub mod spec_gen {
         Just(GenVal("arbitrary_model_with_no_violation_within_bound".into()))
     }
 
+    pub fn model_with_only_prose_invariants_exhausted_within_bound() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("model_with_only_prose_invariants_exhausted_within_bound".into()))
+    }
+
 }
 
 proptest! {
@@ -125,6 +129,16 @@ proptest! {
     #[test]
     fn clean_model_passes(v0 in spec_gen::arbitrary_model_with_no_violation_within_bound()) {
         todo_predicate!("`check(model) == clean`");
+    }
+}
+
+proptest! {
+    // id: exploration_run_is_not_a_clean_verdict
+    // generator: `model_with_only_prose_invariants_exhausted_within_bound()`
+    // predicate: `check(model).outcome == exploration_only` — never read as no_counterexample
+    #[test]
+    fn exploration_run_is_not_a_clean_verdict(v0 in spec_gen::model_with_only_prose_invariants_exhausted_within_bound()) {
+        todo_predicate!("`check(model).outcome == exploration_only` — never read as no_counterexample");
     }
 }
 

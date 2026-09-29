@@ -71,10 +71,10 @@ proptest! {
 proptest! {
     // id: tla_disjunct_count_matches
     // generator: `arbitrary_model_section(n_transitions)`
-    // predicate: `count(disjuncts(compile(model).Next)) == n_transitions`
+    // predicate: `count(disjuncts(compile(model).Next)) == n_transitions + 1` — the closing stuttering disjunct
     #[test]
     fn tla_disjunct_count_matches(v0 in spec_gen::arbitrary_model_section()) {
-        todo_predicate!("`count(disjuncts(compile(model).Next)) == n_transitions`");
+        todo_predicate!("`count(disjuncts(compile(model).Next)) == n_transitions + 1` — the closing stuttering disjunct");
     }
 }
 
