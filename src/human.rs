@@ -162,6 +162,58 @@ pub fn doctor(payload: &serde_json::Value) -> String {
     out
 }
 
+/// `spk explain` topic list — one `id — title` line per topic.
+pub fn explain_topics(payload: &serde_json::Value) -> String {
+    let mut out = String::from("explain topics:");
+    if let Some(topics) = payload["topics"].as_array() {
+        for t in topics {
+            out.push_str(&format!(
+                "\n  {} — {}",
+                t["id"].as_str().unwrap_or("?"),
+                t["title"].as_str().unwrap_or("?")
+            ));
+        }
+    }
+    out
+}
+
+/// `spk init` — the managed-block outcome as one line.
+pub fn init(payload: &serde_json::Value) -> String {
+    format!(
+        "{}: block {} — format {}",
+        payload["file"].as_str().unwrap_or("?"),
+        payload["block"].as_str().unwrap_or("?"),
+        payload["format_revision"].as_str().unwrap_or("?")
+    )
+}
+
+/// `spk hooks install|uninstall` — outcome, gate dry-run verdict.
+pub fn hooks(payload: &serde_json::Value) -> String {
+    let outcome = payload["outcome"].as_str().unwrap_or("?");
+    match outcome {
+        "wired" | "already_wired" => {
+            let gate = &payload["gate_dry_run"];
+            let gate_line = format!(
+                "  gate dry-run: {} — {}",
+                if gate["passed"].as_bool().unwrap_or(false) {
+                    "passed"
+                } else {
+                    "FAILED"
+                },
+                gate["summary"].as_str().unwrap_or("?")
+            );
+            format!(
+                "hooks: {} — {} (stage {})\n{}",
+                outcome,
+                payload["command"].as_str().unwrap_or("?"),
+                payload["stage"].as_str().unwrap_or("?"),
+                gate_line
+            )
+        }
+        _ => format!("hooks: {outcome}"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

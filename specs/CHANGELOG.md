@@ -6,6 +6,21 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #50 — output-contract residuals: exit codes for invalid invocations, human text everywhere (specodelic-7rr follow-up)
+
+Pre-release sweep of the remaining 7rr-class warts:
+
+- **Exit codes**: unknown `explain` topics and `new`-onto-an-existing-file
+  now exit **2** (invalid invocation — uniform with clap argument errors
+  and the no-files case) instead of 1; `1` stays reserved for findings /
+  tool-level failures.
+- **`--human` is Debug-free repo-wide**: `explain` (topic list renders as
+  `id — title` lines), `new` (unquoted `created <path>`), `init` (one
+  block-outcome line), and `hooks install/uninstall` (outcome + gate
+  dry-run verdict) all render real text; every failure path now prints
+  nothing to stdout — message, notes, and footer ride stderr. The old
+  `emit` helper is gone; every verb routes through `emit_report`.
+
 ## #49 — docs drift: STATUS revision row, USAGE quick-start lint-clean (specodelic-vpx)
 
 - `specs/STATUS.md`'s corpus table recorded `specodelic.md — Done —

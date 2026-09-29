@@ -233,21 +233,28 @@ fn print_version_json() -> bool {
 /// is embedded via `include_str!`, no repo access needed.
 fn cmd_explain(
     topic: Option<&str>,
-    cli: &Cli,
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) -> i32 {
     let Some(topic) = topic else {
-        let topics: Vec<serde_json::Value> = guide::TOPICS
-            .iter()
-            .map(|(id, title)| serde_json::json!({ "id": id, "title": title }))
-            .collect();
-        let out: Output<serde_json::Value> =
-            Output::success(serde_json::json!({ "topics": topics }))
-                .with_next_step("run: specodelic explain <topic> — try: specodelic explain format");
-        emit(&out, cli, format, verbosity, stdout, stderr);
+        let payload = serde_json::json!({
+            "topics": guide::TOPICS
+                .iter()
+                .map(|(id, title)| serde_json::json!({ "id": id, "title": title }))
+                .collect::<Vec<_>>(),
+        });
+        let out: Output<serde_json::Value> = Output::success(payload.clone())
+            .with_next_step("run: specodelic explain <topic> — try: specodelic explain format");
+        emit_report(
+            out,
+            Some(human::explain_topics(&payload)),
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        );
         return 0;
     };
     match guide::topic_body(topic) {
@@ -268,7 +275,7 @@ fn cmd_explain(
                     .emit(VERSION, format, verbosity, stdout, stderr)
                     .ok();
             } else {
-                emit(&out, cli, format, verbosity, stdout, stderr);
+                out.emit(VERSION, format, verbosity, stdout, stderr).ok();
             }
             0
         }
@@ -281,8 +288,10 @@ fn cmd_explain(
             let out: Output<serde_json::Value> =
                 Output::failure(format!("unknown topic `{topic}` — valid topics: {valid}"))
                     .with_next_step("run: specodelic explain (no argument) to list the topics");
-            emit(&out, cli, format, verbosity, stdout, stderr);
-            1
+            // Unknown topic = invalid invocation (clap argument errors
+            // also exit 2) — specodelic-7rr residual.
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            2
         }
     }
 }
@@ -294,7 +303,6 @@ fn cmd_explain(
 /// block body — force exists so scripts record the intent).
 fn cmd_init(
     _force: bool,
-    cli: &Cli,
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl std::io::Write,
@@ -308,15 +316,22 @@ fn cmd_init(
                 genesis::managed_block::InjectResult::Prepended => "injected",
                 genesis::managed_block::InjectResult::Updated => "updated",
             };
-            let out: Output<serde_json::Value> = Output::success(serde_json::json!({
+            let payload = serde_json::json!({
                 "file": blocks::BLOCK_FILE,
                 "block": action,
                 "format_revision": guide::FORMAT_REVISION,
-            }))
-            .with_next_step(
+            });
+            let out: Output<serde_json::Value> = Output::success(payload.clone()).with_next_step(
                 "agents in this repo now see the spec rules; check specs with: spk lint",
             );
-            emit(&out, cli, format, verbosity, stdout, stderr);
+            emit_report(
+                out,
+                Some(human::init(&payload)),
+                format,
+                verbosity,
+                stdout,
+                stderr,
+            );
             0
         }
         Err(e) => {
@@ -325,7 +340,7 @@ fn cmd_init(
                 blocks::BLOCK_FILE
             ))
             .with_next_step("check directory permissions, or pass an explicit path once AGENTS.md support lands elsewhere");
-            emit(&out, cli, format, verbosity, stdout, stderr);
+            emit_report(out, None, format, verbosity, stdout, stderr);
             1
         }
     }
@@ -347,7 +362,6 @@ fn cmd_init(
 /// with an escape hint, never a commit trap), and the envelope.
 fn cmd_hooks(
     install_action: bool,
-    cli: &Cli,
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl std::io::Write,
@@ -358,7 +372,7 @@ fn cmd_hooks(
         Err(err) => {
             let out: Output<serde_json::Value> = Output::failure(err.to_string())
                 .with_next_step("run from inside the repository that owns the hook chain");
-            emit(&out, cli, format, verbosity, stdout, stderr);
+            emit_report(out, None, format, verbosity, stdout, stderr);
             return 1;
         }
     };
@@ -374,7 +388,7 @@ fn cmd_hooks(
             .with_next_step(
                 "adopt the openspec layout first (openspec init), then re-run: spk hooks install",
             );
-            emit(&out, cli, format, verbosity, stdout, stderr);
+            emit_report(out, None, format, verbosity, stdout, stderr);
             return 1;
         }
         let (outcome, config) = match specodelic::hooks::install(&root) {
@@ -391,7 +405,7 @@ fn cmd_hooks(
                     .with_next_step(
                         "inspect the hook config manually, then re-run: spk hooks install",
                     );
-                emit(&out, cli, format, verbosity, stdout, stderr);
+                emit_report(out, None, format, verbosity, stdout, stderr);
                 return 1;
             }
         };
@@ -400,7 +414,7 @@ fn cmd_hooks(
         // command once so a repo whose tree would fail immediately gets
         // a warning + escape hint instead of a commit trap.
         let dry_run = gate_dry_run(&root);
-        let mut out: Output<serde_json::Value> = Output::success(serde_json::json!({
+        let payload = serde_json::json!({
             "command": specodelic::hooks::GATE_COMMAND,
             "stage": specodelic::hooks::STAGE,
             "config": config,
@@ -412,26 +426,42 @@ fn cmd_hooks(
                 "passed": dry_run.passed,
                 "summary": dry_run.summary,
             }),
-        }))
-        .with_next_step("the gate runs on every commit — adjust anytime with: spk hooks uninstall");
+        });
+        let mut out: Output<serde_json::Value> = Output::success(payload.clone()).with_next_step(
+            "the gate runs on every commit — adjust anytime with: spk hooks uninstall",
+        );
         if !dry_run.passed {
             out = out.with_warning(format!(
                 "the gate dry-run failed: {} — the wired gate will fail on commits until the tree is fixed; escape hatch: spk hooks uninstall",
                 dry_run.summary
             ));
         }
-        emit(&out, cli, format, verbosity, stdout, stderr);
+        emit_report(
+            out,
+            Some(human::hooks(&payload)),
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        );
         0
     } else {
         match specodelic::hooks::uninstall(&root) {
             Ok(outcome) => {
-                let out: Output<serde_json::Value> = Output::success(serde_json::json!({
+                let payload = serde_json::json!({
                     "outcome": match outcome {
                         specodelic::hooks::UnwireOutcome::Removed => "unwired",
                         specodelic::hooks::UnwireOutcome::NotWired => "not_wired",
                     },
-                }));
-                emit(&out, cli, format, verbosity, stdout, stderr);
+                });
+                emit_report(
+                    Output::success(payload.clone()),
+                    Some(human::hooks(&payload)),
+                    format,
+                    verbosity,
+                    stdout,
+                    stderr,
+                );
                 0
             }
             Err(err) => {
@@ -439,7 +469,7 @@ fn cmd_hooks(
                     .with_next_step(
                         "fix the managed-block markers manually, then re-run: spk hooks uninstall",
                     );
-                emit(&out, cli, format, verbosity, stdout, stderr);
+                emit_report(out, None, format, verbosity, stdout, stderr);
                 1
             }
         }
@@ -609,24 +639,24 @@ fn run(
             let out: Output<serde_json::Value> =
                 Output::failure("not yet implemented — specced in specs/rename.md, specs/refactor.md, and specs/merge.md")
                     .with_next_step("track progress: bd ready");
-            out.emit(VERSION, format, verbosity, stdout, stderr).ok();
+            emit_report(out, None, format, verbosity, stdout, stderr);
             1
         }
         Commands::Orchestrate { .. } => {
             let out: Output<serde_json::Value> =
                 Output::failure("not yet implemented — specced in specs/orchestrate.md (lint → compile → model_check → verify)")
                     .with_next_step("run the stages individually: specodelic lint specs && specodelic graph specs");
-            out.emit(VERSION, format, verbosity, stdout, stderr).ok();
+            emit_report(out, None, format, verbosity, stdout, stderr);
             1
         }
         Commands::New { id, file } => {
-            cmd_new(id, file.as_deref(), cli, format, verbosity, stdout, stderr)
+            cmd_new(id, file.as_deref(), format, verbosity, stdout, stderr)
         }
         Commands::Explain { topic } => {
-            cmd_explain(topic.as_deref(), cli, format, verbosity, stdout, stderr)
+            cmd_explain(topic.as_deref(), format, verbosity, stdout, stderr)
         }
         Commands::Doctor => cmd_doctor(format, verbosity, stdout, stderr),
-        Commands::Init { force } => cmd_init(*force, cli, format, verbosity, stdout, stderr),
+        Commands::Init { force } => cmd_init(*force, format, verbosity, stdout, stderr),
         Commands::Feedback {
             kind,
             dry_run,
@@ -635,7 +665,6 @@ fn run(
         } => cmd_feedback(kind, *dry_run, *from_last_error, title.as_deref()),
         Commands::Hooks { action } => cmd_hooks(
             matches!(action, HooksAction::Install),
-            cli,
             format,
             verbosity,
             stdout,
@@ -648,7 +677,7 @@ fn run(
                 Err(e) => {
                     let out: Output<serde_json::Value> =
                         Output::failure(format!("completions generation failed: {e}"));
-                    out.emit(VERSION, format, verbosity, stdout, stderr).ok();
+                    emit_report(out, None, format, verbosity, stdout, stderr);
                     1
                 }
             }
@@ -768,23 +797,6 @@ fn parse_batch(paths: &[String], verbosity: Verbosity) -> (Vec<Spec>, Vec<String
     (specs, notes)
 }
 
-fn emit<T: serde::Serialize + std::fmt::Debug>(
-    out: &Output<T>,
-    cli: &Cli,
-    format: OutputFormat,
-    verbosity: Verbosity,
-    stdout: &mut impl std::io::Write,
-    stderr: &mut impl std::io::Write,
-) {
-    out.emit(VERSION, format, verbosity, stdout, stderr).ok();
-    let _ = cli;
-}
-
-/// Emit a report in the requested format. Human mode prints the per-verb
-/// human text (specodelic-7rr item 3 — real text, not a Rust Debug dump)
-/// and suppresses the Debug rendering by raising the output's verbosity
-/// threshold (the explain pattern, design Decision 3); JSON mode emits
-/// the envelope as usual. Footer and warnings keep genesis's rendering.
 fn emit_report<T: serde::Serialize + std::fmt::Debug>(
     out: Output<T>,
     human_text: Option<String>,
@@ -1343,7 +1355,6 @@ fn write_artifacts(
 fn cmd_new(
     id: &str,
     file: Option<&str>,
-    cli: &Cli,
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl std::io::Write,
@@ -1361,8 +1372,10 @@ fn cmd_new(
         let out: Output<serde_json::Value> =
             Output::failure(format!("{} already exists", path.display()))
                 .with_next_step("edit the existing file instead");
-        emit(&out, cli, format, verbosity, stdout, stderr);
-        return 1;
+        // Refusing to overwrite is an invocation error, not a tool
+        // failure (specodelic-7rr residual) — distinct exit code.
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
     }
     // Scaffold with per-layer HTML-comment guidance (task 4.1). The
     // guidance teaches in-place, is trivially deleted, and the linter —
@@ -1431,18 +1444,18 @@ Full format guide: spk explain -->
     );
     match std::fs::write(&path, template) {
         Ok(()) => {
-            let out =
-                Output::success(format!("created {}", path.display())).with_next_step(format!(
-                    "fill in the four layers, then run: specodelic lint {0}",
-                    path.display()
-                ));
-            emit(&out, cli, format, verbosity, stdout, stderr);
+            let message = format!("created {}", path.display());
+            let out = Output::success(message.clone()).with_next_step(format!(
+                "fill in the four layers, then run: specodelic lint {0}",
+                path.display()
+            ));
+            emit_report(out, Some(message), format, verbosity, stdout, stderr);
             0
         }
         Err(e) => {
             let out: Output<serde_json::Value> =
                 Output::failure(format!("could not write {}: {e}", path.display()));
-            emit(&out, cli, format, verbosity, stdout, stderr);
+            emit_report(out, None, format, verbosity, stdout, stderr);
             1
         }
     }

@@ -1768,3 +1768,98 @@ fn usage_quick_start_example_is_lint_clean() {
         "quick-start spec must lint clean: {stdout}"
     );
 }
+
+// ---- specodelic-7rr residuals: explain/new/hooks human text + exit codes ----
+
+#[test]
+fn explain_unknown_topic_exits_two() {
+    // Unknown topic = invalid invocation (clap argument errors also exit
+    // 2) — distinct from tool-level failure (1).
+    let out = spk()
+        .args(["explain", "nosuchtopic", "--json"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+}
+
+#[test]
+fn new_existing_file_exits_two() {
+    // Overwriting an existing file is refused — an invocation error, not
+    // a tool-level failure.
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("demo-thing.md");
+    std::fs::write(&file, "exists").unwrap();
+    let out = spk()
+        .args([
+            "new",
+            "demo.thing",
+            "--file",
+            file.to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+}
+
+#[test]
+fn human_explain_lists_topics_not_debug() {
+    let out = spk().args(["explain", "--human"]).output().unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_human_text(&stdout, "explain list");
+    assert!(
+        stdout.contains("dual-format"),
+        "the topic list renders each topic: {stdout}"
+    );
+}
+
+#[test]
+fn human_explain_unknown_topic_has_no_debug_junk() {
+    let out = spk()
+        .args(["explain", "nosuchtopic", "--human"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_human_text(&stdout, "explain unknown");
+    assert!(
+        !stdout.contains('"'),
+        "no quoted Debug strings on stdout — the message rides stderr: {stdout:?}"
+    );
+}
+
+#[test]
+fn human_new_reports_unquoted() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = spk()
+        .args([
+            "new",
+            "demo.thing",
+            "--file",
+            &format!("{}/demo-thing.md", dir.path().display()),
+            "--human",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(stdout.contains("created"), "{stdout}");
+    assert!(
+        !stdout.contains('"'),
+        "no quoted Debug string on stdout: {stdout:?}"
+    );
+}
+
+#[test]
+fn human_hooks_uninstall_renders_text() {
+    let dir = hooks_fixture(true, true);
+    let out = spk()
+        .args(["hooks", "uninstall", "--human"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert_human_text(&stdout, "hooks uninstall");
+    assert!(
+        stdout.contains("unwired") || stdout.contains("not_wired"),
+        "the outcome appears as human text: {stdout}"
+    );
+}
