@@ -32,3 +32,12 @@ target
 .dolt/
 *.db
 .beads-credential-key
+
+# mdBook docs: generated copies of the spec trees + build output
+# (source of truth is specs/ and openspec/specs/ — copied at build time)
+docs/src/specs/
+docs/src/openspec/
+docs/book/
+
+# Archive recipe gate lock (beads pre-commit)
+.beads.gate.lock

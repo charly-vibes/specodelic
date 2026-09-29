@@ -80,6 +80,17 @@ archive-change id:
     echo "archived: openspec/specs/$cap/spec.md (dual-format, verbatim)"
     done
 
+# Build the docs book locally, mirroring the docs.yml workflow steps
+docs-build:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf docs/src/specs docs/src/openspec
+    cp -r specs docs/src/specs
+    cp -r openspec/specs docs/src/openspec
+    mdbook build docs
+    cp llms.txt docs/book/llms.txt
+    echo "docs built: docs/book/index.html"
+
 # === CI Pipeline ===
 
 ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections
