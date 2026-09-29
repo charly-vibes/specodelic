@@ -6,6 +6,33 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #46 — hostile-input hardening: ingestion gate + codegen identifier sanitizer (specodelic-suz)
+
+Two trust boundaries read or emitted from files that may not be what
+they claim:
+
+**Ingestion** (`parse_batch`, shared by lint/compile/verify/model-check):
+`std::fs::read_to_string` with no file-type or size check — `spk lint` on
+a FIFO named `*.md` blocks forever (exit 124 under timeout); `/dev/zero`
+reads unbounded and OOM-kills (confirmed mechanism, tested under ulimit).
+Now: metadata is checked before any read — only regular files under a
+**2 MiB cap** (corpus files are ~10-50 KB) are ingested; everything else
+is labeled, names the offending path, and is skipped. When nothing else
+was linted, the labeled notes ride the failure envelope (they previously
+vanished into the generic "no spec files found" — parse-error notes had
+the same silent fate, now fixed).
+
+**Codegen** (`sanitize_ident`): the row-id → Rust-identifier sanitizer
+covers hostile ids — leading digits and unicode were already handled
+(pinned); reserved words (`fn fn(…)` does not compile) are prefixed with
+`_`, the empty id becomes `_`, and ids beyond a 64-char cap are truncated
+with a stable **FNV-1a** hash suffix (std's `DefaultHasher` is
+release-unstable; emitted artifacts are byte-stable) so same-prefix ids
+never collide.
+
+Gates: just ci + lint-specs 0 + graph 0 dangling + openspec strict 8/8;
+corpus artifacts byte-identical (corpus ids are short — no fn-name churn).
+
 ## #45 — artifact consistency checks edges and Output, not just ids (specodelic-8nt)
 
 `assert_artifact_consistent` compared only the compiled `.tla` module's

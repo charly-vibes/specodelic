@@ -361,8 +361,28 @@ fn required_law_cases(predicate: &str) -> Vec<String> {
     }
 }
 
+/// Rust keywords — a sanitized identifier equal to one of these is a
+/// keyword, not a fn name (`fn fn(…)` does not compile; hostile-input
+/// gate, specodelic-suz). Strict + reserved keywords; weak keywords
+/// (`union`, `gen`) are usable as fn names and excluded.
+const RUST_KEYWORDS: &[&str] = &[
+    "as", "break", "const", "continue", "crate", "else", "enum", "extern", "false", "fn", "for",
+    "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref", "return",
+    "self", "Self", "static", "struct", "super", "trait", "true", "type", "unsafe", "use", "where",
+    "while", "async", "await", "dyn", "abstract", "become", "box", "do", "final", "macro",
+    "override", "priv", "typeof", "unsized", "virtual", "yield",
+];
+
+/// The emitted-identifier cap (hostile-input gate, specodelic-suz): a
+/// hostile 200-char id must not emit a 200-char fn name. Prefix above
+/// the cap + a 16-hex FNV-1a suffix of the full id = 64 chars total.
+const MAX_IDENT_LEN: usize = 64;
+
 /// Sanitize a spec id into a valid Rust identifier (ids are never altered —
 /// the verbatim id travels in the block's comment for id preservation).
+/// Hostile-input gate (specodelic-suz): reserved words are prefixed, the
+/// empty id becomes `_`, and ids beyond the cap are truncated with a
+/// stable FNV-1a hash suffix so same-prefix ids never collide.
 fn sanitize_ident(id: &str) -> String {
     let s: String = id
         .chars()
@@ -374,11 +394,34 @@ fn sanitize_ident(id: &str) -> String {
             }
         })
         .collect();
-    if s.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+    let mut s = if s.chars().next().is_some_and(|c| c.is_ascii_digit()) {
         format!("_{s}")
     } else {
         s
+    };
+    if s.is_empty() {
+        return "_".into();
     }
+    if RUST_KEYWORDS.contains(&s.as_str()) {
+        s = format!("_{s}");
+    }
+    if s.len() > MAX_IDENT_LEN {
+        let hash = fnv1a_64(id.as_bytes());
+        s = format!("{}_{:016x}", &s[..MAX_IDENT_LEN - 17], hash);
+    }
+    s
+}
+
+/// FNV-1a 64-bit — stable across Rust releases (std's DefaultHasher is
+/// keyed per-process and its algorithm may change; emitted artifacts are
+/// byte-stable, so the suffix must be too).
+fn fnv1a_64(bytes: &[u8]) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for &b in bytes {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    h
 }
 
 // ---------------------------------------------------------------------------
@@ -642,6 +685,47 @@ fn ir_contains_id(ir: &ModelIr, id: &str) -> bool {
 mod tests {
     use super::*;
     use crate::spec::parse_str;
+
+    #[test]
+    fn sanitize_ident_leading_digit_and_unicode_are_valid_rust_idents() {
+        // specodelic-suz (pinning): a digit-leading id gets an underscore
+        // prefix; unicode chars are replaced — both results are valid
+        // Rust identifiers.
+        assert_eq!(sanitize_ident("9lives"), "_9lives");
+        assert_eq!(sanitize_ident("café"), "caf_");
+        for s in [sanitize_ident("9lives"), sanitize_ident("café")] {
+            let first = s.chars().next().unwrap();
+            assert!(first == '_' || first.is_ascii_alphabetic());
+            assert!(s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'));
+        }
+    }
+
+    #[test]
+    fn sanitize_ident_never_yields_a_rust_keyword_or_empty() {
+        // specodelic-suz: a reserved word passes the char map untouched
+        // and must still not become a fn name — `fn fn(…)` does not
+        // compile; the empty id must not become `fn ()` either.
+        for kw in [
+            "fn", "match", "async", "await", "impl", "type", "self", "Self",
+        ] {
+            assert_eq!(sanitize_ident(kw), format!("_{kw}"), "keyword {kw}");
+        }
+        assert_eq!(sanitize_ident(""), "_");
+    }
+
+    #[test]
+    fn sanitize_ident_caps_extremely_long_ids_and_stays_unique_deterministic() {
+        // specodelic-suz: a hostile 200-char id must not emit a 200-char
+        // fn name — capped, and two ids sharing a prefix beyond the cap
+        // must not collide (the suffix hash disambiguates them).
+        let prefix = "a".repeat(200);
+        let a = sanitize_ident(&prefix);
+        let b = sanitize_ident(&format!("{prefix}x"));
+        assert!(a.len() <= 64, "capped: {}", a.len());
+        assert!(b.len() <= 64, "capped: {}", b.len());
+        assert_ne!(a, b, "same-prefix long ids must not collide");
+        assert_eq!(a, sanitize_ident(&prefix), "deterministic");
+    }
 
     const SAMPLE: &str = "---\nid: demo.thing\nkind: intent\nstatement: \"THE system SHALL work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x holds` | [[demo.thing]] |\n| b | effect | `y fires` | [[demo.thing]] |\n\n## Model\n\n### States\n\n- s1\n- s2 (emits: `[[demo.thing.b]]`)\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t1 | s1 | s2 | [[demo.thing.a]] |\n| t2 | s2 | s1 | `done` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p1 | unit | [[demo.thing.a]] | `arbitrary_row()` | `check(x) == ok` |\n| p2 | law | [[demo.thing.a]] | `arbitrary_row(), other()` | **identity:** `f(a) == a` **associativity:** `f(f(a)) == f(a)` |\n";
 

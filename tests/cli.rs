@@ -1308,7 +1308,9 @@ fn lint_on_a_char_device_is_rejected_never_reads_unbounded() {
 fn lint_on_an_oversized_file_names_the_cap() {
     let dir = tempfile::tempdir().unwrap();
     let big = dir.path().join("big.md");
-    let mut content = String::from("---\nid: big\nkind: intent\nstatement: \"THE system SHALL be oversized\"\n---\n\n");
+    let mut content = String::from(
+        "---\nid: big\nkind: intent\nstatement: \"THE system SHALL be oversized\"\n---\n\n",
+    );
     content.push_str(&"x".repeat(3 * 1024 * 1024));
     std::fs::write(&big, content).unwrap();
     let out = spk()
@@ -1319,10 +1321,7 @@ fn lint_on_an_oversized_file_names_the_cap() {
     // A rejected input is a labeled failure when nothing else was linted.
     assert!(!out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(
-        stdout.contains("2 MiB"),
-        "the cap must be named: {stdout}"
-    );
+    assert!(stdout.contains("2 MiB"), "the cap must be named: {stdout}");
     assert!(
         stdout.contains("big.md"),
         "the offending path must be named: {stdout}"

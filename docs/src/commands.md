@@ -12,6 +12,12 @@ carries `rule_id` (`linter.<name>`) and `rule_semantics`.
 
 - Spec: [linter rules](specs/linter-frontmatter.md) (one file per rule family)
 
+Ingestion is hostile-input hardened (specodelic-suz): only regular files
+under a 2 MiB cap are ever read — a FIFO, device file, or oversized file
+named `*.md` is labeled, named, and skipped (never blocking or
+unbounded-memory); when nothing else was linted, the labeled notes ride
+the failure envelope.
+
 ## `spk graph <files|dirs>`
 
 Derives the reference graph from `[[wiki-links]]`: nodes, edges, fan-in/
