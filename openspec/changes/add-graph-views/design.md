@@ -12,7 +12,13 @@ by construction. What is missing is a parseable projection between the
 JSON envelope and any rendering, and the views themselves.
 
 A Rule-of-5 review of the originating discussion converged with binding
-corrections, folded in as D2, D3, D4, D5, and D7 below. Two review
+corrections, folded in as D2, D3, D4, D5, and D7 below. A grounding Ro5
+review (2026-09-29) verified the referenced surfaces against the live
+corpus and folded in: the empty-corpus vs intentless-corpus distinction
+(tool-level projection stays well-formed per `specs/graph.md`'s
+parsed-not-linted note; the transform's scope gate refuses intentless
+corpora), the AGENTS.md output-discipline exception note in D3, and the
+tab-safety pin on reason text (task 1.2). Two review
 findings are *evidence-backed*: the raw graph output contains display
 labels (`refactor (intent)`) alongside ids, and this repo's own corpus
 currently produces 38 typing violations (verified via `spk graph -j`) that
@@ -88,7 +94,11 @@ carries the full reason text or a class code (reason then only via JSON).
 
 Flag precedence: `--format edges` emits raw TSV directly to stdout and
 overrides envelope formatting (`--json`/`--human`); documented in the
-flag's help.
+flag's help. This is a deliberate, documented exception to AGENTS.md's
+output-discipline convention ("every command emits through
+`genesis::guide::Output::emit`") — the raw-projection use case (awk/jq
+pipelines) is the point, and the exception is scoped to this one flag,
+not the command.
 
 ### D4 — The schema view is derived from `guide`, revision-labeled
 

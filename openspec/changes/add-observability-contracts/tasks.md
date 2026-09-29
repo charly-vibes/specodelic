@@ -9,18 +9,24 @@ Tidying commits are separate from feature commits.
 - [ ] 1.1 **RED**: add lint fixtures (synthetic, tempdir) exercising the new
       shape: observes→effect cross-file accepted, observes→invariant
       rejected with remediation hint, mutual cross-file observation passes
-      acyclic, effect-without-observer emits advisory
-      `linter.observability`, graph classifies extension_point-hosting file
+      acyclic, effect-without-observer emits the advisory warning
+      `linter.observability` on the warnings channel with exit 0 (design
+      D5), graph classifies extension_point-hosting file
       as external boundary. Run `just test` — all new tests must fail.
-- [ ] 1.2 **GREEN (format)**: `specs/specodelic.md` Revision 8 — one new
+- [ ] 1.2 **GREEN (format)**: `specs/specodelic.md` Revision 9 — one new
       Reference Typing row for `observes` (Constraint, any file →
       Constraint, kind == effect only), worded on the `satisfies` precedent,
       including the D7 pre-answered checklist (guard exclusion,
-      single_root_reachable, referential_integrity genericity).
+      single_root_reachable, referential_integrity genericity). Bump
+      `src/guide.rs`'s `FORMAT_REVISION` to `specodelic.md Revision 9` in
+      the same commit — the doctor knowledge-currency check and the guide
+      drift-guard both key on it. (Revision 8 is taken: backend
+      pluggability, landed with specodelic-len.)
 - [ ] 1.3 **GREEN (format)**: `specs/kinds.md` Revision 5 — reconcile
       `constraint_row_shape` with optional typed reference columns
       (`satisfies` tension from design.md D3); state the general rule, not
-      an `observes` special case.
+      an `observes` special case. Landing this resolves HITL ticket
+      `specodelic-mp1` row 9 — update that ticket's note when it lands.
 - [ ] 1.4 **GREEN (format)**: `specs/graph.md` — `observes` added to
       `total_extraction`'s field enumeration; acyclic-exemption stated;
       external-boundary derivation as a derived-not-authored constraint.
@@ -29,7 +35,9 @@ Tidying commits are separate from feature commits.
 - [ ] 1.5 **GREEN (format)**: new `specs/linter-observability.md` — the
       check's semantics: the observation universe is the lint invocation's
       file set (corpus-wide `just lint-specs` is the canonical run);
-      every effect in scope is observed or reported; advisory severity;
+      every effect in scope is observed or warned; advisory severity means
+      warnings-channel emission, exit 0 (design D5 — decide the
+      self-observation question here too, see design Open Questions);
       no waivers in v1 (model on `linter-external_completeness.md`'s file
       shape); a dangling observes is a referential-integrity failure,
       never an observability finding — the two checks compose without
@@ -55,15 +63,21 @@ Tidying commits are separate from feature commits.
 ## 3. Linter check (red→green→refactor)
 
 - [ ] 3.1 **RED**: `linter.observability` unit tests — unobserved effect →
-      advisory finding carrying rule id + semantics string
-      (`lint-findings` contract) + row id; observed effect → silent; zero
-      effects in corpus → zero findings; check result never affects
-      lifecycle gate outcomes. Observe failure.
+      advisory warning carrying rule id + semantics string
+      (`lint-findings` contract) + row id, on the warnings channel with
+      exit 0 (design D5); observed effect → silent; zero effects in corpus →
+      zero warnings; check result never affects lint exit code or lifecycle
+      gate outcomes. Observe failure.
 - [ ] 3.2 **GREEN**: implement the cross-file check in `src/lint.rs`
       (corpus-wide pass over extracted `observes` edges vs effect rows);
-      emit through `genesis::guide::Output::emit` with remediation hint.
+      emit the warning through `genesis::guide::Output::emit`'s warnings
+      channel with remediation hint, never as an `Issue` (which would fail
+      the run).
 - [ ] 3.3 **REFACTOR**: share the cross-file edge-collection plumbing with
       `linter.external_completeness` if the shapes match; don't force it.
+      (Note: those rules are unimplemented — deferred to `specodelic-mp1`
+      row 10 — so this is at most a forward-looking shape note, not a
+      dependency.)
 
 ## 4. Graph boundary derivation (red→green→refactor)
 
@@ -85,7 +99,9 @@ Tidying commits are separate from feature commits.
       effect; capture the advisory output as the evidence base for the
       gating decision; record the friction observations in this change's
       directory (decision note, no wiring — see beads specodelic-4ae
-      precedent for adoption-note discipline).
+      precedent for adoption-note discipline). The corpus's own
+      `refactor.advisory_finding_emitted` is already unobserved — the
+      deliberate case may simply be the corpus itself.
 - [ ] 5.3 `specs/STATUS.md` — add the status-table row for
       `linter-observability.md`; `specs/CHANGELOG.md` entry.
 - [ ] 5.4 Full gates: `just ci`, `just lint-specs`,

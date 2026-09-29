@@ -24,7 +24,7 @@ the artifact they came from.
 | violations_annotated     | invariant | `every violation in the graph artifact appears as an annotation row in the edge list; a view rendered from a corpus with violations is never silently clean — dashed/annotated rendering is mandatory, omission forbidden`                                                | [[spec]]  |
 | derived_views_only       | invariant | `each view consumes only the edge-list artifact plus guide's closed value sets and format revision; no view parses prose, re-walks markdown, or embeds hand-authored structure`                                                                                            | [[spec]]  |
 | build_time_generation    | invariant | `rendered views are generated into the docs build at build time and never committed; no hand-edit path exists, so graph_is_derived_not_authored holds by construction and no staleness check is needed`                                                                    | [[spec]]  |
-| empty_corpus_valid       | invariant | `a corpus with zero spec files, and a corpus with a single intent and no cross-file edges, each yield a well-formed (possibly empty) projection and a sane rendered view — no crash, no garbage, no silent failure`                                                        | [[spec]]  |
+| empty_corpus_valid       | invariant | `spk graph --format edges over any parseable corpus — including a directory with zero spec files, or a single intent with no cross-file edges — exits 0 and emits a well-formed (possibly empty) row set: graph extraction requires parsed, not linted (specs/graph.md's scope note); rendered views are transform-level and additionally gated by corpus_scope_operational — an intentless corpus is refused there with a remediation hint, never silently rendered`                                                        | [[spec]]  |
 | corpus_scope_operational | invariant | `a corpus is in scope iff spk lint over it reports no invariant-rule findings and ≥1 intent file parses; corpora failing this (e.g. openspec-layout repositories) are out of scope until a parse-boundary adapter change lands — no view special-cases them`                                | [[spec]]  |
 
 ## Model
@@ -54,7 +54,7 @@ the artifact they came from.
 | views_from_artifact_only      | unit | [[spec.derived_views_only]]      | `view_rendered_with_prose_perturbation()`             | `rendered view byte-identical after perturbing prose blocks`              |
 | schema_view_revision_labeled  | unit | [[spec.derived_views_only]]      | `guide_value_sets_rendered()`                         | `schema view names the format revision it was derived from`               |
 | build_output_not_committed    | unit | [[spec.build_time_generation]]   | `docs_build_completed()`                              | `git status clean — no rendered artifact tracked or staged`               |
-| empty_corpus_projection       | unit | [[spec.empty_corpus_valid]]      | `directory_with_zero_spec_files()`                    | `projection exits 0 with empty output; view renders a sane empty diagram` |
+| empty_corpus_projection       | unit | [[spec.empty_corpus_valid]]      | `directory_with_zero_spec_files()`                    | `projection exits 0 with empty output — the view half is governed by corpus_scope_operational (an intentless corpus is refused: out_of_scope_refused)` |
 | single_intent_sane            | unit | [[spec.empty_corpus_valid]]      | `corpus_with_one_intent_no_cross_file_edges()`        | `file-level view renders one node; no crash`                              |
 | out_of_scope_refused          | unit | [[spec.corpus_scope_operational]] | `corpus_with_invariant_findings_or_no_intents()`      | `transform exits non-zero with a remediation hint naming the failed gate` |
 
@@ -143,9 +143,9 @@ no hand-edit path exists.
 - **WHEN** `just docs-graphs` runs and the docs build completes
 - **THEN** `git status` reports no new or modified tracked files from view generation
 
-#### Scenario: Empty corpus renders sanely
+#### Scenario: Empty corpus is refused at the transform, clean at the projection
 - **WHEN** views are generated over a directory with zero spec files
-- **THEN** generation exits 0 and renders a well-formed empty view
+- **THEN** the scope gate exits non-zero with a remediation hint (`out_of_scope_refused`), while the tool-level projection itself exits 0 with empty output (`empty_corpus_valid`)
 
 ## Requirements
 
@@ -232,6 +232,6 @@ no hand-edit path exists.
 - **WHEN** `just docs-graphs` runs and the docs build completes
 - **THEN** `git status` reports no new or modified tracked files from view generation
 
-#### Scenario: Empty corpus renders sanely
+#### Scenario: Empty corpus is refused at the transform, clean at the projection
 - **WHEN** views are generated over a directory with zero spec files
-- **THEN** generation exits 0 and renders a well-formed empty view
+- **THEN** the scope gate exits non-zero with a remediation hint (`out_of_scope_refused`), while the tool-level projection itself exits 0 with empty output (`empty_corpus_valid`)

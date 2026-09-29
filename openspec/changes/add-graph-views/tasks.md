@@ -19,7 +19,8 @@ Tidying commits are separate from feature commits.
       stdout, overriding `--json`/`--human` per D3's flag-precedence
       rule). Decide the annotation column content — full reason text vs
       class code (D3 open question) — against real output and document it
-      in the flag's help.
+      in the flag's help. If full reason text is chosen, pin reason
+      strings tab-free (or escaped) so the six-column TSV contract holds.
 - [ ] 1.3 **RED→GREEN**: violation annotation rows — fixture corpus with
       known typing violations; assert one annotation row per violation and
       zero on a clean corpus (`violations_survive_projection`,
@@ -37,12 +38,12 @@ Tidying commits are separate from feature commits.
       `src/main.rs` serializing `src/guide.rs`'s constants; schema-view
       fixture test consumes its output.
 - [ ] 2.3 **RED**: script tests against three checked-in fixture corpora —
-      empty (`empty_corpus_projection`), single-intent
-      (`single_intent_sane`), violation-bearing — plus the scope gate
-      (`out_of_scope_refused`: corpus failing lint or intentless exits
-      non-zero with a remediation hint). Assert: parse of the TSV
-      contract, valid Mermaid output, violations rendered as annotated
-      elements, exit 0 on empty input.
+      empty (zero spec files = intentless: asserts `out_of_scope_refused`,
+      exits non-zero with a remediation hint), single-intent
+      (`single_intent_sane`), violation-bearing — plus a lint-dirty
+      fixture for the other `out_of_scope_refused` leg. Assert: parse of
+      the TSV contract, valid Mermaid output, violations rendered as
+      annotated elements.
 - [ ] 2.4 **GREEN**: implement per-file state-machine view (transition
       edges grouped by owning file; guards annotated; files without
       transitions skipped cleanly; fan-in counts distinct targets per
@@ -70,7 +71,7 @@ Tidying commits are separate from feature commits.
 
 ## 4. Dogfood and follow-ups
 
-- [ ] 4.1 Run the full pipeline over this repo's corpus; eyeball the ~40
+- [ ] 4.1 Run the full pipeline over this repo's corpus; eyeball the 38
       annotated violations in the rendered views — confirm nothing reads
       as silently clean.
 - [ ] 4.2 Run the pipeline over `../bajan/specs` (out-of-CI, manual check

@@ -9,6 +9,9 @@ table widen under a new Revision heading, never silently. Revision 7 added
 `emits` for state outputs. Neither makes "what must be observable" or "what
 crosses the boundary" checkable facts. This design adds the minimal
 vocabulary to close that, shaped on the Revision 7 precedent end to end.
+`specs/specodelic.md` currently stands at Revision 8 (backend
+pluggability), so the `observes` row lands as **Revision 9** and
+`src/guide.rs`'s `FORMAT_REVISION` bumps with it.
 
 A Rule-of-5 review of the originating investigation converged with these
 binding corrections: D1 (no authored boundary tag), D2 (Constraint-only
@@ -23,7 +26,9 @@ not coverage).
     have "declared an output nobody observes" be a lint finding.
   - `spk graph` can answer "what does this component expose externally"
     without any new authored metadata.
-  - Zero breaking change; the corpus remains lint-clean throughout.
+  - Zero breaking change: the new warning rides the warnings channel
+    (exit 0, D5), so every gate outcome is unchanged and the corpus stays
+    gate-green throughout.
 - Non-Goals:
   - Verifying that conformers of `extension_point` contracts exist or are
     correct (Revision 7's explicitly rejected scope).
@@ -71,22 +76,49 @@ reference columns alongside `traces_to`) rather than special-casing
 coverage gaps, fix it there per its triage; either way it is not weakened
 to land this change.
 
+**Governance note:** this reconciliation is exactly HITL ticket
+`specodelic-mp1` row 9's question ("which governs?"). Landing kinds.md
+Revision 5 resolves it; mp1 is updated to record that (Ro5 grounding
+review, 2026-09-29) — the decision text still lands here, where the
+worked examples live, not in a vacuum.
+
 ### D4 — `observes` is acyclic-exempt, stated explicitly
 
 `acyclic`'s edge set is the closed union `traces_to ∪ derives_from ∪
-guard-as-edge` (`linter-graph_shape.md`); `satisfies`, `emits`, and
-`supersedes` each got explicit treatment. `observes` joins none of them:
+guard-as-edge` (`linter-graph_shape.md`). Because the union is stated as
+**closed**, `satisfies` and `emits` are excluded by the enumeration itself
+— they were never added, explicitly or otherwise; only `supersedes` got
+explicit separate treatment (as its own `supersedes_dag` check,
+`linter-graph_shape.md`'s Notes). `observes` joins none of them:
 an observation claim is not a dependency, and two files mutually observing
-each other's effects is well-formed. The edge set is *not* silently grown.
+each other's effects is well-formed. The edge set is *not* silently grown,
+and the delta's `acyclic_edge_set_stable` pins that the union grows only
+under a new Revision of `linter-graph_shape.md`.
 
-### D5 — Advisory first; the gating decision is deferred until after dogfooding
+### D5 — Advisory first, on the warnings channel; gating deferred until after dogfooding
 
-No corpus file uses `emits` today, so "every effect has an observer" passes
-vacuously — the advisory-vs-invariant question cannot be answered honestly
-in the abstract. Sequence: land the format Revision + advisory finding,
-dogfood on a real worked example (`USAGE.md` §2 pattern), decide gating
-from observed friction. The check never gates any lifecycle transition in
-v1, and `orchestrate.md`'s stage guards are untouched.
+The corpus already uses `emits` today: `specs/refactor.md`'s `found` state
+carries `emits: [[refactor.advisory_finding_emitted]]` (a `kind == effect`
+Constraint), and nothing observes it. So the check is **not vacuous** —
+the first advisory warning fires on the real corpus the moment it lands.
+That is the intended dogfood evidence, and it also means the emission
+mechanism must be decided now, not later:
+
+- **Chosen: warnings channel, exit 0.** The finding rides the success
+  envelope's warnings (the doctor knowledge-currency precedent) —
+  `Report::failures()` counts every `Issue`, so an issues-channel finding
+  would fail `just lint-specs` and contradict `no_gate_change` on day one.
+- *Alternatives considered:* a severity field on `Issue` (rejected: format
+  churn across every rule for one check — revisit when a second advisory
+  check appears); issues-channel emission accepting exit 1 (rejected:
+  breaks the corpus gate and is de facto gating).
+
+Sequence: land the format Revision + advisory warning, dogfood on the
+corpus's own unobserved effect plus the `USAGE.md` §2 worked example,
+decide gating from observed friction. The check never gates any lifecycle
+transition in v1, and `orchestrate.md`'s stage guards are untouched.
+Warnings are not findings, so graph-views' corpus-scope gate ("no
+invariant-rule findings") stays unaffected by an unobserved effect.
 
 ### D6 — Cross-file check modeled on `linter-external_completeness`, not `linter-coverage`
 
@@ -115,9 +147,7 @@ apply to `observes` and are pre-answered here:
 
 ## Risks / Trade-offs
 
-- *Vacuous enforcement at first* (no effect rows in corpus) → mitigated by
-  the dogfooding task; a check nobody's corpus exercises is still cheaper
-  than a mis-designed gating rule.
+- *The corpus already carries an unobserved effect* (`refactor.advisory_finding_emitted`) → the advisory warning fires on the corpus immediately; that is the intended dogfood evidence base (task 5.2), not a regression — gates stay green because the warning rides the warnings channel.
 - *Column proliferation on the Constraints table* (`traces_to`, `satisfies`,
   `observes`) → acceptable: each is a distinct typed claim; D3's general
   rule makes further fields cheap. If a fourth appears, revisit a generic
@@ -141,6 +171,12 @@ the graph classification; no corpus data migration exists or is needed.
   pipeline or stay a standalone lint check? Decided in a follow-up change.
 - **Waivers** (deferred by D6): is `linter-external_completeness`'s
   checklist the waiver home when the need is demonstrated?
+- **Self-observation** (Ro5 grounding review, 2026-09-29): typing permits
+  Constraint→Constraint(effect) with no source≠target rule, and
+  `no_self_ref` covers only `traces_to`/`derives_from` — can a row
+  `observes` *itself*, and does an intra-file observation count as
+  "observed" for the check? Decided when writing
+  `specs/linter-observability.md` (task 1.5) against a real fixture.
 - **Subkind vs typing**: if telemetry claims need richer structure than an
   `observes` edge carries (metric name, cardinality), the answer is a new
   constraint subkind via `kind_field_extensible` — out of scope until the

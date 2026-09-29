@@ -18,7 +18,8 @@ Design was reviewed under a Rule-of-5 pass (converged at Stage 4); its
 binding corrections are folded in as decisions D1–D7 in `design.md`,
 notably: canonical node ids in projections (raw output contains display
 labels like `refactor (intent)`), typing violations are never silently
-hidden by a rendered view (the specodelic corpus currently carries ~40),
+hidden by a rendered view (the specodelic corpus currently carries 38 —
+verified via `spk graph -j`),
 the schema view is derived from `guide`'s closed value sets and labeled
 with the format revision (not hardcoded), and the categorical
 string-diagram IR is explicitly deferred.

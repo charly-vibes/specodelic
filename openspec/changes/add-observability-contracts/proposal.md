@@ -22,17 +22,23 @@ claim was corrected to extraction-free boundary *queries* only.
   - New Reference Typing row: `observes` — one-directional outbound reference
     from a Constraint row to a Constraint with `kind == effect`, on any file
     (cross-file allowed). Mirrors the `satisfies` precedent (`specodelic.md`
-    Revision 7). → `specs/specodelic.md` Revision 8, `specs/kinds.md`
-    Revision 5.
+    Revision 7). → `specs/specodelic.md` Revision 9, `specs/kinds.md`
+    Revision 5. (`specs/specodelic.md` stands at Revision 8 today — backend
+    pluggability — so the observes row is Revision 9; `src/guide.rs`'s
+    `FORMAT_REVISION` bumps with it.)
   - `observes` edges are **acyclic-exempt**: they do not join the acyclic
     invariant's edge set (a claim, not a dependency — same reasoning that
     keeps `satisfies` out). Stated explicitly, not left implicit. →
     `specs/graph.md` + `specs/linter-graph_shape.md` note.
 - **Tool — linter:** new check `linter.observability`: every effect
   Constraint is either the target of ≥1 `observes` edge or is reported as an
-  **advisory** finding naming the unobserved row. No waiver machinery in v1;
-  never gates a lifecycle transition. Gating (advisory → invariant) is
-  deliberately deferred until after dogfooding.
+  **advisory warning** naming the unobserved row — emitted on the success
+  envelope's warnings channel, exit 0, never counted as a lint failure (the
+  doctor knowledge-currency precedent; the `Issue` model has no severity
+  field, and an issues-channel finding fails the run, `src/lint.rs`'s
+  `failures()`). No waiver machinery in v1; never gates a lifecycle
+  transition. Gating (advisory → invariant) is deliberately deferred until
+  after dogfooding.
 - **Tool — graph:** derived external-boundary classification: a file is an
   external boundary iff it hosts ≥1 `extension_point` Constraint. Pure
   derivation over existing edges — **no authored tagging mechanism** (no
@@ -40,7 +46,11 @@ claim was corrected to extraction-free boundary *queries* only.
   philosophy.
 - **Dogfooding:** one corpus/USAGE worked example carrying real `emits` +
   `observes` rows, so the advisory-vs-gating decision is made against real
-  friction, not in the abstract.
+  friction, not in the abstract. The corpus already carries one effect row
+  — `specs/refactor.md`'s `advisory_finding_emitted` (emitted by the `found`
+  state), unobserved — so the first advisory warning fires on the real
+  corpus the moment the check lands; that is the intended evidence base,
+  not a regression.
 
 Not in scope: a sixth schema kind; verifying actual conformers of
 `extension_point` contracts (explicitly rejected by Revision 7); waiver
@@ -56,11 +66,15 @@ pattern is the candidate when the question reopens).
   `specs/USAGE.md` (worked example), `specs/STATUS.md` (status table row).
 - Affected code: `src/spec.rs` (parse optional `observes` column),
   `src/lint.rs` (`linter.observability`), `src/graph.rs` (`observes` edge in
-  `total_extraction`; external-boundary classification), `tests/cli.rs`
-  fixtures.
-- Backward compatible: nothing existing becomes invalid — the check is
-  vacuous until the first effect row appears (no corpus file uses `emits`
-  today, per `kinds.md` Revision 3 Notes).
+  `total_extraction`; external-boundary classification), `src/guide.rs`
+  (`FORMAT_REVISION` → `specodelic.md Revision 9` — the doctor
+  knowledge-currency check and the guide drift-guard key on it),
+  `tests/cli.rs` fixtures.
+- Backward compatible: nothing existing becomes invalid — the new warning
+  rides the warnings channel (exit 0, design D5), so every existing gate
+  outcome is unchanged; the check's first real subject is the corpus's own
+  unobserved effect row (`refactor.advisory_finding_emitted`), addressed by
+  the dogfooding task, not by a silent pass.
 - Note: `kinds.md`'s `constraint_row_shape` states fields as exactly
   `{id, kind, expr, traces_to}` while `satisfies` already adds an optional
   column (USAGE §2.6); Revision 5 must reconcile this — possibly one of the

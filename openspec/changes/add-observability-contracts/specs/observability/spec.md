@@ -21,7 +21,7 @@ no hand-maintained tags that can drift from the edges.
 |---------------------------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
 | observes_typing           | invariant | `every observes reference is a one-directional outbound pointer from a Constraint row to a Constraint row with kind == effect (intra-file or cross-file) — same shape as the satisfies precedent, per the Reference Typing row for observes in specs/specodelic.md`                                                                                                                                                                          | [[spec]]  |
 | acyclic_edge_set_stable   | invariant | `the acyclic invariant's edge set (specs/linter-graph_shape.md) grows only under a new Revision of that file; observes is deliberately absent from it — an observation claim is not a dependency, so mutual observation across files is well-formed`                                                                                                                         | [[spec]]  |
-| unobserved_effect_reported | invariant | `within the lint invocation's file set (corpus-wide lint via just lint-specs is the canonical run), every effect Constraint is either the target of ≥1 observes edge or is reported as an advisory finding naming the unobserved row; no waiver machinery exists in v1 (specs/linter-external_completeness.md's covered/waived pattern is the candidate when the need is demonstrated)` | [[spec]]  |
+| unobserved_effect_reported | invariant | `within the lint invocation's file set (corpus-wide lint via just lint-specs is the canonical run), every effect Constraint is either the target of ≥1 observes edge or is reported as an advisory warning on the lint output's warnings channel — exit 0, never counted as a lint failure (design D5) — naming the unobserved row; no waiver machinery exists in v1 (specs/linter-external_completeness.md's covered/waived pattern is the candidate when the need is demonstrated)` | [[spec]]  |
 | no_gate_change            | invariant | `whether linter.observability ever gates a lifecycle transition (specs/orchestrate.md) is decided only after dogfooding produces real friction evidence — until then it is advisory by severity and the stage guards are untouched`                                                                                                                                        | [[spec]]  |
 | boundary_derived          | invariant | `external-boundary classification is derived from published extension_point Constraints (a file hosting ≥1 is an external boundary); no authored boundary tag exists anywhere — hand-maintained tags drift from edges, against specs/graph.md's graph_is_derived_not_authored philosophy`   | [[spec]]  |
 
@@ -73,11 +73,11 @@ The system SHALL accept an optional `observes` reference on Constraint rows, typ
 - **THEN** the acyclic check passes — `observes` is a claim, not a dependency edge
 
 ### Requirement: Unobserved effects are reported, never silent
-The system SHALL report, as an advisory finding with rule id `linter.observability`, every effect Constraint within the lint invocation's file set that is the target of no `observes` edge (corpus-wide lint is the canonical run) — and SHALL NOT gate any lifecycle transition on this finding in v1.
+The system SHALL report, with rule id `linter.observability`, on the lint output's warnings channel (advisory severity — exit 0, never counted as a lint failure; design D5), every effect Constraint within the lint invocation's file set that is the target of no `observes` edge (corpus-wide lint is the canonical run) — and SHALL NOT gate any lifecycle transition on this finding in v1.
 
 #### Scenario: Effect with no observer reported
 - **WHEN** a linted spec declares an effect Constraint that no `observes` reference targets
-- **THEN** the lint output carries an advisory `linter.observability` finding naming the unobserved row id
+- **THEN** the lint output carries an advisory `linter.observability` warning on the warnings channel, naming the unobserved row id, with exit 0
 
 #### Scenario: Observed effect produces no finding
 - **WHEN** every effect Constraint in the corpus is targeted by at least one `observes` edge
@@ -111,11 +111,11 @@ The system SHALL accept an optional `observes` reference on Constraint rows, typ
 - **THEN** the acyclic check passes — `observes` is a claim, not a dependency edge
 
 ### Requirement: Unobserved effects are reported, never silent
-The system SHALL report, as an advisory finding with rule id `linter.observability`, every effect Constraint within the lint invocation's file set that is the target of no `observes` edge (corpus-wide lint is the canonical run) — and SHALL NOT gate any lifecycle transition on this finding in v1.
+The system SHALL report, with rule id `linter.observability`, on the lint output's warnings channel (advisory severity — exit 0, never counted as a lint failure; design D5), every effect Constraint within the lint invocation's file set that is the target of no `observes` edge (corpus-wide lint is the canonical run) — and SHALL NOT gate any lifecycle transition on this finding in v1.
 
 #### Scenario: Effect with no observer reported
 - **WHEN** a linted spec declares an effect Constraint that no `observes` reference targets
-- **THEN** the lint output carries an advisory `linter.observability` finding naming the unobserved row id
+- **THEN** the lint output carries an advisory `linter.observability` warning on the warnings channel, naming the unobserved row id, with exit 0
 
 #### Scenario: Observed effect produces no finding
 - **WHEN** every effect Constraint in the corpus is targeted by at least one `observes` edge
