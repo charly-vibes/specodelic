@@ -371,8 +371,11 @@ fn model_check_reports_no_counterexample_after_compile() {
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let data = &json["data"];
-    // Meter contract: .data.outcome for the single-file case.
-    assert_eq!(data["outcome"], "no_counterexample");
+    // Meter contract: .data.outcome for the single-file case. The native
+    // backend executes no invariant predicates, so an exhaustive run is
+    // `exploration_only` — never the false-green `no_counterexample`
+    // (specodelic-len).
+    assert_eq!(data["outcome"], "exploration_only");
     assert_eq!(data["files_checked"], 1);
     let checked = &data["checked"][0];
     assert_eq!(checked["backend"]["engine"], "stateright");
@@ -390,7 +393,7 @@ fn model_check_reports_no_counterexample_after_compile() {
     let report_path = out_dir.join("mc_demo.check.json");
     let report: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&report_path).unwrap()).unwrap();
-    assert_eq!(report["outcome"], "no_counterexample");
+    assert_eq!(report["outcome"], "exploration_only");
     assert_eq!(report["artifact_sha256"].as_str().unwrap().len(), 64);
 }
 

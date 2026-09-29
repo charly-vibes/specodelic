@@ -6,8 +6,8 @@
   "bound": {
     "max_depth": 100
   },
-  "outcome": "no_counterexample",
+  "outcome": "exploration_only",
   "invariants_checked": [],
-  "artifact_sha256": "fd764d1f730eb6827f3521e0669fdaf6808fdd1a1423e1534dc1ca55741bd581",
+  "artifact_sha256": "bb25b3aaadec123ce75a41f4f655fbc8ce5b493116542475ce7c949eada5da64",
   "states_explored": 4
 }

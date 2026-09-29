@@ -37,6 +37,7 @@ contain.
 - `clean`
 - `counterexample_found`
 - `timed_out`
+- `exploration_only`
 
 ### Transitions
 
@@ -46,6 +47,7 @@ contain.
 | finish_clean     | running   | clean                | [[model_check.exhaustive_within_bound]] ∧ `no violation found within the bound`                          |
 | finish_violation | running   | counterexample_found | [[model_check.counterexample_is_minimal]] ∧ [[model_check.counterexample_names_violated_invariant]]       |
 | finish_timeout   | running   | timed_out            | `the stated bound was not reached before the run's time/state budget expired`                            |
+| finish_exploration | running | exploration_only     | [[model_check.exhaustive_within_bound]] ∧ `the backend executed no invariant predicates — a completed exploration is evidence the space ends within the bound, never that the model holds` |
 
 ## Properties
 
@@ -59,6 +61,7 @@ contain.
 | clean_run_satisfies_verify_gate          | unit | [[model_check.no_counterexample_feeds_verify]]              | `arbitrary_model_with_no_violation_within_bound()`                        | `no_counterexample(file) == true`                                          |
 | stale_result_invalidated_by_edit         | unit | [[model_check.rerun_on_model_change]]                       | `(clean_run, model_edited_afterward_with_no_rerun)`                       | `no_counterexample(file) == false` — until re-run                          |
 | clean_model_passes                       | unit | [[model_check.checker_invoked]]                             | `arbitrary_model_with_no_violation_within_bound()`                        | `check(model) == clean`                                                    |
+| exploration_run_is_not_a_clean_verdict   | unit | [[model_check.no_counterexample_feeds_verify]]              | `model_with_only_prose_invariants_exhausted_within_bound()`               | `check(model).outcome == exploration_only` — never read as no_counterexample |
 
 ## Notes
 
@@ -82,7 +85,16 @@ count.
 `timed_out` is a real terminal outcome, not a failure this file
 papers over as "counterexample" or "clean" by default: an unbounded or
 very large state space may exhaust its budget before `exhaustive_within_bound`
-is satisfied either way. **Backends.** The contract above is engine-neutral,
+is satisfied either way. So is `exploration_only` (specodelic-len): the
+native stateright backend interprets guards as prose (Decision 3,
+Option A) and executes zero invariant predicates, so its completed runs
+terminate in `finish_exploration`, NOT `finish_clean` — a completed
+exploration proves the space ends within the bound and nothing more.
+`no_counterexample` is reserved for a backend that actually executed
+invariant predicates and found no violation; consumers (verify's
+gate, the `no_counterexample_feeds_verify` property above) must treat
+`exploration_only` exactly like `timed_out` — not-clean, though not
+evidence of a violation either. **Backends.** The contract above is engine-neutral,
 and any backend satisfying it sits behind the same state machine. Two are
 specified: **stateright** (default) — an embedded Rust model-checking crate,
 no external dependencies: its breadth-first exploration makes

@@ -13,7 +13,10 @@
 //! predicates in the corpus language are prose (no executable predicate
 //! language exists — openspec change `add-model-check`, Decision 3
 //! Option A), so the native backend honestly reports
-//! `invariants_checked: []` and never fabricates a counterexample.
+//! `invariants_checked: []` and never fabricates a counterexample — and
+//! a completed exploration reports `exploration_only`, never
+//! `no_counterexample` (specodelic-len): exhaustiveness is not a clean
+//! verdict.
 
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
@@ -56,12 +59,20 @@ impl Default for Bound {
 
 /// The run outcome — `model_check.md`'s terminal states. `timed_out` is
 /// a real outcome, never collapsed into clean or counterexample.
+/// `exploration_only` (specodelic-len) is the native backend's completed
+/// run: the space WAS explored exhaustively within the bound, but zero
+/// invariant predicates were executed (prose exprs — Decision 3,
+/// Option A), so it is explicitly NOT `no_counterexample` — a consumer
+/// can never read it as counterexample-free verification. Only a backend
+/// that actually executes invariant predicates may report
+/// `no_counterexample`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Outcome {
     NoCounterexample,
     CounterexampleFound,
     TimedOut,
+    ExplorationOnly,
 }
 
 /// Backend attribution (`backend_identified`): engine + version, so two
@@ -188,7 +199,10 @@ impl Model for PcModel {
 
 /// Run the native backend against the compiled model. `tla_artifact` is
 /// the compiled `.tla` module bytes (hashed for provenance — the run
-/// never re-compiles).
+/// never re-compiles). The native backend interprets the automaton and
+/// explores it exhaustively within the bound but executes no invariant
+/// predicates (prose — Decision 3, Option A), so a completed run reports
+/// `exploration_only`, never `no_counterexample`.
 pub fn run(ir: &ModelIr, tla_artifact: &[u8], bound: &Bound) -> Result<RunReport, ModelCheckError> {
     let artifact_sha256 = artifact_sha256(tla_artifact);
     let backend = Backend {
@@ -248,16 +262,21 @@ pub fn run(ir: &ModelIr, tla_artifact: &[u8], bound: &Bound) -> Result<RunReport
     let (checker, elapsed) = explore(model.clone(), bound, max_depth);
     let mut states_explored = checker.unique_state_count() as u64;
 
-    // exhaustive_within_bound: a run may report clean only when the whole
-    // reachable space was explored within the stated bound. `depth_reached
-    // == cap` is ambiguous — the space may end exactly at the cap. When the
-    // depth cap was the ONLY constraint, resolve it with one confirmation
-    // re-run at cap+1: completing below cap+1 proves the space is finite
-    // and ends at depth ≤ cap, so the stated bound WAS reached (honest
-    // clean); hitting cap+1 too means genuinely truncated (`timed_out`).
-    // With a simultaneous state/time cap the confirmation could itself be
-    // truncated by the other budget and falsely confirm, so those stay
-    // conservative. Bounded cost (≤ 2 runs); never flips toward false clean.
+    // exhaustive_within_bound governs whether the space was fully
+    // explored — but exhaustiveness alone is NOT clean (specodelic-len):
+    // the native backend executes zero invariant predicates, so a
+    // completed exploration is reported as `exploration_only`, never as
+    // `no_counterexample`. `depth_reached == cap` is ambiguous — the space
+    // may end exactly at the cap — so when the depth cap was the ONLY
+    // constraint, one confirmation re-run at cap+1 resolves it: completing
+    // below cap+1 proves the space ends within the bound (`exploration_only`);
+    // hitting cap+1 too means genuinely truncated (`timed_out`). With a
+    // simultaneous state/time cap the confirmation could itself be
+    // truncated by the other budget, so those stay conservative. A cap
+    // that was actually reached without confirmation means exhaustiveness
+    // cannot be proven — `timed_out`. This can mislabel a space whose true
+    // size equals a state/time cap, which is the honest direction: never
+    // claim more than the run proved.
     let depth_was_hit = checker.max_depth() >= max_depth;
     let mut confirmed_exhaustive = false;
     if depth_was_hit && bound.max_states.is_none() && bound.timeout_secs.is_none() {
@@ -272,11 +291,6 @@ pub fn run(ir: &ModelIr, tla_artifact: &[u8], bound: &Bound) -> Result<RunReport
             states_explored = deeper.unique_state_count() as u64;
         }
     }
-    // Remaining caps: a cap that was actually reached without confirmation
-    // means exhaustiveness cannot be proven — report the budget-exhausted
-    // outcome (`timed_out`), conservatively. This can mislabel a space
-    // whose true size equals a state/time cap, which is the honest
-    // direction: never claim clean without proof.
     let states_capped = bound
         .max_states
         .map(|n| states_explored >= n.max(1))
@@ -286,11 +300,14 @@ pub fn run(ir: &ModelIr, tla_artifact: &[u8], bound: &Bound) -> Result<RunReport
         .map(|s| elapsed >= Duration::from_secs(s))
         .unwrap_or(false);
     let outcome = if confirmed_exhaustive {
-        Outcome::NoCounterexample
+        // The cap+1 re-run proved the space ends within the stated bound.
+        Outcome::ExplorationOnly
     } else if depth_was_hit || states_capped || time_capped {
         Outcome::TimedOut
     } else {
-        Outcome::NoCounterexample
+        // Completed exploration below every cap, zero predicates
+        // executed — never a clean verdict.
+        Outcome::ExplorationOnly
     };
 
     Ok(RunReport {
@@ -298,6 +315,9 @@ pub fn run(ir: &ModelIr, tla_artifact: &[u8], bound: &Bound) -> Result<RunReport
         bound: bound.clone(),
         outcome,
         invariants_checked: vec![],
+        // Native backend truth: no predicate executed, so this report is
+        // never a clean verdict — `no_counterexample` is reserved for
+        // backends that actually execute invariant predicates.
         violated_invariant_id: None,
         trace: None,
         artifact_sha256,
@@ -471,9 +491,9 @@ mod tests {
     }
 
     #[test]
-    fn clean_run_names_backend_and_restates_bound() {
+    fn exploration_run_names_backend_and_restates_bound() {
         let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap();
-        assert_eq!(report.outcome, Outcome::NoCounterexample);
+        assert_eq!(report.outcome, Outcome::ExplorationOnly);
         assert_eq!(report.backend.engine, "stateright");
         assert_eq!(report.backend.version, BACKEND_VERSION);
         assert_eq!(report.bound, Bound::default());
@@ -485,7 +505,7 @@ mod tests {
         // a → b → c: the full reachable set is explored.
         let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap();
         assert_eq!(report.states_explored, 3);
-        assert_eq!(report.outcome, Outcome::NoCounterexample);
+        assert_eq!(report.outcome, Outcome::ExplorationOnly);
     }
 
     #[test]
@@ -496,6 +516,38 @@ mod tests {
         let artifact = artifact_for(&["a", "b", "c"], &[("t1", "a", "b")]);
         let report = run(&ir, &artifact, &Bound::default()).unwrap();
         assert_eq!(report.states_explored, 2);
+    }
+
+    #[test]
+    fn exhaustive_run_with_zero_invariants_is_never_reported_clean() {
+        // specodelic-len: `no_counterexample` over an empty invariant set
+        // implies verification that did not happen. The native backend
+        // executes no predicate (Decision 3, Option A), so a completed
+        // exploration — however exhaustive — must carry an explicitly
+        // exploratory outcome a consumer cannot read as
+        // counterexample-free verification.
+        let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap();
+        assert!(report.invariants_checked.is_empty());
+        assert_eq!(report.outcome, Outcome::ExplorationOnly);
+    }
+
+    #[test]
+    fn exploration_only_outcome_serializes_snake_case() {
+        let report = RunReport {
+            backend: Backend {
+                engine: BACKEND_ENGINE.into(),
+                version: BACKEND_VERSION.into(),
+            },
+            bound: Bound::default(),
+            outcome: Outcome::ExplorationOnly,
+            invariants_checked: vec![],
+            violated_invariant_id: None,
+            trace: None,
+            artifact_sha256: "abc".into(),
+            states_explored: 3,
+        };
+        let json = serde_json::to_value(&report).unwrap();
+        assert_eq!(json["outcome"], "exploration_only");
     }
 
     #[test]
@@ -543,13 +595,13 @@ mod tests {
     }
 
     #[test]
-    fn state_budget_wide_enough_for_the_space_yields_clean() {
+    fn state_budget_wide_enough_for_the_space_yields_exploration_only() {
         let bound = Bound {
             max_states: Some(100),
             ..Default::default()
         };
         let report = run(&chain_ir(), &artifact(), &bound).unwrap();
-        assert_eq!(report.outcome, Outcome::NoCounterexample);
+        assert_eq!(report.outcome, Outcome::ExplorationOnly);
     }
 
     #[test]
@@ -602,16 +654,17 @@ mod tests {
     }
 
     #[test]
-    fn depth_cap_equal_to_the_diameter_still_reports_clean() {
+    fn depth_cap_equal_to_the_diameter_still_confirms_exploration() {
         // CORR-002: cap == diameter is ambiguous ("stopped at cap" vs "the
         // space ends at cap"); the confirmation re-run at cap+1 proves the
-        // space is exhausted, so the stated bound WAS reached.
+        // space is exhausted, so the outcome is exploration_only (never
+        // timed_out) — but still NOT no_counterexample (specodelic-len).
         let bound = Bound {
             max_depth: 3,
             ..Default::default()
         };
         let report = run(&chain_ir(), &artifact(), &bound).unwrap();
-        assert_eq!(report.outcome, Outcome::NoCounterexample);
+        assert_eq!(report.outcome, Outcome::ExplorationOnly);
         assert_eq!(report.states_explored, 3);
     }
 
@@ -655,7 +708,7 @@ mod tests {
         .unwrap();
         let artifact = artifact_for(&["a", "b"], &[("loop", "a", "a"), ("t", "a", "b")]);
         let report = run(&ir, &artifact, &Bound::default()).unwrap();
-        assert_eq!(report.outcome, Outcome::NoCounterexample);
+        assert_eq!(report.outcome, Outcome::ExplorationOnly);
         assert_eq!(report.states_explored, 2);
     }
 

@@ -38,8 +38,11 @@ Compiles a lint-clean spec into three artifacts: `<stem>.toml`
 
 Runs the compiled model through the embedded stateright backend within
 a stated bound (`--max-depth`, `--max-states`, `--timeout-secs`).
-Reports `no_counterexample` or `timed_out`; run reports persist as
-`<stem>.check.json` with the consumed module's SHA-256.
+The native backend interprets guards as prose and executes no invariant
+predicates, so it reports `exploration_only` (space exhausted within the
+bound) or `timed_out` — never `no_counterexample`, which is reserved for
+a backend that actually executed invariant predicates; run reports
+persist as `<stem>.check.json` with the consumed module's SHA-256.
 
 - Spec: [model_check](specs/model_check.md)
 

@@ -6,6 +6,32 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #44 — `exploration_only`: a completed model-check run is never a clean verdict (specodelic-len)
+
+`spk model-check` reported `outcome: no_counterexample` with
+`invariants_checked: []` — a clean verdict over an empty invariant set,
+i.e. verification that did not happen (visible in every committed
+`specodelic/*.check.json`). Fixed honestly, in the direction of the
+spec: the native backend interprets guards as prose (Decision 3,
+Option A) and executes zero invariant predicates, so a completed
+exhaustive exploration now terminates in a new `exploration_only`
+outcome — explicitly NOT clean, and consumers (verify's gate) must
+treat it like `timed_out`. `no_counterexample` stays reserved for a
+backend that actually executed invariant predicates; the CORR-002
+cap+1 confirmation re-run survives, now distinguishing "space ends
+within the bound" (`exploration_only`) from "genuinely truncated"
+(`timed_out`) instead of gating a clean claim.
+
+En route, the `.tla` emission was fixed for opt-in TLC: the module
+header is now the single-line TLA+ form (`---- MODULE merge ----`) —
+the previous three-line box was not a parseable header — and `Next`
+carries a closing `UNCHANGED vpc` stuttering disjunct so terminal
+states don't read as engine-side deadlocks. All 18 corpus artifacts
+regenerated; `specs/model_check.md` gained the `exploration_only`
+state + `finish_exploration` transition + `exploration_run_is_not_a_clean_verdict`
+property; `specs/compile.md`'s `model_to_tla` wording and
+disjunct-count property updated.
+
 ## #43 — `spk hooks install`/`uninstall`: the dual-format gate wired into the hook chain
 
 Dual-format drift is now caught at commit time, not just in CI:
