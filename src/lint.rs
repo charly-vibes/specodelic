@@ -211,7 +211,7 @@ fn lint_one(spec: &Spec, report: &mut Report) {
             report.issues.push(Issue::new(
                 "dual_format_valid",
                 file.clone(),
-                "file carries `## ADDED Requirements` without a sibling `## Requirements` section — not a dual-format file (the capability half is missing; run scripts/check_section_sync.py for drift between the halves)".to_string(),
+                "file carries `## ADDED Requirements` without a sibling `## Requirements` section — not a dual-format file (the capability half is missing; migrate per the recipe in openspec/project.md: mirror the requirement content into ## Requirements, keep the specodelic tables alongside, then gates: spk lint + openspec validate + scripts/check_section_sync.py for drift)".to_string(),
             ));
         }
     }

@@ -6,6 +6,22 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #40 — Migration recipe + capability-format CI check (Rule-of-5 review of the unification)
+
+A Rule-of-5 review of the unification code asked whether migration to
+specodelic compliance is clearly guided. Findings applied: the
+migration recipe (frontmatter → specodelic tables → mirrored
+Requirements → gates) now lives in `openspec/project.md`, with worked
+examples; the `dual_format_valid` missing-half message points at it
+(previously at the sync script, which cannot help when a half is
+absent); stale facts fixed (`ddl` → `spk`, genesis-vibes 0.8); and the
+enforcement gap closed — a capability spec under `openspec/specs/
+` without frontmatter or specodelic tables now FAILS CI
+(`just sync-sections` capability-format check, stdlib-unittest-tested
+by `just sync-sections-test`), because `spk lint` parse-skips
+frontmatter-less files and would never see it. Archived deltas stay
+exempt (pre-protocol evidence).
+
 ## #39 — `linter.dual_format_valid`: the dual-format protocol is tool-enforced
 
 A new lint rule recognizes dual-format files structurally: any file

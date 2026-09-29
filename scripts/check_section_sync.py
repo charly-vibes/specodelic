@@ -42,8 +42,50 @@ def is_dual_format(text: str) -> bool:
         and "## ADDED Requirements" in text and "## Requirements" in text
 
 
+def is_capability_spec(path: Path) -> bool:
+    """True for openspec capability specs: .../openspec/specs/<cap>/spec.md.
+
+    Archived deltas (openspec/changes/archive/<id>/specs/<cap>/spec.md)
+    are pre-protocol evidence and stay exempt — the trailing-`openspec`
+    component distinguishes them.
+    """
+    parts = path.parts
+    return (
+        len(parts) >= 4
+        and parts[-1] == "spec.md"
+        and parts[-3] == "specs"
+        and parts[-4] == "openspec"
+    )
+
+
+def has_specodelic_tables(text: str) -> bool:
+    """True when the specodelic layer (frontmatter + the three tables) is present."""
+    lines = text.splitlines()
+    return bool(lines) and lines[0].strip() == "---" \
+        and "## Constraints" in text and "## Model" in text and "## Properties" in text
+
+
 def check(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
+    # Capability-format check (Rule-of-5 EDGE-001): capability specs live
+    # under openspec/specs/<cap>/spec.md and MUST be dual-format files.
+    # Files without frontmatter never reach spk lint (parse_batch skips
+    # them), so a plain openspec regeneration output here would otherwise
+    # sail through CI lint-clean forever.
+    if is_capability_spec(path) and not has_specodelic_tables(text):
+        if not (text.lstrip().startswith("---")):
+            return [
+                f"{path}: capability spec has no frontmatter — not a dual-format "
+                "file (plain openspec regeneration output); see the migration "
+                "recipe in openspec/project.md: add id:spec frontmatter + "
+                "## Constraints/## Model/## Properties, then mirror "
+                "## Requirements"
+            ]
+        return [
+            f"{path}: capability spec carries frontmatter but is missing the "
+            "specodelic tables (## Constraints / ## Model / ## Properties) — "
+            "see the migration recipe in openspec/project.md"
+        ]
     if not is_dual_format(text):
         return []
     secs = sections(text)

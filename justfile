@@ -65,6 +65,13 @@ lint-deltas:
 sync-sections:
     python3 scripts/check_section_sync.py openspec
 
+# Tests for the section-sync script itself (stdlib unittest): drift
+# logic + the capability-format check (openspec/specs/<cap>/spec.md
+# must be dual-format — frontmatter-less capability specs fail CI;
+# spk lint cannot see them, they parse-skip)
+sync-sections-test:
+    python3 -m unittest discover -s scripts -p 'test_*.py'
+
 # Archive a change bypassing the lossy spec regeneration, then copy each
 # dual-format delta verbatim into openspec/specs/ (the specodelic layer
 # survives into engineering truth)
@@ -95,7 +102,7 @@ docs-build:
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections guard-siblings
+ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections sync-sections-test guard-siblings
 
 # Sibling-tool constraint guard (AGENTS.md hard blockers) — also wired into
 # pre-commit/pre-push via lefthook.yml and the .beads/hooks shim chain
