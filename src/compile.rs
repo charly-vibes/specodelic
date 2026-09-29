@@ -98,6 +98,28 @@ pub struct ModelIr {
     /// no entry for the rest, never a default or null
     /// (`output_function_covers_emitting_states_only`).
     pub emits: BTreeMap<String, String>,
+    /// The value the `.tla` emitter writes for each `emits` entry: the
+    /// effect-Constraint's `expr` when the target is a local constraint
+    /// row, the raw target otherwise (specodelic-8nt) — the model-check
+    /// consistency gate compares the artifact's Output function against
+    /// this verbatim, so value drift cannot pass silently.
+    #[serde(default)]
+    pub emits_values: BTreeMap<String, String>,
+}
+
+/// Constraint id → its `expr` cell (empty when absent) — the single
+/// source the `.tla` emitter and the IR's emitted values both read, so
+/// the two can never diverge (specodelic-8nt).
+fn constraint_exprs(spec: &Spec) -> BTreeMap<&str, &str> {
+    spec.constraints
+        .iter()
+        .map(|c| {
+            (
+                c.id.as_str(),
+                c.cells.get("expr").map(String::as_str).unwrap_or(""),
+            )
+        })
+        .collect()
 }
 
 /// Extract the Model section into the IR without re-parsing prose.
@@ -118,6 +140,7 @@ pub fn extract_model_ir(spec: &Spec) -> ModelIr {
         })
         .collect();
     let mut emits = BTreeMap::new();
+    let mut emits_values = BTreeMap::new();
     for s in &spec.states {
         let Some(raw) = s.cells.get("emits") else {
             continue;
@@ -140,12 +163,23 @@ pub fn extract_model_ir(spec: &Spec) -> ModelIr {
         } else {
             target
         };
-        emits.insert(s.id.clone(), resolved);
+        emits.insert(s.id.clone(), resolved.clone());
+        // The value the emitter writes into Output: the effect-Constraint's
+        // expr when the target is a local constraint row, the raw target
+        // otherwise — computed through the same exprs map model_to_tla
+        // reads, so IR and artifact cannot diverge (specodelic-8nt).
+        let exprs = constraint_exprs(spec);
+        let value = exprs
+            .get(resolved.as_str())
+            .copied()
+            .unwrap_or(resolved.as_str());
+        emits_values.insert(s.id.clone(), value.to_string());
     }
     ModelIr {
         states,
         transitions,
         emits,
+        emits_values,
     }
 }
 
@@ -427,16 +461,7 @@ pub fn model_to_tla(spec: &Spec) -> String {
         // Per `model_to_tla`, each entry maps the state value to the
         // effect-kind Constraint's `expr` (verbatim; the raw reference as
         // fallback when the target is not a local constraint row).
-        let exprs: BTreeMap<&str, &str> = spec
-            .constraints
-            .iter()
-            .map(|c| {
-                (
-                    c.id.as_str(),
-                    c.cells.get("expr").map(String::as_str).unwrap_or(""),
-                )
-            })
-            .collect();
+        let exprs = constraint_exprs(spec);
         let entries: Vec<String> = ir
             .emits
             .iter()

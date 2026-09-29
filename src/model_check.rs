@@ -344,9 +344,8 @@ fn explore(model: PcModel, bound: &Bound, max_depth: usize) -> (impl Checker<PcM
 
 /// `checker_invoked`'s consistency half: the on-disk `.tla` module and the
 /// IR extracted from the live spec must describe the same automaton.
-/// Parses the machine-generated format `add-tla-emitter` commits (the
-/// `StateValues` set line and the per-disjunct `\* <id>: <from> -> <to>`
-/// comments) and compares both against the IR; any mismatch is a stale
+/// Extracts the artifact's structure (backend-neutral, reusable by the
+/// TLC backend) and compares it against the IR; any mismatch is a stale
 /// artifact — a labeled error, never a run against a mixed pair.
 fn assert_artifact_consistent(ir: &ModelIr, tla_artifact: &[u8]) -> Result<(), ModelCheckError> {
     let stale = |what: &str| {
@@ -357,6 +356,72 @@ fn assert_artifact_consistent(ir: &ModelIr, tla_artifact: &[u8]) -> Result<(), M
             ),
         )
     };
+    let shape = parse_artifact_shape(tla_artifact)?;
+    let ir_states: std::collections::BTreeSet<&str> =
+        ir.states.iter().map(|s| s.id.as_str()).collect();
+    let ir_states_owned: std::collections::BTreeSet<String> =
+        ir_states.iter().copied().map(String::from).collect();
+    if shape.states != ir_states_owned {
+        return Err(stale(
+            "the module's StateValues differ from the spec's states",
+        ));
+    }
+    let ir_transition_ids: std::collections::BTreeSet<String> =
+        ir.transitions.iter().map(|t| t.id.clone()).collect();
+    if shape.transition_ids != ir_transition_ids {
+        return Err(stale(
+            "the module's Next disjuncts differ from the spec's transitions",
+        ));
+    }
+    // specodelic-8nt: the edges the module actually steps through — the
+    // id set alone reads comments, which the disjunct code can outlive.
+    let mut artifact_edges = shape.edges.clone();
+    artifact_edges.sort_unstable();
+    let mut ir_edges: Vec<(String, String)> = ir
+        .transitions
+        .iter()
+        .map(|t| (t.from.clone(), t.to.clone()))
+        .collect();
+    ir_edges.sort_unstable();
+    if artifact_edges != ir_edges {
+        return Err(stale(
+            "the module's Next disjunct edges differ from the spec's transitions",
+        ));
+    }
+    // specodelic-8nt (Output half): the Output function must match the
+    // IR's emitted values verbatim — the emitter writes the effect-
+    // Constraint's expr (or raw target), and the IR carries the same
+    // computation (ModelIr::emits_values), so a hand-edited or stale
+    // Output section cannot pass silently.
+    if shape.output != ir.emits_values {
+        return Err(stale(
+            "the module's Output function differs from the spec's emits",
+        ));
+    }
+    Ok(())
+}
+
+/// The automaton structure a compile-emitted `.tla` module carries:
+/// the StateValues range, the per-disjunct transition ids (from the
+/// `\* <id>: <from> -> <to>` comments), the code edges the Next action
+/// actually steps through, and the Output function.
+pub(crate) struct ArtifactShape {
+    pub states: std::collections::BTreeSet<String>,
+    pub transition_ids: std::collections::BTreeSet<String>,
+    /// One `(from, to)` per code disjunct — unsorted, may repeat for
+    /// parallel transitions.
+    pub edges: Vec<(String, String)>,
+    pub output: std::collections::BTreeMap<String, String>,
+}
+
+/// Parse the machine-generated format `add-tla-emitter` commits: the
+/// `StateValues` set line, one `\* <id>: <from> -> <to> (guard: …)`
+/// comment plus `\/ vpc = "…" /\ vpc' = "…"` code line per transition,
+/// and the `Output` function (`"state" :> "value"` entries joined with
+/// `@@`). Parsing is backend-neutral — the TLC backend (specodelic-ug3)
+/// reuses this same extraction to validate its own artifacts. Anything
+/// outside the emitted shape is a labeled error, never a guess.
+pub(crate) fn parse_artifact_shape(tla_artifact: &[u8]) -> Result<ArtifactShape, ModelCheckError> {
     let text = std::str::from_utf8(tla_artifact).map_err(|_| {
         err(
             "artifact_unreadable",
@@ -372,7 +437,7 @@ fn assert_artifact_consistent(ir: &ModelIr, tla_artifact: &[u8]) -> Result<(), M
                 "the compiled .tla module has no StateValues line — not a compile-emitted module",
             )
         })?;
-    let artifact_states: std::collections::BTreeSet<&str> = state_values
+    let states: std::collections::BTreeSet<String> = state_values
         .split("==")
         .nth(1)
         .unwrap_or("")
@@ -380,18 +445,13 @@ fn assert_artifact_consistent(ir: &ModelIr, tla_artifact: &[u8]) -> Result<(), M
         .trim_start_matches('{')
         .trim_end_matches('}')
         .split(',')
-        .map(|s| s.trim().trim_matches('"'))
+        .map(|s| s.trim().trim_matches('"').to_string())
         .filter(|s| !s.is_empty())
         .collect();
-    let ir_states: std::collections::BTreeSet<&str> =
-        ir.states.iter().map(|s| s.id.as_str()).collect();
-    if artifact_states != ir_states {
-        return Err(stale(
-            "the module's StateValues differ from the spec's states",
-        ));
-    }
-    let mut artifact_transitions: Vec<&str> = vec![];
-    let mut artifact_edges: Vec<(&str, &str)> = vec![];
+    let mut transition_ids: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    let mut edges: Vec<(String, String)> = vec![];
+    let mut output: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
+    let mut in_output = false;
     for line in text.lines() {
         let comment = line.trim_start().strip_prefix("\\*").map(str::trim_start);
         if let Some(c) = comment
@@ -399,7 +459,7 @@ fn assert_artifact_consistent(ir: &ModelIr, tla_artifact: &[u8]) -> Result<(), M
             && c.contains("(guard:")
             && let Some(id) = c.split(':').next()
         {
-            artifact_transitions.push(id.trim());
+            transition_ids.insert(id.trim().to_string());
         }
         // specodelic-8nt: the code disjuncts, not just their comments —
         // an edited/deleted edge with its comment left behind must not
@@ -407,6 +467,33 @@ fn assert_artifact_consistent(ir: &ModelIr, tla_artifact: &[u8]) -> Result<(), M
         // not a transition, anything else must parse or the module is
         // not a compile-emitted one (fail closed on hand edits).
         let trimmed = line.trim_start();
+        if trimmed.starts_with("Output ==") {
+            in_output = true;
+            continue;
+        }
+        if in_output {
+            if trimmed.starts_with("====") {
+                in_output = false;
+            } else if !trimmed.starts_with("<< >>") {
+                // One entry per emitting state, `"state" :> "value"`,
+                // joined with `@@` — parse each fragment; a malformed
+                // entry means the module was hand-edited (fail closed).
+                for fragment in trimmed.split("@@") {
+                    let f = fragment.trim();
+                    if f.is_empty() {
+                        continue;
+                    }
+                    let (state, value) = parse_output_entry(f).ok_or_else(|| {
+                        err(
+                            "artifact_unreadable",
+                            "an Output entry is not of the emitted `\"state\" :> \"value\"` shape — not a compile-emitted module",
+                        )
+                    })?;
+                    output.insert(state.to_string(), value.to_string());
+                }
+            }
+            continue;
+        }
         if trimmed.starts_with("\\/") {
             if trimmed.starts_with("\\/ UNCHANGED") {
                 continue;
@@ -417,33 +504,15 @@ fn assert_artifact_consistent(ir: &ModelIr, tla_artifact: &[u8]) -> Result<(), M
                     "a Next disjunct is not of the emitted `\\/ vpc = \"…\" /\\ vpc' = \"…\"` shape — not a compile-emitted module",
                 )
             })?;
-            artifact_edges.push((from, to));
+            edges.push((from.to_string(), to.to_string()));
         }
     }
-    let mut ir_transitions: Vec<&str> = ir.transitions.iter().map(|t| t.id.as_str()).collect();
-    artifact_transitions.sort_unstable();
-    ir_transitions.sort_unstable();
-    if artifact_transitions != ir_transitions {
-        return Err(stale(
-            "the module's Next disjuncts differ from the spec's transitions",
-        ));
-    }
-    // specodelic-8nt: the edges the module actually steps through — the
-    // id set alone reads comments, which the disjunct code can outlive.
-    let mut artifact_edges_sorted: Vec<(&str, &str)> = artifact_edges.clone();
-    artifact_edges_sorted.sort_unstable();
-    let mut ir_edges: Vec<(&str, &str)> = ir
-        .transitions
-        .iter()
-        .map(|t| (t.from.as_str(), t.to.as_str()))
-        .collect();
-    ir_edges.sort_unstable();
-    if artifact_edges_sorted != ir_edges {
-        return Err(stale(
-            "the module's Next disjunct edges differ from the spec's transitions",
-        ));
-    }
-    Ok(())
+    Ok(ArtifactShape {
+        states,
+        transition_ids,
+        edges,
+        output,
+    })
 }
 
 /// A Next disjunct's program-counter edge: the two quoted values of the
@@ -451,13 +520,27 @@ fn assert_artifact_consistent(ir: &ModelIr, tla_artifact: &[u8]) -> Result<(), M
 /// generated (letters/digits), so a plain quote scan suffices.
 fn parse_vpc_disjunct(line: &str) -> Option<(&str, &str)> {
     let mut quoted = line.match_indices('"').map(|(i, _)| i);
-    let (q1, q2, q3, q4) = (quoted.next()?, quoted.next()?, quoted.next()?, quoted.next()?);
+    let (q1, q2, q3, q4) = (
+        quoted.next()?,
+        quoted.next()?,
+        quoted.next()?,
+        quoted.next()?,
+    );
     if quoted.next().is_some() {
         return None;
     }
     let from = line.get(q1 + 1..q2)?;
     let to = line.get(q3 + 1..q4)?;
     Some((from, to))
+}
+
+/// An Output entry's state and value: the two quoted halves of the
+/// emitted `"state" :> "value"` shape, split at the first ` :> `.
+fn parse_output_entry(entry: &str) -> Option<(&str, &str)> {
+    let (left, right) = entry.split_once(" :> ")?;
+    let state = left.trim().strip_prefix('"')?.strip_suffix('"')?;
+    let value = right.trim().strip_prefix('"')?.strip_suffix('"')?;
+    Some((state, value))
 }
 
 #[cfg(test)]
@@ -483,12 +566,18 @@ mod tests {
     fn artifact() -> Vec<u8> {
         // A compile-emitted-format module for chain_ir() — the consistency
         // check parses this shape (StateValues + disjunct comments).
-        artifact_for(&["a", "b", "c"], &[("t1", "a", "b"), ("t2", "b", "c")])
+        artifact_for(&["a", "b", "c"], &[("t1", "a", "b"), ("t2", "b", "c")], &[])
     }
 
     /// A minimal `.tla` module in exactly the shape `add-tla-emitter`
-    /// commits: one StateValues line, one comment+disjunct per transition.
-    fn artifact_for(states: &[&str], transitions: &[(&str, &str, &str)]) -> Vec<u8> {
+    /// commits: one StateValues line, one comment+disjunct per transition,
+    /// and an Output function (empty when no output entries are given —
+    /// the emitter always writes the section).
+    fn artifact_for(
+        states: &[&str],
+        transitions: &[(&str, &str, &str)],
+        output: &[(&str, &str)],
+    ) -> Vec<u8> {
         let mut out = String::new();
         out.push_str(&format!(
             "StateValues == {{{}}}\n\nNext ==\n",
@@ -502,6 +591,18 @@ mod tests {
             out.push_str(&format!(
                 "  \\* {id}: {from} -> {to} (guard: some-guard)\n  \\/ vpc = \"{from}\" /\\ vpc' = \"{to}\"\n"
             ));
+        }
+        out.push_str("  \\/ UNCHANGED vpc\n\n");
+        if output.is_empty() {
+            out.push_str("Output == << >>\n");
+        } else {
+            out.push_str("Output ==\n");
+            let entries: Vec<String> = output
+                .iter()
+                .map(|(s, v)| format!("\"{s}\" :> \"{v}\""))
+                .collect();
+            out.push_str(&entries.join(" @@\n"));
+            out.push('\n');
         }
         out.into_bytes()
     }
@@ -563,7 +664,7 @@ mod tests {
         // Only states reachable from `a` are explored — `c` is outside.
         let mut ir = chain_ir();
         ir.transitions.truncate(1); // keep only a → b
-        let artifact = artifact_for(&["a", "b", "c"], &[("t1", "a", "b")]);
+        let artifact = artifact_for(&["a", "b", "c"], &[("t1", "a", "b")], &[]);
         let report = run(&ir, &artifact, &Bound::default()).unwrap();
         assert_eq!(report.states_explored, 2);
     }
@@ -684,6 +785,7 @@ mod tests {
         let drifted = artifact_for(
             &["a", "b", "c", "d"], // spec gained a state the module lacks
             &[("t1", "a", "b"), ("t2", "b", "c")],
+            &[],
         );
         let e = run(&chain_ir(), &drifted, &Bound::default()).unwrap_err();
         assert_eq!(e.stage, "stale_artifact");
@@ -700,14 +802,10 @@ mod tests {
     ) -> Vec<u8> {
         let mut out = String::from("StateValues == {\"a\", \"b\", \"c\"}\n\nNext ==\n");
         for (id, from, to) in comments {
-            out.push_str(&format!(
-                "  \\* {id}: {from} -> {to} (guard: some-guard)\n"
-            ));
+            out.push_str(&format!("  \\* {id}: {from} -> {to} (guard: some-guard)\n"));
         }
         for (from, to) in code {
-            out.push_str(&format!(
-                "  \\/ vpc = \"{from}\" /\\ vpc' = \"{to}\"\n"
-            ));
+            out.push_str(&format!("  \\/ vpc = \"{from}\" /\\ vpc' = \"{to}\"\n"));
         }
         out.push_str("  \\/ UNCHANGED vpc\n\n");
         if output.is_empty() {
@@ -747,10 +845,75 @@ mod tests {
         assert_eq!(e.stage, "stale_artifact");
     }
 
+    /// An emitting IR: state `a` emits effect-constraint `C`, whose
+    /// emitted Output value is the constraint's expr (as model_to_tla
+    /// writes it).
+    fn emitting_ir() -> ModelIr {
+        serde_json::from_str(
+            r#"{
+                "states": [{"id": "a"}, {"id": "b"}, {"id": "c"}],
+                "transitions": [
+                    {"id": "t1", "from": "a", "to": "b", "guard": null},
+                    {"id": "t2", "from": "b", "to": "c", "guard": null}
+                ],
+                "emits": {"a": "C"},
+                "emits_values": {"a": "`C's expr`"}
+            }"#,
+        )
+        .unwrap()
+    }
+
     #[test]
+    fn output_missing_when_the_spec_emits_is_rejected() {
+        // specodelic-8nt (Output half): the module has no Output entries
+        // while the spec's model emits from `a` — the Output function
+        // must be compared against the IR, never skipped.
+        let artifact = artifact_for(&["a", "b", "c"], &[("t1", "a", "b"), ("t2", "b", "c")], &[]);
+        let e = run(&emitting_ir(), &artifact, &Bound::default()).unwrap_err();
+        assert_eq!(e.stage, "stale_artifact");
+    }
+
+    #[test]
+    fn output_value_drift_without_recompile_is_rejected() {
+        // The entry exists but its value was hand-edited — the domain
+        // alone is insufficient; the emitted value must match the IR.
+        let artifact = artifact_for(
+            &["a", "b", "c"],
+            &[("t1", "a", "b"), ("t2", "b", "c")],
+            &[("a", "a hand-edited value")],
+        );
+        let e = run(&emitting_ir(), &artifact, &Bound::default()).unwrap_err();
+        assert_eq!(e.stage, "stale_artifact");
+    }
+
+    #[test]
+    fn artifact_output_entry_without_spec_emits_is_rejected() {
+        // The spec emits nothing; the module claims an Output entry.
+        let artifact = artifact_for(
+            &["a", "b", "c"],
+            &[("t1", "a", "b"), ("t2", "b", "c")],
+            &[("a", "anything")],
+        );
+        let e = run(&chain_ir(), &artifact, &Bound::default()).unwrap_err();
+        assert_eq!(e.stage, "stale_artifact");
+    }
+
+    #[test]
+    fn output_matching_the_ir_passes() {
+        // The positive leg: a module whose Output function matches the
+        // IR verbatim runs clean (well — exploratory, specodelic-len).
+        let artifact = artifact_for(
+            &["a", "b", "c"],
+            &[("t1", "a", "b"), ("t2", "b", "c")],
+            &[("a", "`C's expr`")],
+        );
+        let report = run(&emitting_ir(), &artifact, &Bound::default()).unwrap();
+        assert_eq!(report.outcome, Outcome::ExplorationOnly);
+    }
+
     #[test]
     fn edited_transitions_without_recompile_are_rejected_too() {
-        let drifted = artifact_for(&["a", "b", "c"], &[("t1", "a", "b")]); // t2 missing
+        let drifted = artifact_for(&["a", "b", "c"], &[("t1", "a", "b")], &[]); // t2 missing
         let e = run(&chain_ir(), &drifted, &Bound::default()).unwrap_err();
         assert_eq!(e.stage, "stale_artifact");
     }
@@ -814,7 +977,7 @@ mod tests {
             }"#,
         )
         .unwrap();
-        let artifact = artifact_for(&["a", "b"], &[("loop", "a", "a"), ("t", "a", "b")]);
+        let artifact = artifact_for(&["a", "b"], &[("loop", "a", "a"), ("t", "a", "b")], &[]);
         let report = run(&ir, &artifact, &Bound::default()).unwrap();
         assert_eq!(report.outcome, Outcome::ExplorationOnly);
         assert_eq!(report.states_explored, 2);

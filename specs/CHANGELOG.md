@@ -6,6 +6,38 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #45 — artifact consistency checks edges and Output, not just ids (specodelic-8nt)
+
+`assert_artifact_consistent` compared only the compiled `.tla` module's
+`StateValues` line and the disjunct-comment **id set** against the IR —
+so a hand-edited or stale module whose code edges differed from its
+comments (an edited to-state, a deleted code line with its comment left
+behind) passed silently, and the run report attached the modified file's
+SHA-256 as provenance. The checker explored the IR's transitions while
+claiming to have checked the on-disk module.
+
+Fixed in three comparisons, all against the IR extracted from the live
+spec: (1) the **edge multiset** parsed from the `\/ vpc = "…" /\\ vpc' =
+"…"` code disjuncts; (2) the **Output function** verbatim — `ModelIr`
+gains `emits_values` (state → the value the emitter writes: the
+effect-Constraint's `expr`, computed through the same `constraint_exprs`
+map `model_to_tla` reads so IR and artifact cannot diverge); (3) the
+existing states/id-set checks. Anything outside the emitted shape is
+fail-closed `artifact_unreadable` (a `\/` line that doesn't parse, a
+malformed Output entry).
+
+Refactor: extraction split into `parse_artifact_shape` (pub(crate)
+`ArtifactShape`) so the TLC backend (specodelic-ug3) reuses the same
+parse. `run()` validates IR integrity (`invalid_model`) before IR↔artifact
+agreement. Dogfood catch: the specodelic-len artifact regeneration
+covered `.tla`/`.check.json` but left `compile.toml`, `*_props.rs`, and
+`model_check.tla`'s StateValues stale against the same commit's spec
+edits — all regenerated here (the exact staleness class the new gate
+exists to catch).
+
+Gates: just ci + lint-specs 0 + graph 0 dangling + openspec strict 8/8;
+corpus model-check 18/18 exploration_only under the new gate.
+
 ## #44 — `exploration_only`: a completed model-check run is never a clean verdict (specodelic-len)
 
 `spk model-check` reported `outcome: no_counterexample` with
