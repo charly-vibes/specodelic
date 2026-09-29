@@ -630,7 +630,7 @@ mod tests {
 
     #[test]
     fn law_cases_all_run_partial_pass_is_failure() {
-        let blocks = vec![
+        let blocks = [
             BlockResult {
                 id: "p".into(),
                 case: Some("identity".into()),
@@ -650,7 +650,7 @@ mod tests {
         let v = verdict(&state, &ModelGateState::Clean);
         assert_eq!(v.status, "properties_failed");
         // the failing block's shrunk detail is carried for the report
-        assert!(blocks[1].passed == false && blocks[1].detail.is_some());
+        assert!(!blocks[1].passed && blocks[1].detail.is_some());
     }
 
     #[test]

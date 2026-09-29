@@ -101,6 +101,14 @@ fn touched_ids(tip: &Tip, base: &Tip) -> Vec<String> {
             touched.push(id.clone());
         }
     }
+    // Deletions are touches too: an id the ancestor defined that this
+    // branch no longer defines. Its dependents (fan-in) belong in the
+    // blast radius exactly as if the definition had been edited.
+    for id in base.ids.keys() {
+        if !tip.ids.contains_key(id) {
+            touched.push(id.clone());
+        }
+    }
     touched
 }
 
@@ -179,6 +187,8 @@ pub fn run(
         if newly_minted || both_edited {
             let why = if newly_minted {
                 "minted independently on both branches"
+            } else if a_text == b_text {
+                "edited on both branches to identical definitions"
             } else {
                 "edited on both branches with different definitions"
             };
@@ -254,10 +264,8 @@ pub fn run(
                         findings.push(Finding {
                             kind: "rename_replay".into(),
                             message: format!(
-                                "branch {label} renamed {old} away, but the other branch \
-                                 mints a reference to [[{t}]] in {file} — after joining, \
-                                 replay the rename onto that reference (specodelic rename) \
-                                 so it is neither dangling nor dropped"
+                                "branch {label} removed {old} (a rename or a deletion), but branch {}'s files still reference [[{t}]] in {file} — if the removal was a rename, replay it onto that reference (specodelic rename); if a deletion, drop the stale reference",
+                                if label == "A" { "B" } else { "A" }
                             ),
                         });
                     }
@@ -268,8 +276,12 @@ pub fn run(
 
     // --- post_merge_relint_required: the union tree must re-lint clean
     // (linter.referential_integrity via zero dangling + full corpus lint)
-    // before merge is reported passed. Union rule: A wins deletions; a
-    // file A left untouched takes B's version.
+    // before merge is reported passed. Union rule: a branch's deletion
+    // wins when the other branch left the file untouched; an edit beats
+    // an untouched counterpart; edited-on-one-side + deleted-on-the-other
+    // is a modify/delete conflict (git marks it too) — the edited version
+    // stays in the merged tree for the relint and the conflict is flagged
+    // so the verdict can never be a false clean `merged`.
     let mut merged: BTreeMap<String, String> = BTreeMap::new();
     for (rel, text) in a {
         merged.insert(rel.clone(), text.clone());
@@ -294,6 +306,42 @@ pub fn run(
                     merged.insert(rel.clone(), text.clone());
                 }
             }
+        }
+    }
+    // Symmetric deletion handling: every base file missing from one tip
+    // is a deletion by that branch. When the other branch edited it, the
+    // modify/delete conflict is flagged (the edited version stays so the
+    // relint sees the tree the merge would actually produce); when the
+    // other branch left it untouched, the deletion wins.
+    for rel in tip_base.texts.keys() {
+        let in_a = a.iter().any(|(p, _)| p == rel);
+        let in_b = b.iter().any(|(p, _)| p == rel);
+        if in_a && in_b {
+            continue; // present on both sides — no deletion involved
+        }
+        let (edited_tip, deleted_tip) = if in_a { ("A", "B") } else { ("B", "A") };
+        let edited = if edited_tip == "A" {
+            a.iter()
+                .find(|(p, _)| p == rel)
+                .map(|(_, t)| t.as_str())
+                .is_some_and(|t| tip_base.texts.get(rel).map(String::as_str) != Some(t))
+        } else {
+            tip_b
+                .texts
+                .get(rel)
+                .is_some_and(|t| tip_base.texts.get(rel).map(String::as_str) != Some(t.as_str()))
+        };
+        if edited {
+            findings.push(Finding {
+                kind: "textual_conflict".into(),
+                message: format!(
+                    "{rel} was edited on branch {edited_tip} but deleted on branch \
+                     {deleted_tip} — modify/delete conflict; git will mark it — \
+                     resolve it, then re-run the check"
+                ),
+            });
+        } else {
+            merged.remove(rel);
         }
     }
     let mut details: Vec<String> = vec![];

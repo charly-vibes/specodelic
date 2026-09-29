@@ -243,25 +243,31 @@ fn validate_shape(new_id: &str) -> Result<(), RenameError> {
 /// passes through byte-identical.
 fn rewrite_text(raw: &str, old_id: &str, new_id: &str, local: Option<(&str, &str)>) -> String {
     let mut out = String::with_capacity(raw.len());
-    for line in raw.lines() {
-        let trimmed = line.trim_start();
+    for line in raw.split_inclusive('\n') {
+        // Split off the terminator so the line matchers see bare content,
+        // then re-attach the ORIGINAL terminator — CRLF files keep their
+        // endings byte-exact (`prose_untouched_by_rename` is byte-level;
+        // lines() would silently normalize every \r\n to \n).
+        let (content, term) = match line.strip_suffix("\r\n") {
+            Some(c) => (c, "\r\n"),
+            None => match line.strip_suffix('\n') {
+                Some(c) => (c, "\n"),
+                None => (line, ""),
+            },
+        };
+        let trimmed = content.trim_start();
         let rewritten: String = if local.is_none() && trimmed == format!("id: {old_id}") {
             // Frontmatter Intent id (the definition file's own).
-            line.replacen(old_id, new_id, 1)
+            content.replacen(old_id, new_id, 1)
         } else if trimmed.starts_with('|') {
-            rewrite_table_row(line, old_id, new_id, local)
+            rewrite_table_row(content, old_id, new_id, local)
         } else if trimmed.starts_with("- ") {
-            rewrite_state_bullet(line, old_id, new_id, local)
+            rewrite_state_bullet(content, old_id, new_id, local)
         } else {
-            rewrite_links(line, old_id, new_id)
+            rewrite_links(content, old_id, new_id)
         };
         out.push_str(&rewritten);
-        out.push('\n');
-    }
-    // lines() drops a missing trailing newline only when absent —
-    // strip the one we added if the original had no final newline.
-    if !raw.ends_with('\n') {
-        out.truncate(out.trim_end_matches('\n').len());
+        out.push_str(term);
     }
     out
 }
@@ -388,5 +394,23 @@ mod tests {
                 "{bad:?} must be rejected"
             );
         }
+    }
+
+    /// CRLF files keep their terminators byte-exact: only the id-bearing
+    /// lines change; every other line — including its `\r\n` — passes
+    /// through untouched (`prose_untouched_by_rename` is byte-level).
+    #[test]
+    fn crlf_files_keep_their_terminators() {
+        let raw = "---\r\nid: a\r\nkind: intent\r\nstatement: \"THE system SHALL x\"\r\n---\r\n\r\nprose line\r\n";
+        let files = vec![(std::path::PathBuf::from("a.md"), raw.to_string())];
+        let out = run(&files, "a", "b").unwrap();
+        assert_eq!(out.writes.len(), 1, "one write: the moved file");
+        let text = &out.writes[0].1;
+        assert!(
+            text.contains("id: b\r\n"),
+            "frontmatter rewritten: {text:?}"
+        );
+        assert!(text.contains("prose line\r\n"), "CRLF preserved: {text:?}");
+        assert!(!text.contains("id: a\r\n"));
     }
 }

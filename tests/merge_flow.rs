@@ -209,6 +209,79 @@ fn textually_clean_semantic_conflict_is_flagged() {
     assert_eq!(code, Some(1));
 }
 
+/// Modify/delete: branch A edits the file, branch B deletes it. Git
+/// marks the conflict; the check must never report a false clean
+/// `merged` (Ro5 round over bc39f9d..main — the union used to keep A's
+/// edited copy silently and relint the wrong tree).
+#[test]
+fn modify_delete_edited_in_a_deleted_in_b_is_flagged() {
+    let dir = tempfile::tempdir().unwrap();
+    let (base, a, b) = setup(dir.path(), &["x", "y"]);
+    std::fs::write(
+        a.join("x.md"),
+        clean_spec("x", "THE system SHALL hold edited"),
+    )
+    .unwrap();
+    std::fs::remove_file(b.join("x.md")).unwrap(); // B keeps only y.md
+
+    let (stdout, code) = run_merge(&base, &a, &b);
+    assert!(
+        stdout.contains("textual_conflict"),
+        "modify/delete conflict flagged: {stdout}"
+    );
+    assert!(
+        stdout.contains("deleted on branch B"),
+        "conflict names the deletion side: {stdout}"
+    );
+    assert_eq!(code, Some(1));
+}
+
+/// The mirror case: branch B edits, branch A deletes.
+#[test]
+fn modify_delete_edited_in_b_deleted_in_a_is_flagged() {
+    let dir = tempfile::tempdir().unwrap();
+    let (base, a, b) = setup(dir.path(), &["x", "y"]);
+    std::fs::remove_file(a.join("x.md")).unwrap(); // A keeps only y.md
+    std::fs::write(
+        b.join("x.md"),
+        clean_spec("x", "THE system SHALL hold edited"),
+    )
+    .unwrap();
+
+    let (stdout, code) = run_merge(&base, &a, &b);
+    assert!(
+        stdout.contains("textual_conflict") && stdout.contains("deleted on branch A"),
+        "modify/delete conflict flagged symmetrically: {stdout}"
+    );
+    assert_eq!(code, Some(1));
+}
+
+/// Merging without `--base` treats every id defined on both branches as
+/// independently minted — the envelope must say so explicitly (a
+/// warning), or the collision flood reads as a verdict about the
+/// branches instead of about the missing ancestor.
+#[test]
+fn merge_without_base_warns_about_missing_ancestor() {
+    let dir = tempfile::tempdir().unwrap();
+    let (base, a, b) = setup(dir.path(), &["x"]);
+    let _ = base;
+    let out = spk()
+        .args([
+            "merge",
+            "--branch",
+            b.to_str().unwrap(),
+            a.to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        stdout.contains("--base") && stdout.contains("ancestor"),
+        "no-base merge explains the missing ancestor: {stdout}"
+    );
+}
+
 /// The ancestor `m.md` body, with the constraint row id swapped for
 /// `row_id` (the `original` param supplies the surrounding doc shape).
 fn m_with_row(row_id: &str, _original: &str) -> String {

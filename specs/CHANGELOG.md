@@ -6,6 +6,51 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #59 — Ro5 review of bc39f9d..main: merge modify/delete conflicts, deletion blast radii, CRLF-safe rename
+
+Review sweep over everything shipped since the suz Ro5 (verify, output
+contract, rename, TLC backend, graph edge contract, merge, adopter
+feedback r2). Findings + fixes:
+
+- **merge: modify/delete conflicts were a false clean `merged`** — a
+  file edited on one branch and deleted on the other kept the edited
+  copy in the union silently (or B's version won silently), and the
+  relint validated a tree the real merge would never produce. Now the
+  conflict is flagged (`textual_conflict`, both directions) and the
+  edited version stays only so the relint sees the tree the merge
+  would actually produce. Confirmed empirically before the fix: git
+  would conflict; `spk merge` said `merged`.
+- **merge: deletions count as touches** — a base id missing from a
+  branch's tip now enters `touched_ids`, so its dependents land in the
+  blast radius (`semantic_conflict_iff_blast_radius_intersects` holds
+  for deletions too).
+- **merge: honest messages** — the collision finding no longer claims
+  "different definitions" when both branches made identical edits (the
+  verdict still fails per `no_new_id_collision`'s strict reading);
+  rename-replay findings say "removed (a rename or a deletion)" instead
+  of asserting a rename, and distinguish replay vs stale-reference
+  cleanup.
+- **merge: `--base` omission is explained** — without an ancestor every
+  shared id reads as independently minted; the envelope now carries a
+  warning saying exactly that.
+- **rename: CRLF files keep their terminators** — `rewrite_text` used
+  `lines()` + `\n` rejoin, silently normalizing every `\r\n` to `\n`
+  (byte churn violating `prose_untouched_by_rename`). Terminators are
+  now preserved per line.
+- **model-check: TLC scratch dir is cleaned on the module-write error
+  path** (was: partial residue in the temp dir).
+- Removed a stray `demo-thing.md` committed at the repo root (a manual
+  `spk new` leftover; tests stage their own copies in temp dirs).
+- Advisory (unfixed): `spk verify`'s CargoRunner executes `cargo test`
+  unbounded — a hanging predicate hangs the verify (cargo-test domain,
+  not a tool bug; revisit if a wall-clock flag is ever wanted).
+- Pre-existing cosmetic: the CHANGELOG has a duplicate `#56` heading
+  (TLC ETXTBSY entry vs the ar2 entry) — left alone to avoid
+  renumbering cited entries.
+
+Gates: just ci + lint-specs 18/0 + graph 0 dangling + openspec strict
+9/9.
+
 ## #58 — adopter feedback round 2: drift is lint-enforced, self-file ref hint, help/DX papercuts (gh#4/#5/#6)
 
 Second adopter migration (poco, 25 deltas) surfaced three issues; all

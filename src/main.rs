@@ -1193,6 +1193,19 @@ fn cmd_merge(
         Some(b) => read_tree(b),
         None => (vec![], vec![]),
     };
+    // Without an ancestor, every id defined on both tips reads as
+    // "minted independently" (no_new_id_collision has nothing to compare
+    // against) — say so explicitly instead of letting the collision flood
+    // read as a verdict about the branches.
+    let mut notes_no_base: Vec<String> = vec![];
+    if base.is_none() {
+        notes_no_base.push(
+            "no --base given: ids defined on both branches are treated as independently \
+             minted (collision) — pass --base <ancestor-tree> to compare against the \
+             common ancestor"
+                .to_string(),
+        );
+    }
     if b_files.is_empty() {
         let mut out: Output<serde_json::Value> = Output::failure(
             "no spec files found in the incoming tree (--branch) — nothing to merge",
@@ -1217,7 +1230,12 @@ fn cmd_merge(
         _ => "resolve the findings in the branch trees, then re-run spk merge".to_string(),
     };
     out = out.with_next_step(next);
-    for n in notes_a.iter().chain(&notes_base).chain(&notes_b) {
+    for n in notes_a
+        .iter()
+        .chain(&notes_base)
+        .chain(&notes_no_base)
+        .chain(&notes_b)
+    {
         out = out.with_warning(n.clone());
     }
     emit_report(

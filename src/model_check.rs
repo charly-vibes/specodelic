@@ -483,8 +483,11 @@ pub fn run_tlc(
         .unwrap_or_else(|| "module".to_string());
     let scratch = scratch_dir(&stem)?;
     let module_in_scratch = scratch.join(format!("{stem}.tla"));
-    std::fs::write(&module_in_scratch, tla_artifact)
-        .map_err(|e| err("scratch_dir", e.to_string()))?;
+    std::fs::write(&module_in_scratch, tla_artifact).map_err(|e| {
+        // Don't leave a half-created scratch dir behind on the error path.
+        let _ = std::fs::remove_dir_all(&scratch);
+        err("scratch_dir", e.to_string())
+    })?;
 
     let mut command = std::process::Command::new(&paths.java);
     command
