@@ -1030,3 +1030,216 @@ fn doctor_reports_missing_or_stale_block() {
     );
     let _ = hints;
 }
+
+// ---- specodelic-cxr: spk hooks install / uninstall ----
+
+/// Wire a fake `spk` on PATH so the install-time gate dry-run is
+/// deterministic: "pass" exits 0, "fail" exits 1 with a lint summary.
+fn fake_spk(dir: &std::path::Path, behavior: &str) -> std::path::PathBuf {
+    let bin = dir.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let script = match behavior {
+        "pass" => "#!/bin/sh\necho 'linted 12 files, 0 issues'\n",
+        _ => "#!/bin/sh\necho 'linter.dual_format_valid: openspec/changes/x/spec.md' >&2\nexit 1\n",
+    };
+    std::fs::write(bin.join("spk"), script).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(bin.join("spk"), std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    bin
+}
+
+/// A minimal repo fixture: `.git` marker, optional lefthook config,
+/// optional openspec/ tree (the install pre-check target).
+fn hooks_fixture(with_config: bool, with_openspec: bool) -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join(".git")).unwrap();
+    if with_config {
+        std::fs::write(
+            dir.path().join("lefthook.yml"),
+            "pre-commit:\n  commands:\n    sibling-blockers:\n      run: scripts/guards/sibling-blockers.sh .\n",
+        )
+        .unwrap();
+    }
+    if with_openspec {
+        std::fs::create_dir_all(dir.path().join("openspec")).unwrap();
+    }
+    dir
+}
+
+fn with_path(bin: &std::path::Path) -> String {
+    format!(
+        "{}:{}",
+        bin.display(),
+        std::env::var("PATH").unwrap_or_default()
+    )
+}
+
+#[test]
+fn hooks_install_wires_gate_and_reports_envelope() {
+    let dir = hooks_fixture(true, true);
+    let pathdir = tempfile::tempdir().unwrap();
+    let bin = fake_spk(pathdir.path(), "pass");
+    let out = spk()
+        .args(["hooks", "install", "--json"])
+        .current_dir(dir.path())
+        .env("PATH", with_path(&bin))
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("\"outcome\""), "envelope data: {stdout}");
+    assert!(stdout.contains("wired"), "envelope data: {stdout}");
+    let config = std::fs::read_to_string(dir.path().join("lefthook.yml")).unwrap();
+    assert!(
+        config.contains(
+            "  commands:\n    # <!-- SPK:START -->\n    specodelic-gates:\n      run: spk lint openspec\n    # <!-- SPK:END -->\n    sibling-blockers:"
+        ),
+        "entry inside the existing commands mapping:\n{config}"
+    );
+    assert_eq!(config.matches("commands:").count(), 1, "no duplicate key");
+    assert!(
+        stdout.contains("gate_dry_run"),
+        "dry-run reported: {stdout}"
+    );
+}
+
+#[test]
+fn hooks_install_warns_but_succeeds_when_gate_fails() {
+    let dir = hooks_fixture(true, true);
+    let pathdir = tempfile::tempdir().unwrap();
+    let bin = fake_spk(pathdir.path(), "fail");
+    let out = spk()
+        .args(["hooks", "install", "--json"])
+        .current_dir(dir.path())
+        .env("PATH", with_path(&bin))
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "install must succeed; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("spk hooks uninstall"),
+        "escape hint in warnings: {stdout}"
+    );
+    assert!(
+        std::fs::read_to_string(dir.path().join("lefthook.yml"))
+            .unwrap()
+            .contains("specodelic-gates:"),
+        "still wired"
+    );
+}
+
+#[test]
+fn hooks_install_errors_on_missing_config_and_creates_none() {
+    let dir = hooks_fixture(false, true);
+    let pathdir = tempfile::tempdir().unwrap();
+    let bin = fake_spk(pathdir.path(), "pass");
+    let out = spk()
+        .args(["hooks", "install", "--json"])
+        .current_dir(dir.path())
+        .env("PATH", with_path(&bin))
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("no supported hook framework config"),
+        "labeled error: {stderr}"
+    );
+    assert!(!dir.path().join("lefthook.yml").exists(), "never created");
+}
+
+#[test]
+fn hooks_install_requires_openspec_dir() {
+    let dir = hooks_fixture(true, false);
+    let out = spk()
+        .args(["hooks", "install", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("openspec"),
+        "error names the missing openspec tree: {stderr}"
+    );
+    assert!(
+        !std::fs::read_to_string(dir.path().join("lefthook.yml"))
+            .unwrap()
+            .contains("specodelic-gates:"),
+        "config untouched when the pre-check fails"
+    );
+}
+
+#[test]
+fn hooks_uninstall_on_unwired_repo_is_a_noop() {
+    let dir = hooks_fixture(true, true);
+    let before = std::fs::read_to_string(dir.path().join("lefthook.yml")).unwrap();
+    let out = spk()
+        .args(["hooks", "uninstall", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "no-op is success; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("not_wired"), "envelope: {stdout}");
+    let after = std::fs::read_to_string(dir.path().join("lefthook.yml")).unwrap();
+    assert_eq!(before, after, "config unchanged");
+}
+
+#[test]
+fn hooks_uninstall_strips_only_the_block() {
+    let dir = hooks_fixture(true, true);
+    let pathdir = tempfile::tempdir().unwrap();
+    let bin = fake_spk(pathdir.path(), "pass");
+    spk()
+        .args(["hooks", "install", "--json"])
+        .current_dir(dir.path())
+        .env("PATH", with_path(&bin))
+        .output()
+        .unwrap()
+        .status
+        .success()
+        .then_some(())
+        .expect("install must succeed");
+    let wired = std::fs::read_to_string(dir.path().join("lefthook.yml")).unwrap();
+    let out = spk()
+        .args(["hooks", "uninstall", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("unwired"), "envelope: {stdout}");
+    let after = std::fs::read_to_string(dir.path().join("lefthook.yml")).unwrap();
+    let restored: String = wired
+        .lines()
+        .filter(|l| {
+            let t = l.trim();
+            !(t.contains("SPK:START")
+                || t.contains("SPK:END")
+                || t.contains("specodelic-gates:")
+                || t.contains("run: spk lint openspec"))
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert_eq!(
+        after.lines().collect::<Vec<_>>().join("\n"),
+        restored,
+        "only block lines removed:\n{after}"
+    );
+}

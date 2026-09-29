@@ -6,6 +6,45 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #43 — `spk hooks install`/`uninstall`: the dual-format gate wired into the hook chain
+
+Dual-format drift is now caught at commit time, not just in CI:
+`spk hooks install` wires `spk lint openspec` into the repo's
+`pre-commit:` stage as a marker-guarded managed block (`# <!--
+SPK:START/END -->` comment lines), built on genesis 0.8 `git_hooks`
+(framework detection, marker conventions). Design points grounded in
+verified behavior:
+
+- Never claims `core.hooksPath`, never writes `.git/hooks/*` or
+  `.beads/hooks/*` — the beads → lefthook chain keeps flowing; the
+  lefthook config is the sanctioned extension point.
+- Two-case anchor with children-indent inference: lefthook 1.13.6
+  rejects duplicate `commands:` keys (verified: `mapping key
+  "commands" already defined`) and mixed-indent keys within one
+  mapping, so the entry is inserted *inside* an existing `commands:`
+  mapping at the existing entries' indent; the full `commands:`
+  wrapper is injected only when the stage has none.
+- genesis `lefthook::ensure_wired` is NOT used for injection: verified
+  it glues the END marker onto the next existing line (its own tests
+  pin `END  parallel: true`), which with comment-prefixed markers
+  turns that line into a YAML comment — silently deleting the
+  following key. Local injection keeps markers on their own lines;
+  upstream consolidation filed (specodelic-x56:
+  `ensure_command_wired`).
+- Install reports a gate dry-run over the envelope
+  (`data.gate_dry_run`); a failing gate is a warning carrying the
+  failure summary and an `spk hooks uninstall` escape hint — never a
+  commit trap.
+- Uninstall strips only the marked block; an install-appended stage is
+  left as a documented empty section; uninstall on an unwired repo is
+  a successful no-op.
+- New capability spec `hooks` (dual format) lands under `openspec/`
+  at archive time; husky and prek repos get labeled refusals with
+  manual-wiring hints.
+
+Gates: 82 unit + 46 integration tests green; change at the approval
+gate: `openspec/changes/add-hooks-install/`.
+
 ## #42 — total_refs file-scoped for `id: spec` files: the self-containment law is enforced
 
 A Rule-of-5 review of the unification change set demonstrated that the

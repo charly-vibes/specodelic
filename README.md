@@ -34,6 +34,7 @@ $ specodelic explain lint-rules   # embedded format guide + lint rule catalog
 $ specodelic init            # write the SPECODELIC rules block into AGENTS.md
 $ specodelic doctor          # diagnose the workspace + block currency
 $ specodelic feedback bug --dry-run   # file an issue against upstream
+$ specodelic hooks install   # wire the dual-format gate into the pre-commit chain
 ```
 
 Pipeline commands (`compile`, `model-check`, `verify`, `rename`,
@@ -76,6 +77,11 @@ CLI/envelope/self-healing infrastructure.
   exhaustive-within-bound runs, persisted `.check.json` reports with
   artifact provenance (no executable predicate language yet — reports
   `invariants_checked: []` honestly)
+- ✅ `hooks` — `spk hooks install`/`uninstall` wire the dual-format gate
+  (`spk lint openspec`) into the repo's pre-commit chain as a
+  marker-guarded lefthook managed block — never claiming
+  `core.hooksPath`, never writing foreign hook files; install reports a
+  gate dry-run over the envelope (failing gate = warning + escape hint)
 - ⏳ `verify`, `rename`, `refactor`, `merge`, `orchestrate` — specced, not
   implemented
 

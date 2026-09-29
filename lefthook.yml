@@ -7,6 +7,10 @@
 
 pre-commit:
   commands:
+    # <!-- SPK:START -->
+    specodelic-gates:
+      run: spk lint openspec
+    # <!-- SPK:END -->
     sibling-blockers:
       run: scripts/guards/sibling-blockers.sh .
 

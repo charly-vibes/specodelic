@@ -38,6 +38,14 @@ struct Cli {
     format: CliFormat,
 }
 
+#[derive(clap::ValueEnum, Clone)]
+enum HooksAction {
+    /// Wire `spk lint openspec` into the repo's pre-commit chain
+    Install,
+    /// Remove the specodelic managed block from the hook chain
+    Uninstall,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Lint spec files against the Specodelic invariants
@@ -140,6 +148,13 @@ enum Commands {
         /// Override the issue title (wins over derived titles)
         #[arg(long)]
         title: Option<String>,
+    },
+    /// Wire or unwire the specodelic dual-format gate in the repo's
+    /// hook chain (lefthook managed block — never claims core.hooksPath)
+    Hooks {
+        /// Whether to wire (install) or unwire (uninstall) the gate
+        #[arg(value_enum)]
+        action: HooksAction,
     },
     /// Generate shell completions
     Completions {
@@ -306,6 +321,197 @@ fn cmd_init(
 /// Report-only verb: always human-readable on stderr, never envelope JSON
 /// (the envelope is for pipeline data; feedback is an interactive side
 /// channel).
+/// `spk hooks install|uninstall` — wire/unwire the specodelic
+/// dual-format gate into the repo's hook chain (specodelic-cxr).
+/// Wiring is purely additive marker-guarded lefthook surgery in
+/// `specodelic::hooks`; this layer adds the repo-root resolution, the
+/// fail-early `openspec/` pre-check (design Decision 2), the install
+/// time gate dry-run (Rule-of-5 EDGE-001 — a failing gate is a warning
+/// with an escape hint, never a commit trap), and the envelope.
+fn cmd_hooks(
+    install_action: bool,
+    cli: &Cli,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let root = match genesis::git_hooks::repo_root() {
+        Ok(root) => root,
+        Err(err) => {
+            let out: Output<serde_json::Value> = Output::failure(err.to_string())
+                .with_next_step("run from inside the repository that owns the hook chain");
+            emit(&out, cli, format, verbosity, stdout, stderr);
+            return 1;
+        }
+    };
+
+    if install_action {
+        // Fail-early pre-check: a wired gate over a missing openspec
+        // tree would fail every commit (design Decision 2).
+        if !root.join("openspec").is_dir() {
+            let out: Output<serde_json::Value> = Output::failure(format!(
+                "no openspec/ tree at {} — the wired gate `spk lint openspec` would fail on every commit",
+                root.display()
+            ))
+            .with_next_step(
+                "adopt the openspec layout first (openspec init), then re-run: spk hooks install",
+            );
+            emit(&out, cli, format, verbosity, stdout, stderr);
+            return 1;
+        }
+        let (outcome, config) = match specodelic::hooks::install(&root) {
+            Ok(outcome) => {
+                let config = ["lefthook.yml", "lefthook.yaml"]
+                    .iter()
+                    .find(|name| root.join(name).is_file())
+                    .map(|n| n.to_string())
+                    .unwrap_or_default();
+                (outcome, config)
+            }
+            Err(err) => {
+                let out: Output<serde_json::Value> = Output::failure(err.to_string())
+                    .with_next_step(
+                        "inspect the hook config manually, then re-run: spk hooks install",
+                    );
+                emit(&out, cli, format, verbosity, stdout, stderr);
+                return 1;
+            }
+        };
+
+        // Gate dry-run (design Decision 2 / EDGE-001): run the wired
+        // command once so a repo whose tree would fail immediately gets
+        // a warning + escape hint instead of a commit trap.
+        let dry_run = gate_dry_run(&root);
+        let mut out: Output<serde_json::Value> = Output::success(serde_json::json!({
+            "command": specodelic::hooks::GATE_COMMAND,
+            "stage": specodelic::hooks::STAGE,
+            "config": config,
+            "outcome": match outcome {
+                specodelic::hooks::WireOutcome::Injected => "wired",
+                specodelic::hooks::WireOutcome::AlreadyWired => "already_wired",
+            },
+            "gate_dry_run": serde_json::json!({
+                "passed": dry_run.passed,
+                "summary": dry_run.summary,
+            }),
+        }))
+        .with_next_step("the gate runs on every commit — adjust anytime with: spk hooks uninstall");
+        if !dry_run.passed {
+            out = out.with_warning(format!(
+                "the gate dry-run failed: {} — the wired gate will fail on commits until the tree is fixed; escape hatch: spk hooks uninstall",
+                dry_run.summary
+            ));
+        }
+        emit(&out, cli, format, verbosity, stdout, stderr);
+        0
+    } else {
+        match specodelic::hooks::uninstall(&root) {
+            Ok(outcome) => {
+                let out: Output<serde_json::Value> = Output::success(serde_json::json!({
+                    "outcome": match outcome {
+                        specodelic::hooks::UnwireOutcome::Removed => "unwired",
+                        specodelic::hooks::UnwireOutcome::NotWired => "not_wired",
+                    },
+                }));
+                emit(&out, cli, format, verbosity, stdout, stderr);
+                0
+            }
+            Err(err) => {
+                let out: Output<serde_json::Value> = Output::failure(err.to_string())
+                    .with_next_step(
+                        "fix the managed-block markers manually, then re-run: spk hooks uninstall",
+                    );
+                emit(&out, cli, format, verbosity, stdout, stderr);
+                1
+            }
+        }
+    }
+}
+
+/// Outcome of the install-time gate dry-run.
+struct GateDryRun {
+    passed: bool,
+    summary: String,
+}
+
+/// Summarize the gate dry-run output for the envelope. The gate runs in
+/// its default (JSON envelope) mode on a pipe — a single-line envelope;
+/// recognize it and summarize semantically (issue count / lint findings).
+/// Any other output: the last meaningful line, truncated.
+fn summarize_gate_output(raw: &str, passed: bool) -> String {
+    for line in raw.lines().rev() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(line)
+            && let Some(issues) = v
+                .get("data")
+                .and_then(|data| data.get("issues"))
+                .and_then(|i| i.as_array())
+        {
+            return if issues.is_empty() {
+                "clean (0 lint issues)".to_string()
+            } else {
+                let rules: Vec<String> = issues
+                    .iter()
+                    .filter_map(|i| i.get("rule_id").and_then(|r| r.as_str()).map(String::from))
+                    .take(3)
+                    .collect();
+                format!(
+                    "{} lint issue(s){}",
+                    issues.len(),
+                    if rules.is_empty() {
+                        String::new()
+                    } else {
+                        format!(": {}", rules.join(", "))
+                    }
+                )
+            };
+        }
+        let truncated = if line.len() > 200 {
+            &line[line.len() - 200..]
+        } else {
+            line
+        };
+        return truncated.to_string();
+    }
+    if passed {
+        "clean".to_string()
+    } else {
+        "failed".to_string()
+    }
+}
+
+/// Run the wired gate command (`spk lint openspec`) once, from the repo
+/// root. A missing `spk` binary on PATH is itself a dry-run failure —
+/// the wired gate would fail at commit time (honest, not silent).
+fn gate_dry_run(root: &std::path::Path) -> GateDryRun {
+    match std::process::Command::new("spk")
+        .args(["lint", "openspec"])
+        .current_dir(root)
+        .output()
+    {
+        Ok(output) => {
+            let passed = output.status.success();
+            let mut tail = String::from_utf8_lossy(&output.stderr).to_string();
+            if tail.trim().is_empty() {
+                tail = String::from_utf8_lossy(&output.stdout).to_string();
+            }
+            GateDryRun {
+                passed,
+                summary: summarize_gate_output(&tail, passed),
+            }
+        }
+        Err(_) => GateDryRun {
+            passed: false,
+            summary: "spk not found on PATH — the wired gate would fail at commit time (install spk or adjust the gate)"
+                .to_string(),
+        },
+    }
+}
+
 fn cmd_feedback(kind: &str, dry_run: bool, from_last_error: bool, title: Option<&str>) -> i32 {
     let args = genesis::feedback::FeedbackArgs {
         kind: kind.to_string(),
@@ -415,6 +621,14 @@ fn run(
             from_last_error,
             title,
         } => cmd_feedback(kind, *dry_run, *from_last_error, title.as_deref()),
+        Commands::Hooks { action } => cmd_hooks(
+            matches!(action, HooksAction::Install),
+            cli,
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        ),
         Commands::Completions { shell } => {
             let mut cmd = Cli::command();
             match generate_completions(&mut cmd, *shell) {

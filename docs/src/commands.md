@@ -67,6 +67,20 @@ The embedded format guide: `format`, `ears`, `kinds`, `references`,
 repo's `AGENTS.md` (rule catalog + format revision). `spk feedback`
 opens a prefilled feedback channel for the tool.
 
+## `spk hooks install`, `spk hooks uninstall`
+
+`spk hooks install` wires the dual-format gate (`spk lint openspec`)
+into the repo's pre-commit chain as a marker-guarded managed block in
+`lefthook.yml` — purely additive (beads' `core.hooksPath` → lefthook
+chain keeps flowing), idempotent, indentation inferred from the
+stage's own children. Install runs the gate once and reports the
+outcome (`data.outcome`, `data.gate_dry_run`); a failing gate is a
+warning with the failure summary and an escape hint (`spk hooks
+uninstall`), never a commit trap. Requires a lefthook config (never
+created from scratch) and an `openspec/` tree; husky and prek repos
+get a labeled refusal with a manual-wiring hint. `spk hooks
+uninstall` strips only the managed block.
+
 ## Pipeline stubs
 
 `spk rename`, `spk merge`, `spk refactor`, `spk orchestrate` are fully
