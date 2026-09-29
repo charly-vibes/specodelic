@@ -57,7 +57,30 @@ persist as `<stem>.check.json` with the consumed module's SHA-256.
 Executes the emitted proptest scaffolding and rejects stale clean
 results via the `.check.json` hash.
 
-- Spec: [verify](specs/verify.md) *(in implementation — specodelic-1pv)*
+Both gates must hold — `verified` is the conjunction, never a single
+green stage:
+
+- **Properties gate** — the `*_props.rs` artifact is staleness-checked
+  against the current spec by block-metadata fingerprint (ids, cases,
+  generators, predicates — hand-translated predicate bodies keep the
+  fingerprint, spec edits change it), then really executed: the artifact
+  is staged into a scratch cargo crate and run via `cargo test`, so an
+  un-translated `todo_predicate!` fails honestly (`properties_failed`),
+  never skipped. Failing blocks report proptest's shrunk minimal input.
+- **Model gate** — the `<stem>.check.json` run report must be current
+  (its `artifact_sha256` matches the on-disk `<stem>.tla`; a missing
+  module fails closed as stale) and its outcome must be
+  `no_counterexample` — which the native backend never reports
+  (`exploration_only` is explicitly not clean).
+
+`.data.status` is `verified` exactly under the conjunction, else the
+first blocking stage (`missing_properties_artifact`,
+`stale_properties_artifact`, `properties_failed`,
+`properties_uncompilable`, `runner_unavailable`, `missing_model_run`,
+`stale_model_run`, `model_not_clean`). Verify never re-compiles and
+never re-runs the model checker.
+
+- Spec: [verify](specs/verify.md)
 
 ## `spk doctor`
 

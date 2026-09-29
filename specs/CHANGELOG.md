@@ -6,6 +6,43 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #47 — verify: both gates, really executed (specodelic-1pv)
+
+`spk verify <files>` — the `model_checked → verified` transition. The
+guard `no_counterexample ∧ properties_pass` was named in
+`specodelic.md` but never enforced; now both gates are evaluated and
+conjoined, and every deviation is a labeled failure:
+
+**Properties gate** (`*_props.rs`): staleness is detected by comparing
+the artifact's block-metadata fingerprint (`// id:` / `// case:` /
+`// generator:` / `// predicate:` comments, parsed back out) against
+what the current spec regenerates — a hand-translated predicate body
+keeps the fingerprint, a spec edit changes it, and a stale artifact is
+never executed (`properties_pass_reflects_latest_run`). Execution is
+real, not interpreted: the artifact is staged into a per-invocation
+scratch cargo crate (unique test filename so parallel verifies sharing
+the persistent `CARGO_TARGET_DIR` never collide on a test binary) and
+run via `cargo test`; libtest output is parsed per block. An
+un-translated `todo_predicate!` panics and reports honestly as
+`properties_failed` — with proptest's shrunk minimal failing input
+(`failure_reports_shrunk_counterexample`) — never as a skip. Zero
+property rows pass vacuously without invoking the runner.
+
+**Model gate** (`<stem>.check.json`): the report must parse, its
+`artifact_sha256` must match the current `<stem>.tla` (a missing module
+fails closed as stale — `rerun_on_model_change`), and its outcome must
+be `no_counterexample`. The native backend only ever reports
+`exploration_only`, which is explicitly not clean — `verified` is
+reachable only through a backend that actually executes invariants.
+
+**CLI**: `spk verify <files> --out-dir <dir>`; single-file
+`.data.status` is `verified` exactly under the conjunction, else the
+first blocking stage. Both gates are always evaluated; the payload
+carries both so no stage is hidden.
+
+Gates: just ci + lint-specs + openspec strict; 117 lib + 56 integration
+tests (incl. the cargo-backed honest-failure path).
+
 ## #46 — hostile-input hardening: ingestion gate + codegen identifier sanitizer (specodelic-suz)
 
 Two trust boundaries read or emitted from files that may not be what
