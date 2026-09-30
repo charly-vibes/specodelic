@@ -1,0 +1,25 @@
+source = "linter.failure_shape"
+
+[[constraints]]
+id = "terminal_states_emit"
+kind = "invariant"
+expr = "`every failure terminal state in a tool file's Model (a state with inbound transitions, no outbound transitions, carrying an emits edge obligation per errors.md's failure_state_emits) emits exactly one effect Constraint owned by that file — a mute failure terminal is a finding` (v1 scope: failure terminals only; timed_out / exploration_only are the stated non-goal above)"
+traces_to = "[[linter.failure_shape]]"
+
+[[constraints]]
+id = "error_labels_unique"
+kind = "invariant"
+expr = "`within one file, no two error Constraints carry the same variant head — cross-file collisions are structurally impossible by errors.md's error_expr_shape (the label is file-id-namespaced), so this check is per-file and trivially green corpus-wide today; it exists so a future format change cannot silently drop the namespacing law`"
+traces_to = "[[linter.failure_shape]]"
+
+[[constraints]]
+id = "guard_negation_total"
+kind = "invariant"
+expr = "`every failure transition either cites exactly the union of its success siblings' citation sets (the negated disjunction, errors.md's guard_negation_typed), or is on the recorded carve-out list — which is exactly orchestrate.md's stage-fail transitions (lint_fail, compile_fail, model_check_fail, verify_fail), per that file's own Notes' don't-restate discipline; a zero-citation failure guard off the list is a finding, never a silent pass`"
+traces_to = "[[linter.failure_shape]]"
+
+[[constraints]]
+id = "check_failure"
+kind = "effect"
+expr = "`linter.failure_shape.check_failure(detail) — the label names its owning file per error_expr_shape`"
+traces_to = "[[linter.failure_shape]]"

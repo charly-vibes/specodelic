@@ -12,7 +12,7 @@ id→row index this check relies on.
 
 ## Constraints
 
-| id                  | kind      | expr                                                                                   | traces_to                           satisfies |
+| id                  | kind      | expr                                                                                   | traces_to | satisfies |
 |----------------------|-----------|-------------------------------------------------------------------------------------------|--------------------------------------------------|
 | unique_within_file   | invariant | `∀ file: no two rows in file share the same local id`                                     | [[specodelic.unique_id]]           |          |
 | unique_across_repo   | invariant | `∀ repo: no two files declare the same fully-qualified id`                                | [[specodelic.unique_id]]           |          |

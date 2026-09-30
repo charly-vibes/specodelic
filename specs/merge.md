@@ -27,7 +27,7 @@ before adding anything new.
 
 ## Constraints
 
-| id                                    | kind      | expr                                                                                                                                                                                    | traces_to  satisfies |
+| id                                    | kind      | expr                                                                                                                                                                                    | traces_to | satisfies |
 |------------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
 | graph_reused_not_rederived                | invariant | `merge's collision and blast-radius checks query [[graph]]'s artifact for both branch tips; merge never independently re-walks markdown for reachability`                                   | [[merge]] |          |
 | no_new_id_collision                       | invariant | `∀ id ∈ index(branch_A) ∩ index(branch_B): id was already defined, identically, in the common ancestor` — an id newly minted by both branches independently is a collision, not a merge  | [[merge]] |          |

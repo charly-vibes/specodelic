@@ -4,40 +4,40 @@ source = "verify"
 id = "blocks_run_to_completion"
 kind = "invariant"
 expr = "`verify actually executes every proptest! block compile.md produced against the current compiled artifact — properties_pass is never satisfied by a partial run or a cached prior result`"
-traces_to = ""
+traces_to = "[[verify]]"
 
 [[constraints]]
 id = "properties_pass_reflects_latest_run"
 kind = "invariant"
 expr = "`[[specodelic.properties_pass]] holds iff every block from the most recent run against the current compiled artifact passed; a run predating the last edit to Properties, Constraints, or Model does not count`"
-traces_to = ""
+traces_to = "[[verify]]"
 
 [[constraints]]
 id = "failure_reports_shrunk_counterexample"
 kind = "invariant"
 expr = "`when a proptest! block fails, the report gives the shrunk (minimal) failing input, not the first randomly-generated failing input encountered`"
-traces_to = ""
+traces_to = "[[verify]]"
 
 [[constraints]]
 id = "both_gates_required"
 kind = "invariant"
 expr = "`verify only transitions a file to verified when both [[specodelic.no_counterexample]] (model_check.md's clean outcome) and [[specodelic.properties_pass]] hold — passing properties alone, or a clean model alone, is insufficient`"
-traces_to = ""
+traces_to = "[[verify]]"
 
 [[constraints]]
 id = "law_cases_all_run"
 kind = "invariant"
 expr = "`for a law-kind property compiled into multiple blocks (one per required case), all compiled blocks must pass — a partial pass (identity passes, associativity fails) is a failure of the property, not a partial success`"
-traces_to = ""
+traces_to = "[[verify]]"
 
 [[constraints]]
 id = "verify_is_idempotent"
 kind = "invariant"
 expr = "`re-running verify against an unchanged compiled artifact yields the same pass/fail outcome as the prior run, even though proptest may resample inputs each run for coverage`"
-traces_to = ""
+traces_to = "[[verify]]"
 
 [[constraints]]
 id = "verification_failure"
 kind = "effect"
 expr = "`verify.verification_failure(detail) — the label names its owning file per error_expr_shape`"
-traces_to = ""
+traces_to = "[[verify]]"

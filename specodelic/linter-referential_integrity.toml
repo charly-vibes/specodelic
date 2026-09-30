@@ -4,34 +4,34 @@ source = "linter.referential_integrity"
 id = "unique_within_file"
 kind = "invariant"
 expr = "`∀ file: no two rows in file share the same local id`"
-traces_to = ""
+traces_to = "[[specodelic.unique_id]]"
 
 [[constraints]]
 id = "unique_across_repo"
 kind = "invariant"
 expr = "`∀ repo: no two files declare the same fully-qualified id`"
-traces_to = ""
+traces_to = "[[specodelic.unique_id]]"
 
 [[constraints]]
 id = "ref_resolves"
 kind = "invariant"
 expr = "`∀ [[ref]] in file: qualify(ref) ∈ index(repo)`"
-traces_to = ""
+traces_to = "[[specodelic.total_refs]]"
 
 [[constraints]]
 id = "ref_kind_compatible"
 kind = "invariant"
 expr = "`∀ [[ref]] in any reference field defined by specodelic.md's Reference Typing table: target row's kind ∈ allowed_targets(field)` — read from that table, not hardcoded per field name, so a Revision adding a field (`supersedes`, `emits`, ...) needs no change here"
-traces_to = ""
+traces_to = "[[specodelic.total_refs]]"
 
 [[constraints]]
 id = "index_failure"
 kind = "effect"
 expr = "`linter.referential_integrity.index_failure(detail) — the label names its owning file per error_expr_shape`"
-traces_to = ""
+traces_to = "[[linter.referential_integrity]]"
 
 [[constraints]]
 id = "resolution_failure"
 kind = "effect"
 expr = "`linter.referential_integrity.resolution_failure(detail) — the label names its owning file per error_expr_shape`"
-traces_to = ""
+traces_to = "[[linter.referential_integrity]]"

@@ -4,46 +4,46 @@ source = "graph"
 id = "graph_is_derived_not_authored"
 kind = "invariant"
 expr = "`every edge in the graph artifact is produced by extraction from repo files; the artifact contains no information a hand edit to it could add that isn't already present in some file's reference field`"
-traces_to = ""
+traces_to = "[[graph]]"
 
 [[constraints]]
 id = "total_extraction"
 kind = "invariant"
 expr = "`∀ reference field instance (traces_to/derives_from/guard/from/to/supersedes/emits/observes) in any parsed file: exactly one corresponding edge exists in the graph` — a guard's conjunction of several `[[id]]` citations counts as one edge per citation, not one edge per transition"
-traces_to = ""
+traces_to = "[[graph]]"
 
 [[constraints]]
 id = "edge_kind_matches_typing"
 kind = "invariant"
 expr = "`∀ edge (source, field, target): (source.kind, field, target.kind) ∈ [[specodelic]]'s Reference Typing table — the graph never records an edge the typing table wouldn't allow, whether or not the underlying file is otherwise well-formed`"
-traces_to = ""
+traces_to = "[[graph]]"
 
 [[constraints]]
 id = "deterministic_derivation"
 kind = "invariant"
 expr = "`re-deriving the graph from an unchanged repo produces a byte-identical artifact`"
-traces_to = ""
+traces_to = "[[graph]]"
 
 [[constraints]]
 id = "blast_radius_is_transitive_closure"
 kind = "invariant"
 expr = "`blast_radius(id) == the forward and backward transitive closure of edges reachable from id, computed entirely within the derived artifact — never by re-walking source files`"
-traces_to = ""
+traces_to = "[[graph]]"
 
 [[constraints]]
 id = "stale_graph_detected"
 kind = "invariant"
 expr = "`∃ file whose on-disk content hash differs from the hash recorded at the artifact's last extraction ⟹ the artifact reports itself stale rather than silently serving an outdated query result`"
-traces_to = ""
+traces_to = "[[graph]]"
 
 [[constraints]]
 id = "external_boundary_derived"
 kind = "invariant"
 expr = "`a file is classified as an external boundary iff it hosts ≥1 extension_point Constraint — the classification is a pure derivation over extracted structure, never an authored tag: removing the rows removes the classification, so a stale boundary tag cannot exist`"
-traces_to = ""
+traces_to = "[[graph]]"
 
 [[constraints]]
 id = "extraction_failure"
 kind = "effect"
 expr = "`graph.extraction_failure(detail) — the label names its owning file per error_expr_shape`"
-traces_to = ""
+traces_to = "[[graph]]"

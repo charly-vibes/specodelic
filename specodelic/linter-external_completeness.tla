@@ -18,7 +18,7 @@ Init == vpc = "not_applicable"
 Next ==
   \* load: not_applicable -> loaded (guard: `repo declares a checklist` ∧ [[linter.external_completeness.checklist_well_formed]])
   \/ vpc = "not_applicable" /\ vpc' = "loaded"
-  \* load_fail: not_applicable -> load_failed (guard: `¬([[linter.external_completeness.checklist_well_formed]])` ∧ `¬load.guard`)
+  \* load_fail: not_applicable -> load_failed (guard: `repo declares a checklist` ∧ `¬([[linter.external_completeness.checklist_well_formed]])`)
   \/ vpc = "not_applicable" /\ vpc' = "load_failed"
   \* check_mapping: loaded -> mapping_checked (guard: [[linter.external_completeness.every_item_accounted]] ∧ [[linter.external_completeness.no_duplicate_claim]])
   \/ vpc = "loaded" /\ vpc' = "mapping_checked"

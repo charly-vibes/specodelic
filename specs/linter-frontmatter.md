@@ -12,7 +12,7 @@ for later checks to key off of.
 
 ## Constraints
 
-| id              | kind      | expr                                                              | traces_to              satisfies |
+| id              | kind      | expr                                                              | traces_to | satisfies |
 |------------------|-----------|----------------------------------------------------------------------|------------------------------------|
 | has_id           | invariant | `frontmatter.id != null and matches(id, /^[a-z][a-z0-9_.]*$/)`        | [[specodelic.frontmatter_valid]] |          |
 | has_kind         | invariant | `frontmatter.kind == "intent"`                                       | [[specodelic.frontmatter_valid]] |          |

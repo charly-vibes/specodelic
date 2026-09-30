@@ -15,7 +15,7 @@ than by judging prose quality.
 
 ## Constraints
 
-| id                  | kind      | expr                                                                                                    | traces_to                            satisfies |
+| id                  | kind      | expr                                                                                                    | traces_to | satisfies |
 |----------------------|-----------|--------------------------------------------------------------------------------------------------------------|----------------------------------------------------|
 | ears_pattern_match    | invariant | `statement matches one of: Ubiquitous / Event-Driven / State-Driven / Unwanted-Behavior / Optional-Feature`   | [[specodelic.ears_statement]]        |          |
 | has_shall             | invariant | `statement contains an imperative "SHALL" (or "SHALL NOT")`                                                   | [[specodelic.ears_statement]]        |          |

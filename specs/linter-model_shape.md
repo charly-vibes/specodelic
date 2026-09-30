@@ -14,7 +14,7 @@ and "ad-hoc state machine" signals, made structural rather than advisory.
 
 ## Constraints
 
-| id                    | kind      | expr                                                                                     | traces_to                         satisfies |
+| id                    | kind      | expr                                                                                     | traces_to | satisfies |
 |------------------------|-----------|-----------------------------------------------------------------------------------------------|------------------------------------------------|
 | guard_present          | invariant | `∀ transition row: guard field is non-empty`                                                   | [[specodelic.guard_required]]    |          |
 | model_sections_paired  | invariant | `if [[model.state]] exists then [[model.transition]] exists, and vice versa`                    | [[specodelic.model_present]]     |          |

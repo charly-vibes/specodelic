@@ -13,7 +13,7 @@ DAG" check, applied to specs instead of code modules.
 
 ## Constraints
 
-| id                   | kind      | expr                                                                                  | traces_to                     satisfies |
+| id                   | kind      | expr                                                                                  | traces_to | satisfies |
 |-----------------------|-----------|------------------------------------------------------------------------------------------|--------------------------------------------|
 | acyclic               | invariant | `the directed graph formed by traces_to ∪ derives_from ∪ guard-as-edge has no cycle`      | [[specodelic.acyclic_traces]] |          |
 | single_root_reachable | invariant | `∀ constraint/property/state/transition row: reachable(row, some intent row)`             | [[specodelic.acyclic_traces]] |          |

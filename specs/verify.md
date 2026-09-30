@@ -17,7 +17,7 @@ into the one fact `specodelic.md`'s lifecycle calls `verified`.
 
 ## Constraints
 
-| id                              | kind      | expr                                                                                                                                          | traces_to  satisfies |
+| id                              | kind      | expr                                                                                                                                          | traces_to | satisfies |
 |------------------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
 | blocks_run_to_completion            | invariant | `verify actually executes every proptest! block compile.md produced against the current compiled artifact — properties_pass is never satisfied by a partial run or a cached prior result` | [[verify]] |          |
 | properties_pass_reflects_latest_run | invariant | `[[specodelic.properties_pass]] holds iff every block from the most recent run against the current compiled artifact passed; a run predating the last edit to Properties, Constraints, or Model does not count` | [[verify]] |          |

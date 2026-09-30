@@ -23,7 +23,7 @@ rather than merely being checked against it after the fact.
 
 ## Constraints
 
-| id                        | kind      | expr                                                                                                                              | traces_to  satisfies |
+| id                        | kind      | expr                                                                                                                              | traces_to | satisfies |
 |----------------------------|-----------|----------------------------------------------------------------------------------------------------------------------------------|----------------------|
 | new_id_available           | invariant | `new_id ∉ index(repo)` — renaming never collides with an existing id                                                              | [[rename]] |          |
 | new_id_matches_filename    | invariant | `if the renamed row is a file's own Intent, [[specodelic.id_matches_file]] must hold between new_id and the (possibly also renamed) filename` | [[rename]] |          |

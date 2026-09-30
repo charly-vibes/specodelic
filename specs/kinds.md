@@ -18,7 +18,7 @@ checkable fact instead of an unstated assumption.
 
 ## Constraints
 
-| id                    | kind      | expr                                                                                                                                            | traces_to  satisfies |
+| id                    | kind      | expr                                                                                                                                            | traces_to | satisfies |
 |------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
 | kind_enum_closed        | invariant | `the five kinds are exactly {Intent, Constraint, State, Transition, Property}, one per top-level section of a spec file (frontmatter, Constraints table, Model/States, Model/Transitions, Properties table)` | [[kinds]] |          |
 | intent_row_shape        | invariant | `an Intent row is the file's frontmatter block; its fields are exactly {id, kind, statement}, with kind == "intent"`                                    | [[kinds]] |          |

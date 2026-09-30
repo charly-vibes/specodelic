@@ -24,7 +24,7 @@ separate passes.
 
 ## Constraints
 
-| id                      | kind      | expr                                                                                     | traces_to                        satisfies |
+| id                      | kind      | expr                                                                                     | traces_to | satisfies |
 |---------------------------|-----------|-----------------------------------------------------------------------------------------------|-----------------------------------------------|
 | every_constraint_covered  | invariant | `∀ constraint c: ∃ property p. p.derives_from == c.id`                                        | [[specodelic.coverage]]         |          |
 | every_law_has_cases       | invariant | `∀ property p where p.kind == "law": p has an associativity case and an identity case`         | [[specodelic.law_requires_cases]] |          |

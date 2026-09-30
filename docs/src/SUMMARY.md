@@ -36,6 +36,7 @@
 - [linter.model_shape](specs/linter-model_shape.md)
 - [linter.referential_integrity](specs/linter-referential_integrity.md)
 - [linter.external_completeness](specs/linter-external_completeness.md)
+- [linter.failure_shape](specs/linter-failure_shape.md)
 
 # Engineering Specs (openspec)
 

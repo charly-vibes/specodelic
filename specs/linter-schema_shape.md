@@ -26,7 +26,7 @@ about any single file's current shape.
 
 ## Constraints
 
-| id                     | kind      | expr                                                                                        | traces_to                             satisfies |
+| id                     | kind      | expr                                                                                        | traces_to | satisfies |
 |--------------------------|-----------|--------------------------------------------------------------------------------------------------|-----------------------------------------------------|
 | id_set_grows_only         | invariant | `∀ 𝒦-governed id-set S (a variant-table's ids, a Constraint/Property row's own kind value-set, or the Reference Typing table's field set), revision r < r': S(r) ⊆ S(r'), appended only under a new Revision heading — no member removed or renumbered; a member's typing may narrow only in the same Revision that introduces the kind-split it depends on, and only if it invalidates nothing valid at r` | [[specodelic.append_only_variants]]  |          |
 | id_set_order_stable       | invariant | `∀ 𝒦-governed id-set S, revision r < r': the relative order of members present in both r and r' is unchanged` | [[specodelic.append_only_variants]]  |          |

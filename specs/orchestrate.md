@@ -21,7 +21,7 @@ already owns it.
 
 ## Constraints
 
-| id                                  | kind      | expr                                                                                                                                          | traces_to  satisfies |
+| id                                  | kind      | expr                                                                                                                                          | traces_to | satisfies |
 |---------------------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
 | lint_gate_matches_checker_ownership   | invariant | `orchestrator reports lint success iff every terminal node of specodelic.md's Checker Ownership table reports passed — never a subset or a superset of that table` | [[orchestrate]] |          |
 | dependency_respecting_skip            | invariant | `a checker is invoked only after every checker listed in its Checker Ownership 'Depends on' column has reported passed; if a dependency reports failed, its dependents are skipped (not invoked, not reported as failed) rather than run against input the failed checker hasn't validated` | [[orchestrate]] |          |

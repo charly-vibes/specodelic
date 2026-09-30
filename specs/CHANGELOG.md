@@ -1726,3 +1726,24 @@ terminals/citation sets/label sets mechanically from `spk graph` and
 failed pre-change (15 mute terminals, 0 emitting). Corpus artifacts
 regenerated (20 × {toml, props, tla, check.json}); all `just ci` gates
 green.
+
+## #68 — `linter-failure_shape.md`: the error contract's tier-2 checker, spec-only
+
+add-error-contract phase 3 (beads specodelic-uie, tasks 3.1–3.3): the
+checker file lands on the `linter-external_completeness.md` shape —
+`terminal_states_emit` (v1 scope: failure terminals only; `timed_out`/
+`exploration_only` are the stated non-goal, keeping the exit-code
+question visible for a later Revision), `error_labels_unique` (per-file
+variant-head uniqueness — trivially green corpus-wide today because
+error labels are file-id-namespaced; exists so a format change cannot
+silently drop the namespacing law), and `guard_negation_total`
+(citation-set union equality against success siblings, or membership of
+the recorded carve-out list — currently only orchestrate.md's four
+stage-fails). The class rule stays the graph-decidable form (D2a); no
+Checker Ownership row until implementation (D6). Implementation ticket
+filed: specodelic-ct5 (notes AGENTS.md's stale 6pi blocker to the
+maintainer). STATUS §1 inventory gains `errors.md` +
+`linter-failure_shape.md`; docs SUMMARY updated; corpus artifacts
+regenerated (21 files). Fixture hardening en route: the RED fixture's
+terminal/sibling heuristics now key on the STATE segment of the node id
+— `linter.failure_shape`'s own file id contains "failure".

@@ -73,7 +73,7 @@ every phase — the corpus is its own primary fixture.
 
 ## 3. D3/D6 — `specs/linter-failure_shape.md`, spec-only
 
-- [ ] 3.1 **Spec**: new checker file on the
+- [x] 3.1 **Spec**: new checker file on the
       `linter-external_completeness.md` shape — constraints
       `terminal_states_emit` (v1 scope: failure terminals; phase 2 lists
       `timed_out` / `exploration_only` explicitly as a stated non-goal,
@@ -84,12 +84,12 @@ every phase — the corpus is its own primary fixture.
       never prose-dependent, so the checker cannot over-reject single-class
       files. No Checker Ownership row (D6 — the table's invariant is that
       every listed checker exists).
-- [ ] 3.2 **Tracking**: file the implementation ticket in beads
+- [x] 3.2 **Tracking**: file the implementation ticket in beads
       (`linter-failure_shape: enforce terminal_states_emit,
       error_labels_unique, guard_negation_total`) — not gated by
       `specodelic-6pi`, which is closed (design D6); note the AGENTS.md
       staleness to the maintainer instead of editing governance.
-- [ ] 3.3 **REFACTOR**: `STATUS.md` §1 file inventory gains `errors.md`
+- [x] 3.3 **REFACTOR**: `STATUS.md` §1 file inventory gains `errors.md`
       and `linter-failure_shape.md` rows; `just lint-specs` and
       `just ci` green (section-sync, capability-format, dogfood).
 

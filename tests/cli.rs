@@ -150,7 +150,7 @@ fn lint_corpus_is_fully_clean() {
     let out = spk().args(["lint", "specs", "--json"]).output().unwrap();
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let data = &json["data"];
-    assert_eq!(data["files_linted"], 20); // + errors.md (add-error-contract)
+    assert_eq!(data["files_linted"], 21); // + errors.md + linter-failure_shape.md (add-error-contract)
     let issues = data["issues"].as_array().unwrap();
     assert!(issues.is_empty(), "corpus lint findings: {issues:?}");
     assert_eq!(out.status.code(), Some(0));
@@ -274,16 +274,23 @@ fn failure_terminals_emit_labeled_errors() {
     let derives = e("properties.derives_from");
 
     let outbound: std::collections::BTreeSet<&str> =
-        from_state.iter().map(|(f, _)| f.as_str()).collect();
+        from_state.iter().map(|(_, s)| s.as_str()).collect();
     let mut inbound: std::collections::BTreeMap<&str, Vec<&str>> =
         std::collections::BTreeMap::new();
     for (f, t) in &to_state {
         inbound.entry(t.as_str()).or_default().push(f);
     }
-    // failure terminals: terminal states named *fail*
+    // failure terminals: terminal states whose STATE segment is named *fail*
+    // (rsplit: the node id is <file-id>.<state-id> and a file id may itself
+    // contain "failure" — linter.failure_shape)
+    let is_fail_state = |node: &str| -> bool {
+        node.rsplit_once('.')
+            .map(|(_, st)| st.contains("fail"))
+            .unwrap_or(false)
+    };
     let failure_terminals: Vec<&str> = inbound
         .iter()
-        .filter(|(s, _)| !outbound.contains(**s) && s.contains("fail"))
+        .filter(|(s, _)| !outbound.contains(**s) && is_fail_state(s))
         .map(|(s, _)| *s)
         .collect();
     assert!(
@@ -428,7 +435,7 @@ fn failure_terminals_emit_labeled_errors() {
     let mut by_state: std::collections::BTreeMap<&str, Vec<&str>> =
         std::collections::BTreeMap::new();
     for (t, s) in &to_of {
-        if s.contains("fail") {
+        if is_fail_state(s) {
             by_state.entry(*s).or_default().push(t);
         }
     }
@@ -461,7 +468,7 @@ fn failure_terminals_emit_labeled_errors() {
             let src = from_of.get(t).copied().unwrap();
             let siblings: Vec<&str> = to_of
                 .iter()
-                .filter(|(id, to)| from_of.get(*id).copied() == Some(src) && !to.contains("fail"))
+                .filter(|(id, to)| from_of.get(*id).copied() == Some(src) && !is_fail_state(to))
                 .map(|(id, _)| *id)
                 .collect();
             assert!(
@@ -1331,8 +1338,8 @@ fn compile_corpus_succeeds_and_reports_all_artifacts() {
     let json: serde_json::Value = serde_json::from_slice(&cmd.stdout).unwrap();
     let data = &json["data"];
     assert_eq!(data["files_failed"], 0);
-    // 20 corpus spec files (the exemption list's non-spec files are skipped)
-    assert_eq!(data["files_compiled"], 20);
+    // 21 corpus spec files (the exemption list's non-spec files are skipped)
+    assert_eq!(data["files_compiled"], 21);
     for f in data["compiled"].as_array().unwrap() {
         assert!(
             f["artifacts"]["toml"]

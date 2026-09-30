@@ -26,7 +26,7 @@ constraint.
 
 ## Constraints
 
-| id                              | kind      | expr                                                                                                                                                              | traces_to  satisfies |
+| id                              | kind      | expr                                                                                                                                                              | traces_to | satisfies |
 |-----------------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
 | graph_is_derived_not_authored     | invariant | `every edge in the graph artifact is produced by extraction from repo files; the artifact contains no information a hand edit to it could add that isn't already present in some file's reference field` | [[graph]] |          |
 | total_extraction                  | invariant | `∀ reference field instance (traces_to/derives_from/guard/from/to/supersedes/emits/observes) in any parsed file: exactly one corresponding edge exists in the graph` — a guard's conjunction of several `[[id]]` citations counts as one edge per citation, not one edge per transition | [[graph]] |          |
