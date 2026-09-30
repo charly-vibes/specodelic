@@ -17,7 +17,7 @@ use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
 use specodelic::{
-    blocks, compile, graph, guide, human, lint, merge, model_check, rename, spec, verify,
+    blocks, checklist, compile, graph, guide, human, lint, merge, model_check, rename, spec, verify,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -805,8 +805,17 @@ fn openspec_tree_present() -> bool {
 }
 
 /// Parse a batch, skipping non-spec files (no frontmatter) with a note.
-fn parse_batch(paths: &[String], verbosity: Verbosity) -> (Vec<Spec>, Vec<String>) {
+/// A `*.checklist.md` file is not a spec — it's the external-completeness
+/// manifest (specs/linter-external_completeness.md, mp1 row 10 decision):
+/// parsed leniently into [`checklist::Checklist`] and returned alongside
+/// the specs for `spk lint`'s optional non-gating pass. Other commands
+/// ignore checklists (external_completeness never gates a stage).
+fn parse_batch(
+    paths: &[String],
+    verbosity: Verbosity,
+) -> (Vec<Spec>, Vec<checklist::Checklist>, Vec<String>) {
     let mut specs = vec![];
+    let mut checklists = vec![];
     let mut notes = vec![];
     for f in collect_specs(paths) {
         // Hostile-input gate (specodelic-suz): only regular files of a
@@ -842,6 +851,13 @@ fn parse_batch(paths: &[String], verbosity: Verbosity) -> (Vec<Spec>, Vec<String
                 continue;
             }
         };
+        // A checklist manifest declares the external-completeness pass —
+        // intercepted before the frontmatter check (it intentionally has
+        // none) and never left on the floor as a "skipped" note.
+        if checklist::is_checklist_path(&f) {
+            checklists.push(checklist::parse_str(f.clone(), &text));
+            continue;
+        }
         // Non-spec files (STATUS.md, USAGE.md, ...) have no frontmatter — skip.
         if !text.trim_start().starts_with("---") {
             notes.push(format!(
@@ -859,7 +875,7 @@ fn parse_batch(paths: &[String], verbosity: Verbosity) -> (Vec<Spec>, Vec<String
         }
     }
     let _ = verbosity;
-    (specs, notes)
+    (specs, checklists, notes)
 }
 
 fn emit_report<T: serde::Serialize + std::fmt::Debug>(
@@ -889,8 +905,12 @@ fn cmd_lint(
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) -> i32 {
-    let (specs, notes) = parse_batch(paths, verbosity);
-    if specs.is_empty() {
+    let (specs, checklists, notes) = parse_batch(paths, verbosity);
+    if specs.is_empty() && checklists.is_empty() {
+        // Never a silent ok:true on zero files — that's a false green
+        // (beads specodelic-6pi). A declared checklist alone still gets
+        // linted (checklist_well_formed needs no specs), so the failure
+        // only fires when NEITHER was found.
         // Never a silent ok:true on zero files — that's a false green
         // (beads specodelic-6pi).
         let (msg, hint) = if notes.iter().any(|n| n.contains("parse error")) {
@@ -920,7 +940,7 @@ fn cmd_lint(
         // Invocation error (specodelic-7rr item 2): nothing was processed.
         return 2;
     }
-    let report = lint::lint_corpus(&specs);
+    let report = lint::lint_all(&specs, &checklists);
     let payload = serde_json::to_value(&report).unwrap_or_default();
     let failures = report.failures();
     let mut out = Output::success(payload.clone());
@@ -958,7 +978,7 @@ fn cmd_graph(
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) -> i32 {
-    let (specs, notes) = parse_batch(paths, verbosity);
+    let (specs, _checklists, notes) = parse_batch(paths, verbosity);
     if specs.is_empty() {
         // Never a silent empty graph on zero files — a typoed path would
         // read as a fully-resolved corpus (specodelic-6pi precedent), and
@@ -1280,7 +1300,7 @@ fn cmd_compile(
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) -> i32 {
-    let (specs, notes) = parse_batch(paths, verbosity);
+    let (specs, _checklists, notes) = parse_batch(paths, verbosity);
     if specs.is_empty() {
         let mut out: Output<serde_json::Value> =
             Output::failure("no spec files to compile").with_next_step(
@@ -1460,7 +1480,7 @@ fn cmd_model_check(
             None
         }
     };
-    let (specs, notes) = parse_batch(paths, verbosity);
+    let (specs, _checklists, notes) = parse_batch(paths, verbosity);
     if specs.is_empty() {
         let mut out: Output<serde_json::Value> = Output::failure("no spec files to model-check")
             .with_next_step(
@@ -1596,7 +1616,7 @@ fn cmd_verify(
     stderr: &mut impl std::io::Write,
 ) -> i32 {
     let dir = std::path::Path::new(out_dir);
-    let (specs, notes) = parse_batch(paths, verbosity);
+    let (specs, _checklists, notes) = parse_batch(paths, verbosity);
     if specs.is_empty() {
         let mut out: Output<serde_json::Value> = Output::failure("no spec files to verify")
             .with_next_step(

@@ -11,6 +11,7 @@
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::checklist::{self, Checklist};
 use crate::ears;
 use crate::guide;
 use crate::spec::Spec;
@@ -131,6 +132,26 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
         "observability",
         "every effect Constraint must be the target of ≥1 `observes` reference from a different row — advisory: warned on the warnings channel (exit 0), never a failure",
     ),
+    (
+        "checklist_well_formed",
+        "a declared checklist manifest (`*.checklist.md`) must be a flat item list with stable ids plus a mapping table with exactly item/status/mapped_ids/rationale columns — a manifest the linter cannot read is a checklist going silently unconsulted",
+    ),
+    (
+        "every_item_accounted",
+        "every checklist item must have exactly one mapping row with status `covered` or `waived` — an unconsulted item is the failure this checker exists to prevent",
+    ),
+    (
+        "covered_maps_resolve",
+        "a `covered` mapping row must name a non-empty mapped_ids list whose ids resolve to real constraint or property rows — a claim resting on nothing is not a claim",
+    ),
+    (
+        "waiver_has_rationale",
+        "a `waived` mapping row must carry non-empty rationale prose — an unexplained waiver is an unconsulted item with extra steps",
+    ),
+    (
+        "no_duplicate_claim",
+        "no two mapping rows may target the same checklist item — one claim per item, on the record",
+    ),
 ];
 
 /// The stable rule identifier for a bare rule name: `linter.<name>`.
@@ -188,6 +209,149 @@ pub fn lint_corpus(specs: &[Spec]) -> Report {
     lint_graph_shape(specs, &mut report);
     lint_observability(specs, &mut report);
     report
+}
+
+/// The full pass: internal-consistency checks over the specs plus the
+/// external-completeness check over any declared `*.checklist.md`
+/// manifests. The CLI lint command runs this; `lint_corpus` alone stays
+/// checklist-free for callers whose gate must not see the optional
+/// checker (compile's precondition — external_completeness never gates
+/// a stage, specs/linter-external_completeness.md Notes).
+pub fn lint_all(specs: &[Spec], checklists: &[Checklist]) -> Report {
+    let mut report = lint_corpus(specs);
+    lint_checklists(specs, checklists, &mut report);
+    report
+}
+
+/// Can `target` resolve to a CONSTRAINT or PROPERTY row? Stricter than
+/// [`Index::resolves`]: a bare file id or a `model.state`/`model.transition`
+/// section anchor is machinery, not a claim to rest a checklist item on.
+fn resolves_row(index: &Index, target: &str) -> bool {
+    for split in [target.rsplit_once('.'), target.split_once('.')] {
+        let Some((file_id, rest)) = split else {
+            continue;
+        };
+        if rest == "model.state" || rest == "model.transition" {
+            continue;
+        }
+        if let Some(rows) = index.files.get(file_id) {
+            if rows.contains(rest) {
+                return true;
+            }
+            // member of a row: file_id.row.member
+            if let Some((row_id, _)) = rest.split_once('.')
+                && rows.contains(row_id)
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// External completeness (specs/linter-external_completeness.md): diff
+/// each declared `*.checklist.md` against the corpus. Optional and
+/// non-gating — it runs only for repos that declare a checklist, never
+/// touches any file's `linted` state, and its findings never block a
+/// lifecycle stage (an orchestrator may CHOose to require the pass, a
+/// policy layered on top, not a lifecycle fact). Findings are issues:
+/// the checker's model ends in `failed`, not a warning.
+pub fn lint_checklists(specs: &[Spec], checklists: &[Checklist], report: &mut Report) {
+    if checklists.is_empty() {
+        return; // not_applicable — nothing external to be incomplete against
+    }
+    let index = Index::build(specs);
+    for cl in checklists {
+        let file = cl.path.display().to_string();
+        // checklist_well_formed — the parser's defect list, verbatim.
+        for defect in &cl.defects {
+            report
+                .issues
+                .push(Issue::new("checklist_well_formed", &file, defect.clone()));
+        }
+        // Group rows by claimed item for the exactly-one checks.
+        let mut by_item: BTreeMap<&str, Vec<&checklist::MappingRow>> = BTreeMap::new();
+        for row in &cl.mapping {
+            by_item.entry(row.item.as_str()).or_default().push(row);
+        }
+        for item in &cl.items {
+            match by_item.get(item.id.as_str()).map(Vec::as_slice) {
+                // every_item_accounted: ∃ exactly one row with a legal
+                // status. Zero rows → unconsulted item. One row with a
+                // status outside {covered, waived} → same failure.
+                None => report.issues.push(Issue::new(
+                    "every_item_accounted",
+                    &file,
+                    format!(
+                        "checklist item `{}` has no mapping row — nothing was consulted for it",
+                        item.id
+                    ),
+                )),
+                Some([row]) if row.status != "covered" && row.status != "waived" => {
+                    report.issues.push(Issue::new(
+                        "every_item_accounted",
+                        &file,
+                        format!(
+                            "mapping row for item `{}` has status `{}` — must be `covered` or `waived`",
+                            item.id, row.status
+                        ),
+                    ));
+                }
+                Some([row]) => {
+                    if row.status == "covered" {
+                        // covered_maps_resolve: non-empty, row-resolving ids.
+                        if row.mapped_ids.is_empty() {
+                            report.issues.push(Issue::new(
+                                "covered_maps_resolve",
+                                &file,
+                                format!(
+                                    "covered mapping row for item `{}` has an empty mapped_ids list",
+                                    item.id
+                                ),
+                            ));
+                        }
+                        for id in &row.mapped_ids {
+                            if !resolves_row(&index, id) {
+                                report.issues.push(Issue::new(
+                                    "covered_maps_resolve",
+                                    &file,
+                                    format!(
+                                        "covered mapping row for item `{}` maps to `{id}`, which does not resolve to a constraint or property row",
+                                        item.id
+                                    ),
+                                ));
+                            }
+                        }
+                    } else {
+                        // waiver_has_rationale: non-empty rationale prose.
+                        if row.rationale.trim().is_empty() {
+                            report.issues.push(Issue::new(
+                                "waiver_has_rationale",
+                                &file,
+                                format!(
+                                    "waived mapping row for item `{}` carries no rationale",
+                                    item.id
+                                ),
+                            ));
+                        }
+                    }
+                }
+                // >1 rows: no_duplicate_claim's beat — do NOT also fire
+                // every_item_accounted (the item IS claimed, just twice).
+                Some(_) => {
+                    report.issues.push(Issue::new(
+                        "no_duplicate_claim",
+                        &file,
+                        format!(
+                            "{} mapping rows target checklist item `{}` — one claim per item",
+                            by_item[item.id.as_str()].len(),
+                            item.id
+                        ),
+                    ));
+                }
+            }
+        }
+    }
 }
 
 /// Corpus-wide graph-shape pass (specs/linter-graph_shape.md): build the
@@ -1069,9 +1233,234 @@ mod tests {
         ]
     }
 
+    /// Checklist fixtures that trigger every external_completeness rule
+    /// (mp1 row 10's manifest format), so the catalog-coverage test
+    /// sees them alongside the spec-side fixtures.
+    fn checklist_fixtures() -> Vec<crate::checklist::Checklist> {
+        use crate::checklist::parse_str;
+        vec![
+            // One manifest, five beats: the nested item fires
+            // checklist_well_formed; `unmapped` fires every_item_accounted;
+            // `dangling` fires covered_maps_resolve (id resolves to
+            // nothing); `norationale` fires waiver_has_rationale; the two
+            // rows targeting `dup.target` fire no_duplicate_claim.
+            parse_str(
+                "dup.checklist.md".into(),
+                "## Items\n\
+                 \n- **unmapped**: never claimed\n\
+                 - **dangling**: claimed against nothing\n\
+                 - **norationale**: waived in silence\n\
+                 - **dup.target**: claimed twice\n  - **nested.child**: indented under another item\n\
+                 \n## Mapping\n\
+                 \n| item | status | mapped_ids | rationale |\n\
+                 |------|--------|------------|-----------|\n\
+                 | dangling | covered | [[absent.row]] | |\n\
+                 | norationale | waived | | |\n\
+                 | dup.target | covered | [[absent.row]] | |\n\
+                 | dup.target | waived | | fine on its own |\n",
+            ),
+        ]
+    }
+
+    // ---- external_completeness (specs/linter-external_completeness.md) ----
+
+    use crate::checklist::parse_str;
+
+    /// One spec whose constraint row a checklist can legitimately map to.
+    fn mapped_spec() -> Spec {
+        spec_at(
+            "---\nid: x.file\nkind: intent\nstatement: \"THE x SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `holds` | [[x.file]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[x.file.c1]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p1 | unit | [[x.file.c1]] | `g()` | `x` |\n",
+            "x-file.md",
+        )
+    }
+
+    fn checklist(text: &str) -> crate::checklist::Checklist {
+        parse_str("ship.checklist.md".into(), text)
+    }
+
+    /// A fully mapped checklist passes: `covered` rows resolve, `waived`
+    /// rows carry rationale — zero issues, zero warnings.
+    #[test]
+    fn fully_mapped_checklist_passes() {
+        let cl = checklist(
+            "## Items\n\n- **a.first**: sessions expire\n- **a.second**: out of scope here\n\n## Mapping\n\n| item | status | mapped_ids | rationale |\n|------|--------|------------|-----------|\n| a.first | covered | [[x.file.c1]], [[x.file.p1]] | |\n| a.second | waived | | tracked in the other repo |\n",
+        );
+        let report = lint_all(&[mapped_spec()], &[cl]);
+        assert!(report.issues.is_empty(), "{:?}", report.issues);
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+    }
+
+    /// No declared checklist → not_applicable: the pass runs but emits
+    /// nothing — a repo with no checklist is out of scope, not vacuous.
+    #[test]
+    fn no_checklist_is_not_applicable() {
+        let report = lint_all(&[mapped_spec()], &[]);
+        assert!(report.issues.is_empty(), "{:?}", report.issues);
+    }
+
+    /// every_item_accounted: an item with no mapping row at all.
+    #[test]
+    fn unmapped_item_rejected() {
+        let cl = checklist(
+            "## Items\n\n- **a.lost**: never claimed\n\n## Mapping\n\n| item | status | mapped_ids | rationale |\n|------|--------|------------|-----------|\n",
+        );
+        let report = lint_all(&[mapped_spec()], &[cl]);
+        let hits: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.every_item_accounted")
+            .collect();
+        assert_eq!(hits.len(), 1, "{:?}", report.issues);
+        assert!(hits[0].message.contains("a.lost"), "{:?}", hits);
+        assert!(hits[0].file.contains("ship.checklist.md"), "{:?}", hits);
+    }
+
+    /// every_item_accounted also owns the status set: a row whose
+    /// status is neither `covered` nor `waived` leaves the item
+    /// unaccounted-for.
+    #[test]
+    fn unknown_status_leaves_item_unaccounted() {
+        let cl = checklist(
+            "## Items\n\n- **a.first**: sessions expire\n\n## Mapping\n\n| item | status | mapped_ids | rationale |\n|------|--------|------------|-----------|\n| a.first | pending | [[x.file.c1]] | |\n",
+        );
+        let report = lint_all(&[mapped_spec()], &[cl]);
+        assert!(
+            report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.every_item_accounted"),
+            "{:?}",
+            report.issues
+        );
+    }
+
+    /// covered_maps_resolve: an empty mapped_ids list and a dangling id
+    /// both fail the covered claim.
+    #[test]
+    fn dangling_mapped_id_rejected() {
+        let cl = checklist(
+            "## Items\n\n- **a.first**: sessions expire\n\n## Mapping\n\n| item | status | mapped_ids | rationale |\n|------|--------|------------|-----------|\n| a.first | covered | [[absent.row]] | |\n",
+        );
+        let report = lint_all(&[mapped_spec()], &[cl]);
+        let hits: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.covered_maps_resolve")
+            .collect();
+        assert_eq!(hits.len(), 1, "{:?}", report.issues);
+        assert!(hits[0].message.contains("absent.row"), "{:?}", hits);
+        // The empty-list variant.
+        let cl = checklist(
+            "## Items\n\n- **a.first**: sessions expire\n\n## Mapping\n\n| item | status | mapped_ids | rationale |\n|------|--------|------------|-----------|\n| a.first | covered | | |\n",
+        );
+        let report = lint_all(&[mapped_spec()], &[cl]);
+        assert!(
+            report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.covered_maps_resolve"),
+            "empty mapped_ids on a covered row: {:?}",
+            report.issues
+        );
+    }
+
+    /// covered_maps_resolve must reject a target that resolves to a
+    /// file id or section anchor but NOT to a constraint/property row —
+    /// the claim rests on a row, not on a file existing.
+    #[test]
+    fn covered_target_must_be_a_row_not_a_file_or_anchor() {
+        let cl = checklist(
+            "## Items\n\n- **a.first**: sessions expire\n\n## Mapping\n\n| item | status | mapped_ids | rationale |\n|------|--------|------------|-----------|\n| a.first | covered | [[x.file]], [[x.file.model.state]] | |\n",
+        );
+        let report = lint_all(&[mapped_spec()], &[cl]);
+        let hits = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.covered_maps_resolve")
+            .count();
+        assert_eq!(
+            hits, 2,
+            "file-id and anchor targets are not rows: {:?}",
+            report.issues
+        );
+    }
+
+    /// waiver_has_rationale: an empty rationale is an unexplained waiver.
+    #[test]
+    fn unrationalized_waiver_rejected() {
+        let cl = checklist(
+            "## Items\n\n- **a.first**: sessions expire\n\n## Mapping\n\n| item | status | mapped_ids | rationale |\n|------|--------|------------|-----------|\n| a.first | waived | |   |\n",
+        );
+        let report = lint_all(&[mapped_spec()], &[cl]);
+        let hits: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.waiver_has_rationale")
+            .collect();
+        assert_eq!(hits.len(), 1, "{:?}", report.issues);
+        assert!(hits[0].message.contains("a.first"), "{:?}", hits);
+    }
+
+    /// no_duplicate_claim: two rows targeting one item — and the checks
+    /// compose without double-reporting it as every_item_accounted too.
+    #[test]
+    fn duplicate_claim_rejected() {
+        let cl = checklist(
+            "## Items\n\n- **a.first**: sessions expire\n\n## Mapping\n\n| item | status | mapped_ids | rationale |\n|------|--------|------------|-----------|\n| a.first | covered | [[x.file.c1]] | |\n| a.first | waived | | contradicts the first row |\n",
+        );
+        let report = lint_all(&[mapped_spec()], &[cl]);
+        let dup: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.no_duplicate_claim")
+            .collect();
+        assert_eq!(dup.len(), 1, "{:?}", report.issues);
+        assert!(dup[0].message.contains("a.first"), "{:?}", dup);
+        assert!(
+            !report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.every_item_accounted"),
+            "the duplication is no_duplicate_claim's beat — no double-report: {:?}",
+            report.issues
+        );
+    }
+
+    /// checklist_well_formed: parser defects surface as findings — a
+    /// manifest the linter cannot read must never silently vanish.
+    #[test]
+    fn malformed_checklist_rejected() {
+        let cl = checklist("# just a title\n");
+        let report = lint_all(&[mapped_spec()], &[cl]);
+        let hits = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.checklist_well_formed")
+            .count();
+        assert_eq!(
+            hits, 2,
+            "missing Items + Mapping sections: {:?}",
+            report.issues
+        );
+        // Orphan mapping row references an undeclared item.
+        let cl = checklist(
+            "## Items\n\n- **a.first**: sessions expire\n\n## Mapping\n\n| item | status | mapped_ids | rationale |\n|------|--------|------------|-----------|\n| ghost.item | covered | [[x.file.c1]] | |\n",
+        );
+        let report = lint_all(&[mapped_spec()], &[cl]);
+        assert!(
+            report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.checklist_well_formed"
+                    && i.message.contains("ghost.item")),
+            "{:?}",
+            report.issues
+        );
+    }
+
     #[test]
     fn catalog_covers_every_rule_the_linter_can_emit() {
-        let report = lint_corpus(&fixture_corpus());
+        let report = lint_all(&fixture_corpus(), &checklist_fixtures());
         // Warnings count as emittable rule ids too — the observability
         // rule emits on the warnings channel, never as an Issue.
         let emitted: BTreeSet<String> = report

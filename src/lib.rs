@@ -11,6 +11,7 @@
 //! integration tests.
 
 pub mod blocks;
+pub mod checklist;
 pub mod compile;
 pub mod ears;
 pub mod graph;

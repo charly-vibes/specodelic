@@ -159,7 +159,10 @@ A spec file's frontmatter `id` equals its filename stem with `-` ⇔ `.`:
 `linter-graph_shape.md` ⇔ `id: linter.graph_shape`. `_` is literal in
 both. Non-spec files (no frontmatter) are exempt: `AGENTS.md`,
 `STATUS.md`, `USAGE.md`, `CHANGELOG.md`, `theory.md` (in `specs/`), and
-this file.
+this file. A `*.checklist.md` file is also exempt — it is the
+external-completeness manifest (specs/linter-external_completeness.md,
+mp1 row 10 decision): an artifact outside the four-layer shape, not a
+sixth spec kind.
 <!-- WAI:REFLECT:REF:START -->
 ## Accumulated Project Patterns
 

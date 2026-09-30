@@ -29,6 +29,16 @@ named `*.md` is labeled, named, and skipped (never blocking or
 unbounded-memory); when nothing else was linted, the labeled notes ride
 the failure envelope.
 
+A `*.checklist.md` file in the linted tree declares an external checklist
+(specs/linter-external_completeness.md — mp1 row 10's manifest format):
+a flat `## Items` list plus a `## Mapping` table
+(`item`/`status`/`mapped_ids`/`rationale`). The five
+`linter.external_completeness` rules then check every item is explicitly
+`covered` (mapped ids resolve to real constraint/property rows) or
+`waived` (with a stated rationale). This pass is optional and never
+gates a lifecycle stage — no checklist declared, nothing checked;
+`spk compile`'s precondition gate deliberately does not run it.
+
 ## `spk graph <files|dirs>`
 
 Derives the reference graph from every typed reference field: nodes,

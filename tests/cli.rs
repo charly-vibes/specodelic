@@ -2894,3 +2894,118 @@ fn graph_classifies_extension_point_host_as_external_boundary() {
         "pub hosts an extension_point row — it is an external boundary: {boundaries:?}"
     );
 }
+
+// ---- external_completeness (specs/linter-external_completeness.md, mp1 row 10) ----
+
+/// A lint-clean two-constraint spec a checklist can map to.
+fn write_mappable_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL be mappable\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | c1 | invariant | `holds` | [[{id}]] |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s1 | [[{id}.c1]] |\n\
+             \n## Properties\n\
+             \n| id | kind | derives_from | generator | predicate |\n\
+             |----|------|--------------|-----------|------------|\n\
+             | p1 | unit | [[{id}.c1]] | `g()` | `x` |\n"
+        ),
+    )
+    .unwrap();
+}
+
+#[test]
+fn declared_checklist_with_violations_fails_lint() {
+    // A declared checklist whose items go unconsulted / waiver without
+    // rationale / duplicated claim — the external-completeness rules
+    // fire through the CLI and the exit code is 1.
+    let dir = tempfile::tempdir().unwrap();
+    write_mappable_spec(&dir.path().join("x-file.md"), "x.file");
+    std::fs::write(
+        dir.path().join("ship.checklist.md"),
+        "## Items\n\n- **unmapped**: never claimed\n- **norationale**: waived in silence\n\n\
+         ## Mapping\n\n| item | status | mapped_ids | rationale |\n\
+         |------|--------|------------|-----------|\n\
+         | norationale | waived | | |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1), "failures must exit 1");
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let rules: Vec<&str> = json["data"]["issues"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["rule_id"].as_str().unwrap())
+        .collect();
+    assert!(rules.contains(&"linter.every_item_accounted"), "{rules:?}");
+    assert!(rules.contains(&"linter.waiver_has_rationale"), "{rules:?}");
+}
+
+#[test]
+fn fully_mapped_checklist_lints_clean() {
+    // A fully accounted checklist — covered rows resolving to real
+    // rows, waiver carrying a rationale — is zero findings, exit 0.
+    let dir = tempfile::tempdir().unwrap();
+    write_mappable_spec(&dir.path().join("x-file.md"), "x.file");
+    std::fs::write(
+        dir.path().join("ship.checklist.md"),
+        "## Items\n\n- **a.first**: sessions expire\n- **a.second**: out of scope\n\n\
+         ## Mapping\n\n| item | status | mapped_ids | rationale |\n\
+         |------|--------|------------|-----------|\n\
+         | a.first | covered | [[x.file.c1]], [[x.file.p1]] | |\n\
+         | a.second | waived | | tracked elsewhere |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "clean checklist exits 0");
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(
+        json["data"]["issues"].as_array().unwrap().is_empty(),
+        "{json:?}"
+    );
+}
+
+#[test]
+fn checklist_file_is_never_reported_as_skipped() {
+    // The declaration convention: a *.checklist.md is intentional — it
+    // must not surface a "skipped (no frontmatter)" note.
+    let dir = tempfile::tempdir().unwrap();
+    write_mappable_spec(&dir.path().join("x-file.md"), "x.file");
+    std::fs::write(
+        dir.path().join("ship.checklist.md"),
+        "## Items\n\n- **a.first**: sessions expire\n\n## Mapping\n\n\
+         | item | status | mapped_ids | rationale |\n\
+         |------|--------|------------|-----------|\n\
+         | a.first | covered | [[x.file.c1]] | |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(
+        json["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|w| !w.as_str().unwrap().contains("skipped")),
+        "checklist files are intentional, never skipped-noise: {json:?}"
+    );
+}

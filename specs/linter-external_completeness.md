@@ -102,25 +102,32 @@ for release the same way a real org's ship gate might require a security
 sign-off — a policy decision layered on top of `specodelic`, not a fact
 `specodelic.md` itself asserts about every repo.
 
-**`mapped_ids` is a reference the existing Reference Typing table doesn't
-name — flagged, not resolved here.** A `covered` mapping row's `mapped_ids`
-field points at a Constraint or Property row exactly the way `traces_to`
-or `derives_from` do, and `mapping_naturality` above only holds if the
-rename tool and `linter.referential_integrity` actually walk into a
-checklist's mapping table when rewriting `[[old_id]]`. But a checklist
-file isn't a specodelic file — it has no frontmatter `kind: intent`, no
-Constraints/Model/Properties layers — so it sits outside the four-layer
-shape `AGENTS.md` requires of "every new file." Extending Reference Typing
-to cover it means deciding whether a checklist manifest is a sixth *kind*
-of artifact outside `𝒦` (STATUS.md §1 calls the whole schema category `𝒦`
-fixed) or a degenerate spec file that reuses the existing shape with empty
-Model/Constraints sections and only a Properties-like mapping table. Both
-are real options with different consequences for `rename.md`'s
-`old_id_fully_replaced` guarantee; **Needs Human Review**, not decided by
-this file. Until it is, treat `mapping_naturality` above as aspirational —
-asserted the way `specodelic.md` asserts laws before their enforcing
-checker exists, not yet backed by a rename tool that actually reaches this
-far.
+**Decision of record (mp1 row 10, 2026-09-29): the checklist is a
+dedicated `*.checklist.md` artifact OUTSIDE `𝒦`.** A checklist manifest
+is not a spec file — no frontmatter, no four-layer shape, exempt like
+`AGENTS.md`/`STATUS.md`. Its format: a `## Items` section holding a flat
+list of `- **<id>**: <plain-text description>` bullets (ids are stable
+row-id tokens: alphanumeric segments joined by `.`/`_`/`-`), plus a
+`## Mapping` section holding exactly one table with the columns
+`item`/`status`/`mapped_ids`/`rationale`. Presence of the file IS the
+declaration — a repo with no `*.checklist.md` has nothing external to be
+incomplete relative to (`not_applicable`, not a vacuous pass). Mapping
+rows must reference declared items; statuses outside {covered, waived}
+leave the item unaccounted-for (`every_item_accounted`'s beat); a
+duplicated item claim is `no_duplicate_claim`'s beat, never double-
+reported as unaccounted. The degenerate-spec-file option (empty
+Model/Constraints, frontmatter `id: spec`) was rejected: it would grow
+`𝒦` after all, drag the naming law and dual-format machinery onto an
+artifact that has no intent to state, for no benefit this checker needs.
+
+**`mapping_naturality` stays aspirational, deliberately deferred.** With
+the checklist outside `𝒦`, `rename.md`'s `old_id_fully_replaced` and
+`linter.referential_integrity` do not yet reach into a `mapped_ids` cell
+— renaming a constraint id mapped by a checklist will dangle that cell
+(the `covered_maps_resolve` rule then fires and names it, so the drift is
+loud, not silent). Making `mapping_naturality` real is a follow-up
+ticket (rename reach-in), not part of this checker's v1 — the five
+linter.external_completeness rules are fully testable without it.
 
 `checked_against_core: clear` (see `AGENTS.md`'s convention). This file's
 constraints are local to what an *external-completeness check*

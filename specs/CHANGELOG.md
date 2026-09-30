@@ -1490,3 +1490,27 @@ Grothendieck construction for cross-file ids), the diagnostician-to-schema
 mapping (making specific code smells ungrammatical rather than merely
 lint-flagged), and the data-oriented/Clojure-flavored bias (open maps,
 namespaced keys, predicates over inheritance).
+
+## #64 — external completeness implemented: the five linter.external_completeness rules (specodelic-b15)
+
+The optional checker's manifest format was the last open question (mp1
+row 10) — decided of record in `linter-external_completeness.md`'s Notes:
+a checklist is a dedicated `*.checklist.md` artifact OUTSIDE `𝒦` (flat
+`## Items` list, `## Mapping` table with exactly
+`item`/`status`/`mapped_ids`/`rationale` columns, presence-of-file = the
+declaration), rejecting the degenerate-spec-file option that would have
+grown `𝒦` after all. Implemented TDD-style: a lenient manifest parser
+(`src/checklist.rs` — a manifest that cannot be read emits
+`checklist_well_formed` findings, never silently vanishes) and the five
+rules in `src/lint.rs` — `checklist_well_formed`,
+`every_item_accounted` (also owns the status set), `covered_maps_resolve`
+(mapped ids must resolve to real constraint/property rows — a file id or
+section anchor is machinery, not a claim), `waiver_has_rationale`, and
+`no_duplicate_claim` (one claim per item, never double-reported as
+unaccounted). Non-gating by construction: the pass runs only when a
+checklist is declared, never touches any file's `linted` state, and
+`spk compile`'s precondition gate deliberately runs `lint_corpus` without
+it. `mapping_naturality` stays aspirational — the rename tool reaching
+into `mapped_ids` is deferred to its own ticket (until then a renamed id
+dangles loudly, `covered_maps_resolve` fires and names it). Corpus
+unchanged (no checklist declared: `not_applicable`), gates green.

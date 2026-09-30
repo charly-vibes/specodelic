@@ -266,12 +266,15 @@ or `waived` (with a stated rationale) — so the checklist can never be
 silently unconsulted, even though whether a given mapping is *semantically
 correct* stays outside what any checker here can verify. It's optional per
 repo and doesn't gate `linted`/`compiled`/`verified`; see its Notes for why.
-One open question surfaced and left `Needs Human Review`: whether a
-checklist's mapping table is a sixth kind of artifact outside `𝒦` or a
-degenerate spec file reusing the existing four-layer shape — the answer
-decides whether `rename.md` and `linter.referential_integrity` need to
-reach into it, and `mapping_naturality` there is asserted aspirationally
-until that's settled.
+The manifest format was decided (mp1 row 10, 2026-09-29): a checklist is a
+dedicated `*.checklist.md` artifact OUTSIDE `𝒦` — flat `## Items` list plus
+a `## Mapping` table with exactly `item`/`status`/`mapped_ids`/`rationale`
+columns; presence of the file declares the checklist. All five
+`linter.external_completeness` rules are implemented (specodelic-b15);
+`mapping_naturality` there stays aspirational — the rename tool reaching
+into `mapped_ids` is a deferred follow-up, and until then a renamed id
+mapped by a checklist dangles loudly (`covered_maps_resolve` fires), not
+silently.
 
 ### Done — orchestration
 `orchestrate.md` closes this. A top-level `idle → lint_stage →
