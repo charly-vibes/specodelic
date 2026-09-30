@@ -6,6 +6,29 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #66 — mapping_naturality enforced: rename reaches into checklist mapped_ids (specodelic-4d5)
+
+The follow-up specodelic-b15 deliberately deferred: a checklist sits
+outside `𝒦`, so `rename.md`'s `old_id_fully_replaced` never reached its
+`mapped_ids` cells — renaming a mapped id either dangled the cell
+(bare spelling, caught later by `covered_maps_resolve`) or — worse —
+failed the verify gate outright (`[[…]]`-wrapped cells inside table
+rows were wiki-link-rewritten into a file `parse_str` then rejected as
+`post-rename parse failed`). Both are fixed. `spk rename` now routes
+`*.checklist.md` files through a checklist-side rewriter
+(`checklist::rewrite_text`): only mapping data rows' `mapped_ids`
+cells change (bare and `[[…]]` spellings alike, children following
+their parent, padding and terminators byte-exact; the items list,
+item/rationale cells, header, separator, and prose pass through).
+The verify gate now re-runs the external-completeness checker
+(`covered_maps_resolve` + manifest well-formedness) over the
+post-rename corpus — a missed cell or a rename that would dangle one
+is a labeled `VerifyFailed` before any byte is written
+(`mapped(rename(I)) == rename(mapped(I))`). Aspirational-note updates:
+`specs/linter-external_completeness.md`, `specs/STATUS.md`;
+`docs/src/commands.md` rename section. RED→GREEN with regression
+pinning at both the cell and file level plus a gate-rejection test.
+
 ## #63 — observability contracts: observes typing, advisory check, derived boundaries (specodelic-7l3)
 
 The format can declare outputs (`emits`, Revision 6) and contracts

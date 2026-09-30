@@ -158,12 +158,16 @@ uninstall` strips only the managed block.
 The atomic rename (specs/rename.md): updates the defining row (an
 Intent frontmatter id or a table row's qualified id) and every
 referencing `[[link]]` — including child refs like `[[old_id.child]]` —
-as one transaction. A file whose Intent id is renamed also gets its
-filename renamed per the `-` ⇔ `.` naming law. Everything is computed
-and verified in memory (re-parse + zero dangling) before any byte is
-written, so a failed rename leaves the repo byte-identical: collisions,
-unknown ids, and verify-gate rejections are labeled failures with
-remediation hints.
+as one transaction. Declared checklists reach into the same law: every
+`*.checklist.md`'s `mapped_ids` cells are rewritten too (bare and
+`[[…]]` spellings alike), and the verify gate re-runs the
+external-completeness resolution over the post-rename corpus, so a
+missed cell is a labeled rejection, not a silent dangle. A file whose
+Intent id is renamed also gets its filename renamed per the `-` ⇔ `.`
+naming law. Everything is computed and verified in memory (re-parse +
+zero dangling) before any byte is written, so a failed rename leaves
+the repo byte-identical: collisions, unknown ids, and verify-gate
+rejections are labeled failures with remediation hints.
 
 - Spec: [rename](specs/rename.md)
 

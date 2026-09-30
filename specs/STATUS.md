@@ -271,10 +271,11 @@ dedicated `*.checklist.md` artifact OUTSIDE `𝒦` — flat `## Items` list plus
 a `## Mapping` table with exactly `item`/`status`/`mapped_ids`/`rationale`
 columns; presence of the file declares the checklist. All five
 `linter.external_completeness` rules are implemented (specodelic-b15);
-`mapping_naturality` there stays aspirational — the rename tool reaching
-into `mapped_ids` is a deferred follow-up, and until then a renamed id
-mapped by a checklist dangles loudly (`covered_maps_resolve` fires), not
-silently.
+`mapping_naturality` is enforced by the rename tool (specodelic-4d5):
+`spk rename` rewrites every checklist's `mapped_ids` cells (bare and
+`[[…]]` spellings alike) and its verify gate re-runs
+`covered_maps_resolve` over the post-rename corpus — a missed cell is
+rejected before any byte is written, never a silent dangle.
 
 ### Done — orchestration
 `orchestrate.md` closes this. A top-level `idle → lint_stage →

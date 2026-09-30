@@ -16,7 +16,9 @@
 
 use std::path::PathBuf;
 
+use crate::checklist;
 use crate::graph;
+use crate::lint;
 use crate::spec::{Spec, parse_str};
 
 /// Everything the caller must write to make the rename real, produced
@@ -138,17 +140,23 @@ pub fn run(
 
     // Rewrite every file; collect the ones that actually change. Only
     // the definition file gets local-id (cell/bullet) rewrites; every
-    // file gets wiki-link rewrites.
+    // file gets wiki-link rewrites. Checklists are not specs — their
+    // mapped_ids cells follow the rename instead (mapping_naturality:
+    // mapped(rename(I)) == rename(mapped(I))).
     let is_intent_rename = local.is_none();
     let mut writes = vec![];
     for (path, raw) in files {
         let in_owner = owner.path.as_ref().is_some_and(|p| p == path);
-        let new_text = rewrite_text(
-            raw,
-            old_id,
-            new_id,
-            if in_owner { local_pair } else { None },
-        );
+        let new_text = if checklist::is_checklist_path(path) {
+            checklist::rewrite_text(raw, old_id, new_id)
+        } else {
+            rewrite_text(
+                raw,
+                old_id,
+                new_id,
+                if in_owner { local_pair } else { None },
+            )
+        };
         if new_text != *raw {
             writes.push((path.clone(), new_text));
         }
@@ -183,10 +191,19 @@ pub fn run(
     // and re-run linter.referential_integrity — zero dangling or the
     // rename is rejected before a single write. A pure rename cannot
     // introduce a cycle (structure is preserved), so dangling is the
-    // gate that can actually fire (specs/rename.md Notes).
+    // gate that can actually fire (specs/rename.md Notes). Checklists
+    // ride the same gate through their own linter: the post-rename
+    // manifests must still be well-formed with resolving mapped_ids —
+    // a missed cell is caught here (stray_ref_caught_by_verify), never
+    // silently accepted.
     let mut details = vec![];
     let mut new_specs = vec![];
+    let mut new_checklists = vec![];
     for (path, text) in &writes {
+        if checklist::is_checklist_path(path) {
+            new_checklists.push(checklist::parse_str(path.clone(), text));
+            continue;
+        }
         match parse_str(text) {
             Ok(mut s) => {
                 s.path = Some(path.clone());
@@ -199,9 +216,14 @@ pub fn run(
         if remove.as_ref().is_some_and(|r| r == path) {
             continue; // the moved file is represented by its new path
         }
-        if !writes.iter().any(|(p, _)| p == path)
-            && let Ok(mut s) = parse_str(text)
-        {
+        if writes.iter().any(|(p, _)| p == path) {
+            continue;
+        }
+        if checklist::is_checklist_path(path) {
+            new_checklists.push(checklist::parse_str(path.clone(), text));
+            continue;
+        }
+        if let Ok(mut s) = parse_str(text) {
             s.path = Some(path.clone());
             new_specs.push(s);
         }
@@ -210,6 +232,14 @@ pub fn run(
         let report = graph::build(&new_specs);
         for d in &report.dangling {
             details.push(format!("dangling reference after rename: {d}"));
+        }
+        // linter.referential_integrity reach-in over checklists:
+        // covered_maps_resolve (and the manifest's own well-formedness)
+        // over the post-rename corpus.
+        let mut cl_report = lint::Report::default();
+        lint::lint_checklists(&new_specs, &new_checklists, &mut cl_report);
+        for issue in &cl_report.issues {
+            details.push(format!("{}: {}", issue.file, issue.message));
         }
     }
     if !details.is_empty() {
@@ -371,6 +401,26 @@ fn rewrite_state_bullet(
 mod tests {
     use super::*;
 
+    /// A minimal spec whose constraint/property rows a checklist can
+    /// legitimately map to (same shape as the lint fixtures).
+    fn mapped_spec_file() -> (std::path::PathBuf, String) {
+        (
+            std::path::PathBuf::from("x-file.md"),
+            "---\nid: x.file\nkind: intent\nstatement: \"THE x SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `holds` | [[x.file]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p1 | unit | [[x.file.c1]] | `g()` | `x` |\n"
+                .to_string(),
+        )
+    }
+
+    /// A checklist manifest mapping one item to the given ids cell.
+    fn checklist_file(mapped: &str) -> (std::path::PathBuf, String) {
+        (
+            std::path::PathBuf::from("ship.checklist.md"),
+            format!(
+                "# Release checklist\n\n## Items\n\n- **a.first**: covered claim\n\n## Mapping\n\n| item | status | mapped_ids | rationale |\n|------|--------|------------|-----------|\n| a.first | covered | {mapped} | |\n"
+            ),
+        )
+    }
+
     /// rename_naturality's identity law: rename(I, a, a) == I — a no-op
     /// that writes nothing.
     #[test]
@@ -381,6 +431,94 @@ mod tests {
         )];
         let out = run(&files, "a", "a").unwrap();
         assert!(out.writes.is_empty() && out.remove.is_none());
+    }
+
+    /// mapping_naturality: `mapped(rename(I)) == rename(mapped(I))` —
+    /// the rename reaches into a checklist's mapped_ids cells, wrapped
+    /// and bare spellings alike, and the verify gate accepts the
+    /// rewritten manifest (specs/linter-external_completeness.md).
+    #[test]
+    fn rename_reaches_into_checklist_mapped_ids() {
+        let files = vec![
+            mapped_spec_file(),
+            checklist_file("[[x.file.c1]], x.file.p1"),
+        ];
+        let out = run(&files, "x.file.c1", "x.file.c2").unwrap();
+        let cl = out
+            .writes
+            .iter()
+            .find(|(p, _)| p == &std::path::PathBuf::from("ship.checklist.md"))
+            .expect("checklist must be rewritten");
+        assert!(
+            cl.1.contains("[[x.file.c2]], x.file.p1"),
+            "mapped cell follows the rename: {:?}",
+            cl.1
+        );
+        assert!(
+            !cl.1.contains("x.file.c1"),
+            "old id fully replaced: {:?}",
+            cl.1
+        );
+        assert!(
+            cl.1.contains("- **a.first**: covered claim"),
+            "items list untouched: {:?}",
+            cl.1
+        );
+    }
+
+    /// An intent rename moves children too: mapped ids naming rows of
+    /// the renamed file follow (`old_id.…` → `new_id.…`).
+    #[test]
+    fn mapped_ids_follow_intent_rename() {
+        let files = vec![mapped_spec_file(), checklist_file("[[x.file.c1]]")];
+        let out = run(&files, "x.file", "y.file2").unwrap();
+        let cl = out
+            .writes
+            .iter()
+            .find(|(p, _)| p == &std::path::PathBuf::from("ship.checklist.md"))
+            .expect("checklist must be rewritten");
+        assert!(
+            cl.1.contains("[[y.file2.c1]]"),
+            "child mapped id follows the file rename: {:?}",
+            cl.1
+        );
+    }
+
+    /// A checklist whose cells don't name the renamed id is not
+    /// written — only changed files enter the write set.
+    #[test]
+    fn checklist_without_matching_ids_is_not_written() {
+        let files = vec![mapped_spec_file(), checklist_file("[[x.file.p1]]")];
+        let out = run(&files, "x.file.c1", "x.file.c2").unwrap();
+        assert!(
+            !out.writes
+                .iter()
+                .any(|(p, _)| p == &std::path::PathBuf::from("ship.checklist.md")),
+            "untouched checklist must not be written: {:?}",
+            out.writes
+        );
+    }
+
+    /// stray_ref_caught_by_verify over checklists: a mapped_ids cell
+    /// that does not resolve post-rename fails the rename — a missed
+    /// cell is caught at verify, never silently accepted.
+    #[test]
+    fn rename_gate_rejects_dangling_mapped_id() {
+        let files = vec![
+            mapped_spec_file(),
+            checklist_file("[[x.file.c1]], [[x.file.ghost]]"),
+        ];
+        match run(&files, "x.file.c1", "x.file.c2") {
+            Err(RenameError::VerifyFailed { details }) => {
+                assert!(
+                    details
+                        .iter()
+                        .any(|d| d.contains("ship.checklist.md") && d.contains("ghost")),
+                    "gate must name the checklist and the dangling id: {details:?}"
+                );
+            }
+            other => panic!("expected VerifyFailed, got {other:?}"),
+        }
     }
 
     /// An id with link/table syntax cannot be a new id (it would corrupt

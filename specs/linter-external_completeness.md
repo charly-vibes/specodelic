@@ -124,14 +124,15 @@ Model/Constraints, frontmatter `id: spec`) was rejected: it would grow
 `𝒦` after all, drag the naming law and dual-format machinery onto an
 artifact that has no intent to state, for no benefit this checker needs.
 
-**`mapping_naturality` stays aspirational, deliberately deferred.** With
-the checklist outside `𝒦`, `rename.md`'s `old_id_fully_replaced` and
-`linter.referential_integrity` do not yet reach into a `mapped_ids` cell
-— renaming a constraint id mapped by a checklist will dangle that cell
-(the `covered_maps_resolve` rule then fires and names it, so the drift is
-loud, not silent). Making `mapping_naturality` real is a follow-up
-ticket (rename reach-in), not part of this checker's v1 — the five
-linter.external_completeness rules are fully testable without it.
+**`mapping_naturality` is enforced by the rename tool.** The checklist
+sits outside `𝒦`, so `linter.referential_integrity` itself never parses
+the manifest — but `rename.md`'s `old_id_fully_replaced` reaches into
+`mapped_ids` cells (bare and `[[…]]` spellings alike, children
+following their parent), and `rename`'s verify gate re-runs this
+checker's resolution (`covered_maps_resolve`, plus manifest
+well-formedness) over the post-rename corpus. A rename that misses a
+cell is rejected before any byte is written, and a rename that would
+dangle a cell is equally refused.
 
 `checked_against_core: clear` (see `AGENTS.md`'s convention). This file's
 constraints are local to what an *external-completeness check*

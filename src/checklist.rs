@@ -156,6 +156,145 @@ fn split_mapped_ids(cell: &str) -> Vec<String> {
         .collect()
 }
 
+/// Rewrite one raw `mapped_ids` cell under a rename (`specs/rename.md`
+/// `old_id_fully_replaced` reaching into mapping rows —
+/// `mapping_naturality`): an id equal to `old_id`, or a child of it
+/// (`old_id.…`), follows its parent's rename — the same semantics
+/// wiki-link targets get. Bare and `[[…]]`-wrapped spellings are
+/// rewritten alike; wrapping, padding, and non-matching ids pass
+/// through byte-exact.
+pub fn rewrite_mapped_ids_cell(cell: &str, old_id: &str, new_id: &str) -> String {
+    let mut out = String::with_capacity(cell.len());
+    for (i, seg) in cell.split(',').enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        let id = seg.trim();
+        let (open, inner_full) = match id.strip_prefix("[[") {
+            Some(rest) if rest.ends_with("]]") => (2usize, &rest[..rest.len() - 2]),
+            _ => (0, id),
+        };
+        let inner = inner_full.trim();
+        let replacement = if inner == old_id {
+            Some(new_id.to_string())
+        } else {
+            inner
+                .strip_prefix(old_id)
+                .and_then(|rest| rest.strip_prefix('.'))
+                .map(|child| format!("{new_id}.{child}"))
+        };
+        match replacement {
+            None => out.push_str(seg),
+            Some(rep) => {
+                // Byte surgery inside the segment: everything before the
+                // id (outer padding + `[[` + inner leading whitespace),
+                // the replacement, then the mirrored tail — wrapping and
+                // spacing survive untouched.
+                let seg_lead = seg.len() - seg.trim_start().len();
+                let inner_lead = inner_full.len() - inner_full.trim_start().len();
+                let start = seg_lead + open + inner_lead;
+                let end = start + inner.len();
+                out.push_str(&seg[..start]);
+                out.push_str(&rep);
+                out.push_str(&seg[end..]);
+            }
+        }
+    }
+    out
+}
+
+/// Rewrite a checklist manifest's raw text under a rename: every
+/// mapping data row's `mapped_ids` cell goes through
+/// [`rewrite_mapped_ids_cell`]. Mirrors [`parse_str`]'s table state
+/// machine (the header row pins the columns, the `---` separator ends
+/// it, data rows follow) so only real mapping cells are ever touched —
+/// the items list, item/rationale cells, header, separator, and all
+/// prose pass through byte-exact, terminators included.
+pub fn rewrite_text(raw: &str, old_id: &str, new_id: &str) -> String {
+    enum Stage {
+        Before,
+        Header,
+        Data,
+    }
+    let mut stage = Stage::Before;
+    let mut out = String::with_capacity(raw.len());
+    for line in raw.split_inclusive('\n') {
+        let (content, term) = match line.strip_suffix("\r\n") {
+            Some(c) => (c, "\r\n"),
+            None => match line.strip_suffix('\n') {
+                Some(c) => (c, "\n"),
+                None => (line, ""),
+            },
+        };
+        let trimmed = content.trim();
+        let rewritten = if trimmed.starts_with('|') {
+            match stage {
+                Stage::Before => {
+                    let names: Vec<String> = trimmed
+                        .strip_prefix('|')
+                        .and_then(|r| r.strip_suffix('|'))
+                        .unwrap_or(trimmed)
+                        .split('|')
+                        .map(|c| {
+                            c.trim()
+                                .trim_start_matches('`')
+                                .trim_end_matches('`')
+                                .to_string()
+                        })
+                        .collect();
+                    if names == MAPPING_COLUMNS {
+                        stage = Stage::Header;
+                    }
+                    content.to_string()
+                }
+                Stage::Header => {
+                    let cells: Vec<&str> = trimmed
+                        .strip_prefix('|')
+                        .and_then(|r| r.strip_suffix('|'))
+                        .unwrap_or(trimmed)
+                        .split('|')
+                        .map(str::trim)
+                        .collect();
+                    if cells.iter().all(|c| c.chars().all(|ch| ch == '-')) {
+                        stage = Stage::Data;
+                    }
+                    content.to_string()
+                }
+                Stage::Data => {
+                    // A leading `|` always yields an empty first segment;
+                    // exactly four data cells means a well-formed mapping
+                    // row, whose third cell is `mapped_ids`.
+                    let segs: Vec<&str> = content.split('|').collect();
+                    let four_columns = match segs.len() {
+                        5 => true,
+                        6 => segs[5].trim().is_empty(),
+                        _ => false,
+                    };
+                    if !four_columns {
+                        content.to_string()
+                    } else {
+                        let mapped = segs[3];
+                        let cell = rewrite_mapped_ids_cell(mapped, old_id, new_id);
+                        if cell == mapped {
+                            content.to_string()
+                        } else {
+                            let mut parts: Vec<String> =
+                                segs.iter().map(|s| (*s).to_string()).collect();
+                            parts[3] = cell;
+                            parts.join("|")
+                        }
+                    }
+                }
+            }
+        } else {
+            content.to_string()
+        };
+        out.push_str(&rewritten);
+        out.push_str(term);
+    }
+    out
+}
+
 /// Parse a checklist manifest.
 pub fn parse_str(path: PathBuf, text: &str) -> Checklist {
     // Tolerate a UTF-8 BOM (Rule-of-5 EDGE-001): otherwise the first
@@ -544,6 +683,63 @@ mod tests {
         );
         assert!(cl.defects.is_empty(), "{:?}", cl.defects);
         assert_eq!(cl.mapping.len(), 1);
+    }
+
+    /// mapping_naturality, cell level: a rename reaches into the
+    /// mapped_ids cell — wrapped and bare spellings alike, children
+    /// follow their parent, everything else passes through.
+    #[test]
+    fn rewrite_mapped_ids_cell_renames_bare_wrapped_and_children() {
+        assert_eq!(
+            rewrite_mapped_ids_cell("[[x.c1]], x.p1", "x.c1", "x.c2"),
+            "[[x.c2]], x.p1"
+        );
+        assert_eq!(
+            rewrite_mapped_ids_cell("x.c1,[[x.c1.kid]]", "x.c1", "x.c2"),
+            "x.c2,[[x.c2.kid]]"
+        );
+        // Whole-id matches only: `x.c10` is not `x.c1`.
+        assert_eq!(rewrite_mapped_ids_cell("x.c10", "x.c1", "x.c2"), "x.c10");
+    }
+
+    #[test]
+    fn rewrite_mapped_ids_cell_preserves_nonmatches_and_padding() {
+        assert_eq!(rewrite_mapped_ids_cell(" y.p1 ", "x.c1", "x.c2"), " y.p1 ");
+        assert_eq!(
+            rewrite_mapped_ids_cell("[[ y.c1 ]]", "y.c1", "y.c2"),
+            "[[ y.c2 ]]"
+        );
+        assert_eq!(rewrite_mapped_ids_cell("", "x.c1", "x.c2"), "");
+    }
+
+    /// mapping_naturality, file level: only mapping data rows'
+    /// mapped_ids cells change — header, separator, item cells,
+    /// rationale, items list, and prose pass through byte-exact.
+    #[test]
+    fn rewrite_text_updates_only_mapped_ids_cells() {
+        let raw = well_formed();
+        let out = rewrite_text(raw, "auth.session.expire", "auth.session.stop");
+        assert!(
+            out.contains("[[auth.session.stop]]"),
+            "mapped cell rewritten: {out:?}"
+        );
+        assert!(
+            !out.contains("auth.session.expire"),
+            "old id fully replaced: {out:?}"
+        );
+        assert!(
+            out.contains("| auth.session | covered |"),
+            "item cell untouched: {out:?}"
+        );
+        assert!(
+            out.contains("- **auth.session**: logged-in sessions expire"),
+            "items list untouched: {out:?}"
+        );
+        assert_eq!(
+            rewrite_text("# prose only\n", "a.b", "a.c"),
+            "# prose only\n",
+            "prose untouched"
+        );
     }
 
     /// Rule-of-5 CLAR-002: status cells tolerate surrounding backticks,
