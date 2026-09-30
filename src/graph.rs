@@ -134,6 +134,29 @@ fn kind_index(specs: &[Spec]) -> BTreeMap<String, NodeKind> {
     idx
 }
 
+/// The closed union of typed reference columns the graph extracts edges
+/// from — `specs/graph.md`'s `total_extraction`, whose authority is the
+/// Reference Typing table in `specs/specodelic.md`. `satisfies` IS a typed
+/// field (Revision 7) even though graph.md's parenthetical enumeration
+/// predates it — `errors.md`'s `contract_satisfied_from_consumer` pins
+/// satisfies edges as extracted. A link in any OTHER column — `expr`,
+/// `predicate`, `generator`, frontmatter — is format documentation or a
+/// prose citation, not a reference field: it never becomes an edge, never
+/// dangles in the graph report, and never trips typing. Its resolution is
+/// `total_refs`' beat in the linter, which scopes over every link in the
+/// file (beads specodelic-mlg). `from`/`to` are absent here by design: the
+/// transitions walk below owns those fields (one edge per well-formed
+/// cell), so the links loop must not double-record them.
+const TYPED_REFERENCE_COLUMNS: [&str; 7] = [
+    "traces_to",
+    "derives_from",
+    "guard",
+    "supersedes",
+    "emits",
+    "satisfies",
+    "observes",
+];
+
 /// The Reference Typing check for one resolved link: `None` when the edge
 /// is allowed (or the column is not a typed reference field), `Some(reason)`
 /// when the typing table forbids it.
@@ -324,6 +347,12 @@ pub fn build(specs: &[Spec]) -> GraphReport {
             file_rows.clone()
         };
         for link in &spec.links {
+            // total_extraction: only typed reference columns produce graph
+            // structure. Links elsewhere (expr/predicate cells, frontmatter)
+            // are the linter's `total_refs` beat — skipped entirely here.
+            if !TYPED_REFERENCE_COLUMNS.contains(&link.column.as_str()) {
+                continue;
+            }
             let resolved = resolve(&scoped_rows, file_id, &link.target);
             // Bare-local rows (specodelic-15g, Option A): in an id:spec
             // file a dotless target naming one of the file's own rows has

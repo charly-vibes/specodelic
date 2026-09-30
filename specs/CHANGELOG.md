@@ -6,6 +6,30 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #77 — graph extraction honors the closed union of typed reference columns (specodelic-mlg)
+
+Found by the conformance matrix's `total_refs_dangling` gap case, now
+flipped ungated. `graph::build` walked ALL links and recorded an edge
+whenever `typing_violation` fell through — which it does for untyped
+columns — so a `[[ref]]` inside an `expr`, `predicate`, or frontmatter
+`statement` cell became an edge and could dangle in the graph report,
+violating `total_extraction`'s closed union. The links loop now skips
+every column outside the typed set {traces_to, derives_from, guard,
+supersedes, emits, satisfies, observes}: no edge, no graph dangling, no
+typing — resolution of non-reference links is `total_refs`' beat in the
+linter, which already scopes over every link in the file. `from`/`to`
+stay out of the links loop by design: the transitions walk owns those
+fields (one edge per well-formed cell), so nothing double-records.
+
+Authority note: the filter uses the Reference Typing table's field set,
+not graph.md's stale parenthetical — `satisfies` joined the typed fields
+in Revision 7 and `errors.md`'s `contract_satisfied_from_consumer` pins
+satisfies edges as extracted. graph.md's `total_extraction` enumeration
+is reconciled to restate the table (and now says so). Corpus effect:
+33 edges removed (expr/predicate/frontmatter kinds), dangling stays 0,
+violations 0, supersedes cycles 0. Gates: just ci, lint-specs 21/0,
+openspec strict, sync-sections; conformance matrix + oracle green.
+
 ## #76 — corpus reconciled with its own Reference Typing table (specodelic-cxq)
 
 The mp1 decisions of record (#75) applied to the corpus itself. All 38

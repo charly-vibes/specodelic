@@ -661,6 +661,19 @@ fn cases() -> Vec<Case> {
             &["find:linter.ears_syntax"],
         ),
         // -- linter-referential_integrity family --------------------------------------------
+        // graph.md `total_extraction`: the edge set is the CLOSED union of
+        // typed reference columns — a dangling link inside an UNTYPED
+        // column (here `predicate`) is `total_refs`' beat in the linter,
+        // never a graph edge, so it must NOT dangle in the graph report
+        // (beads specodelic-mlg; flipped from conformance_matrix_known_gaps).
+        f(
+            "total_refs_dangling",
+            vec![(
+                "clean.md",
+                CLEAN.replace("`sent(o) == o.recorded`", "`[[missing.file]] says so`"),
+            )],
+            &["find:linter.total_refs"],
+        ),
         f(
             "self_ref",
             vec![(
@@ -954,21 +967,6 @@ fn conformance_matrix() {
 #[ignore = "known checker gaps: tracked as beads tickets — flip when they close"]
 fn conformance_matrix_known_gaps() {
     let gaps = vec![
-        // Gap: graph::build extracts edges from ALL link columns, but
-        // graph.md `total_extraction` pins the edge set to the CLOSED
-        // union traces_to/derives_from/guard/from/to/supersedes/emits/
-        // observes — a link in an untyped column (here `predicate`)
-        // must produce NO edge, hence no graph.dangling. Current
-        // behavior fires an extra `graph.dangling`.
-        Case {
-            id: "total_refs_dangling",
-            files: vec![(
-                "clean.md".into(),
-                CLEAN.replace("`sent(o) == o.recorded`", "`[[missing.file]] says so`"),
-            )],
-            checklists: vec![],
-            expect: &["find:linter.total_refs"],
-        },
         // Gap: acyclic's edge set takes derives_from edges from
         // properties ONLY, but linter-graph_shape.md's invariant is
         // unqualified ("traces_to ∪ derives_from ∪ guard-as-edge has no
