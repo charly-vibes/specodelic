@@ -26,9 +26,13 @@ every phase — the corpus is its own primary fixture.
       `contract_published`, `enforcement_routed`), Model, Properties
       (§1.1's rows). File id `errors` per the naming law. No
       `specodelic.md` change (design D7).
-- [ ] 1.3 **GREEN (format)**: resolve the Open Question in design.md —
+- [x] 1.3 **GREEN (format)**: resolve the Open Question in design.md —
       one `extension_point` row per concern vs one merged row; keep the
       corpus reading that `satisfies` edges compose best with.
+      **RESOLVED pre-approval (2026-09-30)**: one row per concern
+      (`envelope_error_kind` / `exit_code_mapping` / `remediation_hint_present`)
+      — the delta already reflects it; carry the same three rows into
+      `specs/errors.md` verbatim.
 - [ ] 1.4 **REFACTOR**: re-read the diff against `AGENTS.md`'s Revision
       discipline (new file, no Revision heading needed — nothing widened);
       `just lint-specs` green; coverage over every new constraint confirmed.

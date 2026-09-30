@@ -123,11 +123,14 @@ per-error unit properties are new coverage, not changed behavior.
 
 ## Open Questions
 
-- Should `errors.md`'s contract rows be one `extension_point` per concern
-  (envelope, exit codes, labels) or one merged row? Leaning one-per-concern
-  so `satisfies` edges are granular — until resolved,
-  `remediation_hint_present`'s bundling of envelope + exit codes + hint is
-  marked provisional in the delta.
+- ~~Should `errors.md`'s contract rows be one `extension_point` per concern
+  (envelope, exit codes, labels) or one merged row?~~ **RESOLVED pre-approval
+  (2026-09-30)**: one row per concern — `envelope_error_kind`,
+  `exit_code_mapping`, `remediation_hint_present` as separate invariants, so
+  `satisfies` edges compose granularly and each concern has its own falsifying
+  property. The provisional bundling note in the delta is gone. Resolution
+  driven by a Jev evaluation of the approval gate (d53): worst-issue signal
+  0.79 on the bundling row.
 - Phase-2 exit-code derivation from terminal outcomes (`passed` → 0,
   `failed` → 1, invocation error → 2): confirm the 0/1/2 mapping covers
   `exploration_only` when terminal typing lands.

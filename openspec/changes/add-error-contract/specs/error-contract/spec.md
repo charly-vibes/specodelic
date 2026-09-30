@@ -33,7 +33,9 @@ pipeline.
 | failure_class_is_state   | invariant | `a state with ≥2 inbound failure transitions whose guard citation sets differ is malformed — each distinct failure class is its own failure state; decidable from the graph alone (compile.md's two-class prose argument is the rationale, never the check — prose is not read)` | [[spec]]  |
 | guard_negation_typed     | invariant | `a failure transition whose guard cites ≥1 intra-file [[id]] must cite exactly the citation set of the success transition it negates; a failure transition citing zero intra-file constraints is either on the recorded carve-out list (orchestrate.md's stage pipeline, per its own Notes) or malformed — the carve-out is a checked list in linter-failure_shape.md, never a silent assumption` | [[spec]]  |
 | single_labeled_failure   | invariant | `a failing tool stage reports exactly one labeled error naming the failing stage and class — never a silent partial result and never an unlabeled failure` (restates compile_is_total at contract altitude)             | [[spec]]  |
-| remediation_hint_present | invariant | `every error report carries a non-empty remediation hint — the output contract's exit-code mapping (0 ok, 1 findings-or-failure, 2 invocation error) and envelope kind (ok:false ↔ "error") are part of this contract row (bundling is provisional pending the one-row-per-concern resolution in design.md's Open Questions) | [[spec]]  |
+| envelope_error_kind      | invariant | `a failing stage's report is an error-kind envelope with ok == false — the ok:false ↔ "error" correspondence is the published contract row, not CHANGELOG lore`                                                     | [[spec]]  |
+| exit_code_mapping        | invariant | `the output contract maps outcomes to exit codes: 0 for a clean run, 1 for findings-or-failure, 2 for invocation error — the mapping is part of the published contract, not per-tool convention`                      | [[spec]]  |
+| remediation_hint_present | invariant | `every error report carries a non-empty remediation hint` (one row per concern: envelope kind, exit codes, and hint are separate rows, resolving design.md's Open Question)                                          | [[spec]]  |
 | error_property_names_label | invariant | `every error Constraint has ≥1 unit property whose predicate asserts the exact label string — a label with no falsifying property is not specced, only named`                                                            | [[spec]]  |
 | contract_published       | invariant | `the output contract rows live in specs/errors.md as kind == extension_point, and exist only there — this capability's constraints state requirements about them, never duplicate them; tool files point satisfies at the errors.md rows from their own files, per the extension_point mechanism` | [[spec]]  |
 | enforcement_routed       | invariant | `every rule in this capability states its enforcement tier and no scenario overclaims the present tool: tier 1 — enforced today by existing checkers (emits→effect typing via ref_kind_compatible, every_state_used, graph citation-set comparison); tier 2 — enforced by linter-failure_shape once implemented (label-shape pattern check, mute failure states, carve-out list, negation-set equality), its scenarios are normative for that checker, not claims about today's spk lint; tier 3 — runtime rows (single labeled failure, remediation hint, exit codes) enforced via the compile/verify pipeline fixtures` | [[spec]]  |
@@ -66,6 +68,8 @@ pipeline.
 | zero_citation_failure_flagged       | unit | [[spec.guard_negation_typed]]       | `failure_transition_citing_zero_intrafile_constraints_not_on_carveout_list()` | `check(file) == failed` — the carve-out is a checked list, not an escape hatch (tier 2)      |
 | carved_out_guard_not_flagged        | unit | [[spec.guard_negation_typed]]       | `orchestrate_stage_fail_transition()`                        | `check(file) == passed` — the D2 carve-out is checked, not assumed (tier 2)                       |
 | labeled_failure_is_single           | unit | [[spec.single_labeled_failure]]     | `failing_stage_with_two_extractable_errors()`                | `report(stage) == one labeled error naming stage and class` — never a partial bundle (tier 3)      |
+| envelope_kind_wrong_rejected        | unit | [[spec.envelope_error_kind]]        | `failing_stage_reported_as_ok_envelope()`                    | `check(report) == failed` — a failure must never ride a success-shaped envelope (tier 3)          |
+| exit_code_mismatch_rejected         | unit | [[spec.exit_code_mapping]]          | `failure_stage_with_wrong_exit_code()`                       | `check(report) == failed` — exit codes are contract, not convention (tier 3)                      |
 | hint_missing_rejected               | unit | [[spec.remediation_hint_present]]   | `error_report_with_empty_remediation_hint()`                 | `check(report) == failed` (tier 3)                                                                |
 | label_property_asserts_exact_label  | unit | [[spec.error_property_names_label]] | `error_constraint_with_property_predicating_a_different_label()` | `check(file) == failed` — coverage alone cannot catch this; the property must name the label   |
 | routing_matches_reality             | unit | [[spec.enforcement_routed]]         | `each_rule_checked_against_its_stated_tier()`                | `every scenario's tool claim agrees with its tier — no scenario claims today's spk lint for a tier-2 rule` |
@@ -113,9 +117,13 @@ The system SHALL publish the cross-cutting output contract — envelope kind `ok
 - **WHEN** a tool file carries a `satisfies` edge pointing at a contract row in `specs/errors.md`
 - **THEN** extraction yields exactly one cross-file edge and lint passes — no edit to the contract file
 
-#### Scenario: Label without falsifying property rejected
-- **WHEN** an error Constraint has no unit property whose predicate asserts its exact label string
-- **THEN** the tier-1 check fails the file — a named-but-unfalsifiable label is not a specced error
+#### Scenario: Property-less constraint rejected
+- **WHEN** an error Constraint has no unit property at all
+- **THEN** the tier-1 coverage check fails the file — coverage over every constraint is enforced today; a named-but-unfalsifiable label is not a specced error
+
+#### Scenario: Mismatched label predicate rejected
+- **WHEN** an error Constraint's unit property predicate asserts a different label string than the constraint's own
+- **THEN** the tier-2 check fails the file — exact-label assertion waits for `linter-failure_shape`; today's coverage cannot see the predicate text, so no tier-1 claim is made
 
 ## Requirements
 
@@ -159,6 +167,10 @@ The system SHALL publish the cross-cutting output contract — envelope kind `ok
 - **WHEN** a tool file carries a `satisfies` edge pointing at a contract row in `specs/errors.md`
 - **THEN** extraction yields exactly one cross-file edge and lint passes — no edit to the contract file
 
-#### Scenario: Label without falsifying property rejected
-- **WHEN** an error Constraint has no unit property whose predicate asserts its exact label string
-- **THEN** the tier-1 check fails the file — a named-but-unfalsifiable label is not a specced error
+#### Scenario: Property-less constraint rejected
+- **WHEN** an error Constraint has no unit property at all
+- **THEN** the tier-1 coverage check fails the file — coverage over every constraint is enforced today; a named-but-unfalsifiable label is not a specced error
+
+#### Scenario: Mismatched label predicate rejected
+- **WHEN** an error Constraint's unit property predicate asserts a different label string than the constraint's own
+- **THEN** the tier-2 check fails the file — exact-label assertion waits for `linter-failure_shape`; today's coverage cannot see the predicate text, so no tier-1 claim is made
