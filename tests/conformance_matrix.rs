@@ -724,8 +724,24 @@ fn cases() -> Vec<Case> {
             vec![("clean.md", CLEAN.replace(ORPHAN_FREE_PROPERTY, ""))],
             &["find:linter.coverage"],
         ),
-        // orphan_property: moved to `conformance_matrix_known_gaps` —
-        // no_orphan_property currently checks only derives_from presence.
+        // no_orphan_property resolves the derives_from target, not just
+        // its presence (specodelic-rk3): a unit property deriving from a
+        // non-law PROPERTY row is not coverage — the graph layer's
+        // typing check fires alongside (derives_from must resolve to a
+        // Constraint unless the source is a law).
+        f(
+            "orphan_property",
+            vec![(
+                "clean.md",
+                CLEAN.replace(
+                    ORPHAN_FREE_PROPERTY,
+                    &format!(
+                        "{ORPHAN_FREE_PROPERTY}| extra_rule | unit | [[clean.recorded_once]] | `arbitrary_x()` | `x(o) == o` | |\n"
+                    ),
+                ),
+            )],
+            &["find:linter.no_orphan_property", "graph.typing"],
+        ),
         // -- dual-format file rules -----------------------------------------------------------------
         f(
             "dual_format_invalid",
@@ -967,13 +983,13 @@ fn conformance_matrix() {
 #[ignore = "known checker gaps: tracked as beads tickets — flip when they close"]
 fn conformance_matrix_known_gaps() {
     let gaps = vec![
-        // Gap: acyclic's edge set takes derives_from edges from
-        // properties ONLY, but linter-graph_shape.md's invariant is
-        // unqualified ("traces_to ∪ derives_from ∪ guard-as-edge has no
-        // cycle") and a constraint↔constraint derives_from cycle is
-        // typing-legal — so it escapes every edge-level check. Resolving
-        // this may be a spec decision (is constraint-level derives_from
-        // in-format?) rather than a pure bug.
+        // Gap (specodelic-huf, still open): acyclic's edge set takes
+        // derives_from edges from properties ONLY, but
+        // linter-graph_shape.md's invariant is unqualified ("traces_to ∪
+        // derives_from ∪ guard-as-edge has no cycle") and a
+        // constraint↔constraint derives_from cycle is typing-legal — so
+        // it escapes every edge-level check. Resolving this is a spec
+        // decision (is constraint-level derives_from in-format?).
         Case {
             id: "constraint_derives_cycle",
             files: vec![("d.cycle.md".into(), CYCLE_DERIVES.to_string())],

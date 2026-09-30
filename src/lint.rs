@@ -14,7 +14,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::checklist::{self, Checklist};
 use crate::ears;
 use crate::guide;
-use crate::spec::Spec;
+use crate::spec::{Link, Spec};
 
 /// One lint finding.
 ///
@@ -1504,14 +1504,67 @@ fn lint_references(specs: &[Spec], report: &mut Report) {
 }
 
 /// coverage — every constraint has a deriving property.
+/// The row kind a resolved derives_from target landed on (rk3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RowKind {
+    Constraint,
+    Property,
+    LawProperty,
+}
+
 fn lint_coverage(specs: &[Spec], report: &mut Report) {
+    // Target-kind resolution (specodelic-rk3): linter-coverage.md's
+    // no_orphan_property invariant reads "p.derives_from resolves to a
+    // real constraint" — a link's PRESENCE is not enough. Map
+    // (file_id, row_id) -> row kind so a derives_from target that
+    // resolves to a Property row can be told from one that resolves to
+    // a Constraint. Unresolved targets stay total_refs' beat.
+    let mut row_kinds: std::collections::BTreeMap<(String, String), RowKind> =
+        std::collections::BTreeMap::new();
+    for spec in specs {
+        let file_id = &spec.intent.id;
+        for c in &spec.constraints {
+            row_kinds.insert((file_id.clone(), c.id.clone()), RowKind::Constraint);
+        }
+        for p in &spec.properties {
+            row_kinds.insert(
+                (file_id.clone(), p.id.clone()),
+                if p.kind.as_deref() == Some("law") {
+                    RowKind::LawProperty
+                } else {
+                    RowKind::Property
+                },
+            );
+        }
+    }
+    // Resolve a derives_from target the way total_refs does: `file.row`
+    // looks up that file; a bare `row` tries the own file first, then the
+    // corpus (same leniency as lint_references for non-`spec` ids).
+    let resolves_to_property =
+        |file_id: &str,
+         target: &str,
+         row_kinds: &std::collections::BTreeMap<(String, String), RowKind>|
+         -> Option<bool> {
+            let kind = if let Some((f, r)) = target.rsplit_once('.') {
+                row_kinds.get(&(f.to_string(), r.to_string()))
+            } else {
+                row_kinds
+                    .get(&(file_id.to_string(), target.to_string()))
+                    .or_else(|| {
+                        row_kinds
+                            .iter()
+                            .find(|((_, rid), _)| rid == target)
+                            .map(|(_, k)| k)
+                    })
+            }?;
+            Some(matches!(kind, RowKind::Property | RowKind::LawProperty))
+        };
     for spec in specs {
         let file_id = &spec.intent.id;
         // Constraint ids this file defines (local row ids).
         let constraint_ids: BTreeSet<&str> =
             spec.constraints.iter().map(|c| c.id.as_str()).collect();
         // Property ids this file defines (local row ids).
-        let property_ids: BTreeSet<&str> = spec.properties.iter().map(|p| p.id.as_str()).collect();
         // Coverage targets claimed by this file's properties.
         let mut derived: BTreeSet<String> = BTreeSet::new();
         for p in &spec.properties {
@@ -1533,19 +1586,44 @@ fn lint_coverage(specs: &[Spec], report: &mut Report) {
             }
         }
         // no_orphan_property — every property derives from something.
-        for pid in &property_ids {
-            let has_source = spec
+        for p in &spec.properties {
+            let links: Vec<&Link> = spec
                 .links
                 .iter()
-                .any(|l| l.source == *pid && l.field == "properties" && l.column == "derives_from");
-            if !has_source {
+                .filter(|l| {
+                    l.source == p.id && l.field == "properties" && l.column == "derives_from"
+                })
+                .collect();
+            if links.is_empty() {
                 report.issues.push(Issue::new(
                     "no_orphan_property",
                     file_id.clone(),
                     format!(
-                        "property `{pid}` derives from nothing — derives_from takes a wiki-link like `[[{file_id}.<constraint-id>]]` (in an id:spec file the bare row form `[[<constraint-id>]]` resolves too)",
+                        "property `{}` derives from nothing — derives_from takes a wiki-link like `[[{file_id}.<constraint-id>]]` (in an id:spec file the bare row form `[[<constraint-id>]]` resolves too)",
+                        p.id
                     ),
                 ));
+                continue;
+            }
+            // The presence check passed; now the target kind (rk3). A
+            // law property may derive from another Property (the cxq
+            // law-restates-law edge); any other property deriving from a
+            // Property is not coverage — the invariant requires a real
+            // constraint.
+            if p.kind.as_deref() != Some("law") {
+                for link in links {
+                    if resolves_to_property(file_id, &link.target, &row_kinds) == Some(true) {
+                        report.issues.push(Issue::new(
+                            "no_orphan_property",
+                            file_id.clone(),
+                            format!(
+                                "property `{}`, deriving from `{}`, a property — no_orphan_property requires a real constraint (only a `law` property may derive from a property, the law-restates-law edge); write `[[{file_id}.<constraint-id>]]`",
+                                p.id,
+                                link.target
+                            ),
+                        ));
+                    }
+                }
             }
         }
     }
@@ -1996,6 +2074,84 @@ mod tests {
                 .all(|w| w.rule_id != "linter.observability"),
             "zero observability warnings — the checks compose without double-reporting: {:?}",
             report.warnings
+        );
+    }
+
+    #[test]
+    fn orphan_property_fires_when_derives_from_resolves_to_property() {
+        // specodelic-rk3: linter-coverage.md's no_orphan_property reads
+        // "p.derives_from resolves to a real CONSTRAINT" — presence of a
+        // link alone is not enough. A unit property deriving from a
+        // non-law Property row must fire the rule (the law→Property edge
+        // is the one legal same-kind derivation, specodelic-cxq).
+        let spec = spec_at(
+            "---\nid: t\nkind: intent\nstatement: \"THE system SHALL derive\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | `x` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| base | unit | [[t.c]] | `g()` | `x` |\n| extra | unit | [[t.base]] | `g()` | `x` |\n",
+            "t.md",
+        );
+        let report = lint_corpus(&[spec]);
+        let orphan = report
+            .issues
+            .iter()
+            .find(|i| i.rule_id == "linter.no_orphan_property")
+            .expect("deriving from a non-law Property is not coverage");
+        assert!(
+            orphan.message.contains("extra"),
+            "the finding names the offending property: {}",
+            orphan.message
+        );
+        assert!(
+            orphan.message.contains("constraint"),
+            "the finding states the required target kind: {}",
+            orphan.message
+        );
+    }
+
+    #[test]
+    fn law_property_deriving_from_property_is_not_an_orphan() {
+        // The cxq law-restates-law edge is the sanctioned same-kind
+        // derivation — no_orphan_property must stay silent for it.
+        let spec = spec_at(
+            "---\nid: t\nkind: intent\nstatement: \"THE system SHALL derive\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | `x` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| base | unit | [[t.c]] | `g()` | `x` |\n| restated | law | [[t.base]] | `g()` | `x` |\n",
+            "t.md",
+        );
+        let report = lint_corpus(&[spec]);
+        assert!(
+            !report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.no_orphan_property"),
+            "law→Property is a legal derivation: {:?}",
+            report
+                .issues
+                .iter()
+                .filter(|i| i.rule_id == "linter.no_orphan_property")
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn unresolved_derives_from_target_stays_total_refs_beat() {
+        // A dangling derives_from is total_refs' finding (the invariant
+        // restates total_refs scoped to this edge) — no_orphan_property
+        // must not double-fire on a target that resolves to nothing.
+        let spec = spec_at(
+            "---\nid: t\nkind: intent\nstatement: \"THE system SHALL derive\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | `x` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[t.ghost]] | `g()` | `x` |\n",
+            "t.md",
+        );
+        let report = lint_corpus(&[spec]);
+        assert!(
+            report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.total_refs"),
+            "the dangling target is total_refs' finding"
+        );
+        assert!(
+            !report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.no_orphan_property"),
+            "unresolved targets are not no_orphan_property's beat"
         );
     }
 

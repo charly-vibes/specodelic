@@ -6,6 +6,30 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #81 — `no_orphan_property` resolves the `derives_from` target, not just its presence (specodelic-rk3)
+
+The vv8 conformance matrix's `orphan_property` gap, closed:
+`linter-coverage.md`'s invariant reads "`p.derives_from` **resolves to a
+real constraint**", but the checker only verified that a `derives_from`
+link *exists* — a unit property deriving from a non-law **Property** row
+passed silently (only the graph layer's `edge_kind_matches_typing`
+flagged it).
+
+`lint_coverage` now resolves each `derives_from` target the way
+`total_refs` does (`file.row` by file, bare row own-file-first then
+corpus-wide) against a `(file_id, row_id) → kind` map, and fires
+`no_orphan_property` when the target resolves to a Property row and the
+source property is not `law` — the cxq law-restates-law edge stays the
+one sanctioned same-kind derivation. Unresolved targets remain
+`total_refs`' beat (the invariant restates it, scoped to this edge) — no
+double-firing.
+
+TDD: 3 unit tests (target-kind rejection naming the property + required
+kind, law→Property passes, dangling target stays `total_refs`' beat);
+the matrix case flipped from `conformance_matrix_known_gaps` into
+`cases()` with its spec-true expectation (`find:linter.no_orphan_property`
++ `graph.typing`).
+
 ## #80 — `spk verify --timeout-secs`: wall-clock bound on the runner's cargo run (specodelic-xx1)
 
 The bc39f9d..main Ro5's advisory DoS finding, closed: `CargoRunner`
