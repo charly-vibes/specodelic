@@ -109,6 +109,18 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
         "a file carrying `## ADDED Requirements` must be a dual-format file — declare `id: spec` and pair it with a sibling `## Requirements` section",
     ),
     (
+        "terminal_states_emit",
+        "every failure terminal state must emit exactly one file-owned effect Constraint — a mute failure terminal is a finding (specs/linter-failure_shape.md; timed_out/exploration_only are the stated v1 non-goal)",
+    ),
+    (
+        "error_labels_unique",
+        "within one file, no two error Constraints may share a variant head — the label is file-id-namespaced (errors.md error_expr_shape), so collisions are a per-file property",
+    ),
+    (
+        "guard_negation_total",
+        "every failure transition must cite exactly the union of its success siblings' citation sets, or be on the recorded carve-out list (orchestrate.md's stage-fail transitions) — a zero-citation failure guard off the list is a finding",
+    ),
+    (
         "every_state_used",
         "every declared state must appear as from or to in at least one transition — a state no transition reaches is machinery the model can never enter or leave",
     ),
@@ -1024,6 +1036,230 @@ fn lint_model_family(spec: &Spec, report: &mut Report) {
     }
 }
 
+/// The recorded carve-out list (specs/linter-failure_shape.md Notes):
+/// exactly orchestrate.md's stage-fail transitions. That file's Notes
+/// decline to restate upstream files' logic as guard-citable rows, so
+/// these guards stay prose — membership here is CHECKED data, never an
+/// assumption: a zero-citation failure guard anywhere else is a finding.
+const GUARD_CARVEOUT_FILE: &str = "orchestrate";
+const GUARD_CARVEOUT_TRANSITIONS: &[&str] = &[
+    "lint_fail",
+    "compile_fail",
+    "model_check_fail",
+    "verify_fail",
+];
+
+/// Checker-family slice: `linter-failure_shape.md`'s three rules
+/// (specodelic-ct5) — the tier-2 half of the error contract
+/// (`errors.md`'s enforcement_routed row). Everything is graph-decidable
+/// per file from the same derivation the
+/// `failure_terminals_emit_labeled_errors` fixture pins at corpus
+/// altitude (tests/cli.rs); nothing here reads prose.
+///
+/// v1 scope is failure terminals only — `model_check.md`'s `timed_out`
+/// and `exploration_only` are the stated non-goal (the exit-code
+/// mapping question is deferred at `errors.md`'s `exit_code_mapping`).
+fn lint_failure_shape_family(spec: &Spec, report: &mut Report) {
+    let file = file_label(spec);
+    let file_id = spec.intent.id.as_str();
+    let declared: BTreeSet<&str> = spec.states.iter().map(|s| s.id.as_str()).collect();
+    // The failure-state test stays on the STATE segment: a node id is
+    // `<file-id>.<state-id>` and a file id may itself contain
+    // "failure" (linter.failure_shape) — within a Spec the state ids
+    // are already local.
+    let is_fail_state = |s: &str| s.contains("fail");
+
+    // A transition's citation set: the sorted, deduped [[link]] targets
+    // in its guard cell (the graph's transitions.guard edges).
+    let citations = |tid: &str| -> Vec<String> {
+        let mut v: Vec<String> = spec
+            .links
+            .iter()
+            .filter(|l| l.field == "transitions" && l.column == "guard" && l.source == tid)
+            .map(|l| l.target.clone())
+            .collect();
+        v.sort();
+        v.dedup();
+        v
+    };
+    // A state's emitted labels: the targets of its states.emits edges.
+    let emits = |sid: &str| -> Vec<String> {
+        spec.links
+            .iter()
+            .filter(|l| l.field == "states" && l.column == "emits" && l.source == sid)
+            .map(|l| l.target.clone())
+            .collect()
+    };
+    // A label is file-owned when it names a Constraint row of THIS file:
+    // either the full file-namespaced spelling (`<file-id>.<row-id>`) or
+    // the bare row id. Returns the row so kind and id can be checked.
+    let owned_error_row = |target: &str| -> Option<&crate::spec::Row> {
+        let rest = target
+            .strip_prefix(&format!("{file_id}."))
+            .unwrap_or(target);
+        spec.constraints.iter().find(|c| c.id == rest)
+    };
+
+    let inbound: BTreeSet<&str> = spec.transitions.iter().map(|t| t.to.as_str()).collect();
+    let outbound: BTreeSet<&str> = spec.transitions.iter().map(|t| t.from.as_str()).collect();
+
+    // terminal_states_emit — every failure terminal (inbound transitions,
+    // no outbound transitions, fail-named state) emits exactly one
+    // file-owned effect Constraint.
+    for st in &spec.states {
+        if !inbound.contains(st.id.as_str())
+            || outbound.contains(st.id.as_str())
+            || !is_fail_state(&st.id)
+        {
+            continue;
+        }
+        let targets = emits(&st.id);
+        if targets.is_empty() {
+            report.issues.push(Issue::new(
+                "terminal_states_emit",
+                file.clone(),
+                format!(
+                    "failure terminal `{}` emits nothing — a mute failure terminal is a finding; add an emits edge to a file-owned effect Constraint: `- {} (emits: [[{file_id}.<label>]])`",
+                    st.id, st.id
+                ),
+            ));
+            continue;
+        }
+        if targets.len() > 1 {
+            report.issues.push(Issue::new(
+                "terminal_states_emit",
+                file.clone(),
+                format!(
+                    "failure terminal `{}` emits {} labels ({:?}) — exactly one labeled error per failure state; split distinct failure classes into their own states",
+                    st.id,
+                    targets.len(),
+                    targets
+                ),
+            ));
+            continue;
+        }
+        let target = &targets[0];
+        let Some(row) = owned_error_row(target) else {
+            report.issues.push(Issue::new(
+                "terminal_states_emit",
+                file.clone(),
+                format!(
+                    "failure terminal `{}` emits `{target}` — not a file-owned Constraint; error labels name their owning file: `[[{file_id}.<label>]]`",
+                    st.id
+                ),
+            ));
+            continue;
+        };
+        if row.kind.as_deref() != Some("effect") {
+            report.issues.push(Issue::new(
+                "terminal_states_emit",
+                file.clone(),
+                format!(
+                    "failure terminal `{}` emits `{target}` (kind {:?}) — a failure terminal must emit an effect Constraint (errors.md failure_state_emits)",
+                    st.id,
+                    row.kind.as_deref().unwrap_or("none")
+                ),
+            ));
+        }
+    }
+
+    // error_labels_unique — no two emitted error Constraints share a
+    // variant head (the label's last `.` segment). Cross-file collisions
+    // are structurally impossible by errors.md's error_expr_shape; this
+    // per-file check exists so a future format change cannot silently
+    // drop the namespacing law.
+    {
+        let mut by_head: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for st in &spec.states {
+            for target in emits(&st.id) {
+                if owned_error_row(&target).is_none() {
+                    continue; // terminal_states_emit already owns this finding
+                }
+                let head = target.rsplit('.').next().unwrap_or(&target).to_string();
+                by_head.entry(head).or_default().push(target);
+            }
+        }
+        for (head, labels) in &by_head {
+            if labels.len() > 1 {
+                report.issues.push(Issue::new(
+                    "error_labels_unique",
+                    file.clone(),
+                    format!(
+                        "error labels {labels:?} share variant head `{head}` — labels are file-id-namespaced (errors.md error_expr_shape); rename one row so each head is unique within the file",
+                    ),
+                ));
+            }
+        }
+    }
+
+    // guard_negation_total — every failure transition (its `to` is a
+    // declared fail-named state) either cites exactly the union of its
+    // success siblings' citation sets (the negated disjunction), or is on
+    // the recorded carve-out list. A zero-citation failure guard off the
+    // list is a finding, never a silent pass.
+    let to_state: BTreeMap<&str, &str> = spec
+        .transitions
+        .iter()
+        .map(|t| (t.id.as_str(), t.to.as_str()))
+        .collect();
+    let from_state: BTreeMap<&str, &str> = spec
+        .transitions
+        .iter()
+        .map(|t| (t.id.as_str(), t.from.as_str()))
+        .collect();
+    for t in &spec.transitions {
+        if !declared.contains(t.to.as_str()) || !is_fail_state(&t.to) {
+            continue;
+        }
+        let c = citations(&t.id);
+        if c.is_empty() {
+            let carved_out = file_id == GUARD_CARVEOUT_FILE
+                && GUARD_CARVEOUT_TRANSITIONS.contains(&t.id.as_str());
+            if !carved_out {
+                report.issues.push(Issue::new(
+                    "guard_negation_total",
+                    file.clone(),
+                    format!(
+                        "failure transition `{}` cites nothing and is not on the carve-out list ({}'s stage-fails) — cite the union of its success siblings' citation sets, or record a carve-out in linter-failure_shape.md",
+                        t.id, GUARD_CARVEOUT_FILE
+                    ),
+                ));
+            }
+            continue;
+        }
+        let src = from_state.get(t.id.as_str()).copied().unwrap_or(&t.from);
+        let siblings: Vec<&&str> = to_state
+            .iter()
+            .filter(|(id, to)| from_state.get(*id).copied() == Some(src) && !is_fail_state(to))
+            .map(|(id, _)| id)
+            .collect();
+        if siblings.is_empty() {
+            report.issues.push(Issue::new(
+                "guard_negation_total",
+                file.clone(),
+                format!(
+                    "failure transition `{}` has no success sibling from `{src}` — nothing to negate, so its citations cannot be verified; add the success transition it negates",
+                    t.id
+                ),
+            ));
+            continue;
+        }
+        let mut want: Vec<String> = siblings.iter().flat_map(|s| citations(s)).collect();
+        want.sort();
+        want.dedup();
+        if c != want {
+            report.issues.push(Issue::new(
+                "guard_negation_total",
+                file.clone(),
+                format!(
+                    "failure transition `{}` cites {:?} but its success siblings cite {:?} — the negated disjunction cites exactly the union of its branches' citation sets (errors.md guard_negation_typed)",
+                    t.id, c, want
+                ),
+            ));
+        }
+    }
+}
+
 /// Checker-family slice: `linter-ears_syntax.md`'s rules (statement
 /// pattern plus the id-shape rules `no_conjoined_id`/
 /// `no_universal_in_id`).
@@ -1085,6 +1321,7 @@ fn lint_one(spec: &Spec, report: &mut Report) {
     lint_referential_family(spec, report);
     lint_model_family(spec, report);
     lint_ears_family(spec, report);
+    lint_failure_shape_family(spec, report);
 }
 
 /// All rows in a file as (table-name, row) pairs.
@@ -1391,6 +1628,23 @@ mod tests {
             spec_at(
                 "---\nid: obs.unwatched\nkind: intent\nstatement: \"THE watcher SHALL emit\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| inv | invariant | `v finite` | [[obs.unwatched]] |\n| eff | effect | `output == {v}` | [[obs.unwatched]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[obs.unwatched.inv]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[obs.unwatched.inv]] | `g()` | `x` |\n| p_eff | unit | [[obs.unwatched.eff]] | `g()` | `x` |\n",
                 "obs-unwatched.md",
+            ),
+            // fires terminal_states_emit (mute failure terminal: `failed`
+            // has inbound, no outbound, no emits) AND guard_negation_total
+            // (zero-citation failure guard `boom`, off the orchestrate
+            // carve-out) — the two legs of the failure-shape checker's
+            // mute-terminal shape in one fixture.
+            spec_at(
+                "---\nid: fs.mute\nkind: intent\nstatement: \"THE tool SHALL label its failures\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| inv | invariant | `x` | [[fs.mute]] |\n\n## Model\n\n### States\n\n- s\n- failed\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| ok | s | s | [[fs.mute.inv]] |\n| boom | s | failed | `the world ends` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[fs.mute.inv]] | `g()` | `x` |\n",
+                "fs-mute.md",
+            ),
+            // fires error_labels_unique: two emitted error Constraints
+            // sharing variant head `x_failure` — a collision the
+            // file-id-namespacing law makes structurally impossible in a
+            // well-formed corpus, kept here so the rule stays covered.
+            spec_at(
+                "---\nid: fs.lbl\nkind: intent\nstatement: \"THE tool SHALL label its failures\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| inv | invariant | `x` | [[fs.lbl]] |\n| x_failure | effect | `fs.lbl.x_failure(detail)` | [[fs.lbl]] |\n| sub.x_failure | effect | `fs.lbl.sub.x_failure(detail)` | [[fs.lbl]] |\n\n## Model\n\n### States\n\n- s\n- f1 (emits: `[[fs.lbl.x_failure]]`)\n- f2 (emits: `[[fs.lbl.sub.x_failure]]`)\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| ok | s | s | [[fs.lbl.inv]] |\n| boom1 | s | f1 | [[fs.lbl.inv]] |\n| boom2 | s | f2 | [[fs.lbl.inv]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[fs.lbl.inv]] | `g()` | `x` |\n| p_x | unit | [[fs.lbl.x_failure]] | `g()` | `x` |\n| p_sub | unit | [[fs.lbl.sub.x_failure]] | `g()` | `x` |\n",
+                "fs-lbl.md",
             ),
         ]
     }

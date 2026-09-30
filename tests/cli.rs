@@ -550,7 +550,11 @@ fn lint_mute_failure_terminal_flagged() {
     // strip the emits cell from the failure state
     let p = dir.path().join("d-mute.md");
     let text = std::fs::read_to_string(&p).unwrap();
-    std::fs::write(&p, text.replace("- failed (emits: `[[d.mute.x_failure]]`)", "- failed")).unwrap();
+    std::fs::write(
+        &p,
+        text.replace("- failed (emits: `[[d.mute.x_failure]]`)", "- failed"),
+    )
+    .unwrap();
 
     let (code, issues) = lint_issues(&dir);
     assert_eq!(code, Some(1));
@@ -624,7 +628,14 @@ fn lint_zero_citation_failure_guard_flagged() {
     write_clean_failure_shape_spec(&dir.path().join("d-zc.md"), "d.zc");
     let p = dir.path().join("d-zc.md");
     let text = std::fs::read_to_string(&p).unwrap();
-    std::fs::write(&p, text.replace("| boom | s | failed | [[d.zc.inv]] |", "| boom | s | failed | `the world ends` |")).unwrap();
+    std::fs::write(
+        &p,
+        text.replace(
+            "| boom | s | failed | [[d.zc.inv]] |",
+            "| boom | s | failed | `the world ends` |",
+        ),
+    )
+    .unwrap();
 
     let (code, issues) = lint_issues(&dir);
     assert_eq!(code, Some(1));
