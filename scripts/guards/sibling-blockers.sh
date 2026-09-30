@@ -19,13 +19,22 @@ set -u
 repo="${1:-.}"
 fail=0
 
+# Checks 1–2 are machine-local hygiene (core.hooksPath lives in .git/config,
+# which is never committed): a fresh CI clone can neither satisfy nor violate
+# them, and bd is not installed in CI. In CI (env CI) only check 3 — the
+# committed-artifact constraint — applies. Locally all three run.
+in_ci="${CI:-}"
+
+fail=0
+
 die() {
   echo "sibling-blockers: VIOLATION: $1" >&2
   echo "sibling-blockers: remediation: $2" >&2
   fail=1
 }
 
-# --- Check 1: beads owns core.hooksPath -------------------------------------
+# --- Check 1: beads owns core.hooksPath (local only — see in_ci note) -------
+if [ -z "$in_ci" ]; then
 hooks_path="$(git -C "$repo" config --get core.hooksPath || true)"
 case "$hooks_path" in
   .beads/hooks|*/.beads/hooks)
@@ -37,10 +46,11 @@ case "$hooks_path" in
     die "core.hooksPath is '$hooks_path' — beads (.beads/hooks) must own it; a sibling tool claimed the hooks" \
       "re-claim with 'bd hooks install'; sibling tools must chain to .beads/hooks, never replace it (marker-guarded claim-or-chain)" ;;
 esac
+fi
 
-# --- Check 2: .git/hooks purity ----------------------------------------------
+# --- Check 2: .git/hooks purity (local only — see in_ci note) ----------------
 git_hooks="$repo/.git/hooks"
-if [ -d "$git_hooks" ]; then
+if [ -z "$in_ci" ] && [ -d "$git_hooks" ]; then
   for f in "$git_hooks"/*; do
     [ -e "$f" ] || continue
     case "$(basename "$f")" in

@@ -5,6 +5,11 @@
 //! The script takes an optional repo directory argument (defaults to `.`) so
 //! tests can exercise it against throwaway fixture repos. Exit 0 = compliant,
 //! exit 1 = violation (stderr carries a remediation hint).
+//!
+//! Unix-only: the script is a bash program; on Windows the `bash` on PATH is
+//! WSL's stub (no installed distro), not a usable shell — the script's
+//! contract is exercised on the ubuntu CI leg, where `just ci` runs it.
+#![cfg(unix)]
 
 use std::fs;
 use std::path::Path;
