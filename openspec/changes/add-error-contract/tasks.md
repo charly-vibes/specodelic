@@ -95,9 +95,9 @@ every phase — the corpus is its own primary fixture.
 
 ## 4. Wrap-up
 
-- [ ] 4.1 Full gates: `just ci`; `openspec validate add-error-contract
+- [x] 4.1 Full gates: `just ci`; `openspec validate add-error-contract
       --strict`; `just lint-specs`.
-- [ ] 4.2 Update the per-error unit properties' notes to cite the labels
+- [x] 4.2 Update the per-error unit properties' notes to cite the labels
       they pin, so the label set is greppable from the properties alone.
       Note in the same commit: renaming a label touches three sites
       together — the error Constraint, its falsifying property, and the
