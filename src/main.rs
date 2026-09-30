@@ -911,8 +911,6 @@ fn cmd_lint(
         // (beads specodelic-6pi). A declared checklist alone still gets
         // linted (checklist_well_formed needs no specs), so the failure
         // only fires when NEITHER was found.
-        // Never a silent ok:true on zero files — that's a false green
-        // (beads specodelic-6pi).
         let (msg, hint) = if notes.iter().any(|n| n.contains("parse error")) {
             (
                 "spec files failed to parse",

@@ -253,7 +253,7 @@ fn resolves_row(index: &Index, target: &str) -> bool {
 /// each declared `*.checklist.md` against the corpus. Optional and
 /// non-gating — it runs only for repos that declare a checklist, never
 /// touches any file's `linted` state, and its findings never block a
-/// lifecycle stage (an orchestrator may CHOose to require the pass, a
+/// lifecycle stage (an orchestrator may choose to require the pass, a
 /// policy layered on top, not a lifecycle fact). Findings are issues:
 /// the checker's model ends in `failed`, not a warning.
 pub fn lint_checklists(specs: &[Spec], checklists: &[Checklist], report: &mut Report) {

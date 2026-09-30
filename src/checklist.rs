@@ -152,6 +152,13 @@ pub fn parse_str(path: PathBuf, text: &str) -> Checklist {
         ..Default::default()
     };
     let mut section = "";
+    // Section-visibility flags: `section` alone holds only the LAST
+    // header seen, so a manifest with `## Mapping` but no `## Items`
+    // (or vice versa) would otherwise never report its missing half —
+    // a false green on the exact failure class this checker exists for
+    // (Rule-of-5 CORR-001, specodelic-b15).
+    let mut saw_items = false;
+    let mut saw_mapping = false;
     let mut seen_items = std::collections::BTreeSet::new();
     // Mapping-table state: the header row sets the columns; the
     // separator row is skipped; data rows follow.
@@ -160,8 +167,14 @@ pub fn parse_str(path: PathBuf, text: &str) -> Checklist {
         let trimmed = line.trim();
         if let Some(header) = trimmed.strip_prefix("## ") {
             section = match header.trim() {
-                "Items" => "items",
-                "Mapping" => "mapping",
+                "Items" => {
+                    saw_items = true;
+                    "items"
+                }
+                "Mapping" => {
+                    saw_mapping = true;
+                    "mapping"
+                }
                 _ => "",
             };
             in_mapping_table = false;
@@ -219,17 +232,15 @@ pub fn parse_str(path: PathBuf, text: &str) -> Checklist {
             _ => {}
         }
     }
-    if section.is_empty() && cl.items.is_empty() && cl.mapping.is_empty() {
-        // Only when neither section was ever seen — an empty manifest is
-        // maximally malformed, and the sections are what make it one.
-        if !text.contains("## Items") {
-            cl.defects
-                .push("checklist has no `## Items` section".to_string());
-        }
-        if !text.contains("## Mapping") {
-            cl.defects
-                .push("checklist has no `## Mapping` section".to_string());
-        }
+    // Missing sections are defects whenever they were never seen —
+    // regardless of what the file ends inside.
+    if !saw_items {
+        cl.defects
+            .push("checklist has no `## Items` section".to_string());
+    }
+    if !saw_mapping {
+        cl.defects
+            .push("checklist has no `## Mapping` section".to_string());
     }
     // A mapping row claiming an undeclared item is a structural defect:
     // the manifest references machinery it never listed (checked at the
@@ -385,6 +396,29 @@ mod tests {
                 .iter()
                 .any(|d| d.contains("no `## Mapping` section")),
             "{:?}",
+            cl.defects
+        );
+    }
+
+    /// Rule-of-5 CORR-001 regression: a manifest that ends inside a
+    /// named section must still report its missing half — the old
+    /// last-section guard silently passed a Mapping-only manifest.
+    #[test]
+    fn partial_section_manifests_report_their_missing_half() {
+        let cl = parse("## Mapping\n");
+        assert!(
+            cl.defects
+                .iter()
+                .any(|d| d.contains("no `## Items` section")),
+            "Mapping-only manifest must name its missing Items: {:?}",
+            cl.defects
+        );
+        let cl = parse("## Items\n\n- **a.b**: x\n");
+        assert!(
+            cl.defects
+                .iter()
+                .any(|d| d.contains("no `## Mapping` section")),
+            "Items-only manifest must name its missing Mapping: {:?}",
             cl.defects
         );
     }
