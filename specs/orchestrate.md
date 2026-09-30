@@ -142,11 +142,20 @@ the lower-severity, already-flagged loose ends (`CLAR-001` through
 mismatch) — none of which block one another or this file, and none of
 which were newly surfaced by writing it.
 
-**Open question, `Needs Human Review`:** this file assumes "every file in
-the repo has independently reached `parsed`" as `start_lint`'s
-precondition, i.e. per-file parsing happens outside the orchestrator's own
-Model. Whether the orchestrator should own driving `draft → parsed` for
-each file too (making it a true single entry point) or stay scoped to
-`parsed → verified` as specified here is a design choice with different
-consequences for what "running the orchestrator on a `draft`-only repo"
-even means — left open rather than assumed.
+**Decision of record (mp1 row 4, 2026-09-30): the orchestrator stays
+scoped to `parsed → verified`.** The original open question — whether
+this file should also own driving `draft → parsed` for each file, or
+only assume files have independently reached `parsed` as
+`start_lint`'s precondition — is resolved in favor of scope: parsing
+remains outside this file's Model. The orchestrator still runs the
+parse step and reports its outcome (a spec parse error is the only
+parse failure; hostile-input and non-spec skips are labeled warnings
+per the ingestion gate), and parse failures gate lint through
+`start_lint`'s precondition — but the draft→parsed transition's guards
+(`[[specodelic.frontmatter_valid]]` ∧ `[[specodelic.id_matches_file]]`)
+are enforced where they already live, in the frontmatter checker and
+the parser, not re-owned here. Rationale: the spec deliberately scoped
+the Model to the four pipeline stages; nothing in pipeline v1 requires
+a single entry point that owns parsing, and a run against a
+draft-only repo is simply a run whose parse stage reports the files
+that never reached `parsed` — not a different Model.

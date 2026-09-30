@@ -24,6 +24,16 @@ get the naming-law warning, not a silently wrong id. Anti-goal held:
 no prose is ever interpreted into rows — every inserted row is a marked
 placeholder the author replaces.
 
+## #70 — orchestrate.md: draft→parsed decision of record (mp1 row 4)
+
+The `Needs Human Review` open question is resolved: the orchestrator
+stays **scoped to `parsed → verified`** — parsing remains outside its
+Model. The orchestrator runs the parse step and reports its outcome
+(parse errors gate lint via `start_lint`'s precondition), but the
+draft→parsed transition's guards stay owned by the frontmatter checker
+and the parser; no Model change. Decision recorded in
+`specs/orchestrate.md` Notes; unblocks closing specodelic-8kk.
+
 ## #69 — Ro5 over specodelic-8kk: orchestrate hardening
 
 Rule-of-5 review of the orchestrate changeset (converged stage 4, all
