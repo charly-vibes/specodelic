@@ -53,6 +53,16 @@ pub struct Backends {
     pub tlc: Option<model_check::TlcPaths>,
 }
 
+/// The parse stage's structured outcome (CORR-001, Ro5 over
+/// specodelic-8kk): gating reads `parse_errors`, never note prose — a
+/// file whose *path* happens to contain "parse error" must not flip
+/// the gate. Notes stay labeled prose for the warnings channel.
+#[derive(Clone, Default)]
+pub struct ParseInput {
+    pub notes: Vec<String>,
+    pub parse_errors: Vec<String>,
+}
+
 fn skipped_stage(stage: &'static str, reason: String) -> Stage {
     Stage {
         stage,
@@ -107,11 +117,17 @@ fn checker_entry(checker: &'static str, issues: Vec<Issue>) -> serde_json::Value
     })
 }
 
-fn checker_skipped(checker: &'static str, dependency: &str) -> serde_json::Value {
+fn checker_skipped(
+    checker: &'static str,
+    dependency: &str,
+    dependency_status: &str,
+) -> serde_json::Value {
     serde_json::json!({
         "checker": checker,
         "status": "skipped",
-        "reason": format!("dependency {dependency} reported failed — never run against input the failed checker has not validated"),
+        "reason": format!(
+            "not run — dependency {dependency} {dependency_status}; never run against input the failed checker has not validated"
+        ),
         "issues": [],
     })
 }
@@ -134,7 +150,11 @@ fn run_lint_stage(specs: &[Spec], checklists: &[Checklist]) -> Stage {
         (checker_entry("linter.referential_integrity", issues), ok)
     } else {
         (
-            checker_skipped("linter.referential_integrity", "linter.frontmatter"),
+            checker_skipped(
+                "linter.referential_integrity",
+                "linter.frontmatter",
+                "failed",
+            ),
             false,
         )
     };
@@ -145,8 +165,13 @@ fn run_lint_stage(specs: &[Spec], checklists: &[Checklist]) -> Stage {
         let ok = issues.is_empty();
         (checker_entry("linter.graph_shape", issues), ok)
     } else {
+        let dep_status = if fm_ok { "failed" } else { "skipped" };
         (
-            checker_skipped("linter.graph_shape", "linter.referential_integrity"),
+            checker_skipped(
+                "linter.graph_shape",
+                "linter.referential_integrity",
+                dep_status,
+            ),
             false,
         )
     };
@@ -157,8 +182,9 @@ fn run_lint_stage(specs: &[Spec], checklists: &[Checklist]) -> Stage {
         let ok = issues.is_empty();
         (checker_entry("linter.model_shape", issues), ok)
     } else {
+        let dep_status = if ref_ok { "failed" } else { "skipped" };
         (
-            checker_skipped("linter.model_shape", "linter.graph_shape"),
+            checker_skipped("linter.model_shape", "linter.graph_shape", dep_status),
             false,
         )
     };
@@ -171,7 +197,7 @@ fn run_lint_stage(specs: &[Spec], checklists: &[Checklist]) -> Stage {
         (checker_entry("linter.ears_syntax", issues), ok)
     } else {
         (
-            checker_skipped("linter.ears_syntax", "linter.frontmatter"),
+            checker_skipped("linter.ears_syntax", "linter.frontmatter", "failed"),
             false,
         )
     };
@@ -193,7 +219,7 @@ fn run_lint_stage(specs: &[Spec], checklists: &[Checklist]) -> Stage {
         )
     } else {
         (
-            checker_skipped("linter.schema_shape", "linter.frontmatter"),
+            checker_skipped("linter.schema_shape", "linter.frontmatter", "failed"),
             false,
         )
     };
@@ -451,15 +477,16 @@ fn run_verify_stage(specs: &[Spec], out_dir: &str) -> Stage {
 pub fn orchestrate(
     specs: &[Spec],
     checklists: &[Checklist],
-    parse_notes: &[String],
+    parse: &ParseInput,
     out_dir: &str,
     bound: &model_check::Bound,
     backends: &Backends,
 ) -> Orchestration {
-    let parse_failed = parse_notes.iter().any(|n| n.contains("parse error"));
+    let parse_failed = !parse.parse_errors.is_empty();
     let parse_detail = serde_json::json!({
         "files_parsed": specs.len(),
-        "notes": parse_notes,
+        "notes": parse.notes,
+        "parse_errors": parse.parse_errors,
     });
     let mut stages = vec![if parse_failed {
         failed_stage("parse", parse_detail)
@@ -582,7 +609,7 @@ mod tests {
         let o = orchestrate(
             &specs,
             &[],
-            &[],
+            &ParseInput::default(),
             td.path().to_str().unwrap(),
             &model_check::Bound::default(),
             &Backends::default(),
@@ -621,7 +648,7 @@ mod tests {
         let o = orchestrate(
             &specs,
             &[],
-            &[],
+            &ParseInput::default(),
             td.path().to_str().unwrap(),
             &model_check::Bound::default(),
             &Backends::default(),
@@ -662,7 +689,7 @@ mod tests {
         let o = orchestrate(
             &specs,
             &[],
-            &[],
+            &ParseInput::default(),
             td.path().to_str().unwrap(),
             &model_check::Bound::default(),
             &Backends::default(),
@@ -696,7 +723,7 @@ mod tests {
         let o = orchestrate(
             &specs,
             &[],
-            &[],
+            &ParseInput::default(),
             td.path().to_str().unwrap(),
             &model_check::Bound::default(),
             &Backends::default(),
@@ -727,7 +754,7 @@ mod tests {
         let o = orchestrate(
             &specs,
             &[],
-            &[],
+            &ParseInput::default(),
             td.path().to_str().unwrap(),
             &model_check::Bound::default(),
             &Backends::default(),
@@ -760,7 +787,7 @@ mod tests {
         let o = orchestrate(
             &specs,
             &[cl],
-            &[],
+            &ParseInput::default(),
             td.path().to_str().unwrap(),
             &model_check::Bound::default(),
             &Backends::default(),
@@ -783,7 +810,7 @@ mod tests {
             orchestrate(
                 &specs,
                 &[],
-                &[],
+                &ParseInput::default(),
                 &out,
                 &model_check::Bound::default(),
                 &Backends::default(),
@@ -795,6 +822,28 @@ mod tests {
     }
 
     #[test]
+    fn note_prose_never_flips_the_parse_gate() {
+        // CORR-001 (Ro5 over specodelic-8kk): gating reads structured
+        // parse_errors, never note prose — a file whose PATH contains
+        // "parse error" must not fail the parse stage.
+        let td = tempfile::tempdir().unwrap();
+        let spec = spec_from(&mc_fixture("pipe.demo"), "pipe-demo.md");
+        let specs = vec![spec];
+        let o = orchestrate(
+            &specs,
+            &[],
+            &ParseInput {
+                notes: vec!["my parse error notes.md: unreadable (boom)".to_string()],
+                parse_errors: vec![],
+            },
+            td.path().to_str().unwrap(),
+            &model_check::Bound::default(),
+            &Backends::default(),
+        );
+        assert_eq!(stage(&o, "parse").status, "passed");
+    }
+
+    #[test]
     fn parse_error_holds_lint() {
         let td = tempfile::tempdir().unwrap();
         let spec = spec_from(&mc_fixture("pipe.demo"), "pipe-demo.md");
@@ -802,7 +851,10 @@ mod tests {
         let o = orchestrate(
             &specs,
             &[],
-            &["broken.md: parse error: missing `kind` field".to_string()],
+            &ParseInput {
+                notes: vec![],
+                parse_errors: vec!["broken.md: parse error: missing `kind` field".to_string()],
+            },
             td.path().to_str().unwrap(),
             &model_check::Bound::default(),
             &Backends::default(),

@@ -24,6 +24,25 @@ get the naming-law warning, not a silently wrong id. Anti-goal held:
 no prose is ever interpreted into rows — every inserted row is a marked
 placeholder the author replaces.
 
+## #69 — Ro5 over specodelic-8kk: orchestrate hardening
+
+Rule-of-5 review of the orchestrate changeset (converged stage 4, all
+findings verified/fixed). EDGE-001 (HIGH, TypeSafe-verified @ 0.97): a
+checklist-only corpus — zero spec files, one declared manifest —
+orchestrated to a vacuous `succeeded` (every stage passed over an empty
+file set, the specodelic-6pi false-green class); orchestrate now
+requires at least one spec file and exits 2 with a checklist-specific
+hint. CORR-001: the parse-stage gate keyed on substring-matching note
+prose (`contains("parse error")`) — a file whose path happens to
+contain the phrase would have flipped the gate; `parse_batch` now
+returns structured parse errors and orchestrate gates on
+`ParseInput.parse_errors` (unit test pins that note prose never flips
+the gate). CLAR-001: transitive skip reasons no longer claim a
+dependency "reported failed" when it was itself skipped — the reason
+carries the dependency's actual status. DRAFT-001 noted (not fixed):
+cmd_orchestrate duplicates cmd_model_check's backend-validation block —
+tidy candidate.
+
 ## #68 — spk orchestrate: the four-stage pipeline driver (specodelic-8kk)
 
 `spk orchestrate` replaces its stub: the orchestrator runs lint's six

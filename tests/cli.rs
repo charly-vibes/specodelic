@@ -611,6 +611,38 @@ fn orchestrate_empty_corpus_is_an_invocation_error() {
 }
 
 #[test]
+fn orchestrate_checklist_only_corpus_is_an_invocation_error() {
+    // EDGE-001 (Ro5 over specodelic-8kk): a declared checklist with zero
+    // spec files must never orchestrate to a vacuous `succeeded` — every
+    // stage would pass over an empty file set (the 6pi false-green
+    // class). Invocation error, exit 2.
+    let td = tempfile::tempdir().unwrap();
+    std::fs::write(
+        td.path().join("pipe.checklist.md"),
+        "# Checklist\n\n## Items\n\n| id | requirement |\n|----|-------------|\n| i1 | something |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args([
+            "orchestrate",
+            td.path().to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            td.path().join("out").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["envelope_kind"], "error");
+    let hint = json["hints"][0]["command"].as_str().unwrap_or("");
+    assert!(
+        hint.contains("checklist-only") || hint.contains("specodelic lint"),
+        "hint names the checklist-only path: {hint}"
+    );
+}
+
+#[test]
 fn orchestrate_tlc_without_jar_is_an_invocation_error() {
     let td = tempfile::tempdir().unwrap();
     write_model_check_spec(&td.path().join("pipe-demo.md"), "pipe.demo");

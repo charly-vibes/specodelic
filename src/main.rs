@@ -864,13 +864,23 @@ fn openspec_tree_present() -> bool {
 /// parsed leniently into [`checklist::Checklist`] and returned alongside
 /// the specs for `spk lint`'s optional non-gating pass. Other commands
 /// ignore checklists (external_completeness never gates a stage).
+/// The batch parse outcome: specs, declared checklists, labeled skip
+/// notes, and STRUCTURED parse errors (Ro5 CORR-001 over
+/// specodelic-8kk — gates read the fourth element, never note prose;
+/// a file whose path contains "parse error" must not flip a gate).
 fn parse_batch(
     paths: &[String],
     verbosity: Verbosity,
-) -> (Vec<Spec>, Vec<checklist::Checklist>, Vec<String>) {
+) -> (
+    Vec<Spec>,
+    Vec<checklist::Checklist>,
+    Vec<String>,
+    Vec<String>,
+) {
     let mut specs = vec![];
     let mut checklists = vec![];
     let mut notes = vec![];
+    let mut parse_errors: Vec<String> = vec![];
     for f in collect_specs(paths) {
         // Hostile-input gate (specodelic-suz): only regular files of a
         // bounded size are ever read. A FIFO named *.md blocks forever;
@@ -925,11 +935,11 @@ fn parse_batch(
                 s.path = Some(f);
                 specs.push(s);
             }
-            Err(e) => notes.push(format!("{}: parse error: {e}", f.display())),
+            Err(e) => parse_errors.push(format!("{}: parse error: {e}", f.display())),
         }
     }
     let _ = verbosity;
-    (specs, checklists, notes)
+    (specs, checklists, notes, parse_errors)
 }
 
 fn emit_report<T: serde::Serialize + std::fmt::Debug>(
@@ -959,13 +969,13 @@ fn cmd_lint(
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) -> i32 {
-    let (specs, checklists, notes) = parse_batch(paths, verbosity);
+    let (specs, checklists, notes, parse_errors) = parse_batch(paths, verbosity);
     if specs.is_empty() && checklists.is_empty() {
         // Never a silent ok:true on zero files — that's a false green
         // (beads specodelic-6pi). A declared checklist alone still gets
         // linted (checklist_well_formed needs no specs), so the failure
         // only fires when NEITHER was found.
-        let (msg, hint) = if notes.iter().any(|n| n.contains("parse error")) {
+        let (msg, hint) = if !parse_errors.is_empty() {
             (
                 "spec files failed to parse",
                 "fix the frontmatter/tables reported above",
@@ -985,7 +995,7 @@ fn cmd_lint(
         // hostile-input rejection (FIFO, device, oversized) or a parse
         // error must name itself, never vanish into a generic failure
         // (specodelic-suz).
-        for n in &notes {
+        for n in notes.iter().chain(&parse_errors) {
             out = out.with_warning(n.clone());
         }
         emit_report(out, None, format, verbosity, stdout, stderr);
@@ -996,7 +1006,7 @@ fn cmd_lint(
     let payload = serde_json::to_value(&report).unwrap_or_default();
     let failures = report.failures();
     let mut out = Output::success(payload.clone());
-    for n in &notes {
+    for n in notes.iter().chain(&parse_errors) {
         out = out.with_warning(n.clone());
     }
     // Advisory findings (specs/linter-observability.md) ride the
@@ -1030,7 +1040,7 @@ fn cmd_graph(
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) -> i32 {
-    let (specs, _checklists, notes) = parse_batch(paths, verbosity);
+    let (specs, _checklists, notes, _parse_errors) = parse_batch(paths, verbosity);
     if specs.is_empty() {
         // Never a silent empty graph on zero files — a typoed path would
         // read as a fully-resolved corpus (specodelic-6pi precedent), and
@@ -1352,7 +1362,7 @@ fn cmd_compile(
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) -> i32 {
-    let (specs, _checklists, notes) = parse_batch(paths, verbosity);
+    let (specs, _checklists, notes, _parse_errors) = parse_batch(paths, verbosity);
     if specs.is_empty() {
         let mut out: Output<serde_json::Value> =
             Output::failure("no spec files to compile").with_next_step(
@@ -1524,7 +1534,7 @@ fn cmd_model_check(
             None
         }
     };
-    let (specs, _checklists, notes) = parse_batch(paths, verbosity);
+    let (specs, _checklists, notes, _parse_errors) = parse_batch(paths, verbosity);
     if specs.is_empty() {
         let mut out: Output<serde_json::Value> = Output::failure("no spec files to model-check")
             .with_next_step(
@@ -1698,15 +1708,22 @@ fn cmd_orchestrate(
         }
         ModelBackend::Stateright => None,
     };
-    let (specs, checklists, notes) = parse_batch(paths, verbosity);
-    if specs.is_empty() && checklists.is_empty() {
+    let (specs, checklists, notes, parse_errors) = parse_batch(paths, verbosity);
+    // EDGE-001 (Ro5 over specodelic-8kk): orchestrate requires at least
+    // one spec file even when a checklist is declared — every stage
+    // would otherwise pass vacuously over an empty file set (the 6pi
+    // false-green class). Checklist-only repos are `spk lint`'s
+    // territory: external_completeness is a lint checker, not a stage.
+    if specs.is_empty() {
         let mut out: Output<serde_json::Value> = Output::failure(
             "no spec files found — nothing to orchestrate",
         )
-        .with_next_step(
-            "pass files or directories containing *.md specs with YAML frontmatter (directories are searched recursively)",
-        );
-        for n in &notes {
+        .with_next_step(if checklists.is_empty() {
+            "pass files or directories containing *.md specs with YAML frontmatter (directories are searched recursively)"
+        } else {
+            "the declared checklist has no spec files to gate — orchestrate drives the four-stage pipeline over spec files; run `specodelic lint` for a checklist-only repo"
+        });
+        for n in notes.iter().chain(&parse_errors) {
             out = out.with_warning(n.clone());
         }
         emit_report(out, None, format, verbosity, stdout, stderr);
@@ -1716,7 +1733,10 @@ fn cmd_orchestrate(
     let orchestration = orchestrate::orchestrate(
         &specs,
         &checklists,
-        &notes,
+        &orchestrate::ParseInput {
+            notes,
+            parse_errors,
+        },
         out_dir,
         &target.bound,
         &orchestrate::Backends { tlc: tlc_paths },
@@ -1759,7 +1779,7 @@ fn cmd_verify(
     stderr: &mut impl std::io::Write,
 ) -> i32 {
     let dir = std::path::Path::new(out_dir);
-    let (specs, _checklists, notes) = parse_batch(paths, verbosity);
+    let (specs, _checklists, notes, _parse_errors) = parse_batch(paths, verbosity);
     if specs.is_empty() {
         let mut out: Output<serde_json::Value> = Output::failure("no spec files to verify")
             .with_next_step(
