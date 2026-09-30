@@ -9,7 +9,7 @@ traces_to = "[[graph]]"
 [[constraints]]
 id = "total_extraction"
 kind = "invariant"
-expr = "`∀ reference field instance (traces_to/derives_from/guard/from/to/supersedes/emits/observes) in any parsed file: exactly one corresponding edge exists in the graph` — a guard's conjunction of several `[[id]]` citations counts as one edge per citation, not one edge per transition"
+expr = "`∀ reference field instance (traces_to/derives_from/guard/from/to/supersedes/emits/satisfies/observes) in any parsed file: exactly one corresponding edge exists in the graph` — a guard's conjunction of several `[[id]]` citations counts as one edge per citation, not one edge per transition; the enumeration restates the Reference Typing table's field set (the authority — `satisfies` joined it in Revision 7) and links in non-reference columns (`expr`, `predicate`, frontmatter) are `total_refs`' beat, never edges"
 traces_to = "[[graph]]"
 
 [[constraints]]
