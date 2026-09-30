@@ -95,3 +95,22 @@ fn ci_lints_fenced_spec_examples() {
         "justfile ci: must run the fenced-spec-example lint (lint-doc-examples)"
     );
 }
+
+/// Release scratch rot (v0.2.0 shakedown): the release workflow's Publish
+/// Release job stages the downloaded binaries at the repo root (`bins/`)
+/// and the archives in `dist/` BEFORE `cargo publish --allow-dirty` runs.
+/// `cargo package` packs untracked-but-not-ignored files into the .crate,
+/// so if either directory is not gitignored the crate tarball swells past
+/// crates.io's 10 MiB upload cap and publish fails with 413 (observed:
+/// "Payload Too Large" on the v0.2.0 tag push).
+#[test]
+fn release_scratch_dirs_are_gitignored() {
+    let gitignore = read(".gitignore");
+    for dir in ["/bins/", "/dist/"] {
+        assert!(
+            gitignore.lines().any(|l| l.trim() == dir),
+            ".gitignore must ignore {dir} — release.yml stages it at the repo \
+             root before cargo publish; unignored, it is packed into the .crate"
+        );
+    }
+}
