@@ -1,12 +1,14 @@
 [book]
 authors = ["charly vibes"]
 language = "en"
-src = "src"
+src = "docs/src"
 title = "specodelic"
 description = "A specification format for AI agents — frontmatter, Constraints, Model, and Properties tables in plain markdown, with a linter, graph, and pipeline toolchain."
 
 [output.html]
-default-theme = "navy"
+default-theme = "coal"
+preferred-dark-theme = "coal"
+additional-css = ["theme/charly.css"]
 git-repository-url = "https://github.com/charly-vibes/specodelic"
 edit-url-template = "https://github.com/charly-vibes/specodelic/edit/main/{path}"
 site-url = "/specodelic/"

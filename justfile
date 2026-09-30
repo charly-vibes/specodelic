@@ -109,9 +109,9 @@ docs-build:
     rm -rf docs/src/specs docs/src/openspec
     cp -r specs docs/src/specs
     cp -r openspec/specs docs/src/openspec
-    mdbook build docs
-    cp llms.txt docs/book/llms.txt
-    echo "docs built: docs/book/index.html"
+    mdbook build
+    cp llms.txt book/llms.txt
+    echo "docs built: book/index.html"
 
 # === CI Pipeline ===
 

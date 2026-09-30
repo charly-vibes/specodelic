@@ -4,6 +4,12 @@
 > Constraints, a state Model, and Properties — and `specodelic` (alias `spk`), the CLI that
 > lints, compiles, verifies, and refactors it.
 
+> **Why:** specs written for LLM implementation drift from prose-shaped wish lists
+> that can't be checked — specodelic gives agent-facing specs checkable structure
+> (Constraints, state Model, Properties) plus a linter and verify pipeline, so a
+> spec can fail CI instead of silently underdetermining the build.
+> **Status:** [experimental](docs/src/status.md) · v0.1.0, self-hosting round in progress · [Motivation & design](docs/src/index.md)
+
 Specodelic (formerly `spec-format`) is a self-hosting specification
 format: every file in [`specs/`](specs/) is a markdown spec describing
 either the format or one check its linter performs, written in the
