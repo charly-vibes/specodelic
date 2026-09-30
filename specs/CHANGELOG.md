@@ -6,6 +6,24 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #67 — `spk migrate`: wrap an openspec delta into the dual-format skeleton (specodelic-c32, gh#6 item 1)
+
+The migration recipe (frontmatter + derive tables + byte-identical
+`## Requirements` mirror) was fully manual — adopters converting 25 deltas
+by hand named the mirror's sed one-liners as the top onboarding cost. New
+`spk migrate <file> [--dry-run]` wraps a delta in place: generated
+frontmatter (`id: spec`, EARS scaffold statement), wired scaffold layers
+(`scaffold_constraint` / one-state model / `scaffold_property` — wired so
+the file lints clean AS WRITTEN; an unwired skeleton would fail
+`model_sections_paired` and orphan-island checks on first run), and a
+byte-exact `## Requirements` mirror. Merge semantics: existing frontmatter
+and layers pass through verbatim, only missing pieces are inserted; a file
+already carrying the mirror is refused (the mirror is the migration
+marker — re-running can never duplicate it). Files not named `spec.md`
+get the naming-law warning, not a silently wrong id. Anti-goal held:
+no prose is ever interpreted into rows — every inserted row is a marked
+placeholder the author replaces.
+
 ## #66 — mapping_naturality enforced: rename reaches into checklist mapped_ids (specodelic-4d5)
 
 The follow-up specodelic-b15 deliberately deferred: a checklist sits

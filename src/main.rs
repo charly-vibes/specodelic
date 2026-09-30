@@ -17,7 +17,8 @@ use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
 use specodelic::{
-    blocks, checklist, compile, graph, guide, human, lint, merge, model_check, rename, spec, verify,
+    blocks, checklist, compile, graph, guide, human, lint, merge, migrate, model_check, rename,
+    spec, verify,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -163,6 +164,16 @@ enum Commands {
     Orchestrate {
         /// Files or directories (defaults to ./specs)
         paths: Vec<String>,
+    },
+    /// Wrap an existing openspec delta file in place into the dual-format
+    /// four-layer skeleton (frontmatter + scaffold layers + byte-identical
+    /// ## Requirements mirror); already-migrated files are refused
+    Migrate {
+        /// Delta file to wrap in place (must contain ## ADDED Requirements)
+        file: String,
+        /// Print the resulting content without writing the file
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Scaffold a new spec file from the four-layer template
     New {
@@ -707,6 +718,9 @@ fn run(
         }
         Commands::New { id, file } => {
             cmd_new(id, file.as_deref(), format, verbosity, stdout, stderr)
+        }
+        Commands::Migrate { file, dry_run } => {
+            cmd_migrate(file, *dry_run, format, verbosity, stdout, stderr)
         }
         Commands::Explain { topic } => {
             cmd_explain(topic.as_deref(), format, verbosity, stdout, stderr)
@@ -1768,6 +1782,97 @@ fn write_artifacts(
         props_path.display().to_string(),
         tla_path.display().to_string(),
     ])
+}
+
+fn cmd_migrate(
+    file: &str,
+    dry_run: bool,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let text = match std::fs::read_to_string(file) {
+        Ok(t) => t,
+        Err(e) => {
+            let out: Output<serde_json::Value> = Output::failure(format!(
+                "{file}: unreadable ({e})"
+            ))
+            .with_next_step("pass a readable UTF-8 markdown file containing ## ADDED Requirements");
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            return 2;
+        }
+    };
+    // Generated frontmatter is always `id: spec` — the dual-format naming
+    // law requires deltas to carry `id: spec` AND be named spec.md
+    // (linter.dual_format_valid + id_matches_file). A different filename
+    // cannot lint clean, so warn instead of silently generating an
+    // id the linter will reject.
+    let stem = std::path::Path::new(file)
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+    match migrate::migrate(&text) {
+        Err(e) => {
+            // Refusals are invocation errors, never tool failures
+            // (specodelic-7rr precedent) — the file is never rewritten.
+            let hint = match e {
+                migrate::MigrateError::AlreadyMigrated => {
+                    "run: spk lint <file> to verify the migrated file"
+                }
+                _ => "a delta must carry an ## ADDED Requirements section",
+            };
+            let out: Output<serde_json::Value> =
+                Output::failure(format!("{file}: {e}")).with_next_step(hint);
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            2
+        }
+        Ok(outcome) => {
+            let write_result = if !dry_run {
+                std::fs::write(file, &outcome.content)
+            } else {
+                Ok(())
+            };
+            if let Err(e) = write_result {
+                let out: Output<serde_json::Value> =
+                    Output::failure(format!("{file}: write failed ({e})"))
+                        .with_next_step("check file permissions");
+                emit_report(out, None, format, verbosity, stdout, stderr);
+                return 2;
+            }
+            // Hand-finish checklist (D4): the scaffold is a marked
+            // skeleton, the author derives the real content.
+            let mut steps = vec![
+                "replace every scaffold_* id with the real row id".to_string(),
+                "replace the scaffold intent statement with the real requirement".to_string(),
+            ];
+            if outcome.inserted_frontmatter {
+                steps
+                    .push("deltas conventionally carry id: spec — adjust if the generated frontmatter needs it".to_string());
+            }
+            let mut out: Output<serde_json::Value> = Output::success(serde_json::json!({
+                "file": file,
+                "dry_run": dry_run,
+                "inserted_frontmatter": outcome.inserted_frontmatter,
+                "inserted_layers": outcome.inserted_layers,
+                "inserted_mirror": outcome.inserted_mirror,
+                "content": outcome.content,
+            }))
+            .with_next_step(
+                "run: spk lint <file> — the scaffold lints clean; keep it green as you fill it in",
+            );
+            if outcome.inserted_frontmatter && stem != "spec" {
+                out = out.with_warning(format!(
+                    "dual-format naming law: the file must be named spec.md (id `spec` matches the stem) — rename {file} to spec.md before linting"
+                ));
+            }
+            for s in &steps {
+                out = out.with_warning(s.clone());
+            }
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            0
+        }
+    }
 }
 
 fn cmd_new(

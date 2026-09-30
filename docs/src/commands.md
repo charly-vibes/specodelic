@@ -58,6 +58,20 @@ Scaffolds a spec file from the template — per-layer HTML-comment
 guidance (valid kinds, what a guard may cite, law-case requirements),
 rendered from the same constants the linter enforces.
 
+## `spk migrate <file> [--dry-run]`
+
+Wraps an existing openspec delta file in place into the dual-format
+four-layer skeleton: generated frontmatter (`id: spec`, EARS scaffold
+statement), wired scaffold layers (`scaffold_*` placeholder rows —
+constraint, one-state model, deriving property), and a byte-identical
+`## Requirements` mirror of `## ADDED Requirements`. Existing sections
+pass through verbatim; only missing pieces are inserted. A file that
+already carries the mirror is refused, never rewritten — re-running is
+safe. The scaffold lints clean as written; keep it green while you
+replace the placeholders. Files not named `spec.md` get a naming-law
+warning (deltas must be `spec.md` with `id: spec`). `--dry-run` prints
+the resulting content without writing.
+
 ## `spk compile <files> --out-dir <dir>`
 
 Compiles a lint-clean spec into three artifacts: `<stem>.toml`

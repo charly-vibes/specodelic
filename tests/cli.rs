@@ -3063,3 +3063,119 @@ fn bare_mapped_id_gets_the_dotted_spelling_hint() {
         "{msgs:?}"
     );
 }
+
+// --- spk migrate (specodelic-c32, gh#6 item 1) ---
+
+fn tempdir() -> tempfixture::TempDir {
+    tempfixture::tempdir()
+}
+
+mod tempfixture {
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    pub struct TempDir(pub PathBuf);
+    impl TempDir {
+        pub fn path(&self) -> &std::path::Path {
+            &self.0
+        }
+    }
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    static N: AtomicUsize = AtomicUsize::new(0);
+    pub fn tempdir() -> TempDir {
+        let n = N.fetch_add(1, Ordering::SeqCst);
+        let pid = std::process::id();
+        let p = std::env::temp_dir().join(format!("spk-migrate-{pid}-{n}"));
+        std::fs::create_dir_all(&p).unwrap();
+        TempDir(p)
+    }
+}
+
+/// End-to-end (task 4.1): plain delta → migrate → rewritten; second run refuses.
+#[test]
+fn migrate_wraps_delta_then_refuses_second_run() {
+    let dir = tempdir();
+    let file = dir.path().join("spec.md");
+    std::fs::write(
+        &file,
+        "## ADDED Requirements\n\n### Requirement: Widget\nThe system SHALL wiget.\n",
+    )
+    .unwrap();
+    spk()
+        .arg("migrate")
+        .arg(&file)
+        .assert()
+        .success()
+        .stdout(contains("\"inserted_frontmatter\":true"))
+        .stdout(contains("\"inserted_mirror\":true"));
+    let migrated = std::fs::read_to_string(&file).unwrap();
+    // Generated id is always `spec` — the dual-format naming law.
+    assert!(migrated.starts_with("---\nid: spec\nkind: intent\n"));
+    assert!(migrated.contains("## Requirements\n\n### Requirement: Widget"));
+    // Idempotence: the second run is a refusal, file untouched.
+    spk()
+        .arg("migrate")
+        .arg(&file)
+        .assert()
+        .failure()
+        .stdout(contains("already dual-format"));
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), migrated);
+}
+
+/// (task 4.2) The migrated scaffold lints clean through the real binary.
+#[test]
+fn migrated_scaffold_lints_clean() {
+    let dir = tempdir();
+    let file = dir.path().join("spec.md");
+    std::fs::write(
+        &file,
+        "## ADDED Requirements\n\n### Requirement: Widget\nThe system SHALL wiget.\n",
+    )
+    .unwrap();
+    spk().arg("migrate").arg(&file).assert().success();
+    spk()
+        .arg("lint")
+        .arg(&file)
+        .assert()
+        .success()
+        .stdout(contains("\"issues\":[]"));
+}
+
+/// (task 4.3) --dry-run prints the content, writes nothing.
+#[test]
+fn dry_run_leaves_disk_untouched() {
+    let dir = tempdir();
+    let file = dir.path().join("spec.md");
+    let original = "## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n";
+    std::fs::write(&file, original).unwrap();
+    spk()
+        .arg("migrate")
+        .arg("--dry-run")
+        .arg(&file)
+        .assert()
+        .success()
+        .stdout(contains("## Requirements"));
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+}
+
+/// Naming law: a generated id `spec` only lints when the file is named
+/// spec.md — a differently-named file gets an explicit warning.
+#[test]
+fn non_spec_md_filename_warns_naming_law() {
+    let dir = tempdir();
+    let file = dir.path().join("other-name.md");
+    std::fs::write(
+        &file,
+        "## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n",
+    )
+    .unwrap();
+    spk()
+        .arg("migrate")
+        .arg(&file)
+        .assert()
+        .success()
+        .stdout(contains("must be named spec.md"));
+}

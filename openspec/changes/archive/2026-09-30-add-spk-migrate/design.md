@@ -22,9 +22,13 @@ This gives the idempotence the ticket demands: re-running on a migrated
 file can never duplicate the mirror.
 
 **D3 — merge adds only what is missing.** Missing frontmatter → insert
-generated one (id `spec` per the naming law, kind intent, EARS scaffold
-statement). Existing frontmatter is kept VERBATIM even when its id is not
-`spec` (never destroy; warn that deltas conventionally carry `id: spec`).
+generated one: id `spec`, kind intent, EARS scaffold statement. The id is
+ALWAYS `spec` — never derived from the filename stem — because the
+dual-format naming law (`linter.dual_format_valid` + `id_matches_file`)
+requires deltas to carry `id: spec` AND be named `spec.md`; a stem-derived
+id cannot lint for any other name. Instead, when the file is not named
+spec.md the envelope warns with the rename. Existing frontmatter is kept
+VERBATIM even when its id is not `spec` (never destroy).
 Missing Constraints/Model/Properties layers → insert the wired scaffold
 (D4). Existing layers are kept untouched — no row injection into
 hand-authored tables. Missing mirror → append `## Requirements` with a
