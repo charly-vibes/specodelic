@@ -428,6 +428,7 @@ impl PropertiesRunner for CargoRunner {
             blocks.len(),
         );
         let base = scratch_base().join(&unique);
+        prune_scratch_defaults(&scratch_base());
         let result = self.run_in_scratch(&base, props_path, blocks, &unique);
         let _ = fs::remove_dir_all(&base); // best effort; target dir persists
         result
@@ -489,11 +490,118 @@ impl CargoRunner {
     }
 }
 
-/// The scratch crate lives under the system temp dir; `CARGO_TARGET_DIR`
-/// is shared across runs so proptest compiles once per machine, not per
-/// verify invocation.
+/// The scratch crate lives under the system temp dir (overridable via
+/// `SPECODELIC_VERIFY_SCRATCH` — e.g. to relocate off a size-capped tmpfs);
+/// `CARGO_TARGET_DIR` is shared across runs so proptest compiles once per
+/// machine, not per verify invocation.
 fn scratch_base() -> PathBuf {
-    std::env::temp_dir().join("specodelic-verify")
+    scratch_base_impl(std::env::var_os("SPECODELIC_VERIFY_SCRATCH").as_deref())
+}
+
+fn scratch_base_impl(env_override: Option<&std::ffi::OsStr>) -> PathBuf {
+    match env_override {
+        Some(dir) => PathBuf::from(dir),
+        None => std::env::temp_dir().join("specodelic-verify"),
+    }
+}
+
+/// Retention policy for the shared scratch base (specodelic-5m2: the
+/// target dir grew to 21GB and exhausted a /tmp quota). Best-effort —
+/// prune failures never fail a verify.
+///
+/// - Orphaned per-invocation crate dirs (normally removed post-run; they
+///   persist only if the process was killed) older than `orphan_max_age`
+///   are deleted, identified by the `<pid>-<nanos>-<blocks>` name shape.
+/// - The shared `target/` dir is never age-pruned (it is the compile
+///   cache), but if it exceeds `target_max_bytes` it is dropped whole:
+///   the next verify recompiles proptest, trading one cold build for the
+///   quota headroom.
+const SCRATCH_TARGET_MAX_BYTES: u64 = 4 * 1024 * 1024 * 1024; // 4 GiB
+const SCRATCH_ORPHAN_MAX_AGE: std::time::Duration = std::time::Duration::from_secs(24 * 3600);
+
+fn prune_scratch_defaults(base: &Path) {
+    prune_scratch(
+        base,
+        std::time::SystemTime::now(),
+        SCRATCH_TARGET_MAX_BYTES,
+        SCRATCH_ORPHAN_MAX_AGE,
+    );
+}
+
+struct ScratchPruneStats {
+    removed_crate_dirs: usize,
+    target_reset: bool,
+}
+
+fn is_scratch_crate_dir_name(name: &str) -> bool {
+    let parts: Vec<&str> = name.split('-').collect();
+    parts.len() == 3
+        && parts
+            .iter()
+            .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+}
+
+fn dir_size(path: &Path) -> u64 {
+    let mut total = 0;
+    let Ok(entries) = fs::read_dir(path) else {
+        return 0;
+    };
+    for entry in entries.flatten() {
+        let ft = match entry.file_type() {
+            Ok(ft) => ft,
+            Err(_) => continue,
+        };
+        if ft.is_dir() {
+            total += dir_size(&entry.path());
+        } else {
+            total += entry.metadata().map(|m| m.len()).unwrap_or(0);
+        }
+    }
+    total
+}
+
+fn prune_scratch(
+    base: &Path,
+    now: std::time::SystemTime,
+    target_max_bytes: u64,
+    orphan_max_age: std::time::Duration,
+) -> ScratchPruneStats {
+    let mut stats = ScratchPruneStats {
+        removed_crate_dirs: 0,
+        target_reset: false,
+    };
+    let Ok(entries) = fs::read_dir(base) else {
+        return stats;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name == "target" {
+            if dir_size(&entry.path()) > target_max_bytes
+                && fs::remove_dir_all(entry.path()).is_ok()
+            {
+                stats.target_reset = true;
+            }
+            continue;
+        }
+        if name == "Cargo.lock" {
+            continue;
+        }
+        if !is_scratch_crate_dir_name(&name) {
+            continue;
+        }
+        let stale = entry
+            .metadata()
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .and_then(|mtime| now.duration_since(mtime).ok())
+            .map(|age| age > orphan_max_age)
+            .unwrap_or(false);
+        if stale && fs::remove_dir_all(entry.path()).is_ok() {
+            stats.removed_crate_dirs += 1;
+        }
+    }
+    stats
 }
 
 const SCRATCH_MANIFEST: &str = "[package]\n\nname = \"specodelic-verify-scratch\"\n\nversion = \"0.0.0\"\n\nedition = \"2021\"\n\n\n[dev-dependencies]\n\nproptest = \"1\"\n";
@@ -1063,5 +1171,129 @@ mod tests {
             );
             assert_eq!(g.state, want);
         }
+    }
+
+    // --- scratch retention policy (specodelic-5m2) ---
+
+    fn crate_dir_name(tag: &str) -> String {
+        format!("123-{tag}-3") // <pid>-<nanos>-<blocks> shape
+    }
+
+    fn age_entry(path: &std::path::Path, before: std::time::Duration) {
+        let mtime = filetime::FileTime::from_system_time(std::time::SystemTime::now() - before);
+        filetime::set_file_mtime(path, mtime).expect("age entry");
+    }
+
+    #[test]
+    fn scratch_base_env_override_wins_over_default() {
+        let custom = std::env::temp_dir().join("spk-scratch-test-custom");
+        assert_eq!(scratch_base_impl(Some(custom.as_os_str())), custom);
+    }
+
+    #[test]
+    fn scratch_base_default_is_temp_specodelic_verify() {
+        assert_eq!(
+            scratch_base_impl(None),
+            std::env::temp_dir().join("specodelic-verify")
+        );
+    }
+
+    #[test]
+    fn prune_removes_stale_orphan_crate_dirs() {
+        let base = tempfile::tempdir().expect("base");
+        let stale = base.path().join(crate_dir_name("1000"));
+        std::fs::create_dir_all(&stale).unwrap();
+        age_entry(&stale, std::time::Duration::from_secs(48 * 3600));
+
+        let stats = prune_scratch(
+            base.path(),
+            std::time::SystemTime::now(),
+            u64::MAX,
+            std::time::Duration::from_secs(24 * 3600),
+        );
+
+        assert_eq!(stats.removed_crate_dirs, 1);
+        assert!(!stale.exists());
+    }
+
+    #[test]
+    fn prune_keeps_fresh_crate_dirs_target_and_lock() {
+        let base = tempfile::tempdir().expect("base");
+        let fresh = base.path().join(crate_dir_name("2000"));
+        std::fs::create_dir_all(&fresh).unwrap();
+        age_entry(&fresh, std::time::Duration::from_secs(60));
+        let target = base.path().join("target");
+        std::fs::create_dir_all(&target).unwrap();
+        age_entry(&target, std::time::Duration::from_secs(48 * 3600)); // old target survives age pruning
+        std::fs::write(base.path().join("Cargo.lock"), "").unwrap();
+
+        let stats = prune_scratch(
+            base.path(),
+            std::time::SystemTime::now(),
+            u64::MAX,
+            std::time::Duration::from_secs(24 * 3600),
+        );
+
+        assert_eq!(stats.removed_crate_dirs, 0);
+        assert!(!stats.target_reset);
+        assert!(fresh.exists());
+        assert!(target.exists());
+        assert!(base.path().join("Cargo.lock").exists());
+    }
+
+    #[test]
+    fn prune_ignores_entries_that_are_not_scratch_crate_dirs() {
+        // A non-crate-shaped dir never gets pruned, however old — the
+        // scratch base may point at a user-chosen location.
+        let base = tempfile::tempdir().expect("base");
+        let other = base.path().join("not-a-crate-dir");
+        std::fs::create_dir_all(&other).unwrap();
+        age_entry(&other, std::time::Duration::from_secs(48 * 3600));
+
+        let stats = prune_scratch(
+            base.path(),
+            std::time::SystemTime::now(),
+            u64::MAX,
+            std::time::Duration::from_secs(24 * 3600),
+        );
+
+        assert_eq!(stats.removed_crate_dirs, 0);
+        assert!(other.exists());
+    }
+
+    #[test]
+    fn prune_resets_target_when_over_size_cap() {
+        let base = tempfile::tempdir().expect("base");
+        let target = base.path().join("target");
+        std::fs::create_dir_all(target.join("debug")).unwrap();
+        std::fs::write(target.join("debug/blob"), vec![0u8; 64]).unwrap();
+
+        let stats = prune_scratch(
+            base.path(),
+            std::time::SystemTime::now(),
+            32,
+            std::time::Duration::from_secs(24 * 3600),
+        );
+
+        assert!(stats.target_reset);
+        assert!(!target.exists());
+    }
+
+    #[test]
+    fn prune_keeps_target_under_size_cap() {
+        let base = tempfile::tempdir().expect("base");
+        let target = base.path().join("target");
+        std::fs::create_dir_all(&target).unwrap();
+        std::fs::write(target.join("blob"), vec![0u8; 16]).unwrap();
+
+        let stats = prune_scratch(
+            base.path(),
+            std::time::SystemTime::now(),
+            32,
+            std::time::Duration::from_secs(24 * 3600),
+        );
+
+        assert!(!stats.target_reset);
+        assert!(target.exists());
     }
 }

@@ -6,6 +6,24 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #78 — verify scratch dir retention policy + `SPECODELIC_VERIFY_SCRATCH` override (specodelic-5m2)
+
+Found during specodelic-oet's `just ci` run: the properties gate's
+shared scratch base (`<tmp>/specodelic-verify`) accumulated 21GB of
+cargo artifacts and exhausted the /tmp quota (`Os error 122`). The
+per-invocation crate dirs were already removed post-run; the growth is
+the shared `target/` compile cache, which never shrank.
+
+`CargoRunner::run_blocks` now prunes the scratch base before staging:
+orphaned crate dirs (from killed runs — normal lifetime is seconds)
+are removed after 24 hours, identified by the `<pid>-<nanos>-<blocks>`
+name shape (other entries are never touched — the base may point at a
+user-chosen location); the shared `target/` dir is never age-pruned
+(it IS the compile cache) but is dropped whole when it exceeds 4 GiB,
+trading one cold proptest rebuild for quota headroom. The base path is
+overridable via `SPECODELIC_VERIFY_SCRATCH`. Pruning is best-effort —
+it never fails a verify. Documented in docs/src/commands.md.
+
 ## #77 — graph extraction honors the closed union of typed reference columns (specodelic-mlg)
 
 Found by the conformance matrix's `total_refs_dangling` gap case, now

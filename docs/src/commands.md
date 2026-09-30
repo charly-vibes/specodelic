@@ -132,6 +132,14 @@ first blocking stage (`missing_properties_artifact`,
 `stale_model_run`, `model_not_clean`). Verify never re-compiles and
 never re-runs the model checker.
 
+The properties gate's scratch crate lives under the system temp dir
+(`specodelic-verify/`), with a shared `target/` dir so proptest
+compiles once per machine. A retention policy keeps it bounded:
+orphaned per-invocation crate dirs (from killed runs) are pruned after
+24 hours, and if the shared `target/` dir exceeds 4 GiB it is dropped
+whole — the next verify pays one cold proptest rebuild. Set
+`SPECODELIC_VERIFY_SCRATCH` to relocate the scratch base (e.g. off a size-capped tmpfs).
+
 - Spec: [verify](specs/verify.md)
 
 ## `spk doctor`
