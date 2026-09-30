@@ -15,7 +15,7 @@ DAG" check, applied to specs instead of code modules.
 
 | id                   | kind      | expr                                                                                  | traces_to | satisfies |
 |-----------------------|-----------|------------------------------------------------------------------------------------------|--------------------------------------------|
-| acyclic               | invariant | `the directed graph formed by traces_to ∪ derives_from ∪ guard-as-edge has no cycle`      | [[linter.graph_shape]] |          |
+| acyclic               | invariant | `the directed graph formed by constraint-traces_to ∪ property-derives_from ∪ guard-as-edge has no cycle` — the edge set is closed and property-sourced: derives_from edges are taken from Property rows only, because the Reference Typing table's Appears-on column is normative (a Constraint-row derives_from is out-of-format — `ref_kind_compatible`'s beat, never an edge here; decided of record 2026-10-01, `specodelic-huf`) | [[linter.graph_shape]] |          |
 | single_root_reachable | invariant | `∀ constraint/property/state/transition row: reachable(row, the file's own intent row through own-file primary linkage)` — same claim as [[specodelic.single_root_reachable]] at checker altitude | [[linter.graph_shape]] |          |
 | no_self_ref           | invariant | `∀ row: row.traces_to != row.id and row.derives_from != row.id`                           | [[linter.graph_shape]] |          |
 | supersedes_dag        | invariant | `the directed graph formed by supersedes edges alone (Constraint→Constraint, Property→Property) has no cycle` | [[linter.graph_shape]] |          |
@@ -50,6 +50,7 @@ DAG" check, applied to specs instead of code modules.
 | dag_passes               | unit | [[linter.graph_shape.acyclic]]                    | `arbitrary_dag_shaped_repo()`                           | `check(repo) == passed`                                                    |
 | supersedes_cycle_rejected | unit | [[linter.graph_shape.supersedes_dag]]            | `spec_repo_with(supersedes_cycle: length ≥ 2)`          | `check(repo) == failed`                                                    |
 | supersedes_dag_ignores_traces_cycle | unit | [[linter.graph_shape.supersedes_dag]]  | `spec_repo_with(traces_to_cycle: true, supersedes: acyclic)` | `check(repo).supersedes_dag == passed` — the two graphs are checked independently; a cycle in one must not be attributed to the other |
+| derives_from_edges_property_sourced | unit | [[linter.graph_shape.acyclic]] | `spec_repo_with(constraint_row_carrying_derives_from: true)` | `check(repo) == failed` — the malformed edge is typing's finding (the graph layer reports it and records no edge), so it joins no acyclic edge set; the invariant and the checker now agree on the same closed edge set (specodelic-huf) |
 | topo_sort_naturality     | law  | [[linter.graph_shape.acyclic]]                    | `arbitrary_dag_repo(), arbitrary_id_rename()`           | **naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes |
 | check_failure_label_asserted | unit | [[linter.graph_shape.check_failure]] | `check_failure_raised()` | `error_label == "linter.graph_shape.check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
@@ -90,6 +91,23 @@ row, and a cycle in one says nothing about the other —
 `supersedes_dag_ignores_traces_cycle` exists specifically to pin that
 independence down, so a future edit can't accidentally merge the two
 graphs back into one God-check.
+
+**`acyclic`'s edge set is qualified (2026-10-01, `specodelic-huf`).** The
+invariant previously read "traces_to ∪ derives_from ∪ guard-as-edge has
+no cycle" — unqualified, while the checker built the edge set from
+(constraints, traces_to), (properties, derives_from) and
+(transitions, guard) only. A constraint↔constraint derives_from cycle
+therefore escaped both the acyclic check and edge typing (the typing
+check read only the Must-resolve-to column). The decision of record:
+**constraint-level derives_from is out-of-format** — a constraint is
+derived FROM by properties; it does not derive. The Reference Typing
+table's **Appears on: Property** column is normative, and
+`ref_kind_compatible` now reads it source-side (a Constraint-row
+derives_from is a labeled typing violation, recorded as no edge),
+making the cycle unrepresentable rather than merely uncycled. The
+invariant text above is amended to name the exact implemented edge set
+— same discipline as the `observes` exclusion note below: the union is
+closed, and it grows only under a new Revision of this file.
 
 **`observes` (specodelic.md Revision 9) is deliberately absent from
 `acyclic`'s edge set.** The union above is closed — `satisfies` and

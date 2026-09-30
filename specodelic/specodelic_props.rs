@@ -240,6 +240,16 @@ proptest! {
 }
 
 proptest! {
+    // id: constraint_derives_from_rejected
+    // generator: `constraint_row_with(derives_from: a_constraint_row_id)`
+    // predicate: `check(file) == failed` — the Appears-on column is normative, not descriptive: `derives_from` appears on Property rows only (decided of record 2026-10-01, `specodelic-huf`; a constraint is derived FROM by properties, it does not derive), and `ref_kind_compatible` reads the column source-side the same way it already reads `supersedes`' same-kind rule
+    #[test]
+    fn constraint_derives_from_rejected(v0 in spec_gen::constraint_row_with()) {
+        todo_predicate!("`check(file) == failed` — the Appears-on column is normative, not descriptive: `derives_from` appears on Property rows only (decided of record 2026-10-01, `specodelic-huf`; a constraint is derived FROM by properties, it does not derive), and `ref_kind_compatible` reads the column source-side the same way it already reads `supersedes`' same-kind rule");
+    }
+}
+
+proptest! {
     // id: supersedes_cycle_rejected
     // generator: `spec_repo_with(supersedes_cycle: length ≥ 2)`
     // predicate: `check(repo) == failed`

@@ -6,6 +6,45 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #82 — constraint-level `derives_from` declared out-of-format; `acyclic`'s edge set qualified (specodelic-huf)
+
+The vv8 conformance matrix's `constraint_derives_cycle` gap, closed by
+**spec decision** (the ticket's option c, with the typing hole closed
+properly): `linter-graph_shape.md`'s `acyclic` invariant read
+"traces_to ∪ derives_from ∪ guard-as-edge has no cycle" — unqualified —
+while the checker built the edge set from (constraints, traces_to),
+(properties, derives_from) and (transitions, guard) only. A
+constraint↔constraint derives_from cycle escaped both the acyclic check
+and edge typing (which read only the Must-resolve-to column).
+
+**Decision of record: constraint-level derives_from is out-of-format.**
+A constraint is derived FROM by properties; it does not derive. The
+Reference Typing table's **Appears on: Property** column is normative,
+not descriptive. `ref_kind_compatible` now reads it source-side for
+`derives_from` (`typing_violation` in `graph.rs`) — the same way it
+already read `supersedes`' same-kind rule — so a Constraint-row
+derives_from is a labeled typing violation recorded as no edge. The
+cycle is unrepresentable, not merely uncycled; `acyclic`'s edge set
+stays closed over well-formed edges, and its invariant text now names
+the exact implemented set.
+
+Spec changes: `linter-graph_shape.md` `acyclic` expr qualified + a
+decision note (the edge set grows only under a new Revision, same
+discipline as the `observes` exclusion) + a pinning property
+(`derives_from_edges_property_sourced`); `specodelic.md` gains
+`constraint_derives_from_rejected` (unit, `ref_kind_compatible`) pinning
+the Appears-on reading beside `supersedes_cross_kind_rejected`.
+Corpus artifacts regenerated; no Revision bump — no normative row
+changed, the table was already normative on this point.
+
+TDD: integration test `constraint_row_derives_from_is_a_typing_violation`
+(red: the edge was recorded, no violation fired) + the matrix case
+flipped from `conformance_matrix_known_gaps` into `cases()` with its
+amended spec-true expectation (`find:linter.single_root_reachable` +
+`graph.typing` — the island condition persists, the cycle does not).
+The known-gaps harness is now empty; its flip pattern stays documented
+in the file.
+
 ## #81 — `no_orphan_property` resolves the `derives_from` target, not just its presence (specodelic-rk3)
 
 The vv8 conformance matrix's `orphan_property` gap, closed:

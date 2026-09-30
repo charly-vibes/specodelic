@@ -3,7 +3,7 @@ source = "linter.graph_shape"
 [[constraints]]
 id = "acyclic"
 kind = "invariant"
-expr = "`the directed graph formed by traces_to ∪ derives_from ∪ guard-as-edge has no cycle`"
+expr = "`the directed graph formed by constraint-traces_to ∪ property-derives_from ∪ guard-as-edge has no cycle` — the edge set is closed and property-sourced: derives_from edges are taken from Property rows only, because the Reference Typing table's Appears-on column is normative (a Constraint-row derives_from is out-of-format — `ref_kind_compatible`'s beat, never an edge here; decided of record 2026-10-01, `specodelic-huf`)"
 traces_to = "[[linter.graph_shape]]"
 
 [[constraints]]

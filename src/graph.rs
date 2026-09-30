@@ -171,18 +171,33 @@ fn typing_violation(
         "traces_to" if *target != NodeKind::Intent => Some(format!(
             "traces_to must resolve to an Intent (Reference Typing); target is {tk}"
         )),
-        "derives_from" => match target {
-            NodeKind::Constraint(_) => None,
-            // Revision 10 (specodelic-cxq): a `law` Property may derive
-            // from another Property — the same-kind law-restates-law edge
-            // (checker `*_naturality` laws → `specodelic.rename_naturality`).
-            NodeKind::Property(_) if matches!(source_kind, Some(NodeKind::Property(k)) if k == "law") => {
-                None
+        "derives_from" => {
+            // The Appears-on column is normative (specodelic-huf):
+            // derives_from appears on Property rows only — a Constraint
+            // (or State/Transition) carrying it is out-of-format, before
+            // the target is even considered. Supersedes already reads
+            // this column the same way.
+            if !matches!(source_kind, Some(NodeKind::Property(_))) {
+                return Some(format!(
+                    "derives_from appears on Property rows only (Reference Typing); source is {}",
+                    source_kind
+                        .map(|s| s.describe())
+                        .unwrap_or_else(|| "an untyped row".to_string())
+                ));
             }
-            _ => Some(format!(
-                "derives_from must resolve to a Constraint, or to a Property when the source is a law (Reference Typing); target is {tk}"
-            )),
-        },
+            match target {
+                NodeKind::Constraint(_) => None,
+                // Revision 10 (specodelic-cxq): a `law` Property may derive
+                // from another Property — the same-kind law-restates-law edge
+                // (checker `*_naturality` laws → `specodelic.rename_naturality`).
+                NodeKind::Property(_) if matches!(source_kind, Some(NodeKind::Property(k)) if k == "law") => {
+                    None
+                }
+                _ => Some(format!(
+                    "derives_from must resolve to a Constraint, or to a Property when the source is a law (Reference Typing); target is {tk}"
+                )),
+            }
+        }
         "guard" => match target {
             NodeKind::Constraint(k) if k == "invariant" => None,
             // Revision 12 (specodelic-tik reconciliation): a guard may

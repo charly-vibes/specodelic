@@ -134,7 +134,7 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
     ),
     (
         "acyclic",
-        "the directed graph formed by traces_to ∪ derives_from ∪ guard-as-edge must contain no cycle (a reference cycle has no derivation order)",
+        "the directed graph formed by constraint-traces_to ∪ property-derives_from ∪ guard-as-edge must contain no cycle (derives_from edges are property-sourced — the Reference Typing Appears-on column is normative, so a Constraint-row derives_from is typing's beat, never an edge)",
     ),
     (
         "single_root_reachable",

@@ -817,6 +817,51 @@ fn graph_typing_forbidden_edge_is_reported_not_recorded() {
     assert_eq!(out.status.code(), Some(1));
 }
 
+/// specodelic-huf: the Reference Typing table's **Appears on** column is
+/// normative — `derives_from` appears on Property rows only. A Constraint
+/// row carrying `derives_from` is out-of-format: a labeled typing
+/// violation, never a recorded edge — and therefore never a member of any
+/// acyclic edge set (linter-graph_shape.md's invariant is qualified to
+/// the same edge set).
+#[test]
+fn constraint_row_derives_from_is_a_typing_violation() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("t.md"),
+        "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | derives_from |\n|----|------|------|-----------|--------------|\n| c1 | invariant | `x` | [[t]] | [[t.c2]] |\n| c2 | invariant | `y` | [[t]] | |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| go | s1 | s1 | [[t.c1]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p1 | unit | [[t.c1]] | `g()` | `x` |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let data = &json["data"];
+    let edges = data["edges"].as_array().unwrap();
+    // Control: the legal property→constraint derives_from edge is still
+    // recorded.
+    assert!(
+        edges
+            .iter()
+            .any(|e| e["kind"] == "properties.derives_from" && e["to"] == "t.c1"),
+        "legal derives_from edge must be recorded: {edges:?}"
+    );
+    assert!(
+        !edges
+            .iter()
+            .any(|e| e["kind"] == "constraints.derives_from"),
+        "a Constraint-row derives_from must not be recorded as an edge: {edges:?}"
+    );
+    let violations = data["violations"].as_array().unwrap();
+    assert!(
+        violations
+            .iter()
+            .any(|v| v["edge_kind"] == "constraints.derives_from" && v["to"] == "t.c2"),
+        "out-of-format source must surface as a labeled violation: {violations:?}"
+    );
+    assert_eq!(out.status.code(), Some(1));
+}
+
 /// supersedes_dag (specs/linter-graph_shape.md) + total_extraction: the
 /// `supersedes` column yields edges (Constraint→Constraint, Property→
 /// Property), a supersedes cycle is reported rather than silently served,

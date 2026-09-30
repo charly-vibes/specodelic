@@ -691,17 +691,29 @@ fn cases() -> Vec<Case> {
         ),
         f(
             "two_node_cycle",
-            // Mutual constraint↔constraint derives_from cycle — typing-
-            // legal (derives_from targets Constraints), so ONLY the
-            // acyclic rule may fire at the edge level. The cycle
-            // component never reaches the intent row — an orphaned
-            // island is part of this fixture's spec-true expectation.
+            // Mutual constraint↔constraint TRACES_TO cycle — the
+            // traces_to edge set is acyclic's; typing fires alongside
+            // (traces_to must resolve to an Intent). The cycle component
+            // never reaches the intent row — an orphaned island is part
+            // of this fixture's spec-true expectation.
             vec![("d.cycle.md", CYCLE.to_string())],
             &[
                 "find:linter.acyclic",
                 "find:linter.single_root_reachable",
                 "graph.typing",
             ],
+        ),
+        f(
+            "constraint_derives_cycle",
+            // Mutual constraint↔constraint DERIVES_FROM pseudo-cycle —
+            // out-of-format since specodelic-huf: the Appears-on column
+            // is normative (derives_from appears on Property rows only),
+            // so the graph layer reports each malformed edge as a labeled
+            // typing violation and records no edge — no acyclic edge
+            // exists to cycle. The constraints remain an island
+            // unreachable from the intent (single_root_reachable).
+            vec![("d.cycle.md", CYCLE_DERIVES.to_string())],
+            &["find:linter.single_root_reachable", "graph.typing"],
         ),
         f(
             "single_root_island",
@@ -836,8 +848,10 @@ fn cases() -> Vec<Case> {
     ]
 }
 
-/// A typing-legal constraint↔constraint derives_from cycle (gap case
-/// `constraint_derives_cycle`).
+/// Out-of-format-since-specodelic-huf constraint↔constraint derives_from
+/// pseudo-cycle (case `constraint_derives_cycle`): the Appears-on column
+/// is normative, so each malformed edge is a typing violation and no
+/// acyclic edge exists.
 const CYCLE_DERIVES: &str = r#"---
 id: d.cycle
 kind: intent
@@ -974,65 +988,10 @@ fn conformance_matrix() {
     }
 }
 
-/// Known checker gaps, each tracked as a beads ticket. These cases carry
-/// the SPEC-TRUE expectation (from the checker specs, never current
-/// behavior) and stay `#[ignore]`d until the tracked gap closes — then
-/// flip: move the case into `cases()` and delete it here. Anti-goal:
-/// never weaken an expectation to current behavior to un-ignore a case.
-#[test]
-#[ignore = "known checker gaps: tracked as beads tickets — flip when they close"]
-fn conformance_matrix_known_gaps() {
-    let gaps = vec![
-        // Gap (specodelic-huf, still open): acyclic's edge set takes
-        // derives_from edges from properties ONLY, but
-        // linter-graph_shape.md's invariant is unqualified ("traces_to ∪
-        // derives_from ∪ guard-as-edge has no cycle") and a
-        // constraint↔constraint derives_from cycle is typing-legal — so
-        // it escapes every edge-level check. Resolving this is a spec
-        // decision (is constraint-level derives_from in-format?).
-        Case {
-            id: "constraint_derives_cycle",
-            files: vec![("d.cycle.md".into(), CYCLE_DERIVES.to_string())],
-            checklists: vec![],
-            expect: &[
-                "find:linter.acyclic",
-                "find:linter.single_root_reachable",
-            ],
-        },
-        // Gap: no_orphan_property checks only that a derives_from link
-        // EXISTS, but linter-coverage.md's invariant reads "p.derives_from
-        // resolves to a real constraint" — a property deriving from a
-        // non-law property must fire it (currently only the graph layer's
-        // edge_kind_matches_typing catches this).
-        Case {
-            id: "orphan_property",
-            files: vec![(
-                "clean.md".into(),
-                CLEAN.replace(
-                    ORPHAN_FREE_PROPERTY,
-                    &format!(
-                        "{ORPHAN_FREE_PROPERTY}| extra_rule | unit | [[clean.recorded_once]] | `arbitrary_x()` | `x(o) == o` | |\n"
-                    ),
-                ),
-            )],
-            checklists: vec![],
-            expect: &["find:linter.no_orphan_property", "graph.typing"],
-        },
-    ];
-    let mut failures = Vec::new();
-    for case in &gaps {
-        if let Err(msg) = run_case(case) {
-            failures.push(msg);
-        }
-    }
-    if !failures.is_empty() {
-        panic!(
-            "known-gap matrix: {} of {} cases FAIL their spec-true expectation \
-             — a gap may have CLOSED: flip the failing case into cases() and \
-             drop this ignore\n\n{}",
-            failures.len(),
-            gaps.len(),
-            failures.join("\n\n")
-        );
-    }
-}
+// (No known gaps remain — both vv8 gap cases have been flipped into
+// `cases()` as their tracking tickets closed: `orphan_property` via
+// specodelic-rk3, `constraint_derives_cycle` via specodelic-huf. The
+// known-gaps harness pattern stays documented here for the next gap:
+// a spec-true expectation that current behavior fails gets an
+// `#[ignore]`d case here with a documented flip, never a weakened
+// expectation in `cases()`.)
