@@ -35,9 +35,14 @@ fn git(dir: &Path, args: &[&str]) {
 
 fn run_guard(dir: &Path) -> (bool, String) {
     // (passed, output)
+    // Hermetic against the host machine: global/system git config may
+    // carry its own core.hooksPath (e.g. ~/.git-hooks), which would leak
+    // into every fixture — null both so fixtures see only their own config.
     let out = Command::new("bash")
         .arg(script_path())
         .arg(dir)
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_SYSTEM", "/dev/null")
         .output()
         .expect("guard script should be runnable");
     let combined = format!(
@@ -159,11 +164,17 @@ fn comment_mention_in_ci_passes() {
 }
 
 #[test]
-fn missing_hookspath_fails() {
+fn unset_hookspath_passes_with_note() {
     let (_dir, repo) = fixture_repo("no_hookspath");
     make_compliant(&repo);
     git(&repo, &["config", "--unset", "core.hooksPath"]);
     let (ok, out) = run_guard(&repo);
-    assert!(!ok, "unset core.hooksPath must fail (beads must own it)");
-    assert!(out.contains("core.hooksPath"), "got: {out}");
+    assert!(
+        ok,
+        "unset core.hooksPath is not a sibling-tool claim — must pass, got: {out}"
+    );
+    assert!(
+        out.contains("core.hooksPath"),
+        "an informational note should still point at bd hooks install, got: {out}"
+    );
 }
