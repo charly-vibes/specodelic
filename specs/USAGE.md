@@ -8,6 +8,42 @@ few shapes that don't look like they fit until you see where they go.*
 
 ---
 
+## 0. Terminology: four words that are easy to confuse
+
+Prose governance only — the parser never reads any of this
+(`prose_untouched`), so these conventions are enforced by review and the
+sweep in the acceptance criteria of the tracking ticket, not by a lint
+rule.
+
+| Term | Means | Example |
+|---|---|---|
+| **the format** | the markdown schema/language itself: frontmatter fields, the four layer tables, wiki-links, the 5 kinds. Defined by `specodelic.md`, `kinds.md`, `theory.md`. | "states are named variants, not booleans" — a rule *of the format* |
+| **the tool (spk)** | the `specodelic` CLI that lints/compiles/checks files written in the format. Specified by the `linter-*.md`, `compile.md`, … corpus. | `spk lint` reports `linter.frontmatter` findings |
+| **the subject** | whatever a given spec file is *about*. For this corpus the subject is the tool itself (dogfooding); for a domain spec it's whatever system you're specifying. Declared by a file's `statement` + prose — deliberately **not** a frontmatter field, hence never machine-checkable. | `orchestrate.md`'s subject is the pipeline; `order-cancel.md`'s is the refund policy |
+| **spec file** | one document conforming to the format | `specs/orchestrate.md` |
+| **the corpus** / `specs/` | the directory of spec files this repo maintains | "the corpus is dogfooding" |
+| **spec-format** | the project's former name. Appears only in provenance contexts (rename history, CHANGELOG); never in current prose | "renamed from `spec-format` on import (2026-09-28)" |
+
+Rules of thumb:
+
+- Bare **"specodelic"** names the project/repo only. "the specodelic
+  format", "a specodelic spec file", "the specodelic CLI" are fine
+  (adjectival); "the specodelic" as a bare noun for the format or the
+  tool is the violation this section exists to prevent.
+- "spec" is likewise four senses — file, format, corpus, legacy name —
+  and bare "the spec" is best avoided in prose for the same reason.
+- **Subject-relative litmus test:** a constraint `expr` that mentions the
+  checker or the pipeline is layer conflation *iff the file's subject is
+  not the tool*. `orchestrate.md`'s `lint_gate_matches_checker_ownership`
+  mentioning checkers is correct — its subject *is* the pipeline. A
+  domain spec about a refund policy mentioning `spk` would be conflation.
+- What the format contributes to a domain spec is narrow and structural:
+  `no_boolean_columns` forces states like `done/partial/failed` to be
+  named variants, `append_only_variants` governs growing that set, and
+  `guard_required` forces each race/handoff to be an explicit guarded
+  transition. Everything else about a subject's semantics is ordinary
+  spec-writing, expressible *in* the format but not supplied *by* it.
+
 ## 1. Quick start: writing a new domain spec
 
 Every file is the same four sections, in this order, whether it's a

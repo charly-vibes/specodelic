@@ -9,8 +9,11 @@ exists, and what to do next from this document alone.*
 
 ## 1. What this project is
 
-`specodelic` is a markdown-based specification format for software
-features, designed so that one file gives you four things at once:
+`specodelic` is the project: a Rust CLI (`spk`) for a markdown-based
+specification format for software features (and a corpus of specs, written
+in that format, that specify the CLI itself — see USAGE.md §0 for this
+project/format/tool/subject distinction), designed so that one file gives
+you four things at once:
 
 1. **Something a human can read** — plain prose intent, EARS-style
    requirement statements, ordinary markdown.

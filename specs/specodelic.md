@@ -9,7 +9,8 @@ statement: "THE specodelic SHALL represent a feature's intent, constraints, stat
 A feature's specification is a markdown file with YAML frontmatter, a fixed
 set of tables, and wiki-link references between them. This file describes
 that format's own constraints, lifecycle, and properties — it is a spec
-written in the specodelic, about the specodelic.
+written in the format, about the tool that checks it (see USAGE.md §0 for
+the project/format/tool/subject terminology).
 
 ## Constraints
 
