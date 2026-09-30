@@ -6,6 +6,39 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #63 — observability contracts: observes typing, advisory check, derived boundaries (specodelic-7l3)
+
+The format can declare outputs (`emits`, Revision 6) and contracts
+(`extension_point`/`satisfies`, Revision 7) but could not say what must
+be *observable*: a spec could declare effects nothing watches and lint
+clean. Landed, per `add-observability-contracts` (Ro5-reviewed twice —
+originating design pass + grounding pass that caught the Revision 8
+numbering collision, the corpus's live unobserved effect, and the
+missing advisory-severity machinery):
+
+- **Format** — `specodelic.md` Revision 9: Reference Typing gains
+  `observes` (Constraint, any file → Constraint, `kind == effect` only),
+  mirroring `satisfies`; joins no acyclic edge set (mutual cross-file
+  observation is well-formed). `kinds.md` Revision 5 reconciles
+  `constraint_row_shape` with optional typed reference columns (the
+  table governs — resolves HITL `specodelic-mp1` row 9). `graph.md`:
+  `observes` in `total_extraction`, `external_boundary_derived`.
+  `linter-graph_shape.md`: the acyclic union is unchanged, stated.
+  New `linter-observability.md`: universe = invocation's file set,
+  self-observation does not count, dangling observes is
+  `referential_integrity`'s beat, no waivers in v1.
+- **Tool** — `graph`: the `observes` typing arm (effect-only) and
+  `external_boundaries` (a file is one iff it hosts ≥1
+  `extension_point` Constraint — derived, never authored). `lint`: rule
+  `linter.observability` warns — on the success envelope's warnings
+  channel, exit 0, never an Issue — for every unobserved effect in the
+  invocation's file set. `Report` gains `warnings`; human output renders
+  advisories.
+- **Dogfood** — the corpus's own live unobserved effect
+  (`refactor.advisory_finding_emitted`) is the first warning evidence
+  (recorded in the change's dogfood notes; gating decision deferred to a
+  follow-up change). USAGE §2.9 pattern + decision-table row; STATUS row.
+
 ## #62 — lint totality: model_shape remainder + graph_shape enforced (specodelic-b15)
 
 Five rules that four checker files specced but no checker enforced are now

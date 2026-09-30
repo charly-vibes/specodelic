@@ -149,6 +149,7 @@ same way a self-hosting compiler compiles its own source).
 | `linter-ears_syntax.md` | `linter.ears_syntax` | `statement` matches an EARS pattern; ids don't encode two capabilities or universal quantifiers | Done |
 | `linter-schema_shape.md` | `linter.schema_shape` | Variant tables only grow across revisions; the parser never branches on prose content | Done |
 | `linter-coverage.md` | `linter.coverage` | Every constraint has a deriving property; every law has its required cases | Done |
+| `linter-observability.md` | `linter.observability` | Every effect Constraint is the target of ≥1 `observes` reference from a different row; unobserved effects are warned (advisory, exit 0 — never gating in Revision 1); derives external boundaries from published `extension_point` contracts | Done |
 | `CHANGELOG.md` | — | Append-only, chronological record of what changed, across all files | Living document |
 | `AGENTS.md` | — | Standing operating instructions for any agent working in this repo | Living document |
 | `STATUS.md` (this file) | — | Status, plan, and self-contained primer | Living document |

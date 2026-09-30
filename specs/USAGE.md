@@ -377,12 +377,41 @@ four questions apply no matter what you're migrating from.
 | Existing artifact | Ask | Goes to |
 |---|---|---|
 | Proposal's "why" | Can this be stated as one EARS-pattern sentence? | Frontmatter `statement` |
+### 2.9 Declaring what must be observable (`observes`)
+
+An `effect` Constraint says a state *emits* something (§2.2). It says
+nothing about whether anyone is supposed to be watching. If a behavior's
+output is part of the contract — a metric, an event feed, a finding a
+consumer surfaces — say so with an `observes` column on the row that
+consumes the output, pointing back at the effect:
+
+```markdown
+## Constraints
+
+| id         | kind      | expr                        | traces_to     | observes              |
+|------------|-----------|-----------------------------|---------------|-----------------------|
+| eff_out    | effect    | `output == {value}`          | [[publisher]] |                       |
+| watch      | invariant | `output_seen == value`       | [[publisher]] | [[publisher.eff_out]] |
+```
+
+`observes` is one-directional and cross-file: the observer's file points
+at the publisher's effect and needs no other link between the files. It
+is an extra outbound pointer beside `traces_to` — it never replaces the
+row's own reachability, joins no acyclic set (mutual cross-file
+observation is fine), and typing allows only `kind == effect` targets.
+Every effect that *nothing* observes is reported as an advisory warning
+(`linter.observability`, exit 0 — never a lint failure): if the output
+is genuinely part of the contract, add an observer; if it was scaffolding,
+delete the effect. That warning is the format asking "who is this output
+for?" before the system ships with a firehose nobody attached a hose to.
+
 | Proposal's "what", design decisions | Is this a hard requirement, or a stated-but-non-gating design principle? | Constraints table — `invariant` if it must hold to pass `lint`/`verify`; `advisory` if it's a design intent that should be visible but never blocks a transition (see §2.1 of `specodelic.md`'s Revision 5) |
 | A closed set of request/response/node types the design defines | Is anything actually transitioning, or is this just an enumeration of shapes? | If enumeration only → Constraints table, one row per shape (§2.1 above). If it's genuinely a lifecycle → Model/States |
 | Design's lifecycle / workflow diagram | Are these states of one thing over time? | Model — States + Transitions, each transition's guard citing the Constraint(s) that must hold |
 | Tasks.md acceptance criteria, "must produce X given Y" | Is this a checkable input→output claim? | Properties table — `unit` kind, one row per scenario; promote to `kind: law` only if it's an algebraic property (identity, associativity, or a case set from §2.5) rather than a single example |
 | Design's "alternative backends" / "works with any of X" | Multiple things must satisfy the same contract, and *you* own every implementation | Split into one shared-Intent file + N implementation files (§2.3) |
 | Design's "third parties can extend this" / a protocol, multimethod, or plugin interface | Consumers you'll never see must satisfy a contract, and their files aren't yours to enumerate | An `extension_point` Constraint in your file; each consumer's own file points `satisfies` back at it (§2.6) |
+| Design's "this must be observable" / a metric, event feed, or surfaced finding | Does something consume the output, or is it a firehose nobody watches? | The effect Constraint (§2.2) plus an `observes` column on each consuming row — unobserved effects get an advisory warning (§2.9) |
 | Design's "materialized lazily" / "computed on demand" | A build phase and an execute phase are genuinely different | Two states + a guarded transition (§2.4) |
 | Design's "audit trail" / "event log" / "append-only ledger" / "CRDT history" | Is "current state" actually a stored, overwritten field, or a fold over past events? | Events as a §2.1 sealed Constraint set; current state as a Property whose predicate folds the log (§2.7) |
 | Design's "must handle N req/s" / "p99 under Xms" / a load-test or benchmark requirement | Is this measured against a corpus/load scenario, or just a configured ceiling on the contract? | Measured → threshold `unit` Property with a benchmark generator (§2.8, re-runnable, not a permanent fact). Configured ceiling → ordinary `invariant` Constraint with the violation as a named terminal state |
