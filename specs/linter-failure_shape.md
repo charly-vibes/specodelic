@@ -25,14 +25,16 @@ here so it is visible rather than forgotten.
 
 This file shipped **spec-only** (design D6): no Checker Ownership row
 lands until the checker exists — the table's invariant is that every
-listed checker exists. The checker is now **implemented in `spk lint`**
+listed checker exists. The checker is **implemented in `spk lint`**
 (specodelic-ct5): the three constraint rules below are enforced per file
 on every lint pass, so they are claims about today's linter, not norms
-for a future one. The Checker Ownership table row (and the orchestrator
-wiring that would come with it) remains deliberately deferred — the
-findings ride `spk lint`; `AGENTS.md`'s sibling-tool constraint citing
-specodelic-6pi as an open blocker is stale (6pi is closed) and belongs
-to governance, not to this file.
+for a future one. **Resolved of record (2026-10-01, `specodelic-hhp`,
+decision a): the checker has its Checker Ownership row and rides the
+orchestrator's lint stage**, dependent on `linter.model_shape` — the
+failure-shape walk reads the Model's states, transitions and emits
+edges, so it runs only once the model is proven well-formed
+(`dependency_respecting_skip`). The earlier note about `AGENTS.md`'s
+stale specodelic-6pi citation belongs to governance, not to this file.
 
 ## Constraints
 

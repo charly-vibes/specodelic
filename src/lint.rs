@@ -378,6 +378,18 @@ pub fn coverage_findings(specs: &[Spec]) -> Vec<Issue> {
     report.issues
 }
 
+/// `linter-failure_shape.md` — the three failure-shape rules
+/// (specodelic-ct5), exposed as the checker's engine-side invocation for
+/// the orchestrator's lint stage (specodelic-hhp decision a: the checker
+/// has a Checker Ownership row and runs after `linter.model_shape`).
+pub fn failure_shape_findings(specs: &[Spec]) -> Vec<Issue> {
+    let mut report = empty_report(specs.len());
+    for spec in specs {
+        lint_failure_shape_family(spec, &mut report);
+    }
+    report.issues
+}
+
 /// `linter-external_completeness.md` — runs only when a checklist is
 /// declared; its outcome never gates a stage. Returns (findings, how
 /// many manifests were consulted).

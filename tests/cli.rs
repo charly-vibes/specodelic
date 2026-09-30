@@ -1133,6 +1133,7 @@ fn orchestrate_reports_every_stage_and_skips_after_failure() {
             "linter.referential_integrity",
             "linter.graph_shape",
             "linter.model_shape",
+            "linter.failure_shape",
             "linter.ears_syntax",
             "linter.schema_shape",
             "linter.external_completeness",

@@ -79,7 +79,7 @@ is a [typed foreign key](theory.md#typed-foreign-keys-generating-morphisms).
 
 ### Checker Ownership
 
-`linted` is not one flat conjunction — it is the join point of five
+`linted` is not one flat conjunction — it is the join point of seven
 independently-specified checker files, each its own instance of this same
 format (a spec-of-a-linter-check, verifying a spec). This table replaces
 the constraint-by-constraint guard with a reference to where each
@@ -92,6 +92,7 @@ in.
 | `linter-referential_integrity.md` | `unique_id`, `total_refs`, `ref_kind_compatible`                                      | `linter-frontmatter.md`              |
 | `linter-graph_shape.md`           | `acyclic_traces`, `single_root_reachable`, `supersedes_acyclic` | `linter-referential_integrity.md`    |
 | `linter-model_shape.md`           | `guard_required`, `model_present`, `every_state_used`, `every_transition_valid`, `no_boolean_columns` | `linter-graph_shape.md`              |
+| `linter-failure_shape.md`         | `terminal_states_emit`, `error_labels_unique`, `guard_negation_total` | `linter-model_shape.md` (the failure-shape walk reads the Model's states, transitions and emits edges — the model must be proven well-formed first) |
 | `linter-ears_syntax.md`           | `ears_statement`, `one_capability_per_row`                                            | `linter-frontmatter.md` (parallel to the above branch) |
 | `linter-schema_shape.md`          | `append_only_variants`, `prose_untouched`, `constraint_kind_closed`, `property_kind_closed` | `linter-frontmatter.md` (parallel to the referential/graph/model branch) |
 | `linter-coverage.md`              | `coverage`, `law_requires_cases`                                             | `linter-graph_shape.md`, `linter-model_shape.md` |

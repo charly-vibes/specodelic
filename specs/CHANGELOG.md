@@ -6,6 +6,36 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #84 — failure_shape joins the Checker Ownership table and the lint stage (specodelic-hhp)
+
+The ct5 deferral resolved, **decision (a)**: the failure-shape checker
+now has its Checker Ownership row and rides the orchestrator's lint
+stage — it was already enforced on every `spk lint` pass (ct5) but had
+no ownership row and no orchestrate entry, so `spk orchestrate`'s lint
+stage under-reported the checkers that actually gate `linted`.
+
+Wiring: `lint::failure_shape_findings` (the checker's engine-side
+invocation, over the same `lint_failure_shape_family` slice the flat
+pass runs) joins `run_lint_stage` as branch A's tail, dependent on
+`linter.model_shape` — the failure-shape walk reads the Model's states,
+transitions and emits edges, so it runs only once the model is proven
+well-formed (`dependency_respecting_skip`); a model_shape failure skips
+it with the dependency's status, and its verdict joins the stage's
+conjunction. The stage doc comment and the schema_shape entry's stale
+"tracked coverage gap" basis note (superseded by 7h8) were corrected in
+the same stroke.
+
+Spec changes: `specodelic.md`'s Checker Ownership table gains the
+`linter-failure_shape.md` row (owns the three rules, depends on
+`linter-model_shape.md`) and the join-point prose now says seven checker
+files; `linter-failure_shape.md`'s "deliberately deferred" note is
+replaced by the decision of record.
+
+TDD: 1 new orchestrate test (clean corpus → checker present and passed;
+mute failure terminal → checker failed and the stage fails) + the
+dependency-skip and checker-list tests extended. Gates: just ci +
+lint-specs 0 + openspec strict.
+
 ## #83 — constraint_kind_closed + property_kind_closed as real table-walking lint rules (specodelic-7h8)
 
 The 8kk dogfood's honest-stub finding, closed:

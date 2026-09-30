@@ -132,11 +132,11 @@ fn checker_skipped(
     })
 }
 
-/// The lint stage: the six Checker Ownership checkers in dependency
-/// order. `linter.external_completeness` runs only when a checklist is
-/// declared and never gates. The stage passes iff every gate checker
-/// reports passed — a skipped checker means its dependency failed, so
-/// the stage fails with the dependency's findings.
+/// The lint stage: the seven Checker Ownership gate checkers in
+/// dependency order. `linter.external_completeness` runs only when a
+/// checklist is declared and never gates. The stage passes iff every
+/// gate checker reports passed — a skipped checker means its dependency
+/// failed, so the stage fails with the dependency's findings.
 fn run_lint_stage(specs: &[Spec], checklists: &[Checklist]) -> Stage {
     // Branch A head: the first gate.
     let fm = lint::frontmatter_findings(specs);
@@ -190,6 +190,22 @@ fn run_lint_stage(specs: &[Spec], checklists: &[Checklist]) -> Stage {
     };
     checkers.push(ms_entry);
 
+    // Branch A tail: failure_shape — depends on model_shape (the
+    // failure-shape walk reads the Model's states, transitions and
+    // emits edges, so it needs the model proven well-formed first).
+    let (fs_entry, fs_ok) = if ms_ok {
+        let issues = lint::failure_shape_findings(specs);
+        let ok = issues.is_empty();
+        (checker_entry("linter.failure_shape", issues), ok)
+    } else {
+        let dep_status = if gs_ok { "failed" } else { "skipped" };
+        (
+            checker_skipped("linter.failure_shape", "linter.model_shape", dep_status),
+            false,
+        )
+    };
+    checkers.push(fs_entry);
+
     // Branch B: ears_syntax — depends only on frontmatter.
     let (ears_entry, ears_ok) = if fm_ok {
         let issues = lint::ears_findings(specs);
@@ -203,16 +219,17 @@ fn run_lint_stage(specs: &[Spec], checklists: &[Checklist]) -> Stage {
     };
     checkers.push(ears_entry);
 
-    // Branch C: schema_shape — depends only on frontmatter. The
-    // engine-side rules are structural (parser + closed kind sets), so
-    // the entry names its basis; see lint::schema_shape_findings.
+    // Branch C: schema_shape — depends only on frontmatter. The engine
+    // rules are the closed kind-set table-walkers (constraint_kind_closed
+    // / property_kind_closed, specodelic-7h8) plus the structural
+    // parser/cross-revision residue; see lint::schema_shape_findings.
     let (schema_entry, schema_ok) = if fm_ok {
         let issues = lint::schema_shape_findings(specs);
         (
             serde_json::json!({
                 "checker": "linter.schema_shape",
                 "status": if issues.is_empty() { "passed" } else { "failed" },
-                "basis": "structural — row shape is enforced by the parser and the closed kind sets by guide.rs; constraint_kind_closed/property_kind_closed as table-walking lint rules are a tracked coverage gap",
+                "basis": "table-walking closed kind sets (constraint_kind_closed / property_kind_closed) plus structural parser/cross-revision residue",
                 "issues": issues_json(&issues),
             }),
             issues.is_empty(),
@@ -249,7 +266,7 @@ fn run_lint_stage(specs: &[Spec], checklists: &[Checklist]) -> Stage {
     };
     checkers.push(ec);
 
-    let passed = fm_ok && ref_ok && gs_ok && ms_ok && ears_ok && schema_ok;
+    let passed = fm_ok && ref_ok && gs_ok && ms_ok && fs_ok && ears_ok && schema_ok;
     let detail = serde_json::json!({ "checkers": checkers });
     if passed {
         passed_stage("lint", detail)
@@ -637,6 +654,52 @@ mod tests {
     }
 
     #[test]
+    fn failure_shape_checker_rides_the_lint_stage() {
+        // specodelic-hhp decision (a): the failure-shape checker joins
+        // the Checker Ownership table and the lint stage, after its
+        // natural dependency linter.model_shape.
+        let td = tempfile::tempdir().unwrap();
+        let clean = spec_from(&mc_fixture("pipe.demo"), "pipe-demo.md");
+        let o = orchestrate(
+            &[clean],
+            &[],
+            &ParseInput::default(),
+            td.path().to_str().unwrap(),
+            &model_check::Bound::default(),
+            &Backends::default(),
+        );
+        let lint = stage(&o, "lint");
+        assert_eq!(checker(lint, "linter.failure_shape")["status"], "passed");
+
+        // A mute failure terminal (no emits edge) fails the checker and
+        // the stage.
+        let td2 = tempfile::tempdir().unwrap();
+        let mute_src = mc_fixture("pipe.demo")
+            .replace(
+                "| t | s1 | s2 | [[pipe.demo.c1]] |",
+                "| t | s1 | s2 | [[pipe.demo.c1]] |\n| boom | s1 | failed | `the world ends` |",
+            )
+            .replace("- s2\n", "- s2\n- failed\n");
+        let mute = spec_from(&mute_src, "pipe-demo.md");
+        let o2 = orchestrate(
+            &[mute],
+            &[],
+            &ParseInput::default(),
+            td2.path().to_str().unwrap(),
+            &model_check::Bound::default(),
+            &Backends::default(),
+        );
+        let lint2 = stage(&o2, "lint");
+        assert_eq!(lint2.status, "failed");
+        let fs = checker(lint2, "linter.failure_shape");
+        assert_eq!(fs["status"], "failed");
+        assert!(
+            !fs["issues"].as_array().unwrap().is_empty(),
+            "the mute terminal is a finding: {fs}"
+        );
+    }
+
+    #[test]
     fn upstream_failure_skips_dependents() {
         let td = tempfile::tempdir().unwrap();
         // Wrong kind: parses, but frontmatter_valid fires.
@@ -660,6 +723,7 @@ mod tests {
             "linter.referential_integrity",
             "linter.graph_shape",
             "linter.model_shape",
+            "linter.failure_shape",
             "linter.ears_syntax",
             "linter.schema_shape",
         ] {
@@ -703,6 +767,7 @@ mod tests {
         );
         assert_eq!(checker(lint, "linter.graph_shape")["status"], "passed");
         assert_eq!(checker(lint, "linter.model_shape")["status"], "passed");
+        assert_eq!(checker(lint, "linter.failure_shape")["status"], "passed");
         assert_eq!(checker(lint, "linter.ears_syntax")["status"], "failed");
         assert_eq!(checker(lint, "linter.schema_shape")["status"], "passed");
     }
@@ -736,6 +801,7 @@ mod tests {
         );
         assert_eq!(checker(lint, "linter.graph_shape")["status"], "skipped");
         assert_eq!(checker(lint, "linter.model_shape")["status"], "skipped");
+        assert_eq!(checker(lint, "linter.failure_shape")["status"], "skipped");
         assert_eq!(checker(lint, "linter.ears_syntax")["status"], "passed");
         assert_eq!(checker(lint, "linter.schema_shape")["status"], "passed");
     }
@@ -743,7 +809,7 @@ mod tests {
     #[test]
     fn coverage_failure_holds_compile() {
         let td = tempfile::tempdir().unwrap();
-        // Constraint without a deriving property: all six gate checkers
+        // Constraint without a deriving property: all seven gate checkers
         // pass (coverage is NOT in the ownership table), the compile
         // stage halts on exactly the coverage checker's verdict.
         let cov = spec_from(
