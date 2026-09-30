@@ -76,6 +76,17 @@ fn valid_item_id(id: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
+/// Trim a cell and strip ONE layer of surrounding backticks, the same
+/// leniency the mapping-table header row gets.
+fn strip_backticks(cell: &str) -> String {
+    let cell = cell.trim();
+    cell.strip_prefix('`')
+        .and_then(|c| c.strip_suffix('`'))
+        .unwrap_or(cell)
+        .trim()
+        .to_string()
+}
+
 /// Parse one `## Items` bullet. Returns `Some(defect)` when the line is
 /// a (nested or malformed) item attempt, `None` when it isn't an item
 /// line at all (blank, prose) and should be ignored.
@@ -147,6 +158,10 @@ fn split_mapped_ids(cell: &str) -> Vec<String> {
 
 /// Parse a checklist manifest.
 pub fn parse_str(path: PathBuf, text: &str) -> Checklist {
+    // Tolerate a UTF-8 BOM (Rule-of-5 EDGE-001): otherwise the first
+    // `## ` header goes unrecognized and the failure misattributes to a
+    // misleading orphan-row finding instead of naming the BOM.
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let mut cl = Checklist {
         path,
         ..Default::default()
@@ -165,6 +180,12 @@ pub fn parse_str(path: PathBuf, text: &str) -> Checklist {
     let mut in_mapping_table = false;
     for line in text.lines() {
         let trimmed = line.trim();
+        // Deeper headers (`### Note`, `#### …`) are prose inside a
+        // section — never section switches (Rule-of-5 EDGE-003: a
+        // `### ` line inside the Mapping region must not reset parsing).
+        if trimmed.starts_with("###") {
+            continue;
+        }
         if let Some(header) = trimmed.strip_prefix("## ") {
             section = match header.trim() {
                 "Items" => {
@@ -223,8 +244,10 @@ pub fn parse_str(path: PathBuf, text: &str) -> Checklist {
                     continue;
                 }
                 cl.mapping.push(MappingRow {
-                    item: cells[0].clone(),
-                    status: cells[1].clone(),
+                    // Status/item cells tolerate surrounding backticks,
+                    // same leniency the header row already gets.
+                    item: strip_backticks(&cells[0]),
+                    status: strip_backticks(&cells[1]),
                     mapped_ids: split_mapped_ids(&cells[2]),
                     rationale: cells[3].clone(),
                 });
@@ -241,6 +264,13 @@ pub fn parse_str(path: PathBuf, text: &str) -> Checklist {
     if !saw_mapping {
         cl.defects
             .push("checklist has no `## Mapping` section".to_string());
+    }
+    // An empty manifest is not a checklist: sections seen, zero items
+    // declared — nothing can be consulted against it, so a silent pass
+    // would be a false green (Rule-of-5 EDGE-002).
+    if saw_items && cl.items.is_empty() {
+        cl.defects
+            .push("checklist declares no items — a checklist nothing can be consulted against is not a checklist".to_string());
     }
     // A mapping row claiming an undeclared item is a structural defect:
     // the manifest references machinery it never listed (checked at the
@@ -472,5 +502,61 @@ mod tests {
             "{:?}",
             cl.defects
         );
+    }
+
+    /// Rule-of-5 EDGE-001: a BOM must not blind the parser — the
+    /// manifest parses clean instead of misattributing to an orphan row.
+    #[test]
+    fn bom_is_tolerated() {
+        let cl = parse(
+            "\u{feff}## Items\n\n- **a.b**: x\n\n## Mapping\n\n\
+                        | item | status | mapped_ids | rationale |\n\
+                        |------|--------|------------|-----------|\n\
+                        | a.b | waived | | because |\n",
+        );
+        assert!(cl.defects.is_empty(), "{:?}", cl.defects);
+        assert_eq!(cl.items.len(), 1);
+        assert_eq!(cl.mapping[0].status, "waived");
+    }
+
+    /// Rule-of-5 EDGE-002: sections present but zero items declared —
+    /// a silent pass would be a false green.
+    #[test]
+    fn empty_manifest_declaring_no_items_is_a_defect() {
+        let cl = parse("## Items\n\n## Mapping\n\n");
+        assert!(
+            cl.defects.iter().any(|d| d.contains("declares no items")),
+            "{:?}",
+            cl.defects
+        );
+    }
+
+    /// Rule-of-5 EDGE-003: a `### ` line inside the Mapping region is
+    /// prose, never a section switch — rows after it still parse.
+    #[test]
+    fn deeper_header_inside_mapping_does_not_reset_parsing() {
+        let cl = parse(
+            "## Items\n\n- **a.b**: x\n\n## Mapping\n\n\
+             | item | status | mapped_ids | rationale |\n\
+             |------|--------|------------|-----------|\n\
+             ### note: statuses reviewed quarterly\n\
+             | a.b | covered | [[x.c1]] | |\n",
+        );
+        assert!(cl.defects.is_empty(), "{:?}", cl.defects);
+        assert_eq!(cl.mapping.len(), 1);
+    }
+
+    /// Rule-of-5 CLAR-002: status cells tolerate surrounding backticks,
+    /// the same leniency the header row gets.
+    #[test]
+    fn backticked_status_cells_are_accepted() {
+        let cl = parse(
+            "## Items\n\n- **a.b**: x\n\n## Mapping\n\n\
+             | item | status | mapped_ids | rationale |\n\
+             |------|--------|------------|-----------|\n\
+             | a.b | `waived` | | because |\n",
+        );
+        assert!(cl.defects.is_empty(), "{:?}", cl.defects);
+        assert_eq!(cl.mapping[0].status, "waived");
     }
 }

@@ -281,6 +281,7 @@ mod tests {
                 "statement must be an EARS pattern",
             )],
             warnings: vec![],
+            checklists_declared: 0,
         };
         let text = lint(&report);
         assert!(

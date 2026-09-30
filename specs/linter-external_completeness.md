@@ -115,7 +115,11 @@ incomplete relative to (`not_applicable`, not a vacuous pass). Mapping
 rows must reference declared items; statuses outside {covered, waived}
 leave the item unaccounted-for (`every_item_accounted`'s beat); a
 duplicated item claim is `no_duplicate_claim`'s beat, never double-
-reported as unaccounted. The degenerate-spec-file option (empty
+reported as unaccounted. A manifest that declares zero items is itself
+a `checklist_well_formed` defect — a checklist nothing can be consulted
+against is not a checklist, and a silent pass would be a false green.
+The linter tolerates a UTF-8 BOM and `### `-depth headers inside a
+section (prose, never section switches). The degenerate-spec-file option (empty
 Model/Constraints, frontmatter `id: spec`) was rejected: it would grow
 `𝒦` after all, drag the naming law and dual-format machinery onto an
 artifact that has no intent to state, for no benefit this checker needs.

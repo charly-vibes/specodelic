@@ -177,6 +177,11 @@ pub struct Report {
     /// by [`Report::failures`]. The `Issue` model carries no severity,
     /// so advisory findings must not ride the issues channel.
     pub warnings: Vec<Issue>,
+    /// How many `*.checklist.md` manifests were consulted (external
+    /// completeness). Zero means `not_applicable` — the honest count a
+    /// consumer needs to tell an empty pass from a skipped one
+    /// (Rule-of-5 EXCL-002, specodelic-b15).
+    pub checklists_declared: usize,
 }
 
 impl Report {
@@ -200,6 +205,7 @@ pub fn lint_corpus(specs: &[Spec]) -> Report {
         files_linted: specs.len(),
         issues: vec![],
         warnings: vec![],
+        checklists_declared: 0,
     };
     for spec in specs {
         lint_one(spec, &mut report);
@@ -257,6 +263,7 @@ fn resolves_row(index: &Index, target: &str) -> bool {
 /// policy layered on top, not a lifecycle fact). Findings are issues:
 /// the checker's model ends in `failed`, not a warning.
 pub fn lint_checklists(specs: &[Spec], checklists: &[Checklist], report: &mut Report) {
+    report.checklists_declared = checklists.len();
     if checklists.is_empty() {
         return; // not_applicable — nothing external to be incomplete against
     }
@@ -312,11 +319,20 @@ pub fn lint_checklists(specs: &[Spec], checklists: &[Checklist], report: &mut Re
                         }
                         for id in &row.mapped_ids {
                             if !resolves_row(&index, id) {
+                                // A bare single-segment token can never
+                                // be a row reference — teach the dotted
+                                // spelling (Rule-of-5 CLAR-003, same
+                                // pattern as the orphan-property hint).
+                                let hint = if id.contains('.') {
+                                    String::new()
+                                } else {
+                                    " — mapped ids are row references: use the dotted file_id.row_id spelling".to_string()
+                                };
                                 report.issues.push(Issue::new(
                                     "covered_maps_resolve",
                                     &file,
                                     format!(
-                                        "covered mapping row for item `{}` maps to `{id}`, which does not resolve to a constraint or property row",
+                                        "covered mapping row for item `{}` maps to `{id}`, which does not resolve to a constraint or property row{hint}",
                                         item.id
                                     ),
                                 ));

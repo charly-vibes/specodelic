@@ -3009,3 +3009,57 @@ fn checklist_file_is_never_reported_as_skipped() {
         "checklist files are intentional, never skipped-noise: {json:?}"
     );
 }
+
+#[test]
+fn lint_payload_reports_declared_checklist_count() {
+    // Honest-gate payload (Ro5 EXCL-002): the consumer can tell an
+    // empty pass from a skipped one — checklists_declared is 1 here.
+    let dir = tempfile::tempdir().unwrap();
+    write_mappable_spec(&dir.path().join("x-file.md"), "x.file");
+    std::fs::write(
+        dir.path().join("ship.checklist.md"),
+        "## Items\n\n- **a.first**: sessions expire\n\n## Mapping\n\n\
+         | item | status | mapped_ids | rationale |\n\
+         |------|--------|------------|-----------|\n\
+         | a.first | covered | [[x.file.c1]] | |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["data"]["checklists_declared"], 1, "{json:?}");
+}
+
+#[test]
+fn bare_mapped_id_gets_the_dotted_spelling_hint() {
+    // Ro5 CLAR-003: a single-segment mapped id can never be a row
+    // reference — the finding must teach the file_id.row_id spelling.
+    let dir = tempfile::tempdir().unwrap();
+    write_mappable_spec(&dir.path().join("x-file.md"), "x.file");
+    std::fs::write(
+        dir.path().join("ship.checklist.md"),
+        "## Items\n\n- **a.first**: sessions expire\n\n## Mapping\n\n\
+         | item | status | mapped_ids | rationale |\n\
+         |------|--------|------------|-----------|\n\
+         | a.first | covered | c1 | |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let msgs: Vec<&str> = json["data"]["issues"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["message"].as_str().unwrap())
+        .collect();
+    assert!(
+        msgs.iter()
+            .any(|m| m.contains("dotted file_id.row_id spelling")),
+        "{msgs:?}"
+    );
+}

@@ -1514,3 +1514,21 @@ it. `mapping_naturality` stays aspirational — the rename tool reaching
 into `mapped_ids` is deferred to its own ticket (until then a renamed id
 dangles loudly, `covered_maps_resolve` fires and names it). Corpus
 unchanged (no checklist declared: `not_applicable`), gates green.
+
+## #65 — external completeness hardening: Rule-of-5 fixes over specodelic-b15
+
+The Rule-of-5 review of the shipped change set found one CRITICAL-class
+bug and five advisory gaps; all fixed. CORR-001 (false green): the
+missing-sections guard keyed on the LAST header seen, so a manifest with
+`## Mapping` but no `## Items` — or vice versa — reported zero defects
+and linted clean; replaced with section-visibility flags + regression
+tests (TypeSafe-verified @ 0.78, deterministic binary reproduction).
+Advisories: UTF-8 BOM tolerated at manifest parse (EDGE-001); a manifest
+declaring zero items is itself a `checklist_well_formed` defect (EDGE-002
+— recorded in the decision text); `### `-depth headers inside a section
+are prose, never section switches (EDGE-003); status/item mapping cells
+tolerate surrounding backticks, matching the header row's leniency
+(CLAR-002); a bare single-segment mapped id's finding now teaches the
+dotted `file_id.row_id` spelling (CLAR-003); the lint payload carries
+`checklists_declared` so a consumer can tell an empty pass from a
+skipped one (EXCL-002). Gates green.
