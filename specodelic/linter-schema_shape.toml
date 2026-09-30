@@ -39,17 +39,17 @@ traces_to = "[[specodelic.prose_untouched]]"
 [[constraints]]
 id = "kind_check_failure"
 kind = "effect"
-expr = "`linter.schema_shape.kind_check_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.schema_shape.kind_check_failure(detail)`"
 traces_to = "[[linter.schema_shape]]"
 
 [[constraints]]
 id = "diff_failure"
 kind = "effect"
-expr = "`linter.schema_shape.diff_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.schema_shape.diff_failure(detail)`"
 traces_to = "[[linter.schema_shape]]"
 
 [[constraints]]
 id = "parser_audit_failure"
 kind = "effect"
-expr = "`linter.schema_shape.parser_audit_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.schema_shape.parser_audit_failure(detail)`"
 traces_to = "[[linter.schema_shape]]"

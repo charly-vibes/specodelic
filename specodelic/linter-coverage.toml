@@ -27,11 +27,11 @@ traces_to = "[[specodelic.coverage]]"
 [[constraints]]
 id = "count_failure"
 kind = "effect"
-expr = "`linter.coverage.count_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.coverage.count_failure(detail)`"
 traces_to = "[[linter.coverage]]"
 
 [[constraints]]
 id = "law_case_failure"
 kind = "effect"
-expr = "`linter.coverage.law_case_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.coverage.law_case_failure(detail)`"
 traces_to = "[[linter.coverage]]"

@@ -21,8 +21,8 @@ than by judging prose quality.
 | has_shall             | invariant | `statement contains an imperative "SHALL" (or "SHALL NOT")`                                                   | [[specodelic.ears_statement]]        |          |
 | no_conjoined_id       | invariant | `∀ row.id: id does not encode two capabilities joined by "and"/"or" (checked on the id token, not prose)`      | [[specodelic.one_capability_per_row]]|          |
 | no_universal_in_id    | invariant | `∀ row.id: id does not contain "all"/"every"/"any"/"always"/"never" as a token`                                | [[specodelic.one_capability_per_row]]|          |
-| pattern_failure | effect | `linter.ears_syntax.pattern_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.ears_syntax]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| id_check_failure | effect | `linter.ears_syntax.id_check_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.ears_syntax]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| pattern_failure | effect | `linter.ears_syntax.pattern_failure(detail)` | [[linter.ears_syntax]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| id_check_failure | effect | `linter.ears_syntax.id_check_failure(detail)` | [[linter.ears_syntax]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 

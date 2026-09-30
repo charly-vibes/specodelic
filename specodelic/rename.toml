@@ -39,17 +39,17 @@ traces_to = "[[rename]]"
 [[constraints]]
 id = "validation_failure"
 kind = "effect"
-expr = "`rename.validation_failure(new_id, reason) — the label names its owning file per error_expr_shape`"
+expr = "`rename.validation_failure(new_id, reason)`"
 traces_to = "[[rename]]"
 
 [[constraints]]
 id = "apply_failure"
 kind = "effect"
-expr = "`rename.apply_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`rename.apply_failure(detail)`"
 traces_to = "[[rename]]"
 
 [[constraints]]
 id = "post_check_failure"
 kind = "effect"
-expr = "`rename.post_check_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`rename.post_check_failure(detail)`"
 traces_to = "[[rename]]"

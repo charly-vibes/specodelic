@@ -36,9 +36,9 @@ before adding anything new.
 | rename_replayed_onto_foreign_edits        | invariant | `if branch A contains a [[rename]] application of (old_id, new_id) and branch B independently adds a new [[old_id]] reference within blast_radius_A, the merge rewrites that reference to [[new_id]] using rename.md's own rewrite mechanism — it is never left dangling and never silently dropped` | [[merge]] |          |
 | post_merge_relint_required                | invariant | `merge is not reported passed until [[linter.referential_integrity]] and [[linter.graph_shape]] are re-run against the merged tree and both report passed` | [[merge]] |          |
 | sequential_number_reassigned_on_conflict  | invariant | `if both branches independently claim the same next sequential number (a CHANGELOG entry or Revision heading), the merge tool renumbers one of the two rather than allowing a silent duplicate` | [[merge]] |          |
-| collision_failure | effect | `merge.collision_failure(detail) — the label names its owning file per error_expr_shape` | [[merge]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| reverification_failure | effect | `merge.reverification_failure(detail) — the label names its owning file per error_expr_shape` | [[merge]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| merge_aborted | effect | `merge.merge_aborted(detail) — the label names its owning file per error_expr_shape` | [[merge]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| collision_failure | effect | `merge.collision_failure(detail)` | [[merge]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| reverification_failure | effect | `merge.reverification_failure(detail)` | [[merge]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| merge_aborted | effect | `merge.merge_aborted(detail)` | [[merge]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 

@@ -33,6 +33,6 @@ Next ==
 \* One entry per state with an `emits` field — domain is exactly
 \* the emitting states; each value is the effect-Constraint's expr.
 Output ==
-"failed" :> "`graph.extraction_failure(detail) — the label names its owning file per error_expr_shape`"
+"failed" :> "`graph.extraction_failure(detail)`"
 
 ============================================================================

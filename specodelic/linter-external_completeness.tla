@@ -35,8 +35,8 @@ Next ==
 \* One entry per state with an `emits` field — domain is exactly
 \* the emitting states; each value is the effect-Constraint's expr.
 Output ==
-"load_failed" :> "`linter.external_completeness.manifest_failure(detail) — the label names its owning file per error_expr_shape`" @@
-"mapping_failed" :> "`linter.external_completeness.mapping_failure(detail) — the label names its owning file per error_expr_shape`" @@
-"resolution_failed" :> "`linter.external_completeness.resolution_failure(detail) — the label names its owning file per error_expr_shape`"
+"load_failed" :> "`linter.external_completeness.manifest_failure(detail)`" @@
+"mapping_failed" :> "`linter.external_completeness.mapping_failure(detail)`" @@
+"resolution_failed" :> "`linter.external_completeness.resolution_failure(detail)`"
 
 ============================================================================

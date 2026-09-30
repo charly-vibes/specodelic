@@ -27,8 +27,8 @@ checkable fact instead of an unstated assumption.
 | transition_row_shape    | invariant | `a Transition row is one row of the Model/Transitions table; its fields are exactly {id, from, to, guard}, with no kind column of its own`              | [[kinds]] |          |
 | property_row_shape      | invariant | `a Property row is one row of the Properties table; its fields are exactly {id, kind, derives_from, generator, predicate}, with kind ∈ {unit, law}`     | [[kinds]] |          |
 | kind_field_extensible   | invariant | `a Constraint or Property row's own kind value-set is one instance of [[specodelic.append_only_variants]] — it grows only under a new Revision heading in this file, never silently` | [[kinds]] |          |
-| kind_assignment_failure | effect | `kinds.kind_assignment_failure(detail) — the label names its owning file per error_expr_shape` | [[kinds]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| shape_check_failure | effect | `kinds.shape_check_failure(detail) — the label names its owning file per error_expr_shape` | [[kinds]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| kind_assignment_failure | effect | `kinds.kind_assignment_failure(detail)` | [[kinds]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| shape_check_failure | effect | `kinds.shape_check_failure(detail)` | [[kinds]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 

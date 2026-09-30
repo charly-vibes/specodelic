@@ -27,11 +27,11 @@ traces_to = "[[specodelic.one_capability_per_row]]"
 [[constraints]]
 id = "pattern_failure"
 kind = "effect"
-expr = "`linter.ears_syntax.pattern_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.ears_syntax.pattern_failure(detail)`"
 traces_to = "[[linter.ears_syntax]]"
 
 [[constraints]]
 id = "id_check_failure"
 kind = "effect"
-expr = "`linter.ears_syntax.id_check_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.ears_syntax.id_check_failure(detail)`"
 traces_to = "[[linter.ears_syntax]]"

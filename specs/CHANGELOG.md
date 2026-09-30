@@ -1747,3 +1747,26 @@ maintainer). STATUS §1 inventory gains `errors.md` +
 regenerated (21 files). Fixture hardening en route: the RED fixture's
 terminal/sibling heuristics now key on the STATE segment of the node id
 — `linter.failure_shape`'s own file id contains "failure".
+
+## #69 — Rule-of-5 fixes over the error contract: the guard rule's scope and the label shape
+
+TypeSafe-verified Ro5 pass (jev-1.13.0, 3/3 HIGH findings verified
+@ 0.92/0.87/0.96) over the add-error-contract change set; all fixes
+applied. CORR-001 (HIGH): `guard_negation_typed`'s "zero **intra-file**
+constraints" scope made `rename.md`'s typed `reject` (cross-file
+citations) malformed as written, and the singular "the success
+transition it negates" didn't cover `linter-schema_shape.md`'s negated
+disjunction — the rule now counts all cited ids and states the
+union-of-branches reading (errors.md row + delta rows + both mirrored
+Requirement sections; design D2 carries a post-review correction note).
+CORR-002 (HIGH): all 31 error Constraint exprs carried a prose suffix
+after the variant head, literally violating `error_expr_shape`'s
+"expr IS `<file-id>.<variant_head>(field, …)`" — suffixes stripped;
+exprs are now exactly the label shape. CORR-003 (HIGH): the delta's
+tier-1 list claimed "graph citation-set comparison" is enforced today —
+no such checker exists (it is ct5's future derivation); corrected to
+`coverage`, matching `errors.md`. CORR-004 (MEDIUM, unverified):
+"failure terminal" now has an operational definition (terminal state;
+failure = `*fail*`-named state segment) in `linter-failure_shape.md`.
+CLAR-003: STATUS errors.md row cites #66–#68. Gates: just ci, lint-specs
+21/0, sync-sections, openspec strict; artifacts regenerated.

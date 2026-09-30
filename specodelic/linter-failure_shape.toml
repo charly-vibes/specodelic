@@ -21,5 +21,5 @@ traces_to = "[[linter.failure_shape]]"
 [[constraints]]
 id = "check_failure"
 kind = "effect"
-expr = "`linter.failure_shape.check_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.failure_shape.check_failure(detail)`"
 traces_to = "[[linter.failure_shape]]"

@@ -18,8 +18,8 @@ id→row index this check relies on.
 | unique_across_repo   | invariant | `∀ repo: no two files declare the same fully-qualified id`                                | [[specodelic.unique_id]]           |          |
 | ref_resolves         | invariant | `∀ [[ref]] in file: qualify(ref) ∈ index(repo)`                                            | [[specodelic.total_refs]]          |          |
 | ref_kind_compatible  | invariant | `∀ [[ref]] in any reference field defined by specodelic.md's Reference Typing table: target row's kind ∈ allowed_targets(field)` — read from that table, not hardcoded per field name, so a Revision adding a field (`supersedes`, `emits`, ...) needs no change here | [[specodelic.total_refs]]          |          |
-| index_failure | effect | `linter.referential_integrity.index_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.referential_integrity]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| resolution_failure | effect | `linter.referential_integrity.resolution_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.referential_integrity]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| index_failure | effect | `linter.referential_integrity.index_failure(detail)` | [[linter.referential_integrity]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| resolution_failure | effect | `linter.referential_integrity.resolution_failure(detail)` | [[linter.referential_integrity]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 

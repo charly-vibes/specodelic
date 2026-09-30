@@ -21,7 +21,7 @@ traces_to = "[[errors]]"
 [[constraints]]
 id = "guard_negation_typed"
 kind = "invariant"
-expr = "`a failure transition whose guard cites ≥1 intra-file [[id]] must cite exactly the citation set of the success transition it negates; a failure transition citing zero intra-file constraints is either on the recorded carve-out list (orchestrate.md's stage pipeline, per its own Notes) or malformed — the carve-out is a checked list in linter-failure_shape.md, never a silent assumption`"
+expr = "`a failure transition whose guard cites ≥1 [[id]] must cite exactly the citation set of the success transition(s) it negates — a negated disjunction cites the union of its branches' citation sets; a failure transition citing no ids at all is either on the recorded carve-out list (orchestrate.md's stage pipeline, per its own Notes) or malformed — the carve-out is a checked list in linter-failure_shape.md, never a silent assumption`"
 traces_to = "[[errors]]"
 
 [[constraints]]

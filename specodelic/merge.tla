@@ -41,8 +41,8 @@ Next ==
 \* One entry per state with an `emits` field — domain is exactly
 \* the emitting states; each value is the effect-Constraint's expr.
 Output ==
-"collision_failed" :> "`merge.collision_failure(detail) — the label names its owning file per error_expr_shape`" @@
-"merge_failed" :> "`merge.merge_aborted(detail) — the label names its owning file per error_expr_shape`" @@
-"reverification_failed" :> "`merge.reverification_failure(detail) — the label names its owning file per error_expr_shape`"
+"collision_failed" :> "`merge.collision_failure(detail)`" @@
+"merge_failed" :> "`merge.merge_aborted(detail)`" @@
+"reverification_failed" :> "`merge.reverification_failure(detail)`"
 
 ============================================================================

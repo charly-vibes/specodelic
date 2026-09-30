@@ -31,7 +31,7 @@ pipeline.
 | error_expr_shape         | invariant | `every error Constraint's expr is a file-id-namespaced variant head: <owning-file-id>.<variant_head>(field, …) — the label names its owning file, so label uniqueness is a per-file property and cross-file collisions are structurally impossible` (pattern-checking the structured expr field follows the ears_statement precedent — expr is not rationale; prose_untouched is untouched) | [[spec]]  |
 | failure_state_emits      | invariant | `every failure terminal state in a tool file's Model carries an emits edge to an effect Constraint owned by that file, whose expr satisfies error_expr_shape — a failure state emits nothing is a malformed model` (phase-2 terminals timed_out / exploration_only are excluded in v1) | [[spec]]  |
 | failure_class_is_state   | invariant | `a state with ≥2 inbound failure transitions whose guard citation sets differ is malformed — each distinct failure class is its own failure state; decidable from the graph alone (compile.md's two-class prose argument is the rationale, never the check — prose is not read)` | [[spec]]  |
-| guard_negation_typed     | invariant | `a failure transition whose guard cites ≥1 intra-file [[id]] must cite exactly the citation set of the success transition it negates; a failure transition citing zero intra-file constraints is either on the recorded carve-out list (orchestrate.md's stage pipeline, per its own Notes) or malformed — the carve-out is a checked list in linter-failure_shape.md, never a silent assumption` | [[spec]]  |
+| guard_negation_typed     | invariant | `a failure transition whose guard cites ≥1 [[id]] must cite exactly the citation set of the success transition(s) it negates — a negated disjunction cites the union of its branches' citation sets; a failure transition citing no ids at all is either on the recorded carve-out list (orchestrate.md's stage pipeline, per its own Notes) or malformed — the carve-out is a checked list in linter-failure_shape.md, never a silent assumption` | [[spec]]  |
 | single_labeled_failure   | invariant | `a failing tool stage reports exactly one labeled error naming the failing stage and class — never a silent partial result and never an unlabeled failure` (restates compile_is_total at contract altitude)             | [[spec]]  |
 | envelope_error_kind      | invariant | `a failing stage's report is an error-kind envelope with ok == false — the ok:false ↔ "error" correspondence is the published contract row, not CHANGELOG lore`                                                     | [[spec]]  |
 | exit_code_mapping        | invariant | `the output contract maps outcomes to exit codes: 0 for a clean run, 1 for findings-or-failure, 2 for invocation error — the mapping is part of the published contract, not per-tool convention`                      | [[spec]]  |
@@ -100,10 +100,10 @@ The system SHALL require every failure terminal state in a tool file's Model to 
 - **THEN** each state emits its own labeled error Constraint and `every_state_used` passes
 
 ### Requirement: Typed failure guards
-The system SHALL require a failure transition whose guard cites ≥1 intra-file constraint to cite exactly the citation set of the success transition it negates, and SHALL require failure transitions citing zero intra-file constraints to be on a recorded carve-out list.
+The system SHALL require a failure transition whose guard cites ≥1 [[id]] to cite exactly the citation set of the success transition(s) it negates — a negated disjunction cites the union of its branches' sets — and SHALL require failure transitions citing no ids at all to be on a recorded carve-out list.
 
 #### Scenario: Citation-set mismatch rejected
-- **WHEN** a failure transition's guard cites an intra-file citation set different from the success transition it negates — or cites nothing while absent from the carve-out list
+- **WHEN** a failure transition's guard cites a citation set different from the success transition(s) it negates — or cites nothing at all while absent from the carve-out list
 - **THEN** the tier-2 check fails the file, since the citation sets are graph-decidable and the carve-out is a checked list
 
 #### Scenario: Carve-out file passes
@@ -150,10 +150,10 @@ The system SHALL require every failure terminal state in a tool file's Model to 
 - **THEN** each state emits its own labeled error Constraint and `every_state_used` passes
 
 ### Requirement: Typed failure guards
-The system SHALL require a failure transition whose guard cites ≥1 intra-file constraint to cite exactly the citation set of the success transition it negates, and SHALL require failure transitions citing zero intra-file constraints to be on a recorded carve-out list.
+The system SHALL require a failure transition whose guard cites ≥1 [[id]] to cite exactly the citation set of the success transition(s) it negates — a negated disjunction cites the union of its branches' sets — and SHALL require failure transitions citing no ids at all to be on a recorded carve-out list.
 
 #### Scenario: Citation-set mismatch rejected
-- **WHEN** a failure transition's guard cites an intra-file citation set different from the success transition it negates — or cites nothing while absent from the carve-out list
+- **WHEN** a failure transition's guard cites a citation set different from the success transition(s) it negates — or cites nothing at all while absent from the carve-out list
 - **THEN** the tier-2 check fails the file, since the citation sets are graph-decidable and the carve-out is a checked list
 
 #### Scenario: Carve-out file passes

@@ -39,8 +39,8 @@ Next ==
 \* One entry per state with an `emits` field — domain is exactly
 \* the emitting states; each value is the effect-Constraint's expr.
 Output ==
-"diff_failed" :> "`linter.schema_shape.diff_failure(detail) — the label names its owning file per error_expr_shape`" @@
-"kind_failed" :> "`linter.schema_shape.kind_check_failure(detail) — the label names its owning file per error_expr_shape`" @@
-"parser_audit_failed" :> "`linter.schema_shape.parser_audit_failure(detail) — the label names its owning file per error_expr_shape`"
+"diff_failed" :> "`linter.schema_shape.diff_failure(detail)`" @@
+"kind_failed" :> "`linter.schema_shape.kind_check_failure(detail)`" @@
+"parser_audit_failed" :> "`linter.schema_shape.parser_audit_failure(detail)`"
 
 ============================================================================

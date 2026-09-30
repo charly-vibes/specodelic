@@ -35,7 +35,7 @@ constraint.
 | blast_radius_is_transitive_closure | invariant | `blast_radius(id) == the forward and backward transitive closure of edges reachable from id, computed entirely within the derived artifact — never by re-walking source files` | [[graph]] |          |
 | stale_graph_detected               | invariant | `∃ file whose on-disk content hash differs from the hash recorded at the artifact's last extraction ⟹ the artifact reports itself stale rather than silently serving an outdated query result` | [[graph]] |          |
 | external_boundary_derived          | invariant | `a file is classified as an external boundary iff it hosts ≥1 extension_point Constraint — the classification is a pure derivation over extracted structure, never an authored tag: removing the rows removes the classification, so a stale boundary tag cannot exist` | [[graph]] |          |
-| extraction_failure | effect | `graph.extraction_failure(detail) — the label names its owning file per error_expr_shape` | [[graph]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| extraction_failure | effect | `graph.extraction_failure(detail)` | [[graph]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 

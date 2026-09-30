@@ -41,9 +41,9 @@ Next ==
 \* One entry per state with an `emits` field — domain is exactly
 \* the emitting states; each value is the effect-Constraint's expr.
 Output ==
-"compile_failed" :> "`orchestrate.compile_stage_failure(stage, detail) — the label names its owning file per error_expr_shape`" @@
-"lint_failed" :> "`orchestrate.lint_stage_failure(stage, detail) — the label names its owning file per error_expr_shape`" @@
-"model_check_failed" :> "`orchestrate.model_check_stage_failure(stage, detail) — the label names its owning file per error_expr_shape`" @@
-"verify_failed" :> "`orchestrate.verify_stage_failure(stage, detail) — the label names its owning file per error_expr_shape`"
+"compile_failed" :> "`orchestrate.compile_stage_failure(stage, detail)`" @@
+"lint_failed" :> "`orchestrate.lint_stage_failure(stage, detail)`" @@
+"model_check_failed" :> "`orchestrate.model_check_stage_failure(stage, detail)`" @@
+"verify_failed" :> "`orchestrate.verify_stage_failure(stage, detail)`"
 
 ============================================================================

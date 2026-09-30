@@ -33,7 +33,7 @@ Next ==
 \* One entry per state with an `emits` field — domain is exactly
 \* the emitting states; each value is the effect-Constraint's expr.
 Output ==
-"id_check_failed" :> "`linter.ears_syntax.id_check_failure(detail) — the label names its owning file per error_expr_shape`" @@
-"pattern_failed" :> "`linter.ears_syntax.pattern_failure(detail) — the label names its owning file per error_expr_shape`"
+"id_check_failed" :> "`linter.ears_syntax.id_check_failure(detail)`" @@
+"pattern_failed" :> "`linter.ears_syntax.pattern_failure(detail)`"
 
 ============================================================================

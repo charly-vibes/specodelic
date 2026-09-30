@@ -33,7 +33,7 @@ Next ==
 \* One entry per state with an `emits` field — domain is exactly
 \* the emitting states; each value is the effect-Constraint's expr.
 Output ==
-"field_check_failed" :> "`linter.model_shape.field_check_failure(detail) — the label names its owning file per error_expr_shape`" @@
-"pairing_failed" :> "`linter.model_shape.pairing_failure(detail) — the label names its owning file per error_expr_shape`"
+"field_check_failed" :> "`linter.model_shape.field_check_failure(detail)`" @@
+"pairing_failed" :> "`linter.model_shape.pairing_failure(detail)`"
 
 ============================================================================

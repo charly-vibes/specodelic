@@ -19,7 +19,7 @@ DAG" check, applied to specs instead of code modules.
 | single_root_reachable | invariant | `∀ constraint/property/state/transition row: reachable(row, some intent row)`             | [[specodelic.acyclic_traces]] |          |
 | no_self_ref           | invariant | `∀ row: row.traces_to != row.id and row.derives_from != row.id`                           | [[specodelic.acyclic_traces]] |          |
 | supersedes_dag        | invariant | `the directed graph formed by supersedes edges alone (Constraint→Constraint, Property→Property) has no cycle` | [[specodelic.supersedes_acyclic]] |          |
-| check_failure | effect | `linter.graph_shape.check_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.graph_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| check_failure | effect | `linter.graph_shape.check_failure(detail)` | [[linter.graph_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 

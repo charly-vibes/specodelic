@@ -30,10 +30,10 @@ already owns it.
 | stage_order_fixed                     | invariant | `compile is never invoked before every file's lint stage reports passed; model_check is never invoked before compile reports compiled; verify is never invoked before model_check reports model_checked` | [[orchestrate]] |          |
 | external_completeness_never_gates     | invariant | `linter.external_completeness runs only if the repo declares a checklist, and its outcome (passed/failed/not_applicable) never blocks or delays lint, compile, model_check, or verify` | [[orchestrate]] |          |
 | deterministic_rerun                   | invariant | `running the orchestrator twice against an unchanged repo produces byte-identical reports` | [[orchestrate]] |          |
-| lint_stage_failure | effect | `orchestrate.lint_stage_failure(stage, detail) — the label names its owning file per error_expr_shape` | [[orchestrate]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| compile_stage_failure | effect | `orchestrate.compile_stage_failure(stage, detail) — the label names its owning file per error_expr_shape` | [[orchestrate]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| model_check_stage_failure | effect | `orchestrate.model_check_stage_failure(stage, detail) — the label names its owning file per error_expr_shape` | [[orchestrate]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| verify_stage_failure | effect | `orchestrate.verify_stage_failure(stage, detail) — the label names its owning file per error_expr_shape` | [[orchestrate]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| lint_stage_failure | effect | `orchestrate.lint_stage_failure(stage, detail)` | [[orchestrate]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| compile_stage_failure | effect | `orchestrate.compile_stage_failure(stage, detail)` | [[orchestrate]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| model_check_stage_failure | effect | `orchestrate.model_check_stage_failure(stage, detail)` | [[orchestrate]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| verify_stage_failure | effect | `orchestrate.verify_stage_failure(stage, detail)` | [[orchestrate]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 

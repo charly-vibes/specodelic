@@ -18,7 +18,7 @@ for later checks to key off of.
 | has_kind         | invariant | `frontmatter.kind == "intent"`                                       | [[specodelic.frontmatter_valid]] |          |
 | has_statement    | invariant | `frontmatter.statement != null and len(statement) > 0`               | [[specodelic.frontmatter_valid]] |          |
 | id_matches_file  | invariant | `frontmatter.id == expected_id_from_filename(path)`                  | [[specodelic.frontmatter_valid]] |          |
-| check_failure | effect | `linter.frontmatter.check_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.frontmatter]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| check_failure | effect | `linter.frontmatter.check_failure(detail)` | [[linter.frontmatter]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 

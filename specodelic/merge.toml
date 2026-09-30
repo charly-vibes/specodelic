@@ -45,17 +45,17 @@ traces_to = "[[merge]]"
 [[constraints]]
 id = "collision_failure"
 kind = "effect"
-expr = "`merge.collision_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`merge.collision_failure(detail)`"
 traces_to = "[[merge]]"
 
 [[constraints]]
 id = "reverification_failure"
 kind = "effect"
-expr = "`merge.reverification_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`merge.reverification_failure(detail)`"
 traces_to = "[[merge]]"
 
 [[constraints]]
 id = "merge_aborted"
 kind = "effect"
-expr = "`merge.merge_aborted(detail) — the label names its owning file per error_expr_shape`"
+expr = "`merge.merge_aborted(detail)`"
 traces_to = "[[merge]]"

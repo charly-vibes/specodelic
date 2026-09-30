@@ -31,9 +31,9 @@ rather than merely being checked against it after the fact.
 | atomic_operation           | invariant | `the definition-row update, every reference rewrite, and any required filename change apply as one transaction: all succeed, or the repo is left byte-identical to its pre-rename state` | [[rename]] |          |
 | kind_unchanged             | invariant | `assigned_kind(row) is the same before and after rename — both 𝒦's five-object kind and, where present, the row's own kind/sub-kind column` — see [[kinds.kind_shape_naturality]] | [[rename]] |          |
 | prose_untouched_by_rename  | invariant | `rename rewrites only [[id]] wiki-link syntax and structured id fields (frontmatter id, table id/traces_to/derives_from/guard/from/to cells) — it never edits rationale/description prose, even if the prose happens to mention the old name in words` | [[rename]] |          |
-| validation_failure | effect | `rename.validation_failure(new_id, reason) — the label names its owning file per error_expr_shape` | [[rename]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| apply_failure | effect | `rename.apply_failure(detail) — the label names its owning file per error_expr_shape` | [[rename]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| post_check_failure | effect | `rename.post_check_failure(detail) — the label names its owning file per error_expr_shape` | [[rename]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| validation_failure | effect | `rename.validation_failure(new_id, reason)` | [[rename]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| apply_failure | effect | `rename.apply_failure(detail)` | [[rename]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| post_check_failure | effect | `rename.post_check_failure(detail)` | [[rename]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 

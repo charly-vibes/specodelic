@@ -33,7 +33,7 @@ Next ==
 \* One entry per state with an `emits` field — domain is exactly
 \* the emitting states; each value is the effect-Constraint's expr.
 Output ==
-"kind_failed" :> "`kinds.kind_assignment_failure(detail) — the label names its owning file per error_expr_shape`" @@
-"shape_failed" :> "`kinds.shape_check_failure(detail) — the label names its owning file per error_expr_shape`"
+"kind_failed" :> "`kinds.kind_assignment_failure(detail)`" @@
+"shape_failed" :> "`kinds.shape_check_failure(detail)`"
 
 ============================================================================

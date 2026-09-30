@@ -33,17 +33,17 @@ traces_to = "[[linter.external_completeness]]"
 [[constraints]]
 id = "manifest_failure"
 kind = "effect"
-expr = "`linter.external_completeness.manifest_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.external_completeness.manifest_failure(detail)`"
 traces_to = "[[linter.external_completeness]]"
 
 [[constraints]]
 id = "mapping_failure"
 kind = "effect"
-expr = "`linter.external_completeness.mapping_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.external_completeness.mapping_failure(detail)`"
 traces_to = "[[linter.external_completeness]]"
 
 [[constraints]]
 id = "resolution_failure"
 kind = "effect"
-expr = "`linter.external_completeness.resolution_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.external_completeness.resolution_failure(detail)`"
 traces_to = "[[linter.external_completeness]]"

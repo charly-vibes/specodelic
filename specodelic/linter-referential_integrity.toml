@@ -27,11 +27,11 @@ traces_to = "[[specodelic.total_refs]]"
 [[constraints]]
 id = "index_failure"
 kind = "effect"
-expr = "`linter.referential_integrity.index_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.referential_integrity.index_failure(detail)`"
 traces_to = "[[linter.referential_integrity]]"
 
 [[constraints]]
 id = "resolution_failure"
 kind = "effect"
-expr = "`linter.referential_integrity.resolution_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.referential_integrity.resolution_failure(detail)`"
 traces_to = "[[linter.referential_integrity]]"

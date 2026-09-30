@@ -45,11 +45,11 @@ traces_to = "[[kinds]]"
 [[constraints]]
 id = "kind_assignment_failure"
 kind = "effect"
-expr = "`kinds.kind_assignment_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`kinds.kind_assignment_failure(detail)`"
 traces_to = "[[kinds]]"
 
 [[constraints]]
 id = "shape_check_failure"
 kind = "effect"
-expr = "`kinds.shape_check_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`kinds.shape_check_failure(detail)`"
 traces_to = "[[kinds]]"

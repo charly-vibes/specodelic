@@ -39,8 +39,8 @@ Next ==
 \* One entry per state with an `emits` field — domain is exactly
 \* the emitting states; each value is the effect-Constraint's expr.
 Output ==
-"apply_failed" :> "`rename.apply_failure(detail) — the label names its owning file per error_expr_shape`" @@
-"check_failed" :> "`rename.post_check_failure(detail) — the label names its owning file per error_expr_shape`" @@
-"validate_failed" :> "`rename.validation_failure(new_id, reason) — the label names its owning file per error_expr_shape`"
+"apply_failed" :> "`rename.apply_failure(detail)`" @@
+"check_failed" :> "`rename.post_check_failure(detail)`" @@
+"validate_failed" :> "`rename.validation_failure(new_id, reason)`"
 
 ============================================================================

@@ -34,9 +34,9 @@ about any single file's current shape.
 | property_kind_closed      | invariant | `∀ Property row: row.kind ∈ {unit, law}` — see [[kinds.property_row_shape]]                        | [[specodelic.property_kind_closed]]   |          |
 | no_prose_field_parsed     | invariant | `the parser's AST never branches on the text content of a rationale/description field`            | [[specodelic.prose_untouched]]        |          |
 | prose_field_passthrough   | invariant | `rationale/description content is stored verbatim and emitted verbatim in the compiled TOML`      | [[specodelic.prose_untouched]]        |          |
-| kind_check_failure | effect | `linter.schema_shape.kind_check_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.schema_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| diff_failure | effect | `linter.schema_shape.diff_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.schema_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| parser_audit_failure | effect | `linter.schema_shape.parser_audit_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.schema_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| kind_check_failure | effect | `linter.schema_shape.kind_check_failure(detail)` | [[linter.schema_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| diff_failure | effect | `linter.schema_shape.diff_failure(detail)` | [[linter.schema_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| parser_audit_failure | effect | `linter.schema_shape.parser_audit_failure(detail)` | [[linter.schema_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 

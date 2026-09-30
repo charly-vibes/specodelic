@@ -30,8 +30,8 @@ separate passes.
 | every_law_has_cases       | invariant | `∀ property p where p.kind == "law": p has an associativity case and an identity case`         | [[specodelic.law_requires_cases]] |          |
 | no_orphan_property        | invariant | `∀ property p: p.derives_from resolves to a real constraint` (restates total_refs, scoped to this edge) | [[specodelic.coverage]]         |          |
 | coverage_is_computable    | invariant | `the derives_from multiplicity per constraint is countable in finite time from the parsed AST alone` | [[specodelic.coverage]]         |          |
-| count_failure | effect | `linter.coverage.count_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.coverage]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| law_case_failure | effect | `linter.coverage.law_case_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.coverage]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| count_failure | effect | `linter.coverage.count_failure(detail)` | [[linter.coverage]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| law_case_failure | effect | `linter.coverage.law_case_failure(detail)` | [[linter.coverage]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 

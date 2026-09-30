@@ -33,11 +33,11 @@ traces_to = "[[specodelic.no_boolean_columns]]"
 [[constraints]]
 id = "pairing_failure"
 kind = "effect"
-expr = "`linter.model_shape.pairing_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.model_shape.pairing_failure(detail)`"
 traces_to = "[[linter.model_shape]]"
 
 [[constraints]]
 id = "field_check_failure"
 kind = "effect"
-expr = "`linter.model_shape.field_check_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`linter.model_shape.field_check_failure(detail)`"
 traces_to = "[[linter.model_shape]]"

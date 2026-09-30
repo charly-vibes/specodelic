@@ -45,23 +45,23 @@ traces_to = "[[orchestrate]]"
 [[constraints]]
 id = "lint_stage_failure"
 kind = "effect"
-expr = "`orchestrate.lint_stage_failure(stage, detail) — the label names its owning file per error_expr_shape`"
+expr = "`orchestrate.lint_stage_failure(stage, detail)`"
 traces_to = "[[orchestrate]]"
 
 [[constraints]]
 id = "compile_stage_failure"
 kind = "effect"
-expr = "`orchestrate.compile_stage_failure(stage, detail) — the label names its owning file per error_expr_shape`"
+expr = "`orchestrate.compile_stage_failure(stage, detail)`"
 traces_to = "[[orchestrate]]"
 
 [[constraints]]
 id = "model_check_stage_failure"
 kind = "effect"
-expr = "`orchestrate.model_check_stage_failure(stage, detail) — the label names its owning file per error_expr_shape`"
+expr = "`orchestrate.model_check_stage_failure(stage, detail)`"
 traces_to = "[[orchestrate]]"
 
 [[constraints]]
 id = "verify_stage_failure"
 kind = "effect"
-expr = "`orchestrate.verify_stage_failure(stage, detail) — the label names its owning file per error_expr_shape`"
+expr = "`orchestrate.verify_stage_failure(stage, detail)`"
 traces_to = "[[orchestrate]]"

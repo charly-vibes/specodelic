@@ -39,5 +39,5 @@ traces_to = "[[verify]]"
 [[constraints]]
 id = "verification_failure"
 kind = "effect"
-expr = "`verify.verification_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`verify.verification_failure(detail)`"
 traces_to = "[[verify]]"

@@ -51,7 +51,14 @@ that no *failure* state emits; `compile.md:60`'s predicate accepts
   CORR-003:** the rule is graph-checkable, not prose-checkable — a failure
   transition citing ≥1 intra-file `[[id]]` must cite exactly the success
   transition's citation set, and a failure transition citing zero is
-  either on the carve-out list or malformed. `orchestrate.md` is on that
+  either on the carve-out list or malformed.
+  **Post-review correction (Ro5, 2026-09-30):** "intra-file" was the
+  wrong scope — `rename.md`'s `reject` negates cross-file checker rows,
+  and `linter-schema_shape.md`'s `diff_fail` negates a disjunction. The
+  shipped rule counts all cited ids (failure guards cite the union of
+  their success siblings' citation sets; "cites nothing at all" is the
+  carve-out class) — see `errors.md`'s `guard_negation_typed` as
+  shipped. `orchestrate.md` is on that
   list (its Notes, `orchestrate.md:96-98`, deliberately decline to restate
   upstream files' logic as guard-citable rows; retyping them would
   reintroduce the duplication the file argues against). Stated in

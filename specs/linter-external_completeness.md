@@ -35,9 +35,9 @@ see Notes for what it does gate instead.
 | covered_maps_resolve       | invariant | `∀ mapping row m where m.status == "covered": m.mapped_ids is non-empty, and every id in it resolves to a real constraint or property row` | [[linter.external_completeness]] |          |
 | waiver_has_rationale       | invariant | `∀ mapping row m where m.status == "waived": m.rationale is non-empty prose`                                                                | [[linter.external_completeness]] |          |
 | no_duplicate_claim         | invariant | `∀ checklist item c: no two mapping rows both target c.id`                                                                                  | [[linter.external_completeness]] |          |
-| manifest_failure | effect | `linter.external_completeness.manifest_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.external_completeness]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| mapping_failure | effect | `linter.external_completeness.mapping_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.external_completeness]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| resolution_failure | effect | `linter.external_completeness.resolution_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.external_completeness]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| manifest_failure | effect | `linter.external_completeness.manifest_failure(detail)` | [[linter.external_completeness]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| mapping_failure | effect | `linter.external_completeness.mapping_failure(detail)` | [[linter.external_completeness]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| resolution_failure | effect | `linter.external_completeness.resolution_failure(detail)` | [[linter.external_completeness]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 

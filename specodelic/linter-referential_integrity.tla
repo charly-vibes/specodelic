@@ -35,7 +35,7 @@ Next ==
 \* One entry per state with an `emits` field — domain is exactly
 \* the emitting states; each value is the effect-Constraint's expr.
 Output ==
-"index_failed" :> "`linter.referential_integrity.index_failure(detail) — the label names its owning file per error_expr_shape`" @@
-"resolution_failed" :> "`linter.referential_integrity.resolution_failure(detail) — the label names its owning file per error_expr_shape`"
+"index_failed" :> "`linter.referential_integrity.index_failure(detail)`" @@
+"resolution_failed" :> "`linter.referential_integrity.resolution_failure(detail)`"
 
 ============================================================================

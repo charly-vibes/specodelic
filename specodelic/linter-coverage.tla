@@ -33,7 +33,7 @@ Next ==
 \* One entry per state with an `emits` field — domain is exactly
 \* the emitting states; each value is the effect-Constraint's expr.
 Output ==
-"count_failed" :> "`linter.coverage.count_failure(detail) — the label names its owning file per error_expr_shape`" @@
-"law_check_failed" :> "`linter.coverage.law_case_failure(detail) — the label names its owning file per error_expr_shape`"
+"count_failed" :> "`linter.coverage.count_failure(detail)`" @@
+"law_check_failed" :> "`linter.coverage.law_case_failure(detail)`"
 
 ============================================================================

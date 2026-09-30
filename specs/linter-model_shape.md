@@ -21,8 +21,8 @@ and "ad-hoc state machine" signals, made structural rather than advisory.
 | every_state_used       | invariant | `∀ state: state appears as from or to in ≥ 1 transition`                                        | [[specodelic.model_present]]     |          |
 | every_transition_valid | invariant | `∀ transition: from ∈ states and to ∈ states`                                                   | [[specodelic.model_present]]     |          |
 | no_bool_state_field    | invariant | `no state or transition row has a column of boolean type`                                       | [[specodelic.no_boolean_columns]]|          |
-| pairing_failure | effect | `linter.model_shape.pairing_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.model_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
-| field_check_failure | effect | `linter.model_shape.field_check_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.model_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| pairing_failure | effect | `linter.model_shape.pairing_failure(detail)` | [[linter.model_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| field_check_failure | effect | `linter.model_shape.field_check_failure(detail)` | [[linter.model_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 

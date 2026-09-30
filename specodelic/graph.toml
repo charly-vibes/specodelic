@@ -45,5 +45,5 @@ traces_to = "[[graph]]"
 [[constraints]]
 id = "extraction_failure"
 kind = "effect"
-expr = "`graph.extraction_failure(detail) — the label names its owning file per error_expr_shape`"
+expr = "`graph.extraction_failure(detail)`"
 traces_to = "[[graph]]"
