@@ -38,6 +38,14 @@ pub mod spec_gen {
         Just(GenVal("arbitrary_ears_compliant_statement".into()))
     }
 
+    pub fn pattern_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("pattern_failure_raised".into()))
+    }
+
+    pub fn id_check_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("id_check_failure_raised".into()))
+    }
+
 }
 
 proptest! {
@@ -87,6 +95,26 @@ proptest! {
     #[test]
     fn valid_ears_passes(v0 in spec_gen::arbitrary_ears_compliant_statement()) {
         todo_predicate!("`check(file) == passed`");
+    }
+}
+
+proptest! {
+    // id: pattern_failure_label_asserted
+    // generator: `pattern_failure_raised()`
+    // predicate: `error_label == "linter.ears_syntax.pattern_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn pattern_failure_label_asserted(v0 in spec_gen::pattern_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.ears_syntax.pattern_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: id_check_failure_label_asserted
+    // generator: `id_check_failure_raised()`
+    // predicate: `error_label == "linter.ears_syntax.id_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn id_check_failure_label_asserted(v0 in spec_gen::id_check_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.ears_syntax.id_check_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
 

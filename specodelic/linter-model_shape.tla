@@ -4,7 +4,7 @@
 \* self-contained so any engine can open it.
 
 \* Each State becomes a value in the state variable's range.
-StateValues == {"ungrouped", "pairing_checked", "states_checked", "passed", "failed"}
+StateValues == {"ungrouped", "pairing_checked", "states_checked", "passed", "pairing_failed", "field_check_failed"}
 
 VARIABLES vpc   \* the state variable (program counter)
 
@@ -20,17 +20,20 @@ Next ==
   \/ vpc = "ungrouped" /\ vpc' = "pairing_checked"
   \* pairing_ok: pairing_checked -> states_checked (guard: [[linter.model_shape.model_sections_paired]] ∧ [[linter.model_shape.every_state_used]] ∧ [[linter.model_shape.every_transition_valid]])
   \/ vpc = "pairing_checked" /\ vpc' = "states_checked"
-  \* pairing_fail: pairing_checked -> failed (guard: `¬pairing_ok.guard`)
-  \/ vpc = "pairing_checked" /\ vpc' = "failed"
+  \* pairing_fail: pairing_checked -> pairing_failed (guard: `¬([[linter.model_shape.model_sections_paired]] ∧ [[linter.model_shape.every_state_used]] ∧ [[linter.model_shape.every_transition_valid]])`)
+  \/ vpc = "pairing_checked" /\ vpc' = "pairing_failed"
   \* accept: states_checked -> passed (guard: [[linter.model_shape.guard_present]] ∧ [[linter.model_shape.no_bool_state_field]])
   \/ vpc = "states_checked" /\ vpc' = "passed"
-  \* reject: states_checked -> failed (guard: `¬accept.guard`)
-  \/ vpc = "states_checked" /\ vpc' = "failed"
+  \* reject: states_checked -> field_check_failed (guard: `¬([[linter.model_shape.guard_present]] ∧ [[linter.model_shape.no_bool_state_field]])`)
+  \/ vpc = "states_checked" /\ vpc' = "field_check_failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"field_check_failed" :> "`linter.model_shape.field_check_failure(detail) — the label names its owning file per error_expr_shape`" @@
+"pairing_failed" :> "`linter.model_shape.pairing_failure(detail) — the label names its owning file per error_expr_shape`"
 
 ============================================================================

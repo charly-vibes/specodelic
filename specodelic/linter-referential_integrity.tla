@@ -4,7 +4,7 @@
 \* self-contained so any engine can open it.
 
 \* Each State becomes a value in the state variable's range.
-StateValues == {"unindexed", "indexing", "indexed", "resolving", "passed", "failed"}
+StateValues == {"unindexed", "indexing", "indexed", "resolving", "passed", "index_failed", "resolution_failed"}
 
 VARIABLES vpc   \* the state variable (program counter)
 
@@ -20,19 +20,22 @@ Next ==
   \/ vpc = "unindexed" /\ vpc' = "indexing"
   \* index_ok: indexing -> indexed (guard: [[linter.referential_integrity.unique_within_file]] ∧ [[linter.referential_integrity.unique_across_repo]])
   \/ vpc = "indexing" /\ vpc' = "indexed"
-  \* index_fail: indexing -> failed (guard: `¬index_ok.guard`)
-  \/ vpc = "indexing" /\ vpc' = "failed"
+  \* index_fail: indexing -> index_failed (guard: `¬([[linter.referential_integrity.unique_within_file]] ∧ [[linter.referential_integrity.unique_across_repo]])`)
+  \/ vpc = "indexing" /\ vpc' = "index_failed"
   \* resolve_refs: indexed -> resolving (guard: `index built successfully`)
   \/ vpc = "indexed" /\ vpc' = "resolving"
   \* accept: resolving -> passed (guard: [[linter.referential_integrity.ref_resolves]] ∧ [[linter.referential_integrity.ref_kind_compatible]])
   \/ vpc = "resolving" /\ vpc' = "passed"
-  \* reject: resolving -> failed (guard: `¬accept.guard`)
-  \/ vpc = "resolving" /\ vpc' = "failed"
+  \* reject: resolving -> resolution_failed (guard: `¬([[linter.referential_integrity.ref_resolves]] ∧ [[linter.referential_integrity.ref_kind_compatible]])`)
+  \/ vpc = "resolving" /\ vpc' = "resolution_failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"index_failed" :> "`linter.referential_integrity.index_failure(detail) — the label names its owning file per error_expr_shape`" @@
+"resolution_failed" :> "`linter.referential_integrity.resolution_failure(detail) — the label names its owning file per error_expr_shape`"
 
 ============================================================================

@@ -30,6 +30,14 @@ pub mod spec_gen {
         Just(GenVal("arbitrary_well_formed_state_machine".into()))
     }
 
+    pub fn pairing_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("pairing_failure_raised".into()))
+    }
+
+    pub fn field_check_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("field_check_failure_raised".into()))
+    }
+
 }
 
 proptest! {
@@ -89,6 +97,26 @@ proptest! {
     #[test]
     fn well_formed_model_passes(v0 in spec_gen::arbitrary_well_formed_state_machine()) {
         todo_predicate!("`check(file) == passed`");
+    }
+}
+
+proptest! {
+    // id: pairing_failure_label_asserted
+    // generator: `pairing_failure_raised()`
+    // predicate: `error_label == "linter.model_shape.pairing_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn pairing_failure_label_asserted(v0 in spec_gen::pairing_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.model_shape.pairing_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: field_check_failure_label_asserted
+    // generator: `field_check_failure_raised()`
+    // predicate: `error_label == "linter.model_shape.field_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn field_check_failure_label_asserted(v0 in spec_gen::field_check_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.model_shape.field_check_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
 

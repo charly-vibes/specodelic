@@ -58,6 +58,18 @@ pub mod spec_gen {
         Just(GenVal("merge_invoked_with_the_markdown_walker_patched_to_panic".into()))
     }
 
+    pub fn collision_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("collision_failure_raised".into()))
+    }
+
+    pub fn reverification_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("reverification_failure_raised".into()))
+    }
+
+    pub fn merge_aborted_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("merge_aborted_raised".into()))
+    }
+
 }
 
 proptest! {
@@ -147,6 +159,36 @@ proptest! {
     #[test]
     fn reachability_from_graph_artifact_only(v0 in spec_gen::merge_invoked_with_the_markdown_walker_patched_to_panic()) {
         todo_predicate!("`merge of an otherwise-clean diverged repo succeeds` — collision and blast-radius checks only query [[graph]]'s artifact");
+    }
+}
+
+proptest! {
+    // id: collision_failure_label_asserted
+    // generator: `collision_failure_raised()`
+    // predicate: `error_label == "merge.collision_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn collision_failure_label_asserted(v0 in spec_gen::collision_failure_raised()) {
+        todo_predicate!("`error_label == \"merge.collision_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: reverification_failure_label_asserted
+    // generator: `reverification_failure_raised()`
+    // predicate: `error_label == "merge.reverification_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn reverification_failure_label_asserted(v0 in spec_gen::reverification_failure_raised()) {
+        todo_predicate!("`error_label == \"merge.reverification_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: merge_aborted_label_asserted
+    // generator: `merge_aborted_raised()`
+    // predicate: `error_label == "merge.merge_aborted"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn merge_aborted_label_asserted(v0 in spec_gen::merge_aborted_raised()) {
+        todo_predicate!("`error_label == \"merge.merge_aborted\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
 

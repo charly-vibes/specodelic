@@ -4,7 +4,7 @@
 \* self-contained so any engine can open it.
 
 \* Each State becomes a value in the state variable's range.
-StateValues == {"unchecked", "kind_checking", "diffing", "parser_audited", "passed", "failed"}
+StateValues == {"unchecked", "kind_checking", "diffing", "parser_audited", "passed", "kind_failed", "diff_failed", "parser_audit_failed"}
 
 VARIABLES vpc   \* the state variable (program counter)
 
@@ -20,23 +20,27 @@ Next ==
   \/ vpc = "unchecked" /\ vpc' = "kind_checking"
   \* kind_ok: kind_checking -> diffing (guard: [[linter.schema_shape.constraint_kind_closed]] ∧ [[linter.schema_shape.property_kind_closed]])
   \/ vpc = "kind_checking" /\ vpc' = "diffing"
-  \* kind_fail: kind_checking -> failed (guard: `¬kind_ok.guard`)
-  \/ vpc = "kind_checking" /\ vpc' = "failed"
+  \* kind_fail: kind_checking -> kind_failed (guard: `¬([[linter.schema_shape.constraint_kind_closed]] ∧ [[linter.schema_shape.property_kind_closed]])`)
+  \/ vpc = "kind_checking" /\ vpc' = "kind_failed"
   \* diff_ok: diffing -> parser_audited (guard: [[linter.schema_shape.id_set_grows_only]] ∧ [[linter.schema_shape.id_set_order_stable]])
   \/ vpc = "diffing" /\ vpc' = "parser_audited"
   \* diff_skip: diffing -> parser_audited (guard: `no prior revision exists in repo history` — nothing to diff against yet)
   \/ vpc = "diffing" /\ vpc' = "parser_audited"
-  \* diff_fail: diffing -> failed (guard: `¬(diff_ok.guard ∨ diff_skip.guard)`)
-  \/ vpc = "diffing" /\ vpc' = "failed"
+  \* diff_fail: diffing -> diff_failed (guard: `¬([[linter.schema_shape.id_set_grows_only]] ∧ [[linter.schema_shape.id_set_order_stable]])`)
+  \/ vpc = "diffing" /\ vpc' = "diff_failed"
   \* accept: parser_audited -> passed (guard: [[linter.schema_shape.no_prose_field_parsed]] ∧ [[linter.schema_shape.prose_field_passthrough]])
   \/ vpc = "parser_audited" /\ vpc' = "passed"
-  \* reject: parser_audited -> failed (guard: `¬accept.guard`)
-  \/ vpc = "parser_audited" /\ vpc' = "failed"
+  \* reject: parser_audited -> parser_audit_failed (guard: `¬([[linter.schema_shape.no_prose_field_parsed]] ∧ [[linter.schema_shape.prose_field_passthrough]])`)
+  \/ vpc = "parser_audited" /\ vpc' = "parser_audit_failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"diff_failed" :> "`linter.schema_shape.diff_failure(detail) — the label names its owning file per error_expr_shape`" @@
+"kind_failed" :> "`linter.schema_shape.kind_check_failure(detail) — the label names its owning file per error_expr_shape`" @@
+"parser_audit_failed" :> "`linter.schema_shape.parser_audit_failure(detail) — the label names its owning file per error_expr_shape`"
 
 ============================================================================

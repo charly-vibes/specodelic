@@ -17,14 +17,15 @@ into the one fact `specodelic.md`'s lifecycle calls `verified`.
 
 ## Constraints
 
-| id                              | kind      | expr                                                                                                                                          | traces_to |
-|------------------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| blocks_run_to_completion            | invariant | `verify actually executes every proptest! block compile.md produced against the current compiled artifact — properties_pass is never satisfied by a partial run or a cached prior result` | [[verify]] |
-| properties_pass_reflects_latest_run | invariant | `[[specodelic.properties_pass]] holds iff every block from the most recent run against the current compiled artifact passed; a run predating the last edit to Properties, Constraints, or Model does not count` | [[verify]] |
-| failure_reports_shrunk_counterexample | invariant | `when a proptest! block fails, the report gives the shrunk (minimal) failing input, not the first randomly-generated failing input encountered` | [[verify]] |
-| both_gates_required                 | invariant | `verify only transitions a file to verified when both [[specodelic.no_counterexample]] (model_check.md's clean outcome) and [[specodelic.properties_pass]] hold — passing properties alone, or a clean model alone, is insufficient` | [[verify]] |
-| law_cases_all_run                   | invariant | `for a law-kind property compiled into multiple blocks (one per required case), all compiled blocks must pass — a partial pass (identity passes, associativity fails) is a failure of the property, not a partial success` | [[verify]] |
-| verify_is_idempotent                | invariant | `re-running verify against an unchanged compiled artifact yields the same pass/fail outcome as the prior run, even though proptest may resample inputs each run for coverage` | [[verify]] |
+| id                              | kind      | expr                                                                                                                                          | traces_to  satisfies |
+|------------------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
+| blocks_run_to_completion            | invariant | `verify actually executes every proptest! block compile.md produced against the current compiled artifact — properties_pass is never satisfied by a partial run or a cached prior result` | [[verify]] |          |
+| properties_pass_reflects_latest_run | invariant | `[[specodelic.properties_pass]] holds iff every block from the most recent run against the current compiled artifact passed; a run predating the last edit to Properties, Constraints, or Model does not count` | [[verify]] |          |
+| failure_reports_shrunk_counterexample | invariant | `when a proptest! block fails, the report gives the shrunk (minimal) failing input, not the first randomly-generated failing input encountered` | [[verify]] |          |
+| both_gates_required                 | invariant | `verify only transitions a file to verified when both [[specodelic.no_counterexample]] (model_check.md's clean outcome) and [[specodelic.properties_pass]] hold — passing properties alone, or a clean model alone, is insufficient` | [[verify]] |          |
+| law_cases_all_run                   | invariant | `for a law-kind property compiled into multiple blocks (one per required case), all compiled blocks must pass — a partial pass (identity passes, associativity fails) is a failure of the property, not a partial success` | [[verify]] |          |
+| verify_is_idempotent                | invariant | `re-running verify against an unchanged compiled artifact yields the same pass/fail outcome as the prior run, even though proptest may resample inputs each run for coverage` | [[verify]] |          |
+| verification_failure | effect | `verify.verification_failure(detail) — the label names its owning file per error_expr_shape` | [[verify]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 
@@ -33,7 +34,7 @@ into the one fact `specodelic.md`'s lifecycle calls `verified`.
 - `running`
 - `properties_evaluated`
 - `verified`
-- `failed`
+- `failed` (emits: `[[verify.verification_failure]]`)
 
 ### Transitions
 
@@ -42,7 +43,8 @@ into the one fact `specodelic.md`'s lifecycle calls `verified`.
 | begin    | not_run              | running              | [[verify.blocks_run_to_completion]]                                                                          |
 | evaluate | running              | properties_evaluated | `every compiled proptest! block has recorded pass or fail`                                                    |
 | accept   | properties_evaluated | verified             | [[verify.both_gates_required]] ∧ [[verify.properties_pass_reflects_latest_run]] ∧ [[verify.law_cases_all_run]] |
-| reject   | properties_evaluated | failed               | `¬accept.guard`                                                                                                |
+| reject | properties_evaluated | failed | `¬([[verify.both_gates_required]] ∧ [[verify.properties_pass_reflects_latest_run]] ∧ [[verify.law_cases_all_run]])` |
+
 
 ## Properties
 
@@ -55,7 +57,7 @@ into the one fact `specodelic.md`'s lifecycle calls `verified`.
 | both_gates_clean_passes            | unit | [[verify.both_gates_required]]                             | `file_with(properties_pass: true, no_counterexample: true)`                        | `check(file) == verified`                                            |
 | partial_law_case_rejected          | unit | [[verify.law_cases_all_run]]                                | `law_property_with(identity_case: "pass", associativity_case: "fail")`             | `check(property) == failed`                                          |
 | rerun_matches_prior_outcome        | unit | [[verify.verify_is_idempotent]]                             | `(run_1, run_2)` on an unchanged compiled artifact                                | `outcome(run_1) == outcome(run_2)`                                   |
-
+| verification_failure_label_asserted | unit | [[verify.verification_failure]] | `verification_failure_raised()` | `error_label == "verify.verification_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
 
 **This closes `STATUS.md` §4's P0.** The three pipeline items —

@@ -46,6 +46,14 @@ pub mod spec_gen {
         Just(GenVal("arbitrary_linted_and_covered_file".into()))
     }
 
+    pub fn extraction_stage_fails_on_row() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("extraction_stage_fails_on_row".into()))
+    }
+
+    pub fn emission_stage_fails() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("emission_stage_fails".into()))
+    }
+
 }
 
 proptest! {
@@ -135,6 +143,26 @@ proptest! {
     #[test]
     fn roundtrip_stable(v0 in spec_gen::arbitrary_linted_and_covered_file()) {
         todo_predicate!("`compile(file) == compile(parse(compile(file)))`");
+    }
+}
+
+proptest! {
+    // id: extraction_failure_label_asserted
+    // generator: `extraction_stage_fails_on_row()`
+    // predicate: `error_label == "compile.extraction_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn extraction_failure_label_asserted(v0 in spec_gen::extraction_stage_fails_on_row()) {
+        todo_predicate!("`error_label == \"compile.extraction_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: emission_failure_label_asserted
+    // generator: `emission_stage_fails()`
+    // predicate: `error_label == "compile.emission_failure"` — same three-site rename rule (EDGE-002)
+    #[test]
+    fn emission_failure_label_asserted(v0 in spec_gen::emission_stage_fails()) {
+        todo_predicate!("`error_label == \"compile.emission_failure\"` — same three-site rename rule (EDGE-002)");
     }
 }
 

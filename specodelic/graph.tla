@@ -20,7 +20,7 @@ Next ==
   \/ vpc = "unindexed" /\ vpc' = "extracting"
   \* extract_ok: extracting -> indexed (guard: [[graph.total_extraction]] ∧ [[graph.edge_kind_matches_typing]])
   \/ vpc = "extracting" /\ vpc' = "indexed"
-  \* extract_fail: extracting -> failed (guard: `¬extract_ok.guard`)
+  \* extract_fail: extracting -> failed (guard: `¬([[graph.total_extraction]] ∧ [[graph.edge_kind_matches_typing]])`)
   \/ vpc = "extracting" /\ vpc' = "failed"
   \* publish: indexed -> queryable (guard: [[graph.deterministic_derivation]] ∧ [[graph.graph_is_derived_not_authored]])
   \/ vpc = "indexed" /\ vpc' = "queryable"
@@ -30,7 +30,9 @@ Next ==
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"failed" :> "`graph.extraction_failure(detail) — the label names its owning file per error_expr_shape`"
 
 ============================================================================

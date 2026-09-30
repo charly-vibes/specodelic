@@ -34,6 +34,22 @@ pub mod spec_gen {
         Just(GenVal("arbitrary_repo_that_independently_passes_lint_compile_model_check_verify".into()))
     }
 
+    pub fn lint_stage_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("lint_stage_failure_raised".into()))
+    }
+
+    pub fn compile_stage_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("compile_stage_failure_raised".into()))
+    }
+
+    pub fn model_check_stage_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("model_check_stage_failure_raised".into()))
+    }
+
+    pub fn verify_stage_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("verify_stage_failure_raised".into()))
+    }
+
 }
 
 proptest! {
@@ -103,6 +119,46 @@ proptest! {
     #[test]
     fn coverage_failure_holds_compile(v0 in spec_gen::repo_where()) {
         todo_predicate!("`orchestrate halts at compile_stage` — never reaches model_check_stage, and by exactly the coverage checker's verdict, not a looser or stricter one");
+    }
+}
+
+proptest! {
+    // id: lint_stage_failure_label_asserted
+    // generator: `lint_stage_failure_raised()`
+    // predicate: `error_label == "orchestrate.lint_stage_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn lint_stage_failure_label_asserted(v0 in spec_gen::lint_stage_failure_raised()) {
+        todo_predicate!("`error_label == \"orchestrate.lint_stage_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: compile_stage_failure_label_asserted
+    // generator: `compile_stage_failure_raised()`
+    // predicate: `error_label == "orchestrate.compile_stage_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn compile_stage_failure_label_asserted(v0 in spec_gen::compile_stage_failure_raised()) {
+        todo_predicate!("`error_label == \"orchestrate.compile_stage_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: model_check_stage_failure_label_asserted
+    // generator: `model_check_stage_failure_raised()`
+    // predicate: `error_label == "orchestrate.model_check_stage_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn model_check_stage_failure_label_asserted(v0 in spec_gen::model_check_stage_failure_raised()) {
+        todo_predicate!("`error_label == \"orchestrate.model_check_stage_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: verify_stage_failure_label_asserted
+    // generator: `verify_stage_failure_raised()`
+    // predicate: `error_label == "orchestrate.verify_stage_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn verify_stage_failure_label_asserted(v0 in spec_gen::verify_stage_failure_raised()) {
+        todo_predicate!("`error_label == \"orchestrate.verify_stage_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
 

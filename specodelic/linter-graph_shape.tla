@@ -22,13 +22,15 @@ Next ==
   \/ vpc = "built" /\ vpc' = "traversing"
   \* accept: traversing -> passed (guard: [[linter.graph_shape.acyclic]] ∧ [[linter.graph_shape.single_root_reachable]] ∧ [[linter.graph_shape.no_self_ref]] ∧ [[linter.graph_shape.supersedes_dag]])
   \/ vpc = "traversing" /\ vpc' = "passed"
-  \* reject: traversing -> failed (guard: `¬accept.guard`)
+  \* reject: traversing -> failed (guard: `¬([[linter.graph_shape.acyclic]] ∧ [[linter.graph_shape.single_root_reachable]] ∧ [[linter.graph_shape.no_self_ref]] ∧ [[linter.graph_shape.supersedes_dag]])`)
   \/ vpc = "traversing" /\ vpc' = "failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"failed" :> "`linter.graph_shape.check_failure(detail) — the label names its owning file per error_expr_shape`"
 
 ============================================================================

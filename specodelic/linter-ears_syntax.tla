@@ -4,7 +4,7 @@
 \* self-contained so any engine can open it.
 
 \* Each State becomes a value in the state variable's range.
-StateValues == {"unchecked", "pattern_matching", "id_checking", "passed", "failed"}
+StateValues == {"unchecked", "pattern_matching", "id_checking", "passed", "pattern_failed", "id_check_failed"}
 
 VARIABLES vpc   \* the state variable (program counter)
 
@@ -20,17 +20,20 @@ Next ==
   \/ vpc = "unchecked" /\ vpc' = "pattern_matching"
   \* pattern_ok: pattern_matching -> id_checking (guard: [[linter.ears_syntax.ears_pattern_match]] ∧ [[linter.ears_syntax.has_shall]])
   \/ vpc = "pattern_matching" /\ vpc' = "id_checking"
-  \* pattern_fail: pattern_matching -> failed (guard: `¬pattern_ok.guard`)
-  \/ vpc = "pattern_matching" /\ vpc' = "failed"
+  \* pattern_fail: pattern_matching -> pattern_failed (guard: `¬([[linter.ears_syntax.ears_pattern_match]] ∧ [[linter.ears_syntax.has_shall]])`)
+  \/ vpc = "pattern_matching" /\ vpc' = "pattern_failed"
   \* accept: id_checking -> passed (guard: [[linter.ears_syntax.no_conjoined_id]] ∧ [[linter.ears_syntax.no_universal_in_id]])
   \/ vpc = "id_checking" /\ vpc' = "passed"
-  \* reject: id_checking -> failed (guard: `¬accept.guard`)
-  \/ vpc = "id_checking" /\ vpc' = "failed"
+  \* reject: id_checking -> id_check_failed (guard: `¬([[linter.ears_syntax.no_conjoined_id]] ∧ [[linter.ears_syntax.no_universal_in_id]])`)
+  \/ vpc = "id_checking" /\ vpc' = "id_check_failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"id_check_failed" :> "`linter.ears_syntax.id_check_failure(detail) — the label names its owning file per error_expr_shape`" @@
+"pattern_failed" :> "`linter.ears_syntax.pattern_failure(detail) — the label names its owning file per error_expr_shape`"
 
 ============================================================================

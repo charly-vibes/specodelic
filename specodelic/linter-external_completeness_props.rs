@@ -54,6 +54,18 @@ pub mod spec_gen {
         Just(GenVal("declared_checklist_with".into()))
     }
 
+    pub fn manifest_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("manifest_failure_raised".into()))
+    }
+
+    pub fn mapping_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("mapping_failure_raised".into()))
+    }
+
+    pub fn resolution_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("resolution_failure_raised".into()))
+    }
+
 }
 
 proptest! {
@@ -134,6 +146,36 @@ proptest! {
     #[test]
     fn malformed_checklist_rejected(v0 in spec_gen::declared_checklist_with()) {
         todo_predicate!("`check(repo) == failed`");
+    }
+}
+
+proptest! {
+    // id: manifest_failure_label_asserted
+    // generator: `manifest_failure_raised()`
+    // predicate: `error_label == "linter.external_completeness.manifest_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn manifest_failure_label_asserted(v0 in spec_gen::manifest_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.external_completeness.manifest_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: mapping_failure_label_asserted
+    // generator: `mapping_failure_raised()`
+    // predicate: `error_label == "linter.external_completeness.mapping_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn mapping_failure_label_asserted(v0 in spec_gen::mapping_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.external_completeness.mapping_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: resolution_failure_label_asserted
+    // generator: `resolution_failure_raised()`
+    // predicate: `error_label == "linter.external_completeness.resolution_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn resolution_failure_label_asserted(v0 in spec_gen::resolution_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.external_completeness.resolution_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
 

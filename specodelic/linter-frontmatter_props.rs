@@ -42,6 +42,10 @@ pub mod spec_gen {
         Just(GenVal("frontmatter_with".into()))
     }
 
+    pub fn check_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("check_failure_raised".into()))
+    }
+
 }
 
 proptest! {
@@ -91,6 +95,16 @@ proptest! {
     #[test]
     fn missing_statement_rejected(v0 in spec_gen::frontmatter_without(), v1 in spec_gen::frontmatter_with()) {
         todo_predicate!("`check(frontmatter) == failed` — absent and empty are both rejections");
+    }
+}
+
+proptest! {
+    // id: check_failure_label_asserted
+    // generator: `check_failure_raised()`
+    // predicate: `error_label == "linter.frontmatter.check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn check_failure_label_asserted(v0 in spec_gen::check_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.frontmatter.check_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
 

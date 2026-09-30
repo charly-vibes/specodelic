@@ -4,7 +4,7 @@
 \* self-contained so any engine can open it.
 
 \* Each State becomes a value in the state variable's range.
-StateValues == {"unchecked", "counting", "law_checking", "passed", "failed"}
+StateValues == {"unchecked", "counting", "law_checking", "passed", "count_failed", "law_check_failed"}
 
 VARIABLES vpc   \* the state variable (program counter)
 
@@ -20,17 +20,20 @@ Next ==
   \/ vpc = "unchecked" /\ vpc' = "counting"
   \* count_ok: counting -> law_checking (guard: [[linter.coverage.every_constraint_covered]] ∧ [[linter.coverage.no_orphan_property]])
   \/ vpc = "counting" /\ vpc' = "law_checking"
-  \* count_fail: counting -> failed (guard: `¬count_ok.guard`)
-  \/ vpc = "counting" /\ vpc' = "failed"
+  \* count_fail: counting -> count_failed (guard: `¬([[linter.coverage.every_constraint_covered]] ∧ [[linter.coverage.no_orphan_property]])`)
+  \/ vpc = "counting" /\ vpc' = "count_failed"
   \* accept: law_checking -> passed (guard: [[linter.coverage.every_law_has_cases]])
   \/ vpc = "law_checking" /\ vpc' = "passed"
-  \* reject: law_checking -> failed (guard: `¬accept.guard`)
-  \/ vpc = "law_checking" /\ vpc' = "failed"
+  \* reject: law_checking -> law_check_failed (guard: `¬([[linter.coverage.every_law_has_cases]])`)
+  \/ vpc = "law_checking" /\ vpc' = "law_check_failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"count_failed" :> "`linter.coverage.count_failure(detail) — the label names its owning file per error_expr_shape`" @@
+"law_check_failed" :> "`linter.coverage.law_case_failure(detail) — the label names its owning file per error_expr_shape`"
 
 ============================================================================

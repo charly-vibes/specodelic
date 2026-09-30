@@ -4,22 +4,34 @@ source = "linter.ears_syntax"
 id = "ears_pattern_match"
 kind = "invariant"
 expr = "`statement matches one of: Ubiquitous / Event-Driven / State-Driven / Unwanted-Behavior / Optional-Feature`"
-traces_to = "[[specodelic.ears_statement]]"
+traces_to = ""
 
 [[constraints]]
 id = "has_shall"
 kind = "invariant"
 expr = '`statement contains an imperative "SHALL" (or "SHALL NOT")`'
-traces_to = "[[specodelic.ears_statement]]"
+traces_to = ""
 
 [[constraints]]
 id = "no_conjoined_id"
 kind = "invariant"
 expr = '`∀ row.id: id does not encode two capabilities joined by "and"/"or" (checked on the id token, not prose)`'
-traces_to = "[[specodelic.one_capability_per_row]]"
+traces_to = ""
 
 [[constraints]]
 id = "no_universal_in_id"
 kind = "invariant"
 expr = '`∀ row.id: id does not contain "all"/"every"/"any"/"always"/"never" as a token`'
-traces_to = "[[specodelic.one_capability_per_row]]"
+traces_to = ""
+
+[[constraints]]
+id = "pattern_failure"
+kind = "effect"
+expr = "`linter.ears_syntax.pattern_failure(detail) — the label names its owning file per error_expr_shape`"
+traces_to = ""
+
+[[constraints]]
+id = "id_check_failure"
+kind = "effect"
+expr = "`linter.ears_syntax.id_check_failure(detail) — the label names its owning file per error_expr_shape`"
+traces_to = ""

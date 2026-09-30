@@ -23,14 +23,17 @@ rather than merely being checked against it after the fact.
 
 ## Constraints
 
-| id                        | kind      | expr                                                                                                                              | traces_to |
-|----------------------------|-----------|----------------------------------------------------------------------------------------------------------------------------------|-----------|
-| new_id_available           | invariant | `new_id ∉ index(repo)` — renaming never collides with an existing id                                                              | [[rename]] |
-| new_id_matches_filename    | invariant | `if the renamed row is a file's own Intent, [[specodelic.id_matches_file]] must hold between new_id and the (possibly also renamed) filename` | [[rename]] |
-| old_id_fully_replaced      | invariant | `∀ [[old_id]] reference anywhere in repo: rewritten to [[new_id]]; zero occurrences of old_id remain post-rename`                  | [[rename]] |
-| atomic_operation           | invariant | `the definition-row update, every reference rewrite, and any required filename change apply as one transaction: all succeed, or the repo is left byte-identical to its pre-rename state` | [[rename]] |
-| kind_unchanged             | invariant | `assigned_kind(row) is the same before and after rename — both 𝒦's five-object kind and, where present, the row's own kind/sub-kind column` — see [[kinds.kind_shape_naturality]] | [[rename]] |
-| prose_untouched_by_rename  | invariant | `rename rewrites only [[id]] wiki-link syntax and structured id fields (frontmatter id, table id/traces_to/derives_from/guard/from/to cells) — it never edits rationale/description prose, even if the prose happens to mention the old name in words` | [[rename]] |
+| id                        | kind      | expr                                                                                                                              | traces_to  satisfies |
+|----------------------------|-----------|----------------------------------------------------------------------------------------------------------------------------------|----------------------|
+| new_id_available           | invariant | `new_id ∉ index(repo)` — renaming never collides with an existing id                                                              | [[rename]] |          |
+| new_id_matches_filename    | invariant | `if the renamed row is a file's own Intent, [[specodelic.id_matches_file]] must hold between new_id and the (possibly also renamed) filename` | [[rename]] |          |
+| old_id_fully_replaced      | invariant | `∀ [[old_id]] reference anywhere in repo: rewritten to [[new_id]]; zero occurrences of old_id remain post-rename`                  | [[rename]] |          |
+| atomic_operation           | invariant | `the definition-row update, every reference rewrite, and any required filename change apply as one transaction: all succeed, or the repo is left byte-identical to its pre-rename state` | [[rename]] |          |
+| kind_unchanged             | invariant | `assigned_kind(row) is the same before and after rename — both 𝒦's five-object kind and, where present, the row's own kind/sub-kind column` — see [[kinds.kind_shape_naturality]] | [[rename]] |          |
+| prose_untouched_by_rename  | invariant | `rename rewrites only [[id]] wiki-link syntax and structured id fields (frontmatter id, table id/traces_to/derives_from/guard/from/to cells) — it never edits rationale/description prose, even if the prose happens to mention the old name in words` | [[rename]] |          |
+| validation_failure | effect | `rename.validation_failure(new_id, reason) — the label names its owning file per error_expr_shape` | [[rename]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| apply_failure | effect | `rename.apply_failure(detail) — the label names its owning file per error_expr_shape` | [[rename]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| post_check_failure | effect | `rename.post_check_failure(detail) — the label names its owning file per error_expr_shape` | [[rename]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 
@@ -41,20 +44,23 @@ rather than merely being checked against it after the fact.
 - `applied`
 - `verifying`
 - `passed`
-- `failed`
+- `validate_failed` (emits: `[[rename.validation_failure]]`)
+- `apply_failed` (emits: `[[rename.apply_failure]]`)
+- `check_failed` (emits: `[[rename.post_check_failure]]`)
 
 ### Transitions
 
 | id            | from        | to          | guard                                                                                                |
 |---------------|-------------|-------------|-------------------------------------------------------------------------------------------------------|
 | validate      | requested   | checked     | [[rename.new_id_available]] ∧ [[rename.new_id_matches_filename]]                                      |
-| validate_fail | requested   | failed      | `¬validate.guard`                                                                                      |
+| validate_fail | requested | validate_failed | `¬([[rename.new_id_available]] ∧ [[rename.new_id_matches_filename]])` |
 | apply         | checked     | applying    | [[rename.atomic_operation]]                                                                            |
 | apply_ok      | applying    | applied     | [[rename.old_id_fully_replaced]] ∧ [[rename.kind_unchanged]] ∧ [[rename.prose_untouched_by_rename]]     |
-| apply_fail    | applying    | failed      | `¬apply_ok.guard` — atomic_operation requires this path to roll back to the pre-rename repo, not to leave a partial edit |
+| apply_fail | applying | apply_failed | `¬([[rename.old_id_fully_replaced]] ∧ [[rename.kind_unchanged]] ∧ [[rename.prose_untouched_by_rename]])` — atomic_operation requires this path to roll back to the pre-rename repo, not to leave a partial edit |
 | verify        | applied     | verifying   | `linter.referential_integrity and linter.graph_shape are re-run against the renamed repo`               |
 | accept        | verifying   | passed      | [[linter.referential_integrity.ref_resolves]] ∧ [[linter.graph_shape.acyclic]]                          |
-| reject        | verifying   | failed      | `¬accept.guard`                                                                                         |
+| reject | verifying | check_failed | `¬([[linter.referential_integrity.ref_resolves]] ∧ [[linter.graph_shape.acyclic]])` |
+
 
 ## Properties
 
@@ -68,7 +74,9 @@ rather than merely being checked against it after the fact.
 | prose_mention_left_alone      | unit | [[rename.prose_untouched_by_rename]]       | `row_whose_rationale_prose_contains_the_old_id_as_a_word()` | `rationale_text(post_rename_row) == rationale_text(pre_rename_row)`                                                                                                                           |
 | clean_rename_passes           | unit | [[rename.old_id_fully_replaced]]           | `well_formed_repo(), id_not_used_elsewhere()`            | `check(request) == passed`                                                                                                                                                                    |
 | kind_preserved_by_rename      | unit | [[rename.kind_unchanged]]                  | `rename_of_a_constraint_row_to_a_new_id()`               | `assigned_kind(post_rename_row) == assigned_kind(pre_rename_row)` — both the five-object kind and, where present, the row's own kind column survive the rewrite                              |
-
+| validation_failure_label_asserted | unit | [[rename.validation_failure]] | `validation_failure_raised()` | `error_label == "rename.validation_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| apply_failure_label_asserted | unit | [[rename.apply_failure]] | `apply_failure_raised()` | `error_label == "rename.apply_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| post_check_failure_label_asserted | unit | [[rename.post_check_failure]] | `post_check_failure_raised()` | `error_label == "rename.post_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
 
 `checked_against_core: clear` (see `AGENTS.md`'s convention). The

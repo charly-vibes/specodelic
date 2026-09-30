@@ -21,15 +21,19 @@ already owns it.
 
 ## Constraints
 
-| id                                  | kind      | expr                                                                                                                                          | traces_to |
-|---------------------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| lint_gate_matches_checker_ownership   | invariant | `orchestrator reports lint success iff every terminal node of specodelic.md's Checker Ownership table reports passed — never a subset or a superset of that table` | [[orchestrate]] |
-| dependency_respecting_skip            | invariant | `a checker is invoked only after every checker listed in its Checker Ownership 'Depends on' column has reported passed; if a dependency reports failed, its dependents are skipped (not invoked, not reported as failed) rather than run against input the failed checker hasn't validated` | [[orchestrate]] |
-| independent_branches_run_regardless   | invariant | `two checkers with no dependency relation between them (referential_integrity→graph_shape→model_shape vs. ears_syntax vs. schema_shape) each run and report independently — one branch failing never skips or blocks the other` | [[orchestrate]] |
-| compile_gate_matches_coverage         | invariant | `orchestrator advances to model_check iff linter.coverage reports passed — exactly specodelic.md's compile guard ([[specodelic.coverage]] ∧ [[specodelic.law_requires_cases]]), not a looser or stricter check` | [[orchestrate]] |
-| stage_order_fixed                     | invariant | `compile is never invoked before every file's lint stage reports passed; model_check is never invoked before compile reports compiled; verify is never invoked before model_check reports model_checked` | [[orchestrate]] |
-| external_completeness_never_gates     | invariant | `linter.external_completeness runs only if the repo declares a checklist, and its outcome (passed/failed/not_applicable) never blocks or delays lint, compile, model_check, or verify` | [[orchestrate]] |
-| deterministic_rerun                   | invariant | `running the orchestrator twice against an unchanged repo produces byte-identical reports` | [[orchestrate]] |
+| id                                  | kind      | expr                                                                                                                                          | traces_to  satisfies |
+|---------------------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
+| lint_gate_matches_checker_ownership   | invariant | `orchestrator reports lint success iff every terminal node of specodelic.md's Checker Ownership table reports passed — never a subset or a superset of that table` | [[orchestrate]] |          |
+| dependency_respecting_skip            | invariant | `a checker is invoked only after every checker listed in its Checker Ownership 'Depends on' column has reported passed; if a dependency reports failed, its dependents are skipped (not invoked, not reported as failed) rather than run against input the failed checker hasn't validated` | [[orchestrate]] |          |
+| independent_branches_run_regardless   | invariant | `two checkers with no dependency relation between them (referential_integrity→graph_shape→model_shape vs. ears_syntax vs. schema_shape) each run and report independently — one branch failing never skips or blocks the other` | [[orchestrate]] |          |
+| compile_gate_matches_coverage         | invariant | `orchestrator advances to model_check iff linter.coverage reports passed — exactly specodelic.md's compile guard ([[specodelic.coverage]] ∧ [[specodelic.law_requires_cases]]), not a looser or stricter check` | [[orchestrate]] |          |
+| stage_order_fixed                     | invariant | `compile is never invoked before every file's lint stage reports passed; model_check is never invoked before compile reports compiled; verify is never invoked before model_check reports model_checked` | [[orchestrate]] |          |
+| external_completeness_never_gates     | invariant | `linter.external_completeness runs only if the repo declares a checklist, and its outcome (passed/failed/not_applicable) never blocks or delays lint, compile, model_check, or verify` | [[orchestrate]] |          |
+| deterministic_rerun                   | invariant | `running the orchestrator twice against an unchanged repo produces byte-identical reports` | [[orchestrate]] |          |
+| lint_stage_failure | effect | `orchestrate.lint_stage_failure(stage, detail) — the label names its owning file per error_expr_shape` | [[orchestrate]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| compile_stage_failure | effect | `orchestrate.compile_stage_failure(stage, detail) — the label names its owning file per error_expr_shape` | [[orchestrate]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| model_check_stage_failure | effect | `orchestrate.model_check_stage_failure(stage, detail) — the label names its owning file per error_expr_shape` | [[orchestrate]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| verify_stage_failure | effect | `orchestrate.verify_stage_failure(stage, detail) — the label names its owning file per error_expr_shape` | [[orchestrate]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 
@@ -40,7 +44,10 @@ already owns it.
 - `model_check_stage`
 - `verify_stage`
 - `succeeded`
-- `failed`
+- `lint_failed` (emits: `[[orchestrate.lint_stage_failure]]`)
+- `compile_failed` (emits: `[[orchestrate.compile_stage_failure]]`)
+- `model_check_failed` (emits: `[[orchestrate.model_check_stage_failure]]`)
+- `verify_failed` (emits: `[[orchestrate.verify_stage_failure]]`)
 
 ### Transitions
 
@@ -48,13 +55,14 @@ already owns it.
 |-------------------|---------------------|---------------------|-------------------------------------------------------------------------------------------------------|
 | start_lint        | idle                | lint_stage          | `every file in the repo has independently reached parsed` — see [[linter.frontmatter]]                |
 | lint_ok           | lint_stage          | compile_stage       | [[orchestrate.lint_gate_matches_checker_ownership]] ∧ [[orchestrate.dependency_respecting_skip]] ∧ [[orchestrate.independent_branches_run_regardless]] |
-| lint_fail         | lint_stage          | failed              | `¬lint_ok.guard`                                                                                       |
+| lint_fail | lint_stage | lint_failed | `¬lint_ok.guard` |
 | compile_ok        | compile_stage       | model_check_stage   | [[orchestrate.compile_gate_matches_coverage]]                                                          |
-| compile_fail      | compile_stage       | failed              | `¬compile_ok.guard`                                                                                    |
+| compile_fail | compile_stage | compile_failed | `¬compile_ok.guard` |
 | model_check_ok    | model_check_stage   | verify_stage        | [[orchestrate.stage_order_fixed]] ∧ `model_check.md's model_checked/no_counterexample distinction resolved` |
-| model_check_fail  | model_check_stage   | failed              | `¬model_check_ok.guard`                                                                                |
+| model_check_fail | model_check_stage | model_check_failed | `¬model_check_ok.guard` |
 | verify_ok         | verify_stage        | succeeded           | [[orchestrate.stage_order_fixed]] ∧ `verify.md's both_gates_required holds`                            |
-| verify_fail       | verify_stage        | failed              | `¬verify_ok.guard`                                                                                     |
+| verify_fail | verify_stage | verify_failed | `¬verify_ok.guard` |
+
 
 ## Properties
 
@@ -67,7 +75,10 @@ already owns it.
 | rerun_idempotent                       | unit | [[orchestrate.deterministic_rerun]]                     | `run_orchestrator_twice_against_unchanged_repo()`                                | `report(run_1) == report(run_2)`                                                                     |
 | clean_repo_succeeds                    | unit | [[orchestrate.lint_gate_matches_checker_ownership]]     | `arbitrary_repo_that_independently_passes_lint_compile_model_check_verify()`      | `orchestrate reaches succeeded`                                                                      |
 | coverage_failure_holds_compile         | unit | [[orchestrate.compile_gate_matches_coverage]]           | `repo_where(linter.coverage: failed, every_other_checker_and_pipeline_stage: passed)` | `orchestrate halts at compile_stage` — never reaches model_check_stage, and by exactly the coverage checker's verdict, not a looser or stricter one |
-
+| lint_stage_failure_label_asserted | unit | [[orchestrate.lint_stage_failure]] | `lint_stage_failure_raised()` | `error_label == "orchestrate.lint_stage_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| compile_stage_failure_label_asserted | unit | [[orchestrate.compile_stage_failure]] | `compile_stage_failure_raised()` | `error_label == "orchestrate.compile_stage_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| model_check_stage_failure_label_asserted | unit | [[orchestrate.model_check_stage_failure]] | `model_check_stage_failure_raised()` | `error_label == "orchestrate.model_check_stage_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| verify_stage_failure_label_asserted | unit | [[orchestrate.verify_stage_failure]] | `verify_stage_failure_raised()` | `error_label == "orchestrate.verify_stage_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
 
 `checked_against_core: clear` (see `AGENTS.md`'s convention). As with

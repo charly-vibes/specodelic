@@ -14,13 +14,15 @@ and "ad-hoc state machine" signals, made structural rather than advisory.
 
 ## Constraints
 
-| id                    | kind      | expr                                                                                     | traces_to                        |
-|------------------------|-----------|-----------------------------------------------------------------------------------------------|-------------------------------------|
-| guard_present          | invariant | `∀ transition row: guard field is non-empty`                                                   | [[specodelic.guard_required]]    |
-| model_sections_paired  | invariant | `if [[model.state]] exists then [[model.transition]] exists, and vice versa`                    | [[specodelic.model_present]]     |
-| every_state_used       | invariant | `∀ state: state appears as from or to in ≥ 1 transition`                                        | [[specodelic.model_present]]     |
-| every_transition_valid | invariant | `∀ transition: from ∈ states and to ∈ states`                                                   | [[specodelic.model_present]]     |
-| no_bool_state_field    | invariant | `no state or transition row has a column of boolean type`                                       | [[specodelic.no_boolean_columns]]|
+| id                    | kind      | expr                                                                                     | traces_to                         satisfies |
+|------------------------|-----------|-----------------------------------------------------------------------------------------------|------------------------------------------------|
+| guard_present          | invariant | `∀ transition row: guard field is non-empty`                                                   | [[specodelic.guard_required]]    |          |
+| model_sections_paired  | invariant | `if [[model.state]] exists then [[model.transition]] exists, and vice versa`                    | [[specodelic.model_present]]     |          |
+| every_state_used       | invariant | `∀ state: state appears as from or to in ≥ 1 transition`                                        | [[specodelic.model_present]]     |          |
+| every_transition_valid | invariant | `∀ transition: from ∈ states and to ∈ states`                                                   | [[specodelic.model_present]]     |          |
+| no_bool_state_field    | invariant | `no state or transition row has a column of boolean type`                                       | [[specodelic.no_boolean_columns]]|          |
+| pairing_failure | effect | `linter.model_shape.pairing_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.model_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| field_check_failure | effect | `linter.model_shape.field_check_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.model_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 
@@ -29,7 +31,8 @@ and "ad-hoc state machine" signals, made structural rather than advisory.
 - `pairing_checked`
 - `states_checked`
 - `passed`
-- `failed`
+- `pairing_failed` (emits: `[[linter.model_shape.pairing_failure]]`)
+- `field_check_failed` (emits: `[[linter.model_shape.field_check_failure]]`)
 
 ### Transitions
 
@@ -37,9 +40,10 @@ and "ad-hoc state machine" signals, made structural rather than advisory.
 |-------------------|------------------|-------------------|----------------------------------------------------------------------------------------------------|
 | check_pairing     | ungrouped        | pairing_checked   | `file passed linter.graph_shape`                                                                    |
 | pairing_ok        | pairing_checked  | states_checked    | [[linter.model_shape.model_sections_paired]] ∧ [[linter.model_shape.every_state_used]] ∧ [[linter.model_shape.every_transition_valid]] |
-| pairing_fail      | pairing_checked  | failed            | `¬pairing_ok.guard`                                                                                  |
+| pairing_fail | pairing_checked | pairing_failed | `¬([[linter.model_shape.model_sections_paired]] ∧ [[linter.model_shape.every_state_used]] ∧ [[linter.model_shape.every_transition_valid]])` |
 | accept            | states_checked   | passed            | [[linter.model_shape.guard_present]] ∧ [[linter.model_shape.no_bool_state_field]]                     |
-| reject            | states_checked   | failed            | `¬accept.guard`                                                                                       |
+| reject | states_checked | field_check_failed | `¬([[linter.model_shape.guard_present]] ∧ [[linter.model_shape.no_bool_state_field]])` |
+
 
 ## Properties
 
@@ -51,7 +55,8 @@ and "ad-hoc state machine" signals, made structural rather than advisory.
 | bad_edge_rejected           | unit | [[linter.model_shape.every_transition_valid]]         | `spec_file_with(transition.to_not_in_states: true)`           | `check(file) == failed`                                                    |
 | bool_column_rejected        | unit | [[linter.model_shape.no_bool_state_field]]            | `spec_file_with(state_row_having_bool_typed_column: true)`    | `check(file) == failed`                                                    |
 | well_formed_model_passes    | unit | [[linter.model_shape.every_transition_valid]]         | `arbitrary_well_formed_state_machine()`                       | `check(file) == passed`                                                    |
-
+| pairing_failure_label_asserted | unit | [[linter.model_shape.pairing_failure]] | `pairing_failure_raised()` | `error_label == "linter.model_shape.pairing_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| field_check_failure_label_asserted | unit | [[linter.model_shape.field_check_failure]] | `field_check_failure_raised()` | `error_label == "linter.model_shape.field_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
 
 `every_state_used` and `every_transition_valid` are new relative to

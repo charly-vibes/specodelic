@@ -42,6 +42,10 @@ pub mod spec_gen {
         Just(GenVal("arbitrary_id_rename".into()))
     }
 
+    pub fn check_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("check_failure_raised".into()))
+    }
+
 }
 
 proptest! {
@@ -112,6 +116,16 @@ proptest! {
     #[test]
     fn topo_sort_naturality_naturality(v0 in spec_gen::arbitrary_dag_repo(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes");
+    }
+}
+
+proptest! {
+    // id: check_failure_label_asserted
+    // generator: `check_failure_raised()`
+    // predicate: `error_label == "linter.graph_shape.check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn check_failure_label_asserted(v0 in spec_gen::check_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.graph_shape.check_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
 

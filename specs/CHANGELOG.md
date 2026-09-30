@@ -1701,3 +1701,28 @@ future `linter-failure_shape` / pipeline fixtures) — no tier-2 rule
 claims today's `spk lint`. No core Revision consumed (D7: Revision 9
 stays free for add-observability-contracts). Corpus artifacts
 regenerated (errors.{toml,tla,props,check.json}); dogfood green.
+
+## #67 — every failure terminal now emits a labeled, falsifiable error
+
+add-error-contract phase 2 (beads specodelic-uie, tasks 2.1–2.5): the
+corpus's 15 mute failure terminals are restructured — `compile.md`
+splits `failed` into `extract_failed`/`emit_failed` per its own
+`compile_is_total` two-class argument, and every file with ≥2 failure
+transitions carrying differing negation citation sets splits its failure
+state per class (rename ×3, merge ×3, linter-schema_shape ×3, coverage/
+referential_integrity/ears_syntax/external_completeness/model_shape/kinds
+×2 each); single-class files keep `failed` and gain the `emits` edge.
+Every failure terminal emits exactly one file-owned effect-kind error
+Constraint whose label is file-id-namespaced
+(`compile.extraction_failure(row_id, reason)` …) and points `satisfies`
+at the three `errors.md` contract rows; every label carries a unit
+property asserting the exact label. The `¬x_ok.guard` prose idiom is
+replaced by typed negations citing exactly the negated sibling's
+citation set — `orchestrate.md`'s four stage-fails stay prose on the
+recorded D2 carve-out, now one failure state per stage
+(`lint_failed`/`compile_failed`/`model_check_failed`/`verify_failed`).
+The RED fixture `failure_terminals_emit_labeled_errors` derives
+terminals/citation sets/label sets mechanically from `spk graph` and
+failed pre-change (15 mute terminals, 0 emitting). Corpus artifacts
+regenerated (20 × {toml, props, tla, check.json}); all `just ci` gates
+green.

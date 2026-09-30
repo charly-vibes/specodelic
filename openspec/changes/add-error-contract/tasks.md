@@ -39,14 +39,14 @@ every phase — the corpus is its own primary fixture.
 
 ## 2. D2/D4 — per-tool corpus restructure (emitting failure states, typed guards)
 
-- [ ] 2.1 **RED**: the §1.1 graph fixture assertions now name the
+- [x] 2.1 **RED**: the §1.1 graph fixture assertions now name the
       per-file gaps mechanically: `compile.md` failure terminals == 1
       (expected 2, extract/emit split), failure terminals with `emits`
       edges == 0, failure transitions citing zero intra-file constraints
       and absent from the carve-out list == 6 (compile, rename ×2,
       linter-coverage, linter-referential_integrity ×2). All assertions
       fail before the phase's edits and pass after.
-- [ ] 2.2 **GREEN (compile.md)**: split `failed` → `extract_failed` /
+- [x] 2.2 **GREEN (compile.md)**: split `failed` → `extract_failed` /
       `emit_failed` (D4; the file's own `compile_is_total` Notes argue the
       two classes); add effect Constraints `compile.extraction_failure(row_id,
       reason)` and `compile.emission_failure(detail)`; `emits` edges from
@@ -55,17 +55,17 @@ every phase — the corpus is its own primary fixture.
       [[compile.properties_to_proptest]])`, D2); add unit properties
       asserting the exact labels; add `satisfies` edges to the contract
       rows.
-- [ ] 2.3 **GREEN (emits-only files)**: `linter-coverage.md`,
+- [x] 2.3 **GREEN (emits-only files)**: `linter-coverage.md`,
       `linter-referential_integrity.md`, `rename.md` — add file-owned
       labeled error Constraints, `emits` edges on the existing `failed`
       states, typed negation guards where the negated constraints are
       intra-file, unit properties naming each label, `satisfies` edges.
-- [ ] 2.4 **GREEN (orchestrate.md — the D2 carve-out)**: add the file's
+- [x] 2.4 **GREEN (orchestrate.md — the D2 carve-out)**: add the file's
       labeled stage-failure error Constraints and `emits` edges; stage-fail
       guards keep their prose form (per `orchestrate.md:96-98`'s own
       don't-restate discipline); add `satisfies` edges; note the carve-out
       inline so it is stated, not silent.
-- [ ] 2.5 **REFACTOR**: `just lint-specs` green; `spk graph` after-fixture
+- [x] 2.5 **REFACTOR**: `just lint-specs` green; `spk graph` after-fixture
       asserts every failure terminal emits and the only remaining prose
       guards are orchestrate's carved-out ones; re-run the round-trip
       property mentally against `compile.md`'s new state set (states map

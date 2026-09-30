@@ -18,15 +18,17 @@ happen to run at the same pipeline stage.
 
 ## Constraints
 
-| id                        | kind      | expr                                                                                                                             | traces_to |
-|-----------------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| precondition_satisfied       | invariant | `Compile only runs on a file that has passed both lint and coverage` — restates [[specodelic.compile]]'s own guard (transition, not row) | [[compile]] |
-| constraint_table_to_toml     | invariant | `every Constraint row compiles to one TOML table entry {id, kind, expr, traces_to}, field-for-field, with no lossy transformation`      | [[compile]] |
-| model_to_tla                 | invariant | `the Model section compiles to one TLA+ module — always emitted, regardless of which model_check backend (native stateright or TLC) later runs against the model: the module opens with a single-line TLA+ module header (dashes + MODULE name + dashes — the only form an engine parses); each State becomes a value in the module's state variable's range, each Transition becomes one disjunct of the Next action guarded by its guard field, and one closing stuttering disjunct (`UNCHANGED vpc`) ends Next — guards travel as prose comments, so a terminal state must not read as an engine-side deadlock; a State with an `emits` field additionally becomes one entry in an `Output` function from that state value to the effect-kind Constraint's `expr` — absent for a state with no `emits`, never a default/null entry` | [[compile]] |
-| properties_to_proptest       | invariant | `each Property row compiles to one proptest! block: generator becomes the block's input strategy, predicate becomes its assertion body; a law-kind property compiles to one block per required case (identity, associativity, ...)` | [[compile]] |
-| compile_is_total             | invariant | `∀ file that has passed lint and coverage: Compile either produces all three artifacts or reports, for exactly one of them, which stage failed and why — it never returns a silent partial result` | [[compile]] |
-| compile_preserves_ids        | invariant | `every id present in the source file appears, unchanged, in at least one compiled artifact — no id is silently dropped in translation` | [[compile]] |
-| no_semantic_drift            | invariant | `re-parsing a compiled artifact and re-emitting it yields output identical to the original compile — Compile is idempotent under its own round trip` | [[compile]] |
+| id                        | kind      | expr                                                                                                                             | traces_to | satisfies |
+|-----------------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------|-----------|-----------|
+| precondition_satisfied       | invariant | `Compile only runs on a file that has passed both lint and coverage` — restates [[specodelic.compile]]'s own guard (transition, not row) | [[compile]] |           |
+| constraint_table_to_toml     | invariant | `every Constraint row compiles to one TOML table entry {id, kind, expr, traces_to}, field-for-field, with no lossy transformation`      | [[compile]] |           |
+| model_to_tla                 | invariant | `the Model section compiles to one TLA+ module — always emitted, regardless of which model_check backend (native stateright or TLC) later runs against the model: the module opens with a single-line TLA+ module header (dashes + MODULE name + dashes — the only form an engine parses); each State becomes a value in the module's state variable's range, each Transition becomes one disjunct of the Next action guarded by its guard field, and one closing stuttering disjunct (`UNCHANGED vpc`) ends Next — guards travel as prose comments, so a terminal state must not read as an engine-side deadlock; a State with an `emits` field additionally becomes one entry in an `Output` function from that state value to the effect-kind Constraint's `expr` — absent for a state with no `emits`, never a default/null entry` | [[compile]] |           |
+| properties_to_proptest       | invariant | `each Property row compiles to one proptest! block: generator becomes the block's input strategy, predicate becomes its assertion body; a law-kind property compiles to one block per required case (identity, associativity, ...)` | [[compile]] |           |
+| compile_is_total             | invariant | `∀ file that has passed lint and coverage: Compile either produces all three artifacts or reports, for exactly one of them, which stage failed and why — it never returns a silent partial result` | [[compile]] |           |
+| compile_preserves_ids        | invariant | `every id present in the source file appears, unchanged, in at least one compiled artifact — no id is silently dropped in translation` | [[compile]] |           |
+| no_semantic_drift            | invariant | `re-parsing a compiled artifact and re-emitting it yields output identical to the original compile — Compile is idempotent under its own round trip` | [[compile]] |           |
+| extraction_failure           | effect    | `compile.extraction_failure(row_id, reason) — the extraction stage failed on row row_id because reason` | [[compile]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| emission_failure             | effect    | `compile.emission_failure(detail) — the emission stage failed because detail` | [[compile]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 
@@ -35,7 +37,8 @@ happen to run at the same pipeline stage.
 - `extracting`
 - `emitting`
 - `compiled`
-- `failed`
+- `extract_failed` (emits: `[[compile.extraction_failure]]`)
+- `emit_failed` (emits: `[[compile.emission_failure]]`)
 
 ### Transitions
 
@@ -43,9 +46,9 @@ happen to run at the same pipeline stage.
 |--------------|-------------|-------------|--------------------------------------------------------------------------------------------------------|
 | begin        | not_started | extracting  | [[compile.precondition_satisfied]]                                                                     |
 | extract_ok   | extracting  | emitting    | [[compile.constraint_table_to_toml]] ∧ [[compile.model_to_tla]] ∧ [[compile.properties_to_proptest]]     |
-| extract_fail | extracting  | failed      | `¬extract_ok.guard`                                                                                     |
+| extract_fail | extracting  | extract_failed | `¬([[compile.constraint_table_to_toml]] ∧ [[compile.model_to_tla]] ∧ [[compile.properties_to_proptest]])` |
 | accept       | emitting    | compiled    | [[compile.compile_preserves_ids]] ∧ [[compile.no_semantic_drift]]                                       |
-| reject       | emitting    | failed      | `¬accept.guard`                                                                                          |
+| reject       | emitting    | emit_failed | `¬([[compile.compile_preserves_ids]] ∧ [[compile.no_semantic_drift]])`                                    |
 
 ## Properties
 
@@ -60,6 +63,8 @@ happen to run at the same pipeline stage.
 | compile_completes_or_fails_cleanly   | unit | [[compile.compile_is_total]]                 | `arbitrary_linted_and_covered_file()`                         | `compile(file) ∈ {all_three_artifacts, single_labeled_failure}` — never partial |
 | id_preservation_holds                | unit | [[compile.compile_preserves_ids]]            | `arbitrary_linted_and_covered_file()`                         | `ids_in(file) ⊆ ids_in(compile(file))`                                          |
 | roundtrip_stable                     | unit | [[compile.no_semantic_drift]]                | `arbitrary_linted_and_covered_file()`                         | `compile(file) == compile(parse(compile(file)))`                                |
+| extraction_failure_label_asserted    | unit | [[compile.extraction_failure]]               | `extraction_stage_fails_on_row()`                             | `error_label == "compile.extraction_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| emission_failure_label_asserted      | unit | [[compile.emission_failure]]                 | `emission_stage_fails()`                                      | `error_label == "compile.emission_failure"` — same three-site rename rule (EDGE-002) |
 
 ## Notes
 

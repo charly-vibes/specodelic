@@ -20,13 +20,15 @@ Next ==
   \/ vpc = "unchecked" /\ vpc' = "checking"
   \* accept: checking -> passed (guard: [[linter.frontmatter.has_id]] ∧ [[linter.frontmatter.has_kind]] ∧ [[linter.frontmatter.has_statement]] ∧ [[linter.frontmatter.id_matches_file]])
   \/ vpc = "checking" /\ vpc' = "passed"
-  \* reject: checking -> failed (guard: `¬accept.guard`)
+  \* reject: checking -> failed (guard: `¬([[linter.frontmatter.has_id]] ∧ [[linter.frontmatter.has_kind]] ∧ [[linter.frontmatter.has_statement]] ∧ [[linter.frontmatter.id_matches_file]])`)
   \/ vpc = "checking" /\ vpc' = "failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"failed" :> "`linter.frontmatter.check_failure(detail) — the label names its owning file per error_expr_shape`"
 
 ============================================================================

@@ -24,12 +24,14 @@ separate passes.
 
 ## Constraints
 
-| id                      | kind      | expr                                                                                     | traces_to                       |
-|---------------------------|-----------|-----------------------------------------------------------------------------------------------|------------------------------------|
-| every_constraint_covered  | invariant | `∀ constraint c: ∃ property p. p.derives_from == c.id`                                        | [[specodelic.coverage]]         |
-| every_law_has_cases       | invariant | `∀ property p where p.kind == "law": p has an associativity case and an identity case`         | [[specodelic.law_requires_cases]] |
-| no_orphan_property        | invariant | `∀ property p: p.derives_from resolves to a real constraint` (restates total_refs, scoped to this edge) | [[specodelic.coverage]]         |
-| coverage_is_computable    | invariant | `the derives_from multiplicity per constraint is countable in finite time from the parsed AST alone` | [[specodelic.coverage]]         |
+| id                      | kind      | expr                                                                                     | traces_to                        satisfies |
+|---------------------------|-----------|-----------------------------------------------------------------------------------------------|-----------------------------------------------|
+| every_constraint_covered  | invariant | `∀ constraint c: ∃ property p. p.derives_from == c.id`                                        | [[specodelic.coverage]]         |          |
+| every_law_has_cases       | invariant | `∀ property p where p.kind == "law": p has an associativity case and an identity case`         | [[specodelic.law_requires_cases]] |          |
+| no_orphan_property        | invariant | `∀ property p: p.derives_from resolves to a real constraint` (restates total_refs, scoped to this edge) | [[specodelic.coverage]]         |          |
+| coverage_is_computable    | invariant | `the derives_from multiplicity per constraint is countable in finite time from the parsed AST alone` | [[specodelic.coverage]]         |          |
+| count_failure | effect | `linter.coverage.count_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.coverage]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| law_case_failure | effect | `linter.coverage.law_case_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.coverage]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 
@@ -38,7 +40,8 @@ separate passes.
 - `counting`
 - `law_checking`
 - `passed`
-- `failed`
+- `count_failed` (emits: `[[linter.coverage.count_failure]]`)
+- `law_check_failed` (emits: `[[linter.coverage.law_case_failure]]`)
 
 ### Transitions
 
@@ -46,9 +49,10 @@ separate passes.
 |----------------|---------------|---------------|-----------------------------------------------------------------------------------------------|
 | begin          | unchecked     | counting      | `file passed linter.graph_shape and linter.model_shape`                                       |
 | count_ok       | counting      | law_checking  | [[linter.coverage.every_constraint_covered]] ∧ [[linter.coverage.no_orphan_property]]           |
-| count_fail     | counting      | failed        | `¬count_ok.guard`                                                                              |
+| count_fail | counting | count_failed | `¬([[linter.coverage.every_constraint_covered]] ∧ [[linter.coverage.no_orphan_property]])` |
 | accept         | law_checking  | passed        | [[linter.coverage.every_law_has_cases]]                                                        |
-| reject         | law_checking  | failed        | `¬accept.guard`                                                                                |
+| reject | law_checking | law_check_failed | `¬([[linter.coverage.every_law_has_cases]])` |
+
 
 ## Properties
 
@@ -60,7 +64,8 @@ separate passes.
 | full_coverage_passes          | unit | [[linter.coverage.every_constraint_covered]]         | `arbitrary_fully_covered_spec_file()`                                 | `check(file) == passed`                                                   |
 | coverage_naturality           | law  | [[specodelic.rename_naturality]]                    | `arbitrary_spec_file(), arbitrary_id_rename()`                        | **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered |
 | computed_derives_from_rejected | unit | [[linter.coverage.coverage_is_computable]]          | `spec_file_with(computed_or_templated_derives_from_id: true)`         | `check(file) == failed` — a non-literal id cannot be counted from the parsed AST alone |
-
+| count_failure_label_asserted | unit | [[linter.coverage.count_failure]] | `count_failure_raised()` | `error_label == "linter.coverage.count_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| law_case_failure_label_asserted | unit | [[linter.coverage.law_case_failure]] | `law_case_failure_raised()` | `error_label == "linter.coverage.law_case_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
 
 `coverage_is_computable` is worth stating explicitly even though it looks

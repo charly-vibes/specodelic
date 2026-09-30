@@ -13,12 +13,13 @@ DAG" check, applied to specs instead of code modules.
 
 ## Constraints
 
-| id                   | kind      | expr                                                                                  | traces_to                    |
-|-----------------------|-----------|------------------------------------------------------------------------------------------|---------------------------------|
-| acyclic               | invariant | `the directed graph formed by traces_to ∪ derives_from ∪ guard-as-edge has no cycle`      | [[specodelic.acyclic_traces]] |
-| single_root_reachable | invariant | `∀ constraint/property/state/transition row: reachable(row, some intent row)`             | [[specodelic.acyclic_traces]] |
-| no_self_ref           | invariant | `∀ row: row.traces_to != row.id and row.derives_from != row.id`                           | [[specodelic.acyclic_traces]] |
-| supersedes_dag        | invariant | `the directed graph formed by supersedes edges alone (Constraint→Constraint, Property→Property) has no cycle` | [[specodelic.supersedes_acyclic]] |
+| id                   | kind      | expr                                                                                  | traces_to                     satisfies |
+|-----------------------|-----------|------------------------------------------------------------------------------------------|--------------------------------------------|
+| acyclic               | invariant | `the directed graph formed by traces_to ∪ derives_from ∪ guard-as-edge has no cycle`      | [[specodelic.acyclic_traces]] |          |
+| single_root_reachable | invariant | `∀ constraint/property/state/transition row: reachable(row, some intent row)`             | [[specodelic.acyclic_traces]] |          |
+| no_self_ref           | invariant | `∀ row: row.traces_to != row.id and row.derives_from != row.id`                           | [[specodelic.acyclic_traces]] |          |
+| supersedes_dag        | invariant | `the directed graph formed by supersedes edges alone (Constraint→Constraint, Property→Property) has no cycle` | [[specodelic.supersedes_acyclic]] |          |
+| check_failure | effect | `linter.graph_shape.check_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.graph_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 
@@ -27,7 +28,7 @@ DAG" check, applied to specs instead of code modules.
 - `built`
 - `traversing`
 - `passed`
-- `failed`
+- `failed` (emits: `[[linter.graph_shape.check_failure]]`)
 
 ### Transitions
 
@@ -36,7 +37,8 @@ DAG" check, applied to specs instead of code modules.
 | build_graph   | unbuilt     | built       | `repo passed linter.referential_integrity`                                               |
 | traverse      | built       | traversing  | `graph built successfully`                                                               |
 | accept        | traversing  | passed      | [[linter.graph_shape.acyclic]] ∧ [[linter.graph_shape.single_root_reachable]] ∧ [[linter.graph_shape.no_self_ref]] ∧ [[linter.graph_shape.supersedes_dag]] |
-| reject        | traversing  | failed      | `¬accept.guard`                                                                            |
+| reject | traversing | failed | `¬([[linter.graph_shape.acyclic]] ∧ [[linter.graph_shape.single_root_reachable]] ∧ [[linter.graph_shape.no_self_ref]] ∧ [[linter.graph_shape.supersedes_dag]])` |
+
 
 ## Properties
 
@@ -49,7 +51,7 @@ DAG" check, applied to specs instead of code modules.
 | supersedes_cycle_rejected | unit | [[linter.graph_shape.supersedes_dag]]            | `spec_repo_with(supersedes_cycle: length ≥ 2)`          | `check(repo) == failed`                                                    |
 | supersedes_dag_ignores_traces_cycle | unit | [[linter.graph_shape.supersedes_dag]]  | `spec_repo_with(traces_to_cycle: true, supersedes: acyclic)` | `check(repo).supersedes_dag == passed` — the two graphs are checked independently; a cycle in one must not be attributed to the other |
 | topo_sort_naturality     | law  | [[linter.graph_shape.acyclic]]                    | `arbitrary_dag_repo(), arbitrary_id_rename()`           | **naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes |
-
+| check_failure_label_asserted | unit | [[linter.graph_shape.check_failure]] | `check_failure_raised()` | `error_label == "linter.graph_shape.check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
 
 `single_root_reachable` is new relative to `specodelic.md`'s original

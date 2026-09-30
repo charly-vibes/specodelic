@@ -27,15 +27,18 @@ before adding anything new.
 
 ## Constraints
 
-| id                                    | kind      | expr                                                                                                                                                                                    | traces_to |
-|------------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| graph_reused_not_rederived                | invariant | `merge's collision and blast-radius checks query [[graph]]'s artifact for both branch tips; merge never independently re-walks markdown for reachability`                                   | [[merge]] |
-| no_new_id_collision                       | invariant | `∀ id ∈ index(branch_A) ∩ index(branch_B): id was already defined, identically, in the common ancestor` — an id newly minted by both branches independently is a collision, not a merge  | [[merge]] |
-| blast_radii_recorded_pre_merge            | invariant | `before applying the union of edits, merge records [[graph]].blast_radius(touched_ids) for each branch separately, against the common ancestor's graph`                                    | [[merge]] |
-| semantic_conflict_iff_blast_radius_intersects | invariant | `blast_radius_A(touched_A) ∩ blast_radius_B(touched_B) ≠ ∅ ⟹ the merge requires human review, even when the two branches' literal file diffs don't overlap`                          | [[merge]] |
-| rename_replayed_onto_foreign_edits        | invariant | `if branch A contains a [[rename]] application of (old_id, new_id) and branch B independently adds a new [[old_id]] reference within blast_radius_A, the merge rewrites that reference to [[new_id]] using rename.md's own rewrite mechanism — it is never left dangling and never silently dropped` | [[merge]] |
-| post_merge_relint_required                | invariant | `merge is not reported passed until [[linter.referential_integrity]] and [[linter.graph_shape]] are re-run against the merged tree and both report passed` | [[merge]] |
-| sequential_number_reassigned_on_conflict  | invariant | `if both branches independently claim the same next sequential number (a CHANGELOG entry or Revision heading), the merge tool renumbers one of the two rather than allowing a silent duplicate` | [[merge]] |
+| id                                    | kind      | expr                                                                                                                                                                                    | traces_to  satisfies |
+|------------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
+| graph_reused_not_rederived                | invariant | `merge's collision and blast-radius checks query [[graph]]'s artifact for both branch tips; merge never independently re-walks markdown for reachability`                                   | [[merge]] |          |
+| no_new_id_collision                       | invariant | `∀ id ∈ index(branch_A) ∩ index(branch_B): id was already defined, identically, in the common ancestor` — an id newly minted by both branches independently is a collision, not a merge  | [[merge]] |          |
+| blast_radii_recorded_pre_merge            | invariant | `before applying the union of edits, merge records [[graph]].blast_radius(touched_ids) for each branch separately, against the common ancestor's graph`                                    | [[merge]] |          |
+| semantic_conflict_iff_blast_radius_intersects | invariant | `blast_radius_A(touched_A) ∩ blast_radius_B(touched_B) ≠ ∅ ⟹ the merge requires human review, even when the two branches' literal file diffs don't overlap`                          | [[merge]] |          |
+| rename_replayed_onto_foreign_edits        | invariant | `if branch A contains a [[rename]] application of (old_id, new_id) and branch B independently adds a new [[old_id]] reference within blast_radius_A, the merge rewrites that reference to [[new_id]] using rename.md's own rewrite mechanism — it is never left dangling and never silently dropped` | [[merge]] |          |
+| post_merge_relint_required                | invariant | `merge is not reported passed until [[linter.referential_integrity]] and [[linter.graph_shape]] are re-run against the merged tree and both report passed` | [[merge]] |          |
+| sequential_number_reassigned_on_conflict  | invariant | `if both branches independently claim the same next sequential number (a CHANGELOG entry or Revision heading), the merge tool renumbers one of the two rather than allowing a silent duplicate` | [[merge]] |          |
+| collision_failure | effect | `merge.collision_failure(detail) — the label names its owning file per error_expr_shape` | [[merge]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| reverification_failure | effect | `merge.reverification_failure(detail) — the label names its owning file per error_expr_shape` | [[merge]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| merge_aborted | effect | `merge.merge_aborted(detail) — the label names its owning file per error_expr_shape` | [[merge]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 
@@ -46,21 +49,24 @@ before adding anything new.
 - `rename_replayed`
 - `ref_integrity_reverified`
 - `merged`
-- `failed`
+- `collision_failed` (emits: `[[merge.collision_failure]]`)
+- `reverification_failed` (emits: `[[merge.reverification_failure]]`)
+- `merge_failed` (emits: `[[merge.merge_aborted]]`)
 
 ### Transitions
 
 | id               | from                      | to                        | guard                                                                                                     |
 |------------------|---------------------------|----------------------------|---------------------------------------------------------------------------------------------------------------|
 | check_collisions | diverged                  | collision_checked           | [[merge.no_new_id_collision]] ∧ [[merge.graph_reused_not_rederived]]                                        |
-| collision_fail   | diverged                  | failed                      | `¬check_collisions.guard`                                                                                     |
+| collision_fail | diverged | collision_failed | `¬([[merge.no_new_id_collision]] ∧ [[merge.graph_reused_not_rederived]])` |
 | flag_review      | collision_checked         | needs_review                 | [[merge.semantic_conflict_iff_blast_radius_intersects]] ∧ [[merge.blast_radii_recorded_pre_merge]]           |
 | auto_proceed     | collision_checked         | rename_replayed              | `¬flag_review.guard` ∧ [[merge.rename_replayed_onto_foreign_edits]]                                          |
 | resolved         | needs_review              | rename_replayed              | `a human has explicitly approved merging the intersecting blast radii` ∧ [[merge.rename_replayed_onto_foreign_edits]] |
 | reverify         | rename_replayed           | ref_integrity_reverified     | [[merge.post_merge_relint_required]]                                                                          |
-| reverify_fail    | rename_replayed           | failed                       | `¬reverify.guard`                                                                                              |
+| reverify_fail | rename_replayed | reverification_failed | `¬([[merge.post_merge_relint_required]])` |
 | accept           | ref_integrity_reverified  | merged                       | [[merge.sequential_number_reassigned_on_conflict]]                                                             |
-| reject           | ref_integrity_reverified  | failed                       | `¬accept.guard`                                                                                                |
+| reject | ref_integrity_reverified | merge_failed | `¬([[merge.sequential_number_reassigned_on_conflict]])` |
+
 
 ## Properties
 
@@ -75,7 +81,9 @@ before adding anything new.
 | relint_gates_merge                           | unit | [[merge.post_merge_relint_required]]                      | `merge_where(linter.referential_integrity or linter.graph_shape: fails against the merged tree)`        | `check(merge) == failed` — mirrors `rename.md`'s `stray_ref_caught_by_verify`                                        |
 | blast_radius_recorded_before_apply           | unit | [[merge.blast_radii_recorded_pre_merge]]                  | `merge_history_where_edits_were_applied_before_both_branches'_radii_were_recorded()`                    | `check(merge) == failed` — apply never precedes the recording step, for either branch                                |
 | reachability_from_graph_artifact_only        | unit | [[merge.graph_reused_not_rederived]]                      | `merge_invoked_with_the_markdown_walker_patched_to_panic()`                                             | `merge of an otherwise-clean diverged repo succeeds` — collision and blast-radius checks only query [[graph]]'s artifact |
-
+| collision_failure_label_asserted | unit | [[merge.collision_failure]] | `collision_failure_raised()` | `error_label == "merge.collision_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| reverification_failure_label_asserted | unit | [[merge.reverification_failure]] | `reverification_failure_raised()` | `error_label == "merge.reverification_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| merge_aborted_label_asserted | unit | [[merge.merge_aborted]] | `merge_aborted_raised()` | `error_label == "merge.merge_aborted"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
 
 `checked_against_core: clear` (see `AGENTS.md`'s convention).

@@ -38,6 +38,10 @@ pub mod spec_gen {
         Just(GenVal("law_property_with".into()))
     }
 
+    pub fn verification_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("verification_failure_raised".into()))
+    }
+
 }
 
 proptest! {
@@ -107,6 +111,16 @@ proptest! {
     #[test]
     fn rerun_matches_prior_outcome() {
         todo_predicate!("`outcome(run_1) == outcome(run_2)`");
+    }
+}
+
+proptest! {
+    // id: verification_failure_label_asserted
+    // generator: `verification_failure_raised()`
+    // predicate: `error_label == "verify.verification_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn verification_failure_label_asserted(v0 in spec_gen::verification_failure_raised()) {
+        todo_predicate!("`error_label == \"verify.verification_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
 

@@ -15,12 +15,14 @@ than by judging prose quality.
 
 ## Constraints
 
-| id                  | kind      | expr                                                                                                    | traces_to                           |
-|----------------------|-----------|--------------------------------------------------------------------------------------------------------------|-----------------------------------------|
-| ears_pattern_match    | invariant | `statement matches one of: Ubiquitous / Event-Driven / State-Driven / Unwanted-Behavior / Optional-Feature`   | [[specodelic.ears_statement]]        |
-| has_shall             | invariant | `statement contains an imperative "SHALL" (or "SHALL NOT")`                                                   | [[specodelic.ears_statement]]        |
-| no_conjoined_id       | invariant | `∀ row.id: id does not encode two capabilities joined by "and"/"or" (checked on the id token, not prose)`      | [[specodelic.one_capability_per_row]]|
-| no_universal_in_id    | invariant | `∀ row.id: id does not contain "all"/"every"/"any"/"always"/"never" as a token`                                | [[specodelic.one_capability_per_row]]|
+| id                  | kind      | expr                                                                                                    | traces_to                            satisfies |
+|----------------------|-----------|--------------------------------------------------------------------------------------------------------------|----------------------------------------------------|
+| ears_pattern_match    | invariant | `statement matches one of: Ubiquitous / Event-Driven / State-Driven / Unwanted-Behavior / Optional-Feature`   | [[specodelic.ears_statement]]        |          |
+| has_shall             | invariant | `statement contains an imperative "SHALL" (or "SHALL NOT")`                                                   | [[specodelic.ears_statement]]        |          |
+| no_conjoined_id       | invariant | `∀ row.id: id does not encode two capabilities joined by "and"/"or" (checked on the id token, not prose)`      | [[specodelic.one_capability_per_row]]|          |
+| no_universal_in_id    | invariant | `∀ row.id: id does not contain "all"/"every"/"any"/"always"/"never" as a token`                                | [[specodelic.one_capability_per_row]]|          |
+| pattern_failure | effect | `linter.ears_syntax.pattern_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.ears_syntax]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| id_check_failure | effect | `linter.ears_syntax.id_check_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.ears_syntax]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 
@@ -29,7 +31,8 @@ than by judging prose quality.
 - `pattern_matching`
 - `id_checking`
 - `passed`
-- `failed`
+- `pattern_failed` (emits: `[[linter.ears_syntax.pattern_failure]]`)
+- `id_check_failed` (emits: `[[linter.ears_syntax.id_check_failure]]`)
 
 ### Transitions
 
@@ -37,9 +40,10 @@ than by judging prose quality.
 |----------------|-------------------|-------------------|----------------------------------------------------------------------------------------------|
 | begin          | unchecked         | pattern_matching  | `file passed linter.frontmatter`                                                              |
 | pattern_ok     | pattern_matching  | id_checking       | [[linter.ears_syntax.ears_pattern_match]] ∧ [[linter.ears_syntax.has_shall]]                    |
-| pattern_fail   | pattern_matching  | failed            | `¬pattern_ok.guard`                                                                            |
+| pattern_fail | pattern_matching | pattern_failed | `¬([[linter.ears_syntax.ears_pattern_match]] ∧ [[linter.ears_syntax.has_shall]])` |
 | accept         | id_checking       | passed            | [[linter.ears_syntax.no_conjoined_id]] ∧ [[linter.ears_syntax.no_universal_in_id]]              |
-| reject         | id_checking       | failed            | `¬accept.guard`                                                                                |
+| reject | id_checking | id_check_failed | `¬([[linter.ears_syntax.no_conjoined_id]] ∧ [[linter.ears_syntax.no_universal_in_id]])` |
+
 
 ## Properties
 
@@ -50,7 +54,8 @@ than by judging prose quality.
 | conjoined_id_rejected      | unit | [[linter.ears_syntax.no_conjoined_id]]           | `row_with(id: "order.cancel_and_refund")`                       | `check(file) == failed`                                                    |
 | universal_token_rejected   | unit | [[linter.ears_syntax.no_universal_in_id]]        | `row_with(id: "order.always_validate")`                         | `check(file) == failed`                                                    |
 | valid_ears_passes          | unit | [[linter.ears_syntax.ears_pattern_match]]        | `arbitrary_ears_compliant_statement()`                          | `check(file) == passed`                                                    |
-
+| pattern_failure_label_asserted | unit | [[linter.ears_syntax.pattern_failure]] | `pattern_failure_raised()` | `error_label == "linter.ears_syntax.pattern_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| id_check_failure_label_asserted | unit | [[linter.ears_syntax.id_check_failure]] | `id_check_failure_raised()` | `error_label == "linter.ears_syntax.id_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
 
 This check deliberately does **not** attempt weak-phrase detection

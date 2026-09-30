@@ -62,6 +62,14 @@ pub mod spec_gen {
         Just(GenVal("arbitrary_id_rename".into()))
     }
 
+    pub fn kind_assignment_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("kind_assignment_failure_raised".into()))
+    }
+
+    pub fn shape_check_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("shape_check_failure_raised".into()))
+    }
+
 }
 
 proptest! {
@@ -223,6 +231,26 @@ proptest! {
     #[test]
     fn kind_shape_naturality_associativity(v0 in spec_gen::arbitrary_row_of_one_kind(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `assigned_kind(rename(row,a,a)) == assigned_kind(row)`  **associativity:** `assigned_kind(rename(rename(row,a,b),b,c)) == assigned_kind(rename(row,a,c))` — renaming a row's id never changes which of the five kinds it belongs to");
+    }
+}
+
+proptest! {
+    // id: kind_assignment_failure_label_asserted
+    // generator: `kind_assignment_failure_raised()`
+    // predicate: `error_label == "kinds.kind_assignment_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn kind_assignment_failure_label_asserted(v0 in spec_gen::kind_assignment_failure_raised()) {
+        todo_predicate!("`error_label == \"kinds.kind_assignment_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: shape_check_failure_label_asserted
+    // generator: `shape_check_failure_raised()`
+    // predicate: `error_label == "kinds.shape_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn shape_check_failure_label_asserted(v0 in spec_gen::shape_check_failure_raised()) {
+        todo_predicate!("`error_label == \"kinds.shape_check_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
 

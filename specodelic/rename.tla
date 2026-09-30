@@ -4,7 +4,7 @@
 \* self-contained so any engine can open it.
 
 \* Each State becomes a value in the state variable's range.
-StateValues == {"requested", "checked", "applying", "applied", "verifying", "passed", "failed"}
+StateValues == {"requested", "checked", "applying", "applied", "verifying", "passed", "validate_failed", "apply_failed", "check_failed"}
 
 VARIABLES vpc   \* the state variable (program counter)
 
@@ -18,25 +18,29 @@ Init == vpc = "requested"
 Next ==
   \* validate: requested -> checked (guard: [[rename.new_id_available]] ∧ [[rename.new_id_matches_filename]])
   \/ vpc = "requested" /\ vpc' = "checked"
-  \* validate_fail: requested -> failed (guard: `¬validate.guard`)
-  \/ vpc = "requested" /\ vpc' = "failed"
+  \* validate_fail: requested -> validate_failed (guard: `¬([[rename.new_id_available]] ∧ [[rename.new_id_matches_filename]])`)
+  \/ vpc = "requested" /\ vpc' = "validate_failed"
   \* apply: checked -> applying (guard: [[rename.atomic_operation]])
   \/ vpc = "checked" /\ vpc' = "applying"
   \* apply_ok: applying -> applied (guard: [[rename.old_id_fully_replaced]] ∧ [[rename.kind_unchanged]] ∧ [[rename.prose_untouched_by_rename]])
   \/ vpc = "applying" /\ vpc' = "applied"
-  \* apply_fail: applying -> failed (guard: `¬apply_ok.guard` — atomic_operation requires this path to roll back to the pre-rename repo, not to leave a partial edit)
-  \/ vpc = "applying" /\ vpc' = "failed"
+  \* apply_fail: applying -> apply_failed (guard: `¬([[rename.old_id_fully_replaced]] ∧ [[rename.kind_unchanged]] ∧ [[rename.prose_untouched_by_rename]])` — atomic_operation requires this path to roll back to the pre-rename repo, not to leave a partial edit)
+  \/ vpc = "applying" /\ vpc' = "apply_failed"
   \* verify: applied -> verifying (guard: `linter.referential_integrity and linter.graph_shape are re-run against the renamed repo`)
   \/ vpc = "applied" /\ vpc' = "verifying"
   \* accept: verifying -> passed (guard: [[linter.referential_integrity.ref_resolves]] ∧ [[linter.graph_shape.acyclic]])
   \/ vpc = "verifying" /\ vpc' = "passed"
-  \* reject: verifying -> failed (guard: `¬accept.guard`)
-  \/ vpc = "verifying" /\ vpc' = "failed"
+  \* reject: verifying -> check_failed (guard: `¬([[linter.referential_integrity.ref_resolves]] ∧ [[linter.graph_shape.acyclic]])`)
+  \/ vpc = "verifying" /\ vpc' = "check_failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"apply_failed" :> "`rename.apply_failure(detail) — the label names its owning file per error_expr_shape`" @@
+"check_failed" :> "`rename.post_check_failure(detail) — the label names its owning file per error_expr_shape`" @@
+"validate_failed" :> "`rename.validation_failure(new_id, reason) — the label names its owning file per error_expr_shape`"
 
 ============================================================================

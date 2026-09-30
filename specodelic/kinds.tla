@@ -4,7 +4,7 @@
 \* self-contained so any engine can open it.
 
 \* Each State becomes a value in the state variable's range.
-StateValues == {"unclassified", "kind_assigned", "shape_checked", "passed", "failed"}
+StateValues == {"unclassified", "kind_assigned", "shape_checked", "passed", "kind_failed", "shape_failed"}
 
 VARIABLES vpc   \* the state variable (program counter)
 
@@ -20,17 +20,20 @@ Next ==
   \/ vpc = "unclassified" /\ vpc' = "kind_assigned"
   \* assign_ok: kind_assigned -> shape_checked (guard: [[kinds.kind_enum_closed]])
   \/ vpc = "kind_assigned" /\ vpc' = "shape_checked"
-  \* assign_fail: kind_assigned -> failed (guard: `¬assign_ok.guard`)
-  \/ vpc = "kind_assigned" /\ vpc' = "failed"
+  \* assign_fail: kind_assigned -> kind_failed (guard: `¬([[kinds.kind_enum_closed]])`)
+  \/ vpc = "kind_assigned" /\ vpc' = "kind_failed"
   \* accept: shape_checked -> passed (guard: `(row.kind==Intent ∧ [[kinds.intent_row_shape]]) ∨ (row.kind==Constraint ∧ [[kinds.constraint_row_shape]]) ∨ (row.kind==State ∧ [[kinds.state_row_shape]]) ∨ (row.kind==Transition ∧ [[kinds.transition_row_shape]]) ∨ (row.kind==Property ∧ [[kinds.property_row_shape]])`)
   \/ vpc = "shape_checked" /\ vpc' = "passed"
-  \* reject: shape_checked -> failed (guard: `¬accept.guard`)
-  \/ vpc = "shape_checked" /\ vpc' = "failed"
+  \* reject: shape_checked -> shape_failed (guard: `¬([[kinds.intent_row_shape]] ∧ [[kinds.constraint_row_shape]] ∧ [[kinds.state_row_shape]] ∧ [[kinds.transition_row_shape]] ∧ [[kinds.property_row_shape]])`)
+  \/ vpc = "shape_checked" /\ vpc' = "shape_failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"kind_failed" :> "`kinds.kind_assignment_failure(detail) — the label names its owning file per error_expr_shape`" @@
+"shape_failed" :> "`kinds.shape_check_failure(detail) — the label names its owning file per error_expr_shape`"
 
 ============================================================================

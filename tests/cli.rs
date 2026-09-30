@@ -215,12 +215,16 @@ fn error_contract_rows_are_published() {
     let out = spk().args(["graph", "specs", "--json"]).output().unwrap();
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let edges = json["data"]["edges"].as_array().unwrap();
-    for row in ["envelope_error_kind", "exit_code_mapping", "remediation_hint_present"] {
+    for row in [
+        "envelope_error_kind",
+        "exit_code_mapping",
+        "remediation_hint_present",
+    ] {
         let id = format!("errors.{row}");
         assert!(
-            edges
-                .iter()
-                .any(|e| e["kind"] == "constraints.traces_to" && e["from"] == id && e["to"] == "errors"),
+            edges.iter().any(|e| e["kind"] == "constraints.traces_to"
+                && e["from"] == id
+                && e["to"] == "errors"),
             "contract row {id} not published (no traces_to edge to its own intent)"
         );
         assert!(
@@ -229,6 +233,250 @@ fn error_contract_rows_are_published() {
                 .any(|e| e["kind"] == "properties.derives_from" && e["to"] == id),
             "contract row {id} has no falsifying property"
         );
+    }
+}
+
+/// add-error-contract task 2.1 (RED first): the per-file gaps named
+/// mechanically from the graph. After phase 2 this holds:
+/// - every failure terminal (inbound transitions.to, no outbound
+///   transitions.from, name containing "fail") emits exactly ONE
+///   file-owned labeled error Constraint (single_labeled_failure at
+///   model altitude), and every label is property-covered;
+/// - the exact label set per file matches the phase-2 plan (compile
+///   splits extraction/emission; multi-class files split failure states);
+/// - every failure transition with ≥1 guard citations cites exactly the
+///   citation set of its success sibling (guard_negation_typed, D2);
+/// - the only zero-citation failure guards are orchestrate's carved-out
+///   stage-fails (the D2 carve-out is a checked list);
+/// - no state carries ≥2 inbound failure transitions with differing
+///   citation sets (failure_class_is_state, D2a).
+#[test]
+fn failure_terminals_emit_labeled_errors() {
+    let out = spk().args(["graph", "specs", "--json"]).output().unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let edges = json["data"]["edges"].as_array().unwrap();
+    let e = |k: &str| -> Vec<(String, String)> {
+        edges
+            .iter()
+            .filter(|x| x["kind"] == k)
+            .map(|x| {
+                (
+                    x["from"].as_str().unwrap().to_string(),
+                    x["to"].as_str().unwrap().to_string(),
+                )
+            })
+            .collect()
+    };
+    let to_state = e("transitions.to");
+    let from_state = e("transitions.from");
+    let guard = e("transitions.guard");
+    let emits = e("states.emits");
+    let derives = e("properties.derives_from");
+
+    let outbound: std::collections::BTreeSet<&str> =
+        from_state.iter().map(|(f, _)| f.as_str()).collect();
+    let mut inbound: std::collections::BTreeMap<&str, Vec<&str>> =
+        std::collections::BTreeMap::new();
+    for (f, t) in &to_state {
+        inbound.entry(t.as_str()).or_default().push(f);
+    }
+    // failure terminals: terminal states named *fail*
+    let failure_terminals: Vec<&str> = inbound
+        .iter()
+        .filter(|(s, _)| !outbound.contains(**s) && s.contains("fail"))
+        .map(|(s, _)| *s)
+        .collect();
+    assert!(
+        failure_terminals.len() >= 20,
+        "expected the split corpus's failure terminals, got {failure_terminals:?}"
+    );
+
+    // exactly one labeled error per failure state, label property-covered
+    for s in &failure_terminals {
+        let targets: Vec<&String> = emits
+            .iter()
+            .filter(|(f, _)| f.as_str() == *s)
+            .map(|(_, t)| t)
+            .collect();
+        assert_eq!(
+            targets.len(),
+            1,
+            "failure terminal {s} must emit exactly one labeled error"
+        );
+        let label = targets[0];
+        assert!(
+            derives.iter().any(|(_, t)| t == label),
+            "error label {label} has no falsifying property"
+        );
+    }
+
+    // exact label set per file (phase-2 plan)
+    let expected: &[(&str, &[&str])] = &[
+        (
+            "compile",
+            &["compile.extraction_failure", "compile.emission_failure"],
+        ),
+        (
+            "rename",
+            &[
+                "rename.validation_failure",
+                "rename.apply_failure",
+                "rename.post_check_failure",
+            ],
+        ),
+        (
+            "linter.coverage",
+            &[
+                "linter.coverage.count_failure",
+                "linter.coverage.law_case_failure",
+            ],
+        ),
+        (
+            "linter.referential_integrity",
+            &[
+                "linter.referential_integrity.index_failure",
+                "linter.referential_integrity.resolution_failure",
+            ],
+        ),
+        (
+            "linter.ears_syntax",
+            &[
+                "linter.ears_syntax.pattern_failure",
+                "linter.ears_syntax.id_check_failure",
+            ],
+        ),
+        (
+            "linter.external_completeness",
+            &[
+                "linter.external_completeness.manifest_failure",
+                "linter.external_completeness.mapping_failure",
+                "linter.external_completeness.resolution_failure",
+            ],
+        ),
+        ("linter.frontmatter", &["linter.frontmatter.check_failure"]),
+        ("linter.graph_shape", &["linter.graph_shape.check_failure"]),
+        (
+            "linter.model_shape",
+            &[
+                "linter.model_shape.pairing_failure",
+                "linter.model_shape.field_check_failure",
+            ],
+        ),
+        (
+            "linter.schema_shape",
+            &[
+                "linter.schema_shape.kind_check_failure",
+                "linter.schema_shape.diff_failure",
+                "linter.schema_shape.parser_audit_failure",
+            ],
+        ),
+        ("graph", &["graph.extraction_failure"]),
+        (
+            "kinds",
+            &["kinds.kind_assignment_failure", "kinds.shape_check_failure"],
+        ),
+        (
+            "merge",
+            &[
+                "merge.collision_failure",
+                "merge.reverification_failure",
+                "merge.merge_aborted",
+            ],
+        ),
+        (
+            "orchestrate",
+            &[
+                "orchestrate.lint_stage_failure",
+                "orchestrate.compile_stage_failure",
+                "orchestrate.model_check_stage_failure",
+                "orchestrate.verify_stage_failure",
+            ],
+        ),
+        ("verify", &["verify.verification_failure"]),
+    ];
+    for (file, labels) in expected {
+        let prefix = format!("{file}.");
+        let mut got: Vec<&str> = emits
+            .iter()
+            .filter(|(f, _)| f.as_str().starts_with(&prefix))
+            .map(|(_, t)| t.as_str())
+            .collect();
+        got.sort();
+        let mut want: Vec<&str> = labels.to_vec();
+        want.sort();
+        assert_eq!(got, want, "emits label set mismatch for {file}");
+    }
+
+    // guard_negation_typed + failure_class_is_state, mechanically
+    let from_of: std::collections::BTreeMap<&str, &str> = from_state
+        .iter()
+        .map(|(t, s)| (t.as_str(), s.as_str()))
+        .collect();
+    let to_of: std::collections::BTreeMap<&str, &str> = to_state
+        .iter()
+        .map(|(t, s)| (t.as_str(), s.as_str()))
+        .collect();
+    let cites = |t: &str| -> Vec<&str> {
+        let mut v: Vec<&str> = guard
+            .iter()
+            .filter(|(f, _)| f.as_str() == t)
+            .map(|(_, x)| x.as_str())
+            .collect();
+        v.sort();
+        v
+    };
+    let mut by_state: std::collections::BTreeMap<&str, Vec<&str>> =
+        std::collections::BTreeMap::new();
+    for (t, s) in &to_of {
+        if s.contains("fail") {
+            by_state.entry(*s).or_default().push(t);
+        }
+    }
+    for (s, fails) in &by_state {
+        // failure_class_is_state: differing citation sets must be split
+        let mut sets: Vec<Vec<&str>> = fails.iter().map(|t| cites(t)).collect();
+        sets.sort();
+        sets.dedup();
+        assert_eq!(
+            sets.len(),
+            1,
+            "state {s} carries {}/{} differing failure citation sets — split the classes",
+            sets.len(),
+            fails.len()
+        );
+        for t in fails {
+            let c = cites(t);
+            if c.is_empty() {
+                // the D2 carve-out is a checked list: only orchestrate's
+                // stage-fails may stay prose
+                assert!(
+                    t.starts_with("orchestrate."),
+                    "zero-citation failure guard {t} is outside the carve-out list"
+                );
+                continue;
+            }
+            // the success siblings from the same source state are what
+            // the failure guard negates (a disjunction negates the union);
+            // citation sets must be equal
+            let src = from_of.get(t).copied().unwrap();
+            let siblings: Vec<&str> = to_of
+                .iter()
+                .filter(|(id, to)| from_of.get(*id).copied() == Some(src) && !to.contains("fail"))
+                .map(|(id, _)| *id)
+                .collect();
+            assert!(
+                !siblings.is_empty(),
+                "failure transition {t} has no success sibling"
+            );
+            let mut want: Vec<&str> = siblings.iter().flat_map(|s| cites(s)).collect();
+            want.sort();
+            want.dedup();
+            assert_eq!(
+                c,
+                cites(siblings[0]),
+                "failure transition {t} must cite exactly its negated sibling's citation set"
+            );
+        }
     }
 }
 

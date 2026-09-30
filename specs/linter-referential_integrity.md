@@ -12,12 +12,14 @@ id→row index this check relies on.
 
 ## Constraints
 
-| id                  | kind      | expr                                                                                   | traces_to                          |
-|----------------------|-----------|-------------------------------------------------------------------------------------------|---------------------------------------|
-| unique_within_file   | invariant | `∀ file: no two rows in file share the same local id`                                     | [[specodelic.unique_id]]           |
-| unique_across_repo   | invariant | `∀ repo: no two files declare the same fully-qualified id`                                | [[specodelic.unique_id]]           |
-| ref_resolves         | invariant | `∀ [[ref]] in file: qualify(ref) ∈ index(repo)`                                            | [[specodelic.total_refs]]          |
-| ref_kind_compatible  | invariant | `∀ [[ref]] in any reference field defined by specodelic.md's Reference Typing table: target row's kind ∈ allowed_targets(field)` — read from that table, not hardcoded per field name, so a Revision adding a field (`supersedes`, `emits`, ...) needs no change here | [[specodelic.total_refs]]          |
+| id                  | kind      | expr                                                                                   | traces_to                           satisfies |
+|----------------------|-----------|-------------------------------------------------------------------------------------------|--------------------------------------------------|
+| unique_within_file   | invariant | `∀ file: no two rows in file share the same local id`                                     | [[specodelic.unique_id]]           |          |
+| unique_across_repo   | invariant | `∀ repo: no two files declare the same fully-qualified id`                                | [[specodelic.unique_id]]           |          |
+| ref_resolves         | invariant | `∀ [[ref]] in file: qualify(ref) ∈ index(repo)`                                            | [[specodelic.total_refs]]          |          |
+| ref_kind_compatible  | invariant | `∀ [[ref]] in any reference field defined by specodelic.md's Reference Typing table: target row's kind ∈ allowed_targets(field)` — read from that table, not hardcoded per field name, so a Revision adding a field (`supersedes`, `emits`, ...) needs no change here | [[specodelic.total_refs]]          |          |
+| index_failure | effect | `linter.referential_integrity.index_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.referential_integrity]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| resolution_failure | effect | `linter.referential_integrity.resolution_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.referential_integrity]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 
@@ -27,7 +29,8 @@ id→row index this check relies on.
 - `indexed`
 - `resolving`
 - `passed`
-- `failed`
+- `index_failed` (emits: `[[linter.referential_integrity.index_failure]]`)
+- `resolution_failed` (emits: `[[linter.referential_integrity.resolution_failure]]`)
 
 ### Transitions
 
@@ -35,10 +38,11 @@ id→row index this check relies on.
 |----------------|------------|------------|----------------------------------------------------------------------------------------------|
 | build_index    | unindexed  | indexing   | `all files in repo passed linter.frontmatter`                                                |
 | index_ok       | indexing   | indexed    | [[linter.referential_integrity.unique_within_file]] ∧ [[linter.referential_integrity.unique_across_repo]] |
-| index_fail     | indexing   | failed     | `¬index_ok.guard`                                                                             |
+| index_fail | indexing | index_failed | `¬([[linter.referential_integrity.unique_within_file]] ∧ [[linter.referential_integrity.unique_across_repo]])` |
 | resolve_refs   | indexed    | resolving  | `index built successfully`                                                                    |
 | accept         | resolving  | passed     | [[linter.referential_integrity.ref_resolves]] ∧ [[linter.referential_integrity.ref_kind_compatible]] |
-| reject         | resolving  | failed     | `¬accept.guard`                                                                                |
+| reject | resolving | resolution_failed | `¬([[linter.referential_integrity.ref_resolves]] ∧ [[linter.referential_integrity.ref_kind_compatible]])` |
+
 
 ## Properties
 
@@ -50,6 +54,9 @@ id→row index this check relies on.
 | wrong_target_kind        | unit | [[linter.referential_integrity.ref_kind_compatible]]       | `guard_field_pointing_at_a_property_row()`              | `check(file) == failed`                                                    |
 | rename_naturality        | law  | [[specodelic.rename_naturality]]                          | `arbitrary_spec_repo(), arbitrary_id_rename()`          | **identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))` |
 | clean_repo_passes        | unit | [[linter.referential_integrity.ref_resolves]]              | `arbitrary_well_formed_repo()`                          | `check(repo) == passed`                                                    |
+
+| index_failure_label_asserted | unit | [[linter.referential_integrity.index_failure]] | `index_failure_raised()` | `error_label == "linter.referential_integrity.index_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| resolution_failure_label_asserted | unit | [[linter.referential_integrity.resolution_failure]] | `resolution_failure_raised()` | `error_label == "linter.referential_integrity.resolution_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 
 ## Resolution algorithm
 
@@ -78,7 +85,6 @@ undocumented"):
 Row ids are single-segment: a dotted tail is always read as
 `row.member`, never as a dotted row id, so `[[a.b.c.d]]` does not
 resolve when file `a` declares only a row literally named `b.c`.
-
 ## Notes
 
 `rename_naturality` is restated here rather than only living in

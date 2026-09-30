@@ -4,7 +4,7 @@
 \* self-contained so any engine can open it.
 
 \* Each State becomes a value in the state variable's range.
-StateValues == {"idle", "lint_stage", "compile_stage", "model_check_stage", "verify_stage", "succeeded", "failed"}
+StateValues == {"idle", "lint_stage", "compile_stage", "model_check_stage", "verify_stage", "succeeded", "lint_failed", "compile_failed", "model_check_failed", "verify_failed"}
 
 VARIABLES vpc   \* the state variable (program counter)
 
@@ -20,25 +20,30 @@ Next ==
   \/ vpc = "idle" /\ vpc' = "lint_stage"
   \* lint_ok: lint_stage -> compile_stage (guard: [[orchestrate.lint_gate_matches_checker_ownership]] ∧ [[orchestrate.dependency_respecting_skip]] ∧ [[orchestrate.independent_branches_run_regardless]])
   \/ vpc = "lint_stage" /\ vpc' = "compile_stage"
-  \* lint_fail: lint_stage -> failed (guard: `¬lint_ok.guard`)
-  \/ vpc = "lint_stage" /\ vpc' = "failed"
+  \* lint_fail: lint_stage -> lint_failed (guard: `¬lint_ok.guard`)
+  \/ vpc = "lint_stage" /\ vpc' = "lint_failed"
   \* compile_ok: compile_stage -> model_check_stage (guard: [[orchestrate.compile_gate_matches_coverage]])
   \/ vpc = "compile_stage" /\ vpc' = "model_check_stage"
-  \* compile_fail: compile_stage -> failed (guard: `¬compile_ok.guard`)
-  \/ vpc = "compile_stage" /\ vpc' = "failed"
+  \* compile_fail: compile_stage -> compile_failed (guard: `¬compile_ok.guard`)
+  \/ vpc = "compile_stage" /\ vpc' = "compile_failed"
   \* model_check_ok: model_check_stage -> verify_stage (guard: [[orchestrate.stage_order_fixed]] ∧ `model_check.md's model_checked/no_counterexample distinction resolved`)
   \/ vpc = "model_check_stage" /\ vpc' = "verify_stage"
-  \* model_check_fail: model_check_stage -> failed (guard: `¬model_check_ok.guard`)
-  \/ vpc = "model_check_stage" /\ vpc' = "failed"
+  \* model_check_fail: model_check_stage -> model_check_failed (guard: `¬model_check_ok.guard`)
+  \/ vpc = "model_check_stage" /\ vpc' = "model_check_failed"
   \* verify_ok: verify_stage -> succeeded (guard: [[orchestrate.stage_order_fixed]] ∧ `verify.md's both_gates_required holds`)
   \/ vpc = "verify_stage" /\ vpc' = "succeeded"
-  \* verify_fail: verify_stage -> failed (guard: `¬verify_ok.guard`)
-  \/ vpc = "verify_stage" /\ vpc' = "failed"
+  \* verify_fail: verify_stage -> verify_failed (guard: `¬verify_ok.guard`)
+  \/ vpc = "verify_stage" /\ vpc' = "verify_failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"compile_failed" :> "`orchestrate.compile_stage_failure(stage, detail) — the label names its owning file per error_expr_shape`" @@
+"lint_failed" :> "`orchestrate.lint_stage_failure(stage, detail) — the label names its owning file per error_expr_shape`" @@
+"model_check_failed" :> "`orchestrate.model_check_stage_failure(stage, detail) — the label names its owning file per error_expr_shape`" @@
+"verify_failed" :> "`orchestrate.verify_stage_failure(stage, detail) — the label names its owning file per error_expr_shape`"
 
 ============================================================================

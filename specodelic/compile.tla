@@ -4,7 +4,7 @@
 \* self-contained so any engine can open it.
 
 \* Each State becomes a value in the state variable's range.
-StateValues == {"not_started", "extracting", "emitting", "compiled", "failed"}
+StateValues == {"not_started", "extracting", "emitting", "compiled", "extract_failed", "emit_failed"}
 
 VARIABLES vpc   \* the state variable (program counter)
 
@@ -20,17 +20,20 @@ Next ==
   \/ vpc = "not_started" /\ vpc' = "extracting"
   \* extract_ok: extracting -> emitting (guard: [[compile.constraint_table_to_toml]] ∧ [[compile.model_to_tla]] ∧ [[compile.properties_to_proptest]])
   \/ vpc = "extracting" /\ vpc' = "emitting"
-  \* extract_fail: extracting -> failed (guard: `¬extract_ok.guard`)
-  \/ vpc = "extracting" /\ vpc' = "failed"
+  \* extract_fail: extracting -> extract_failed (guard: `¬([[compile.constraint_table_to_toml]] ∧ [[compile.model_to_tla]] ∧ [[compile.properties_to_proptest]])`)
+  \/ vpc = "extracting" /\ vpc' = "extract_failed"
   \* accept: emitting -> compiled (guard: [[compile.compile_preserves_ids]] ∧ [[compile.no_semantic_drift]])
   \/ vpc = "emitting" /\ vpc' = "compiled"
-  \* reject: emitting -> failed (guard: `¬accept.guard`)
-  \/ vpc = "emitting" /\ vpc' = "failed"
+  \* reject: emitting -> emit_failed (guard: `¬([[compile.compile_preserves_ids]] ∧ [[compile.no_semantic_drift]])`)
+  \/ vpc = "emitting" /\ vpc' = "emit_failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"emit_failed" :> "`compile.emission_failure(detail) — the emission stage failed because detail`" @@
+"extract_failed" :> "`compile.extraction_failure(row_id, reason) — the extraction stage failed on row row_id because reason`"
 
 ============================================================================

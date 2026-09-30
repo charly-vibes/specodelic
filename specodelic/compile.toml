@@ -41,3 +41,15 @@ id = "no_semantic_drift"
 kind = "invariant"
 expr = "`re-parsing a compiled artifact and re-emitting it yields output identical to the original compile — Compile is idempotent under its own round trip`"
 traces_to = "[[compile]]"
+
+[[constraints]]
+id = "extraction_failure"
+kind = "effect"
+expr = "`compile.extraction_failure(row_id, reason) — the extraction stage failed on row row_id because reason`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "emission_failure"
+kind = "effect"
+expr = "`compile.emission_failure(detail) — the emission stage failed because detail`"
+traces_to = "[[compile]]"

@@ -4,22 +4,34 @@ source = "linter.coverage"
 id = "every_constraint_covered"
 kind = "invariant"
 expr = "`∀ constraint c: ∃ property p. p.derives_from == c.id`"
-traces_to = "[[specodelic.coverage]]"
+traces_to = ""
 
 [[constraints]]
 id = "every_law_has_cases"
 kind = "invariant"
 expr = '`∀ property p where p.kind == "law": p has an associativity case and an identity case`'
-traces_to = "[[specodelic.law_requires_cases]]"
+traces_to = ""
 
 [[constraints]]
 id = "no_orphan_property"
 kind = "invariant"
 expr = "`∀ property p: p.derives_from resolves to a real constraint` (restates total_refs, scoped to this edge)"
-traces_to = "[[specodelic.coverage]]"
+traces_to = ""
 
 [[constraints]]
 id = "coverage_is_computable"
 kind = "invariant"
 expr = "`the derives_from multiplicity per constraint is countable in finite time from the parsed AST alone`"
-traces_to = "[[specodelic.coverage]]"
+traces_to = ""
+
+[[constraints]]
+id = "count_failure"
+kind = "effect"
+expr = "`linter.coverage.count_failure(detail) — the label names its owning file per error_expr_shape`"
+traces_to = ""
+
+[[constraints]]
+id = "law_case_failure"
+kind = "effect"
+expr = "`linter.coverage.law_case_failure(detail) — the label names its owning file per error_expr_shape`"
+traces_to = ""

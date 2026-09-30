@@ -12,12 +12,13 @@ for later checks to key off of.
 
 ## Constraints
 
-| id              | kind      | expr                                                              | traces_to             |
-|------------------|-----------|----------------------------------------------------------------------|-------------------------|
-| has_id           | invariant | `frontmatter.id != null and matches(id, /^[a-z][a-z0-9_.]*$/)`        | [[specodelic.frontmatter_valid]] |
-| has_kind         | invariant | `frontmatter.kind == "intent"`                                       | [[specodelic.frontmatter_valid]] |
-| has_statement    | invariant | `frontmatter.statement != null and len(statement) > 0`               | [[specodelic.frontmatter_valid]] |
-| id_matches_file  | invariant | `frontmatter.id == expected_id_from_filename(path)`                  | [[specodelic.frontmatter_valid]] |
+| id              | kind      | expr                                                              | traces_to              satisfies |
+|------------------|-----------|----------------------------------------------------------------------|------------------------------------|
+| has_id           | invariant | `frontmatter.id != null and matches(id, /^[a-z][a-z0-9_.]*$/)`        | [[specodelic.frontmatter_valid]] |          |
+| has_kind         | invariant | `frontmatter.kind == "intent"`                                       | [[specodelic.frontmatter_valid]] |          |
+| has_statement    | invariant | `frontmatter.statement != null and len(statement) > 0`               | [[specodelic.frontmatter_valid]] |          |
+| id_matches_file  | invariant | `frontmatter.id == expected_id_from_filename(path)`                  | [[specodelic.frontmatter_valid]] |          |
+| check_failure | effect | `linter.frontmatter.check_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.frontmatter]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 
@@ -25,7 +26,7 @@ for later checks to key off of.
 - `unchecked`
 - `checking`
 - `passed`
-- `failed`
+- `failed` (emits: `[[linter.frontmatter.check_failure]]`)
 
 ### Transitions
 
@@ -33,7 +34,8 @@ for later checks to key off of.
 |---------------|-----------|-----------|--------------------------------------------------------------------|
 | begin         | unchecked | checking  | `file exists and is UTF-8 markdown`                                 |
 | accept        | checking  | passed    | [[linter.frontmatter.has_id]] ∧ [[linter.frontmatter.has_kind]] ∧ [[linter.frontmatter.has_statement]] ∧ [[linter.frontmatter.id_matches_file]] |
-| reject        | checking  | failed    | `¬accept.guard`                                                     |
+| reject | checking | failed | `¬([[linter.frontmatter.has_id]] ∧ [[linter.frontmatter.has_kind]] ∧ [[linter.frontmatter.has_statement]] ∧ [[linter.frontmatter.id_matches_file]])` |
+
 
 ## Properties
 
@@ -44,7 +46,7 @@ for later checks to key off of.
 | valid_passes         | unit | [[linter.frontmatter.has_id]]           | `arbitrary_valid_frontmatter()`           | `check(frontmatter) == passed`                                              |
 | filename_mismatch    | unit | [[linter.frontmatter.id_matches_file]]  | `(id, filename)` pairs where `id ≠ stem(filename)` | `check(id, filename) == failed`                                    |
 | missing_statement_rejected | unit | [[linter.frontmatter.has_statement]] | `frontmatter_without("statement")` and `frontmatter_with(statement: "")` | `check(frontmatter) == failed` — absent and empty are both rejections |
-
+| check_failure_label_asserted | unit | [[linter.frontmatter.check_failure]] | `check_failure_raised()` | `error_label == "linter.frontmatter.check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
 
 `id_matches_file` is not in the meta-spec's `frontmatter_valid` list yet —

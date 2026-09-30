@@ -4,28 +4,46 @@ source = "linter.external_completeness"
 id = "checklist_well_formed"
 kind = "invariant"
 expr = "`a declared checklist is a flat list of items, each with a stable id and a plain-text description`"
-traces_to = "[[linter.external_completeness]]"
+traces_to = ""
 
 [[constraints]]
 id = "every_item_accounted"
 kind = "invariant"
 expr = "`∀ checklist item c: ∃ exactly one mapping row m with m.item == c.id and m.status ∈ {covered, waived}`"
-traces_to = "[[linter.external_completeness]]"
+traces_to = ""
 
 [[constraints]]
 id = "covered_maps_resolve"
 kind = "invariant"
 expr = '`∀ mapping row m where m.status == "covered": m.mapped_ids is non-empty, and every id in it resolves to a real constraint or property row`'
-traces_to = "[[linter.external_completeness]]"
+traces_to = ""
 
 [[constraints]]
 id = "waiver_has_rationale"
 kind = "invariant"
 expr = '`∀ mapping row m where m.status == "waived": m.rationale is non-empty prose`'
-traces_to = "[[linter.external_completeness]]"
+traces_to = ""
 
 [[constraints]]
 id = "no_duplicate_claim"
 kind = "invariant"
 expr = "`∀ checklist item c: no two mapping rows both target c.id`"
-traces_to = "[[linter.external_completeness]]"
+traces_to = ""
+
+[[constraints]]
+id = "manifest_failure"
+kind = "effect"
+expr = "`linter.external_completeness.manifest_failure(detail) — the label names its owning file per error_expr_shape`"
+traces_to = ""
+
+[[constraints]]
+id = "mapping_failure"
+kind = "effect"
+expr = "`linter.external_completeness.mapping_failure(detail) — the label names its owning file per error_expr_shape`"
+traces_to = ""
+
+[[constraints]]
+id = "resolution_failure"
+kind = "effect"
+expr = "`linter.external_completeness.resolution_failure(detail) — the label names its owning file per error_expr_shape`"
+traces_to = ""

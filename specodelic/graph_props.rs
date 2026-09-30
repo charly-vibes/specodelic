@@ -58,6 +58,10 @@ pub mod spec_gen {
         Just(GenVal("constraint_row_carrying_observes_pointing_at_effect".into()))
     }
 
+    pub fn extraction_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("extraction_failure_raised".into()))
+    }
+
 }
 
 proptest! {
@@ -147,6 +151,16 @@ proptest! {
     #[test]
     fn observes_edge_extracted(v0 in spec_gen::constraint_row_carrying_observes_pointing_at_effect()) {
         todo_predicate!("`exactly one edge, kind constraints.observes — and zero edges when the column is absent`");
+    }
+}
+
+proptest! {
+    // id: extraction_failure_label_asserted
+    // generator: `extraction_failure_raised()`
+    // predicate: `error_label == "graph.extraction_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn extraction_failure_label_asserted(v0 in spec_gen::extraction_failure_raised()) {
+        todo_predicate!("`error_label == \"graph.extraction_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
 

@@ -42,6 +42,18 @@ pub mod spec_gen {
         Just(GenVal("parser_audit_over_every_ast_construction_site".into()))
     }
 
+    pub fn kind_check_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("kind_check_failure_raised".into()))
+    }
+
+    pub fn diff_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("diff_failure_raised".into()))
+    }
+
+    pub fn parser_audit_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("parser_audit_failure_raised".into()))
+    }
+
 }
 
 proptest! {
@@ -161,6 +173,36 @@ proptest! {
     #[test]
     fn parser_ast_never_reads_prose(v0 in spec_gen::parser_audit_over_every_ast_construction_site()) {
         todo_predicate!("`no branch condition references the text of a rationale/description field` — the check itself is an implementation audit, see Notes");
+    }
+}
+
+proptest! {
+    // id: kind_check_failure_label_asserted
+    // generator: `kind_check_failure_raised()`
+    // predicate: `error_label == "linter.schema_shape.kind_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn kind_check_failure_label_asserted(v0 in spec_gen::kind_check_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.schema_shape.kind_check_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: diff_failure_label_asserted
+    // generator: `diff_failure_raised()`
+    // predicate: `error_label == "linter.schema_shape.diff_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn diff_failure_label_asserted(v0 in spec_gen::diff_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.schema_shape.diff_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: parser_audit_failure_label_asserted
+    // generator: `parser_audit_failure_raised()`
+    // predicate: `error_label == "linter.schema_shape.parser_audit_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn parser_audit_failure_label_asserted(v0 in spec_gen::parser_audit_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.schema_shape.parser_audit_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
 

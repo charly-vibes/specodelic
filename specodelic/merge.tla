@@ -4,7 +4,7 @@
 \* self-contained so any engine can open it.
 
 \* Each State becomes a value in the state variable's range.
-StateValues == {"diverged", "collision_checked", "needs_review", "rename_replayed", "ref_integrity_reverified", "merged", "failed"}
+StateValues == {"diverged", "collision_checked", "needs_review", "rename_replayed", "ref_integrity_reverified", "merged", "collision_failed", "reverification_failed", "merge_failed"}
 
 VARIABLES vpc   \* the state variable (program counter)
 
@@ -18,8 +18,8 @@ Init == vpc = "diverged"
 Next ==
   \* check_collisions: diverged -> collision_checked (guard: [[merge.no_new_id_collision]] ∧ [[merge.graph_reused_not_rederived]])
   \/ vpc = "diverged" /\ vpc' = "collision_checked"
-  \* collision_fail: diverged -> failed (guard: `¬check_collisions.guard`)
-  \/ vpc = "diverged" /\ vpc' = "failed"
+  \* collision_fail: diverged -> collision_failed (guard: `¬([[merge.no_new_id_collision]] ∧ [[merge.graph_reused_not_rederived]])`)
+  \/ vpc = "diverged" /\ vpc' = "collision_failed"
   \* flag_review: collision_checked -> needs_review (guard: [[merge.semantic_conflict_iff_blast_radius_intersects]] ∧ [[merge.blast_radii_recorded_pre_merge]])
   \/ vpc = "collision_checked" /\ vpc' = "needs_review"
   \* auto_proceed: collision_checked -> rename_replayed (guard: `¬flag_review.guard` ∧ [[merge.rename_replayed_onto_foreign_edits]])
@@ -28,17 +28,21 @@ Next ==
   \/ vpc = "needs_review" /\ vpc' = "rename_replayed"
   \* reverify: rename_replayed -> ref_integrity_reverified (guard: [[merge.post_merge_relint_required]])
   \/ vpc = "rename_replayed" /\ vpc' = "ref_integrity_reverified"
-  \* reverify_fail: rename_replayed -> failed (guard: `¬reverify.guard`)
-  \/ vpc = "rename_replayed" /\ vpc' = "failed"
+  \* reverify_fail: rename_replayed -> reverification_failed (guard: `¬([[merge.post_merge_relint_required]])`)
+  \/ vpc = "rename_replayed" /\ vpc' = "reverification_failed"
   \* accept: ref_integrity_reverified -> merged (guard: [[merge.sequential_number_reassigned_on_conflict]])
   \/ vpc = "ref_integrity_reverified" /\ vpc' = "merged"
-  \* reject: ref_integrity_reverified -> failed (guard: `¬accept.guard`)
-  \/ vpc = "ref_integrity_reverified" /\ vpc' = "failed"
+  \* reject: ref_integrity_reverified -> merge_failed (guard: `¬([[merge.sequential_number_reassigned_on_conflict]])`)
+  \/ vpc = "ref_integrity_reverified" /\ vpc' = "merge_failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"collision_failed" :> "`merge.collision_failure(detail) — the label names its owning file per error_expr_shape`" @@
+"merge_failed" :> "`merge.merge_aborted(detail) — the label names its owning file per error_expr_shape`" @@
+"reverification_failed" :> "`merge.reverification_failure(detail) — the label names its owning file per error_expr_shape`"
 
 ============================================================================

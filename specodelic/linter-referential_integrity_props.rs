@@ -46,6 +46,14 @@ pub mod spec_gen {
         Just(GenVal("arbitrary_well_formed_repo".into()))
     }
 
+    pub fn index_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("index_failure_raised".into()))
+    }
+
+    pub fn resolution_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("resolution_failure_raised".into()))
+    }
+
 }
 
 proptest! {
@@ -117,6 +125,26 @@ proptest! {
     #[test]
     fn clean_repo_passes(v0 in spec_gen::arbitrary_well_formed_repo()) {
         todo_predicate!("`check(repo) == passed`");
+    }
+}
+
+proptest! {
+    // id: index_failure_label_asserted
+    // generator: `index_failure_raised()`
+    // predicate: `error_label == "linter.referential_integrity.index_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn index_failure_label_asserted(v0 in spec_gen::index_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.referential_integrity.index_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: resolution_failure_label_asserted
+    // generator: `resolution_failure_raised()`
+    // predicate: `error_label == "linter.referential_integrity.resolution_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn resolution_failure_label_asserted(v0 in spec_gen::resolution_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.referential_integrity.resolution_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
 

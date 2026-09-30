@@ -42,6 +42,14 @@ pub mod spec_gen {
         Just(GenVal("arbitrary_id_rename".into()))
     }
 
+    pub fn count_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("count_failure_raised".into()))
+    }
+
+    pub fn law_case_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("law_case_failure_raised".into()))
+    }
+
 }
 
 proptest! {
@@ -102,6 +110,26 @@ proptest! {
     #[test]
     fn computed_derives_from_rejected(v0 in spec_gen::spec_file_with()) {
         todo_predicate!("`check(file) == failed` — a non-literal id cannot be counted from the parsed AST alone");
+    }
+}
+
+proptest! {
+    // id: count_failure_label_asserted
+    // generator: `count_failure_raised()`
+    // predicate: `error_label == "linter.coverage.count_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn count_failure_label_asserted(v0 in spec_gen::count_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.coverage.count_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: law_case_failure_label_asserted
+    // generator: `law_case_failure_raised()`
+    // predicate: `error_label == "linter.coverage.law_case_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn law_case_failure_label_asserted(v0 in spec_gen::law_case_failure_raised()) {
+        todo_predicate!("`error_label == \"linter.coverage.law_case_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
 

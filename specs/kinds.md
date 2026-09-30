@@ -18,15 +18,17 @@ checkable fact instead of an unstated assumption.
 
 ## Constraints
 
-| id                    | kind      | expr                                                                                                                                            | traces_to |
-|------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| kind_enum_closed        | invariant | `the five kinds are exactly {Intent, Constraint, State, Transition, Property}, one per top-level section of a spec file (frontmatter, Constraints table, Model/States, Model/Transitions, Properties table)` | [[kinds]] |
-| intent_row_shape        | invariant | `an Intent row is the file's frontmatter block; its fields are exactly {id, kind, statement}, with kind == "intent"`                                    | [[kinds]] |
-| constraint_row_shape    | invariant | `a Constraint row is one row of the Constraints table; its base fields are exactly {id, kind, expr, traces_to}, optionally followed by typed reference columns — each such column must be declared in `specodelic.md`'s Reference Typing table (currently `satisfies`, `observes`) and carries no meaning beyond that typing; kind ∈ {invariant, advisory, effect, extension_point}`   | [[kinds]] |
-| state_row_shape         | invariant | `a State row is one bullet under Model/States; its fields are exactly {id, emits?} and it has no kind column of its own — states are named variants, never a typed column; `emits` is optional and, when present, must resolve to a Constraint with kind == "effect" (see `specodelic.md`'s Reference Typing table) — a state with no `emits` is a bare automaton state, not a Moore state, and both are well-formed` | [[kinds]] |
-| transition_row_shape    | invariant | `a Transition row is one row of the Model/Transitions table; its fields are exactly {id, from, to, guard}, with no kind column of its own`              | [[kinds]] |
-| property_row_shape      | invariant | `a Property row is one row of the Properties table; its fields are exactly {id, kind, derives_from, generator, predicate}, with kind ∈ {unit, law}`     | [[kinds]] |
-| kind_field_extensible   | invariant | `a Constraint or Property row's own kind value-set is one instance of [[specodelic.append_only_variants]] — it grows only under a new Revision heading in this file, never silently` | [[kinds]] |
+| id                    | kind      | expr                                                                                                                                            | traces_to  satisfies |
+|------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
+| kind_enum_closed        | invariant | `the five kinds are exactly {Intent, Constraint, State, Transition, Property}, one per top-level section of a spec file (frontmatter, Constraints table, Model/States, Model/Transitions, Properties table)` | [[kinds]] |          |
+| intent_row_shape        | invariant | `an Intent row is the file's frontmatter block; its fields are exactly {id, kind, statement}, with kind == "intent"`                                    | [[kinds]] |          |
+| constraint_row_shape    | invariant | `a Constraint row is one row of the Constraints table; its base fields are exactly {id, kind, expr, traces_to}, optionally followed by typed reference columns — each such column must be declared in `specodelic.md`'s Reference Typing table (currently `satisfies`, `observes`) and carries no meaning beyond that typing; kind ∈ {invariant, advisory, effect, extension_point}`   | [[kinds]] |          |
+| state_row_shape         | invariant | `a State row is one bullet under Model/States; its fields are exactly {id, emits?} and it has no kind column of its own — states are named variants, never a typed column; `emits` is optional and, when present, must resolve to a Constraint with kind == "effect" (see `specodelic.md`'s Reference Typing table) — a state with no `emits` is a bare automaton state, not a Moore state, and both are well-formed` | [[kinds]] |          |
+| transition_row_shape    | invariant | `a Transition row is one row of the Model/Transitions table; its fields are exactly {id, from, to, guard}, with no kind column of its own`              | [[kinds]] |          |
+| property_row_shape      | invariant | `a Property row is one row of the Properties table; its fields are exactly {id, kind, derives_from, generator, predicate}, with kind ∈ {unit, law}`     | [[kinds]] |          |
+| kind_field_extensible   | invariant | `a Constraint or Property row's own kind value-set is one instance of [[specodelic.append_only_variants]] — it grows only under a new Revision heading in this file, never silently` | [[kinds]] |          |
+| kind_assignment_failure | effect | `kinds.kind_assignment_failure(detail) — the label names its owning file per error_expr_shape` | [[kinds]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| shape_check_failure | effect | `kinds.shape_check_failure(detail) — the label names its owning file per error_expr_shape` | [[kinds]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 
@@ -35,7 +37,8 @@ checkable fact instead of an unstated assumption.
 - `kind_assigned`
 - `shape_checked`
 - `passed`
-- `failed`
+- `kind_failed` (emits: `[[kinds.kind_assignment_failure]]`)
+- `shape_failed` (emits: `[[kinds.shape_check_failure]]`)
 
 ### Transitions
 
@@ -43,9 +46,10 @@ checkable fact instead of an unstated assumption.
 |--------------|----------------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | begin        | unclassified   | kind_assigned  | `row belongs to exactly one of the five sections (frontmatter / Constraints table / Model States / Model Transitions / Properties table)`                                                                                                                                    |
 | assign_ok    | kind_assigned  | shape_checked  | [[kinds.kind_enum_closed]]                                                                                                                                                                                                                                                    |
-| assign_fail  | kind_assigned  | failed         | `¬assign_ok.guard`                                                                                                                                                                                                                                                            |
+| assign_fail | kind_assigned | kind_failed | `¬([[kinds.kind_enum_closed]])` |
 | accept       | shape_checked  | passed         | `(row.kind==Intent ∧ [[kinds.intent_row_shape]]) ∨ (row.kind==Constraint ∧ [[kinds.constraint_row_shape]]) ∨ (row.kind==State ∧ [[kinds.state_row_shape]]) ∨ (row.kind==Transition ∧ [[kinds.transition_row_shape]]) ∨ (row.kind==Property ∧ [[kinds.property_row_shape]])` |
-| reject       | shape_checked  | failed         | `¬accept.guard`                                                                                                                                                                                                                                                               |
+| reject | shape_checked | shape_failed | `¬([[kinds.intent_row_shape]] ∧ [[kinds.constraint_row_shape]] ∧ [[kinds.state_row_shape]] ∧ [[kinds.transition_row_shape]] ∧ [[kinds.property_row_shape]])` |
+
 
 ## Properties
 
@@ -66,7 +70,8 @@ checkable fact instead of an unstated assumption.
 | constraint_row_extension_point_accepted  | unit | [[kinds.constraint_row_shape]]         | `constraint_row_with(kind: "extension_point")`                       | `check(row) == passed`                                                                                                                                                                                |
 | well_formed_row_passes                   | unit | [[kinds.kind_enum_closed]]             | `arbitrary_well_formed_row_of_one_kind()`                            | `check(row) == passed`                                                                                                                                                                                |
 | kind_shape_naturality                    | law  | [[kinds.kind_enum_closed]]             | `arbitrary_row_of_one_kind(), arbitrary_id_rename()`                 | **identity:** `assigned_kind(rename(row,a,a)) == assigned_kind(row)`  **associativity:** `assigned_kind(rename(rename(row,a,b),b,c)) == assigned_kind(rename(row,a,c))` — renaming a row's id never changes which of the five kinds it belongs to |
-
+| kind_assignment_failure_label_asserted | unit | [[kinds.kind_assignment_failure]] | `kind_assignment_failure_raised()` | `error_label == "kinds.kind_assignment_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| shape_check_failure_label_asserted | unit | [[kinds.shape_check_failure]] | `shape_check_failure_raised()` | `error_label == "kinds.shape_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
 
 **Two different things are called "kind" in this repo, and they must not be

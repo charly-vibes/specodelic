@@ -22,13 +22,15 @@ Next ==
   \/ vpc = "running" /\ vpc' = "properties_evaluated"
   \* accept: properties_evaluated -> verified (guard: [[verify.both_gates_required]] ∧ [[verify.properties_pass_reflects_latest_run]] ∧ [[verify.law_cases_all_run]])
   \/ vpc = "properties_evaluated" /\ vpc' = "verified"
-  \* reject: properties_evaluated -> failed (guard: `¬accept.guard`)
+  \* reject: properties_evaluated -> failed (guard: `¬([[verify.both_gates_required]] ∧ [[verify.properties_pass_reflects_latest_run]] ∧ [[verify.law_cases_all_run]])`)
   \/ vpc = "properties_evaluated" /\ vpc' = "failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"failed" :> "`verify.verification_failure(detail) — the label names its owning file per error_expr_shape`"
 
 ============================================================================

@@ -4,7 +4,7 @@
 \* self-contained so any engine can open it.
 
 \* Each State becomes a value in the state variable's range.
-StateValues == {"not_applicable", "loaded", "mapping_checked", "passed", "failed"}
+StateValues == {"not_applicable", "loaded", "mapping_checked", "passed", "load_failed", "mapping_failed", "resolution_failed"}
 
 VARIABLES vpc   \* the state variable (program counter)
 
@@ -18,21 +18,25 @@ Init == vpc = "not_applicable"
 Next ==
   \* load: not_applicable -> loaded (guard: `repo declares a checklist` ∧ [[linter.external_completeness.checklist_well_formed]])
   \/ vpc = "not_applicable" /\ vpc' = "loaded"
-  \* load_fail: not_applicable -> failed (guard: `repo declares a checklist` ∧ `¬load.guard`)
-  \/ vpc = "not_applicable" /\ vpc' = "failed"
+  \* load_fail: not_applicable -> load_failed (guard: `¬([[linter.external_completeness.checklist_well_formed]])` ∧ `¬load.guard`)
+  \/ vpc = "not_applicable" /\ vpc' = "load_failed"
   \* check_mapping: loaded -> mapping_checked (guard: [[linter.external_completeness.every_item_accounted]] ∧ [[linter.external_completeness.no_duplicate_claim]])
   \/ vpc = "loaded" /\ vpc' = "mapping_checked"
-  \* check_fail: loaded -> failed (guard: `¬check_mapping.guard`)
-  \/ vpc = "loaded" /\ vpc' = "failed"
+  \* check_fail: loaded -> mapping_failed (guard: `¬([[linter.external_completeness.every_item_accounted]] ∧ [[linter.external_completeness.no_duplicate_claim]])`)
+  \/ vpc = "loaded" /\ vpc' = "mapping_failed"
   \* accept: mapping_checked -> passed (guard: [[linter.external_completeness.covered_maps_resolve]] ∧ [[linter.external_completeness.waiver_has_rationale]])
   \/ vpc = "mapping_checked" /\ vpc' = "passed"
-  \* reject: mapping_checked -> failed (guard: `¬accept.guard`)
-  \/ vpc = "mapping_checked" /\ vpc' = "failed"
+  \* reject: mapping_checked -> resolution_failed (guard: `¬([[linter.external_completeness.covered_maps_resolve]] ∧ [[linter.external_completeness.waiver_has_rationale]])`)
+  \/ vpc = "mapping_checked" /\ vpc' = "resolution_failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock
   \/ UNCHANGED vpc
 
-\* No state carries an `emits` field — Output is simply empty.
-Output == << >>
+\* One entry per state with an `emits` field — domain is exactly
+\* the emitting states; each value is the effect-Constraint's expr.
+Output ==
+"load_failed" :> "`linter.external_completeness.manifest_failure(detail) — the label names its owning file per error_expr_shape`" @@
+"mapping_failed" :> "`linter.external_completeness.mapping_failure(detail) — the label names its owning file per error_expr_shape`" @@
+"resolution_failed" :> "`linter.external_completeness.resolution_failure(detail) — the label names its owning file per error_expr_shape`"
 
 ============================================================================

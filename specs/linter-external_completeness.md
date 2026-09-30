@@ -28,13 +28,16 @@ see Notes for what it does gate instead.
 
 ## Constraints
 
-| id                       | kind      | expr                                                                                                                                      | traces_to |
-|----------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| checklist_well_formed      | invariant | `a declared checklist is a flat list of items, each with a stable id and a plain-text description`                                        | [[linter.external_completeness]] |
-| every_item_accounted       | invariant | `∀ checklist item c: ∃ exactly one mapping row m with m.item == c.id and m.status ∈ {covered, waived}`                                     | [[linter.external_completeness]] |
-| covered_maps_resolve       | invariant | `∀ mapping row m where m.status == "covered": m.mapped_ids is non-empty, and every id in it resolves to a real constraint or property row` | [[linter.external_completeness]] |
-| waiver_has_rationale       | invariant | `∀ mapping row m where m.status == "waived": m.rationale is non-empty prose`                                                                | [[linter.external_completeness]] |
-| no_duplicate_claim         | invariant | `∀ checklist item c: no two mapping rows both target c.id`                                                                                  | [[linter.external_completeness]] |
+| id                       | kind      | expr                                                                                                                                      | traces_to  satisfies |
+|----------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
+| checklist_well_formed      | invariant | `a declared checklist is a flat list of items, each with a stable id and a plain-text description`                                        | [[linter.external_completeness]] |          |
+| every_item_accounted       | invariant | `∀ checklist item c: ∃ exactly one mapping row m with m.item == c.id and m.status ∈ {covered, waived}`                                     | [[linter.external_completeness]] |          |
+| covered_maps_resolve       | invariant | `∀ mapping row m where m.status == "covered": m.mapped_ids is non-empty, and every id in it resolves to a real constraint or property row` | [[linter.external_completeness]] |          |
+| waiver_has_rationale       | invariant | `∀ mapping row m where m.status == "waived": m.rationale is non-empty prose`                                                                | [[linter.external_completeness]] |          |
+| no_duplicate_claim         | invariant | `∀ checklist item c: no two mapping rows both target c.id`                                                                                  | [[linter.external_completeness]] |          |
+| manifest_failure | effect | `linter.external_completeness.manifest_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.external_completeness]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| mapping_failure | effect | `linter.external_completeness.mapping_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.external_completeness]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| resolution_failure | effect | `linter.external_completeness.resolution_failure(detail) — the label names its owning file per error_expr_shape` | [[linter.external_completeness]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 
@@ -43,18 +46,21 @@ see Notes for what it does gate instead.
 - `loaded`
 - `mapping_checked`
 - `passed`
-- `failed`
+- `load_failed` (emits: `[[linter.external_completeness.manifest_failure]]`)
+- `mapping_failed` (emits: `[[linter.external_completeness.mapping_failure]]`)
+- `resolution_failed` (emits: `[[linter.external_completeness.resolution_failure]]`)
 
 ### Transitions
 
 | id            | from             | to               | guard                                                                                              |
 |---------------|------------------|------------------|-----------------------------------------------------------------------------------------------------|
 | load          | not_applicable   | loaded           | `repo declares a checklist` ∧ [[linter.external_completeness.checklist_well_formed]]                 |
-| load_fail     | not_applicable   | failed           | `repo declares a checklist` ∧ `¬load.guard`                                                          |
+| load_fail | not_applicable | load_failed | `¬([[linter.external_completeness.checklist_well_formed]])` ∧ `¬load.guard` |
 | check_mapping | loaded           | mapping_checked  | [[linter.external_completeness.every_item_accounted]] ∧ [[linter.external_completeness.no_duplicate_claim]] |
-| check_fail    | loaded           | failed           | `¬check_mapping.guard`                                                                                |
+| check_fail | loaded | mapping_failed | `¬([[linter.external_completeness.every_item_accounted]] ∧ [[linter.external_completeness.no_duplicate_claim]])` |
 | accept        | mapping_checked  | passed           | [[linter.external_completeness.covered_maps_resolve]] ∧ [[linter.external_completeness.waiver_has_rationale]] |
-| reject        | mapping_checked  | failed           | `¬accept.guard`                                                                                       |
+| reject | mapping_checked | resolution_failed | `¬([[linter.external_completeness.covered_maps_resolve]] ∧ [[linter.external_completeness.waiver_has_rationale]])` |
+
 
 ## Properties
 
@@ -68,7 +74,9 @@ see Notes for what it does gate instead.
 | no_checklist_not_applicable      | unit | [[linter.external_completeness]]                            | `repo_with_no_declared_checklist()`                                       | `check(repo) == not_applicable` — distinct from `passed`, see Notes         |
 | mapping_naturality               | law  | [[specodelic.rename_naturality]]                            | `arbitrary_repo_with_checklist(), arbitrary_id_rename()`                  | **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference |
 | malformed_checklist_rejected     | unit | [[linter.external_completeness.checklist_well_formed]]      | `declared_checklist_with(a_nested_item, an_item_missing_its_id)`          | `check(repo) == failed` |
-
+| manifest_failure_label_asserted | unit | [[linter.external_completeness.manifest_failure]] | `manifest_failure_raised()` | `error_label == "linter.external_completeness.manifest_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| mapping_failure_label_asserted | unit | [[linter.external_completeness.mapping_failure]] | `mapping_failure_raised()` | `error_label == "linter.external_completeness.mapping_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| resolution_failure_label_asserted | unit | [[linter.external_completeness.resolution_failure]] | `resolution_failure_raised()` | `error_label == "linter.external_completeness.resolution_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
 
 **What this checker can and can't prove — read carefully, this is the

@@ -58,6 +58,18 @@ pub mod spec_gen {
         Just(GenVal("rename_of_a_constraint_row_to_a_new_id".into()))
     }
 
+    pub fn validation_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("validation_failure_raised".into()))
+    }
+
+    pub fn apply_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("apply_failure_raised".into()))
+    }
+
+    pub fn post_check_failure_raised() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("post_check_failure_raised".into()))
+    }
+
 }
 
 proptest! {
@@ -160,6 +172,36 @@ proptest! {
     #[test]
     fn kind_preserved_by_rename(v0 in spec_gen::rename_of_a_constraint_row_to_a_new_id()) {
         todo_predicate!("`assigned_kind(post_rename_row) == assigned_kind(pre_rename_row)` — both the five-object kind and, where present, the row's own kind column survive the rewrite");
+    }
+}
+
+proptest! {
+    // id: validation_failure_label_asserted
+    // generator: `validation_failure_raised()`
+    // predicate: `error_label == "rename.validation_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn validation_failure_label_asserted(v0 in spec_gen::validation_failure_raised()) {
+        todo_predicate!("`error_label == \"rename.validation_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: apply_failure_label_asserted
+    // generator: `apply_failure_raised()`
+    // predicate: `error_label == "rename.apply_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn apply_failure_label_asserted(v0 in spec_gen::apply_failure_raised()) {
+        todo_predicate!("`error_label == \"rename.apply_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: post_check_failure_label_asserted
+    // generator: `post_check_failure_raised()`
+    // predicate: `error_label == "rename.post_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    #[test]
+    fn post_check_failure_label_asserted(v0 in spec_gen::post_check_failure_raised()) {
+        todo_predicate!("`error_label == \"rename.post_check_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
 

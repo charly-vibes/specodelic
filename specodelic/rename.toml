@@ -4,34 +4,52 @@ source = "rename"
 id = "new_id_available"
 kind = "invariant"
 expr = "`new_id ∉ index(repo)` — renaming never collides with an existing id"
-traces_to = "[[rename]]"
+traces_to = ""
 
 [[constraints]]
 id = "new_id_matches_filename"
 kind = "invariant"
 expr = "`if the renamed row is a file's own Intent, [[specodelic.id_matches_file]] must hold between new_id and the (possibly also renamed) filename`"
-traces_to = "[[rename]]"
+traces_to = ""
 
 [[constraints]]
 id = "old_id_fully_replaced"
 kind = "invariant"
 expr = "`∀ [[old_id]] reference anywhere in repo: rewritten to [[new_id]]; zero occurrences of old_id remain post-rename`"
-traces_to = "[[rename]]"
+traces_to = ""
 
 [[constraints]]
 id = "atomic_operation"
 kind = "invariant"
 expr = "`the definition-row update, every reference rewrite, and any required filename change apply as one transaction: all succeed, or the repo is left byte-identical to its pre-rename state`"
-traces_to = "[[rename]]"
+traces_to = ""
 
 [[constraints]]
 id = "kind_unchanged"
 kind = "invariant"
 expr = "`assigned_kind(row) is the same before and after rename — both 𝒦's five-object kind and, where present, the row's own kind/sub-kind column` — see [[kinds.kind_shape_naturality]]"
-traces_to = "[[rename]]"
+traces_to = ""
 
 [[constraints]]
 id = "prose_untouched_by_rename"
 kind = "invariant"
 expr = "`rename rewrites only [[id]] wiki-link syntax and structured id fields (frontmatter id, table id/traces_to/derives_from/guard/from/to cells) — it never edits rationale/description prose, even if the prose happens to mention the old name in words`"
-traces_to = "[[rename]]"
+traces_to = ""
+
+[[constraints]]
+id = "validation_failure"
+kind = "effect"
+expr = "`rename.validation_failure(new_id, reason) — the label names its owning file per error_expr_shape`"
+traces_to = ""
+
+[[constraints]]
+id = "apply_failure"
+kind = "effect"
+expr = "`rename.apply_failure(detail) — the label names its owning file per error_expr_shape`"
+traces_to = ""
+
+[[constraints]]
+id = "post_check_failure"
+kind = "effect"
+expr = "`rename.post_check_failure(detail) — the label names its owning file per error_expr_shape`"
+traces_to = ""
