@@ -487,6 +487,242 @@ fn failure_terminals_emit_labeled_errors() {
     }
 }
 
+// ---- specodelic-ct5: linter.failure_shape checker (specs/linter-failure_shape.md) ----
+// The three rules are graph-decidable per file; these tests reuse the
+// failure_terminals_emit_labeled_errors derivation (above) at single-file
+// lint altitude: mute terminals, label collisions, and guard negation
+// totals are lint findings (tier 2 of errors.md's enforcement_routed row).
+
+/// A lint-clean tool file with one failure terminal that emits a labeled
+/// error, guarded by the sibling's citation set — the shape every rule
+/// below perturbs.
+fn write_clean_failure_shape_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE tool SHALL label its failures\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | inv | invariant | `x` | [[{id}]] |\n\
+             | x_failure | effect | `{id}.x_failure(detail)` | [[{id}]] |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- s\n\
+             - failed (emits: `[[{id}.x_failure]]`)\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | ok | s | s | [[{id}.inv]] |\n\
+             | boom | s | failed | [[{id}.inv]] |\n\
+             \n## Properties\n\
+             \n| id | kind | derives_from | generator | predicate |\n\
+             |----|------|--------------|-----------|------------|\n\
+             | p_inv | unit | [[{id}.inv]] | `g()` | `x` |\n\
+             | p_x | unit | [[{id}.x_failure]] | `g()` | `x` |\n"
+        ),
+    )
+    .unwrap();
+}
+
+fn lint_issues(dir: &tempfile::TempDir) -> (Option<i32>, Vec<String>) {
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let issues = json["data"]["issues"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["rule_id"].as_str().unwrap().to_string())
+        .collect();
+    (out.status.code(), issues)
+}
+
+/// terminal_states_emit: a failure terminal that emits nothing is a
+/// finding — the corpus's pre-add-error-contract shape, now labeled
+/// (mute_terminal_rejected).
+#[test]
+fn lint_mute_failure_terminal_flagged() {
+    let dir = tempfile::tempdir().unwrap();
+    write_clean_failure_shape_spec(&dir.path().join("d-mute.md"), "d.mute");
+    // strip the emits cell from the failure state
+    let p = dir.path().join("d-mute.md");
+    let text = std::fs::read_to_string(&p).unwrap();
+    std::fs::write(&p, text.replace("- failed (emits: `[[d.mute.x_failure]]`)", "- failed")).unwrap();
+
+    let (code, issues) = lint_issues(&dir);
+    assert_eq!(code, Some(1));
+    assert_eq!(
+        issues,
+        vec!["linter.terminal_states_emit".to_string()],
+        "exactly the mute-terminal finding, nothing else: {issues:?}"
+    );
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let msg = json["data"]["issues"][0]["message"].as_str().unwrap();
+    assert!(msg.contains("failed"), "names the mute state: {msg}");
+    assert!(
+        msg.contains("emits"),
+        "carries a remediation hint (remediation_hint_present): {msg}"
+    );
+}
+
+/// error_labels_unique: two error Constraints sharing a variant head
+/// collide within the file (label_collision_rejected). The dotted row id
+/// makes the second emitted label's head `x_failure` again — a future
+/// format change dropping the namespacing law is caught here.
+#[test]
+fn lint_error_label_collision_flagged() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("d-lbl.md"),
+        "---\nid: d.lbl\nkind: intent\nstatement: \"THE d SHALL label its failures\"\n---\n\
+         \n## Constraints\n\
+         \n| id | kind | expr | traces_to |\n\
+         |----|------|------|-----------|\n\
+         | inv | invariant | `x` | [[d.lbl]] |\n\
+         | x_failure | effect | `d.lbl.x_failure(detail)` | [[d.lbl]] |\n\
+         | sub.x_failure | effect | `d.lbl.sub.x_failure(detail)` | [[d.lbl]] |\n\
+         \n## Model\n\
+         \n### States\n\
+         \n- s\n\
+         - f1 (emits: `[[d.lbl.x_failure]]`)\n\
+         - f2 (emits: `[[d.lbl.sub.x_failure]]`)\n\
+         \n### Transitions\n\
+         \n| id | from | to | guard |\n\
+         |----|------|----|-------|\n\
+         | ok | s | s | [[d.lbl.inv]] |\n\
+         | boom1 | s | f1 | [[d.lbl.inv]] |\n\
+         | boom2 | s | f2 | [[d.lbl.inv]] |\n\
+         \n## Properties\n\
+         \n| id | kind | derives_from | generator | predicate |\n\
+         |----|------|--------------|-----------|------------|\n\
+         | p_inv | unit | [[d.lbl.inv]] | `g()` | `x` |\n\
+         | p_x | unit | [[d.lbl.x_failure]] | `g()` | `x` |\n\
+         | p_sub | unit | [[d.lbl.sub.x_failure]] | `g()` | `x` |\n",
+    )
+    .unwrap();
+    let (code, issues) = lint_issues(&dir);
+    assert_eq!(code, Some(1));
+    assert!(
+        issues.contains(&"linter.error_labels_unique".to_string()),
+        "the collision is labeled: {issues:?}"
+    );
+}
+
+/// guard_negation_total, zero-citation leg: a failure transition citing
+/// nothing and off the carve-out list is a finding, never a silent pass
+/// (zero_citation_flagged).
+#[test]
+fn lint_zero_citation_failure_guard_flagged() {
+    let dir = tempfile::tempdir().unwrap();
+    write_clean_failure_shape_spec(&dir.path().join("d-zc.md"), "d.zc");
+    let p = dir.path().join("d-zc.md");
+    let text = std::fs::read_to_string(&p).unwrap();
+    std::fs::write(&p, text.replace("| boom | s | failed | [[d.zc.inv]] |", "| boom | s | failed | `the world ends` |")).unwrap();
+
+    let (code, issues) = lint_issues(&dir);
+    assert_eq!(code, Some(1));
+    assert_eq!(
+        issues,
+        vec!["linter.guard_negation_total".to_string()],
+        "exactly the zero-citation finding, nothing else: {issues:?}"
+    );
+}
+
+/// guard_negation_total, carve-out leg: orchestrate's stage-fail
+/// transitions stay prose-guarded — the carve-out is CHECKED membership
+/// (file orchestrate + the four stage-fail transition ids), not assumed
+/// (carved_out_guard_passes).
+#[test]
+fn lint_carved_out_stage_fail_passes() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("orchestrate.md"),
+        "---\nid: orchestrate\nkind: intent\nstatement: \"THE orchestrate SHALL stage its checks\"\n---\n\
+         \n## Constraints\n\
+         \n| id | kind | expr | traces_to |\n\
+         |----|------|------|-----------|\n\
+         | inv | invariant | `x` | [[orchestrate]] |\n\
+         | lint_stage_failure | effect | `orchestrate.lint_stage_failure(stage, detail)` | [[orchestrate]] |\n\
+         \n## Model\n\
+         \n### States\n\
+         \n- stage\n\
+         - lint_failed (emits: `[[orchestrate.lint_stage_failure]]`)\n\
+         \n### Transitions\n\
+         \n| id | from | to | guard |\n\
+         |----|------|----|-------|\n\
+         | lint_ok | stage | stage | [[orchestrate.inv]] |\n\
+         | lint_fail | stage | lint_failed | `¬lint_ok.guard` |\n\
+         \n## Properties\n\
+         \n| id | kind | derives_from | generator | predicate |\n\
+         |----|------|--------------|-----------|------------|\n\
+         | p_inv | unit | [[orchestrate.inv]] | `g()` | `x` |\n\
+         | p_lsf | unit | [[orchestrate.lint_stage_failure]] | `g()` | `x` |\n",
+    )
+    .unwrap();
+    let (code, issues) = lint_issues(&dir);
+    assert_eq!(code, Some(0), "carve-out membership is checked: {issues:?}");
+    assert!(issues.is_empty(), "no findings: {issues:?}");
+}
+
+/// guard_negation_total, mismatch leg: a failure transition citing a set
+/// that differs from its success siblings' union is a finding —
+/// citation-set inequality is graph-decidable
+/// (negation_set_mismatch_flagged).
+#[test]
+fn lint_negation_set_mismatch_flagged() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("d-mm.md"),
+        "---\nid: d.mm\nkind: intent\nstatement: \"THE d SHALL negate its guards\"\n---\n\
+         \n## Constraints\n\
+         \n| id | kind | expr | traces_to |\n\
+         |----|------|------|-----------|\n\
+         | inv | invariant | `x` | [[d.mm]] |\n\
+         | other | invariant | `y` | [[d.mm]] |\n\
+         | x_failure | effect | `d.mm.x_failure(detail)` | [[d.mm]] |\n\
+         \n## Model\n\
+         \n### States\n\
+         \n- s\n\
+         - failed (emits: `[[d.mm.x_failure]]`)\n\
+         \n### Transitions\n\
+         \n| id | from | to | guard |\n\
+         |----|------|----|-------|\n\
+         | ok | s | s | [[d.mm.inv]] |\n\
+         | boom | s | failed | [[d.mm.other]] |\n\
+         \n## Properties\n\
+         \n| id | kind | derives_from | generator | predicate |\n\
+         |----|------|--------------|-----------|------------|\n\
+         | p_inv | unit | [[d.mm.inv]] | `g()` | `x` |\n\
+         | p_other | unit | [[d.mm.other]] | `g()` | `x` |\n\
+         | p_x | unit | [[d.mm.x_failure]] | `g()` | `x` |\n",
+    )
+    .unwrap();
+    let (code, issues) = lint_issues(&dir);
+    assert_eq!(code, Some(1));
+    assert_eq!(
+        issues,
+        vec!["linter.guard_negation_total".to_string()],
+        "exactly the negation-mismatch finding, nothing else: {issues:?}"
+    );
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let msg = json["data"]["issues"][0]["message"].as_str().unwrap();
+    assert!(
+        msg.contains("d.mm.inv"),
+        "the finding names the expected citation set: {msg}"
+    );
+}
+
 /// total_extraction (specs/graph.md): a Transition's `from`/`to` cells are
 /// typed reference fields (→ State) and must yield exactly one edge each.
 #[test]
