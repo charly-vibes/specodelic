@@ -164,6 +164,14 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
         "no_duplicate_claim",
         "no two mapping rows may target the same checklist item — one claim per item, on the record",
     ),
+    (
+        "constraint_kind_closed",
+        "every Constraint row's kind must be in {invariant, advisory, effect, extension_point} — an unreadable kind cell is outside the closed set (specs/linter-schema_shape.md)",
+    ),
+    (
+        "property_kind_closed",
+        "every Property row's kind must be in {unit, law} — an unreadable kind cell is outside the closed set (specs/linter-schema_shape.md)",
+    ),
 ];
 
 /// The stable rule identifier for a bare rule name: `linter.<name>`.
@@ -307,15 +315,57 @@ pub fn ears_findings(specs: &[Spec]) -> Vec<Issue> {
     report.issues
 }
 
-/// `linter-schema_shape.md` — currently NO table-walking rules: row
-/// shape and the closed kind sets are enforced structurally (the
-/// parser accepts only well-formed tables; guide.rs owns the closed
-/// sets). The checker's verdict therefore rests on the parse stage —
-/// a file that parsed is schema-shaped as far as the engine enforces.
-/// The unenforced residue (constraint_kind_closed/property_kind_closed
-/// as real lint rules) is a tracked coverage gap, never a silent pass.
-pub fn schema_shape_findings(_specs: &[Spec]) -> Vec<Issue> {
-    vec![]
+/// `linter-schema_shape.md` — the closed-kind-set table-walkers
+/// (specodelic-7h8): `constraint_kind_closed` and
+/// `property_kind_closed`. Row shape itself stays parser-enforced and
+/// the closed sets live in guide.rs ([`crate::guide::CONSTRAINT_KINDS`]
+/// / [`crate::guide::PROPERTY_KINDS`]) — these rules walk the parsed
+/// rows and reject any kind outside the closed set, including an
+/// unreadable (absent) kind cell. The remaining checker residue
+/// (`id_set_grows_only` / `id_set_order_stable` across revisions,
+/// `no_prose_field_parsed`) stays structural/cross-revision and is not
+/// a per-file table walk.
+pub fn schema_shape_findings(specs: &[Spec]) -> Vec<Issue> {
+    let mut report = empty_report(specs.len());
+    for spec in specs {
+        lint_schema_shape_family(spec, &mut report);
+    }
+    report.issues
+}
+
+/// Checker-family slice: `linter-schema_shape.md`'s two closed-set
+/// table-walkers (specodelic-7h8). Per-file, appended last in
+/// [`lint_one`]'s composition.
+fn lint_schema_shape_family(spec: &Spec, report: &mut Report) {
+    let file_id = &spec.intent.id;
+    for c in &spec.constraints {
+        if !crate::guide::CONSTRAINT_KINDS.contains(&c.kind.as_deref().unwrap_or("")) {
+            report.issues.push(Issue::new(
+                "constraint_kind_closed",
+                file_id.clone(),
+                format!(
+                    "constraint `{}` has kind `{}` — outside the closed set {{{}}} (kinds.md constraint_row_shape)",
+                    c.id,
+                    c.kind.as_deref().unwrap_or(""),
+                    crate::guide::CONSTRAINT_KINDS.join(", ")
+                ),
+            ));
+        }
+    }
+    for p in &spec.properties {
+        if !crate::guide::PROPERTY_KINDS.contains(&p.kind.as_deref().unwrap_or("")) {
+            report.issues.push(Issue::new(
+                "property_kind_closed",
+                file_id.clone(),
+                format!(
+                    "property `{}` has kind `{}` — outside the closed set {{{}}} (kinds.md property_row_shape)",
+                    p.id,
+                    p.kind.as_deref().unwrap_or(""),
+                    crate::guide::PROPERTY_KINDS.join(", ")
+                ),
+            ));
+        }
+    }
 }
 
 /// `linter-coverage.md` — the compile gate ([[specodelic.coverage]]):
@@ -1314,14 +1364,16 @@ fn lint_ears_family(spec: &Spec, report: &mut Report) {
 }
 
 /// Lint one file: the per-file checker families composed in report
-/// order (frontmatter → referential → model_shape → ears). The
-/// composition order is load-bearing — tests pin issue order.
+/// order (frontmatter → referential → model_shape → ears →
+/// failure_shape → schema_shape). The composition order is load-bearing
+/// — tests pin issue order.
 fn lint_one(spec: &Spec, report: &mut Report) {
     lint_frontmatter_family(spec, report);
     lint_referential_family(spec, report);
     lint_model_family(spec, report);
     lint_ears_family(spec, report);
     lint_failure_shape_family(spec, report);
+    lint_schema_shape_family(spec, report);
 }
 
 /// All rows in a file as (table-name, row) pairs.
@@ -1723,6 +1775,13 @@ mod tests {
             spec_at(
                 "---\nid: fs.lbl\nkind: intent\nstatement: \"THE tool SHALL label its failures\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| inv | invariant | `x` | [[fs.lbl]] |\n| x_failure | effect | `fs.lbl.x_failure(detail)` | [[fs.lbl]] |\n| sub.x_failure | effect | `fs.lbl.sub.x_failure(detail)` | [[fs.lbl]] |\n\n## Model\n\n### States\n\n- s\n- f1 (emits: `[[fs.lbl.x_failure]]`)\n- f2 (emits: `[[fs.lbl.sub.x_failure]]`)\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| ok | s | s | [[fs.lbl.inv]] |\n| boom1 | s | f1 | [[fs.lbl.inv]] |\n| boom2 | s | f2 | [[fs.lbl.inv]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[fs.lbl.inv]] | `g()` | `x` |\n| p_x | unit | [[fs.lbl.x_failure]] | `g()` | `x` |\n| p_sub | unit | [[fs.lbl.sub.x_failure]] | `g()` | `x` |\n",
                 "fs-lbl.md",
+            ),
+            // fires constraint_kind_closed (kind `made_up` outside the
+            // closed set) AND property_kind_closed (kind `audit`) — the
+            // 7h8 table-walkers, kept covered by the catalog test.
+            spec_at(
+                "---\nid: k.made\nkind: intent\nstatement: \"THE kinds SHALL stay closed\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | made_up | `x` | [[k.made]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | `x` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | audit | [[k.made.c]] | `g()` | `x` |\n",
+                "k-made.md",
             ),
         ]
     }
@@ -2906,6 +2965,8 @@ statement: "maybe works"
             lint_referential_family(&spec, &mut r);
             lint_model_family(&spec, &mut r);
             lint_ears_family(&spec, &mut r);
+            lint_failure_shape_family(&spec, &mut r);
+            lint_schema_shape_family(&spec, &mut r);
             r.issues
         };
         assert_eq!(flat.len(), composed.len(), "same finding count");
@@ -2918,9 +2979,74 @@ statement: "maybe works"
 
     #[test]
     fn schema_shape_checker_reports_no_table_rules() {
-        // Honest emptiness: the schema-shape residue is enforced
-        // structurally; the checker must not fabricate findings.
+        // Honest emptiness: a CLEAN file fires nothing — the checker must
+        // not fabricate findings for well-formed rows.
         let s = spec_from(CLEAN, "orchestrate-fix.md");
         assert!(schema_shape_findings(&[s]).is_empty());
+    }
+
+    #[test]
+    fn made_up_constraint_kind_fires_constraint_kind_closed() {
+        // specodelic-7h8: linter-schema_shape.md's constraint_kind_closed
+        // becomes a real table-walking rule — the METER row: kind
+        // `made_up` lints failed, message naming the closed set.
+        let s = spec_from(
+            &CLEAN.replace("| c1 | invariant |", "| c1 | made_up |"),
+            "orchestrate-fix.md",
+        );
+        let issues = schema_shape_findings(&[s]);
+        let issue = issues
+            .iter()
+            .find(|i| i.rule_id == "linter.constraint_kind_closed")
+            .expect("kind made_up is outside the closed set");
+        assert!(
+            issue.message.contains("made_up"),
+            "the finding names the offending kind: {}",
+            issue.message
+        );
+        for k in crate::guide::CONSTRAINT_KINDS {
+            assert!(
+                issue.message.contains(k),
+                "the finding lists the closed set member {k}: {}",
+                issue.message
+            );
+        }
+    }
+
+    #[test]
+    fn made_up_property_kind_fires_property_kind_closed() {
+        let s = spec_from(
+            &CLEAN.replace("| p | unit |", "| p | audit |"),
+            "orchestrate-fix.md",
+        );
+        let issues = schema_shape_findings(&[s]);
+        let issue = issues
+            .iter()
+            .find(|i| i.rule_id == "linter.property_kind_closed")
+            .expect("kind audit is outside the closed set");
+        assert!(
+            issue.message.contains("audit") && issue.message.contains("law"),
+            "the finding names the kind and the closed set: {}",
+            issue.message
+        );
+    }
+
+    #[test]
+    fn missing_kind_cell_fires_the_kind_closed_rule() {
+        // A kind cell the parser could not read is None — `None ∈ closed
+        // set` is false; the row is outside the set by the invariant's
+        // own reading.
+        let s = spec_from(
+            &CLEAN.replace("| c1 | invariant |", "| c1 |  |"),
+            "orchestrate-fix.md",
+        );
+        let issues = schema_shape_findings(&[s]);
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.rule_id == "linter.constraint_kind_closed"),
+            "an unreadable kind cell is outside the closed set: {:?}",
+            issues
+        );
     }
 }

@@ -6,6 +6,32 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #83 — constraint_kind_closed + property_kind_closed as real table-walking lint rules (specodelic-7h8)
+
+The 8kk dogfood's honest-stub finding, closed:
+`linter-schema_shape.md`'s `constraint_kind_closed` and
+`property_kind_closed` invariants were declared but never enforced as
+lint rules — `spec.rs` parses row `kind` as `Option<String>` with no
+validation, `schema_shape_findings` returned an honest empty vec, and a
+Constraint row with kind `made_up` (or a Property row with kind
+`audit`) passed `spk lint` silently.
+
+Two table-walkers now enforce the closed sets from the same constants
+the scaffold and the primer render from (`guide.rs`'s
+`CONSTRAINT_KINDS` / `PROPERTY_KINDS` — the enforced values and the
+documented values cannot disagree): an unreadable (absent) kind cell is
+outside the closed set by the invariant's own reading, and the finding
+names the offending kind plus every closed-set member. Wired into
+`lint_one`'s composition last (frontmatter → referential → model_shape
+→ ears → failure_shape → schema_shape), so `spk lint` and the
+orchestrator's `linter.schema_shape` checker (already wired) both run
+them; `spk explain lint-rules` and the `spk init` managed block pick
+the rows up automatically from `RULE_TABLE` (append-only growth).
+
+TDD: 3 unit tests (made-up constraint kind, made-up property kind,
+missing kind cell) + a fixture-corpus entry keeping the
+catalog-covers-every-emittable-rule test true.
+
 ## #82 — constraint-level `derives_from` declared out-of-format; `acyclic`'s edge set qualified (specodelic-huf)
 
 The vv8 conformance matrix's `constraint_derives_cycle` gap, closed by
