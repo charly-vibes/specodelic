@@ -1682,3 +1682,22 @@ tolerate surrounding backticks, matching the header row's leniency
 dotted `file_id.row_id` spelling (CLAR-003); the lint payload carries
 `checklists_declared` so a consumer can tell an empty pass from a
 skipped one (EXCL-002). Gates green.
+
+## #66 — the error contract is a published spec file (`specs/errors.md`)
+
+add-error-contract phase 1 (beads specodelic-uie, tasks 1.1–1.4): the
+cross-cutting output contract moves from CHANGELOG lore (#48's
+`specodelic-7rr` exit-code/envelope work) into `specs/errors.md` — three
+`extension_point` rows (`envelope_error_kind`, `exit_code_mapping`,
+`remediation_hint_present`) plus eight invariant rows (namespaced label
+shape, emitting failure terminals, graph-decidable failure classes,
+typed negation guards with an orchestrate carve-out, single labeled
+failure, label-falsifying properties, contract-exclusivity, enforcement
+routing). The RED is a graph fixture
+(`error_contract_rows_are_published`) asserting the three rows are
+published and property-covered; it failed before the file existed and
+passes after. Enforcement is routed three-tiered (existing checkers /
+future `linter-failure_shape` / pipeline fixtures) — no tier-2 rule
+claims today's `spk lint`. No core Revision consumed (D7: Revision 9
+stays free for add-observability-contracts). Corpus artifacts
+regenerated (errors.{toml,tla,props,check.json}); dogfood green.

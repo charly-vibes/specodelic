@@ -24,6 +24,7 @@
 - [merge](specs/merge.md)
 - [refactor](specs/refactor.md)
 - [orchestrate](specs/orchestrate.md)
+- [errors](specs/errors.md)
 
 # Lint Rules
 

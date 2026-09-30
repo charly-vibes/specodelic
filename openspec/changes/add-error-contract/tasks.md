@@ -7,7 +7,7 @@ every phase — the corpus is its own primary fixture.
 
 ## 1. D1 — `specs/errors.md`, the contract file (spec first)
 
-- [ ] 1.1 **RED**: author the per-error unit properties first (property
+- [x] 1.1 **RED**: author the per-error unit properties first (property
       rows whose predicates assert the exact labels
       `compile.extraction_failure` / `compile.emission_failure` / the
       per-tool failure labels chosen in 2.x) — they fail against the
@@ -18,7 +18,7 @@ every phase — the corpus is its own primary fixture.
       against `error_property_names_label`'s requirement of ≥1 per label.
       The absence of inbound `satisfies` edges to the new extension_point
       rows is observable in the same graph run.
-- [ ] 1.2 **GREEN (format)**: create `specs/errors.md` — intent, the
+- [x] 1.2 **GREEN (format)**: create `specs/errors.md` — intent, the
       nine constraints from the delta (`error_expr_shape`,
       `failure_state_emits`, `failure_class_is_state`,
       `guard_negation_typed`, `single_labeled_failure`,
@@ -33,7 +33,7 @@ every phase — the corpus is its own primary fixture.
       (`envelope_error_kind` / `exit_code_mapping` / `remediation_hint_present`)
       — the delta already reflects it; carry the same three rows into
       `specs/errors.md` verbatim.
-- [ ] 1.4 **REFACTOR**: re-read the diff against `AGENTS.md`'s Revision
+- [x] 1.4 **REFACTOR**: re-read the diff against `AGENTS.md`'s Revision
       discipline (new file, no Revision heading needed — nothing widened);
       `just lint-specs` green; coverage over every new constraint confirmed.
 

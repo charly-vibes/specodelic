@@ -150,7 +150,7 @@ fn lint_corpus_is_fully_clean() {
     let out = spk().args(["lint", "specs", "--json"]).output().unwrap();
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let data = &json["data"];
-    assert_eq!(data["files_linted"], 19);
+    assert_eq!(data["files_linted"], 20); // + errors.md (add-error-contract)
     let issues = data["issues"].as_array().unwrap();
     assert!(issues.is_empty(), "corpus lint findings: {issues:?}");
     assert_eq!(out.status.code(), Some(0));
@@ -202,6 +202,34 @@ fn graph_same_id_files_are_file_scoped() {
         stdout.contains("[[spec.row_in_b]]"),
         "cross-file ref must dangle in the graph: {stdout}"
     );
+}
+
+/// add-error-contract task 1.1 (RED first): the corpus must publish the
+/// cross-cutting output contract — specs/errors.md owns the three
+/// `extension_point` rows, each pointing at its own intent and each
+/// covered by a falsifying property (error_property_names_label's
+/// coverage half is enforced today; the exact-label half is tier 2).
+/// Fails before specs/errors.md exists — observed RED 2026-09-30.
+#[test]
+fn error_contract_rows_are_published() {
+    let out = spk().args(["graph", "specs", "--json"]).output().unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let edges = json["data"]["edges"].as_array().unwrap();
+    for row in ["envelope_error_kind", "exit_code_mapping", "remediation_hint_present"] {
+        let id = format!("errors.{row}");
+        assert!(
+            edges
+                .iter()
+                .any(|e| e["kind"] == "constraints.traces_to" && e["from"] == id && e["to"] == "errors"),
+            "contract row {id} not published (no traces_to edge to its own intent)"
+        );
+        assert!(
+            edges
+                .iter()
+                .any(|e| e["kind"] == "properties.derives_from" && e["to"] == id),
+            "contract row {id} has no falsifying property"
+        );
+    }
 }
 
 /// total_extraction (specs/graph.md): a Transition's `from`/`to` cells are
@@ -1055,8 +1083,8 @@ fn compile_corpus_succeeds_and_reports_all_artifacts() {
     let json: serde_json::Value = serde_json::from_slice(&cmd.stdout).unwrap();
     let data = &json["data"];
     assert_eq!(data["files_failed"], 0);
-    // 18 corpus spec files (the exemption list's non-spec files are skipped)
-    assert_eq!(data["files_compiled"], 19);
+    // 20 corpus spec files (the exemption list's non-spec files are skipped)
+    assert_eq!(data["files_compiled"], 20);
     for f in data["compiled"].as_array().unwrap() {
         assert!(
             f["artifacts"]["toml"]

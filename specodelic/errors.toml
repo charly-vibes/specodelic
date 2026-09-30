@@ -1,0 +1,67 @@
+source = "errors"
+
+[[constraints]]
+id = "error_expr_shape"
+kind = "invariant"
+expr = "`every error Constraint's expr is a file-id-namespaced variant head: <owning-file-id>.<variant_head>(field, …) — the label names its owning file, so label uniqueness is a per-file property and cross-file collisions are structurally impossible` (pattern-checking the structured expr field follows the ears_statement precedent — expr is not rationale; prose_untouched is untouched)"
+traces_to = "[[errors]]"
+
+[[constraints]]
+id = "failure_state_emits"
+kind = "invariant"
+expr = "`every failure terminal state in a tool file's Model carries an emits edge to an effect Constraint owned by that file, whose expr satisfies error_expr_shape — a failure state emits nothing is a malformed model` (phase-2 terminals timed_out / exploration_only are excluded in v1)"
+traces_to = "[[errors]]"
+
+[[constraints]]
+id = "failure_class_is_state"
+kind = "invariant"
+expr = "`a state with ≥2 inbound failure transitions whose guard citation sets differ is malformed — each distinct failure class is its own failure state; decidable from the graph alone (compile.md's two-class prose argument is the rationale, never the check — prose is not read)`"
+traces_to = "[[errors]]"
+
+[[constraints]]
+id = "guard_negation_typed"
+kind = "invariant"
+expr = "`a failure transition whose guard cites ≥1 intra-file [[id]] must cite exactly the citation set of the success transition it negates; a failure transition citing zero intra-file constraints is either on the recorded carve-out list (orchestrate.md's stage pipeline, per its own Notes) or malformed — the carve-out is a checked list in linter-failure_shape.md, never a silent assumption`"
+traces_to = "[[errors]]"
+
+[[constraints]]
+id = "single_labeled_failure"
+kind = "invariant"
+expr = "`a failing tool stage reports exactly one labeled error naming the failing stage and class — never a silent partial result and never an unlabeled failure` (restates compile_is_total at contract altitude)"
+traces_to = "[[errors]]"
+
+[[constraints]]
+id = "envelope_error_kind"
+kind = "extension_point"
+expr = """`a failing stage's report is an error-kind envelope with ok == false — the ok:false ↔ "error" correspondence is the published contract row, not CHANGELOG lore`"""
+traces_to = "[[errors]]"
+
+[[constraints]]
+id = "exit_code_mapping"
+kind = "extension_point"
+expr = "`the output contract maps outcomes to exit codes: 0 for a clean run, 1 for findings-or-failure, 2 for invocation error — the mapping is part of the published contract, not per-tool convention`"
+traces_to = "[[errors]]"
+
+[[constraints]]
+id = "remediation_hint_present"
+kind = "extension_point"
+expr = "`every error report carries a non-empty remediation hint` (one row per concern: envelope kind, exit codes, and hint are separate rows, so satisfies edges compose granularly and each concern has its own falsifying property)"
+traces_to = "[[errors]]"
+
+[[constraints]]
+id = "error_property_names_label"
+kind = "invariant"
+expr = "`every error Constraint has ≥1 unit property whose predicate asserts the exact label string — a label with no falsifying property is not specced, only named`"
+traces_to = "[[errors]]"
+
+[[constraints]]
+id = "contract_published"
+kind = "invariant"
+expr = "`the output contract rows live in specs/errors.md as kind == extension_point, and exist only there — capability constraints state requirements about them, never duplicate them; tool files point satisfies at the errors.md rows from their own files, per the extension_point mechanism`"
+traces_to = "[[errors]]"
+
+[[constraints]]
+id = "enforcement_routed"
+kind = "invariant"
+expr = "`every rule in this file states its enforcement tier and no scenario overclaims the present tool: tier 1 — enforced today by existing checkers (emits→effect typing via ref_kind_compatible, every_state_used, coverage); tier 2 — enforced by linter-failure_shape once implemented (label-shape pattern check, mute failure states, carve-out list, negation-set equality), its scenarios are normative for that checker, not claims about today's spk lint; tier 3 — runtime rows (single labeled failure, remediation hint, exit codes) enforced via the compile/verify pipeline fixtures`"
+traces_to = "[[errors]]"
