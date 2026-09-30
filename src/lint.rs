@@ -70,7 +70,7 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
     ),
     (
         "guard_required",
-        "every transition must carry a non-null guard that cites an invariant Constraint",
+        "every transition must carry a non-null guard (a guard may be prose, or cite an invariant Constraint or a State — target typing is `ref_kind_compatible`'s beat)",
     ),
     (
         "model_present",

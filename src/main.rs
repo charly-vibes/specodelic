@@ -2151,9 +2151,10 @@ not resolve. -->
 
 ### Transitions
 
-<!-- guard: must cite an invariant Constraint by a file-qualified
-[[wiki-link]], e.g. [[{id}.c1]] — typed, not conventional (advisory
-constraints can never gate a transition). Bare ids and bare text do not
+<!-- guard: may cite an invariant Constraint by a file-qualified
+[[wiki-link]], e.g. [[{id}.c1]], or a State (the "has reached state X"
+pattern) — typed, not conventional (advisory constraints can never gate
+a transition). Bare ids and bare text do not
 resolve. Every state must appear as a from or to of at least one
 transition. -->
 

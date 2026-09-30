@@ -50,7 +50,7 @@ is a [typed foreign key](theory.md#typed-foreign-keys-generating-morphisms).
 |---------------|-------------|-------------------|
 | `traces_to`   | Constraint  | Intent            |
 | `derives_from`| Property    | Constraint, or the same Property when the deriving row is itself a `law` — a law derives from the top-level constraint **or law** it restates (e.g. the checker-file `*_naturality` laws deriving from `specodelic.rename_naturality`); the graph acyclicity invariant (`acyclic_traces`, which already includes `derives_from`) is what keeps this same-kind self-reference edge well-formed |
-| `guard`       | Transition  | Constraint, kind == `invariant` only — an `advisory` Constraint can never gate a transition, by typing, not by convention. A guard may be prose; when its gating condition corresponds to a declared constraint, the guard must cite it — a prose-only guard is machine-uninterpreted (the model-check backend reports `invariants_checked: []`) |
+| `guard`       | Transition  | an invariant Constraint — or a State, the "has reached state X" pattern (Revision 12) — an `advisory` Constraint can never gate a transition, by typing, not by convention. A guard may be prose; when its gating condition corresponds to a declared constraint, the guard must cite it — a prose-only guard is machine-uninterpreted (the model-check backend reports `invariants_checked: []`) |
 | `from` / `to` | Transition  | State             |
 | `supersedes`  | Constraint, Property | same kind as the row it appears on (Constraint→Constraint, Property→Property) |
 | `emits`       | State       | Constraint, kind == `effect` only — a state's declared Moore-machine output; optional and absent on a state with no output of its own |
@@ -114,6 +114,7 @@ ears-syntax / schema-shape) run independently of each other.
 | own_intent_reachable   | unit | [[specodelic.single_root_reachable]]      | `spec_repo_with(disconnected_constraint_cluster: true)` | `check(repo) == failed`                                                                                                                             |
 | model_well_formed      | unit | [[specodelic.every_transition_valid]]     | `spec_file_with(transition.to_not_in_states: true)` | `check(file) == failed`                                                                                                                                |
 | advisory_cannot_gate   | unit | [[specodelic.ref_kind_compatible]]        | `guard_field_pointing_at_an_advisory_constraint()` | `check(file) == failed`                                                                                                                                  |
+| state_guard_citation_accepted | unit | [[specodelic.ref_kind_compatible]] | `transition_guard_citing_a_declared_state()` | `check(file) == passed` — the "has reached state X" guard pattern (Revision 12); a State target gates nothing, it records progress — but it is a legal typed citation |
 | supersedes_cross_kind_rejected | unit | [[specodelic.ref_kind_compatible]] | `constraint_row_with(supersedes: a_property_row_id)` | `check(file) == failed`                                                                                                                                |
 | supersedes_cycle_rejected | unit | [[specodelic.supersedes_acyclic]]     | `spec_repo_with(supersedes_cycle: length ≥ 2)`     | `check(repo) == failed`                                                                                                                                  |
 | no_stored_superseded_flag | unit | [[specodelic.no_boolean_columns]]     | `schema_with(explicit is_superseded: bool column)` | `check(schema) == rejected` — supersession status is derived (`superseded(x) ⟺ ∃ y. y.supersedes ∋ x`), never stored                                     |
@@ -616,3 +617,30 @@ resolve. A `unit` Property deriving from a Property remains a violation.
 No variant table changed — one existing Reference Typing row reworded
 under this heading per `append_only_variants`; the target set WIDENS
 only for law sources, so nothing valid at Revision 10 is invalidated.
+
+## Revision 12
+
+`guard`'s target set widens to admit a State (Reference Typing row
+reworded; `specodelic-tik` reconciliation of the shipped checker,
+2026-09-30). Revision 10's prose said "the target typing is unchanged
+(`Constraint`, kind == `invariant` only)", but the reconciliation commit
+that shipped the hybrid guard policy (`specodelic-cxq`) also encoded
+the "has reached state X" pattern in `graph.rs`'s `typing_violation`
+and in the independent reference oracle: a transition guard may cite a
+State — the pattern graph.md's own `extract` transition
+(`[[specodelic.parsed]]`), `refactor.md`'s `analyze`, and
+`orchestrate.md`'s `start_lint` all use. The table text never followed
+the checker; this Revision makes the table the authority again. A
+State citation records progress, it gates nothing — but it is a legal
+typed citation, and `advisory` Constraints still can never gate a
+transition, by typing, not by convention. The stale side-effects are
+reconciled in the same stroke: `graph.md`'s
+`wrongly_typed_edge_rejected` fixture/note (which contradicted
+graph.md's own Model extract), `USAGE.md`'s §2.6 typing remark, and
+the embedded guide's `REFERENCE_TYPING` row.
+
+One existing Reference Typing row reworded and one deriving Property
+added under this heading per `append_only_variants`; the target set
+WIDENS only, so nothing valid at Revision 11 is invalidated — a
+`unit` Property (`state_guard_citation_accepted`) now pins the
+acceptance beside the existing rejection rows.

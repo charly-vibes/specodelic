@@ -17,7 +17,7 @@
 /// hand when the corpus revision bumps; a corpus-lint style drift test
 /// (task 6.1) compares this numerically against the corpus so staleness
 /// fails CI, not consumers.
-pub const FORMAT_REVISION: &str = "specodelic.md Revision 11";
+pub const FORMAT_REVISION: &str = "specodelic.md Revision 12";
 
 /// The closed set of Intent `kind` values (frontmatter).
 pub const INTENT_KINDS: &[&str] = &["intent"];
@@ -57,7 +57,7 @@ pub const REFERENCE_TYPING: &[RefTyping] = &[
     RefTyping {
         field: "guard",
         appears_on: "Transition",
-        resolves_to: "Constraint, kind == `invariant` only",
+        resolves_to: "invariant Constraint, or a State (the “has reached state X” pattern)",
     },
     RefTyping {
         field: "from / to",
@@ -333,6 +333,30 @@ mod tests {
                 r.resolves_to
             );
         }
+    }
+
+    #[test]
+    fn guard_typing_admits_state_citation() {
+        // specodelic.md Revision 12: the Reference Typing `guard` row
+        // admits a State target (the "has reached state X" pattern)
+        // beside the invariant Constraint — the shipped checker
+        // (graph.rs) and the independent oracle already encoded this;
+        // the embedded table is the format knowledge surface and must
+        // not lag the corpus.
+        let guard = REFERENCE_TYPING
+            .iter()
+            .find(|r| r.field == "guard")
+            .expect("guard row");
+        assert!(
+            guard.resolves_to.contains("invariant"),
+            "guard must still exclude advisory Constraints: {}",
+            guard.resolves_to
+        );
+        assert!(
+            guard.resolves_to.contains("State"),
+            "guard must admit the State citation pattern: {}",
+            guard.resolves_to
+        );
     }
 
     #[test]

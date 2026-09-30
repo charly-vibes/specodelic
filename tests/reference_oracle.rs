@@ -615,14 +615,11 @@ mod oracle {
             // Constraint — or the same Property when the deriving row is a law.
             "derives_from" => t.kind == "Constraint" || (t.kind == "Property" && carrier_is_law),
             "guard" => {
-                // Decision of record (specodelic-cxq, bridging Revision 10's
-                // hybrid guard policy): a guard may cite an invariant
+                // specodelic.md Revision 12 (reconciling the hybrid
+                // guard policy): a guard may cite an invariant
                 // Constraint — or a State, the "has reached state X"
                 // pattern (graph.md extract, refactor.md analyze,
-                // orchestrate.md start_lint). KNOWN GAP: specodelic.md's
-                // Reference Typing `guard` row and graph.md's
-                // `wrongly_typed_edge_rejected` note still say
-                // invariant-only — tracked for a Revision-heading update.
+                // orchestrate.md start_lint).
                 t.kind == "Constraint" && t.attr.as_deref() == Some("invariant")
                     || t.kind == "State"
             }

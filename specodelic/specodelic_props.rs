@@ -50,6 +50,10 @@ pub mod spec_gen {
         Just(GenVal("guard_field_pointing_at_an_advisory_constraint".into()))
     }
 
+    pub fn transition_guard_citing_a_declared_state() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("transition_guard_citing_a_declared_state".into()))
+    }
+
     pub fn constraint_row_with() -> impl Strategy<Value = GenVal> {
         Just(GenVal("constraint_row_with".into()))
     }
@@ -212,6 +216,16 @@ proptest! {
     #[test]
     fn advisory_cannot_gate(v0 in spec_gen::guard_field_pointing_at_an_advisory_constraint()) {
         todo_predicate!("`check(file) == failed`");
+    }
+}
+
+proptest! {
+    // id: state_guard_citation_accepted
+    // generator: `transition_guard_citing_a_declared_state()`
+    // predicate: `check(file) == passed` — the "has reached state X" guard pattern (Revision 12); a State target gates nothing, it records progress — but it is a legal typed citation
+    #[test]
+    fn state_guard_citation_accepted(v0 in spec_gen::transition_guard_citing_a_declared_state()) {
+        todo_predicate!("`check(file) == passed` — the \"has reached state X\" guard pattern (Revision 12); a State target gates nothing, it records progress — but it is a legal typed citation");
     }
 }
 

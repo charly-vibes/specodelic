@@ -6,6 +6,32 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #79 — Reference Typing `guard` row reconciled with the shipped State-citation typing; specodelic.md Revision 12 (specodelic-tik)
+
+The independent reference oracle's KNOWN GAP, closed: the cxq
+reconciliation shipped guard→State typing in `graph.rs` and the oracle,
+but the Reference Typing table still said `Constraint, kind ==
+'invariant' only`, and `graph.md`'s `wrongly_typed_edge_rejected` note
+contradicted graph.md's own Model extract (whose `extract` transition
+guards on `[[specodelic.parsed]]`, a State).
+
+`specodelic.md` gains **Revision 12**: the `guard` row now admits an
+invariant Constraint **or a State** (the "has reached state X" pattern —
+graph.md's `extract`, refactor.md's `analyze`, orchestrate.md's
+`start_lint`); a State citation records progress, it gates nothing;
+`advisory` still can never gate, by typing. A deriving Property
+(`state_guard_citation_accepted`, unit, under `ref_kind_compatible`)
+pins the acceptance beside the existing rejection rows. The stale
+surface is reconciled in the same stroke: `graph.md`'s fixture now
+picks a still-rejected target (guard → Property), `USAGE.md` §2.6's
+typing remark, the embedded guide (`REFERENCE_TYPING` const + three
+prose spots + `FORMAT_REVISION` → Revision 12, pinned by the drift
+guard), the `spk new` scaffold's guard comment, and
+`guard_required`'s RULE_TABLE semantics (presence-only; target typing
+is `ref_kind_compatible`'s beat). The oracle's KNOWN GAP comment now
+cites Revision 12. Corpus artifacts regenerated (21 compiled, 0
+failed).
+
 ## #78 — verify scratch dir retention policy + `SPECODELIC_VERIFY_SCRATCH` override (specodelic-5m2)
 
 Found during specodelic-oet's `just ci` run: the properties gate's

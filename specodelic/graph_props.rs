@@ -76,11 +76,11 @@ proptest! {
 
 proptest! {
     // id: wrongly_typed_edge_rejected
-    // generator: `hand_inserted_edge(source_kind: State, field: "guard", target_kind: State)`
-    // predicate: `check(artifact) == rejected` — `guard` never targets a State per the Reference Typing table
+    // generator: `hand_inserted_edge(source_kind: State, field: "guard", target_kind: Property)`
+    // predicate: `check(artifact) == rejected` — `guard` targets an invariant Constraint or a State (specodelic.md Revision 12); a Property target is still rejected
     #[test]
     fn wrongly_typed_edge_rejected(v0 in spec_gen::hand_inserted_edge()) {
-        todo_predicate!("`check(artifact) == rejected` — `guard` never targets a State per the Reference Typing table");
+        todo_predicate!("`check(artifact) == rejected` — `guard` targets an invariant Constraint or a State (specodelic.md Revision 12); a Property target is still rejected");
     }
 }
 

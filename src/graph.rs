@@ -185,9 +185,10 @@ fn typing_violation(
         },
         "guard" => match target {
             NodeKind::Constraint(k) if k == "invariant" => None,
-            // Revision 10 (specodelic-cxq): a guard may cite a State —
-            // the "has reached state X" pattern (graph.md extract,
-            // refactor.md analyze, orchestrate.md start_lint).
+            // Revision 12 (specodelic-tik reconciliation): a guard may
+            // cite a State — the "has reached state X" pattern
+            // (graph.md extract, refactor.md analyze, orchestrate.md
+            // start_lint).
             NodeKind::State => None,
             _ => Some(format!(
                 "guard must resolve to an invariant Constraint or a State (Reference Typing); target is {tk}"

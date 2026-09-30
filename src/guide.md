@@ -71,8 +71,9 @@ Intent `kind` — one of: {{intent_kinds}}.
 Constraint row `kind` (`constraint_kind_closed`) — one of:
 {{constraint_kinds}}.
 
-- `invariant` — a claim the machine checks; the only kind a transition
-  `guard` may cite.
+- `invariant` — a claim the machine checks; the only kind of Constraint
+  a transition `guard` may cite (a guard may also cite a State — the
+  "has reached state X" pattern).
 - `advisory` — a claim checked and reported but never gating; it can
   never guard a transition, by typing not by convention.
 - `effect` — an output claim; the only kind a State `emits` field may
@@ -128,8 +129,8 @@ Each reference field is a typed foreign key (`ref_kind_compatible`):
 
 {{reference_typing}}
 
-Notable consequences: a transition guard cites only `invariant`
-Constraints; a state's `emits` cites only `effect` Constraints;
+Notable consequences: a transition guard cites an `invariant` Constraint
+or a State; a state's `emits` cites only `effect` Constraints;
 `satisfies` is an outbound pointer to a contract published elsewhere
 and is not a reachability edge; `observes` points from a consuming row
 at an effect Constraint — a declared observable — and, like
@@ -153,7 +154,7 @@ and the transitions between them. The canonical pipeline lifecycle:
 - `verify` requires `no_counterexample` and `properties_pass`
 
 Every transition's `guard` must be non-null (`guard_required`) and may
-only cite `invariant` Constraints. Every state must appear as a `from`
+cite an `invariant` Constraint or a State. Every state must appear as a `from`
 or `to` in at least one transition (`every_state_used`), and every
 transition's endpoints must be declared states
 (`every_transition_valid`).

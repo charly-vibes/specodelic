@@ -298,11 +298,12 @@ not that their `expr` is actually faithful to it; that's the same
 human/test-suite judgment call every other `invariant` already rests on.
 
 Two things this needs *nothing new* for, worth knowing so you don't
-over-build it: `guard`'s Reference Typing already restricts every guard to
-`Constraint, kind == invariant` only, so an `extension_point` row (like
-`advisory` and `effect`) is already excluded from gating any transition,
-by the same existing typing fact — don't add a fresh "extension points
-can't gate" invariant, cite the existing one (§`AGENTS.md` #3a). And don't
+over-build it: `guard`'s Reference Typing admits only an invariant
+Constraint (or a State citation, specodelic.md Revision 12), so an
+`extension_point` row (like `advisory` and `effect`) is still excluded
+from gating any transition, by the same existing typing fact — don't
+add a fresh "extension points can't gate" invariant, cite the existing
+one (§`AGENTS.md` #3a). And don't
 reach for `single_root_reachable`'s carve-out machinery either — there
 isn't one, because there's nothing to carve out.
 
