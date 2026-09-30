@@ -46,3 +46,16 @@ The system SHALL run `compile` only on a spec file that passes lint with zero is
 #### Scenario: Lint-clean corpus compiles
 - **WHEN** `spk compile specs --json` is invoked on the repo's own corpus
 - **THEN** the command exits 0
+
+## Requirements
+
+### Requirement: Compile precondition gate
+The system SHALL run `compile` only on a spec file that passes lint with zero issues.
+
+#### Scenario: Lint-dirty file refused
+- **WHEN** `spk compile <file>` is invoked on a file with a coverage-rule finding
+- **THEN** the command exits non-zero
+
+#### Scenario: Lint-clean corpus compiles
+- **WHEN** `spk compile specs --json` is invoked on the repo's own corpus
+- **THEN** the command exits 0

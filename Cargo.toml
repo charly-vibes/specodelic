@@ -2,7 +2,7 @@
 name = "specodelic"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 default-run = "specodelic"
 description = "Specodelic — a markdown specification format (Intent / Constraints / Model / Properties) and the `spk` CLI that lints, compiles, verifies, and refactors it"
 license = "Apache-2.0"

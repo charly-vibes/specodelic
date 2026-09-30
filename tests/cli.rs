@@ -2679,7 +2679,11 @@ fn usage_quick_start_example_is_lint_clean() {
     // the tool's own lint (specodelic-vpx): filename instruction present
     // (id_matches_file) and every constraint has a deriving property
     // (coverage).
-    let usage = std::fs::read_to_string("specs/USAGE.md").unwrap();
+    let usage = std::fs::read_to_string("specs/USAGE.md")
+        .unwrap()
+        // Windows runners check out CRLF (Git for Windows autocrlf);
+        // normalize so the fence search below is line-ending-agnostic.
+        .replace("\r\n", "\n");
     let start = usage
         .find("## 1. Quick start")
         .expect("USAGE §1 quick-start exists");

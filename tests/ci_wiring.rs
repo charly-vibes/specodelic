@@ -26,8 +26,9 @@ fn read(rel: &str) -> String {
     fs::read_to_string(repo_root().join(rel)).unwrap_or_else(|e| panic!("cannot read {rel}: {e}"))
 }
 
-/// Edition 2024 requires Rust 1.85; the declared MSRV must not lag or
-/// lead that floor, and CI must pin exactly it.
+/// Edition 2024's floor is 1.85, but the dependency tree (icu 2.3 via
+/// miette) requires 1.88 — the declared MSRV must match the tree's real
+/// floor, and CI must pin exactly it.
 #[test]
 fn msrv_declared_and_pinned_in_ci() {
     let toml = read("Cargo.toml");
@@ -37,13 +38,13 @@ fn msrv_declared_and_pinned_in_ci() {
         .map(|s| s.trim_end_matches('"').to_string())
         .expect("Cargo.toml must declare rust-version (MSRV)");
     assert_eq!(
-        msrv, "1.85",
-        "edition 2024's floor is 1.85; if you bump the MSRV, bump this test and the CI pin together"
+        msrv, "1.88",
+        "the dependency tree's floor is 1.88 (icu 2.3 via miette); if you bump the MSRV, bump this test and the CI pin together"
     );
 
     let ci = read(".github/workflows/ci.yml");
     assert!(
-        ci.contains("1.85"),
+        ci.contains("1.88"),
         "ci.yml must run a job pinned to the declared MSRV ({msrv})"
     );
 }
