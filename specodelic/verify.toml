@@ -25,7 +25,7 @@ expr = "`verify only transitions a file to verified when both [[specodelic.no_co
 traces_to = "[[verify]]"
 
 [[constraints]]
-id = "law_cases_all_run"
+id = "law_cases_unexecuted"
 kind = "invariant"
 expr = "`for a law-kind property compiled into multiple blocks (one per required case), all compiled blocks must pass — a partial pass (identity passes, associativity fails) is a failure of the property, not a partial success`"
 traces_to = "[[verify]]"

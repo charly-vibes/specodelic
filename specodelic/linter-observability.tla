@@ -16,7 +16,7 @@ TypeOK == vpc \in StateValues
 Init == vpc = "scanning"
 
 Next ==
-  \* scan_all: scanning -> observed (guard: `every effect in the invocation's file set has ≥1 observer`)
+  \* scan_effects: scanning -> observed (guard: `every effect in the invocation's file set has ≥1 observer`)
   \/ vpc = "scanning" /\ vpc' = "observed"
   \* warn_unobserved: scanning -> unobserved_warned (guard: [[linter.observability.observation_universe]])
   \/ vpc = "scanning" /\ vpc' = "unobserved_warned"

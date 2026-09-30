@@ -26,9 +26,9 @@ already owns it.
 | lint_gate_matches_checker_ownership   | invariant | `orchestrator reports lint success iff every terminal node of specodelic.md's Checker Ownership table reports passed — never a subset or a superset of that table` | [[orchestrate]] |          |
 | dependency_respecting_skip            | invariant | `a checker is invoked only after every checker listed in its Checker Ownership 'Depends on' column has reported passed; if a dependency reports failed, its dependents are skipped (not invoked, not reported as failed) rather than run against input the failed checker hasn't validated` | [[orchestrate]] |          |
 | independent_branches_run_regardless   | invariant | `two checkers with no dependency relation between them (referential_integrity→graph_shape→model_shape vs. ears_syntax vs. schema_shape) each run and report independently — one branch failing never skips or blocks the other` | [[orchestrate]] |          |
-| compile_gate_matches_coverage         | invariant | `orchestrator advances to model_check iff linter.coverage reports passed — exactly specodelic.md's compile guard ([[specodelic.coverage]] ∧ [[specodelic.law_requires_cases]]), not a looser or stricter check` | [[orchestrate]] |          |
+| compile_gate_matches_coverage         | invariant | `orchestrator advances to model_check iff linter.coverage reports passed — exactly specodelic.md's compile transition gate (coverage + law_requires_cases), not a looser or stricter check` | [[orchestrate]] |          |
 | stage_order_fixed                     | invariant | `compile is never invoked before every file's lint stage reports passed; model_check is never invoked before compile reports compiled; verify is never invoked before model_check reports model_checked` | [[orchestrate]] |          |
-| external_completeness_never_gates     | invariant | `linter.external_completeness runs only if the repo declares a checklist, and its outcome (passed/failed/not_applicable) never blocks or delays lint, compile, model_check, or verify` | [[orchestrate]] |          |
+| external_completeness_never_gating     | invariant | `linter.external_completeness runs only if the repo declares a checklist, and its outcome (passed/failed/not_applicable) never blocks or delays lint, compile, model_check, or verify` | [[orchestrate]] |          |
 | deterministic_rerun                   | invariant | `running the orchestrator twice against an unchanged repo produces byte-identical reports` | [[orchestrate]] |          |
 | lint_stage_failure | effect | `orchestrate.lint_stage_failure(stage, detail)` | [[orchestrate]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 | compile_stage_failure | effect | `orchestrate.compile_stage_failure(stage, detail)` | [[orchestrate]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
@@ -53,7 +53,7 @@ already owns it.
 
 | id                | from                | to                  | guard                                                                                              |
 |-------------------|---------------------|---------------------|-------------------------------------------------------------------------------------------------------|
-| start_lint        | idle                | lint_stage          | `every file in the repo has independently reached parsed` — see [[linter.frontmatter]]                |
+| start_lint        | idle                | lint_stage          | `[[specodelic.parsed]]` — every file in the repo has independently reached that state (see `specodelic.md`'s own lifecycle)                |
 | lint_ok           | lint_stage          | compile_stage       | [[orchestrate.lint_gate_matches_checker_ownership]] ∧ [[orchestrate.dependency_respecting_skip]] ∧ [[orchestrate.independent_branches_run_regardless]] |
 | lint_fail | lint_stage | lint_failed | `¬lint_ok.guard` |
 | compile_ok        | compile_stage       | model_check_stage   | [[orchestrate.compile_gate_matches_coverage]]                                                          |
@@ -71,7 +71,7 @@ already owns it.
 | upstream_failure_skips_dependents      | unit | [[orchestrate.dependency_respecting_skip]]              | `repo_where(linter.frontmatter: fails)`                                          | `invocation_count(linter.referential_integrity) == 0` — never run against unvalidated input        |
 | independent_branch_failure_isolated    | unit | [[orchestrate.independent_branches_run_regardless]]     | `repo_where(linter.ears_syntax: fails, linter.referential_integrity_branch: passes)` | `report(linter.graph_shape) == passed` — the passing branch's own outcome is unaffected             |
 | compile_blocked_on_partial_lint        | unit | [[orchestrate.stage_order_fixed]]                       | `repo_where(five_of_six_checkers_pass, one_still_pending)`                       | `invocation_count(compile) == 0`                                                                    |
-| external_completeness_failure_ignored  | unit | [[orchestrate.external_completeness_never_gates]]       | `repo_where(all_seven_checkers_and_pipeline_pass, declared_checklist: fails)`     | `orchestrate reaches succeeded`                                                                      |
+| external_completeness_failure_ignored  | unit | [[orchestrate.external_completeness_never_gating]]       | `repo_where(all_seven_checkers_and_pipeline_pass, declared_checklist: fails)`     | `orchestrate reaches succeeded`                                                                      |
 | rerun_idempotent                       | unit | [[orchestrate.deterministic_rerun]]                     | `run_orchestrator_twice_against_unchanged_repo()`                                | `report(run_1) == report(run_2)`                                                                     |
 | clean_repo_succeeds                    | unit | [[orchestrate.lint_gate_matches_checker_ownership]]     | `arbitrary_repo_that_independently_passes_lint_compile_model_check_verify()`      | `orchestrate reaches succeeded`                                                                      |
 | coverage_failure_holds_compile         | unit | [[orchestrate.compile_gate_matches_coverage]]           | `repo_where(linter.coverage: failed, every_other_checker_and_pipeline_stage: passed)` | `orchestrate halts at compile_stage` — never reaches model_check_stage, and by exactly the coverage checker's verdict, not a looser or stricter one |
@@ -120,7 +120,7 @@ finding is emitted via `emits` (`kind == effect`), and
 tested generically by `[[specodelic.advisory_cannot_gate]]` — nothing
 here can reference `refactor.md`'s output as a guard even by mistake, so
 asserting it again would only restate an already-proven fact. Contrast
-`external_completeness_never_gates` above, which *is* still needed: that
+`external_completeness_never_gating` above, which *is* still needed: that
 checker's own constraints are `invariant`-kind, so its non-gating status
 holds only because no transition below happens to cite it — a wiring fact
 this file must keep asserting, not a typing fact guaranteed forever the

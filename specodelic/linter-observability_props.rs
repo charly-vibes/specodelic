@@ -69,11 +69,11 @@ proptest! {
 }
 
 proptest! {
-    // id: warning_never_fails
+    // id: warning_never_gates
     // generator: `corpus_with_unobserved_effects()`
     // predicate: `exit code 0 ∧ zero Issue findings attributable to this check`
     #[test]
-    fn warning_never_fails(v0 in spec_gen::corpus_with_unobserved_effects()) {
+    fn warning_never_gates(v0 in spec_gen::corpus_with_unobserved_effects()) {
         todo_predicate!("`exit code 0 ∧ zero Issue findings attributable to this check`");
     }
 }

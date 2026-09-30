@@ -163,14 +163,16 @@ fn graph_corpus_is_fully_resolved() {
     let data = &json["data"];
     assert!(data["dangling"].as_array().unwrap().is_empty());
     assert!(data["edges"].as_array().unwrap().len() > 300);
-    // The corpus still carries typing-forbidden edges (traces_to →
-    // Constraint rows et al.) — reconciled by specodelic-cxq; until then
-    // the graph reports them as violations and exits 1. What must hold
-    // here: every violation is typed, and none is silently recorded.
-    for v in data["violations"].as_array().unwrap() {
-        assert!(v["reason"].as_str().unwrap().contains("Reference Typing"));
-    }
-    assert_eq!(out.status.code(), Some(1));
+    // specodelic-cxq (2026-09-30): the corpus is reconciled with the
+    // Reference Typing table — zero typing-forbidden edges, and the
+    // graph therefore exits 0 (the old "violations tolerated until
+    // cxq" escape hatch is gone).
+    let violations = data["violations"].as_array().unwrap();
+    assert!(
+        violations.is_empty(),
+        "corpus typing violations: {violations:?}"
+    );
+    assert_eq!(out.status.code(), Some(0));
 }
 
 #[test]
@@ -1728,7 +1730,7 @@ fn explain_known_topic_works_offline_in_consumer_dir() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["ok"], true);
     assert_eq!(json["data"]["topic"], "format");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 9");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 11");
     let body = json["data"]["body"].as_str().unwrap();
     assert!(body.contains("## Constraints"));
     assert!(body.contains("## Properties"));
@@ -1797,7 +1799,7 @@ fn version_json_reports_format_revision() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["envelope_kind"], "version");
     assert_eq!(json["data"]["name"], "specodelic");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 9");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 11");
 }
 
 #[test]
@@ -1831,7 +1833,7 @@ fn doctor_consumer_with_corpus_reports_format_revision() {
     let json: serde_json::Value =
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["data"]["mode"], "consumer");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 9");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 11");
 }
 
 #[test]
@@ -1852,7 +1854,7 @@ fn doctor_empty_consumer_suggests_new() {
 #[test]
 fn doctor_warns_when_binary_lags_corpus() {
     // synthetic corpus declares Revision 99 while the binary embeds
-    // Revision 9 → warning naming both revisions, exit 0 (never fails)
+    // Revision 11 → warning naming both revisions, exit 0 (never fails)
     let dir = tempfile::tempdir().unwrap();
     let specs = dir.path().join("specs");
     std::fs::create_dir(&specs).unwrap();
@@ -2023,7 +2025,7 @@ fn init_injects_specodelic_block_into_agents_md() {
     // block content is self-describing: rule catalog + revision + commands
     assert!(agents.contains("linter.ears_syntax"));
     assert!(agents.contains("linter.frontmatter_valid"));
-    assert!(agents.contains("specodelic.md Revision 9"));
+    assert!(agents.contains("specodelic.md Revision 11"));
     assert!(agents.contains("spk lint"));
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(json["data"]["block"], "injected");
@@ -3378,6 +3380,122 @@ fn bare_row_ref_typing_violation_is_reported_not_swallowed() {
             .any(|v| v["edge_kind"] == "constraints.traces_to" && v["to"] == "spec.c1"),
         "the bare traces_to ref resolves and then violates typing — never silently skipped: {:?}",
         violations
+    );
+}
+
+/// Revision 10 (specodelic-cxq): `derives_from` from a `law` Property may
+/// resolve to another Property — the same-kind law-restates-law edge (e.g.
+/// checker-file `*_naturality` laws deriving from
+/// `specodelic.rename_naturality`). Must NOT be a typing violation.
+#[test]
+fn law_derives_from_law_is_allowed() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("t.md"),
+        "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `x` | [[t]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| law1 | law | [[t.c1]] | `g()` | **identity:** `f(a,a)==a` **naturality:** `f == f` |\n| law2 | law | [[t.law1]] | `g()` | **identity:** `f(a,a)==a` **naturality:** `f == f` |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let violations = json["data"]["violations"].as_array().unwrap();
+    let law_edges: Vec<&serde_json::Value> = json["data"]["edges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["kind"] == "properties.derives_from" && e["to"] == "t.law1")
+        .collect();
+    assert!(
+        !law_edges.is_empty(),
+        "law→law derives_from must be recorded as an edge: {:?}",
+        json["data"]["edges"]
+    );
+    assert!(
+        violations.iter().all(|v| v["from"] != "t.law2"),
+        "law→law derives_from must not violate typing: {violations:?}"
+    );
+}
+
+/// Revision 10 (specodelic-cxq): a `guard` may cite a State — the
+/// "has reached state X" pattern (`graph.md` extract,
+/// `refactor.md` analyze, `orchestrate.md` start_lint).
+#[test]
+fn guard_to_state_is_allowed() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("t.md"),
+        "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `x` | [[t]] |\n\n## Model\n\n### States\n\n- `s1`\n- `ready`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| go | s1 | ready | [[t.ready]] |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let violations = json["data"]["violations"].as_array().unwrap();
+    assert!(
+        violations.iter().all(|v| v["from"] != "t.go"),
+        "guard→State must not violate typing: {violations:?}"
+    );
+    let guard_edges: Vec<&serde_json::Value> = json["data"]["edges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["kind"] == "transitions.guard" && e["to"] == "t.ready")
+        .collect();
+    assert!(
+        !guard_edges.is_empty(),
+        "guard→State must be recorded as an edge"
+    );
+}
+
+/// The invariant-only guard half still holds: a guard citing an advisory
+/// Constraint stays a violation (typing did not loosen).
+#[test]
+fn guard_to_advisory_constraint_still_violates() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("t.md"),
+        "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | advisory | `x` | [[t]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| go | s1 | s1 | [[t.c1]] |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let violations = json["data"]["violations"].as_array().unwrap();
+    assert!(
+        violations
+            .iter()
+            .any(|v| v["edge_kind"] == "transitions.guard" && v["from"] == "t.go"),
+        "guard→advisory Constraint must still violate typing: {violations:?}"
+    );
+}
+
+/// The unit-Property derives_from half still holds: a unit Property
+/// deriving from another Property stays a violation.
+#[test]
+fn unit_derives_from_property_still_violates() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("t.md"),
+        "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `x` | [[t]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p1 | unit | [[t.c1]] | `g()` | `x` |\n| p2 | unit | [[t.p1]] | `g()` | `x` |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let violations = json["data"]["violations"].as_array().unwrap();
+    assert!(
+        violations
+            .iter()
+            .any(|v| v["edge_kind"] == "properties.derives_from" && v["from"] == "t.p2"),
+        "unit→Property derives_from must still violate typing: {violations:?}"
     );
 }
 

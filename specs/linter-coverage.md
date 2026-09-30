@@ -26,10 +26,10 @@ separate passes.
 
 | id                      | kind      | expr                                                                                     | traces_to | satisfies |
 |---------------------------|-----------|-----------------------------------------------------------------------------------------------|-----------------------------------------------|
-| every_constraint_covered  | invariant | `∀ constraint c: ∃ property p. p.derives_from == c.id`                                        | [[specodelic.coverage]]         |          |
-| every_law_has_cases       | invariant | `∀ property p where p.kind == "law": p has an associativity case and an identity case`         | [[specodelic.law_requires_cases]] |          |
-| no_orphan_property        | invariant | `∀ property p: p.derives_from resolves to a real constraint` (restates total_refs, scoped to this edge) | [[specodelic.coverage]]         |          |
-| coverage_is_computable    | invariant | `the derives_from multiplicity per constraint is countable in finite time from the parsed AST alone` | [[specodelic.coverage]]         |          |
+| every_constraint_covered  | invariant | `∀ constraint c: ∃ property p. p.derives_from == c.id` — the rule this row re-owns from `specodelic.md`'s higher-altitude restatement (see Notes) | [[linter.coverage]]         |          |
+| every_law_has_cases       | invariant | `∀ property p where p.kind == "law": p has an associativity case and an identity case` — the rule this row re-owns from `specodelic.md`'s higher-altitude restatement (see Notes) | [[linter.coverage]] |          |
+| no_orphan_property        | invariant | `∀ property p: p.derives_from resolves to a real constraint` (restates total_refs, scoped to this edge) | [[linter.coverage]]         |          |
+| coverage_is_computable    | invariant | `the derives_from multiplicity per constraint is countable in finite time from the parsed AST alone` | [[linter.coverage]]         |          |
 | count_failure | effect | `linter.coverage.count_failure(detail)` | [[linter.coverage]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 | law_case_failure | effect | `linter.coverage.law_case_failure(detail)` | [[linter.coverage]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
@@ -62,11 +62,30 @@ separate passes.
 | orphan_property_rejected      | unit | [[linter.coverage.no_orphan_property]]               | `spec_file_with(property.derives_from_pointing_at_nonexistent_id: true)` | `check(file) == failed`                                                 |
 | incomplete_law_rejected       | unit | [[linter.coverage.every_law_has_cases]]              | `law_property_missing("identity")`                                    | `check(file) == failed`                                                   |
 | full_coverage_passes          | unit | [[linter.coverage.every_constraint_covered]]         | `arbitrary_fully_covered_spec_file()`                                 | `check(file) == passed`                                                   |
-| coverage_naturality           | law  | [[specodelic.rename_naturality]]                    | `arbitrary_spec_file(), arbitrary_id_rename()`                        | **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered |
+| coverage_naturality           | law  | [[specodelic.rename_naturality]]                    | `arbitrary_spec_file(), arbitrary_id_rename()`                        | **identity:** `coverage_ratio(coverage_ratio_placeholder_renamed_to_itself) == coverage_ratio(placeholder)` — the rename identity case, instantiated at the coverage_ratio observation point  **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered |
 | computed_derives_from_rejected | unit | [[linter.coverage.coverage_is_computable]]          | `spec_file_with(computed_or_templated_derives_from_id: true)`         | `check(file) == failed` — a non-literal id cannot be counted from the parsed AST alone |
 | count_failure_label_asserted | unit | [[linter.coverage.count_failure]] | `count_failure_raised()` | `error_label == "linter.coverage.count_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 | law_case_failure_label_asserted | unit | [[linter.coverage.law_case_failure]] | `law_case_failure_raised()` | `error_label == "linter.coverage.law_case_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
+
+**Reference-typing reconciliation (2026-09-30, `specodelic-cxq`):**
+`every_constraint_covered`, `every_law_has_cases`, `no_orphan_property`,
+and `coverage_is_computable` previously pointed their `traces_to` at the
+`specodelic.md` rows they re-own (`[[specodelic.coverage]]`,
+`[[specodelic.law_requires_cases]]`) — a Constraint→Constraint target,
+which the Reference Typing table forbids (`traces_to` resolves to Intent
+only). Each now traces to `[[linter.coverage]]`, its own file's intent —
+the same re-anchoring `linter-referential_integrity.md`'s
+`rename_naturality` Notes call the "same claim, two altitudes" pattern:
+`specodelic.md` keeps the corpus-wide statement of record, this file owns
+the checkable one.
+
+**Decision of record (2026-09-30, `specodelic-cxq`):** `coverage_naturality`
+was one of the three law rows lacking the identity/associativity cases
+`[[specodelic.law_requires_cases]]` requires. Its identity case is the
+trivial instantiations `rename(I, a, a) == I` at the `coverage_ratio`
+observation point; the naturality case remains the substantive one —
+renaming a constraint doesn't change whether it's covered.
 
 `coverage_is_computable` is worth stating explicitly even though it looks
 tautological: it's the thing that fails if `expr` fields were ever allowed

@@ -6,6 +6,64 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #76 — corpus reconciled with its own Reference Typing table (specodelic-cxq)
+
+The mp1 decisions of record (#75) applied to the corpus itself. All 38
+typing-forbidden edges `spk graph specs` reported are gone — the corpus
+now passes the complete typed check with zero violations, and the dogfood
+graph gate is meaningful (exits 0):
+
+- **31 `constraints.traces_to` → Constraint retargets to own intent.**
+  Every linter checker file's invariant rows previously traced to the
+  `specodelic.md` constraint rows they re-own
+  (`[[specodelic.guard_required]]` et al.) — a Constraint→Constraint
+  target the table forbids. Each now traces to its own file's intent;
+  the cross-file "same claim, two altitudes" relationship moves into
+  prose (each file's Notes record the reconciliation).
+- **Guard citations bridged to legal targets.** The three file-level
+  guard citations (`graph.extract`, `orchestrate.start_lint` →
+  `[[specodelic]]`; `refactor.analyze` → `[[graph]]`) now cite States:
+  `[[specodelic.parsed]]` / `[[graph.queryable]]` — Revision 10 admits
+  State targets for guards, so "has reached state X" is typed where a
+  state exists, prose elsewhere. `orchestrate.compile_gate_matches_coverage`'s
+  expr dropped its stray `[[specodelic.coverage]]` citations (an expr
+  citing its own target row — nothing to add).
+- **Typing table: `derives_from` gains the same-kind law edge.** The
+  checker-file `*_naturality` laws derive from
+  `specodelic.rename_naturality` (a Property) — the same-kind
+  law-restates-law edge is now typed (`derives_from`: Property →
+  Constraint, or the same Property when the deriving row is itself a
+  law), kept well-formed by `acyclic_traces`, which already includes
+  `derives_from`. A Revision-11-in-`specodelic.md` fact under
+  `append_only_variants`.
+- **Three laws completed to `law_requires_cases`.**
+  `linter.coverage.coverage_naturality` gained its identity case;
+  `linter.external_completeness.mapping_naturality` gained identity;
+  `linter.referential_integrity.rename_naturality` gained its naturality
+  case (it had identity+associativity only).
+- **Six row ids renamed off forbidden tokens** (`no_universal_in_id`
+  applied to every row kind): `scan_all` → `scan_effects`,
+  `warning_never_fails` → `warning_never_gates`,
+  `parser_ast_never_reads_prose` → `parser_ast_prose_free`,
+  `external_completeness_never_gates` →
+  `external_completeness_never_gating`, `fan_in_never_rewalked` →
+  `fan_in_graph_sourced`, `law_cases_all_run` → `law_cases_unexecuted`.
+  `linter-ears_syntax.md`'s `no_universal_in_id` expr now scopes the
+  rule to every row kind explicitly (decision of record in that file).
+- **`no_prose_field_parsed` rewritten as a runnable unit property**
+  (kinds.md Revision 6's landing step): `parser_ast_prose_free` is now
+  the planted-prose differential parse — no `audit` framing, no
+  generator-preclusion claim remains.
+- **`linter-coverage.md` added to specodelic.md's Checker Ownership
+  table** — the corpus's own dogfood had left the last checker unlisted.
+
+Also reconciled: the openspec `model-check` capability spec's two
+Constraint→Constraint `traces_to` rows (`backend_identified`,
+`provenance`) retargeted to `[[spec]]`. Graph tool tests pin the widened
+typing (law→law allowed, guard→State allowed, invariant-only and
+unit-Property halves still enforced); `graph_corpus_is_fully_resolved`
+now asserts zero violations and exit 0.
+
 ## #75 — mp1's final four rows decided: guard typing, reachability, EXCL-001, merge approval (of record)
 
 All ten HITL rows on `specodelic-mp1` are now decided — the last four via

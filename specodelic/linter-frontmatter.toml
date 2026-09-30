@@ -4,25 +4,25 @@ source = "linter.frontmatter"
 id = "has_id"
 kind = "invariant"
 expr = "`frontmatter.id != null and matches(id, /^[a-z][a-z0-9_.]*$/)`"
-traces_to = "[[specodelic.frontmatter_valid]]"
+traces_to = "[[linter.frontmatter]]"
 
 [[constraints]]
 id = "has_kind"
 kind = "invariant"
 expr = '`frontmatter.kind == "intent"`'
-traces_to = "[[specodelic.frontmatter_valid]]"
+traces_to = "[[linter.frontmatter]]"
 
 [[constraints]]
 id = "has_statement"
 kind = "invariant"
 expr = "`frontmatter.statement != null and len(statement) > 0`"
-traces_to = "[[specodelic.frontmatter_valid]]"
+traces_to = "[[linter.frontmatter]]"
 
 [[constraints]]
 id = "id_matches_file"
 kind = "invariant"
 expr = "`frontmatter.id == expected_id_from_filename(path)`"
-traces_to = "[[specodelic.frontmatter_valid]]"
+traces_to = "[[linter.frontmatter]]"
 
 [[constraints]]
 id = "check_failure"

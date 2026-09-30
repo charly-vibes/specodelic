@@ -16,7 +16,7 @@ TypeOK == vpc \in StateValues
 Init == vpc = "unindexed"
 
 Next ==
-  \* extract: unindexed -> extracting (guard: `every file in the repo has independently reached parsed` — see [[specodelic]]'s own lifecycle)
+  \* extract: unindexed -> extracting (guard: `[[specodelic.parsed]]` — every file in the repo has independently reached that state (see `specodelic.md`'s own lifecycle))
   \/ vpc = "unindexed" /\ vpc' = "extracting"
   \* extract_ok: extracting -> indexed (guard: [[graph.total_extraction]] ∧ [[graph.edge_kind_matches_typing]])
   \/ vpc = "extracting" /\ vpc' = "indexed"

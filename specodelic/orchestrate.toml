@@ -21,7 +21,7 @@ traces_to = "[[orchestrate]]"
 [[constraints]]
 id = "compile_gate_matches_coverage"
 kind = "invariant"
-expr = "`orchestrator advances to model_check iff linter.coverage reports passed — exactly specodelic.md's compile guard ([[specodelic.coverage]] ∧ [[specodelic.law_requires_cases]]), not a looser or stricter check`"
+expr = "`orchestrator advances to model_check iff linter.coverage reports passed — exactly specodelic.md's compile transition gate (coverage + law_requires_cases), not a looser or stricter check`"
 traces_to = "[[orchestrate]]"
 
 [[constraints]]
@@ -31,7 +31,7 @@ expr = "`compile is never invoked before every file's lint stage reports passed;
 traces_to = "[[orchestrate]]"
 
 [[constraints]]
-id = "external_completeness_never_gates"
+id = "external_completeness_never_gating"
 kind = "invariant"
 expr = "`linter.external_completeness runs only if the repo declares a checklist, and its outcome (passed/failed/not_applicable) never blocks or delays lint, compile, model_check, or verify`"
 traces_to = "[[orchestrate]]"

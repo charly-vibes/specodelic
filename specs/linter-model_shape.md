@@ -16,11 +16,11 @@ and "ad-hoc state machine" signals, made structural rather than advisory.
 
 | id                    | kind      | expr                                                                                     | traces_to | satisfies |
 |------------------------|-----------|-----------------------------------------------------------------------------------------------|------------------------------------------------|
-| guard_present          | invariant | `∀ transition row: guard field is non-empty`                                                   | [[specodelic.guard_required]]    |          |
-| model_sections_paired  | invariant | `if [[model.state]] exists then [[model.transition]] exists, and vice versa`                    | [[specodelic.model_present]]     |          |
-| every_state_used       | invariant | `∀ state: state appears as from or to in ≥ 1 transition`                                        | [[specodelic.model_present]]     |          |
-| every_transition_valid | invariant | `∀ transition: from ∈ states and to ∈ states`                                                   | [[specodelic.model_present]]     |          |
-| no_bool_state_field    | invariant | `no state or transition row has a column of boolean type`                                       | [[specodelic.no_boolean_columns]]|          |
+| guard_present          | invariant | `∀ transition row: guard field is non-empty`                                                   | [[linter.model_shape]]    |          |
+| model_sections_paired  | invariant | `if [[model.state]] exists then [[model.transition]] exists, and vice versa`                    | [[linter.model_shape]]     |          |
+| every_state_used       | invariant | `∀ state: state appears as from or to in ≥ 1 transition`                                        | [[linter.model_shape]]     |          |
+| every_transition_valid | invariant | `∀ transition: from ∈ states and to ∈ states`                                                   | [[linter.model_shape]]     |          |
+| no_bool_state_field    | invariant | `no state or transition row has a column of boolean type`                                       | [[linter.model_shape]]|          |
 | pairing_failure | effect | `linter.model_shape.pairing_failure(detail)` | [[linter.model_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 | field_check_failure | effect | `linter.model_shape.field_check_failure(detail)` | [[linter.model_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
@@ -58,6 +58,14 @@ and "ad-hoc state machine" signals, made structural rather than advisory.
 | pairing_failure_label_asserted | unit | [[linter.model_shape.pairing_failure]] | `pairing_failure_raised()` | `error_label == "linter.model_shape.pairing_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 | field_check_failure_label_asserted | unit | [[linter.model_shape.field_check_failure]] | `field_check_failure_raised()` | `error_label == "linter.model_shape.field_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
+
+**Reference-typing reconciliation (2026-09-30, `specodelic-cxq`):** the
+Constraints table's `traces_to` cells previously pointed at the
+`specodelic.md` rows these checks re-own — a Constraint→Constraint target,
+which the Reference Typing table forbids (`traces_to` resolves to Intent
+only). Each now traces to this file's own intent: `specodelic.md` keeps
+the corpus-wide statement of record, this file owns the checkable one
+(the "same claim, two altitudes" pattern the Notes below already use).
 
 `every_state_used` and `every_transition_valid` are new relative to
 `specodelic.md`'s original list — `guard_required` only checked that a

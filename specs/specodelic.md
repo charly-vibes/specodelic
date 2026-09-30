@@ -49,7 +49,7 @@ is a [typed foreign key](theory.md#typed-foreign-keys-generating-morphisms).
 | Field         | Appears on  | Must resolve to |
 |---------------|-------------|-------------------|
 | `traces_to`   | Constraint  | Intent            |
-| `derives_from`| Property    | Constraint        |
+| `derives_from`| Property    | Constraint, or the same Property when the deriving row is itself a `law` — a law derives from the top-level constraint **or law** it restates (e.g. the checker-file `*_naturality` laws deriving from `specodelic.rename_naturality`); the graph acyclicity invariant (`acyclic_traces`, which already includes `derives_from`) is what keeps this same-kind self-reference edge well-formed |
 | `guard`       | Transition  | Constraint, kind == `invariant` only — an `advisory` Constraint can never gate a transition, by typing, not by convention. A guard may be prose; when its gating condition corresponds to a declared constraint, the guard must cite it — a prose-only guard is machine-uninterpreted (the model-check backend reports `invariants_checked: []`) |
 | `from` / `to` | Transition  | State             |
 | `supersedes`  | Constraint, Property | same kind as the row it appears on (Constraint→Constraint, Property→Property) |
@@ -94,6 +94,7 @@ in.
 | `linter-model_shape.md`           | `guard_required`, `model_present`, `every_state_used`, `every_transition_valid`, `no_boolean_columns` | `linter-graph_shape.md`              |
 | `linter-ears_syntax.md`           | `ears_statement`, `one_capability_per_row`                                            | `linter-frontmatter.md` (parallel to the above branch) |
 | `linter-schema_shape.md`          | `append_only_variants`, `prose_untouched`, `constraint_kind_closed`, `property_kind_closed` | `linter-frontmatter.md` (parallel to the referential/graph/model branch) |
+| `linter-coverage.md`              | `coverage`, `law_requires_cases`                                             | `linter-graph_shape.md`, `linter-model_shape.md` |
 
 `linted` is an [all-must-pass dependency gate](theory.md#limit-over-a-dependency-diagram-independent-checks-joined)
 over this diagram: `lint` fires only when every terminal node reports
@@ -596,3 +597,22 @@ advised by typed Jev evaluations, jev-1.13.0):
 No variant table changed — two existing rows reworded under this
 heading per `append_only_variants`; the `guard` field's target set is
 narrowed not at all and the kind sets are untouched.
+
+## Revision 11
+
+`derives_from` gains the same-kind law edge (Reference Typing row
+reworded; `specodelic-cxq` corpus reconciliation, 2026-09-30). A
+Property row whose own kind is `law` may point `derives_from` at a
+Constraint **or at the same-kind Property** — the top-level law it
+restates — because the checker files' `*_naturality` laws instantiate
+exactly this file's `rename_naturality` law, and banning that edge
+forced the corpus into either illegal targets or prose-only linkage.
+Well-formedness of the same-kind edge is not a new invariant:
+`acyclic_traces` already includes `derives_from` in its edge set, so a
+derivational cycle among laws is a lint finding, and `coverage`'s
+`no_orphan_property` still requires every `derives_from` target to
+resolve. A `unit` Property deriving from a Property remains a violation.
+
+No variant table changed — one existing Reference Typing row reworded
+under this heading per `append_only_variants`; the target set WIDENS
+only for law sources, so nothing valid at Revision 10 is invalidated.

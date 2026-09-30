@@ -37,7 +37,7 @@ Revision 7 precedent (`satisfies`) for typing and on
 
 | id          | from       | to                 | guard                                                       |
 |-------------|------------|--------------------|--------------------------------------------------------------|
-| scan_all    | scanning   | observed           | `every effect in the invocation's file set has ≥1 observer`   |
+| scan_effects | scanning   | observed           | `every effect in the invocation's file set has ≥1 observer`   |
 | warn_unobserved | scanning | unobserved_warned | [[linter.observability.observation_universe]]                 |
 
 ## Properties
@@ -46,7 +46,7 @@ Revision 7 precedent (`satisfies`) for typing and on
 |---------------------------------|------|-----------------------------------------------------|--------------------------------------------------|----------------------------------------------------------------------------------|
 | unobserved_effect_warned        | unit | [[linter.observability.observation_universe]]       | `effect_with_zero_observes_edges()`               | `exit 0 ∧ a warning naming the row id and the rule id linter.observability`      |
 | observed_effect_silent          | unit | [[linter.observability.observation_universe]]       | `effect_with_at_least_one_observes_edge()`        | `no observability warning`                                                       |
-| warning_never_fails             | unit | [[linter.observability.advisory_severity]]          | `corpus_with_unobserved_effects()`                | `exit code 0 ∧ zero Issue findings attributable to this check`                   |
+| warning_never_gates             | unit | [[linter.observability.advisory_severity]]          | `corpus_with_unobserved_effects()`                | `exit code 0 ∧ zero Issue findings attributable to this check`                   |
 | mutual_observation_passes       | unit | [[linter.observability.observation_universe]]       | `two_files_mutually_observing_each_others_effects()` | `both effects counted as observed — no warning`                               |
 | self_observation_still_warned   | unit | [[linter.observability.self_observation_not_counted]] | `effect_row_pointing_observes_at_itself()`     | `warning fires — vacuous self-observation is not an observer`                    |
 | dangling_observes_not_doubled   | unit | [[linter.observability.dangling_observes_is_referential]] | `observes_pointing_at_an_absent_row()`      | `exactly one total_refs finding; zero observability warnings`                    |

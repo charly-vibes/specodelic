@@ -20,9 +20,9 @@ Next ==
   \/ vpc = "not_run" /\ vpc' = "running"
   \* evaluate: running -> properties_evaluated (guard: `every compiled proptest! block has recorded pass or fail`)
   \/ vpc = "running" /\ vpc' = "properties_evaluated"
-  \* accept: properties_evaluated -> verified (guard: [[verify.both_gates_required]] ∧ [[verify.properties_pass_reflects_latest_run]] ∧ [[verify.law_cases_all_run]])
+  \* accept: properties_evaluated -> verified (guard: [[verify.both_gates_required]] ∧ [[verify.properties_pass_reflects_latest_run]] ∧ [[verify.law_cases_unexecuted]])
   \/ vpc = "properties_evaluated" /\ vpc' = "verified"
-  \* reject: properties_evaluated -> failed (guard: `¬([[verify.both_gates_required]] ∧ [[verify.properties_pass_reflects_latest_run]] ∧ [[verify.law_cases_all_run]])`)
+  \* reject: properties_evaluated -> failed (guard: `¬([[verify.both_gates_required]] ∧ [[verify.properties_pass_reflects_latest_run]] ∧ [[verify.law_cases_unexecuted]])`)
   \/ vpc = "properties_evaluated" /\ vpc' = "failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock

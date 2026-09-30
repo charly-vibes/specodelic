@@ -42,7 +42,7 @@ for splitting *before* the behavioral edit lands, not after.
 
 | id        | from       | to         | guard                                                                                          |
 |-----------|------------|------------|---------------------------------------------------------------------------------------------------|
-| analyze   | idle       | analyzing  | `[[graph]] has reached queryable` — see `graph.md`'s own lifecycle                                  |
+| analyze   | idle       | analyzing  | `[[graph.queryable]]` — graph's artifact is published and queryable (see `graph.md`'s own lifecycle)                                  |
 | flag      | analyzing  | found      | [[refactor.unrelated_fan_in_defined]] ∨ [[refactor.narrow_diff_heuristic]]                       |
 | clear     | analyzing  | clean      | `¬flag.guard`                                                                                       |
 
@@ -50,7 +50,7 @@ for splitting *before* the behavioral edit lands, not after.
 
 | id                              | kind | derives_from                              | generator                                                                    | predicate                                                                                     |
 |-----------------------------------|------|----------------------------------------------|-------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
-| fan_in_never_rewalked             | unit | [[refactor.fan_in_read_from_graph]]         | `node_with_precomputed_blast_radius_in_graph()`                                     | `advisor_source_calls(markdown_walker) == 0` — every count comes from `graph`'s artifact           |
+| fan_in_graph_sourced             | unit | [[refactor.fan_in_read_from_graph]]         | `node_with_precomputed_blast_radius_in_graph()`                                     | `advisor_source_calls(markdown_walker) == 0` — every count comes from `graph`'s artifact           |
 | unrelated_fan_in_flagged          | unit | [[refactor.unrelated_fan_in_defined]]       | `node_referenced_by_dependents_in_three_disjoint_top_level_namespaces()`            | `check(node) == found`                                                                              |
 | related_fan_in_not_flagged        | unit | [[refactor.unrelated_fan_in_defined]]       | `node_referenced_only_by_dependents_within_its_own_namespace_subtree()`             | `check(node) == clean`                                                                              |
 | narrow_diff_flagged_low_fan_in    | unit | [[refactor.narrow_diff_heuristic]]          | `changeset_touching_one_of_five_constraints_owned_by_a_node_with_fan_in(1)`         | `check(node) == found` — flagged even though fan-in alone wouldn't trigger it                       |
@@ -84,9 +84,11 @@ normal way by the six existing linters. Deciding *how* to split is a
 design judgment this file deliberately doesn't automate.
 
 **Depends on `graph.md`**, not on re-deriving reachability: `analyze`'s
-guard cites `graph`'s own `queryable` state in prose (the same "cite
-another file's state fact in prose when it isn't itself a Constraint row"
-pattern `orchestrate.md` already uses for `model_check.md`/`verify.md`),
+guard cites `graph`'s own `queryable` state by typed citation
+([[graph.queryable]] — a State, which Revision 10's guard typing admits)
+instead of bare prose (the same "cite another file's state fact when it
+isn't itself a Constraint row" pattern `orchestrate.md` already uses for
+`model_check.md`/`verify.md`),
 and every fan-in count is a `graph.blast_radius` query, never an
 independent markdown walk.
 

@@ -148,13 +148,26 @@ fn typing_violation(
         "traces_to" if *target != NodeKind::Intent => Some(format!(
             "traces_to must resolve to an Intent (Reference Typing); target is {tk}"
         )),
-        "derives_from" if !matches!(target, NodeKind::Constraint(_)) => Some(format!(
-            "derives_from must resolve to a Constraint (Reference Typing); target is {tk}"
-        )),
+        "derives_from" => match target {
+            NodeKind::Constraint(_) => None,
+            // Revision 10 (specodelic-cxq): a `law` Property may derive
+            // from another Property — the same-kind law-restates-law edge
+            // (checker `*_naturality` laws → `specodelic.rename_naturality`).
+            NodeKind::Property(_) if matches!(source_kind, Some(NodeKind::Property(k)) if k == "law") => {
+                None
+            }
+            _ => Some(format!(
+                "derives_from must resolve to a Constraint, or to a Property when the source is a law (Reference Typing); target is {tk}"
+            )),
+        },
         "guard" => match target {
             NodeKind::Constraint(k) if k == "invariant" => None,
+            // Revision 10 (specodelic-cxq): a guard may cite a State —
+            // the "has reached state X" pattern (graph.md extract,
+            // refactor.md analyze, orchestrate.md start_lint).
+            NodeKind::State => None,
             _ => Some(format!(
-                "guard must resolve to an invariant Constraint (Reference Typing); target is {tk}"
+                "guard must resolve to an invariant Constraint or a State (Reference Typing); target is {tk}"
             )),
         },
         "emits" => match target {

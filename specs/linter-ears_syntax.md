@@ -17,10 +17,10 @@ than by judging prose quality.
 
 | id                  | kind      | expr                                                                                                    | traces_to | satisfies |
 |----------------------|-----------|--------------------------------------------------------------------------------------------------------------|----------------------------------------------------|
-| ears_pattern_match    | invariant | `statement matches one of: Ubiquitous / Event-Driven / State-Driven / Unwanted-Behavior / Optional-Feature`   | [[specodelic.ears_statement]]        |          |
-| has_shall             | invariant | `statement contains an imperative "SHALL" (or "SHALL NOT")`                                                   | [[specodelic.ears_statement]]        |          |
-| no_conjoined_id       | invariant | `∀ row.id: id does not encode two capabilities joined by "and"/"or" (checked on the id token, not prose)`      | [[specodelic.one_capability_per_row]]|          |
-| no_universal_in_id    | invariant | `∀ row.id: id does not contain "all"/"every"/"any"/"always"/"never" as a token`                                | [[specodelic.one_capability_per_row]]|          |
+| ears_pattern_match    | invariant | `statement matches one of: Ubiquitous / Event-Driven / State-Driven / Unwanted-Behavior / Optional-Feature`   | [[linter.ears_syntax]]        |          |
+| has_shall             | invariant | `statement contains an imperative "SHALL" (or "SHALL NOT")`                                                   | [[linter.ears_syntax]]        |          |
+| no_conjoined_id       | invariant | `∀ row.id: id does not encode two capabilities joined by "and"/"or" (checked on the id token, not prose)` — the top-level rule this row re-owns from `specodelic.md`'s higher-altitude `one_capability_per_row` restatement | [[linter.ears_syntax]]|          |
+| no_universal_in_id    | invariant | `∀ row.id: id does not contain "all"/"every"/"any"/"always"/"never" as a token` — applies to every table row id (Intent, Constraint, State, Transition, Property), not only Constraint rows; the top-level rule this row re-owns from `specodelic.md`'s higher-altitude `one_capability_per_row` restatement | [[linter.ears_syntax]]|          |
 | pattern_failure | effect | `linter.ears_syntax.pattern_failure(detail)` | [[linter.ears_syntax]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 | id_check_failure | effect | `linter.ears_syntax.id_check_failure(detail)` | [[linter.ears_syntax]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
@@ -73,7 +73,13 @@ linter, the latter doesn't.
 `no_conjoined_id`/`no_universal_in_id` check the **id token**, not the
 prose statement — e.g. rejecting `id: "cancel_and_refund"` structurally,
 while a compound *statement* in prose still isn't caught (correctly, since
-that would require judging prose). This is narrower than
+that would require judging prose). **Scope decision of record (2026-09-30,
+`specodelic-cxq`):** the check covers every table row id — Intent,
+Constraint, State, Transition, and Property rows alike. A property named
+`law_cases_unexecuted` or a transition named `scan_effects` carries the same
+compound/universal-token problem a constraint id does, so the corpus's
+six such rows were renamed in the same change rather than carving the
+row kinds out of the rule. This is narrower than
 `specification-evaluation-diagnostician`'s "Compound Requirements" finding,
 which also reads sentence structure — worth flagging as a known gap this
 checker doesn't close, rather than one it silently claims to.

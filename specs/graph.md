@@ -50,7 +50,7 @@ constraint.
 
 | id           | from        | to          | guard                                                                                          |
 |--------------|-------------|-------------|--------------------------------------------------------------------------------------------------|
-| extract      | unindexed   | extracting  | `every file in the repo has independently reached parsed` — see [[specodelic]]'s own lifecycle    |
+| extract      | unindexed   | extracting  | `[[specodelic.parsed]]` — every file in the repo has independently reached that state (see `specodelic.md`'s own lifecycle)    |
 | extract_ok   | extracting  | indexed     | [[graph.total_extraction]] ∧ [[graph.edge_kind_matches_typing]]                                  |
 | extract_fail | extracting | failed | `¬([[graph.total_extraction]] ∧ [[graph.edge_kind_matches_typing]])` |
 | publish      | indexed     | queryable   | [[graph.deterministic_derivation]] ∧ [[graph.graph_is_derived_not_authored]]                     |

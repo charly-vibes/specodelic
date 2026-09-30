@@ -105,7 +105,7 @@ traces_to = "[[specodelic]]"
 [[constraints]]
 id = "single_root_reachable"
 kind = "invariant"
-expr = "`∀ constraint/property/state/transition row in file: reachable(row, file's own intent row)`"
+expr = "`∀ constraint/property/state/transition row in file: the row reaches the file's own intent row through own-file primary linkage (traces_to/derives_from chains resolved within the file)` — cross-file typed edges (`guard` citations of foreign constraints, `satisfies`, `observes`) are outbound leaves, never reachability paths"
 traces_to = "[[specodelic]]"
 
 [[constraints]]

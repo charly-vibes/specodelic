@@ -28,12 +28,12 @@ about any single file's current shape.
 
 | id                     | kind      | expr                                                                                        | traces_to | satisfies |
 |--------------------------|-----------|--------------------------------------------------------------------------------------------------|-----------------------------------------------------|
-| id_set_grows_only         | invariant | `∀ 𝒦-governed id-set S (a variant-table's ids, a Constraint/Property row's own kind value-set, or the Reference Typing table's field set), revision r < r': S(r) ⊆ S(r'), appended only under a new Revision heading — no member removed or renumbered; a member's typing may narrow only in the same Revision that introduces the kind-split it depends on, and only if it invalidates nothing valid at r` | [[specodelic.append_only_variants]]  |          |
-| id_set_order_stable       | invariant | `∀ 𝒦-governed id-set S, revision r < r': the relative order of members present in both r and r' is unchanged` | [[specodelic.append_only_variants]]  |          |
-| constraint_kind_closed    | invariant | `∀ Constraint row: row.kind ∈ {invariant, advisory, effect, extension_point}` — see [[kinds.constraint_row_shape]]   | [[specodelic.constraint_kind_closed]] |          |
-| property_kind_closed      | invariant | `∀ Property row: row.kind ∈ {unit, law}` — see [[kinds.property_row_shape]]                        | [[specodelic.property_kind_closed]]   |          |
-| no_prose_field_parsed     | invariant | `the parser's AST never branches on the text content of a rationale/description field`            | [[specodelic.prose_untouched]]        |          |
-| prose_field_passthrough   | invariant | `rationale/description content is stored verbatim and emitted verbatim in the compiled TOML`      | [[specodelic.prose_untouched]]        |          |
+| id_set_grows_only         | invariant | `∀ 𝒦-governed id-set S (a variant-table's ids, a Constraint/Property row's own kind value-set, or the Reference Typing table's field set), revision r < r': S(r) ⊆ S(r'), appended only under a new Revision heading — no member removed or renumbered; a member's typing may narrow only in the same Revision that introduces the kind-split it depends on, and only if it invalidates nothing valid at r` | [[linter.schema_shape]]  |          |
+| id_set_order_stable       | invariant | `∀ 𝒦-governed id-set S, revision r < r': the relative order of members present in both r and r' is unchanged` | [[linter.schema_shape]]  |          |
+| constraint_kind_closed    | invariant | `∀ Constraint row: row.kind ∈ {invariant, advisory, effect, extension_point}` — see [[kinds.constraint_row_shape]]   | [[linter.schema_shape]] |          |
+| property_kind_closed      | invariant | `∀ Property row: row.kind ∈ {unit, law}` — see [[kinds.property_row_shape]]                        | [[linter.schema_shape]]   |          |
+| no_prose_field_parsed     | invariant | `the parser's AST never branches on the text content of a rationale/description field`            | [[linter.schema_shape]]        |          |
+| prose_field_passthrough   | invariant | `rationale/description content is stored verbatim and emitted verbatim in the compiled TOML`      | [[linter.schema_shape]]        |          |
 | kind_check_failure | effect | `linter.schema_shape.kind_check_failure(detail)` | [[linter.schema_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 | diff_failure | effect | `linter.schema_shape.diff_failure(detail)` | [[linter.schema_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 | parser_audit_failure | effect | `linter.schema_shape.parser_audit_failure(detail)` | [[linter.schema_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
@@ -79,11 +79,19 @@ about any single file's current shape.
 | constraint_kind_advisory_passes | unit | [[linter.schema_shape.constraint_kind_closed]]       | `constraint_row_with(kind: "advisory")`                             | `check(file) == passed`                                                    |
 | constraint_kind_effect_passes  | unit | [[linter.schema_shape.constraint_kind_closed]]        | `constraint_row_with(kind: "effect")`                               | `check(file) == passed`                                                    |
 | constraint_kind_extension_point_passes | unit | [[linter.schema_shape.constraint_kind_closed]] | `constraint_row_with(kind: "extension_point")`                      | `check(file) == passed`                                                    |
-| parser_ast_never_reads_prose    | unit | [[linter.schema_shape.no_prose_field_parsed]]         | `parser_audit_over_every_ast_construction_site()`                    | `no branch condition references the text of a rationale/description field` — the check itself is an implementation audit, see Notes |
+| parser_ast_prose_free    | unit | [[linter.schema_shape.no_prose_field_parsed]]         | `spec_file_with(prose_in_rationale_and_description: arbitrary_unicode_string())` | `∀ parsed row: the row's parsed fields contain no fragment of the planted prose` — a planted-prose differential parse (see Notes) |
 | kind_check_failure_label_asserted | unit | [[linter.schema_shape.kind_check_failure]] | `kind_check_failure_raised()` | `error_label == "linter.schema_shape.kind_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 | diff_failure_label_asserted | unit | [[linter.schema_shape.diff_failure]] | `diff_failure_raised()` | `error_label == "linter.schema_shape.diff_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 | parser_audit_failure_label_asserted | unit | [[linter.schema_shape.parser_audit_failure]] | `parser_audit_failure_raised()` | `error_label == "linter.schema_shape.parser_audit_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
+
+**Reference-typing reconciliation (2026-09-30, `specodelic-cxq`):** the
+Constraints table's `traces_to` cells previously pointed at the
+`specodelic.md` rows these checks re-own — a Constraint→Constraint target,
+which the Reference Typing table forbids (`traces_to` resolves to Intent
+only). Each now traces to this file's own intent: `specodelic.md` keeps
+the corpus-wide statement of record, this file owns the checkable one
+(the "same claim, two altitudes" pattern the Notes below already use).
 
 **Resolves the follow-up `kinds.md` recorded when it landed:** that file
 defined `property_row_shape`'s `kind ∈ {unit, law}` and
@@ -99,11 +107,12 @@ two checks have genuinely different preconditions (`kind_checking` needs
 only the current file; `diffing` needs a prior revision, hence the new
 `diff_skip` edge for a file with none).
 
-`no_prose_field_parsed` is a property of the *parser's implementation*, not
-of any spec file's content — there is no generator that can produce a
-"bad" spec file to test this against, only an audit of whether the parser
-code path for `rationale`/`description` ever appears on the left side of a
-conditional.
+`no_prose_field_parsed` was originally framed as a property of the
+*parser's implementation*, not of any spec file's content — "no generator
+can produce a bad spec file to test this against, only an audit of whether
+the parser code path for `rationale`/`description` ever appears on the
+left side of a conditional." The `parser_ast_prose_free` row above
+reflects the pre-decision audit framing and predates the decision below.
 
 **Decision of record (2026-09-30, user-approved; HITL ticket
 `specodelic-mp1` row 5, EXCL-001):** the audit framing was wrong — the
@@ -113,6 +122,10 @@ no parsed row contains it). The property is to be rewritten as a runnable
 `unit` row on that basis (lands with `specodelic-cxq`); no `audit` kind
 was added — `kinds.md` Revision 6 records the dissolution and `{unit,
 law}` stays closed. This row's `Needs Human Review` flag is retired.
+Landed here with `specodelic-cxq`: `parser_ast_prose_free` is now
+the runnable planted-prose differential parse (generate a spec with prose
+in `rationale`/`description`, parse, assert no parsed row contains it) —
+no generator-preclusion claim remains.
 
 Checker Ownership table in `specodelic.md` is now fully accounted for
 except `linter-coverage.md`, the last remaining file.

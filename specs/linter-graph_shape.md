@@ -15,10 +15,10 @@ DAG" check, applied to specs instead of code modules.
 
 | id                   | kind      | expr                                                                                  | traces_to | satisfies |
 |-----------------------|-----------|------------------------------------------------------------------------------------------|--------------------------------------------|
-| acyclic               | invariant | `the directed graph formed by traces_to ∪ derives_from ∪ guard-as-edge has no cycle`      | [[specodelic.acyclic_traces]] |          |
-| single_root_reachable | invariant | `∀ constraint/property/state/transition row: reachable(row, some intent row)`             | [[specodelic.acyclic_traces]] |          |
-| no_self_ref           | invariant | `∀ row: row.traces_to != row.id and row.derives_from != row.id`                           | [[specodelic.acyclic_traces]] |          |
-| supersedes_dag        | invariant | `the directed graph formed by supersedes edges alone (Constraint→Constraint, Property→Property) has no cycle` | [[specodelic.supersedes_acyclic]] |          |
+| acyclic               | invariant | `the directed graph formed by traces_to ∪ derives_from ∪ guard-as-edge has no cycle`      | [[linter.graph_shape]] |          |
+| single_root_reachable | invariant | `∀ constraint/property/state/transition row: reachable(row, the file's own intent row through own-file primary linkage)` — same claim as [[specodelic.single_root_reachable]] at checker altitude | [[linter.graph_shape]] |          |
+| no_self_ref           | invariant | `∀ row: row.traces_to != row.id and row.derives_from != row.id`                           | [[linter.graph_shape]] |          |
+| supersedes_dag        | invariant | `the directed graph formed by supersedes edges alone (Constraint→Constraint, Property→Property) has no cycle` | [[linter.graph_shape]] |          |
 | check_failure | effect | `linter.graph_shape.check_failure(detail)` | [[linter.graph_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
@@ -54,16 +54,27 @@ DAG" check, applied to specs instead of code modules.
 | check_failure_label_asserted | unit | [[linter.graph_shape.check_failure]] | `check_failure_raised()` | `error_label == "linter.graph_shape.check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
 
+**Reference-typing reconciliation (2026-09-30, `specodelic-cxq`):** the
+Constraints table's `traces_to` cells previously pointed at the
+`specodelic.md` rows these checks re-own — a Constraint→Constraint target,
+which the Reference Typing table forbids (`traces_to` resolves to Intent
+only). Each now traces to this file's own intent: `specodelic.md` keeps
+the corpus-wide statement of record, this file owns the checkable one
+(the "same claim, two altitudes" pattern the Notes below already use).
+
 `single_root_reachable` is new relative to `specodelic.md`'s original
 `acyclic_traces` invariant — acyclicity alone permits an orphaned island of
 constraints/properties that trace only to each other and never up to a real
 `intent`. That's not a cycle, but it is the spec-level equivalent of
 `modularity-diagnostician`'s "missing boundary": a cluster with no owning
-purpose. Flagging as a gap to fold back into `specodelic.md`'s constraint
-list (`Needs Human Review`: should reachability be required from *any*
-intent in the repo, or only the file's own declared intent? The latter is
-stricter and probably correct, since it also catches misfiled cross-feature
-references — but should be confirmed rather than assumed here).
+purpose. The gap was folded back into `specodelic.md`'s constraint list,
+and the open question this file raised (any intent vs the file's own) was
+**decided of record 2026-09-30 (HITL `specodelic-mp1` row 8)**: reachability
+lands on the file's OWN intent through own-file primary linkage, with
+cross-file typed edges (`guard` citations of foreign constraints,
+`satisfies`, `observes`) counted as outbound leaves, never reachability
+paths — see `specodelic.md` Revision 10. This file's constraint expr
+reflects the decided reading.
 
 `topo_sort_naturality` is included because the model-checking and
 PBT-generation pipeline both need a stable topological order to compile

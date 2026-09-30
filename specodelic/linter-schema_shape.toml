@@ -4,37 +4,37 @@ source = "linter.schema_shape"
 id = "id_set_grows_only"
 kind = "invariant"
 expr = "`∀ 𝒦-governed id-set S (a variant-table's ids, a Constraint/Property row's own kind value-set, or the Reference Typing table's field set), revision r < r': S(r) ⊆ S(r'), appended only under a new Revision heading — no member removed or renumbered; a member's typing may narrow only in the same Revision that introduces the kind-split it depends on, and only if it invalidates nothing valid at r`"
-traces_to = "[[specodelic.append_only_variants]]"
+traces_to = "[[linter.schema_shape]]"
 
 [[constraints]]
 id = "id_set_order_stable"
 kind = "invariant"
 expr = "`∀ 𝒦-governed id-set S, revision r < r': the relative order of members present in both r and r' is unchanged`"
-traces_to = "[[specodelic.append_only_variants]]"
+traces_to = "[[linter.schema_shape]]"
 
 [[constraints]]
 id = "constraint_kind_closed"
 kind = "invariant"
 expr = "`∀ Constraint row: row.kind ∈ {invariant, advisory, effect, extension_point}` — see [[kinds.constraint_row_shape]]"
-traces_to = "[[specodelic.constraint_kind_closed]]"
+traces_to = "[[linter.schema_shape]]"
 
 [[constraints]]
 id = "property_kind_closed"
 kind = "invariant"
 expr = "`∀ Property row: row.kind ∈ {unit, law}` — see [[kinds.property_row_shape]]"
-traces_to = "[[specodelic.property_kind_closed]]"
+traces_to = "[[linter.schema_shape]]"
 
 [[constraints]]
 id = "no_prose_field_parsed"
 kind = "invariant"
 expr = "`the parser's AST never branches on the text content of a rationale/description field`"
-traces_to = "[[specodelic.prose_untouched]]"
+traces_to = "[[linter.schema_shape]]"
 
 [[constraints]]
 id = "prose_field_passthrough"
 kind = "invariant"
 expr = "`rationale/description content is stored verbatim and emitted verbatim in the compiled TOML`"
-traces_to = "[[specodelic.prose_untouched]]"
+traces_to = "[[linter.schema_shape]]"
 
 [[constraints]]
 id = "kind_check_failure"

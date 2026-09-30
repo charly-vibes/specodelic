@@ -38,8 +38,8 @@ pub mod spec_gen {
         Just(GenVal("arbitrary_unicode_string".into()))
     }
 
-    pub fn parser_audit_over_every_ast_construction_site() -> impl Strategy<Value = GenVal> {
-        Just(GenVal("parser_audit_over_every_ast_construction_site".into()))
+    pub fn spec_file_with() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("spec_file_with".into()))
     }
 
     pub fn kind_check_failure_raised() -> impl Strategy<Value = GenVal> {
@@ -167,12 +167,12 @@ proptest! {
 }
 
 proptest! {
-    // id: parser_ast_never_reads_prose
-    // generator: `parser_audit_over_every_ast_construction_site()`
-    // predicate: `no branch condition references the text of a rationale/description field` — the check itself is an implementation audit, see Notes
+    // id: parser_ast_prose_free
+    // generator: `spec_file_with(prose_in_rationale_and_description: arbitrary_unicode_string())`
+    // predicate: `∀ parsed row: the row's parsed fields contain no fragment of the planted prose` — a planted-prose differential parse (see Notes)
     #[test]
-    fn parser_ast_never_reads_prose(v0 in spec_gen::parser_audit_over_every_ast_construction_site()) {
-        todo_predicate!("`no branch condition references the text of a rationale/description field` — the check itself is an implementation audit, see Notes");
+    fn parser_ast_prose_free(v0 in spec_gen::spec_file_with(), v1 in spec_gen::arbitrary_unicode_string()) {
+        todo_predicate!("`∀ parsed row: the row's parsed fields contain no fragment of the planted prose` — a planted-prose differential parse (see Notes)");
     }
 }
 

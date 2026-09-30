@@ -4,25 +4,25 @@ source = "linter.ears_syntax"
 id = "ears_pattern_match"
 kind = "invariant"
 expr = "`statement matches one of: Ubiquitous / Event-Driven / State-Driven / Unwanted-Behavior / Optional-Feature`"
-traces_to = "[[specodelic.ears_statement]]"
+traces_to = "[[linter.ears_syntax]]"
 
 [[constraints]]
 id = "has_shall"
 kind = "invariant"
 expr = '`statement contains an imperative "SHALL" (or "SHALL NOT")`'
-traces_to = "[[specodelic.ears_statement]]"
+traces_to = "[[linter.ears_syntax]]"
 
 [[constraints]]
 id = "no_conjoined_id"
 kind = "invariant"
-expr = '`∀ row.id: id does not encode two capabilities joined by "and"/"or" (checked on the id token, not prose)`'
-traces_to = "[[specodelic.one_capability_per_row]]"
+expr = """`∀ row.id: id does not encode two capabilities joined by "and"/"or" (checked on the id token, not prose)` — the top-level rule this row re-owns from `specodelic.md`'s higher-altitude `one_capability_per_row` restatement"""
+traces_to = "[[linter.ears_syntax]]"
 
 [[constraints]]
 id = "no_universal_in_id"
 kind = "invariant"
-expr = '`∀ row.id: id does not contain "all"/"every"/"any"/"always"/"never" as a token`'
-traces_to = "[[specodelic.one_capability_per_row]]"
+expr = """`∀ row.id: id does not contain "all"/"every"/"any"/"always"/"never" as a token` — applies to every table row id (Intent, Constraint, State, Transition, Property), not only Constraint rows; the top-level rule this row re-owns from `specodelic.md`'s higher-altitude `one_capability_per_row` restatement"""
+traces_to = "[[linter.ears_syntax]]"
 
 [[constraints]]
 id = "pattern_failure"

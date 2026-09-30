@@ -3,26 +3,26 @@ source = "linter.coverage"
 [[constraints]]
 id = "every_constraint_covered"
 kind = "invariant"
-expr = "`∀ constraint c: ∃ property p. p.derives_from == c.id`"
-traces_to = "[[specodelic.coverage]]"
+expr = "`∀ constraint c: ∃ property p. p.derives_from == c.id` — the rule this row re-owns from `specodelic.md`'s higher-altitude restatement (see Notes)"
+traces_to = "[[linter.coverage]]"
 
 [[constraints]]
 id = "every_law_has_cases"
 kind = "invariant"
-expr = '`∀ property p where p.kind == "law": p has an associativity case and an identity case`'
-traces_to = "[[specodelic.law_requires_cases]]"
+expr = """`∀ property p where p.kind == "law": p has an associativity case and an identity case` — the rule this row re-owns from `specodelic.md`'s higher-altitude restatement (see Notes)"""
+traces_to = "[[linter.coverage]]"
 
 [[constraints]]
 id = "no_orphan_property"
 kind = "invariant"
 expr = "`∀ property p: p.derives_from resolves to a real constraint` (restates total_refs, scoped to this edge)"
-traces_to = "[[specodelic.coverage]]"
+traces_to = "[[linter.coverage]]"
 
 [[constraints]]
 id = "coverage_is_computable"
 kind = "invariant"
 expr = "`the derives_from multiplicity per constraint is countable in finite time from the parsed AST alone`"
-traces_to = "[[specodelic.coverage]]"
+traces_to = "[[linter.coverage]]"
 
 [[constraints]]
 id = "count_failure"

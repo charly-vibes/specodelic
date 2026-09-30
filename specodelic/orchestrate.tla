@@ -16,7 +16,7 @@ TypeOK == vpc \in StateValues
 Init == vpc = "idle"
 
 Next ==
-  \* start_lint: idle -> lint_stage (guard: `every file in the repo has independently reached parsed` — see [[linter.frontmatter]])
+  \* start_lint: idle -> lint_stage (guard: `[[specodelic.parsed]]` — every file in the repo has independently reached that state (see `specodelic.md`'s own lifecycle))
   \/ vpc = "idle" /\ vpc' = "lint_stage"
   \* lint_ok: lint_stage -> compile_stage (guard: [[orchestrate.lint_gate_matches_checker_ownership]] ∧ [[orchestrate.dependency_respecting_skip]] ∧ [[orchestrate.independent_branches_run_regardless]])
   \/ vpc = "lint_stage" /\ vpc' = "compile_stage"

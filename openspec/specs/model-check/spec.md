@@ -18,8 +18,8 @@ implied semantic check that did not run.
 | id                | kind      | expr                                                                                                                                                | traces_to       |
 |-------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------|
 | honest_outcome    | invariant | `every reported outcome is one of no_counterexample / counterexample_found / timed_out, and timed_out is never collapsed into no_counterexample`    | [[spec]]        |
-| backend_identified | invariant | `a run report names the backend engine and version that produced it, and the stated bound is restated`                                              | [[spec.honest_outcome]] |
-| provenance        | invariant | `each stored run report carries the SHA-256 of the compiled .tla module it consumed, so verify can detect stale clean results`                      | [[spec.honest_outcome]] |
+| backend_identified | invariant | `a run report names the backend engine and version that produced it, and the stated bound is restated` — the row `honest_outcome` re-owns (see Notes) | [[spec]] |
+| provenance        | invariant | `each stored run report carries the SHA-256 of the compiled .tla module it consumed, so verify can detect stale clean results` — the row `honest_outcome` re-owns (see Notes) | [[spec]] |
 | no_fabrication    | advisory  | `prose invariants produce no executable predicate; invariants_checked stays empty rather than implying a semantic check that never ran`             | [[spec]] — prose pointer: specs/model_check.md |
 
 ## Model
@@ -48,6 +48,15 @@ implied semantic check that did not run.
 | stale_detected  | unit | [[spec.provenance]]           | `(clean_run, model_edited_afterward_with_no_rerun)` | `verify treats the stored clean result as stale — not clean`     |
 | timeout_distinct | unit | [[spec.honest_outcome]]      | `run_budget_exhausted_before_exhaustion()`  | `outcome == timed_out, never no_counterexample`                  |
 | prose_unchecked  | unit | [[spec.no_fabrication]]      | `spec_with_prose_invariant_constraints()`   | `report.invariants_checked == [] — no semantic check implied`    |
+
+## Notes
+
+**Reference-typing reconciliation (2026-09-30, `specodelic-cxq`):**
+`backend_identified` and `provenance` previously pointed their `traces_to`
+at `[[spec.honest_outcome]]` — a Constraint→Constraint target, which the
+Reference Typing table forbids (`traces_to` resolves to Intent only). Each
+now traces to `[[spec]]`, this file's own intent; the sub-rule relationship
+to `honest_outcome` is carried in each expr's prose.
 
 ## Requirements
 ### Requirement: Model check runs a real backend against the compiled artifact

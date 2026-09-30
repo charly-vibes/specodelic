@@ -4,31 +4,31 @@ source = "linter.model_shape"
 id = "guard_present"
 kind = "invariant"
 expr = "`∀ transition row: guard field is non-empty`"
-traces_to = "[[specodelic.guard_required]]"
+traces_to = "[[linter.model_shape]]"
 
 [[constraints]]
 id = "model_sections_paired"
 kind = "invariant"
 expr = "`if [[model.state]] exists then [[model.transition]] exists, and vice versa`"
-traces_to = "[[specodelic.model_present]]"
+traces_to = "[[linter.model_shape]]"
 
 [[constraints]]
 id = "every_state_used"
 kind = "invariant"
 expr = "`∀ state: state appears as from or to in ≥ 1 transition`"
-traces_to = "[[specodelic.model_present]]"
+traces_to = "[[linter.model_shape]]"
 
 [[constraints]]
 id = "every_transition_valid"
 kind = "invariant"
 expr = "`∀ transition: from ∈ states and to ∈ states`"
-traces_to = "[[specodelic.model_present]]"
+traces_to = "[[linter.model_shape]]"
 
 [[constraints]]
 id = "no_bool_state_field"
 kind = "invariant"
 expr = "`no state or transition row has a column of boolean type`"
-traces_to = "[[specodelic.no_boolean_columns]]"
+traces_to = "[[linter.model_shape]]"
 
 [[constraints]]
 id = "pairing_failure"

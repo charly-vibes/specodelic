@@ -16,7 +16,7 @@ TypeOK == vpc \in StateValues
 Init == vpc = "idle"
 
 Next ==
-  \* analyze: idle -> analyzing (guard: `[[graph]] has reached queryable` — see `graph.md`'s own lifecycle)
+  \* analyze: idle -> analyzing (guard: `[[graph.queryable]]` — graph's artifact is published and queryable (see `graph.md`'s own lifecycle))
   \/ vpc = "idle" /\ vpc' = "analyzing"
   \* flag: analyzing -> found (guard: [[refactor.unrelated_fan_in_defined]] ∨ [[refactor.narrow_diff_heuristic]])
   \/ vpc = "analyzing" /\ vpc' = "found"

@@ -100,10 +100,10 @@ proptest! {
     // id: rename_naturality
     // case: identity
     // generator: `arbitrary_spec_repo(), arbitrary_id_rename()`
-    // predicate: **identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))`
+    // predicate: **identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))`  **naturality:** `lookup_all(rename(I)) == rename(lookup_all(I))` — every `[[ref]]` pointing at a renamed id is updated with it, the naturality case this checker is the enforcement layer for
     #[test]
     fn rename_naturality_identity(v0 in spec_gen::arbitrary_spec_repo(), v1 in spec_gen::arbitrary_id_rename()) {
-        todo_predicate!("**identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))`");
+        todo_predicate!("**identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))`  **naturality:** `lookup_all(rename(I)) == rename(lookup_all(I))` — every `[[ref]]` pointing at a renamed id is updated with it, the naturality case this checker is the enforcement layer for");
     }
 }
 
@@ -111,10 +111,21 @@ proptest! {
     // id: rename_naturality
     // case: associativity
     // generator: `arbitrary_spec_repo(), arbitrary_id_rename()`
-    // predicate: **identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))`
+    // predicate: **identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))`  **naturality:** `lookup_all(rename(I)) == rename(lookup_all(I))` — every `[[ref]]` pointing at a renamed id is updated with it, the naturality case this checker is the enforcement layer for
     #[test]
     fn rename_naturality_associativity(v0 in spec_gen::arbitrary_spec_repo(), v1 in spec_gen::arbitrary_id_rename()) {
-        todo_predicate!("**identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))`");
+        todo_predicate!("**identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))`  **naturality:** `lookup_all(rename(I)) == rename(lookup_all(I))` — every `[[ref]]` pointing at a renamed id is updated with it, the naturality case this checker is the enforcement layer for");
+    }
+}
+
+proptest! {
+    // id: rename_naturality
+    // case: naturality
+    // generator: `arbitrary_spec_repo(), arbitrary_id_rename()`
+    // predicate: **identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))`  **naturality:** `lookup_all(rename(I)) == rename(lookup_all(I))` — every `[[ref]]` pointing at a renamed id is updated with it, the naturality case this checker is the enforcement layer for
+    #[test]
+    fn rename_naturality_naturality(v0 in spec_gen::arbitrary_spec_repo(), v1 in spec_gen::arbitrary_id_rename()) {
+        todo_predicate!("**identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))`  **naturality:** `lookup_all(rename(I)) == rename(lookup_all(I))` — every `[[ref]]` pointing at a renamed id is updated with it, the naturality case this checker is the enforcement layer for");
     }
 }
 

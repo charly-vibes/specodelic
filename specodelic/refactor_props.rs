@@ -45,11 +45,11 @@ pub mod spec_gen {
 }
 
 proptest! {
-    // id: fan_in_never_rewalked
+    // id: fan_in_graph_sourced
     // generator: `node_with_precomputed_blast_radius_in_graph()`
     // predicate: `advisor_source_calls(markdown_walker) == 0` — every count comes from `graph`'s artifact
     #[test]
-    fn fan_in_never_rewalked(v0 in spec_gen::node_with_precomputed_blast_radius_in_graph()) {
+    fn fan_in_graph_sourced(v0 in spec_gen::node_with_precomputed_blast_radius_in_graph()) {
         todo_predicate!("`advisor_source_calls(markdown_walker) == 0` — every count comes from `graph`'s artifact");
     }
 }

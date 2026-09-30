@@ -14,10 +14,10 @@ id→row index this check relies on.
 
 | id                  | kind      | expr                                                                                   | traces_to | satisfies |
 |----------------------|-----------|-------------------------------------------------------------------------------------------|--------------------------------------------------|
-| unique_within_file   | invariant | `∀ file: no two rows in file share the same local id`                                     | [[specodelic.unique_id]]           |          |
-| unique_across_repo   | invariant | `∀ repo: no two files declare the same fully-qualified id`                                | [[specodelic.unique_id]]           |          |
-| ref_resolves         | invariant | `∀ [[ref]] in file: qualify(ref) ∈ index(repo)`                                            | [[specodelic.total_refs]]          |          |
-| ref_kind_compatible  | invariant | `∀ [[ref]] in any reference field defined by specodelic.md's Reference Typing table: target row's kind ∈ allowed_targets(field)` — read from that table, not hardcoded per field name, so a Revision adding a field (`supersedes`, `emits`, ...) needs no change here | [[specodelic.total_refs]]          |          |
+| unique_within_file   | invariant | `∀ file: no two rows in file share the same local id`                                     | [[linter.referential_integrity]]           |          |
+| unique_across_repo   | invariant | `∀ repo: no two files declare the same fully-qualified id`                                | [[linter.referential_integrity]]           |          |
+| ref_resolves         | invariant | `∀ [[ref]] in file: qualify(ref) ∈ index(repo)`                                            | [[linter.referential_integrity]]          |          |
+| ref_kind_compatible  | invariant | `∀ [[ref]] in any reference field defined by specodelic.md's Reference Typing table: target row's kind ∈ allowed_targets(field)` — read from that table, not hardcoded per field name, so a Revision adding a field (`supersedes`, `emits`, ...) needs no change here | [[linter.referential_integrity]]          |          |
 | index_failure | effect | `linter.referential_integrity.index_failure(detail)` | [[linter.referential_integrity]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 | resolution_failure | effect | `linter.referential_integrity.resolution_failure(detail)` | [[linter.referential_integrity]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
@@ -52,7 +52,7 @@ id→row index this check relies on.
 | cross_file_collision     | unit | [[linter.referential_integrity.unique_across_repo]]        | `two_spec_files_sharing_id()`                          | `check(repo) == failed`                                                    |
 | dangling_ref_rejected    | unit | [[linter.referential_integrity.ref_resolves]]              | `spec_file_with(ref_to_nonexistent_id: true)`           | `check(file) == failed`                                                    |
 | wrong_target_kind        | unit | [[linter.referential_integrity.ref_kind_compatible]]       | `guard_field_pointing_at_a_property_row()`              | `check(file) == failed`                                                    |
-| rename_naturality        | law  | [[specodelic.rename_naturality]]                          | `arbitrary_spec_repo(), arbitrary_id_rename()`          | **identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))` |
+| rename_naturality        | law  | [[specodelic.rename_naturality]]                          | `arbitrary_spec_repo(), arbitrary_id_rename()`          | **identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))`  **naturality:** `lookup_all(rename(I)) == rename(lookup_all(I))` — every `[[ref]]` pointing at a renamed id is updated with it, the naturality case this checker is the enforcement layer for |
 | clean_repo_passes        | unit | [[linter.referential_integrity.ref_resolves]]              | `arbitrary_well_formed_repo()`                          | `check(repo) == passed`                                                    |
 
 | index_failure_label_asserted | unit | [[linter.referential_integrity.index_failure]] | `index_failure_raised()` | `error_label == "linter.referential_integrity.index_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
@@ -86,6 +86,22 @@ Row ids are single-segment: a dotted tail is always read as
 `row.member`, never as a dotted row id, so `[[a.b.c.d]]` does not
 resolve when file `a` declares only a row literally named `b.c`.
 ## Notes
+
+**Reference-typing reconciliation (2026-09-30, `specodelic-cxq`):** the
+Constraints table's `traces_to` cells previously pointed at the
+`specodelic.md` rows these checks re-own — a Constraint→Constraint target,
+which the Reference Typing table forbids (`traces_to` resolves to Intent
+only). Each now traces to this file's own intent: `specodelic.md` keeps
+the corpus-wide statement of record, this file owns the checkable one
+(the "same claim, two altitudes" pattern the Notes below already use).
+
+**Decision of record (2026-09-30, `specodelic-cxq`):** this file's
+`rename_naturality` law previously carried only identity + associativity;
+its naturality case (the cross-artifact commutation that gives the law its
+name, `lookup_all(rename(I)) == rename(lookup_all(I))`) was implicit in the
+Notes prose. It is now an explicit case column entry — the law the Notes
+describe as "the layer that enforces it" states all three cases
+`[[specodelic.law_requires_cases]]` requires.
 
 `rename_naturality` is restated here rather than only living in
 `specodelic.md`, because *this* is the check that would actually break if
