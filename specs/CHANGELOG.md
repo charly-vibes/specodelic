@@ -6,6 +6,46 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #74 — `linter.failure_shape` checker ships: the error contract's tier-2 half (specodelic-ct5)
+
+The three `specs/linter-failure_shape.md` rules are now enforced by
+`spk lint` (previously spec-only by design D6 — normative-for-the-future,
+never claims about today's linter):
+
+- **`terminal_states_emit`** — every failure terminal (inbound
+  transitions, no outbound transitions, fail-named STATE segment) must
+  emit exactly one file-owned effect Constraint; a mute terminal, a
+  multi-label terminal, a cross-file or non-effect emit is a finding.
+- **`error_labels_unique`** — no two emitted error Constraints in a file
+  share a variant head (the label's last `.` segment); cross-file
+  collisions are structurally impossible by `errors.md`
+  `error_expr_shape`, so the check is per-file by construction.
+- **`guard_negation_total`** — every failure transition cites exactly the
+  union of its success siblings' citation sets (the negated disjunction),
+  or is on the recorded carve-out list — exactly `orchestrate.md`'s four
+  stage-fails (`lint_fail`, `compile_fail`, `model_check_fail`,
+  `verify_fail`), checked membership, never an assumption; a
+  zero-citation failure guard off the list is a finding.
+
+All three are graph-decidable per file — the same derivation the
+`failure_terminals_emit_labeled_errors` fixture pins at corpus altitude
+(citation sets from `transitions.guard` edges, labels from
+`states.emits` edges), now walking each `Spec` in the lint pass. Nothing
+reads prose (the D2a decision: classes ⟺ distinct citation sets, never a
+prose judgment). v1 scope stays failure terminals only; `timed_out` /
+`exploration_only` remain the stated non-goal.
+
+DOGFOOD CATCH: the new gate flagged the archived dual-format capability
+spec `openspec/specs/compile/spec.md` — its `failed` state predated the
+error contract and emitted nothing (exactly the pre-contract shape the
+tier-2 rules reject). Amended in place (self-contained dual format):
+effect Constraint `compilation_failure`, the `failed` state's emits edge,
+and a label-asserted falsifying property.
+
+Gates: just ci + lint-specs 21/0 + lint openspec 20/0 + graph + openspec
+strict 12/12; corpus findings stay zero (clean_repo_passes). 228 lib +
+50 integration tests.
+
 ## #73 — `spk refactor` ships: the tidy-first split advisor (specodelic-3l7)
 
 The last pipeline-adjacent stub is gone: `spk refactor [paths]

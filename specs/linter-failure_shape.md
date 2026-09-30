@@ -23,11 +23,16 @@ question (does an exhausted bound map to 1?) that `errors.md`'s
 `exit_code_mapping` row defers to a later Revision — the gap is stated
 here so it is visible rather than forgotten.
 
-This file is **spec-only** (design D6): no Checker Ownership row lands
-until the checker is implemented — the table's invariant is that every
-listed checker exists. The implementation ticket carries the enforcement
-note; until it ships, these rules are normative for the future checker,
-not claims about today's `spk lint`.
+This file shipped **spec-only** (design D6): no Checker Ownership row
+lands until the checker exists — the table's invariant is that every
+listed checker exists. The checker is now **implemented in `spk lint`**
+(specodelic-ct5): the three constraint rules below are enforced per file
+on every lint pass, so they are claims about today's linter, not norms
+for a future one. The Checker Ownership table row (and the orchestrator
+wiring that would come with it) remains deliberately deferred — the
+findings ride `spk lint`; `AGENTS.md`'s sibling-tool constraint citing
+specodelic-6pi as an open blocker is stale (6pi is closed) and belongs
+to governance, not to this file.
 
 ## Constraints
 
@@ -85,9 +90,7 @@ list is data to this checker (checked membership), not an assumption —
 a new zero-citation failure guard anywhere else is a finding.
 
 **Ownership is deliberately absent.** Unlike the seven checkers in
-`specodelic.md`'s Checker Ownership table, this file ships no table row
-until its implementation exists; see design D6 of the error-contract
-change. The implementation ticket notes that `AGENTS.md`'s
-sibling-tool constraint ("specodelic-6pi must be fixed before any CI
-gate chains lint") is stale — 6pi is closed — and that the staleness
-belongs to governance, not to this file.
+`specodelic.md`'s Checker Ownership table, this file ships no table row:
+the checker's findings ride `spk lint` (specodelic-ct5) and any
+orchestrator wiring waits for an ownership decision — see the para above.
+The `AGENTS.md` staleness it once flagged is governance's to refresh.

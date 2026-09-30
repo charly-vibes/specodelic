@@ -24,6 +24,7 @@ the Model section — total, id-preserving, and byte-stable.
 | preserves_ids         | invariant | `every source id appears unchanged in at least one compiled artifact or the ModelIR`                                          | [[spec]]  |
 | round_trip_stable     | invariant | `re-parsing the compiled TOML and re-emitting it yields output byte-identical to the original compile`                         | [[spec]]  |
 | model_to_tla          | invariant | `one TLA+ module per compiled file, always: one Next disjunct per transition, Output defined on emitting states only, spec text carried verbatim in comments` | [[spec]]  |
+| compilation_failure   | effect    | `spec.compilation_failure(stage, detail) — the compile failed in stage because detail; the envelope failure names the failed stage and artifact (single_labeled_failure)` | [[spec]]  |
 
 ## Model
 
@@ -31,7 +32,7 @@ the Model section — total, id-preserving, and byte-stable.
 - `received`
 - `precondition_ok`
 - `emitted`
-- `failed`
+- `failed` (emits: `[[spec.compilation_failure]]`)
 
 ### Transitions
 
@@ -53,6 +54,7 @@ the Model section — total, id-preserving, and byte-stable.
 | p_ids          | unit | [[spec.preserves_ids]]   | `arbitrary_lint_clean_file()` | `source_ids ⊆ artifact_ids ∪ model_ir_ids` |
 | p_roundtrip    | unit | [[spec.round_trip_stable]] | `arbitrary_lint_clean_file()` | `reemit(reparse(toml)) == toml`          |
 | p_tla          | unit | [[spec.model_to_tla]]    | `arbitrary_model_section()` | `disjuncts == n ∧ output.domain == emitting_states` |
+| p_compilation_failure | unit | [[spec.compilation_failure]] | `failing_stage()`  | `error_label == "spec.compilation_failure"` — renaming the label touches the error Constraint, this property, and its note together |
 
 ## Requirements
 ### Requirement: Compile precondition gate
