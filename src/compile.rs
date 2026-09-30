@@ -8,7 +8,9 @@
 //! (`properties_to_proptest`). Responsibilities: gate on lint cleanliness
 //! (`precondition_satisfied`), enforce `compile_is_total` (labeled single
 //! failure, never a silent partial), `compile_preserves_ids`, and
-//! `no_semantic_drift` (TOML round-trip byte-identical). Rationale: prose
+//! `no_semantic_drift` (TOML round-trip byte-identical); plus the
+//! artifact write path (`artifact_stem`/`write_artifacts`, shared with
+//! the orchestrate driver — specodelic-8kk). Rationale: prose
 //! is never parsed (`prose_untouched`) and ids are never minted, dropped,
 //! or altered — the emitted artifacts are the machine half of the
 //! self-hosting contract.
@@ -600,6 +602,44 @@ pub fn precondition_satisfied(spec: &Spec, report: &Report) -> Result<(), Compil
             names.join(", ")
         ),
     })
+}
+
+/// The artifact filename stem for a spec: the file stem when on disk,
+/// else the intent id with `.` → `-`.
+pub fn artifact_stem(spec: &Spec) -> String {
+    spec.path
+        .as_ref()
+        .and_then(|p| p.file_stem().and_then(|s| s.to_str()))
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| spec.intent.id.replace('.', "-"))
+}
+
+/// Write a compiled spec's three artifacts (`<stem>.toml`,
+/// `<stem>_props.rs`, `<stem>.tla`) into `out_dir` (created on demand).
+/// Returns the written paths; a write failure is a labeled error, never
+/// a silent partial on disk.
+pub fn write_artifacts(
+    spec: &Spec,
+    compiled: &Compiled,
+    out_dir: &str,
+) -> Result<Vec<String>, String> {
+    let stem = artifact_stem(spec);
+    std::fs::create_dir_all(out_dir)
+        .map_err(|e| format!("could not create out-dir {out_dir}: {e}"))?;
+    let toml_path = std::path::Path::new(out_dir).join(format!("{stem}.toml"));
+    let props_path = std::path::Path::new(out_dir).join(format!("{stem}_props.rs"));
+    let tla_path = std::path::Path::new(out_dir).join(format!("{stem}.tla"));
+    std::fs::write(&toml_path, &compiled.toml)
+        .map_err(|e| format!("could not write {}: {e}", toml_path.display()))?;
+    std::fs::write(&props_path, &compiled.props)
+        .map_err(|e| format!("could not write {}: {e}", props_path.display()))?;
+    std::fs::write(&tla_path, &compiled.tla)
+        .map_err(|e| format!("could not write {}: {e}", tla_path.display()))?;
+    Ok(vec![
+        toml_path.display().to_string(),
+        props_path.display().to_string(),
+        tla_path.display().to_string(),
+    ])
 }
 
 /// Compile one spec file through the full contract. Idempotent and

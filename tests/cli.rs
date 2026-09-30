@@ -484,9 +484,11 @@ fn new_scaffold_shows_file_qualified_ref_examples() {
 }
 
 #[test]
-fn help_does_not_leak_flattened_struct_docs_and_labels_orchestrate_stub() {
+fn help_does_not_leak_flattened_struct_docs_and_labels_orchestrate() {
     // gh#6.3: the genesis CliFormat doc comment leaked above Usage.
-    // gh#6.4: orchestrate is a stub — the subcommand list must say so.
+    // gh#6.4: orchestrate was a stub — the subcommand list said so.
+    // specodelic-8kk shipped it: the label must be gone, and the help
+    // line must name the pipeline it drives.
     let out = spk().args(["--help"]).output().unwrap();
     let text = String::from_utf8(out.stdout).unwrap();
     assert!(
@@ -499,9 +501,133 @@ fn help_does_not_leak_flattened_struct_docs_and_labels_orchestrate_stub() {
         .find(|l| l.trim_start().starts_with("orchestrate"))
         .expect("orchestrate listed in help");
     assert!(
-        orch.contains("not yet implemented"),
-        "orchestrate must be labeled a stub: {orch}"
+        !orch.contains("not yet implemented"),
+        "orchestrate is implemented — no stub label: {orch}"
     );
+    assert!(orch.contains("pipeline"), "help names the pipeline: {orch}");
+}
+
+// ---- specodelic-8kk: spk orchestrate (specs/orchestrate.md) ----
+
+#[test]
+fn orchestrate_reports_every_stage_and_skips_after_failure() {
+    // The METER: .data lists every stage with status; the native
+    // backend's exploration_only model_check honestly fails, verify is
+    // skipped (never reported as failed), overall failed, exit 1.
+    let td = tempfile::tempdir().unwrap();
+    write_model_check_spec(&td.path().join("pipe-demo.md"), "pipe.demo");
+    let out = spk()
+        .args([
+            "orchestrate",
+            td.path().to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            td.path().join("out").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let data = &json["data"];
+    assert_eq!(data["overall"], "failed");
+    let stages = data["stages"].as_array().unwrap();
+    let names: Vec<&str> = stages
+        .iter()
+        .map(|s| s["stage"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        vec!["parse", "lint", "compile", "model_check", "verify"]
+    );
+    assert_eq!(stages[3]["status"], "failed");
+    assert_eq!(stages[4]["status"], "skipped");
+    assert!(stages[4]["reason"].is_string());
+    // The lint stage reports every Checker Ownership checker + the
+    // not-applicable external-completeness pass.
+    let checkers = stages[1]["detail"]["checkers"].as_array().unwrap();
+    let names: Vec<&str> = checkers
+        .iter()
+        .map(|c| c["checker"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        vec![
+            "linter.frontmatter",
+            "linter.referential_integrity",
+            "linter.graph_shape",
+            "linter.model_shape",
+            "linter.ears_syntax",
+            "linter.schema_shape",
+            "linter.external_completeness",
+        ]
+    );
+}
+
+#[test]
+fn orchestrate_skips_dependents_on_lint_failure() {
+    // MUST: the first failing stage halts its dependents (skipped, not
+    // failed); exit 1.
+    let td = tempfile::tempdir().unwrap();
+    write_bad_ears_spec(&td.path().join("pipe-bad.md"), "pipe.bad");
+    let out = spk()
+        .args([
+            "orchestrate",
+            td.path().to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            td.path().join("out").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let stages = json["data"]["stages"].as_array().unwrap();
+    assert_eq!(stages[1]["status"], "failed");
+    assert_eq!(stages[2]["status"], "skipped");
+    assert_eq!(stages[3]["status"], "skipped");
+    assert_eq!(stages[4]["status"], "skipped");
+    // Human output renders one line per stage (--human: pipes default
+    // to JSON envelopes).
+    let out = spk()
+        .args(["orchestrate", td.path().to_str().unwrap(), "--human"])
+        .output()
+        .unwrap();
+    let text = String::from_utf8(out.stdout).unwrap();
+    assert!(text.contains("orchestrate: failed"), "{text}");
+    assert!(text.contains("lint: failed"), "{text}");
+}
+
+#[test]
+fn orchestrate_empty_corpus_is_an_invocation_error() {
+    let td = tempfile::tempdir().unwrap();
+    let out = spk()
+        .args(["orchestrate", td.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    // Invocation error (specodelic-7rr): exit 2, error envelope.
+    assert_eq!(out.status.code(), Some(2));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["envelope_kind"], "error");
+}
+
+#[test]
+fn orchestrate_tlc_without_jar_is_an_invocation_error() {
+    let td = tempfile::tempdir().unwrap();
+    write_model_check_spec(&td.path().join("pipe-demo.md"), "pipe.demo");
+    let out = spk()
+        .args([
+            "orchestrate",
+            td.path().to_str().unwrap(),
+            "--json",
+            "--backend",
+            "tlc",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let message = json["warnings"][0]["message"].as_str().unwrap();
+    assert!(message.contains("--tlc-jar"), "{message}");
 }
 
 #[test]

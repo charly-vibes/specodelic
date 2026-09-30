@@ -24,6 +24,34 @@ get the naming-law warning, not a silently wrong id. Anti-goal held:
 no prose is ever interpreted into rows — every inserted row is a marked
 placeholder the author replaces.
 
+## #68 — spk orchestrate: the four-stage pipeline driver (specodelic-8kk)
+
+`spk orchestrate` replaces its stub: the orchestrator runs lint's six
+Checker Ownership checkers in dependency order (frontmatter first gate;
+referential_integrity → graph_shape → model_shape; ears_syntax and
+schema_shape as independent parallel branches), then compile,
+model_check, and verify in sequence — halting at the first stage that
+fails, with every downstream stage reported as `skipped` (never failed)
+and its reason named. A failed checker's dependents are never invoked:
+lint.rs now exposes per-checker family invocations (`frontmatter_findings`
+et al.) so the orchestrator runs exactly the checker whose turn it is,
+not one flat pass filtered for the report. Independent branches report
+regardless; external_completeness runs when a checklist is declared and
+never gates; the compile stage's gate is exactly the coverage checker's
+verdict. The model_check stage passes only on `no_counterexample` — the
+native backend's `exploration_only` honestly fails the stage, so a
+native-only run halts there (TLC opt-in via `--backend tlc --tlc-jar`).
+Reports are byte-stable per `deterministic_rerun`. `artifact_stem`/
+`write_artifacts` moved into compile.rs (shared with the driver);
+`TlcPaths` gained `Clone`. Schema_shape's entry names its basis
+honestly: its rules are structural (parser + closed kind sets); the
+unimplemented table-walking residue is a tracked coverage gap.
+
+## #67 — docs: orchestrate shipped, refactor remains the only stub
+
+`docs/src/commands.md` documents `spk orchestrate`'s stage/gate
+contract; the Pipeline-stubs section now lists only `spk refactor`.
+
 ## #66 — mapping_naturality enforced: rename reaches into checklist mapped_ids (specodelic-4d5)
 
 The follow-up specodelic-b15 deliberately deferred: a checklist sits

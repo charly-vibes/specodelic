@@ -22,6 +22,7 @@ pub mod lint;
 pub mod merge;
 pub mod migrate;
 pub mod model_check;
+pub mod orchestrate;
 pub mod rename;
 pub mod spec;
 pub mod verify;

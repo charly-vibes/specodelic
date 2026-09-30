@@ -41,6 +41,7 @@ pub const TLC_ENGINE: &str = "tlc";
 /// The resolved TLC invocation: the JVM binary and the `tla2tools.jar`
 /// classpath entry. A missing binary or jar is a `missing_checker` error —
 /// never a verdict (specodelic-ug3 MUST).
+#[derive(Clone)]
 pub struct TlcPaths {
     pub java: std::path::PathBuf,
     pub jar: std::path::PathBuf,

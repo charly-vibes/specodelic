@@ -17,8 +17,8 @@ use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
 use specodelic::{
-    blocks, checklist, compile, graph, guide, human, lint, merge, migrate, model_check, rename,
-    spec, verify,
+    blocks, checklist, compile, graph, guide, human, lint, merge, migrate, model_check,
+    orchestrate, rename, spec, verify,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -160,10 +160,32 @@ enum Commands {
         /// Current spec tree (defaults to ./specs)
         paths: Vec<String>,
     },
-    /// Run the full lint → compile → model_check → verify pipeline (not yet implemented — stub)
+    /// Run the full pipeline: lint (Checker Ownership order) → compile
+    /// → model_check → verify, gating each stage exactly as
+    /// specs/orchestrate.md specifies (rename is never part of a run)
     Orchestrate {
         /// Files or directories (defaults to ./specs)
         paths: Vec<String>,
+        /// Directory for the compiled artifacts (default `specodelic/`,
+        /// committed — byte-stable output makes reruns diff-visible)
+        #[arg(long, default_value = "specodelic")]
+        out_dir: String,
+        /// Stated depth bound for the model_check stage
+        #[arg(long, default_value_t = 100)]
+        max_depth: u32,
+        /// Optional state-count budget for the model_check stage
+        #[arg(long)]
+        max_states: Option<u64>,
+        /// Optional wall-clock budget (seconds) for the model_check stage
+        #[arg(long)]
+        timeout_secs: Option<u64>,
+        /// Model-check backend (specs/model_check.md: stateright embedded
+        /// default; tlc = the JVM reference engine over the compiled .tla)
+        #[arg(long, value_enum, default_value_t = ModelBackend::Stateright)]
+        backend: ModelBackend,
+        /// Path to tla2tools.jar (required for --backend tlc)
+        #[arg(long)]
+        tlc_jar: Option<String>,
     },
     /// Wrap an existing openspec delta file in place into the dual-format
     /// four-layer skeleton (frontmatter + scaffold layers + byte-identical
@@ -709,13 +731,31 @@ fn run(
             stdout,
             stderr,
         ),
-        Commands::Orchestrate { .. } => {
-            let out: Output<serde_json::Value> =
-                Output::failure("not yet implemented — specced in specs/orchestrate.md (lint → compile → model_check → verify)")
-                    .with_next_step("run the stages individually: specodelic lint specs && specodelic graph specs");
-            emit_report(out, None, format, verbosity, stdout, stderr);
-            1
-        }
+        Commands::Orchestrate {
+            paths,
+            out_dir,
+            max_depth,
+            max_states,
+            timeout_secs,
+            backend,
+            tlc_jar,
+        } => cmd_orchestrate(
+            paths,
+            OrchestrateTarget {
+                out_dir: out_dir.clone(),
+                bound: model_check::Bound {
+                    max_depth: *max_depth,
+                    max_states: *max_states,
+                    timeout_secs: *timeout_secs,
+                },
+                backend: backend.clone(),
+                tlc_jar: tlc_jar.clone(),
+            },
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        ),
         Commands::New { id, file } => {
             cmd_new(id, file.as_deref(), format, verbosity, stdout, stderr)
         }
@@ -1352,12 +1392,12 @@ fn cmd_compile(
         }
         match compile::compile_spec(spec) {
             Ok(c) => {
-                let written = write_artifacts(spec, &c, out_dir);
+                let written = compile::write_artifacts(spec, &c, out_dir);
                 match written {
                     Ok(files) => {
                         // Two files with the same stem (different dirs)
                         // would silently overwrite each other's artifacts.
-                        let stem = artifact_stem(spec);
+                        let stem = compile::artifact_stem(spec);
                         if let Some(first) = seen_stems.get(&stem) {
                             warnings.push(format!(
                                 "stem collision: `{stem}` artifacts from {first} and {file} share one out-dir — the later file wins",
@@ -1430,14 +1470,6 @@ fn cmd_compile(
 
 /// The artifact filename stem for a spec: the file stem when on disk,
 /// else the intent id with `.` → `-`.
-fn artifact_stem(spec: &Spec) -> String {
-    spec.path
-        .as_ref()
-        .and_then(|p| p.file_stem().and_then(|s| s.to_str()))
-        .map(str::to_string)
-        .unwrap_or_else(|| spec.intent.id.replace('.', "-"))
-}
-
 /// The model-check invocation parameters beyond the spec paths — the
 /// artifact directory, the stated bound, and the backend selection,
 /// grouped to keep the shared emit plumbing (cli/format/verbosity/
@@ -1516,7 +1548,7 @@ fn cmd_model_check(
             .as_ref()
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| format!("<{}>", spec.intent.id));
-        let stem = artifact_stem(spec);
+        let stem = compile::artifact_stem(spec);
         let tla_path = std::path::Path::new(out_dir).join(format!("{stem}.tla"));
         // The compiled module is the run's input — a missing artifact is
         // a labeled error with a remediation hint, never a run.
@@ -1619,6 +1651,105 @@ fn cmd_model_check(
 /// report (staleness-checked against the current `<stem>.tla`).
 /// `verified` is the conjunction — either gate alone fails, and every
 /// blocking stage is named with a remediation hint.
+/// The orchestrate invocation parameters beyond the spec paths —
+/// artifact directory, the model_check bound, and the backend
+/// selection, grouped to keep the shared emit plumbing within the arg
+/// lint (the CheckTarget pattern).
+struct OrchestrateTarget {
+    out_dir: String,
+    bound: model_check::Bound,
+    backend: ModelBackend,
+    tlc_jar: Option<String>,
+}
+
+/// Run `spk orchestrate` — the full pipeline (specs/orchestrate.md):
+/// lint's Checker Ownership checkers in dependency order, then compile,
+/// model_check, verify in sequence, halting at the first stage that
+/// fails. Rename is never part of a run; external_completeness runs
+/// when a checklist is declared and never gates.
+fn cmd_orchestrate(
+    paths: &[String],
+    target: OrchestrateTarget,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let out_dir = target.out_dir.as_str();
+    // Backend selection first: an unusable backend configuration is an
+    // invocation error (specodelic-7rr), never a run or a verdict.
+    let tlc_paths = match target.backend {
+        ModelBackend::Tlc => {
+            let Some(jar) = target.tlc_jar.as_deref() else {
+                let out: Output<serde_json::Value> =
+                    Output::failure("--backend tlc requires --tlc-jar <tla2tools.jar>")
+                        .with_next_step(
+                            "download tla2tools.jar from https://github.com/tlaplus/tlaplus/releases and pass it via --tlc-jar (the JVM binary comes from PATH or SPK_TLC_JAVA)",
+                        );
+                emit_report(out, None, format, verbosity, stdout, stderr);
+                return 2;
+            };
+            Some(model_check::TlcPaths {
+                java: std::env::var("SPK_TLC_JAVA")
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or_else(|_| std::path::PathBuf::from("java")),
+                jar: std::path::PathBuf::from(jar),
+            })
+        }
+        ModelBackend::Stateright => None,
+    };
+    let (specs, checklists, notes) = parse_batch(paths, verbosity);
+    if specs.is_empty() && checklists.is_empty() {
+        let mut out: Output<serde_json::Value> = Output::failure(
+            "no spec files found — nothing to orchestrate",
+        )
+        .with_next_step(
+            "pass files or directories containing *.md specs with YAML frontmatter (directories are searched recursively)",
+        );
+        for n in &notes {
+            out = out.with_warning(n.clone());
+        }
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        // Invocation error (specodelic-7rr item 2): nothing was processed.
+        return 2;
+    }
+    let orchestration = orchestrate::orchestrate(
+        &specs,
+        &checklists,
+        &notes,
+        out_dir,
+        &target.bound,
+        &orchestrate::Backends { tlc: tlc_paths },
+    );
+    let payload = serde_json::to_value(&orchestration).unwrap_or_default();
+    let mut out = Output::success(payload.clone());
+    for w in lint::advisory_findings(&specs) {
+        out = out.with_warning(format!("{} [{}] {}", w.file, w.rule_id, w.message));
+    }
+    if orchestration.overall == "succeeded" {
+        out = out.with_next_step(
+            "verified is not cached — re-run orchestrate after any edit to the spec or its artifacts",
+        );
+    } else {
+        out = out.with_next_step(
+            "inspect the first failed (or skipped-after-failure) stage in .data.stages — each stage's detail names the exact findings",
+        );
+    }
+    emit_report(
+        out,
+        Some(human::orchestrate(&payload)),
+        format,
+        verbosity,
+        stdout,
+        stderr,
+    );
+    if orchestration.overall == "succeeded" {
+        0
+    } else {
+        1
+    }
+}
+
 fn cmd_verify(
     paths: &[String],
     out_dir: &str,
@@ -1652,7 +1783,7 @@ fn cmd_verify(
             .as_ref()
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| format!("<{}>", spec.intent.id));
-        let stem = artifact_stem(spec);
+        let stem = compile::artifact_stem(spec);
         let properties = verify::evaluate_properties_gate(spec, dir, &runner);
         let model = verify::evaluate_model_gate(dir, &stem);
         let v = verify::verdict(&properties.state, &model);
@@ -1760,30 +1891,6 @@ fn model_gate_json(gate: &verify::ModelGateState) -> serde_json::Value {
 /// Write `<stem>.toml`, `<stem>_props.rs`, and `<stem>.tla` into `out_dir`. Byte-stable
 /// output: the same input always produces the same bytes, so committed
 /// artifacts make reruns diff-visible. Returns the written paths.
-fn write_artifacts(
-    spec: &Spec,
-    compiled: &compile::Compiled,
-    out_dir: &str,
-) -> Result<Vec<String>, String> {
-    let stem = artifact_stem(spec);
-    std::fs::create_dir_all(out_dir)
-        .map_err(|e| format!("could not create out-dir {out_dir}: {e}"))?;
-    let toml_path = std::path::Path::new(out_dir).join(format!("{stem}.toml"));
-    let props_path = std::path::Path::new(out_dir).join(format!("{stem}_props.rs"));
-    let tla_path = std::path::Path::new(out_dir).join(format!("{stem}.tla"));
-    std::fs::write(&toml_path, &compiled.toml)
-        .map_err(|e| format!("could not write {}: {e}", toml_path.display()))?;
-    std::fs::write(&props_path, &compiled.props)
-        .map_err(|e| format!("could not write {}: {e}", props_path.display()))?;
-    std::fs::write(&tla_path, &compiled.tla)
-        .map_err(|e| format!("could not write {}: {e}", tla_path.display()))?;
-    Ok(vec![
-        toml_path.display().to_string(),
-        props_path.display().to_string(),
-        tla_path.display().to_string(),
-    ])
-}
-
 fn cmd_migrate(
     file: &str,
     dry_run: bool,

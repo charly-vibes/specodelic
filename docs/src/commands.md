@@ -208,8 +208,37 @@ Exit 0 = merged, 1 = findings (verdict `needs_review` or `failed`),
 
 - Spec: [merge](specs/merge.md)
 
+## `spk orchestrate <files|dirs> [--out-dir <dir>] [--backend tlc --tlc-jar <jar>]`
+
+Drives the full pipeline — `parse → lint → compile → model_check →
+verify` — in the order [orchestrate](specs/orchestrate.md) fixes, gating
+each stage transition exactly as [specodelic](specs/specodelic.md)
+specifies and halting at the first stage that fails:
+
+- **Lint stage** — the six Checker Ownership checkers run in dependency
+  order: frontmatter first, then referential_integrity → graph_shape →
+  model_shape (branch A), ears_syntax (branch B), schema_shape (branch
+  C). A failed checker's dependents are **skipped** (never invoked,
+  never reported as failed) while independent branches still run and
+  report. `linter.external_completeness` runs when a checklist is
+  declared and never gates.
+- **Compile stage** — advances past the coverage checker's verdict only
+  (`compile_gate_matches_coverage`), never a looser or stricter check.
+- **Model_check stage** — passes only when every file's outcome is
+  `no_counterexample`; the native backend's `exploration_only` is
+  honestly not clean, so a native-only corpus halts here (use
+  `--backend tlc --tlc-jar` for the predicate-executing reference
+  engine).
+- **Verify stage** — the conjunction of both gates (see `spk verify`).
+
+`.data.stages` lists every stage with a status (`passed` / `failed` /
+`skipped`) and the failed stage's exact findings; every skip carries its
+reason. Rename is never part of a run. Re-running against an unchanged
+repo is byte-identical.
+
+- Spec: [orchestrate](specs/orchestrate.md)
+
 ## Pipeline stubs
 
-`spk refactor` and `spk orchestrate` are fully specced
-([refactor](specs/refactor.md), [orchestrate](specs/orchestrate.md)) and
-currently exit non-zero with hints until implemented.
+`spk refactor` is fully specced ([refactor](specs/refactor.md)) and
+currently exits non-zero with hints until implemented.

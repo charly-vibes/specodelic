@@ -196,6 +196,66 @@ pub fn verify(payload: &serde_json::Value) -> String {
     out
 }
 
+/// `spk orchestrate` — the pipeline as one line per stage.
+pub fn orchestrate(payload: &serde_json::Value) -> String {
+    let mut out = format!(
+        "orchestrate: {}",
+        payload["overall"].as_str().unwrap_or("?")
+    );
+    if let Some(stages) = payload["stages"].as_array() {
+        for s in stages {
+            let stage = s["stage"].as_str().unwrap_or("?");
+            let status = s["status"].as_str().unwrap_or("?");
+            out.push_str(&format!("\n  {stage}: {status}"));
+            if let Some(reason) = s["reason"].as_str() {
+                out.push_str(&format!(" ({reason})"));
+            }
+            // First-line findings for failed stages — the detail a
+            // human needs before reaching for --json.
+            if status == "failed" && s.get("detail").is_some() {
+                let detail = &s["detail"];
+                if let Some(checkers) = detail["checkers"].as_array() {
+                    for c in checkers {
+                        if c["status"] == "failed"
+                            && let Some(issues) = c["issues"].as_array()
+                        {
+                            for i in issues.iter().take(3) {
+                                out.push_str(&format!(
+                                    "\n    {} [{}] {}",
+                                    i["file"].as_str().unwrap_or("?"),
+                                    i["rule_id"].as_str().unwrap_or("?"),
+                                    i["message"].as_str().unwrap_or("?")
+                                ));
+                            }
+                        }
+                    }
+                }
+                if let Some(failed) = detail["failed"].as_array() {
+                    for f in failed.iter().take(3) {
+                        out.push_str(&format!(
+                            "\n    {} [{}]: {}",
+                            f["file"].as_str().unwrap_or("?"),
+                            f["stage"].as_str().unwrap_or("?"),
+                            f["message"].as_str().unwrap_or("?")
+                        ));
+                    }
+                }
+                if let Some(issues) = detail["issues"].as_array() {
+                    for i in issues.iter().take(3) {
+                        out.push_str(&format!(
+                            "\n    {} [{}] {}",
+                            i["file"].as_str().unwrap_or("?"),
+                            i["rule_id"].as_str().unwrap_or("?"),
+                            i["message"].as_str().unwrap_or("?")
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
 /// `spk doctor` — checks rendered as `name: detail` lines.
 pub fn doctor(payload: &serde_json::Value) -> String {
     let mut out = format!(

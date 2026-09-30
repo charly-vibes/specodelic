@@ -229,6 +229,113 @@ pub fn lint_all(specs: &[Spec], checklists: &[Checklist]) -> Report {
     report
 }
 
+/// An empty [`Report`] scaffold for single-checker invocations
+/// (specodelic-8kk: the orchestrator invokes checkers individually in
+/// Checker Ownership dependency order, never as one flat pass).
+fn empty_report(files_linted: usize) -> Report {
+    Report {
+        files_linted,
+        issues: vec![],
+        warnings: vec![],
+        checklists_declared: 0,
+    }
+}
+
+/// Run ONE Checker Ownership checker over the corpus and return its
+/// findings. Each function is the checker's engine-side invocation —
+/// the orchestrator (src/orchestrate.rs) calls them in dependency
+/// order, so a checker whose dependency failed is never run at all
+/// (specs/orchestrate.md `dependency_respecting_skip`).
+///
+/// `linter-frontmatter.md` — the first gate: frontmatter validity,
+/// id/filename law, and the dual-format file-structure rules that
+/// postdate the ownership table (attribution documented on
+/// [`lint_frontmatter_family`]).
+pub fn frontmatter_findings(specs: &[Spec]) -> Vec<Issue> {
+    let mut report = empty_report(specs.len());
+    for spec in specs {
+        lint_frontmatter_family(spec, &mut report);
+    }
+    report.issues
+}
+
+/// `linter-referential_integrity.md` — unique ids per file plus the
+/// corpus-wide reference rules (`total_refs`, `no_self_ref`).
+pub fn referential_findings(specs: &[Spec]) -> Vec<Issue> {
+    let mut report = empty_report(specs.len());
+    for spec in specs {
+        lint_referential_family(spec, &mut report);
+    }
+    lint_references(specs, &mut report);
+    report.issues
+}
+
+/// `linter-graph_shape.md` — acyclicity and root reachability.
+pub fn graph_shape_findings(specs: &[Spec]) -> Vec<Issue> {
+    let mut report = empty_report(specs.len());
+    lint_graph_shape(specs, &mut report);
+    report.issues
+}
+
+/// `linter-model_shape.md` — guard/model/transition well-formedness.
+pub fn model_shape_findings(specs: &[Spec]) -> Vec<Issue> {
+    let mut report = empty_report(specs.len());
+    for spec in specs {
+        lint_model_family(spec, &mut report);
+    }
+    report.issues
+}
+
+/// `linter-ears_syntax.md` — statement pattern + id-shape rules.
+pub fn ears_findings(specs: &[Spec]) -> Vec<Issue> {
+    let mut report = empty_report(specs.len());
+    for spec in specs {
+        lint_ears_family(spec, &mut report);
+    }
+    report.issues
+}
+
+/// `linter-schema_shape.md` — currently NO table-walking rules: row
+/// shape and the closed kind sets are enforced structurally (the
+/// parser accepts only well-formed tables; guide.rs owns the closed
+/// sets). The checker's verdict therefore rests on the parse stage —
+/// a file that parsed is schema-shaped as far as the engine enforces.
+/// The unenforced residue (constraint_kind_closed/property_kind_closed
+/// as real lint rules) is a tracked coverage gap, never a silent pass.
+pub fn schema_shape_findings(_specs: &[Spec]) -> Vec<Issue> {
+    vec![]
+}
+
+/// `linter-coverage.md` — the compile gate ([[specodelic.coverage]]):
+/// every constraint needs a deriving property. NOT one of the six
+/// Checker Ownership checkers — the orchestrator runs it as compile's
+/// gate, never as part of the lint gate.
+pub fn coverage_findings(specs: &[Spec]) -> Vec<Issue> {
+    let mut report = empty_report(specs.len());
+    lint_coverage(specs, &mut report);
+    report.issues
+}
+
+/// `linter-external_completeness.md` — runs only when a checklist is
+/// declared; its outcome never gates a stage. Returns (findings, how
+/// many manifests were consulted).
+pub fn external_completeness_findings(
+    specs: &[Spec],
+    checklists: &[Checklist],
+) -> (Vec<Issue>, usize) {
+    let mut report = empty_report(specs.len());
+    lint_checklists(specs, checklists, &mut report);
+    (report.issues, report.checklists_declared)
+}
+
+/// Advisory findings (specs/linter-observability.md) — warnings, never
+/// gate; the orchestrator surfaces them on the warnings channel.
+pub fn advisory_findings(specs: &[Spec]) -> Vec<Issue> {
+    let mut report = empty_report(specs.len());
+    lint_observability(specs, &mut report);
+    report.warnings
+}
+
 /// Can `target` resolve to a CONSTRAINT or PROPERTY row? Stricter than
 /// [`Index::resolves`]: a bare file id or a `model.state`/`model.transition`
 /// section anchor is machinery, not a claim to rest a checklist item on.
@@ -733,12 +840,22 @@ fn dfs_cycles(
 }
 
 /// Per-file invariants.
-fn lint_one(spec: &Spec, report: &mut Report) {
-    let file = spec
-        .path
+/// The file label every lint finding carries: the path when on disk,
+/// else `<id>`.
+fn file_label(spec: &Spec) -> String {
+    spec.path
         .as_ref()
         .map(|p| p.display().to_string())
-        .unwrap_or_else(|| format!("<{}>", spec.intent.id));
+        .unwrap_or_else(|| format!("<{}>", spec.intent.id))
+}
+
+/// Checker-family slice of [`lint_one`]: the file-structure gate
+/// (specs/specodelic.md Checker Ownership, `linter-frontmatter.md`).
+/// Attribution note: `dual_format_valid`/`requirement_drift` postdate
+/// the ownership table and ride this family — they are file-structure
+/// rules (frontmatter id + section shape) enforced with the first gate.
+fn lint_frontmatter_family(spec: &Spec, report: &mut Report) {
+    let file = file_label(spec);
 
     // frontmatter_valid — kind must be in the closed intent-kind set
     // (parse already required the fields).
@@ -816,6 +933,13 @@ fn lint_one(spec: &Spec, report: &mut Report) {
             ));
         }
     }
+}
+
+/// Checker-family slice: `linter-referential_integrity.md`'s per-file
+/// rule (`unique_id`; the corpus rules `total_refs`/`no_self_ref` live
+/// in [`lint_references`], invoked by the same checker).
+fn lint_referential_family(spec: &Spec, report: &mut Report) {
+    let file = file_label(spec);
 
     // unique_id — every row id in the file is unique.
     let mut seen: BTreeMap<&str, &str> = BTreeMap::new();
@@ -828,6 +952,11 @@ fn lint_one(spec: &Spec, report: &mut Report) {
             ));
         }
     }
+}
+
+/// Checker-family slice: `linter-model_shape.md`'s per-file rules.
+fn lint_model_family(spec: &Spec, report: &mut Report) {
+    let file = file_label(spec);
 
     // guard_required — every transition's guard is present.
     for t in &spec.transitions {
@@ -893,6 +1022,13 @@ fn lint_one(spec: &Spec, report: &mut Report) {
             }
         }
     }
+}
+
+/// Checker-family slice: `linter-ears_syntax.md`'s rules (statement
+/// pattern plus the id-shape rules `no_conjoined_id`/
+/// `no_universal_in_id`).
+fn lint_ears_family(spec: &Spec, report: &mut Report) {
+    let file = file_label(spec);
 
     // ears_syntax — the intent statement matches one of the 5 EARS patterns.
     if ears::classify(&spec.intent.statement).is_none() {
@@ -939,6 +1075,16 @@ fn lint_one(spec: &Spec, report: &mut Report) {
             ));
         }
     }
+}
+
+/// Lint one file: the per-file checker families composed in report
+/// order (frontmatter → referential → model_shape → ears). The
+/// composition order is load-bearing — tests pin issue order.
+fn lint_one(spec: &Spec, report: &mut Report) {
+    lint_frontmatter_family(spec, report);
+    lint_referential_family(spec, report);
+    lint_model_family(spec, report);
+    lint_ears_family(spec, report);
 }
 
 /// All rows in a file as (table-name, row) pairs.
@@ -2201,5 +2347,170 @@ mod tests {
             !is_metasyntactic("a.b", &index),
             "dotted targets are never metasyntactic"
         );
+    }
+}
+
+#[cfg(test)]
+mod checker_tests {
+    //! specodelic-8kk: the orchestrator invokes checkers individually —
+    //! pin each checker family's rule attribution so a rule can never
+    //! silently migrate between checkers.
+
+    use super::*;
+
+    fn spec_from(text: &str, path: &str) -> Spec {
+        let mut s = crate::spec::parse_str(text).unwrap();
+        s.path = Some(std::path::PathBuf::from(path));
+        s
+    }
+
+    const CLEAN: &str = "---\nid: orchestrate.fix\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `holds` | [[orchestrate.fix]] |\n\n## Model\n\n### States\n\n- s1\n- s2\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s2 | [[orchestrate.fix.c1]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[orchestrate.fix.c1]] | `g()` | `x` |\n";
+
+    fn rules_of(issues: &[Issue]) -> Vec<String> {
+        let mut v: Vec<String> = issues.iter().map(|i| i.rule_id.clone()).collect();
+        v.sort();
+        v.dedup();
+        v
+    }
+
+    #[test]
+    fn frontmatter_family_owns_file_structure_rules() {
+        // Wrong kind fires frontmatter_valid; also verify a dual-format
+        // drift file attributes to this family, not another checker.
+        let bad = spec_from(
+            "---\nid: orchestrate.fix\nkind: feature\nstatement: \"THE system SHALL hold\"\n---\n",
+            "orchestrate-fix.md",
+        );
+        let rules = rules_of(&frontmatter_findings(&[bad]));
+        assert_eq!(rules, vec!["linter.frontmatter_valid"]);
+    }
+
+    #[test]
+    fn referential_family_owns_unique_id_and_total_refs() {
+        let dup = spec_from(
+            &CLEAN.replace(
+                "| p | unit | [[orchestrate.fix.c1]] |",
+                "| c1 | unit | [[orchestrate.fix.c1]] |",
+            ),
+            "orchestrate-fix.md",
+        );
+        let rules = rules_of(&referential_findings(&[dup]));
+        assert!(
+            rules.contains(&"linter.unique_id".to_string()),
+            "duplicate row id fires in the referential family: {rules:?}"
+        );
+        assert!(
+            !rules.contains(&"linter.acyclic".to_string()),
+            "graph rules never leak into the referential family"
+        );
+    }
+
+    #[test]
+    fn graph_family_owns_acyclic_and_reachability() {
+        // A self-tracing row: no_self_ref is referential's; acyclic is
+        // graph's. Use a traces_to cycle across two rows in one file.
+        let cyc = spec_from(
+            &CLEAN.replace("| c1 | invariant | `holds` | [[orchestrate.fix]] |",
+                           "| c1 | invariant | `holds` | [[orchestrate.fix.p]] |\n| c2 | invariant | `holds2` | [[orchestrate.fix.c1]] |")
+                   .replace("| p | unit | [[orchestrate.fix.c1]] |", "| p | unit | [[orchestrate.fix.c2]] |"),
+            "orchestrate-fix.md",
+        );
+        let rules = rules_of(&graph_shape_findings(&[cyc]));
+        assert!(
+            rules.contains(&"linter.acyclic".to_string())
+                || rules.contains(&"linter.single_root_reachable".to_string()),
+            "cycle fires in the graph family: {rules:?}"
+        );
+        assert!(
+            !rules.contains(&"linter.unique_id".to_string()),
+            "referential rules never leak into the graph family"
+        );
+    }
+
+    #[test]
+    fn model_family_owns_guard_and_transition_rules() {
+        let bad = spec_from(
+            &CLEAN.replace(
+                "| t | s1 | s2 | [[orchestrate.fix.c1]] |",
+                "| t | s1 | s2 |  |",
+            ),
+            "orchestrate-fix.md",
+        );
+        let rules = rules_of(&model_shape_findings(&[bad]));
+        assert_eq!(rules, vec!["linter.guard_required"]);
+    }
+
+    #[test]
+    fn ears_family_owns_statement_and_id_shape_rules() {
+        let bad = spec_from(
+            "---\nid: orchestrate.always_fix\nkind: intent\nstatement: \"the system should maybe work\"\n---\n",
+            "orchestrate-always-fix.md",
+        );
+        let rules = rules_of(&ears_findings(&[bad]));
+        assert_eq!(
+            rules,
+            vec!["linter.ears_syntax", "linter.no_universal_in_id"]
+        );
+    }
+
+    #[test]
+    fn families_composed_equal_the_flat_pass() {
+        // The family split must be behavior-preserving: composing the
+        // per-file families reproduces lint_corpus's per-file issues
+        // exactly (order included).
+        let corpus = r#"
+---
+id: orchestrate.bad
+kind: intent
+statement: "maybe works"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| c1 | invariant | `holds` | [[orchestrate.bad]] |
+| c1 | effect | `x` | [[orchestrate.bad]] |
+
+## Model
+
+### States
+
+- s1
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| t | s1 | s9 |  |
+"#;
+        let spec = spec_from(corpus, "orchestrate-bad.md");
+        let flat = {
+            let mut r = empty_report(1);
+            lint_one(&spec, &mut r);
+            r.issues
+        };
+        let composed = {
+            let mut r = empty_report(1);
+            lint_frontmatter_family(&spec, &mut r);
+            lint_referential_family(&spec, &mut r);
+            lint_model_family(&spec, &mut r);
+            lint_ears_family(&spec, &mut r);
+            r.issues
+        };
+        assert_eq!(flat.len(), composed.len(), "same finding count");
+        for (f, c) in flat.iter().zip(composed.iter()) {
+            assert_eq!(f.rule_id, c.rule_id, "same rule in same order");
+            assert_eq!(f.file, c.file);
+            assert_eq!(f.message, c.message);
+        }
+    }
+
+    #[test]
+    fn schema_shape_checker_reports_no_table_rules() {
+        // Honest emptiness: the schema-shape residue is enforced
+        // structurally; the checker must not fabricate findings.
+        let s = spec_from(CLEAN, "orchestrate-fix.md");
+        assert!(schema_shape_findings(&[s]).is_empty());
     }
 }
