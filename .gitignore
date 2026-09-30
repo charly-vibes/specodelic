@@ -41,3 +41,4 @@ target
 # into the .crate and crates.io rejects the upload (413 Payload Too Large).
 /bins/
 /dist/
+.pretender/
