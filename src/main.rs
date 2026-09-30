@@ -18,10 +18,74 @@ use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 use specodelic::spec::Spec;
 use specodelic::{
     blocks, checklist, compile, graph, guide, human, lint, merge, migrate, model_check,
-    orchestrate, rename, spec, verify,
+    orchestrate, refactor, rename, spec, verify,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+fn cmd_refactor(
+    paths: &[String],
+    high_fan_in: Option<usize>,
+    changeset: Option<&str>,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let (specs, _checklists, notes, _parse_errors) = parse_batch(paths, verbosity);
+    if specs.is_empty() {
+        // Same never-silent-empty guard as graph (specodelic-6pi): a
+        // typoed path must read as invocation error, not a clean corpus.
+        let hint = if openspec_tree_present() {
+            "found an openspec/ tree — try: specodelic refactor openspec"
+        } else {
+            "pass files or directories containing *.md specs with YAML frontmatter"
+        };
+        let mut out: Output<serde_json::Value> =
+            Output::failure("no spec files found — nothing was analyzed").with_next_step(hint);
+        for n in &notes {
+            out = out.with_warning(n.clone());
+        }
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
+    // fan_in_read_from_graph: every count comes from the derived graph,
+    // never an independent markdown walk.
+    let graph = graph::build(&specs);
+    let threshold = high_fan_in.unwrap_or(refactor::DEFAULT_HIGH_FAN_IN);
+    let changeset: std::collections::BTreeSet<String> = changeset
+        .map(|s| {
+            s.split(',')
+                .map(|t| t.trim().to_string())
+                .filter(|t| !t.is_empty())
+                .collect()
+        })
+        .unwrap_or_default();
+    let report = refactor::analyze(&graph, &specs, threshold, &changeset);
+    let payload = serde_json::to_value(&report).unwrap_or_default();
+    let mut out = Output::success(payload.clone());
+    for n in &notes {
+        out = out.with_warning(n.clone());
+    }
+    // The advisor never gates (exit 0 either way): the finding is a
+    // suggestion to split BEFORE the behavioral edit, nothing more.
+    out = if report.findings.is_empty() {
+        out.with_next_step("no split candidates — run: specodelic lint")
+    } else {
+        out.with_next_step(
+            "split the flagged node first — the split itself is an ordinary edit, checked by the six existing linters (see specs/refactor.md)",
+        )
+    };
+    emit_report(
+        out,
+        Some(human::refactor(&report)),
+        format,
+        verbosity,
+        stdout,
+        stderr,
+    );
+    0
+}
 
 /// Exit-code contract (specodelic-7rr item 2, CLARITY-pinned):
 /// 0 = success (lint with zero findings counts); 1 = the stage produced
@@ -147,6 +211,14 @@ enum Commands {
     Refactor {
         /// Files or directories (defaults to ./specs)
         paths: Vec<String>,
+        /// Fan-in count that counts as "high" (threshold_is_per_repo_setting:
+        /// configured per invocation, never a number fixed in specs/refactor.md)
+        #[arg(long)]
+        high_fan_in: Option<usize>,
+        /// Comma-separated row ids a proposed changeset would touch, enabling
+        /// the narrow_diff_heuristic (strict-subset, no-coherent-dependency flag)
+        #[arg(long)]
+        changeset: Option<String>,
     },
     /// Detect id collisions and dangling renames before a branch merge
     Merge {
@@ -711,13 +783,19 @@ fn run(
             new_id,
             paths,
         } => cmd_rename(old_id, new_id, paths, format, verbosity, stdout, stderr),
-        Commands::Refactor { .. } => {
-            let out: Output<serde_json::Value> =
-                Output::failure("not yet implemented — specced in specs/refactor.md")
-                    .with_next_step("track progress: bd ready");
-            emit_report(out, None, format, verbosity, stdout, stderr);
-            1
-        }
+        Commands::Refactor {
+            paths,
+            high_fan_in,
+            changeset,
+        } => cmd_refactor(
+            paths,
+            *high_fan_in,
+            changeset.as_deref(),
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        ),
         Commands::Merge {
             branch,
             base,

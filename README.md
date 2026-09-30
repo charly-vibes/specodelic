@@ -91,8 +91,8 @@ CLI/envelope/self-healing infrastructure.
   marker-guarded lefthook managed block — never claiming
   `core.hooksPath`, never writing foreign hook files; install reports a
   gate dry-run over the envelope (failing gate = warning + escape hint)
-- ⏳ `verify`, `rename`, `refactor`, `merge`, `orchestrate` — specced, not
-  implemented
+- ⏳ nothing — every specced command ships; see `spk --help` for the full
+  verb list
 
 Known corpus gaps (found by dogfooding `specodelic lint specs`) are tracked in
 beads: `bd list`.

@@ -3337,3 +3337,222 @@ fn non_spec_md_filename_warns_naming_law() {
         .success()
         .stdout(contains("must be named spec.md"));
 }
+
+// ---------- refactor advisor (specodelic-3l7, specs/refactor.md) ----------
+
+/// A minimal lint-tolerable spec: one constraint whose traces_to cell cites
+/// each target in `refs`.
+fn write_refactor_spec(path: &std::path::Path, id: &str, refs: &[&str]) {
+    let traces = refs
+        .iter()
+        .map(|r| format!("[[{r}]]"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE {id} SHALL hold\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | c1 | invariant | `holds` | {traces} |\n"
+        ),
+    )
+    .unwrap();
+}
+
+/// A spec with several constraint rows (`c1..cn`), for narrow-diff fixtures.
+fn write_multi_row_spec(path: &std::path::Path, id: &str, n: usize, derives_from: Option<&str>) {
+    // Every constraint traces its own intent (traces_to → Intent: legal
+    // typing under the Reference Typing table). The optional Property p1
+    // derives_from `target` (Property→Constraint: legal typing) — the
+    // cross-row dependency edge a narrow-diff changeset can carry.
+    let rows = (1..=n)
+        .map(|i| format!("| c{i} | invariant | `holds` | [[{id}]] |"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let props = derives_from
+        .map(|target| {
+            format!(
+                "\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p1 | unit | [[{target}]] | `g()` | `x` |\n"
+            )
+        })
+        .unwrap_or_default();
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE {id} SHALL hold\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n{rows}\n{props}"
+        ),
+    )
+    .unwrap();
+}
+
+/// unrelated_fan_in_flagged + related_fan_in_not_flagged
+/// (specs/refactor.md Properties): a node referenced from two disjoint
+/// top-level namespaces is flagged (threshold 2), a node referenced only
+/// from within its own namespace subtree is clean — and the advisory
+/// never gates (exit 0 either way).
+#[test]
+fn refactor_flags_high_unrelated_fan_in_and_exits_zero() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = |name: &str| dir.path().join(name);
+    write_refactor_spec(&p("hub.md"), "alpha.hub", &["alpha.hub"]);
+    // Dependents cite the hub's INTENT ([[alpha.hub]]): traces_to → Intent
+    // is the legal typing — a traces_to → Constraint edge is typing-
+    // forbidden and the graph never records it (edge_kind_matches_typing).
+    write_refactor_spec(&p("beta.md"), "beta.one", &["alpha.hub"]);
+    write_refactor_spec(&p("gamma.md"), "gamma.one", &["alpha.hub"]);
+    write_refactor_spec(&p("leaf.md"), "alpha.leaf", &["alpha.hub"]);
+    write_refactor_spec(&p("dhub.md"), "delta.hub", &["delta.hub"]);
+    write_refactor_spec(&p("ddep.md"), "delta.dep", &["delta.hub.c1"]);
+    write_refactor_spec(&p("ddep2.md"), "delta.dep2", &["delta.hub.c1"]);
+    let out = spk()
+        .args([
+            "refactor",
+            dir.path().to_str().unwrap(),
+            "--high-fan-in",
+            "2",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "advisory never gates: {stdout}");
+    let findings = json["data"]["findings"].as_array().unwrap();
+    let hub = findings
+        .iter()
+        .find(|f| f["node_id"] == "alpha.hub")
+        .unwrap_or_else(|| panic!("alpha.hub must be flagged: {stdout}"));
+    // 3 incoming (beta, gamma, alpha.leaf) — 2 unrelated namespaces.
+    assert_eq!(hub["dependent_count"], 3);
+    assert_eq!(hub["unrelated_namespace_count"], 2);
+    assert_eq!(hub["suggested_split"], true);
+    // The emitted_finding_shape contract: exactly the four spec'd fields.
+    assert_eq!(
+        hub.as_object().unwrap().len(),
+        4,
+        "finding carries exactly node_id/dependent_count/unrelated_namespace_count/suggested_split: {hub}"
+    );
+    assert!(
+        !findings.iter().any(|f| f["node_id"] == "delta.hub"),
+        "coherent (same-namespace) fan-in is clean: {stdout}"
+    );
+}
+
+/// related_fan_in_not_flagged: only within-namespace dependents → clean.
+#[test]
+fn refactor_coherent_fan_in_is_clean() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = |name: &str| dir.path().join(name);
+    write_refactor_spec(&p("dhub.md"), "delta.hub", &["delta.hub"]);
+    write_refactor_spec(&p("ddep.md"), "delta.dep", &["delta.hub.c1"]);
+    write_refactor_spec(&p("ddep2.md"), "delta.dep2", &["delta.hub.c1"]);
+    write_refactor_spec(&p("ddep3.md"), "delta.dep3", &["delta.hub.c1"]);
+    let out = spk()
+        .args(["refactor", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{stdout}");
+    assert!(
+        json["data"]["findings"].as_array().unwrap().is_empty(),
+        "same-namespace fan-in never flags: {stdout}"
+    );
+}
+
+/// threshold_read_from_config: same node, two configs → different outcome.
+/// The high-fan-in value is per-invocation configuration, never a constant.
+#[test]
+fn refactor_threshold_follows_config() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = |name: &str| dir.path().join(name);
+    write_refactor_spec(&p("hub.md"), "alpha.hub", &["alpha.hub"]);
+    // Legal typing only: dependents cite the hub's intent node.
+    write_refactor_spec(&p("beta.md"), "beta.one", &["alpha.hub"]);
+    write_refactor_spec(&p("gamma.md"), "gamma.one", &["alpha.hub"]);
+    let path = dir.path().to_str().unwrap();
+    let high = spk()
+        .args(["refactor", path, "--high-fan-in", "2", "--json"])
+        .output()
+        .unwrap();
+    let loose = spk()
+        .args(["refactor", path, "--high-fan-in", "5", "--json"])
+        .output()
+        .unwrap();
+    let flags = |out: &std::process::Output| {
+        let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        !json["data"]["findings"].as_array().unwrap().is_empty()
+    };
+    assert!(flags(&high), "unrelated count 2 ≥ threshold 2 → flagged");
+    assert!(
+        !flags(&loose),
+        "unrelated count 2 < threshold 5 → clean (decision follows config)"
+    );
+}
+
+/// narrow_diff_flagged_low_fan_in: a changeset touching a strict subset of
+/// a node's owned rows while depending on none of its others is flagged
+/// even though fan-in alone wouldn't trigger (fan-in 1 < default 3).
+#[test]
+fn refactor_narrow_diff_flagged_regardless_of_fan_in() {
+    let dir = tempfile::tempdir().unwrap();
+    // n: five constraints (all tracing their own intent — legal typing),
+    // m: one Property deriving from n.c1 (Property→Constraint, legal) —
+    // n's fan-in is 1, below the default threshold of 3.
+    write_multi_row_spec(&dir.path().join("n.md"), "n", 5, None);
+    write_multi_row_spec(&dir.path().join("m.md"), "m", 1, Some("n.c1"));
+    let out = spk()
+        .args([
+            "refactor",
+            dir.path().to_str().unwrap(),
+            "--changeset",
+            "n.c1",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{stdout}");
+    let findings = json["data"]["findings"].as_array().unwrap();
+    let n = findings
+        .iter()
+        .find(|f| f["node_id"] == "n")
+        .unwrap_or_else(|| panic!("narrow diff on n must be flagged: {stdout}"));
+    assert_eq!(n["suggested_split"], true);
+    assert_eq!(n["dependent_count"], 1, "fan-in alone wouldn't flag here");
+}
+
+/// narrow_diff heuristics' coherence clause: when the changeset's rows DO
+/// depend on the node's other owned rows, the changeset needs the node
+/// whole — no flag.
+#[test]
+fn refactor_narrow_diff_with_coherent_dependency_is_clean() {
+    let dir = tempfile::tempdir().unwrap();
+    // The changeset {n.c1, n.p1}: c1 plus the Property p1, which derives
+    // from n.c3 — a row the changeset does NOT touch. The changeset
+    // depends on n's other owned rows, so it needs the node whole.
+    write_multi_row_spec(&dir.path().join("n.md"), "n", 5, Some("n.c3"));
+    let out = spk()
+        .args([
+            "refactor",
+            dir.path().to_str().unwrap(),
+            "--changeset",
+            "n.c1,n.p1",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{stdout}");
+    assert!(
+        json["data"]["findings"].as_array().unwrap().is_empty(),
+        "changeset depending on the node's other rows is coherent: {stdout}"
+    );
+}

@@ -6,6 +6,28 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #73 — `spk refactor` ships: the tidy-first split advisor (specodelic-3l7)
+
+The last pipeline-adjacent stub is gone: `spk refactor [paths]
+[--high-fan-in N] [--changeset id1,id2]` implements `specs/refactor.md` —
+a non-gating advisory (exit 0 either way) that flags split candidates by
+exactly the specced finding shape `{node_id, dependent_count,
+unrelated_namespace_count, suggested_split}`. Every count is a `graph`
+query (the advisor consumes `GraphReport`'s derived edges, never walks
+markdown — `fan_in_read_from_graph`). Unrelated-namespace keying follows
+row 3's decision of record (NCA == root, first-segment divergence);
+`--high-fan-in` implements `threshold_is_per_repo_setting` (default 3);
+`--changeset` enables `narrow_diff_heuristic` — a strict-subset edit
+depending on none of the node's other owned rows flags regardless of
+fan-in (only Property→Constraint `derives_from` edges carry such
+dependencies legally, a constraint the typing table imposes on fixtures
+too). Human rendering + docs/commands.md section added; README's stale
+stub list fixed (nothing specced remains unimplemented). Dogfood: the
+corpus itself flags `specodelic` as the top split candidate (12
+unrelated dependents) — the exact pathology STATUS.md §2 names. CHANGELOG
+numbering: this is the implementation entry for the ticket whose row-3
+decision landed as #72.
+
 ## #72 — mp1 row 3 decided: refactor's unrelated fan-in keys off the id namespace (of record)
 
 `specs/refactor.md`'s open question — does "unrelated fan-in" key off the

@@ -238,7 +238,17 @@ repo is byte-identical.
 
 - Spec: [orchestrate](specs/orchestrate.md)
 
-## Pipeline stubs
+## Refactor advisor
 
-`spk refactor` is fully specced ([refactor](specs/refactor.md)) and
-currently exits non-zero with hints until implemented.
+`spk refactor [paths] [--high-fan-in N] [--changeset id1,id2]` is the
+tidy-first split advisor ([refactor](specs/refactor.md)): it flags nodes
+whose incoming cross-file dependents share no namespace segment below the
+root (nearest common ancestor = root — decision of record 2026-09-30),
+and — with `--changeset` — nodes whose owned rows the changeset touches
+only as a strict subset without depending on the rest. Every count comes
+from `spk graph`'s derived edges, never an independent markdown walk. The
+high-fan-in threshold is per-invocation configuration
+(`threshold_is_per_repo_setting`; default 3). Findings are advisory:
+exit 0 whether or not anything is flagged.
+
+- Spec: [refactor](specs/refactor.md)

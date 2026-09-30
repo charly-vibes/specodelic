@@ -54,6 +54,21 @@ pub fn lint(report: &LintReport) -> String {
 
 /// `spk graph` — one summary line; dangling references, typing violations
 /// and supersedes cycles are listed below it.
+pub fn refactor(report: &crate::refactor::RefactorReport) -> String {
+    let mut out = format!(
+        "refactor: {} file(s), {} split candidate(s) — advisory only, never gating",
+        report.files,
+        report.findings.len()
+    );
+    for f in &report.findings {
+        out.push_str(&format!(
+            "\n  split candidate: {} — {} dependent(s), {} unrelated namespace(s)",
+            f.node_id, f.dependent_count, f.unrelated_namespace_count
+        ));
+    }
+    out
+}
+
 pub fn graph(report: &GraphReport) -> String {
     let mut out = format!(
         "graph: {} file(s), {} node(s), {} edge(s), {} dangling, {} typing violation(s), {} supersedes cycle(s), {} external boundary(ies)",
