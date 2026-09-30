@@ -90,14 +90,22 @@ pattern `orchestrate.md` already uses for `model_check.md`/`verify.md`),
 and every fan-in count is a `graph.blast_radius` query, never an
 independent markdown walk.
 
-**Open question, `Needs Human Review`:** `unrelated_fan_in_defined`'s
-"shares no namespace segment below root" test assumes the repo's ids are
-meaningfully nested. A repo with a flat namespace convention (every id one
-segment, no dots) would make almost every dependent "unrelated" by this
-definition and the advisory would fire constantly, which is signal-free.
-Whether this should instead key off physical directory placement (see the
-`directory_mirrors_primary_namespace` idea raised when file structure was
-last discussed) is left open rather than assumed.
+**Decision of record (2026-09-30, user-approved; advised by a typed
+Jev evaluation, `jev-1.13.0`, conf 0.54):** "unrelated fan-in" keys off
+the **id namespace** — the "shares no namespace segment below root"
+test stands as written. Physical directory placement is rejected as the
+keying: ids are the format's primary identity (`id_matches_file` ties
+them to filenames, the Reference Typing table types them as foreign
+keys), so relatedness judged by namespace is consistent with how every
+other checker reads the corpus, while directory placement would make
+the advisory's meaning depend on filesystem layout the format doesn't
+own. The flat-namespace failure mode is real but contained: the finding
+is `kind == advisory`-shaped (non-gating by typing), and the threshold
+is already per-repo configurable — a flat-namespace repo raises the
+threshold or lives with noise. A configurable keying mode (namespace or
+directory) stays a possible future widening under
+`kind_field_extensible`-style governance if a real flat-namespace corpus
+ever adopts the format; nothing in this file's constraint text changes.
 
 **Open question, `Needs Human Review`:** `threshold_is_per_repo_setting`
 deliberately leaves the actual number unset here — this file specifies

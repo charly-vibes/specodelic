@@ -108,10 +108,18 @@ a table's column shape, or whether a constraint has a deriving property —
 so re-running them would be redundant `Needs Human Review` overhead, not
 signal.
 
-**Open question, `Needs Human Review`:** this file specifies a single
-`(old_id, new_id)` rename. A batch rename (renaming a whole namespace
-prefix, e.g. every `linter.foo.*` to `checker.foo.*` at once) is a
-different operation with its own atomicity question — is a batch one
-transaction, or `n` independent ones that can partially succeed? Not
-specified here; flagging rather than assuming either answer, since the
-choice changes what `atomic_operation` means at batch scope.
+**Decision of record (2026-09-30, user-approved; advised by a typed
+Jev evaluation, `jev-1.13.0`, conf 0.74):** a batch rename is **one
+atomic transaction**, not `n` independent ones. All files touched by
+the batch are staged and validated as a set — the same
+precondition-then-apply-then-reverify shape a single rename already
+uses — and any validation failure aborts the whole batch, leaving every
+file byte-identical to before. Partial success is exactly the failure
+mode the single-rename `atomic_operation` constraint exists to prevent:
+a half-renamed namespace is a corpus where `ref_resolves` dangles by
+design, and the whole-commit atomicity git already provides makes
+per-file partial commits a policy choice a tool shouldn't silently make.
+`atomic_operation` therefore means the same thing at batch scope as at
+single-rename scope: all-or-nothing. A batch-rename implementation is a
+separate follow-up ticket; nothing in this file's constraint text
+changes.

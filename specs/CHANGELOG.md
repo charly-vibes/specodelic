@@ -6,6 +6,36 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #72 — mp1 row 3 decided: refactor's unrelated fan-in keys off the id namespace (of record)
+
+`specs/refactor.md`'s open question — does "unrelated fan-in" key off the
+id namespace or physical directory placement — decided of record:
+**id namespace**, test as written ("shares no namespace segment below
+root"). Directory placement rejected: ids are the format's primary
+identity (`id_matches_file`, typed foreign keys) and every other checker
+reads relatedness from ids, while directory layout is outside the
+format's ownership. Flat-namespace noise contained by the advisory's
+non-gating typing plus the already-per-repo threshold; a configurable
+keying mode stays a possible future widening. No constraint text
+changes — decision recorded in the file's Notes. Unblocks
+specodelic-3l7 (refactor tidy-first split advisor). Advised by a typed
+Jev (`jev-1.13.0`) evaluation — choice 0.70, conf 0.54, impact medium
+(0.85) — user-approved.
+
+## #71 — mp1 row 1 decided: batch rename is one atomic transaction (of record)
+
+`specs/rename.md`'s open question — is a whole-namespace batch rename
+one transaction or `n` independent ones — decided of record: **one
+atomic transaction**, all-or-nothing, the same
+precondition→apply→reverify shape as the single rename; a partial batch
+is exactly the dangling-`ref_resolves` failure `atomic_operation` exists
+to prevent, and git's whole-commit atomicity makes per-file partials a
+policy a tool shouldn't silently make. `atomic_operation` means the same
+thing at batch scope. Batch-rename implementation is a separate
+follow-up; no constraint text changes — decision recorded in the file's
+Notes. Advised by a typed Jev (`jev-1.13.0`) evaluation — choice 0.83,
+conf 0.74, impact medium — user-approved.
+
 ## #67 — `spk migrate`: wrap an openspec delta into the dual-format skeleton (specodelic-c32, gh#6 item 1)
 
 The migration recipe (frontmatter + derive tables + byte-identical
