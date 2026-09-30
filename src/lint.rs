@@ -640,7 +640,15 @@ fn resolve_node(index: &Index, source_file: &str, target: &str) -> Option<String
     {
         return Some(format!("{source_file}.{target}"));
     }
-    if let Some((file_id, rest)) = target.rsplit_once('.') {
+    // Every split point, last dot first (algorithm: specodelic-njh).
+    // Section anchors name no row at ANY split point — no edge.
+    let mut dots: Vec<usize> = target.match_indices('.').map(|(i, _)| i).collect();
+    dots.reverse();
+    for i in dots {
+        let (file_id, rest) = (&target[..i], &target[i + 1..]);
+        if rest == "model.state" || rest == "model.transition" {
+            continue;
+        }
         if let Some(rows) = index.files.get(file_id) {
             if rows.contains(rest) {
                 return Some(target.to_string());
@@ -650,12 +658,6 @@ fn resolve_node(index: &Index, source_file: &str, target: &str) -> Option<String
             {
                 return Some(format!("{file_id}.{row_id}"));
             }
-        }
-        if let Some((file_id, rest)) = target.split_once('.')
-            && let Some(rows) = index.files.get(file_id)
-            && rows.contains(rest)
-        {
-            return Some(target.to_string());
         }
     }
     None
@@ -987,6 +989,12 @@ impl Index {
     /// only id:spec files reach this arm bare (the metasyntactic skip
     /// masks bare targets elsewhere); the scoped index makes it the
     /// file's own rows.
+    ///
+    /// Algorithm (specodelic-njh, gh#1): try every split point from the
+    /// LAST dot to the FIRST; at each, `file_id` must be a known file and
+    /// the remainder must be a row, a section anchor, or
+    /// `row_id.member` (row = first segment of the remainder, so dotted
+    /// row ids work). Last-dot wins: a dotted file id is the common case.
     fn resolves(&self, source_file: &str, target: &str) -> bool {
         // Bare section anchors.
         if target == "model.state" || target == "model.transition" {
@@ -1006,31 +1014,23 @@ impl Index {
         {
             return true;
         }
-        // file_id + "." + rest (split at the LAST dot so file ids with dots,
-        // e.g. `linter.frontmatter`, resolve too).
-        if let Some((file_id, rest)) = target.rsplit_once('.') {
+        // Every split point, last dot first: dotted file ids are the
+        // common case, dotted row ids still resolve via the member arm.
+        let mut dots: Vec<usize> = target.match_indices('.').map(|(i, _)| i).collect();
+        dots.reverse();
+        for i in dots {
+            let (file_id, rest) = (&target[..i], &target[i + 1..]);
             if let Some(rows) = self.files.get(file_id) {
                 if rows.contains(rest) || rest == "model.state" || rest == "model.transition" {
                     return true;
                 }
-                // member of a row: file_id.row.member
+                // member of a row: file_id.row.member (row = first
+                // segment of rest, so dotted row ids resolve too).
                 if let Some((row_id, _member)) = rest.split_once('.')
                     && rows.contains(row_id)
                 {
                     return true;
                 }
-            }
-            // The file id itself might carry the dot (e.g. target
-            // `linter.frontmatter.has_id` → file `linter.frontmatter`,
-            // row `has_id`) — handled above. But a target like
-            // `specodelic.model.state` splits to (`specodelic.model`,
-            // `state`) first; retry with the first dot as the split point
-            // only when the last-dot split found nothing.
-            if let Some((file_id, rest)) = target.split_once('.')
-                && let Some(rows) = self.files.get(file_id)
-                && (rows.contains(rest) || rest == "model.state" || rest == "model.transition")
-            {
-                return true;
             }
         }
         false
@@ -2068,5 +2068,138 @@ mod tests {
                 report.issues
             );
         }
+    }
+
+    // --- specodelic-njh: reference-resolution algorithm pinned (gh#1) ---
+
+    /// Index fixture from (file id, row ids) pairs.
+    fn index_from(pairs: &[(&str, &[&str])]) -> Index {
+        Index {
+            files: pairs
+                .iter()
+                .map(|(f, rows)| {
+                    (
+                        f.to_string(),
+                        rows.iter().map(|r| r.to_string()).collect::<BTreeSet<_>>(),
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    /// RED (specodelic-njh): a multi-segment MEMBER path in the
+    /// first-dot fallback arm — `a.b.c.d` = file `a`, row `b`, member
+    /// path `c.d` — must resolve the same way the last-dot arm does.
+    /// `resolves_row` (checklists) already split members in both arms;
+    /// `Index::resolves` and `resolve_node` did not, so a checklist item
+    /// could rest on a row that lint itself reported as dangling.
+    #[test]
+    fn member_path_resolves_in_first_dot_arm() {
+        let index = index_from(&[("a", &["b"])]);
+        assert!(
+            index.resolves("a", "a.b.c.d"),
+            "file a + row b + member path c.d must resolve"
+        );
+        assert_eq!(
+            resolve_node(&index, "a", "a.b.c.d"),
+            Some("a.b".to_string()),
+            "graph node is the row, not the member"
+        );
+        assert!(
+            resolves_row(&index, "a.b.c.d"),
+            "checklist side already resolved"
+        );
+    }
+
+    /// Pinned (specodelic-njh): ROW ids are single-segment — a target
+    /// whose tail names a dotted "row" means row.member, never a dotted
+    /// row. `a.b.c.d` with file `a` holding only row `b.c` does NOT
+    /// resolve: it means row `b` (absent) with member path `c.d`.
+    #[test]
+    fn dotted_row_ids_are_unaddressable() {
+        let index = index_from(&[("a", &["b.c"])]);
+        assert!(!index.resolves("a", "a.b.c.d"));
+        assert_eq!(resolve_node(&index, "a", "a.b.c.d"), None);
+    }
+
+    /// Pinned (specodelic-njh): the same 4-segment shape when the FILE id
+    /// carries the dot — last-dot arm, the path gh#1 most likely hit.
+    #[test]
+    fn dotted_file_id_row_member_resolves_in_last_dot_arm() {
+        let index = index_from(&[("a.b", &["c"])]);
+        assert!(index.resolves("a.b", "a.b.c.d"));
+        assert_eq!(
+            resolve_node(&index, "a.b", "a.b.c.d"),
+            Some("a.b.c".to_string())
+        );
+    }
+
+    /// Pinned (specodelic-njh): dotted FILE ids resolve via last-dot split —
+    /// the case the gh#1 reporter named (intent id contains a dot).
+    #[test]
+    fn dotted_file_id_row_resolves() {
+        let index = index_from(&[("extraction.claims", &["span"])]);
+        assert!(index.resolves("other", "extraction.claims.span"));
+        assert_eq!(
+            resolve_node(&index, "other", "extraction.claims.span"),
+            Some("extraction.claims.span".to_string())
+        );
+    }
+
+    /// Pinned (specodelic-njh): precedence — an exact file id beats any
+    /// split interpretation (`a.b` is file `a.b`, not file `a`'s row `b`).
+    #[test]
+    fn exact_file_id_beats_split_arms() {
+        let index = index_from(&[("a", &["b"]), ("a.b", &[])]);
+        assert!(index.resolves("a", "a.b"));
+        assert_eq!(resolve_node(&index, "a", "a.b"), Some("a.b".to_string()));
+    }
+
+    /// Pinned (specodelic-njh): section anchors resolve for lint (they are
+    /// machinery, not dangling) but name no graph row — no edge.
+    #[test]
+    fn anchors_resolve_but_name_no_row() {
+        let index = index_from(&[("a", &[])]);
+        assert!(index.resolves("a", "model.state"));
+        assert!(index.resolves("a", "a.model.state"));
+        assert_eq!(resolve_node(&index, "a", "model.state"), None);
+        assert_eq!(resolve_node(&index, "a", "a.model.state"), None);
+        assert!(
+            !resolves_row(&index, "a.model.state"),
+            "anchors are not rows"
+        );
+    }
+
+    /// Pinned (specodelic-njh): bare-local rows resolve only against the
+    /// SOURCE file's own rows; a bare target that is some other file's id
+    /// resolves as that file.
+    #[test]
+    fn bare_local_row_and_bare_file_id() {
+        let index = index_from(&[("a", &["r"]), ("f", &[])]);
+        assert!(index.resolves("a", "r"), "own row in bare spelling");
+        assert_eq!(resolve_node(&index, "a", "r"), Some("a.r".to_string()));
+        assert!(index.resolves("a", "f"), "bare file id wins over nothing");
+        assert!(
+            !index.resolves("f", "r"),
+            "another file's row is not bare-local"
+        );
+    }
+
+    /// Pinned (specodelic-njh): metasyntactic targets — single-segment
+    /// non-file ids and ellipsis — never dangle (format prose, not refs).
+    #[test]
+    fn metasyntactic_targets_are_skipped() {
+        let index = index_from(&[("a", &[])]);
+        assert!(is_metasyntactic("x", &index));
+        assert!(is_metasyntactic("...", &index));
+        assert!(is_metasyntactic("…", &index));
+        assert!(
+            !is_metasyntactic("a", &index),
+            "a real file id is not metasyntactic"
+        );
+        assert!(
+            !is_metasyntactic("a.b", &index),
+            "dotted targets are never metasyntactic"
+        );
     }
 }

@@ -429,26 +429,88 @@ fn resolve(
     {
         return Some(format!("{source_file}.{target}"));
     }
-    // Try last-dot split (handles dotted file ids like linter.frontmatter).
-    if let Some((file_id, rest)) = target.rsplit_once('.')
-        && let Some(rows) = file_rows.get(file_id)
-    {
-        if rows.iter().any(|r| r == rest) || rest == "model.state" || rest == "model.transition" {
-            return Some(target.to_string());
+    // Every split point, last dot first (algorithm: specodelic-njh):
+    // dotted file ids are the common case, dotted row ids resolve via
+    // the member arm at any split point.
+    let mut dots: Vec<usize> = target.match_indices('.').map(|(i, _)| i).collect();
+    dots.reverse();
+    for i in dots {
+        let (file_id, rest) = (&target[..i], &target[i + 1..]);
+        if let Some(rows) = file_rows.get(file_id) {
+            if rows.iter().any(|r| r == rest) || rest == "model.state" || rest == "model.transition"
+            {
+                return Some(target.to_string());
+            }
+            if let Some((row_id, member)) = rest.split_once('.')
+                && rows.iter().any(|r| r == row_id)
+            {
+                return Some(format!("{file_id}.{row_id} ({member})"));
+            }
         }
-        if let Some((row_id, member)) = rest.split_once('.')
-            && rows.iter().any(|r| r == row_id)
-        {
-            return Some(format!("{file_id}.{row_id} ({member})"));
-        }
-    }
-    // Retry with first-dot split for dotted-file-id targets like
-    // `specodelic.model.state` (file `specodelic`, anchor `model.state`).
-    if let Some((file_id, rest)) = target.split_once('.')
-        && let Some(rows) = file_rows.get(file_id)
-        && (rows.iter().any(|r| r == rest) || rest == "model.state" || rest == "model.transition")
-    {
-        return Some(target.to_string());
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Rows map fixture from (file id, row ids).
+    fn rows_from(pairs: &[(&str, &[&str])]) -> BTreeMap<String, Vec<String>> {
+        pairs
+            .iter()
+            .map(|(f, rows)| (f.to_string(), rows.iter().map(|r| r.to_string()).collect()))
+            .collect()
+    }
+
+    /// RED (specodelic-njh): multi-segment MEMBER path via the first-dot
+    /// fallback arm — `a.b.c.d` = file `a`, row `b`, member path `c.d`.
+    #[test]
+    fn member_path_resolves_in_first_dot_arm() {
+        let rows = rows_from(&[("a", &["b"])]);
+        assert_eq!(
+            resolve(&rows, "a", "a.b.c.d"),
+            Some("a.b (c.d)".to_string())
+        );
+    }
+
+    /// Pinned (specodelic-njh): row ids are single-segment — a dotted
+    /// "row" tail means row.member, never a dotted row.
+    #[test]
+    fn dotted_row_ids_are_unaddressable() {
+        let rows = rows_from(&[("a", &["b.c"])]);
+        assert_eq!(resolve(&rows, "a", "a.b.c.d"), None);
+    }
+
+    /// Pinned (specodelic-njh): dotted file id + row/member via last-dot
+    /// split — the shape gh#1 named (intent id contains a dot).
+    #[test]
+    fn dotted_file_id_resolves_last_dot_first() {
+        let rows = rows_from(&[("extraction.claims", &["span"])]);
+        assert_eq!(
+            resolve(&rows, "other", "extraction.claims.span"),
+            Some("extraction.claims.span".to_string())
+        );
+        let rows2 = rows_from(&[("a.b", &["c"])]);
+        assert_eq!(
+            resolve(&rows2, "a.b", "a.b.c.d"),
+            Some("a.b.c (d)".to_string())
+        );
+    }
+
+    /// Pinned (specodelic-njh): anchors and bare-local rows.
+    #[test]
+    fn anchors_and_bare_local_rows() {
+        let rows = rows_from(&[("a", &["r"])]);
+        assert_eq!(
+            resolve(&rows, "a", "model.state"),
+            Some("a.model.state".to_string())
+        );
+        assert_eq!(
+            resolve(&rows, "a", "a.model.state"),
+            Some("a.model.state".to_string())
+        );
+        assert_eq!(resolve(&rows, "a", "r"), Some("a.r".to_string()));
+        assert_eq!(resolve(&rows, "a", "missing"), None);
+    }
 }

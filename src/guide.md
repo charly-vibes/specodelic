@@ -113,6 +113,17 @@ with either spelling — `[[c1]]` or `[[spec.c1]]` — in `derives_from`
 and in transition `guard` cells; files outside the delta always use the
 file-qualified form.
 
+**Resolution algorithm** (for dotted ids — file ids routinely contain
+namespace dots): exact file id first, then a bare-local row (own file,
+`id: spec` files only), then every dot split from the LAST to the
+FIRST: `prefix` must be a known file id and the remainder must be a
+row, the `model.state`/`model.transition` anchor, or `row.member` —
+the row is the single segment right after the split, everything after
+it is a member path (row ids are never dotted). Last-dot wins, so
+`[[linter.frontmatter.has_id]]` resolves as file `linter.frontmatter`,
+row `has_id`, while `[[specodelic.model.state]]` resolves as file
+`specodelic`, anchor `model.state`.
+
 Each reference field is a typed foreign key (`ref_kind_compatible`):
 
 {{reference_typing}}

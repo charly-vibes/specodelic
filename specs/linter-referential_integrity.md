@@ -51,6 +51,34 @@ id→row index this check relies on.
 | rename_naturality        | law  | [[specodelic.rename_naturality]]                          | `arbitrary_spec_repo(), arbitrary_id_rename()`          | **identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))` |
 | clean_repo_passes        | unit | [[linter.referential_integrity.ref_resolves]]              | `arbitrary_well_formed_repo()`                          | `check(repo) == passed`                                                    |
 
+## Resolution algorithm
+
+`qualify(ref)` (the `ref_resolves` expr) and `spk graph` share one
+algorithm, pinned by unit tests and documented here because it lives
+nowhere user-facing otherwise (gh#1: "the resolution algorithm is
+undocumented"):
+
+1. **Exact file id** — the whole target names a file; file id wins over
+   any split interpretation.
+2. **Bare-local row** — a dotless target naming one of the SOURCE
+   file's own rows resolves to that row. Outside `id: spec` files this
+   arm is masked by the metasyntactic skip (a dotless target naming no
+   file id is format prose, not a reference), so in practice only
+   self-contained deltas use bare row spelling.
+3. **Every dot split, last to first** — `prefix` must be a known file
+   id and the remainder must be one of: a row of that file, the
+   `model.state`/`model.transition` section anchor, or `row.member`
+   where the row is the single segment right after the split and the
+   member path may itself be dotted. Last-dot wins because dotted file
+   ids (`linter.frontmatter`) are the common case; the first-dot
+   fallback covers `[[specodelic.model.state]]` (file `specodelic`,
+   anchor `model.state`) and multi-segment member paths
+   (`[[a.b.c.d]]` = file `a`, row `b`, member `c.d`).
+
+Row ids are single-segment: a dotted tail is always read as
+`row.member`, never as a dotted row id, so `[[a.b.c.d]]` does not
+resolve when file `a` declares only a row literally named `b.c`.
+
 ## Notes
 
 `rename_naturality` is restated here rather than only living in
