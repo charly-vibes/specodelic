@@ -1,0 +1,234 @@
+# Release workflow - build cross-platform binaries, publish a GitHub release,
+# publish to crates.io, and auto-update the homebrew-charly tap / scoop-charly bucket.
+#
+# Triggered by pushing a version tag (e.g., `git tag v0.1.0 && git push --tags`).
+# The tag push IS the release authorization: no tag, no publish.
+#
+# Replaces the former `publish.yml` (crates.io only) — this workflow adds the
+# standard 5-target binary matrix (see dulce-de-leche/docs/standardization.md §1).
+#
+# Required secrets:
+#   GITHUB_TOKEN           - automatically provided by GitHub Actions
+#   TAP_GITHUB_TOKEN       - PAT with repo write access to homebrew-charly and scoop-charly
+#   CARGO_REGISTRY_TOKEN   - crates.io API token for publishing the crate
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  # Secret surfaced at workflow level so steps can test it via `if: env...`
+  # (the `secrets` context is not available in step-level `if` — 0oc).
+  TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+
+jobs:
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: linux
+
+      - name: Install aarch64 cross-compile toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Build x86_64 Linux
+        run: cargo build --release --locked --target x86_64-unknown-linux-gnu
+
+      - name: Build aarch64 Linux
+        run: cargo build --release --locked --target aarch64-unknown-linux-gnu
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+
+      - name: Stage binaries
+        run: |
+          mkdir -p bins/linux_amd64 bins/linux_arm64
+          for bin in specodelic spk; do
+            cp "target/x86_64-unknown-linux-gnu/release/${bin}" "bins/linux_amd64/${bin}"
+            cp "target/aarch64-unknown-linux-gnu/release/${bin}" "bins/linux_arm64/${bin}"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bins-linux
+          path: bins/
+          retention-days: 1
+
+  build-darwin:
+    name: Build macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: darwin
+
+      - name: Build x86_64 macOS
+        run: cargo build --release --locked --target x86_64-apple-darwin
+
+      - name: Build aarch64 macOS
+        run: cargo build --release --locked --target aarch64-apple-darwin
+
+      - name: Stage binaries
+        run: |
+          mkdir -p bins/darwin_amd64 bins/darwin_arm64
+          for bin in specodelic spk; do
+            cp "target/x86_64-apple-darwin/release/${bin}" "bins/darwin_amd64/${bin}"
+            cp "target/aarch64-apple-darwin/release/${bin}" "bins/darwin_arm64/${bin}"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bins-darwin
+          path: bins/
+          retention-days: 1
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: windows
+
+      - name: Build x86_64 Windows
+        run: cargo build --release --locked --target x86_64-pc-windows-msvc
+
+      - name: Stage binaries
+        shell: bash
+        run: |
+          mkdir -p bins/windows_amd64
+          for bin in specodelic spk; do
+            cp "target/x86_64-pc-windows-msvc/release/${bin}.exe" "bins/windows_amd64/${bin}.exe"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bins-windows
+          path: bins/
+          retention-days: 1
+
+  publish:
+    name: Publish Release
+    needs: [build-linux, build-darwin, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bins-*
+          path: bins/
+          merge-multiple: true
+
+      - name: Verify version matches tag
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          CARGO_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "specodelic") | .version')
+          if [ "v${TAG}" != "v${CARGO_VERSION}" ]; then
+            echo "tag v${TAG} != Cargo.toml version ${CARGO_VERSION}"
+            exit 1
+          fi
+
+      - name: Package archives and checksums
+        id: pkg
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          mkdir -p dist
+          for plat in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64; do
+            tar -czf "dist/specodelic_${VERSION}_${plat}.tar.gz" \
+              -C "bins/${plat}" specodelic spk
+          done
+          (cd bins/windows_amd64 && zip "../../dist/specodelic_${VERSION}_windows_amd64.zip" \
+            specodelic.exe spk.exe)
+          cd dist && sha256sum *.tar.gz *.zip > checksums.txt
+
+      - name: Create GitHub release
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${{ steps.pkg.outputs.version }}"
+          PRERELEASE=""
+          [[ "${TAG}" == *-* ]] && PRERELEASE="--prerelease"
+          gh release create "${TAG}" \
+            --title "${TAG}" \
+            --generate-notes \
+            $PRERELEASE \
+            dist/specodelic_${VERSION}_linux_amd64.tar.gz \
+            dist/specodelic_${VERSION}_linux_arm64.tar.gz \
+            dist/specodelic_${VERSION}_darwin_amd64.tar.gz \
+            dist/specodelic_${VERSION}_darwin_arm64.tar.gz \
+            dist/specodelic_${VERSION}_windows_amd64.zip \
+            dist/checksums.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to crates.io
+        run: cargo publish --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Update Homebrew tap
+        # Skip when the PAT is absent (specodelic-0oc): a missing secret
+        # must degrade to a skipped step, not fail the whole release. Re-run
+        # the job after adding TAP_GITHUB_TOKEN to publish the formula.
+        if: env.TAP_GITHUB_TOKEN != ''
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${{ steps.pkg.outputs.version }}"
+          git clone "https://x-access-token:${TAP_GITHUB_TOKEN}@github.com/charly-vibes/homebrew-charly.git" /tmp/tap
+          python3 scripts/update-homebrew.py \
+            /tmp/tap/Formula/specodelic.rb \
+            "${VERSION}" "${TAG}" dist/checksums.txt
+          cd /tmp/tap
+          git config user.email "github-actions@github.com"
+          git config user.name "GitHub Actions"
+          git add Formula/specodelic.rb
+          git diff --staged --quiet || git commit -m "Update specodelic to ${VERSION}"
+          git push
+
+      - name: Update Scoop bucket
+        if: env.TAP_GITHUB_TOKEN != ''
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${{ steps.pkg.outputs.version }}"
+          git clone "https://x-access-token:${TAP_GITHUB_TOKEN}@github.com/charly-vibes/scoop-charly.git" /tmp/scoop
+          python3 scripts/update-scoop.py \
+            /tmp/scoop/bucket/specodelic.json \
+            "${VERSION}" "${TAG}" dist/checksums.txt
+          cd /tmp/scoop
+          git config user.email "github-actions@github.com"
+          git config user.name "GitHub Actions"
+          git add bucket/specodelic.json
+          git diff --staged --quiet || git commit -m "Update specodelic to ${VERSION}"
+          git push
