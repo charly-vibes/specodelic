@@ -2,6 +2,7 @@
 name = "specodelic"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
 default-run = "specodelic"
 description = "Specodelic — a markdown specification format (Intent / Constraints / Model / Properties) and the `spk` CLI that lints, compiles, verifies, and refactors it"
 license = "Apache-2.0"
@@ -28,7 +29,6 @@ clap = { version = "4", features = ["derive", "env"] }
 clap_complete = "4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-serde_yaml = "0.9"
 toml = "0.8"
 proptest = "1"
 miette = { version = "7", features = ["fancy"] }
@@ -36,6 +36,7 @@ thiserror = "2"
 regex = "1"
 stateright = "0.31.0"
 sha2 = "0.11.0"
+serde_yaml_ng = "0.10.0"
 
 [dev-dependencies]
 assert_cmd = "2"

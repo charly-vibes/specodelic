@@ -1,0 +1,33 @@
+# cargo-deny configuration — CI supply-chain gate (specodelic-oet).
+# Local: cargo install cargo-deny && cargo deny check advisories licenses
+
+[advisories]
+version = 2
+# Known CVEs / yanked crates in the dependency graph fail the build.
+yanked = "deny"
+
+[licenses]
+version = 2
+# Permissive licenses only. MPL-2.0 (stateright) is file-level copyleft,
+# acceptable for a CLI tool — it does not force the binary's license.
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "MPL-2.0",
+  "Unicode-3.0",
+  "Zlib",
+  "CDLA-Permissive-2.0",
+]
+
+[bans]
+# Duplicate dep versions are warned, not denied — the resolver still
+# converges; denial here would be noise during routine upgrades.
+multiple-versions = "warn"
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"

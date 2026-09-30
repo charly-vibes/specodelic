@@ -475,6 +475,27 @@ statement: "WHEN a client exceeds the configured request rate, THE API
 | limit_enforced       | invariant | `requests_in_window > limit ⟹ response == 429`  | [[api.rate_limit]]  |
 | default_limit        | invariant | `default(limit) == 100 per minute`              | [[api.rate_limit]]  |
 | adaptive_limiting     | advisory  | `limit could vary with observed load`           | [[api.rate_limit]]  |
+
+## Model
+
+### States
+- `open`
+- `limited`
+
+### Transitions
+
+| id     | from    | to       | guard                              |
+|--------|---------|----------|------------------------------------|
+| exceed | open    | limited  | [[api.rate_limit.limit_enforced]]  |
+| reset  | limited | open     | `the rate window resets`           |
+
+## Properties
+
+| id               | kind | derives_from                        | generator             | predicate                            |
+|-------------------|------|-------------------------------------|------------------------|---------------------------------------|
+| over_limit_is_429 | unit | [[api.rate_limit.limit_enforced]]   | `arbitrary_request()`  | `response == 429`                     |
+| default_is_100    | unit | [[api.rate_limit.default_limit]]    | `arbitrary_config()`   | `default(limit) == 100 per minute`    |
+| adaptive_is_advisory | unit | [[api.rate_limit.adaptive_limiting]] | `arbitrary_config()` | `varying(limit) never blocks a response` |
 ```
 
 The "stopgap... adaptive eventually" aside becomes the `advisory` row —

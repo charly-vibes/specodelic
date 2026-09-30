@@ -2,6 +2,11 @@
 #
 # Uses `just ci` to ensure parity between local and CI environments.
 # If CI fails, run `just ci` locally to reproduce the issue.
+#
+# Hardening (specodelic-oet): the ubuntu leg runs the full pipeline;
+# macOS/Windows legs run clippy + tests (cross-platform CLI contract);
+# a pinned MSRV job guards the declared rust-version; cargo-deny gates
+# advisories + licenses.
 
 name: CI
 
@@ -17,9 +22,9 @@ env:
 
 jobs:
   ci:
-    name: Test & Build
+    name: Full pipeline
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -36,8 +41,67 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v2
 
+      - name: Install openspec (pinned to the version the repo vendors)
+        run: npm install -g @fission-ai/openspec@0.19.0
+
       - name: Run CI pipeline
         run: just ci
 
-      - name: Dogfood - lint the spec corpus
-        run: just lint-specs
+  cross:
+    name: Clippy & tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Tests
+        run: cargo test
+
+  msrv:
+    name: MSRV (1.85)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust (pinned MSRV)
+        uses: dtolnay/rust-toolchain@1.85.0
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Tests on MSRV
+        run: cargo test
+
+  deny:
+    name: cargo-deny (advisories + licenses)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories licenses

@@ -51,7 +51,7 @@ pub struct Intent {
     pub kind: String,
     pub statement: String,
     /// Any extra frontmatter fields (e.g. `checked_against_core`).
-    pub extra: BTreeMap<String, serde_yaml::Value>,
+    pub extra: BTreeMap<String, serde_yaml_ng::Value>,
 }
 
 /// A parsed spec file.
@@ -203,7 +203,7 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
                 .into(),
         ));
     }
-    let fm: BTreeMap<String, serde_yaml::Value> = serde_yaml::from_str(&fm_raw)
+    let fm: BTreeMap<String, serde_yaml_ng::Value> = serde_yaml_ng::from_str(&fm_raw)
         .map_err(|e| ParseError::File("<frontmatter>".into(), e.to_string()))?;
     let get = |k: &str| -> Option<String> { fm.get(k).map(v_to_string) };
     let intent = Intent {
@@ -394,12 +394,12 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
     Ok(spec)
 }
 
-fn v_to_string(v: &serde_yaml::Value) -> String {
+fn v_to_string(v: &serde_yaml_ng::Value) -> String {
     match v {
-        serde_yaml::Value::String(s) => s.clone(),
-        serde_yaml::Value::Number(n) => n.to_string(),
-        serde_yaml::Value::Bool(b) => b.to_string(),
-        other => serde_yaml::to_string(other)
+        serde_yaml_ng::Value::String(s) => s.clone(),
+        serde_yaml_ng::Value::Number(n) => n.to_string(),
+        serde_yaml_ng::Value::Bool(b) => b.to_string(),
+        other => serde_yaml_ng::to_string(other)
             .unwrap_or_default()
             .trim()
             .to_string(),

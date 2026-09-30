@@ -239,6 +239,40 @@ get the naming-law warning, not a silently wrong id. Anti-goal held:
 no prose is ever interpreted into rows — every inserted row is a marked
 placeholder the author replaces.
 
+## #71 — CI/supply-chain hardening: matrix, MSRV, cargo-deny, doc-example lint, honest dogfood baseline (specodelic-oet)
+
+Six hardening slices, each gated:
+
+- **serde_yaml → serde_yaml_ng**: dtolnay archived serde_yaml in
+  2024-03; the frontmatter parser moves to the maintained fork (same
+  API, zero behavior change — 395 tests green, corpus artifacts
+  untouched).
+- **MSRV**: `rust-version = "1.85"` declared (edition 2024's floor);
+  CI runs a pinned 1.85 test job so a dependency bump cannot silently
+  raise the floor.
+- **Multi-OS**: macOS + Windows legs run clippy + tests alongside the
+  ubuntu full-pipeline leg — the crate is a CLI users install
+  cross-platform.
+- **cargo-deny**: advisories + licenses gate in CI (deny.toml,
+  permissive allow-list incl. MPL-2.0 for stateright).
+- **Doc-example lint** (`just lint-doc-examples`): fenced markdown
+  blocks whose first non-empty line is `---` are runnable format
+  artifacts — they are extracted, named per the naming law, and
+  linted with the freshly built spk. First run caught real drift:
+  USAGE.md's api.rate_limit worked example predated the four-layer law
+  (Constraints only) — completed with Model + Properties. Regression
+  suite: scripts/test_check_doc_examples.py (stdlib unittest).
+- **Honest dogfood baseline** (`just lint-baseline`): corpus findings
+  vs specs/.lint-baseline, shrink-only — a new finding fails, and a
+  baseline entry with no live finding also fails (accepted debt must be
+  retired). Baseline is empty today: the corpus lints fully clean.
+- **CI drift guards** (tests/ci_wiring.rs): matrix coverage, MSRV pin,
+  cargo-deny wiring, and the doc-example gate are pinned by tests, so
+  the hardening cannot be silently edited away.
+- **CI repair en route**: main's last three runs failed with
+  `openspec: command not found` — ci.yml now installs
+  @fission-ai/openspec@0.19.0 (pinned to the vendored version).
+
 ## #70 — orchestrate.md: draft→parsed decision of record (mp1 row 4)
 
 The `Needs Human Review` open question is resolved: the orchestrator

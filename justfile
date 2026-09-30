@@ -65,6 +65,19 @@ lint-deltas:
 sync-sections:
     python3 scripts/check_section_sync.py openspec
 
+# Lint fenced spec examples embedded in the corpus docs (USAGE.md's
+# quick-start blocks are runnable format artifacts — they drifted once,
+# specodelic-vpx; this gate keeps every frontmatter example lint-clean)
+lint-doc-examples:
+    python3 scripts/check_doc_examples.py specs
+
+# Honest dogfood gate: corpus findings vs the shrink-only baseline
+# (specs/.lint-baseline). Baseline is empty today — the corpus lints
+# fully clean — so this is strict zero-findings until an entry is added,
+# and an entry may only ever be REMOVED, never added.
+lint-baseline:
+    python3 scripts/check_lint_baseline.py specs
+
 # Tests for the section-sync script itself (stdlib unittest): drift
 # logic + the capability-format check (openspec/specs/<cap>/spec.md
 # must be dual-format — frontmatter-less capability specs fail CI;
@@ -102,7 +115,7 @@ docs-build:
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections sync-sections-test guard-siblings
+ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections sync-sections-test lint-doc-examples lint-baseline guard-siblings
 
 # Sibling-tool constraint guard (AGENTS.md hard blockers) — also wired into
 # pre-commit/pre-push via lefthook.yml and the .beads/hooks shim chain
