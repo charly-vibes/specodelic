@@ -247,12 +247,19 @@ Six hardening slices, each gated:
   2024-03; the frontmatter parser moves to the maintained fork (same
   API, zero behavior change — 395 tests green, corpus artifacts
   untouched).
-- **MSRV**: `rust-version = "1.85"` declared (edition 2024's floor);
-  CI runs a pinned 1.85 test job so a dependency bump cannot silently
-  raise the floor.
+- **MSRV**: `rust-version = "1.88"` declared and pinned in CI (edition
+  2024's floor is 1.85, but the dependency tree — icu 2.3 via miette —
+  requires 1.88; the declared floor matches the tree's real floor).
+  A pinned test job ensures a dependency bump cannot silently raise it
+  further without the declaration following.
 - **Multi-OS**: macOS + Windows legs run clippy + tests alongside the
   ubuntu full-pipeline leg — the crate is a CLI users install
-  cross-platform.
+  cross-platform. First Windows run surfaced two latent portability
+  bugs: the quick-start test's fence search was CRLF-sensitive, and
+  sibling_blockers spawned WSL's bash stub. Both fixed; guard-siblings'
+  hooksPath check now keys on sibling-tool CLAIMS (unset = compliant
+  with a note), which is the honest reading of the AGENTS.md blocker
+  and works on fresh CI clones.
 - **cargo-deny**: advisories + licenses gate in CI (deny.toml,
   permissive allow-list incl. MPL-2.0 for stateright).
 - **Doc-example lint** (`just lint-doc-examples`): fenced markdown
@@ -271,7 +278,10 @@ Six hardening slices, each gated:
   the hardening cannot be silently edited away.
 - **CI repair en route**: main's last three runs failed with
   `openspec: command not found` — ci.yml now installs
-  @fission-ai/openspec@0.19.0 (pinned to the vendored version).
+  @fission-ai/openspec@0.19.0 (pinned to the vendored version). The
+  spike-dual-format archive fixtures were completed to full dual
+  format (they carried `## ADDED Requirements` without the capability
+  half — the first thing `spk lint openspec` failed on in CI).
 
 ## #70 — orchestrate.md: draft→parsed decision of record (mp1 row 4)
 
