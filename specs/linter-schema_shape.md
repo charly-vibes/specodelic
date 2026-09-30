@@ -103,10 +103,16 @@ only the current file; `diffing` needs a prior revision, hence the new
 of any spec file's content — there is no generator that can produce a
 "bad" spec file to test this against, only an audit of whether the parser
 code path for `rationale`/`description` ever appears on the left side of a
-conditional. Marking this `Needs Human Review` rather than forcing it into
-the generator/predicate shape the other rows use: a static analysis of the
-parser's source (does the AST-walk function ever pattern-match on prose
-field contents) is the actual verification method, not a PBT run.
+conditional.
+
+**Decision of record (2026-09-30, user-approved; HITL ticket
+`specodelic-mp1` row 5, EXCL-001):** the audit framing was wrong — the
+claim is mechanically testable by a planted-prose differential parse
+(generate a spec with prose in `rationale`/`description`, parse, assert
+no parsed row contains it). The property is to be rewritten as a runnable
+`unit` row on that basis (lands with `specodelic-cxq`); no `audit` kind
+was added — `kinds.md` Revision 6 records the dissolution and `{unit,
+law}` stays closed. This row's `Needs Human Review` flag is retired.
 
 Checker Ownership table in `specodelic.md` is now fully accounted for
 except `linter-coverage.md`, the last remaining file.
@@ -129,7 +135,9 @@ revision to diff against — only the naming collapsed from three
 constraints to two. `constraint_kind_closed` widens again, to
 `{invariant, advisory, effect}`, in step with `kinds.md` Revision 3.
 `no_prose_field_parsed` remains the one row here still marked `Needs Human
-Review`; nothing in this pass touches it.
+Review`; nothing in this pass touches it. (Historical note: the flag was
+retired 2026-09-30 — see the decision of record above; this paragraph
+predates that.)
 
 **This pass (`specodelic.md` Revision 7):** `constraint_kind_closed`
 widens a third time, to `{invariant, advisory, effect, extension_point}`,

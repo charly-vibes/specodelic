@@ -6,6 +6,47 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #75 — mp1's final four rows decided: guard typing, reachability, EXCL-001, merge approval (of record)
+
+All ten HITL rows on `specodelic-mp1` are now decided — the last four via
+a grill session (one question per turn, each user-approved and advised by
+a typed Jev evaluation, `jev-1.13.0`):
+
+- **Row 7 — guard typing = hybrid** (jev 0.95, conf 0.93): a transition
+  guard may be prose, but when its gating condition corresponds to a
+  declared constraint it must cite that typed invariant Constraint. The
+  bridge pattern is precedented in the corpus (hooks capability spec,
+  specodelic-b15). Landed in `specodelic.md` Revision 10's Reference
+  Typing `guard` row; the target typing is unchanged.
+- **Row 8 — reachability = tiered own-file intent** (jev 0.95, conf
+  0.92): `single_root_reachable` reworded in Revision 10 — a row reaches
+  its own file's intent through own-file primary linkage
+  (`traces_to`/`derives_from` chains within the file); cross-file typed
+  edges (`guard`/`satisfies`/`observes`) are outbound leaves, never
+  reachability paths. Enforcement is tiered: cross-file-only rows are
+  advisory-flagged first; hard enforcement flips after corpus
+  reconciliation (`specodelic-cxq`) anchors the ~150 failures — cxq's
+  first step is the strict-reachability dry-run. The strict reading of
+  the old expr would fail ~150/375 corpus rows; the some-intent reading
+  the shipped checker implemented would silently accept a cross-feature
+  reference filed under the wrong id.
+- **Row 5 — EXCL-001 dissolved** (jev 1.00, conf 1.00): no `audit`
+  property kind; `kind ∈ {unit, law}` stays closed (`kinds.md` Revision
+  6). The single motivating claim (`no_prose_field_parsed`) is
+  mechanically testable by a planted-prose differential parse and will
+  be rewritten as a runnable `unit` property with cxq;
+  `linter-schema_shape.md`'s `Needs Human Review` flag is retired.
+- **Row 2 — merge approval semantics** (jev 1.00, conf 1.00): "a human
+  has explicitly approved" = an explicit, attributable, recorded
+  operator decision (deliberate approve step + decision-trail entry);
+  mechanism-agnostic floor, no CI gate or role assumed —
+  `merge.md` decision-of-record Notes paragraph, constraint text
+  unchanged (same treatment as rename.md row 1).
+
+Gates: lint-specs 21/0, graph 0 dangling, openspec strict 12/12.
+`specodelic-mp1` closed — **`specodelic-cxq` (corpus reconciliation) is
+the unblocked P2.**
+
 ## #74 — `linter.failure_shape` checker ships: the error contract's tier-2 half (specodelic-ct5)
 
 The three `specs/linter-failure_shape.md` rules are now enforced by

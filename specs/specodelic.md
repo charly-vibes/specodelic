@@ -33,7 +33,7 @@ the project/format/tool/subject terminology).
 | properties_pass          | invariant | `all compiled proptest! blocks pass`                                       | [[specodelic]]  |
 | id_matches_file          | invariant | `frontmatter.id == replace(stem(path), "-", ".")` — `-` maps only to the namespace dot; `_` is preserved literally within a segment. E.g. `linter-graph_shape.md` declares `id: linter.graph_shape` | [[specodelic]]  |
 | ref_kind_compatible      | invariant | `∀ ref: target.kind ∈ allowed_targets(field)` — see Reference Typing below | [[specodelic]]  |
-| single_root_reachable    | invariant | `∀ constraint/property/state/transition row in file: reachable(row, file's own intent row)` | [[specodelic]]  |
+| single_root_reachable    | invariant | `∀ constraint/property/state/transition row in file: the row reaches the file's own intent row through own-file primary linkage (traces_to/derives_from chains resolved within the file)` — cross-file typed edges (`guard` citations of foreign constraints, `satisfies`, `observes`) are outbound leaves, never reachability paths | [[specodelic]]  |
 | every_state_used         | invariant | `∀ state: state appears as from or to in ≥ 1 transition`                   | [[specodelic]]  |
 | every_transition_valid   | invariant | `∀ transition: from ∈ states and to ∈ states`                              | [[specodelic]]  |
 | constraint_kind_closed   | invariant | `∀ Constraint row: row.kind ∈ {invariant, advisory, effect, extension_point}` — see [[kinds.constraint_row_shape]] | [[specodelic]]  |
@@ -50,7 +50,7 @@ is a [typed foreign key](theory.md#typed-foreign-keys-generating-morphisms).
 |---------------|-------------|-------------------|
 | `traces_to`   | Constraint  | Intent            |
 | `derives_from`| Property    | Constraint        |
-| `guard`       | Transition  | Constraint, kind == `invariant` only — an `advisory` Constraint can never gate a transition, by typing, not by convention |
+| `guard`       | Transition  | Constraint, kind == `invariant` only — an `advisory` Constraint can never gate a transition, by typing, not by convention. A guard may be prose; when its gating condition corresponds to a declared constraint, the guard must cite it — a prose-only guard is machine-uninterpreted (the model-check backend reports `invariants_checked: []`) |
 | `from` / `to` | Transition  | State             |
 | `supersedes`  | Constraint, Property | same kind as the row it appears on (Constraint→Constraint, Property→Property) |
 | `emits`       | State       | Constraint, kind == `effect` only — a state's declared Moore-machine output; optional and absent on a state with no output of its own |
@@ -556,3 +556,43 @@ nothing observes and lint clean.
 
 No variant table changed — one new Reference Typing row, grown under
 this heading per `append_only_variants`.
+
+## Revision 10
+
+Two long-standing "Needs Human Review" questions were decided of record
+(HITL ticket `specodelic-mp1` rows 7 and 8, user-approved 2026-09-30,
+advised by typed Jev evaluations, jev-1.13.0):
+
+- **Guard typing — hybrid** (row 7). A transition guard may be prose,
+  but when its gating condition corresponds to a declared constraint,
+  the guard must cite it. The Reference Typing table's `guard` row
+  carries the rule; the target typing is unchanged (`Constraint`,
+  kind == `invariant` only). This is the only policy consistent with
+  both halves of the format's own philosophy: `guard` is a typed
+  foreign key (machine-readable edges exist where constraints exist),
+  yet `prose_untouched` and the model-check reality (prose guards are
+  uninterpreted — `invariants_checked: []`) mean banning prose outright
+  buys nothing. The bridge pattern is precedented in the corpus: the
+  hooks capability spec's guards were bridged by appending typed
+  citations to their prose. Banning prose would churn ~48 corpus rows
+  into invented one-off constraint rows; leaving prose uncited strands
+  half the corpus outside the typed graph.
+- **Reachability — tiered own-file intent** (row 8).
+  `single_root_reachable` is reworded: a row reaches the file's OWN
+  intent through own-file primary linkage (`traces_to`/`derives_from`
+  chains resolved within the file); cross-file typed edges (`guard`
+  citations of foreign constraints, `satisfies`, `observes`) are
+  outbound leaves, never reachability paths — exactly the wording the
+  table already gives `satisfies`/`observes` ("not a second reachability
+  edge"). Enforcement is tiered: rows whose only connection is
+  cross-file are advisory-flagged first; hard enforcement flips after
+  corpus reconciliation (specodelic-cxq) anchors them. The strict
+  own-file reading the old expr implied would fail ~150 of 375 corpus
+  rows, much of it legitimate cross-file structure; the looser
+  some-intent reading the shipped checker implemented silently accepts
+  a cross-feature reference filed under the wrong id. Tiering keeps the
+  wrong-file catch without a churn cliff.
+
+No variant table changed — two existing rows reworded under this
+heading per `append_only_variants`; the `guard` field's target set is
+narrowed not at all and the kind sets are untouched.

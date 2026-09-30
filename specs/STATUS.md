@@ -313,25 +313,28 @@ high, unrelated fan-in as a tidy-first split candidate, always non-gating
 needed, see `orchestrate.md`'s Notes); `merge.md` uses it to catch what a
 textual git merge can't see — id collisions and a rename left dangling by
 a reference minted on a different branch — before reporting a merge
-complete. Three `Needs Human Review` items opened, none resolved yet:
+complete. Three `Needs Human Review` items opened; two resolved
+2026-09-30:
 - `graph.md`: whether `linter-referential_integrity.md` and
   `linter-graph_shape.md` should be refactored to query this artifact
   internally instead of independently re-deriving reachability.
-- `refactor.md`: whether "unrelated fan-in" should key off the id
-  namespace or physical directory placement, since a flat namespace
-  convention would make the advisory fire on almost everything.
-- `merge.md`: what "a human has explicitly approved" a flagged merge
-  means operationally (a review comment, a CI gate, a role) — left open
-  the same way `rename.md` leaves batch-rename atomicity open.
+- `refactor.md`: RESOLVED (HITL `specodelic-mp1` row 3): unrelated
+  fan-in keys off the id namespace ("shares no namespace segment below
+  root" stands as written); physical directory placement rejected.
+- `merge.md`: RESOLVED (HITL `specodelic-mp1` row 2): "a human has
+  explicitly approved" means an explicit, attributable, recorded
+  operator decision — mechanism-agnostic floor, no gate or role
+  assumed. See `merge.md`'s decision-of-record Notes paragraph.
 
-### One acknowledged loose end inside an existing file
-`linter-schema_shape.md`'s `no_prose_field_parsed` property doesn't fit
-the generator/predicate shape every other property here uses — it's a
-claim about the parser's own implementation (verified by code audit, not
-by a runnable PBT case), not a claim about spec-file content. This is
-flagged in that file as `Needs Human Review` and hasn't been resolved;
-it may need a sixth property `kind` (e.g. `kind = "audit"`) added to the
-schema rather than being forced into `unit`/`law`.
+### One acknowledged loose end inside an existing file — RESOLVED
+`linter-schema_shape.md`'s `no_prose_field_parsed` was flagged as not
+fitting the generator/predicate shape ("verified by code audit, not by a
+runnable PBT case"). Decided of record 2026-09-30 (HITL ticket
+`specodelic-mp1` row 5): the claim is mechanically testable by a
+planted-prose differential parse, so it will be rewritten as a runnable
+`unit` property (lands with `specodelic-cxq`) and **no `audit` kind is
+added** — `kinds.md` Revision 6 records the dissolution; `kind ∈ {unit,
+law}` stays closed.
 
 ### One guideline, three instances (not three unrelated items)
 `CLAR-001`, `CLAR-002`, and `CLAR-003` were originally filed separately;
@@ -357,10 +360,10 @@ disambiguating-rename treatment applied to all three in one Revision:
   `specodelic.no_counterexample`), already spelled out in `model_check.md`'s
   Notes but not fixed by renaming the state.
 - **EXCL-001**: a related but distinct shape (a missing `kind`, not a
-  confusable name) — add a `kind = "audit"` property type in a future
-  revision. Now homed in `kinds.md`'s `property_row_shape` constraint
-  (`kind ∈ {unit, law}`); actioning this means a Revision to `kinds.md`,
-  not just `linter-schema_shape.md`.
+  confusable name) — RESOLVED by dissolution 2026-09-30 (`specodelic-mp1`
+  row 5): no `audit` kind; the single motivating claim becomes a runnable
+  `unit` property instead. See `kinds.md` Revision 6 and the "One
+  acknowledged loose end" section above.
 
 ---
 

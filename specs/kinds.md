@@ -204,3 +204,24 @@ table governs.
 
 Row shape is otherwise untouched — the same
 general-rule-instead-of-special-case move as `kind_field_extensible`.
+
+## Revision 6
+
+`EXCL-001` is resolved by dissolution — `property_row_shape`'s kind set
+stays `{unit, law}` and no `audit` member is added (HITL ticket
+`specodelic-mp1` row 5, user-approved 2026-09-30, advised by a typed Jev
+evaluation, jev-1.13.0, confidence 1.00).
+
+The only instance that ever motivated an `audit` kind was
+`linter-schema_shape.md`'s `no_prose_field_parsed` — a claim about the
+parser's implementation, framed as "verified by code audit, not by a
+runnable PBT case". That framing was wrong: the claim is mechanically
+testable by a planted-prose differential parse (generate a spec with
+prose in `rationale`/`description`, parse, assert no parsed row contains
+it). An enum member whose definition is "not machine-verified" would
+crack the format's promise that Properties are runnable, and
+`kind_field_extensible` should be spent when the shape genuinely needs
+it — not on a singleton. The rewrite of that property to a runnable
+`unit` row lands with the corpus-reconciliation work (`specodelic-cxq`);
+a genuinely unrunnable implementation claim remains a possible future
+widening, on demand and under a Revision heading, as always.

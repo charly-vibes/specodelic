@@ -116,11 +116,25 @@ ability to tell which branch's change reached which id.
 transition performs — this file only decides *when* a cross-branch replay
 is required, never how the rewrite itself works.
 
-**Open question, `Needs Human Review`:** what "a human has explicitly
-approved" (the `resolved` transition's guard) means operationally — a
-required approving review comment, a CI gate, a specific role — is left
-unspecified here, the same way `rename.md` leaves batch-rename atomicity
-open rather than assuming an answer.
+**Decision of record (2026-09-30, user-approved; HITL ticket `specodelic-mp1`
+row 2):** "a human has explicitly approved" means an explicit, attributable,
+recorded human decision by the operator — a deliberate approve step (never
+inferred, timed-out into, or defaulted) whose decision lands in the repo's
+decision trail (change notes / ticket). No CI gate or role requirement is
+assumed: the format describes tool contracts, not hosting policy, and an
+implementation may layer a gate or role on top, but the floor the
+`resolved` guard checks is the attributable operator decision itself. CI
+gates and roles were deliberately excluded — both presume infrastructure
+the spec cannot see, whereas a recorded operator decision is checkable by
+the merge lifecycle itself. This paragraph records the decision; constraint
+text is unchanged, same treatment as `rename.md`'s batch-rename decision.
+
+**Resolved question (was `Needs Human Review`):** what "a human has
+explicitly approved" (the `resolved` transition's guard) means operationally
+is now decided — see the decision of record above. The mechanism-agnostic
+floor stands: an attributable operator decision, recorded in the repo's
+decision trail; gates and roles are layers an implementation may add, not
+assumptions the format makes.
 
 **Open question, relationship to `refactor.md`:** a blast-radius
 intersection that triggers `needs_review` here may also be exactly the
