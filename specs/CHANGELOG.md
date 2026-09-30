@@ -6,6 +6,32 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #80 — `spk verify --timeout-secs`: wall-clock bound on the runner's cargo run (specodelic-xx1)
+
+The bc39f9d..main Ro5's advisory DoS finding, closed: `CargoRunner`
+executed the scratch `cargo test` unbounded, so a pathological
+(user-authored) predicate could hang `spk verify` forever — the same
+flavor specodelic-suz fixed on the ingest path, cargo-test domain.
+
+`run_bounded` (the `run_tlc` try_wait/kill poll pattern) wraps the
+whole cargo run (build + test) under a wall-clock bound:
+`--timeout-secs <N>` (default 600, `0` = unbounded). A run exceeding
+the bound is killed, reaped, and its partial output captured — libtest's
+"has been running for over N seconds" lines name the hanging block — and
+reported as a labeled failure, never a silent hang.
+
+The label is deliberately its own verdict stage: the new
+`PropsGateState::TimedOut { secs, detail }` maps to status
+`properties_timed_out` with a raise-the-bound-or-pass-0 hint, distinct
+from `properties_failed` (spec: new `bounded_wall_clock` invariant +
+`hang_reported_as_labeled_timeout` unit property in `verify.md`) —
+a timeout is no verdict on the property, so a legitimately long suite
+is re-run with a raised bound instead of misread as a failing predicate.
+
+TDD: 5 new unit tests (bounded completion, unbounded escape hatch,
+hang kill → labeled `TimedOut` with partial output, kill reaps the
+child, gate/verdict mapping distinct from `Failed`).
+
 ## #79 — Reference Typing `guard` row reconciled with the shipped State-citation typing; specodelic.md Revision 12 (specodelic-tik)
 
 The independent reference oracle's KNOWN GAP, closed: the cxq

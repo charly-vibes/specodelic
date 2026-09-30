@@ -196,6 +196,11 @@ enum Commands {
         /// out-dir — verify never re-compiles)
         #[arg(long, default_value = "specodelic")]
         out_dir: String,
+        /// Wall-clock bound in seconds on the verify runner's cargo test
+        /// run — a hanging predicate is killed and reported as a labeled
+        /// timeout, never a silent hang. 0 runs unbounded.
+        #[arg(long, default_value_t = verify::DEFAULT_VERIFY_TIMEOUT_SECS)]
+        timeout_secs: u64,
     },
     /// Rename a spec row id, updating the definition and every [[link]]
     /// atomically (all-or-nothing, verified against the linters)
@@ -775,9 +780,19 @@ fn run(
             stdout,
             stderr,
         ),
-        Commands::Verify { paths, out_dir } => {
-            cmd_verify(paths, out_dir, format, verbosity, stdout, stderr)
-        }
+        Commands::Verify {
+            paths,
+            out_dir,
+            timeout_secs,
+        } => cmd_verify(
+            paths,
+            out_dir,
+            *timeout_secs,
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        ),
         Commands::Rename {
             old_id,
             new_id,
@@ -1851,6 +1866,7 @@ fn cmd_orchestrate(
 fn cmd_verify(
     paths: &[String],
     out_dir: &str,
+    timeout_secs: u64,
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl std::io::Write,
@@ -1872,7 +1888,11 @@ fn cmd_verify(
         return 2;
     }
 
-    let runner = verify::CargoRunner;
+    // 0 = unbounded (the one documented escape hatch for legitimately
+    // long suites); the default bounds a hanging predicate.
+    let runner = verify::CargoRunner {
+        timeout_secs: (timeout_secs > 0).then_some(timeout_secs),
+    };
     let mut verified: Vec<serde_json::Value> = vec![];
     let mut blocked: Vec<serde_json::Value> = vec![];
     for spec in &specs {
@@ -1948,11 +1968,15 @@ fn props_gate_json(gate: &verify::PropertiesGate) -> serde_json::Value {
         verify::PropsGateState::MissingArtifact => "missing_artifact",
         verify::PropsGateState::Uncompilable(_) => "uncompilable",
         verify::PropsGateState::RunnerUnavailable(_) => "runner_unavailable",
+        verify::PropsGateState::TimedOut { .. } => "timed_out",
     };
     let detail = match &gate.state {
         verify::PropsGateState::Failed(s)
         | verify::PropsGateState::Uncompilable(s)
         | verify::PropsGateState::RunnerUnavailable(s) => Some(s.clone()),
+        verify::PropsGateState::TimedOut { secs, detail } => Some(format!(
+            "{secs}s wall-clock bound hit; partial output: {detail}"
+        )),
         _ => None,
     };
     serde_json::json!({

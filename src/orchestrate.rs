@@ -430,7 +430,7 @@ fn run_model_check_stage(
 /// execute and pass, AND model_check's most recent run against the
 /// current artifact is clean. The conjunction is verify::verdict's.
 fn run_verify_stage(specs: &[Spec], out_dir: &str) -> Stage {
-    let runner = verify::CargoRunner;
+    let runner = verify::CargoRunner::default();
     let dir = std::path::Path::new(out_dir);
     let mut verified: Vec<serde_json::Value> = vec![];
     let mut blocked: Vec<serde_json::Value> = vec![];

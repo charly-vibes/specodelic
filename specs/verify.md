@@ -25,6 +25,7 @@ into the one fact `specodelic.md`'s lifecycle calls `verified`.
 | both_gates_required                 | invariant | `verify only transitions a file to verified when both [[specodelic.no_counterexample]] (model_check.md's clean outcome) and [[specodelic.properties_pass]] hold — passing properties alone, or a clean model alone, is insufficient` | [[verify]] |          |
 | law_cases_unexecuted                   | invariant | `for a law-kind property compiled into multiple blocks (one per required case), all compiled blocks must pass — a partial pass (identity passes, associativity fails) is a failure of the property, not a partial success` | [[verify]] |          |
 | verify_is_idempotent                | invariant | `re-running verify against an unchanged compiled artifact yields the same pass/fail outcome as the prior run, even though proptest may resample inputs each run for coverage` | [[verify]] |          |
+| bounded_wall_clock                  | invariant | `the verify runner bounds its cargo test run on a wall-clock clock (default 600s, `--timeout-secs 0` disables the bound); a run exceeding the bound is killed and reported as a labeled timeout — never a silent hang, and never indistinguishable from a block failure` | [[verify]] |          |
 | verification_failure | effect | `verify.verification_failure(detail)` | [[verify]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
@@ -58,6 +59,7 @@ into the one fact `specodelic.md`'s lifecycle calls `verified`.
 | partial_law_case_rejected          | unit | [[verify.law_cases_unexecuted]]                                | `law_property_with(identity_case: "pass", associativity_case: "fail")`             | `check(property) == failed`                                          |
 | rerun_matches_prior_outcome        | unit | [[verify.verify_is_idempotent]]                             | `(run_1, run_2)` on an unchanged compiled artifact                                | `outcome(run_1) == outcome(run_2)`                                   |
 | verification_failure_label_asserted | unit | [[verify.verification_failure]] | `verification_failure_raised()` | `error_label == "verify.verification_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| hang_reported_as_labeled_timeout    | unit | [[verify.bounded_wall_clock]] | `runner_with(predicate_that_never_terminates, timeout: 1)` | `check(run) == timeout_labeled ∧ outcome(run) ≠ failed` — a timeout is no verdict on the property: distinct from properties_failed so a legitimately long suite can be re-run with a raised bound instead of misread as a failing predicate |
 ## Notes
 
 **This closes `STATUS.md` §4's P0.** The three pipeline items —

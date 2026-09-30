@@ -42,6 +42,10 @@ pub mod spec_gen {
         Just(GenVal("verification_failure_raised".into()))
     }
 
+    pub fn runner_with() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("runner_with".into()))
+    }
+
 }
 
 proptest! {
@@ -121,6 +125,16 @@ proptest! {
     #[test]
     fn verification_failure_label_asserted(v0 in spec_gen::verification_failure_raised()) {
         todo_predicate!("`error_label == \"verify.verification_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: hang_reported_as_labeled_timeout
+    // generator: `runner_with(predicate_that_never_terminates, timeout: 1)`
+    // predicate: `check(run) == timeout_labeled ∧ outcome(run) ≠ failed` — a timeout is no verdict on the property: distinct from properties_failed so a legitimately long suite can be re-run with a raised bound instead of misread as a failing predicate
+    #[test]
+    fn hang_reported_as_labeled_timeout(v0 in spec_gen::runner_with()) {
+        todo_predicate!("`check(run) == timeout_labeled ∧ outcome(run) ≠ failed` — a timeout is no verdict on the property: distinct from properties_failed so a legitimately long suite can be re-run with a raised bound instead of misread as a failing predicate");
     }
 }
 

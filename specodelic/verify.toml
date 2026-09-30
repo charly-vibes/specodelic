@@ -37,6 +37,12 @@ expr = "`re-running verify against an unchanged compiled artifact yields the sam
 traces_to = "[[verify]]"
 
 [[constraints]]
+id = "bounded_wall_clock"
+kind = "invariant"
+expr = "`the verify runner bounds its cargo test run on a wall-clock clock (default 600s, `--timeout-secs 0` disables the bound); a run exceeding the bound is killed and reported as a labeled timeout — never a silent hang, and never indistinguishable from a block failure`"
+traces_to = "[[verify]]"
+
+[[constraints]]
 id = "verification_failure"
 kind = "effect"
 expr = "`verify.verification_failure(detail)`"

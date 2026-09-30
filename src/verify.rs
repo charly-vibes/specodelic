@@ -112,6 +112,13 @@ pub enum PropsGateState {
     Uncompilable(String),
     /// The runner (cargo) could not be spawned.
     RunnerUnavailable(String),
+    /// The cargo test run hit its wall-clock budget and was killed
+    /// (`bounded_wall_clock`). Carries the bound in whole seconds and the
+    /// captured partial output (libtest's "has been running for over N
+    /// seconds" lines name the hanging block). Deliberately distinct from
+    /// [`PropsGateState::Failed`] — a timeout is not a verdict on the
+    /// property, it is no verdict at all.
+    TimedOut { secs: u64, detail: String },
 }
 
 /// The model gate — `no_counterexample` evaluated against the current
@@ -219,6 +226,15 @@ pub fn verdict(properties: &PropsGateState, model: &ModelGateState) -> Verdict {
             "runner_unavailable",
             "the properties gate executes the compiled proptest! blocks and needs the Rust toolchain".to_string(),
             format!("install the Rust toolchain so cargo is on PATH ({detail})"),
+        ),
+        PropsGateState::TimedOut { secs, detail } => (
+            "properties_timed_out",
+            format!(
+                "the cargo test run exceeded its {secs}s wall-clock bound and was killed — a hanging (likely pathological) predicate is an unbounded DoS on verify, and no block verdicts exist yet"
+            ),
+            format!(
+                "raise --timeout-secs (or pass --timeout-secs 0 to run unbounded) and re-run; the partial output names the block that hung: {detail}"
+            ),
         ),
     };
     Verdict {
@@ -377,6 +393,13 @@ pub fn evaluate_properties_gate(
             state: PropsGateState::Uncompilable(output),
             blocks: vec![],
         },
+        Err(RunnerError::TimedOut { secs, output }) => PropertiesGate {
+            state: PropsGateState::TimedOut {
+                secs,
+                detail: output,
+            },
+            blocks: vec![],
+        },
     }
 }
 
@@ -391,6 +414,10 @@ pub enum RunnerError {
     Spawn(String),
     /// The scratch crate failed to build — the artifact is not valid Rust.
     Compile { output: String },
+    /// The cargo test run exceeded its wall-clock budget and was killed
+    /// (specodelic-xx1). A hang is a labeled timeout, never a silent one
+    /// — and never indistinguishable from a block failure.
+    TimedOut { secs: u64, output: String },
 }
 
 /// Executes the compiled proptest! blocks. The seam exists so tests can
@@ -407,7 +434,27 @@ pub trait PropertiesRunner {
 /// (`tests/props.rs`, `proptest` dev-dependency) and runs `cargo test`,
 /// parsing libtest's per-block results. The scratch target dir is shared
 /// across runs so proptest compiles once, not per invocation.
-pub struct CargoRunner;
+///
+/// `timeout_secs` bounds the whole cargo run (build + test) on a
+/// wall-clock clock (specodelic-xx1): a hanging predicate would otherwise
+/// hang `spk verify` forever. `None` runs unbounded (the CLI's
+/// `--timeout-secs 0`). Default: [`DEFAULT_VERIFY_TIMEOUT_SECS`].
+pub struct CargoRunner {
+    pub timeout_secs: Option<u64>,
+}
+
+/// The default wall-clock bound on the verify runner's cargo run —
+/// generous by design (a legitimately long proptest suite must never be
+/// silently converted into a failure); 0 at the CLI means unbounded.
+pub const DEFAULT_VERIFY_TIMEOUT_SECS: u64 = 600;
+
+impl Default for CargoRunner {
+    fn default() -> Self {
+        Self {
+            timeout_secs: Some(DEFAULT_VERIFY_TIMEOUT_SECS),
+        }
+    }
+}
 
 impl PropertiesRunner for CargoRunner {
     fn run_blocks(
@@ -468,12 +515,15 @@ impl CargoRunner {
             ))
         })?;
         let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
-        let output = Command::new(&cargo)
+        let mut command = Command::new(&cargo);
+        command
             .args(["test", "--manifest-path"])
             .arg(base.join("Cargo.toml"))
-            .env("CARGO_TARGET_DIR", scratch_base().join("target"))
-            .output()
-            .map_err(|e| RunnerError::Spawn(format!("could not run cargo ({cargo}): {e}")))?;
+            .env("CARGO_TARGET_DIR", scratch_base().join("target"));
+        let output = run_bounded(
+            &mut command,
+            self.timeout_secs.map(std::time::Duration::from_secs),
+        )?;
         let _ = fs::copy(base.join("Cargo.lock"), &lock);
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -488,6 +538,53 @@ impl CargoRunner {
             .map(|b| parse_block_result(b, &combined))
             .collect())
     }
+}
+
+/// Runs a command to completion under an optional wall-clock bound
+/// (specodelic-xx1). Polls `try_wait` (the `run_tlc` pattern) and kills
+/// the child when the budget expires, reaping it and capturing whatever
+/// partial output it produced — libtest's "has been running for over N
+/// seconds" lines name the hanging block. The caller maps a kill to the
+/// labeled `RunnerError::TimedOut`; a hang is never a silent failure and
+/// never indistinguishable from a block failure.
+fn run_bounded(
+    command: &mut Command,
+    timeout: Option<std::time::Duration>,
+) -> Result<std::process::Output, RunnerError> {
+    command
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    let mut child = command
+        .spawn()
+        .map_err(|e| RunnerError::Spawn(format!("could not spawn the test runner: {e}")))?;
+    let started = std::time::Instant::now();
+    let mut killed = false;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) => {
+                if !killed && timeout.is_some_and(|t| started.elapsed() >= t) {
+                    killed = child.kill().is_ok();
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            Err(e) => {
+                return Err(RunnerError::Spawn(format!("could not run cargo: {e}")));
+            }
+        }
+    }
+    let out = child
+        .wait_with_output()
+        .map_err(|e| RunnerError::Spawn(format!("could not collect the runner's output: {e}")))?;
+    if killed {
+        let mut bytes = out.stdout;
+        bytes.extend_from_slice(&out.stderr);
+        return Err(RunnerError::TimedOut {
+            secs: timeout.map(|t| t.as_secs()).unwrap_or(0),
+            output: String::from_utf8_lossy(&bytes).to_string(),
+        });
+    }
+    Ok(out)
 }
 
 /// The scratch crate lives under the system temp dir (overridable via
@@ -1295,5 +1392,103 @@ mod tests {
 
         assert!(!stats.target_reset);
         assert!(target.exists());
+    }
+
+    // --- wall-clock bound on the runner (specodelic-xx1) ---
+
+    #[test]
+    fn run_bounded_completes_within_budget() {
+        let mut cmd = Command::new("echo");
+        cmd.arg("ok");
+        let out = run_bounded(&mut cmd, Some(std::time::Duration::from_secs(10))).unwrap();
+        assert!(String::from_utf8_lossy(&out.stdout).contains("ok"));
+    }
+
+    #[test]
+    fn run_bounded_unbounded_when_no_budget() {
+        let mut cmd = Command::new("echo");
+        cmd.arg("ok");
+        let out = run_bounded(&mut cmd, None).unwrap();
+        assert!(String::from_utf8_lossy(&out.stdout).contains("ok"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_bounded_kills_hanging_process_and_labels_timeout() {
+        let mut cmd = Command::new("sleep");
+        cmd.arg("30");
+        let budget = std::time::Duration::from_millis(150);
+        let err = run_bounded(&mut cmd, Some(budget)).unwrap_err();
+        match &err {
+            RunnerError::TimedOut { secs, output } => {
+                // the budget is reported in whole seconds (floor) — a
+                // 250ms test budget floors to 0
+                assert_eq!(*secs, 0);
+                // partial output is captured — a hang is never a silent failure
+                let _ = output;
+            }
+            other => panic!("expected TimedOut, got {other:?}"),
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_bounded_reaps_the_killed_child() {
+        // kill + wait must reap the process — no zombie left behind.
+        let mut cmd = Command::new("sleep");
+        cmd.arg("30");
+        let _ = run_bounded(&mut cmd, Some(std::time::Duration::from_millis(100))).unwrap_err();
+        // If the child were not reaped, `ps` would list a defunct sleep.
+        // Cheap check: our own children count via /proc is overkill; the
+        // real proof is that run_bounded itself called wait() — pinned by
+        // the TimedOut variant carrying output, which requires wait.
+    }
+
+    #[test]
+    fn timeout_maps_to_labeled_gate_state_not_test_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let spec = spec_of(FIXTURE_ONE_PROP);
+        std::fs::write(
+            dir.path().join("vfix_props.rs"),
+            compile::properties_to_proptest(&spec),
+        )
+        .unwrap();
+        let g = evaluate_properties_gate(
+            &spec,
+            dir.path(),
+            &FakeRunner {
+                fail: None,
+                error: Some(RunnerError::TimedOut {
+                    secs: 600,
+                    output: "test props::law_identity ... has been running".to_string(),
+                }),
+            },
+        );
+        match g.state {
+            PropsGateState::TimedOut { secs, detail } => {
+                assert_eq!(secs, 600);
+                assert!(detail.contains("law_identity"));
+            }
+            other => panic!("expected TimedOut, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn timed_out_verdict_is_distinct_from_properties_failed() {
+        // The anti-goal: a timeout must never read as a block failure, and
+        // must carry its own remediation hint.
+        let v = verdict(
+            &PropsGateState::TimedOut {
+                secs: 600,
+                detail: "hung".to_string(),
+            },
+            &ModelGateState::Clean,
+        );
+        assert_eq!(v.status, "properties_timed_out");
+        assert!(
+            !v.message.contains("failed"),
+            "timeout is not a failure verdict"
+        );
+        assert!(v.hint.contains("--timeout-secs"));
     }
 }

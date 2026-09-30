@@ -125,12 +125,19 @@ green stage:
   `no_counterexample` — which the native backend never reports
   (`exploration_only` is explicitly not clean).
 
+`--timeout-secs <N>` (default 600; `0` = unbounded) bounds the whole
+cargo run on a wall-clock clock: a hanging (likely pathological)
+predicate is killed and reported as a labeled `properties_timed_out`
+block — never a silent hang, and never indistinguishable from a test
+failure (no block verdicts exist after a kill, so the bound is raised
+and the run repeated, not misread as a failing property).
+
 `.data.status` is `verified` exactly under the conjunction, else the
 first blocking stage (`missing_properties_artifact`,
 `stale_properties_artifact`, `properties_failed`,
-`properties_uncompilable`, `runner_unavailable`, `missing_model_run`,
-`stale_model_run`, `model_not_clean`). Verify never re-compiles and
-never re-runs the model checker.
+`properties_timed_out`, `properties_uncompilable`, `runner_unavailable`,
+`missing_model_run`, `stale_model_run`, `model_not_clean`). Verify never
+re-compiles and never re-runs the model checker.
 
 The properties gate's scratch crate lives under the system temp dir
 (`specodelic-verify/`), with a shared `target/` dir so proptest
