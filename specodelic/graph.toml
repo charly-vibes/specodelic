@@ -9,7 +9,7 @@ traces_to = "[[graph]]"
 [[constraints]]
 id = "total_extraction"
 kind = "invariant"
-expr = "`∀ reference field instance (traces_to/derives_from/guard/from/to/supersedes/emits) in any parsed file: exactly one corresponding edge exists in the graph` — a guard's conjunction of several `[[id]]` citations counts as one edge per citation, not one edge per transition"
+expr = "`∀ reference field instance (traces_to/derives_from/guard/from/to/supersedes/emits/observes) in any parsed file: exactly one corresponding edge exists in the graph` — a guard's conjunction of several `[[id]]` citations counts as one edge per citation, not one edge per transition"
 traces_to = "[[graph]]"
 
 [[constraints]]
@@ -34,4 +34,10 @@ traces_to = "[[graph]]"
 id = "stale_graph_detected"
 kind = "invariant"
 expr = "`∃ file whose on-disk content hash differs from the hash recorded at the artifact's last extraction ⟹ the artifact reports itself stale rather than silently serving an outdated query result`"
+traces_to = "[[graph]]"
+
+[[constraints]]
+id = "external_boundary_derived"
+kind = "invariant"
+expr = "`a file is classified as an external boundary iff it hosts ≥1 extension_point Constraint — the classification is a pure derivation over extracted structure, never an authored tag: removing the rows removes the classification, so a stale boundary tag cannot exist`"
 traces_to = "[[graph]]"

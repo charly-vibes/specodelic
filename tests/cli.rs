@@ -150,7 +150,7 @@ fn lint_corpus_is_fully_clean() {
     let out = spk().args(["lint", "specs", "--json"]).output().unwrap();
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let data = &json["data"];
-    assert_eq!(data["files_linted"], 18);
+    assert_eq!(data["files_linted"], 19);
     let issues = data["issues"].as_array().unwrap();
     assert!(issues.is_empty(), "corpus lint findings: {issues:?}");
     assert_eq!(out.status.code(), Some(0));
@@ -898,7 +898,7 @@ fn compile_corpus_succeeds_and_reports_all_artifacts() {
     let data = &json["data"];
     assert_eq!(data["files_failed"], 0);
     // 18 corpus spec files (the exemption list's non-spec files are skipped)
-    assert_eq!(data["files_compiled"], 18);
+    assert_eq!(data["files_compiled"], 19);
     for f in data["compiled"].as_array().unwrap() {
         assert!(
             f["artifacts"]["toml"]
@@ -1040,7 +1040,7 @@ fn explain_known_topic_works_offline_in_consumer_dir() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["ok"], true);
     assert_eq!(json["data"]["topic"], "format");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 8");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 9");
     let body = json["data"]["body"].as_str().unwrap();
     assert!(body.contains("## Constraints"));
     assert!(body.contains("## Properties"));
@@ -1109,7 +1109,7 @@ fn version_json_reports_format_revision() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["envelope_kind"], "version");
     assert_eq!(json["data"]["name"], "specodelic");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 8");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 9");
 }
 
 #[test]
@@ -1143,7 +1143,7 @@ fn doctor_consumer_with_corpus_reports_format_revision() {
     let json: serde_json::Value =
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["data"]["mode"], "consumer");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 8");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 9");
 }
 
 #[test]
@@ -1164,7 +1164,7 @@ fn doctor_empty_consumer_suggests_new() {
 #[test]
 fn doctor_warns_when_binary_lags_corpus() {
     // synthetic corpus declares Revision 99 while the binary embeds
-    // Revision 8 → warning naming both revisions, exit 0 (never fails)
+    // Revision 9 → warning naming both revisions, exit 0 (never fails)
     let dir = tempfile::tempdir().unwrap();
     let specs = dir.path().join("specs");
     std::fs::create_dir(&specs).unwrap();
@@ -1190,7 +1190,7 @@ fn doctor_warns_when_binary_lags_corpus() {
         .map(|w| w["message"].as_str().unwrap().to_string())
         .collect();
     assert!(
-        warnings.iter().any(|w| w.contains("99") && w.contains("8")),
+        warnings.iter().any(|w| w.contains("99") && w.contains("9")),
         "warning names both revisions: {warnings:?}"
     );
 }
@@ -1335,7 +1335,7 @@ fn init_injects_specodelic_block_into_agents_md() {
     // block content is self-describing: rule catalog + revision + commands
     assert!(agents.contains("linter.ears_syntax"));
     assert!(agents.contains("linter.frontmatter_valid"));
-    assert!(agents.contains("specodelic.md Revision 8"));
+    assert!(agents.contains("specodelic.md Revision 9"));
     assert!(agents.contains("spk lint"));
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(json["data"]["block"], "injected");
@@ -2804,10 +2804,7 @@ fn observes_wrong_target_rejected_with_hint() {
         .find(|v| v["edge_kind"] == "constraints.observes")
         .expect("observes → invariant must be a labeled violation");
     assert!(
-        v["reason"]
-            .as_str()
-            .unwrap()
-            .contains("effect Constraint"),
+        v["reason"].as_str().unwrap().contains("effect Constraint"),
         "the reason must name the rule and the actual target kind: {v:?}"
     );
 }
@@ -2861,10 +2858,10 @@ fn unobserved_effect_warns_exit_zero() {
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let warnings = json["warnings"].as_array().unwrap();
     assert!(
-        warnings
-            .iter()
-            .any(|w| w.as_str().unwrap().contains("linter.observability")
-                && w.as_str().unwrap().contains("pub.eff_out")),
+        warnings.iter().any(|w| {
+            let m = w["message"].as_str().unwrap_or_default();
+            m.contains("linter.observability") && m.contains("pub.eff_out")
+        }),
         "the unobserved effect must be warned with rule id + row id: {warnings:?}"
     );
     assert!(

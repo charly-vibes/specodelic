@@ -1,0 +1,31 @@
+source = "linter.observability"
+
+[[constraints]]
+id = "observation_universe"
+kind = "invariant"
+expr = "`the check's universe is the lint invocation's file set — corpus-wide lint (just lint-specs) is the canonical run; every effect Constraint in that set is either the target of ≥1 observes edge resolved within the same set, or is reported as an advisory warning naming the unobserved row`"
+traces_to = "[[linter.observability]]"
+
+[[constraints]]
+id = "advisory_severity"
+kind = "invariant"
+expr = "`the unobserved-effect warning is emitted on the success envelope's warnings channel with exit 0 — never an Issue, never a nonzero exit; a warning is not a failure and never gates a lifecycle transition (whether it ever gates is a follow-up change, decided on dogfood friction evidence)`"
+traces_to = "[[linter.observability]]"
+
+[[constraints]]
+id = "self_observation_not_counted"
+kind = "invariant"
+expr = "`an effect row does not observe itself — an observation counts only when the observes edge is sourced at a different row (intra-file or cross-file); a row pointing observes at its own output is vacuous and is still warned`"
+traces_to = "[[linter.observability]]"
+
+[[constraints]]
+id = "dangling_observes_is_referential"
+kind = "invariant"
+expr = "`an observes edge whose target does not resolve is a linter.total_refs finding, never an observability warning — the two checks compose without double-reporting the same row`"
+traces_to = "[[linter.observability]]"
+
+[[constraints]]
+id = "no_waivers_in_v1"
+kind = "invariant"
+expr = "`no waiver machinery exists in this Revision — when the need is demonstrated, linter-external_completeness.md's covered/waived claim structure is the candidate, decided in a follow-up change`"
+traces_to = "[[linter.observability]]"

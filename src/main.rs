@@ -927,6 +927,12 @@ fn cmd_lint(
     for n in &notes {
         out = out.with_warning(n.clone());
     }
+    // Advisory findings (specs/linter-observability.md) ride the
+    // warnings channel — exit 0, never a failure; the issues channel is
+    // for invariant violations only.
+    for w in &report.warnings {
+        out = out.with_warning(format!("{} [{}] {}", w.file, w.rule_id, w.message));
+    }
     if failures > 0 {
         out = out.with_next_step(
             "fix the reported invariants — each rule's semantics: spk explain lint-rules",

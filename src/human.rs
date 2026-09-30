@@ -32,14 +32,21 @@ pub fn rename(outcome: &RenameOutcome) -> String {
 /// self-describing rule id (`linter.<name>`, the agent-facing anchor).
 pub fn lint(report: &LintReport) -> String {
     let mut out = format!(
-        "lint: {} file(s) linted, {} finding(s)",
+        "lint: {} file(s) linted, {} finding(s), {} advisory warning(s)",
         report.files_linted,
-        report.failures()
+        report.failures(),
+        report.warnings.len()
     );
     for issue in &report.issues {
         out.push_str(&format!(
             "\n  {} [{}] {}",
             issue.file, issue.rule_id, issue.message
+        ));
+    }
+    for w in &report.warnings {
+        out.push_str(&format!(
+            "\n  advisory {} [{}] {}",
+            w.file, w.rule_id, w.message
         ));
     }
     out
@@ -49,13 +56,14 @@ pub fn lint(report: &LintReport) -> String {
 /// and supersedes cycles are listed below it.
 pub fn graph(report: &GraphReport) -> String {
     let mut out = format!(
-        "graph: {} file(s), {} node(s), {} edge(s), {} dangling, {} typing violation(s), {} supersedes cycle(s)",
+        "graph: {} file(s), {} node(s), {} edge(s), {} dangling, {} typing violation(s), {} supersedes cycle(s), {} external boundary(ies)",
         report.files,
         report.nodes,
         report.edges.len(),
         report.dangling.len(),
         report.violations.len(),
-        report.supersedes_cycles.len()
+        report.supersedes_cycles.len(),
+        report.external_boundaries.len()
     );
     for d in &report.dangling {
         out.push_str(&format!("\n  dangling: {d}"));
@@ -68,6 +76,9 @@ pub fn graph(report: &GraphReport) -> String {
     }
     for c in &report.supersedes_cycles {
         out.push_str(&format!("\n  supersedes cycle: {c}"));
+    }
+    for b in &report.external_boundaries {
+        out.push_str(&format!("\n  external boundary: {b}"));
     }
     out
 }
@@ -269,6 +280,7 @@ mod tests {
                 "specs/x.md",
                 "statement must be an EARS pattern",
             )],
+            warnings: vec![],
         };
         let text = lint(&report);
         assert!(
@@ -290,6 +302,7 @@ mod tests {
             supersedes_cycles: vec![],
             fan_in: Default::default(),
             fan_out: Default::default(),
+            external_boundaries: vec![],
         };
         let text = graph(&report);
         assert!(text.contains("1 dangling"), "{text}");
@@ -352,6 +365,7 @@ mod tests {
                 supersedes_cycles: vec![],
                 fan_in: Default::default(),
                 fan_out: Default::default(),
+                external_boundaries: vec![],
             }),
             compile(&json!({"files_compiled": 0, "files_failed": 0})),
             model_check(&json!({"files_checked": 0, "files_failed": 0})),

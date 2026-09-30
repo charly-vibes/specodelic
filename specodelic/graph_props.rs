@@ -50,6 +50,14 @@ pub mod spec_gen {
         Just(GenVal("graph_artifact_with_a_manually_inserted_edge_absent_from_any_file".into()))
     }
 
+    pub fn file_hosting_extension_point_row_then_all_removed() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("file_hosting_extension_point_row_then_all_removed".into()))
+    }
+
+    pub fn constraint_row_carrying_observes_pointing_at_effect() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("constraint_row_carrying_observes_pointing_at_effect".into()))
+    }
+
 }
 
 proptest! {
@@ -119,6 +127,26 @@ proptest! {
     #[test]
     fn hand_authored_edge_rejected(v0 in spec_gen::graph_artifact_with_a_manually_inserted_edge_absent_from_any_file()) {
         todo_predicate!("`check(artifact) == rejected`");
+    }
+}
+
+proptest! {
+    // id: boundary_tracks_extension_points
+    // generator: `file_hosting_extension_point_row_then_all_removed()`
+    // predicate: `classified(file) == true before, == false after removal — no authored residue`
+    #[test]
+    fn boundary_tracks_extension_points(v0 in spec_gen::file_hosting_extension_point_row_then_all_removed()) {
+        todo_predicate!("`classified(file) == true before, == false after removal — no authored residue`");
+    }
+}
+
+proptest! {
+    // id: observes_edge_extracted
+    // generator: `constraint_row_carrying_observes_pointing_at_effect()`
+    // predicate: `exactly one edge, kind constraints.observes — and zero edges when the column is absent`
+    #[test]
+    fn observes_edge_extracted(v0 in spec_gen::constraint_row_carrying_observes_pointing_at_effect()) {
+        todo_predicate!("`exactly one edge, kind constraints.observes — and zero edges when the column is absent`");
     }
 }
 

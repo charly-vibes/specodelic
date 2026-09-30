@@ -127,6 +127,10 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
         "single_root_reachable",
         "every constraint/property/state/transition row must be connected to some intent row through the reference graph (traces_to, derives_from, guard, from/to, emits) — no orphaned islands",
     ),
+    (
+        "observability",
+        "every effect Constraint must be the target of ≥1 `observes` reference from a different row — advisory: warned on the warnings channel (exit 0), never a failure",
+    ),
 ];
 
 /// The stable rule identifier for a bare rule name: `linter.<name>`.
@@ -147,6 +151,11 @@ pub fn rule_semantics(rule: &str) -> Option<&'static str> {
 pub struct Report {
     pub files_linted: usize,
     pub issues: Vec<Issue>,
+    /// Advisory findings (specs/linter-observability.md): rendered onto
+    /// the success envelope's warnings channel, exit 0 — never counted
+    /// by [`Report::failures`]. The `Issue` model carries no severity,
+    /// so advisory findings must not ride the issues channel.
+    pub warnings: Vec<Issue>,
 }
 
 impl Report {
@@ -169,6 +178,7 @@ pub fn lint_corpus(specs: &[Spec]) -> Report {
     let mut report = Report {
         files_linted: specs.len(),
         issues: vec![],
+        warnings: vec![],
     };
     for spec in specs {
         lint_one(spec, &mut report);
@@ -176,6 +186,7 @@ pub fn lint_corpus(specs: &[Spec]) -> Report {
     lint_references(specs, &mut report);
     lint_coverage(specs, &mut report);
     lint_graph_shape(specs, &mut report);
+    lint_observability(specs, &mut report);
     report
 }
 
@@ -367,6 +378,66 @@ fn lint_graph_shape(specs: &[Spec], report: &mut Report) {
                 rows.len()
             ),
         ));
+    }
+}
+
+/// Observability pass (specs/linter-observability.md): every effect
+/// Constraint in the invocation's file set must be the target of ≥1
+/// `observes` edge sourced at a *different* row — a row does not observe
+/// itself. The finding is advisory: it lands in [`Report::warnings`]
+/// (rendered onto the success envelope's warnings channel, exit 0),
+/// never in `issues` — the Issue model carries no severity, and
+/// [`Report::failures`] counts issues, so an issues-channel finding
+/// would gate the run, exactly what the check's `advisory_severity`
+/// forbids. Dangling `observes` targets resolve to no effect row and
+/// stay `total_refs`' beat, so the two checks compose without
+/// double-reporting the same row.
+fn lint_observability(specs: &[Spec], report: &mut Report) {
+    let mut observed: BTreeSet<String> = BTreeSet::new();
+    for spec in specs {
+        let file_id = spec.intent.id.clone();
+        for link in &spec.links {
+            if link.column != "observes" {
+                continue;
+            }
+            // Resolve the target to a row key within this invocation:
+            // dotted `file.row` as written; a dotless target is bare-local
+            // and only id:spec files resolve their own rows bare
+            // (specodelic-15g Option A) — anything else is metasyntactic
+            // here, exactly as in [`lint_graph_shape`].
+            let key = if link.target.contains('.') {
+                link.target.clone()
+            } else if file_id == "spec" {
+                format!("{file_id}.{}", link.target)
+            } else {
+                continue;
+            };
+            let source = format!("{file_id}.{}", link.source);
+            // Self-observation is vacuous (the checker spec's
+            // self_observation_not_counted) — it never counts.
+            if key != source {
+                observed.insert(key);
+            }
+        }
+    }
+    for spec in specs {
+        let file_id = spec.intent.id.clone();
+        for r in &spec.constraints {
+            if r.kind.as_deref() != Some("effect") {
+                continue;
+            }
+            let key = format!("{file_id}.{}", r.id);
+            if observed.contains(&key) {
+                continue;
+            }
+            report.warnings.push(Issue::new(
+                "observability",
+                file_id.clone(),
+                format!(
+                    "effect `{key}` has no `observes` reference targeting it — a declared output nobody observes (advisory, exit 0) [hint: add an `observes` column on the row that consumes this output, or remove the effect if it is unintentional]"
+                ),
+            ));
+        }
     }
 }
 
@@ -986,23 +1057,140 @@ mod tests {
                 "---\nid: b.cycle\nkind: intent\nstatement: \"THE b SHALL cycle\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| x | invariant | `x` | [[b.cycle.y]] |\n| y | invariant | `y` | [[b.cycle.x]] |\n",
                 "b-cycle.md",
             ),
+            // fires observability (warning, never an issue): an effect
+            // Constraint with no observes edge — the advisory-severity
+            // fixture. Adding it to the corpus keeps
+            // catalog_covers_every_rule_the_linter_can_emit true after
+            // the rule joined RULE_TABLE.
+            spec_at(
+                "---\nid: obs.unwatched\nkind: intent\nstatement: \"THE watcher SHALL emit\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| inv | invariant | `v finite` | [[obs.unwatched]] |\n| eff | effect | `output == {v}` | [[obs.unwatched]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[obs.unwatched.inv]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[obs.unwatched.inv]] | `g()` | `x` |\n| p_eff | unit | [[obs.unwatched.eff]] | `g()` | `x` |\n",
+                "obs-unwatched.md",
+            ),
         ]
     }
 
     #[test]
     fn catalog_covers_every_rule_the_linter_can_emit() {
         let report = lint_corpus(&fixture_corpus());
-        let emitted: BTreeSet<&str> = report
+        // Warnings count as emittable rule ids too — the observability
+        // rule emits on the warnings channel, never as an Issue.
+        let emitted: BTreeSet<String> = report
             .issues
             .iter()
-            .map(|i| i.rule_id.strip_prefix("linter.").expect("rule_id prefix"))
+            .chain(report.warnings.iter())
+            .map(|i| {
+                i.rule_id
+                    .strip_prefix("linter.")
+                    .expect("rule_id prefix")
+                    .to_string()
+            })
             .collect();
         let catalog: BTreeSet<&str> = RULE_TABLE.iter().map(|(name, _)| *name).collect();
+        let catalog_set: BTreeSet<String> = catalog.into_iter().map(String::from).collect();
         assert_eq!(
-            emitted, catalog,
+            emitted, catalog_set,
             "the rule table and the emittable rule ids must coincide — \
              a rule missing from the table panics at construction, one \
              missing from the corpus means the fixture stopped covering it"
+        );
+    }
+
+    /// Observability semantics (specs/linter-observability.md): the
+    /// warning channel, not the issues channel; self-observation does
+    /// not count; observed effects are silent; failures() is untouched.
+    #[test]
+    fn unobserved_effect_warns_but_never_fails() {
+        let spec = spec_at(
+            "---\nid: obs.solo\nkind: intent\nstatement: \"THE solo SHALL emit\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| inv | invariant | `v finite` | [[obs.solo]] |\n| eff | effect | `output == {v}` | [[obs.solo]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[obs.solo.inv]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[obs.solo.inv]] | `g()` | `x` |\n| p_eff | unit | [[obs.solo.eff]] | `g()` | `x` |\n",
+            "obs-solo.md",
+        );
+        let report = lint_corpus(&[spec]);
+        assert!(
+            report.issues.is_empty(),
+            "advisory must never be an issue: {:?}",
+            report.issues
+        );
+        assert_eq!(report.failures(), 0, "failures() counts issues only");
+        let w = report
+            .warnings
+            .iter()
+            .find(|w| w.rule_id == "linter.observability")
+            .expect("the unobserved effect must be warned");
+        assert!(
+            w.message.contains("obs.solo.eff"),
+            "warning names the row: {}",
+            w.message
+        );
+        assert_eq!(w.rule_semantics, rule_semantics("observability").unwrap());
+    }
+
+    #[test]
+    fn observed_effect_is_silent_and_self_observation_does_not_count() {
+        let make = |observes: &str| {
+            spec_at(
+                &format!(
+                    "---\nid: obs.pair\nkind: intent\nstatement: \"THE pair SHALL emit\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | observes |\n|----|------|------|-----------|----------|\n| inv | invariant | `v finite` | [[obs.pair]] | |\n| eff | effect | `output == {{v}}` | [[obs.pair]] | {observes} |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[obs.pair.inv]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[obs.pair.inv]] | `g()` | `x` |\n| p_eff | unit | [[obs.pair.eff]] | `g()` | `x` |\n"
+                ),
+                "obs-pair.md",
+            )
+        };
+        // A DIFFERENT row in the same file observing counts.
+        let observing = spec_at(
+            "---\nid: obs.pair\nkind: intent\nstatement: \"THE pair SHALL emit\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | observes |\n|----|------|------|-----------|----------|\n| inv | invariant | `v finite` | [[obs.pair]] | |\n| eff | effect | `output == {{v}}` | [[obs.pair]] | |\n| watch | invariant | `seen` | [[obs.pair]] | [[obs.pair.eff]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[obs.pair.inv]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[obs.pair.inv]] | `g()` | `x` |\n| p_eff | unit | [[obs.pair.eff]] | `g()` | `x` |\n| p_w | unit | [[obs.pair.eff]] | `g()` | `x` |\n",
+            "obs-pair.md",
+        );
+        let report = lint_corpus(&[observing]);
+        assert!(
+            report
+                .warnings
+                .iter()
+                .all(|w| w.rule_id != "linter.observability"),
+            "a different-row observation counts: {:?}",
+            report.warnings
+        );
+        // The effect row observing ITSELF does not count.
+        let self_observing = make("[[obs.pair.eff]]");
+        let report = lint_corpus(&[self_observing]);
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|w| w.rule_id == "linter.observability"),
+            "self-observation is vacuous — still warned: {:?}",
+            report.warnings
+        );
+    }
+
+    #[test]
+    fn dangling_observes_is_total_refs_beat_not_observability() {
+        // The effect is observed by a resolving edge; a second row's
+        // observes dangles. The dangling target must produce exactly one
+        // total_refs finding and zero observability warnings — the
+        // checks compose without double-reporting the same row (the
+        // effect itself is genuinely observed, so it is silent too).
+        let spec = spec_at(
+            "---\nid: obs.ghost\nkind: intent\nstatement: \"THE ghost SHALL emit\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | observes |\n|----|------|------|-----------|----------|\n| inv | invariant | `v finite` | [[obs.ghost]] | |\n| eff | effect | `output == {{v}}` | [[obs.ghost]] | |\n| watch | invariant | `seen` | [[obs.ghost]] | [[obs.ghost.eff]] |\n| lost | invariant | `other` | [[obs.ghost]] | [[obs.absent.effect]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[obs.ghost.inv]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[obs.ghost.inv]] | `g()` | `x` |\n| p_eff | unit | [[obs.ghost.eff]] | `g()` | `x` |\n| p_watch | unit | [[obs.ghost.eff]] | `g()` | `x` |\n| p_lost | unit | [[obs.ghost.inv]] | `g()` | `x` |\n",
+            "obs-ghost.md",
+        );
+        let report = lint_corpus(&[spec]);
+        let dangling_refs: Vec<_> = report
+            .issues
+            .iter()
+            .filter(|i| i.rule_id == "linter.total_refs")
+            .collect();
+        assert_eq!(
+            dangling_refs.len(),
+            1,
+            "exactly one total_refs finding for the dangling target: {:?}",
+            report.issues
+        );
+        assert!(
+            report
+                .warnings
+                .iter()
+                .all(|w| w.rule_id != "linter.observability"),
+            "zero observability warnings — the checks compose without double-reporting: {:?}",
+            report.warnings
         );
     }
 

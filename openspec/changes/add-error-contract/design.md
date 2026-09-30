@@ -1,5 +1,8 @@
 # Design: add-error-contract
 
+(D-numbers are scoped to this change — `add-observability-contracts` uses
+its own D1–D7 scheme independently.)
+
 ## Context
 
 The Rule-of-5 review of the investigation (converged Stage 4) established
@@ -31,16 +34,33 @@ that no *failure* state emits; `compile.md:60`'s predicate accepts
   §2 had no owning constraint. `errors.md` states it: an error
   Constraint's expr is `<file-id>.<variant_head>(field, …)`. Without this,
   label uniqueness and the future checker have no syntax to key on.
+  Pre-answered objection: pattern-checking the expr field does not touch
+  `prose_untouched` — expr is a structured field, and the
+  `ears_statement` precedent (`specodelic.md:23`, via
+  `linter-ears_syntax`) already pattern-checks a text field.
+  Post-review addition (second Rule-of-5 pass, CORR-001 there): the
+  capability delta's own rows are `invariant`-kind — the published
+  `extension_point` rows exist only in `errors.md` (one contract, one
+  home; no dual-source drift).
 - **D2 — failure guards become typed negated citations, scoped to
   intra-file constraints** (CORR-002). `¬extract_ok.guard` is replaced by
   `¬([[compile.constraint_table_to_toml]] ∧ [[compile.model_to_tla]] ∧
   [[compile.properties_to_proptest]])` — the negated citations *are* the
   failure-class definition, and they are all invariant-kind, satisfying
-  Reference Typing. **Carve-out:** `orchestrate.md` keeps its prose stage
-  guards — its Notes (`orchestrate.md:96-98`) deliberately decline to
-  restate upstream files' logic as guard-citable rows; retyping them would
-  reintroduce the duplication the file argues against. Stated in
+  Reference Typing. **Carve-out, made decidable by the second review's
+  CORR-003:** the rule is graph-checkable, not prose-checkable — a failure
+  transition citing ≥1 intra-file `[[id]]` must cite exactly the success
+  transition's citation set, and a failure transition citing zero is
+  either on the carve-out list or malformed. `orchestrate.md` is on that
+  list (its Notes, `orchestrate.md:96-98`, deliberately decline to restate
+  upstream files' logic as guard-citable rows; retyping them would
+  reintroduce the duplication the file argues against). Stated in
   `errors.md`, not left implicit.
+- **D2a — failure-class distinctness is graph-decidable** (second
+  review's CORR-001): a state with ≥2 inbound failure transitions whose
+  guard citation sets differ is malformed. The original prose-dependent
+  wording ("where a file's own prose distinguishes failure classes")
+  collided with `prose_untouched` and was uncheckable by any tier.
 - **D3 — error labels are file-id-namespaced** (EDGE-003 → EXCL-001).
   `compile.extraction_failure`, not bare `extraction_failure`. Uniqueness
   becomes a per-file property the existing per-file linters decide;
@@ -64,11 +84,16 @@ that no *failure* state emits; `compile.md:60`'s predicate accepts
 - **D6 — the future eighth checker is spec-only here.**
   `linter-failure_shape.md` follows the `linter-external_completeness.md`
   file shape; no Checker Ownership row lands until implementation (the
-  table's invariant is that every listed checker exists). **Blocker
-  status:** `specodelic-6pi` is CLOSED — AGENTS.md's sibling-tool note
-  ("must be fixed before any CI gate chains lint") is stale and the
-  implementation ticket is not gated. AGENTS.md itself is governance;
-  flagging the staleness to the maintainer rather than editing it here.
+  table's invariant is that every listed checker exists). **Enforcement
+  routing is explicit** (second review's CORR-002, `enforcement_routed`
+  in the delta): tier 1 — existing checkers today; tier 2 — this future
+  checker; tier 3 — compile/verify pipeline fixtures for runtime rows.
+  No scenario in the delta claims today's `spk lint` for a tier-2 rule.
+  **Blocker status:** `specodelic-6pi` is CLOSED — AGENTS.md's
+  sibling-tool note ("must be fixed before any CI gate chains lint") is
+  stale and the implementation ticket is not gated. AGENTS.md itself is
+  governance; flagging the staleness to the maintainer rather than
+  editing it here.
 - **D7 — no core Revision consumed.** Every new constraint lives in the
   new `errors.md` and per-tool files. This keeps `specodelic.md`
   Revision 9 free for `add-observability-contracts` and avoids a
@@ -100,8 +125,9 @@ per-error unit properties are new coverage, not changed behavior.
 
 - Should `errors.md`'s contract rows be one `extension_point` per concern
   (envelope, exit codes, labels) or one merged row? Leaning one-per-concern
-  so `satisfies` edges are granular — resolved during D1 implementation if
-  the corpus reads better merged.
+  so `satisfies` edges are granular — until resolved,
+  `remediation_hint_present`'s bundling of envelope + exit codes + hint is
+  marked provisional in the delta.
 - Phase-2 exit-code derivation from terminal outcomes (`passed` → 0,
   `failed` → 1, invocation error → 2): confirm the 0/1/2 mapping covers
   `exploration_only` when terminal typing lands.

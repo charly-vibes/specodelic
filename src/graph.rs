@@ -59,6 +59,10 @@ pub struct GraphReport {
     pub fan_in: BTreeMap<String, usize>,
     /// Per-node fan-out counts.
     pub fan_out: BTreeMap<String, usize>,
+    /// Files classified as external boundaries (specs/graph.md
+    /// `external_boundary_derived`): each hosts ≥1 `extension_point`
+    /// Constraint — pure derivation, never an authored tag.
+    pub external_boundaries: Vec<String>,
 }
 
 /// What kind of node a resolved id addresses — the target side of the
@@ -163,6 +167,12 @@ fn typing_violation(
             NodeKind::Constraint(k) if k == "extension_point" => None,
             _ => Some(format!(
                 "satisfies must resolve to an extension_point Constraint (Reference Typing); target is {tk}"
+            )),
+        },
+        "observes" => match target {
+            NodeKind::Constraint(k) if k == "effect" => None,
+            _ => Some(format!(
+                "observes must resolve to an effect Constraint (Reference Typing); target is {tk}"
             )),
         },
         "supersedes" => {
@@ -377,6 +387,20 @@ pub fn build(specs: &[Spec]) -> GraphReport {
     }
 
     report.supersedes_cycles = find_supersedes_cycles(&report.edges);
+    // External boundaries (specs/graph.md `external_boundary_derived`):
+    // derived from published contracts alone — a stale tag cannot exist
+    // because there is no tag.
+    report.external_boundaries = specs
+        .iter()
+        .filter(|s| {
+            s.constraints
+                .iter()
+                .any(|r| r.kind.as_deref() == Some("extension_point"))
+        })
+        .map(|s| s.intent.id.clone())
+        .collect::<BTreeSet<String>>()
+        .into_iter()
+        .collect();
     report.nodes = nodes.len();
     report
 }
