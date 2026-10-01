@@ -78,6 +78,12 @@ lint-doc-examples:
 lint-baseline:
     python3 scripts/check_lint_baseline.py specs
 
+# SUMMARY completeness: every frontmatter-bearing specs/*.md and every
+# openspec/specs/<cap>/spec.md must be linked from docs/src/SUMMARY.md
+# (hand-written SUMMARY can silently miss new spec files, specodelic-b3p)
+summary-completeness:
+    python3 scripts/check_summary_completeness.py .
+
 # Tests for the section-sync script itself (stdlib unittest): drift
 # logic + the capability-format check (openspec/specs/<cap>/spec.md
 # must be dual-format — frontmatter-less capability specs fail CI;
@@ -115,7 +121,7 @@ docs-build:
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections sync-sections-test lint-doc-examples lint-baseline guard-siblings
+ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections sync-sections-test summary-completeness lint-doc-examples lint-baseline guard-siblings
 
 # Sibling-tool constraint guard (AGENTS.md hard blockers) — also wired into
 # pre-commit/pre-push via lefthook.yml and the .beads/hooks shim chain

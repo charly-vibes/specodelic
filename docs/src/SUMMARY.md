@@ -37,6 +37,7 @@
 - [linter.referential_integrity](specs/linter-referential_integrity.md)
 - [linter.external_completeness](specs/linter-external_completeness.md)
 - [linter.failure_shape](specs/linter-failure_shape.md)
+- [linter.observability](specs/linter-observability.md)
 
 # Engineering Specs (openspec)
 
@@ -48,3 +49,6 @@
 - [lint-findings — capability](openspec/lint-findings/spec.md)
 - [model-check — capability](openspec/model-check/spec.md)
 - [spec-integration — capability](openspec/spec-integration/spec.md)
+- [error-contract — capability](openspec/error-contract/spec.md)
+- [observability — capability](openspec/observability/spec.md)
+- [migrate — capability](openspec/migrate/spec.md)
