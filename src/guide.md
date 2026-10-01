@@ -183,7 +183,9 @@ A **dual-format file** carries both grammars:
   EARS `statement`) plus the `## Constraints`, `## Model`, and
   `## Properties` tables.
 - Openspec half: `## Purpose`, `## ADDED Requirements`, and a sibling
-  `## Requirements` section with identical text.
+  `## Requirements` section with identical text. A `## MODIFIED
+  Requirements` delta is dual-format the same way — same id law, same
+  mirror; the mirror rules treat the two delta sections identically.
 
 **Naming law**: openspec hard-requires the delta filename `spec.md`,
 so dual-format files declare `id: spec` (the `-` ⇔ `.` mapping makes
@@ -193,7 +195,8 @@ only within the file; domain semantics are cited by prose path
 (`specs/<name>.md`), never wiki-link.
 
 **Enforcement**: `linter.dual_format_valid` — a file carrying
-`## ADDED Requirements` must declare `id: spec` and pair it with the
+`## ADDED Requirements` or `## MODIFIED Requirements` must declare
+`id: spec` and pair it with the
 sibling `## Requirements` section; a capability spec under
 `openspec/specs/` must be dual-format or CI fails.
 `linter.requirement_drift` (enforced by `spk lint` itself) fails when

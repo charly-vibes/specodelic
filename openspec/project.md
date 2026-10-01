@@ -33,6 +33,9 @@ content through the **dual-format protocol**:
   prose path (`specs/<name>.md`), never `[[wiki-link]]`.
 - The `## ADDED Requirements` and `## Requirements` sections carry
   identical text; the section-sync check in `just ci` fails on drift.
+  A `## MODIFIED Requirements` delta is dual-format the same way —
+  same `id: spec` law, same mirror discipline; the mirror rules treat
+  the two delta sections identically (update-law-named-cases).
 - Every capability spec under `openspec/specs/<cap>/spec.md` MUST be a
   dual-format file. The capability-format check (`just sync-sections`,
   tested by `just sync-sections-test`) fails CI on a frontmatter-less
