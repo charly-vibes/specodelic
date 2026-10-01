@@ -711,6 +711,40 @@ mod tests {
         assert!(msg.contains("manually"), "manual-wiring hint: {msg}");
     }
 
+    // -- golden round-trip: byte-identical wiring output (specodelic-x56
+    //    MUST) — pins the wired bytes so the genesis migration cannot
+    //    change behavior.
+
+    #[test]
+    fn golden_install_uninstall_round_trip_is_byte_identical_2_space() {
+        let fixture = fixture_with_config(TWO_SPACE);
+        let wired = "pre-commit:\n  commands:\n    # <!-- SPK:START -->\n    specodelic-gates:\n      run: spk lint openspec\n    # <!-- SPK:END -->\n    sibling-blockers:\n      run: scripts/guards/sibling-blockers.sh .\npre-push:\n  commands:\n    sibling-blockers:\n      run: scripts/guards/sibling-blockers.sh .\n";
+        assert_eq!(install(fixture.root()).unwrap(), WireOutcome::Injected);
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        assert_eq!(after, wired, "2-space golden bytes after install");
+        assert_eq!(uninstall(fixture.root()).unwrap(), UnwireOutcome::Removed);
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        assert_eq!(after, TWO_SPACE, "2-space round-trip restores the original");
+    }
+
+    #[test]
+    fn golden_install_uninstall_round_trip_is_byte_identical_4_space() {
+        let config = "pre-commit:\n    commands:\n        lint:\n            run: lint\n";
+        let fixture = fixture_with_config(config);
+        let wired = "pre-commit:\n    commands:\n        # <!-- SPK:START -->\n        specodelic-gates:\n          run: spk lint openspec\n        # <!-- SPK:END -->\n        lint:\n            run: lint\n";
+        assert_eq!(install(fixture.root()).unwrap(), WireOutcome::Injected);
+        let after = std_fs_read(fixture.root());
+        assert_eq!(after, wired, "4-space golden bytes after install");
+        assert_eq!(uninstall(fixture.root()).unwrap(), UnwireOutcome::Removed);
+        let after = std_fs_read(fixture.root());
+        assert_eq!(after, config, "4-space round-trip restores the original");
+    }
+
+    /// Read the fixture's lefthook.yml (test helper).
+    fn std_fs_read(root: &Path) -> String {
+        std::fs::read_to_string(root.join("lefthook.yml")).unwrap()
+    }
+
     #[test]
     fn install_refuses_husky_framework() {
         // Hermetic (genesis >= 0.8.2 resolves `core.hooksPath` across all
