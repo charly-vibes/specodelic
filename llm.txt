@@ -30,6 +30,7 @@ spk new           # scaffold that teaches its own tables
 spk compile       # three artifacts, total or labeled failure
 spk model-check   # bounded exhaustive model checking
 spk verify        # execute the property scaffolding
+spk parse <file>  # parsed Spec IR as a json envelope (syntax-only)
 spk doctor        # workspace health check
 spk explain       # explain a rule or finding
 ```

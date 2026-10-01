@@ -35,6 +35,8 @@ The CLI binary is `spk` (crate: `specodelic`).
 - `spk model-check` — bounded exhaustive model checking
 - `spk verify` — execute the property scaffolding
 - `spk doctor` / `spk explain` / `spk init` / `spk feedback`
+- `spk parse <file>` — the parsed Spec IR as a json envelope (syntax-only,
+  one file per invocation; for fleet consumers integrating over the binary)
 - `spk rename` / `spk merge` / `spk refactor` / `spk orchestrate` (specced, stubbed)
 
 ## Self-hosting
