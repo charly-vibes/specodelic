@@ -442,6 +442,31 @@ is genuinely part of the contract, add an observer; if it was scaffolding,
 delete the effect. That warning is the format asking "who is this output
 for?" before the system ships with a firehose nobody attached a hose to.
 
+### 2.10 Derived parallelism — the accumulator's algebra licenses the architecture
+
+Whether a batch/stream processor can run in parallel is not an
+assertion, it is a *derivation* from the accumulator's algebra — and
+since Revision 13 every tier of that derivation is a machine-checkable
+declaration, not prose: the law row's named cases (`**name:**` labels,
+§2.5) are enforced by `linter.law_cases` (the identity and associativity
+floor is a minimum) and compile expands one proptest block per case.
+The worked example at `docs/src/examples/batch-resume.md` carries this
+table end to end; its shape:
+
+| the accumulator's algebra — each tier a named case | the architecture the law row licenses |
+|---|---|
+| deterministic step, replayable emissions (`unit` properties, §2.2's `emits`) | parallel **map** over any partition — no algebra required at all |
+| results form a monoid (`**identity:**` + `**associativity:**`) | + chunked parallel **reduce**; merge in tree order |
+| + commutative (`**commutativity:**`) | + workers need no ordering; any shuffle, any reduce tree |
+| + idempotent merge (`**idempotence:**` — a semilattice) | + concurrent workers checkpoint freely; duplicates vanish |
+| results not a monoid (running average, ordered state machine) | reduce is inherently sequential — still streamable, never chunkable; *say so here* rather than discovering it in production |
+
+The point of doing this in the format instead of a design doc: the
+tiers are `law` rows deriving from a stated invariant (e.g.
+`reduce_sound_iff_monoid`), so a claimed tier whose case is missing
+fails `lint` before it fails in production, and the map side needs none
+of the algebra — only determinism (`map_is_parallel_unconditional`).
+
 | Proposal's "what", design decisions | Is this a hard requirement, or a stated-but-non-gating design principle? | Constraints table — `invariant` if it must hold to pass `lint`/`verify`; `advisory` if it's a design intent that should be visible but never blocks a transition (see §2.1 of `specodelic.md`'s Revision 5) |
 | A closed set of request/response/node types the design defines | Is anything actually transitioning, or is this just an enumeration of shapes? | If enumeration only → Constraints table, one row per shape (§2.1 above). If it's genuinely a lifecycle → Model/States |
 | Design's lifecycle / workflow diagram | Are these states of one thing over time? | Model — States + Transitions, each transition's guard citing the Constraint(s) that must hold |

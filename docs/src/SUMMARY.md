@@ -40,6 +40,10 @@
 - [linter.failure_shape](specs/linter-failure_shape.md)
 - [linter.observability](specs/linter-observability.md)
 
+# Worked Examples
+
+- [batch-resume — derived parallelism, worked end to end](examples/batch-resume.md)
+
 # Engineering Specs (openspec)
 
 - [compile — capability](openspec/compile/spec.md)
