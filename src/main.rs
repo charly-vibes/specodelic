@@ -288,7 +288,12 @@ enum Commands {
         topic: Option<String>,
     },
     /// Diagnose the Specodelic workspace setup
-    Doctor,
+    Doctor {
+        /// Auto-repair what the doctor can repair (the SPECODELIC block
+        /// in AGENTS.md); repaired checks are verified after the fix
+        #[arg(short, long)]
+        fix: bool,
+    },
     /// Write/refresh the SPECODELIC managed block in AGENTS.md (agent
     /// facing: lint rules + format revision + core commands)
     Init {
@@ -858,7 +863,7 @@ fn run(
         Commands::Explain { topic } => {
             cmd_explain(topic.as_deref(), format, verbosity, stdout, stderr)
         }
-        Commands::Doctor => cmd_doctor(format, verbosity, stdout, stderr),
+        Commands::Doctor { fix } => cmd_doctor(*fix, format, verbosity, stdout, stderr),
         Commands::Init { force } => cmd_init(*force, format, verbosity, stdout, stderr),
         Commands::Feedback {
             kind,
@@ -2222,112 +2227,40 @@ Full format guide: spk explain -->
 }
 
 fn cmd_doctor(
+    fix: bool,
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) -> i32 {
-    // Workspace mode: self-hosting when the repo carries the format's own
-    // core spec, consumer otherwise (add-embedded-aix-guide task 5.1).
+    // The check suite runs on the genesis doctor framework (specodelic-sok):
+    // issue checks (specs dir, beads, SPECODELIC block — the block is
+    // auto-fixable) go through DoctorRunner with --fix dispatch and
+    // verify-after-fix; workspace facts (mode, core spec, discovery)
+    // render from detail helpers into the payload.
+    let root = std::path::Path::new(".");
     let core = std::path::Path::new("specs/specodelic.md");
-    let mode = if core.is_file() {
-        "self_hosting"
-    } else {
-        "consumer"
-    };
-    let mut checks: Vec<(String, String)> = vec![(
-        "mode".into(),
-        if mode == "self_hosting" {
-            "self_hosting — the corpus lives here".into()
-        } else {
-            "consumer — the format is provided by the installed binary".into()
-        },
-    )];
-    checks.push((
-        "specs/ directory".into(),
-        if std::path::Path::new("specs").is_dir() {
-            "ok".into()
-        } else {
-            "missing — start a corpus with: spk new".into()
-        },
-    ));
-    checks.push((
-        "core format spec".into(),
-        if mode == "self_hosting" {
-            "ok (specs/specodelic.md)".into()
-        } else {
-            // consumers don't carry the corpus — informational, never a
-            // failure (the embedded guide serves the format instead)
-            format!(
-                "not present (consumer mode — the binary embeds {})",
-                guide::FORMAT_REVISION
-            )
-        },
-    ));
-    checks.push((
-        "beads".into(),
-        if std::path::Path::new(".beads/config.yaml").is_file() {
-            "ok (.beads/config.yaml)".into()
-        } else {
-            "not initialized — run: bd init".into()
-        },
-    ));
-
-    // Managed-block currency (specodelic-ze4): AGENTS.md should carry the
-    // SPECODELIC block so agents see the rules without reading upstream.
-    // Advisory: missing/stale → hint to run `spk init`, never a failure.
-    let agents = std::path::Path::new(blocks::BLOCK_FILE);
-    let (block_check, block_current) = if !blocks::has_block(agents) {
-        (
-            "missing — agents in this repo can't see the spec rules; run: spk init".to_string(),
-            false,
-        )
-    } else {
-        match blocks::block_format_revision(agents) {
-            Some(rev) => {
-                let embedded = guide::revision_number(guide::FORMAT_REVISION).unwrap_or(0);
-                if rev < embedded {
-                    (
-                        format!(
-                            "stale — block names Revision {rev}, binary embeds {} ; run: spk init",
-                            guide::FORMAT_REVISION
-                        ),
-                        false,
-                    )
-                } else {
-                    (
-                        "ok (Revision {rev} ≥ embedded)".replace("{rev}", &rev.to_string()),
-                        true,
-                    )
-                }
-            }
-            None => (
-                "present but names no revision — run: spk init to refresh".into(),
-                false,
-            ),
+    let report = match specodelic::doctor::run_checks(root, fix) {
+        Ok(report) => report,
+        Err(e) => {
+            let out: Output<serde_json::Value> =
+                Output::failure(format!("doctor could not run: {e}"));
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            return 1;
         }
     };
-    checks.push(("SPECODELIC block".into(), block_check));
-
-    // Corpus discovery (gh#2.2): name where the specs actually live so
-    // the working invocation is never trial-and-error.
-    let discovery = if std::path::Path::new("specs").is_dir() {
-        "ok (specs/)".to_string()
-    } else if openspec_tree_present() {
-        let n = collect_specs(&["openspec".to_string()]).len();
-        format!("found openspec/ ({n} spec file(s)) — lint it with: spk lint openspec")
-    } else {
-        "no corpus — pass a directory containing *.md specs; hidden and build dirs are skipped"
-            .to_string()
-    };
-    checks.push(("corpus discovery".into(), discovery));
-
-    let payload = serde_json::json!({
-        "mode": mode,
-        "checks": checks,
-        "format_revision": guide::FORMAT_REVISION,
-    });
+    let payload = specodelic::doctor::payload(root, &report);
     let out = Output::success(payload.clone());
+
+    // --fix: surface the runner's verify-after-fix verdicts on warnings
+    let mut out = out;
+    if fix {
+        for check in &report.checks {
+            if check.message.starts_with("fixed") {
+                out = out.with_warning(format!("{}: {}", check.name, check.message));
+            }
+        }
+    }
 
     // Knowledge currency (task 5.2): whenever a local specs/specodelic.md
     // exists, compare its latest `Revision N` heading (numerically)
@@ -2338,6 +2271,7 @@ fn cmd_doctor(
     } else {
         out
     };
+    let mode = payload["mode"].as_str().unwrap_or("consumer");
     if mode == "consumer" {
         if !std::path::Path::new("specs").is_dir() {
             if openspec_tree_present() {
@@ -2351,10 +2285,15 @@ fn cmd_doctor(
     } else {
         out = out.with_next_step("run: specodelic lint");
     }
-    if !block_current {
-        // Advisory rides the warnings channel — the primary next-step
-        // stays the workspace-appropriate one (spk new / spk lint).
-        out = out.with_warning("SPECODELIC block missing or stale in AGENTS.md — run: spk init");
+    if !fix {
+        for check in &report.checks {
+            // Advisory rides the warnings channel — the primary next-step
+            // stays the workspace-appropriate one (spk new / spk lint).
+            // With --fix the fixed/failed verdicts already surfaced above.
+            if let (true, Some(fix_cmd)) = (check.status.is_issue(), &check.fix) {
+                out = out.with_warning(format!("{}: {}", check.name, fix_cmd));
+            }
+        }
     }
     emit_report(
         out,

@@ -2163,6 +2163,74 @@ fn doctor_reports_missing_or_stale_block() {
     let _ = hints;
 }
 
+// ---- specodelic-sok: doctor --fix (genesis::doctor framework) ----
+
+#[test]
+fn doctor_fix_writes_the_managed_block_and_verifies() {
+    // --fix on a workspace with no block: the block check auto-fixes via
+    // blocks::inject_into, the runner verifies post-fix, and the payload
+    // renders the repaired fact
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("AGENTS.md"), "# My repo\n").unwrap();
+    let out = spk()
+        .args(["doctor", "--fix", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "doctor never fails");
+    let agents = dir.path().join("AGENTS.md");
+    let text = std::fs::read_to_string(&agents).unwrap();
+    assert!(text.contains("SPECODELIC:START"), "block written: {text}");
+    assert!(text.contains("# My repo"), "surrounding content preserved");
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    assert_eq!(json["ok"], true, "success envelope");
+    // payload renders the repaired state, not the stale finding
+    let checks = json["data"]["checks"].as_array().unwrap();
+    let block_row = checks
+        .iter()
+        .find(|c| c[0].as_str() == Some("SPECODELIC block"))
+        .unwrap();
+    assert!(
+        block_row[1].as_str().unwrap().starts_with("ok (Revision"),
+        "post-fix payload: {block_row:?}"
+    );
+}
+
+#[test]
+fn doctor_fix_is_idempotent() {
+    let dir = tempfile::tempdir().unwrap();
+    for _ in 0..2 {
+        let out = spk()
+            .args(["doctor", "--fix", "--json"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(0));
+    }
+    let text = std::fs::read_to_string(dir.path().join("AGENTS.md")).unwrap();
+    assert_eq!(
+        text.matches("SPECODELIC:START").count(),
+        1,
+        "exactly one block after two --fix runs"
+    );
+}
+
+#[test]
+fn doctor_without_fix_still_advises_but_does_not_write() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = spk()
+        .args(["doctor", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    assert!(
+        !dir.path().join("AGENTS.md").exists(),
+        "no --fix → no writes"
+    );
+}
+
 // ---- specodelic-cxr: spk hooks install / uninstall ----
 
 /// Wire a fake `spk` on PATH so the install-time gate dry-run is

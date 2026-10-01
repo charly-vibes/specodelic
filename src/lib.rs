@@ -13,6 +13,7 @@
 pub mod blocks;
 pub mod checklist;
 pub mod compile;
+pub mod doctor;
 pub mod ears;
 pub mod graph;
 pub mod guide;
