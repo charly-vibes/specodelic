@@ -102,5 +102,28 @@ class SummaryCompletenessTest(unittest.TestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn("docs/src/SUMMARY.md", problems[0])
 
+    def test_absolute_url_link_in_summary_is_flagged(self):
+        # specodelic-j0m: mdbook 0.5 materializes absolute-URL SUMMARY
+        # entries as literal src/https:/... directories. External links
+        # belong in a page's prose, never in SUMMARY.md.
+        root = self.write({
+            "docs/src/SUMMARY.md": self.summary(
+                "- [a](specs/a.md)",
+                "- [Ecosystem](https://example.com/ecosystem-map.html)",
+            ),
+            "specs/a.md": FRONTMATTER.format(id="a"),
+        })
+        problems = csc.check(root)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("https://example.com/ecosystem-map.html", problems[0])
+        self.assertIn("index.md", problems[0])
+
+    def test_relative_markdown_link_is_not_flagged_as_absolute(self):
+        root = self.write({
+            "docs/src/SUMMARY.md": self.summary("- [a](specs/a.md)"),
+            "specs/a.md": FRONTMATTER.format(id="a"),
+        })
+        self.assertEqual(csc.check(root), [])
+
 if __name__ == "__main__":
     unittest.main()

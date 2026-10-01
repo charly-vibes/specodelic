@@ -43,6 +43,13 @@ from inside the binary — seven topics (`format`, `ears`, `kinds`,
 finding carries its own `rule_id` and one-line semantics. See `llms.txt`
 at the site root for a machine summary.
 
+## Ecosystem
+
+specodelic is part of the [charly-vibes tool
+ecosystem](https://charly-vibes.github.io/dulce-de-leche/ecosystem-map.html)
+— the ecosystem map shows how `spk` relates to the sibling tools
+(`wai`, beads, openspec, genesis-vibes, and the checkers).
+
 ## Install
 
 ```sh

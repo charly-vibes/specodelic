@@ -26,6 +26,12 @@ from pathlib import Path
 # mdbook link target inside a SUMMARY bullet, e.g. (specs/a.md)
 LINK = re.compile(r"\]\(([^)\s]+)\)")
 
+# Absolute http(s) URLs are forbidden in SUMMARY.md (specodelic-j0m):
+# mdbook 0.5 treats them as chapters and materializes a literal
+# src/https:/... directory tree at build time. External links belong in
+# a page's prose (e.g. docs/src/index.md), never in SUMMARY.md.
+ABSOLUTE_URL = re.compile(r"^https?://", re.IGNORECASE)
+
 
 def linked_paths(summary_text: str) -> set[str]:
     return set(LINK.findall(summary_text))
@@ -69,6 +75,15 @@ def check(root: Path) -> list[str]:
     links = linked_paths(text)
 
     problems: list[str] = []
+    for link in sorted(links):
+        if ABSOLUTE_URL.match(link):
+            problems.append(
+                f"SUMMARY.md links to absolute URL {link} — mdbook 0.5 "
+                "materializes absolute-URL SUMMARY entries as literal "
+                "src/https:/ directories; move the link into a page's "
+                "prose (e.g. docs/src/index.md) and drop the SUMMARY "
+                "entry (docs/src/SUMMARY.md)"
+            )
     for spec in corpus_spec_files(root) + capability_spec_files(root):
         rel = spec.relative_to(root).as_posix()
         # mdbook src mirrors specs/ -> docs/src/specs and

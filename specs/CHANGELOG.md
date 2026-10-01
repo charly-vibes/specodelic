@@ -6,6 +6,17 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #89 — SUMMARY.md forbids absolute-URL entries (specodelic-j0m)
+
+mdbook 0.5 materializes absolute-URL SUMMARY entries as literal
+`src/https:/...` directories — the ecosystem-map entry added with the
+landing page (DDL-frh) produced `docs/src/https:/charly-vibes.github.io/...`
+at build time. Fix: the ecosystem link moved from SUMMARY.md into
+`docs/src/index.md` prose (new **Ecosystem** section), and the
+summary-completeness gate (specodelic-b3p's checker) now FAILS on any
+`http(s)://` link target in SUMMARY.md with a move-it-into-prose hint —
+the regression cannot recur silently. Relative links unaffected.
+
 ## #88 — doctor carries a crates.io update-availability notice (specodelic-4le)
 
 `spk doctor` now consults genesis `update_check` (binaries, not libs,
