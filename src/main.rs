@@ -2291,6 +2291,16 @@ fn cmd_doctor(
     } else {
         out
     };
+
+    // Update availability (specodelic-4le): a newer stable specodelic on
+    // crates.io rides the same advisory channel. Transport failures are
+    // silent (genesis contract) — the doctor never fails on the network.
+    // CI is skipped by genesis itself (no network calls in pipelines).
+    if let Some(info) = specodelic::update_notice::check_for_update(&update_cache_dir())
+        && let Some(msg) = specodelic::update_notice::update_notice(&info)
+    {
+        out = out.with_warning(msg);
+    }
     let mode = payload["mode"].as_str().unwrap_or("consumer");
     if mode == "consumer" {
         if !std::path::Path::new("specs").is_dir() {
@@ -2324,6 +2334,21 @@ fn cmd_doctor(
         stderr,
     );
     0
+}
+
+/// The update-check cache directory: genesis's default (`$XDG_CACHE_HOME`
+/// when set — it already IS the cache home — else `$HOME/.cache`, then
+/// `genesis/update-check`). Isolated for tests.
+fn update_cache_dir() -> std::path::PathBuf {
+    match std::env::var("XDG_CACHE_HOME") {
+        Ok(xdg) if !xdg.is_empty() => std::path::PathBuf::from(xdg),
+        _ => {
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+            std::path::PathBuf::from(home).join(".cache")
+        }
+    }
+    .join("genesis")
+    .join("update-check")
 }
 
 /// Knowledge-currency check (task 5.2): compare the local corpus' latest

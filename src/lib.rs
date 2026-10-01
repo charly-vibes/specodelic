@@ -27,4 +27,5 @@ pub mod orchestrate;
 pub mod refactor;
 pub mod rename;
 pub mod spec;
+pub mod update_notice;
 pub mod verify;

@@ -2309,6 +2309,114 @@ fn doctor_without_fix_still_advises_but_does_not_write() {
     );
 }
 
+// ---- specodelic-4le: update-availability notice (hermetic) ----
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
+#[test]
+fn doctor_warns_when_a_newer_version_is_on_crates_io() {
+    // hermetic via XDG_CACHE_HOME + genesis's fresh-cache short-circuit:
+    // the seeded cache says 9.9.9 is out → the doctor's warnings channel
+    // names it, exit 0
+    let dir = tempfile::tempdir().unwrap();
+    let cache = dir.path().join("cache/genesis/update-check");
+    std::fs::create_dir_all(&cache).unwrap();
+    std::fs::write(
+        cache.join("specodelic.json"),
+        format!(
+            r#"{{"checked_at": {}, "latest": "9.9.9", "published_at": null, "ttl_secs": 604800}}"#,
+            now_secs()
+        ),
+    )
+    .unwrap();
+    let out = spk()
+        .args(["doctor", "--json"])
+        .current_dir(dir.path())
+        .env("XDG_CACHE_HOME", dir.path().join("cache"))
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "advisory, never fails");
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let warnings: Vec<String> = json["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|w| w["message"].as_str().unwrap().to_string())
+        .collect();
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.contains("9.9.9") && w.contains("cargo install")),
+        "update notice on the warnings channel: {warnings:?}"
+    );
+}
+
+#[test]
+fn doctor_is_silent_when_the_cached_version_is_current() {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = dir.path().join("cache/genesis/update-check");
+    std::fs::create_dir_all(&cache).unwrap();
+    let current = env!("CARGO_PKG_VERSION");
+    std::fs::write(
+        cache.join("specodelic.json"),
+        format!(
+            r#"{{"checked_at": {}, "latest": "{current}", "published_at": null, "ttl_secs": 604800}}"#,
+            now_secs()
+        ),
+    )
+    .unwrap();
+    let out = spk()
+        .args(["doctor", "--json"])
+        .current_dir(dir.path())
+        .env("XDG_CACHE_HOME", dir.path().join("cache"))
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let warnings: Vec<String> = json["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|w| w["message"].as_str().unwrap().to_string())
+        .collect();
+    assert!(
+        !warnings.iter().any(|w| w.contains("available")),
+        "no update notice when current: {warnings:?}"
+    );
+}
+
+#[test]
+fn doctor_survives_an_unreachable_crates_io() {
+    // transport failure must be silent — doctor still exits 0 and the
+    // stale-cache backoff write lands in the hermetic cache dir
+    let dir = tempfile::tempdir().unwrap();
+    let cache = dir.path().join("cache/genesis/update-check");
+    std::fs::create_dir_all(&cache).unwrap();
+    // stale entry forces a fetch → unreachable API → silent backoff
+    std::fs::write(
+        cache.join("specodelic.json"),
+        format!(
+            r#"{{"checked_at": {}, "latest": "0.0.1", "published_at": null, "ttl_secs": 604800}}"#,
+            now_secs() - 604800 - 1
+        ),
+    )
+    .unwrap();
+    let out = spk()
+        .args(["doctor", "--json"])
+        .current_dir(dir.path())
+        .env("XDG_CACHE_HOME", dir.path().join("cache"))
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "network can never fail doctor");
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["ok"], true);
+}
+
 // ---- specodelic-cxr: spk hooks install / uninstall ----
 
 /// Wire a fake `spk` on PATH so the install-time gate dry-run is

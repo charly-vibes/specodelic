@@ -6,6 +6,26 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #88 — doctor carries a crates.io update-availability notice (specodelic-4le)
+
+`spk doctor` now consults genesis `update_check` (binaries, not libs,
+notify — genesis-2ex) with our own crate name + version: a newer stable
+specodelic on crates.io rides the warnings channel with the actionable
+geness notice (`specodelic X.Y.Z available — you have … (cargo install
+specodelic)`), same advisory discipline as the knowledge-currency
+warning. 7-day cache TTL (`$XDG_CACHE_HOME`/`$HOME/.cache` →
+`genesis/update-check/specodelic.json`); transport failures are silent
+by the genesis contract — the doctor never fails on the network. CI
+runs and `GENESIS_NO_UPDATE_CHECK` skip the check entirely.
+
+Doctor-only by design: a startup-time check would tax every invocation
+(revisit only if doctor-only proves invisible).
+
+Gotcha fixed en route: XDG_CACHE_HOME is itself the cache home — the
+wiring initially appended `.cache` to it unconditionally, sending the
+check to a nonexistent directory (silent) — caught by the hermetic
+CLI test, pinned with `doctor_warns_when_a_newer_version_is_on_crates_io`.
+
 ## #87 — `spk init` registers specodelic in `.genesis/tools.toml` (specodelic-las)
 
 `spk init` now declares specodelic's presence via
