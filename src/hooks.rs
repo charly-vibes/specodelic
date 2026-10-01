@@ -713,14 +713,28 @@ mod tests {
 
     #[test]
     fn install_refuses_husky_framework() {
-        let fixture = Fixture::new().build().unwrap();
-        let git_hooks_dir = fixture.root().join(".git").join("hooks");
+        // Hermetic (genesis >= 0.8.2 resolves `core.hooksPath` across all
+        // config scopes): a real git repo whose LOCAL config pins an empty
+        // hooksPath, so detection falls back to the fixture's .git/hooks
+        // instead of any developer-global hooksPath on the host (e.g. a
+        // lefthook shim). Empty hooksPath = git disables hooks, which
+        // resolve_hooks_dir reports as Disabled and falls back to
+        // the default .git/hooks.
+        let fixture = Fixture::new().with_git_init().build().unwrap();
+        let git_dir = fixture.root().join(".git");
+        let git_hooks_dir = git_dir.join("hooks");
         std::fs::create_dir_all(&git_hooks_dir).unwrap();
         std::fs::write(
             git_hooks_dir.join("pre-commit"),
             "#!/bin/sh\n. \"$(dirname -- \"$0\")\"/_/husky.sh\n",
         )
         .unwrap();
+        use std::io::Write as _;
+        let mut config = std::fs::OpenOptions::new()
+            .append(true)
+            .open(git_dir.join("config"))
+            .unwrap();
+        writeln!(config, "[core]\n\thooksPath =").unwrap();
         let err = install(fixture.root()).unwrap_err();
         assert!(err.to_string().contains("husky"), "framework named: {err}");
     }
