@@ -963,19 +963,39 @@ fn lint_frontmatter_family(spec: &Spec, report: &mut Report) {
         }
     }
 
-    // dual_format_valid — a file carrying `## ADDED Requirements` (the
-    // openspec delta half) must be a dual-format file: declare `id: spec`
-    // (openspec hard-requires the spec.md filename) and pair the ADDED
-    // section with a sibling `## Requirements` section (the capability
-    // half that survives archiving). Plain corpus specs (no ADDED
-    // section) are exempt.
-    if spec.has_added_requirements {
+    // dual_format_valid — a file carrying `## ADDED Requirements` or
+    // `## MODIFIED Requirements` (the openspec delta halves;
+    // update-law-named-cases widened the mirror rules to MODIFIED
+    // additively — the repo's first MODIFIED delta must be gated
+    // exactly like an ADDED one) must be a dual-format file: declare
+    // `id: spec` (openspec hard-requires the spec.md filename) and pair
+    // each delta section with a sibling `## Requirements` section (the
+    // capability half that survives archiving). Plain corpus specs (no
+    // delta section) are exempt.
+    let delta_sections: Vec<(&str, &str)> = [
+        (
+            spec.has_added_requirements,
+            "## ADDED Requirements",
+            spec.added_requirements_body.as_str(),
+        ),
+        (
+            spec.has_modified_requirements,
+            "## MODIFIED Requirements",
+            spec.modified_requirements_body.as_str(),
+        ),
+    ]
+    .into_iter()
+    .filter(|(present, _, _)| *present)
+    .map(|(_, name, body)| (name, body))
+    .collect();
+    if !delta_sections.is_empty() {
         if spec.intent.id != "spec" {
             report.issues.push(Issue::new(
                 "dual_format_valid",
                 file.clone(),
                 format!(
-                    "file carries `## ADDED Requirements` but declares id `{}` — dual-format files must declare `id: spec` (openspec requires the spec.md filename)",
+                    "file carries {} but declares id `{}` — dual-format files must declare `id: spec` (openspec requires the spec.md filename)",
+                    delta_sections.iter().map(|(n, _)| *n).collect::<Vec<_>>().join(" and "),
                     spec.intent.id
                 ),
             ));
@@ -984,31 +1004,39 @@ fn lint_frontmatter_family(spec: &Spec, report: &mut Report) {
             report.issues.push(Issue::new(
                 "dual_format_valid",
                 file.clone(),
-                "file carries `## ADDED Requirements` without a sibling `## Requirements` section — not a dual-format file (the capability half is missing; migrate per the recipe in openspec/project.md: mirror the requirement content into ## Requirements, keep the specodelic tables alongside, then gates: spk lint + openspec validate + scripts/check_section_sync.py for drift)".to_string(),
+                format!(
+                    "file carries {} without a sibling `## Requirements` section — not a dual-format file (the capability half is missing; migrate per the recipe in openspec/project.md: mirror the requirement content into ## Requirements, keep the specodelic tables alongside, then gates: spk lint + openspec validate + scripts/check_section_sync.py for drift)",
+                    delta_sections.iter().map(|(n, _)| *n).collect::<Vec<_>>().join(" and ")
+                ),
             ));
         }
-    }
 
-    // requirement_drift — when both halves of a dual-format file are
-    // present, the mirror must match (gh#4: the migration recipe has
-    // agents hand-create the mirror, so drift is easy and was previously
-    // only caught by this repo's local section-sync script, never by
-    // `spk lint`). Normalization mirrors scripts/check_section_sync.py:
-    // per-line trailing space and blank lines are ignored.
-    if spec.has_added_requirements && spec.has_requirements_section {
-        let norm = |body: &str| -> String {
-            body.lines()
-                .map(str::trim_end)
-                .filter(|l| !l.trim().is_empty())
-                .collect::<Vec<_>>()
-                .join("\n")
-        };
-        if norm(&spec.added_requirements_body) != norm(&spec.requirements_body) {
-            report.issues.push(Issue::new(
-                "requirement_drift",
-                file.clone(),
-                "## Requirements does not match ## ADDED Requirements — the mirror must hold identical requirement text (blank lines and trailing space ignored); regenerate it from the ADDED section".to_string(),
-            ));
+        // requirement_drift — when both halves of a dual-format file are
+        // present, the mirror must match (gh#4: the migration recipe has
+        // agents hand-create the mirror, so drift is easy and was previously
+        // only caught by this repo's local section-sync script, never by
+        // `spk lint`), for every delta section the file carries.
+        // Normalization mirrors scripts/check_section_sync.py:
+        // per-line trailing space and blank lines are ignored.
+        if spec.has_requirements_section {
+            let norm = |body: &str| -> String {
+                body.lines()
+                    .map(str::trim_end)
+                    .filter(|l| !l.trim().is_empty())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            };
+            for (section, body) in &delta_sections {
+                if norm(body) != norm(&spec.requirements_body) {
+                    report.issues.push(Issue::new(
+                        "requirement_drift",
+                        file.clone(),
+                        format!(
+                            "## Requirements does not match {section} — the mirror must hold identical requirement text (blank lines and trailing space ignored); regenerate it from the delta section"
+                        ),
+                    ));
+                }
+            }
         }
     }
 }
@@ -2601,6 +2629,66 @@ mod tests {
         let report = lint_all(&[spec], &checklist_fixtures());
         assert!(
             !report.issues.iter().any(|i| i.rule_id == "linter.law_cases"),
+            "{:?}",
+            report.issues
+        );
+    }
+
+    #[test]
+    fn modified_delta_with_drifted_mirror_fires_requirement_drift() {
+        // update-law-named-cases 4.1: the repo's first ## MODIFIED
+        // delta must be mirror-checked exactly like an ADDED one.
+        let spec = spec_at(
+            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## MODIFIED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds BUT THE MIRROR DRIFTED\n",
+            "spec.md",
+        );
+        let report = lint_all(&[spec], &checklist_fixtures());
+        let finding = report
+            .issues
+            .iter()
+            .find(|i| i.rule_id == "linter.requirement_drift")
+            .expect("a drifted MODIFIED mirror must fire requirement_drift");
+        assert!(
+            finding.message.contains("## MODIFIED Requirements"),
+            "the finding names the delta section: {:?}",
+            finding.message
+        );
+    }
+
+    #[test]
+    fn modified_delta_with_non_spec_id_fires_dual_format_valid() {
+        // update-law-named-cases 4.2: a MODIFIED-carrying file must
+        // declare id: spec, exactly like an ADDED-carrying one.
+        let spec = spec_at(
+            "---\nid: demo.thing\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## MODIFIED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds\n",
+            "spec.md",
+        );
+        let report = lint_all(&[spec], &checklist_fixtures());
+        assert!(
+            report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.dual_format_valid"),
+            "MODIFIED-carrying file with a non-spec id must fire dual_format_valid: {:?}",
+            report.issues
+        );
+    }
+
+    #[test]
+    fn modified_delta_in_sync_lints_clean() {
+        // update-law-named-cases 4.x: the widening is additive — an
+        // in-sync MODIFIED delta with id: spec fires neither rule.
+        let spec = spec_at(
+            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## MODIFIED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds\n",
+            "spec.md",
+        );
+        let report = lint_all(&[spec], &checklist_fixtures());
+        assert!(
+            !report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.dual_format_valid"
+                    || i.rule_id == "linter.requirement_drift"),
             "{:?}",
             report.issues
         );

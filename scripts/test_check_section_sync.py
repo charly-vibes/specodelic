@@ -55,6 +55,32 @@ class SectionSyncTest(unittest.TestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn("divergent requirement text: A", problems[0])
 
+    def test_drifted_modified_requirement_text_is_flagged(self):
+        # update-law-named-cases 4.3: the repo's first ## MODIFIED delta
+        # must be mirror-checked exactly like an ADDED one.
+        root = self.write({
+            "openspec/changes/update-law-named-cases/specs/compile/spec.md": (
+                "---\nid: spec\nkind: intent\nstatement: \"SHALL\"\n---\n\n"
+                + TABLES
+                + "## MODIFIED Requirements\n\n### Requirement: A\nThe system SHALL a.\n\n"
+                + "## Requirements\n\n### Requirement: A\nThe system SHALL b.\n"
+            ),
+        })
+        problems = css.check(root / "openspec/changes/update-law-named-cases/specs/compile/spec.md")
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("divergent requirement text: A", problems[0])
+
+    def test_in_sync_modified_delta_passes(self):
+        root = self.write({
+            "openspec/changes/x/specs/compile/spec.md": (
+                "---\nid: spec\nkind: intent\nstatement: \"SHALL\"\n---\n\n"
+                + TABLES
+                + "## MODIFIED Requirements\n\n### Requirement: A\nThe system SHALL a.\n\n"
+                + "## Requirements\n\n### Requirement: A\nThe system SHALL a.\n"
+            ),
+        })
+        self.assertEqual(css.check(root / "openspec/changes/x/specs/compile/spec.md"), [])
+
     def test_in_sync_dual_file_is_clean(self):
         root = self.write({
             "openspec/specs/cap/spec.md": (

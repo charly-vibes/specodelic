@@ -39,7 +39,8 @@ def norm(body: str) -> str:
 def is_dual_format(text: str) -> bool:
     lines = text.splitlines()
     return bool(lines) and lines[0].strip() == "---" \
-        and "## ADDED Requirements" in text and "## Requirements" in text
+        and ("## ADDED Requirements" in text or "## MODIFIED Requirements" in text) \
+        and "## Requirements" in text
 
 
 def is_capability_spec(path: Path) -> bool:
@@ -90,30 +91,39 @@ def check(path: Path) -> list[str]:
     if not is_dual_format(text):
         return []
     secs = sections(text)
-    added, reqs = norm(secs["ADDED Requirements"]), norm(secs["Requirements"])
+    reqs = norm(secs["Requirements"])
+    # update-law-named-cases: a MODIFIED-carrying delta is mirror-checked
+    # exactly like an ADDED one — every delta section present must equal
+    # the Requirements mirror.
+    delta_sections = [
+        (name, norm(secs[name]))
+        for name in ("ADDED Requirements", "MODIFIED Requirements")
+        if name in secs
+    ]
     problems: list[str] = []
-    if added == reqs:
+    if all(body == reqs for _, body in delta_sections):
         return problems
-    added_reqs = REQ.findall(added)
-    req_reqs = REQ.findall(reqs)
-    if set(added_reqs) != set(req_reqs):
-        only_added = sorted(set(added_reqs) - set(req_reqs))
-        only_reqs = sorted(set(req_reqs) - set(added_reqs))
-        if only_added:
-            problems.append(f"{path}: requirement only in ADDED section: {', '.join(only_added)}")
-        if only_reqs:
-            problems.append(f"{path}: requirement only in Requirements section: {', '.join(only_reqs)}")
-    else:
-        for name in added_reqs:
-            block = re.compile(
-                r"^### Requirement: " + re.escape(name) + r"$.*?(?=^### Requirement:|\Z)",
-                re.MULTILINE | re.DOTALL,
-            )
-            a, r = block.search(added), block.search(reqs)
-            if a and r and norm(a.group(0)) != norm(r.group(0)):
-                problems.append(f"{path}: divergent requirement text: {name}")
+    for name, added in delta_sections:
+        added_reqs = REQ.findall(added)
+        req_reqs = REQ.findall(reqs)
+        if set(added_reqs) != set(req_reqs):
+            only_added = sorted(set(added_reqs) - set(req_reqs))
+            only_reqs = sorted(set(req_reqs) - set(added_reqs))
+            if only_added:
+                problems.append(f"{path}: requirement only in {name} section: {', '.join(only_added)}")
+            if only_reqs:
+                problems.append(f"{path}: requirement only in Requirements section: {', '.join(only_reqs)}")
+        else:
+            for req_name in added_reqs:
+                block = re.compile(
+                    r"^### Requirement: " + re.escape(req_name) + r"$.*?(?=^### Requirement:|\Z)",
+                    re.MULTILINE | re.DOTALL,
+                )
+                a, r = block.search(added), block.search(reqs)
+                if a and r and norm(a.group(0)) != norm(r.group(0)):
+                    problems.append(f"{path}: divergent requirement text: {req_name}")
     if not problems:
-        problems.append(f"{path}: ADDED Requirements and Requirements sections differ")
+        problems.append(f"{path}: delta requirement sections and Requirements sections differ")
     return problems
 
 
@@ -130,8 +140,9 @@ def main() -> int:
         print(f"section-sync: {p}", file=sys.stderr)
     if problems:
         print(
-            "section-sync: run `just sync-sections` guidance — edit the ADDED "
-            "Requirements section, then mirror it verbatim into Requirements",
+            "section-sync: run `just sync-sections` guidance — edit the delta "
+            "section (## ADDED / ## MODIFIED Requirements), then mirror it "
+            "verbatim into Requirements",
             file=sys.stderr,
         )
         return 1
