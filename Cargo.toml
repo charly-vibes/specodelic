@@ -24,7 +24,7 @@ path = "src/main.rs"
 name = "specodelic"
 
 [dependencies]
-genesis-vibes = { version = "0.10", features = ["update-check"] }
+genesis-vibes = { version = "0.11", features = ["update-check"] }
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = "4"
 serde = { version = "1", features = ["derive"] }
