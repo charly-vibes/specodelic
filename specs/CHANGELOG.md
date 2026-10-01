@@ -6,6 +6,29 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #92 — `spk parse`: the typed Spec IR exits the crate (specodelic-9rv)
+
+The four-layer grammar was fully parsed in-process — `spec::Spec` is a
+typed, `Serialize`-derived IR — but only from inside the crate:
+external consumers had to reimplement the markdown-table parser (a
+silent drift vector against format revisions) or scrape `spk compile
+--json`, which embeds generated artifact text and exposes no
+Properties rows as structure. `spk parse <file>` is the minimal
+exposure: the parsed `Spec` emitted directly as a json envelope —
+intent, constraints, states, transitions, properties (cells as keyed
+maps), structured links — nothing filtered, no new IR. Parse is
+syntax-only: it succeeds on lint-dirty files and embeds no lint status
+(single-purpose envelopes; consumers chain `spk lint` themselves, and
+the envelope's hint names the command). Exactly one file per
+invocation — no globbing; consumers loop. Unparseable, missing,
+non-regular (FIFO/device), and >2 MiB input are labeled error
+envelopes with remediation hints and non-zero exit (the suz
+hostile-input discipline; placeholder parse-error labels are remapped
+to the real path). Requested by espectacular (`ah sync` consumes the
+IR through the versioned-binary boundary); docs/src/commands.md
+carries the reference, and the parse capability spec now lives at
+openspec/specs/parse/spec.md.
+
 ## #91 — law-row named cases are machine-checkable: `linter.law_cases` (specodelic-9qw)
 
 Law rows are monoid witnesses, but where their cases appeared in the
