@@ -150,6 +150,23 @@ deployed layer deliberately ignores the structured specodelic layer and
 whose `spec.md` filenames violate `id_matches_file`. Scope widening is a
 parse-boundary adapter change, not a graph-views change.
 
+### D8 — Native text projections; rendering is always external
+
+(Added 2026-10-01, specodelic-5qj decision,
+`openspec/research/2026-10-01-wiring-view-decision/`.) `spk graph` emits
+DOT and mermaid natively (`--format dot|mermaid`) as plain-text string
+templates — zero external crates, byte-stable re-runs. The "no viz
+dependencies" constraint rejects rendering *libraries*, not output *text
+projections*: conflating them forced a JSON→jq→renderer ceremony that no
+consumer could reproduce (the jq bridge was repo-local, absent from the
+installed binary). Rendering stays 100 % external and user-chosen
+(`dot`, `graph-easy`, `mmdc`, viz-js); the tool never shells out to a
+renderer (no `--render` in v1 — it would break byte-stable artifacts via
+graphviz version drift). Guidance ships embedded via `spk explain
+graph-views`. An in-terminal ASCII renderer (ascii-dag) was evaluated and
+dropped: it requires Rust 1.92 vs repo MSRV 1.88, and the terminal niche
+is served by documenting `graph-easy`.
+
 ## Risks / Trade-offs
 
 - Script rot (`graph_views.py` drifting from the TSV contract)

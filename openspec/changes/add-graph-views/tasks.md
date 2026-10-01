@@ -28,6 +28,18 @@ Tidying commits are separate from feature commits.
 - [ ] 1.4 **TIDY**: extract projection formatting into a testable unit in
       `src/graph.rs`; dead-flag and clippy sweep (`just ci`).
 
+- [ ] 1.5 **RED→GREEN**: native dot/mermaid projections — `--format dot`
+      and `--format mermaid` emit plain-text graph output (zero external
+      crates; byte-stable re-runs; visual grammar: solid = state machine,
+      dashed = guards, bold = `emits`, dotted = traceability, red dashed =
+      dangling/violations). Parity fixture: the retired
+      `scripts/graph_to_dot.jq` output pinned as the expected dot shape.
+- [ ] 1.6 **RED→GREEN**: `--view wiring` — file-level producer→consumer
+      projection of `constraints.satisfies` edges (specodelic-5qj
+      decision, `openspec/research/2026-10-01-wiring-view-decision/`);
+      self-loops dropped; corpora with zero satisfies edges emit a labeled
+      `no_wiring` view, never a silently clean diagram.
+
 ## 2. Guide JSON and transform prototype (`scripts/graph_views.py`)
 
 - [ ] 2.1 **RED**: CLI test asserting `spk guide --json` serves the
@@ -68,6 +80,10 @@ Tidying commits are separate from feature commits.
       current or more correct than the graph artifact.
 - [ ] 3.3 Wire `docs-graphs` into the docs build path (`justfile`); do NOT
       add it to `just ci` gates in v1 (rendering is build-time only).
+- [ ] 3.4 `spk explain graph-views` primer topic (appended at the end of
+      the topic list, never renumbered): the view taxonomy, format flags,
+      and one-pipe render recipes (`| dot -Tsvg`, `graph-easy` for ASCII
+      terminal, mermaid paste targets); docs pages updated.
 
 ## 4. Dogfood and follow-ups
 
@@ -76,7 +92,10 @@ Tidying commits are separate from feature commits.
       as silently clean.
 - [ ] 4.2 Run the pipeline over `../bajan/specs` (out-of-CI, manual check
       recorded in the change notes): views derive with zero
-      corpus-specific code.
+      corpus-specific code. Update vs the 5qj decision note: bajan now
+      carries 4 typed inter-file `satisfies` edges (the "wiring empty
+      until ac8" contingency is stale) — the wiring view renders for
+      real there.
 - [ ] 4.3 ~~File the bajan corpus-feedback beads issue~~ **done ahead of
       implementation — bajan-ac8 filed 2026-09-29 (issue-review pass); the
       implementer only verifies it's still open and cross-references it**.

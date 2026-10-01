@@ -36,6 +36,16 @@ string-diagram IR is explicitly deferred.
   sorted, deterministic TSV edge list (canonical ids, one row per recorded
   edge plus annotation rows for violations). Purely additive to the
   existing `graph` command; JSON envelope remains canonical.
+- **Tool — native text projections (`--format dot|mermaid`):** `spk graph`
+  also emits Graphviz DOT and Mermaid as plain-text string templates —
+  zero external crates, same discipline as the TSV (decision recorded in
+  `openspec/research/2026-10-01-wiring-view-decision/`). Rendering stays
+  100 % external (`| dot -Tsvg`, `graph-easy`, `mmdc`, viz-js): the tool
+  depends on no graphing/viz library, and the happy path is one standard
+  pipe instead of a JSON→jq→renderer chain.
+- **Tool — `--view wiring`:** file-level producer→consumer projection of
+  `constraints.satisfies` edges (the declared-dataflow view explored in
+  specodelic-5qj), alongside the states/traceability/schema views.
 - **Tool — transform prototype:** `scripts/graph_views.py` consuming the
   edge list plus `spk graph --json` (for violation reasons and fan-in) and
   `spk guide --json` (for closed value sets + format revision), emitting
@@ -45,9 +55,14 @@ string-diagram IR is explicitly deferred.
   `transitions.from/to/guard` edges; (b) file-level traceability map
   (edges collapsed to intents, fan-in annotated); (c) schema view derived
   from the format's Reference Typing value sets, labeled with the format
-  revision. Violations render as annotated (dashed) rows — a view is never
+  revision; (d) the wiring view above. Violations render as annotated
+  (dashed) rows — a view is never
   silently cleaner than the graph artifact (this repo's corpus carries 38
-  typing violations as of this writing).
+  typing violations as of this writing). Empty views are labeled
+  (`no_transitions`, `no_wiring`), never silently clean.
+- **Agent guidance:** a `spk explain graph-views` primer topic teaching
+  the one-pipe render recipes (dot/graph-easy/mermaid consumers) — the
+  embedded-principle pattern, so consumers can act without repo access.
 - **Build wiring:** `just docs-graphs` regenerates all rendered views into
   the mdbook build at build time; rendered artifacts are never committed
   and have no hand-edit path (`graph_is_derived_not_authored`, trivially
@@ -72,10 +87,11 @@ change touches only tool output, not the format corpus.
 - Affected format corpus: **none** — no `specs/*.md` file changes; no new
   Reference Typing row; no Revision bump.
 - Affected code: `src/graph.rs` (canonical-id normalization in edge
-  extraction or projection), `src/main.rs` (`--format edges` flag on the
-  `Graph` command; new `guide --json` subcommand), `src/guide.rs`
-  (JSON serialization of the closed value sets), new
-  `scripts/graph_views.py`, `justfile` (`docs-graphs` recipe),
+  extraction or projection; native dot/mermaid emission; wiring
+  projection), `src/main.rs` (`--format edges|dot|mermaid` and `--view`
+  flags on the `Graph` command; new `guide --json` subcommand),
+  `src/guide.rs` (JSON serialization of the closed value sets; explain
+  topic), new `scripts/graph_views.py`, `justfile` (`docs-graphs` recipe),
   `docs/src/` (one view page consuming generated includes),
   `tests/cli.rs` (projection fixtures: empty corpus, single-intent
   corpus, violation-bearing corpus).

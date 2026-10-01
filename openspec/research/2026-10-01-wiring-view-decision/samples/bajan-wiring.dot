@@ -1,0 +1,9 @@
+digraph wiring {
+  rankdir=LR;
+  node [shape=box, style=rounded, fontsize=11];
+  edge [color=gray30, arrowsize=0.7];
+  "contradiction" -> "graph" [label="1 satisfies"];
+  "entity" -> "graph" [label="1 satisfies"];
+  "eval" -> "extraction" [label="1 satisfies"];
+  "query" -> "graph" [label="1 satisfies"];
+}

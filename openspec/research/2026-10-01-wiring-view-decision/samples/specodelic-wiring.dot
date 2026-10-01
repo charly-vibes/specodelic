@@ -1,0 +1,13 @@
+digraph wiring {
+  rankdir=LR;
+  node [shape=box, style=rounded, fontsize=11];
+  edge [color=gray30, arrowsize=0.7];
+  "compile" -> "errors" [label="6 satisfies"];
+  "graph" -> "errors" [label="3 satisfies"];
+  "kinds" -> "errors" [label="6 satisfies"];
+  "linter" -> "errors" [label="51 satisfies"];
+  "merge" -> "errors" [label="9 satisfies"];
+  "orchestrate" -> "errors" [label="12 satisfies"];
+  "rename" -> "errors" [label="9 satisfies"];
+  "verify" -> "errors" [label="3 satisfies"];
+}
