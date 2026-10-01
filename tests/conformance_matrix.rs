@@ -835,7 +835,11 @@ fn cases() -> Vec<Case> {
                 ),
                 ("b.md", CLEAN_B.to_string()),
             ],
-            &["graph.typing"],
+            // Rev 10 tiered reachability (specodelic-erb): the rows
+            // stranded by the wrong-file traces_to also ride the
+            // advisory tier — their only tie is the cross-file ref the
+            // old some-intent reading false-resolved silently.
+            &["graph.typing", "warn:linter.single_root_reachable"],
         ),
         f(
             "graph_supersedes_cycle",

@@ -142,7 +142,7 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
     ),
     (
         "single_root_reachable",
-        "every constraint/property/state/transition row must be connected to some intent row through the reference graph (traces_to, derives_from, guard, from/to, emits) — no orphaned islands",
+        "every constraint/property/state/transition row must reach its file's OWN intent row through own-file primary linkage (traces_to/derives_from chains resolved within the file, plus the model's own from/to/guard/emits edges) — cross-file typed edges (guard citations of foreign constraints, satisfies, observes) are outbound leaves, never reachability paths; tiered: cross-file-only rows warn (advisory, exit 0), rows with no path to ANY intent hard-fail",
     ),
     (
         "observability",
@@ -559,9 +559,11 @@ pub fn lint_checklists(specs: &[Spec], checklists: &[Checklist], report: &mut Re
 /// resolved reference graph once, then check `no_self_ref`, `acyclic`
 /// (over traces_to ∪ derives_from ∪ guard-as-edge — a self-loop is
 /// `no_self_ref`'s beat, never double-reported as a cycle), and
-/// `single_root_reachable` (every row connected to some intent row
-/// through the reference graph: traces_to, derives_from, guard,
-/// from/to, emits). Resolution reuses [`Index`] with the same
+/// `single_root_reachable` (tiered own-file reachability,
+/// specodelic.md Revision 10: every row reaches its file's OWN intent
+/// through own-file primary linkage; cross-file typed edges are
+/// outbound leaves — advisory tier for cross-file-only rows, hard
+/// failure for rows with no path to ANY intent). Resolution reuses [`Index`] with the same
 /// metasyntactic skip as [`lint_references`]; dangling targets are
 /// `total_refs`'s job, not ours — the two checks compose without
 /// double-reporting the same row.
@@ -675,55 +677,122 @@ fn lint_graph_shape(specs: &[Spec], report: &mut Report) {
         ));
     }
 
-    // single_root_reachable — undirected connectivity: every row's
-    // component contains some intent row. The edge set is the full
-    // resolved reference graph (any typed column, incl. frontmatter)
-    // plus the model's own from/to edges — a state reaches its intent
-    // through the transitions that reference it, so the check is
-    // connectivity, not outbound-only reachability (an outbound-only
-    // reading would flag every state that does not emit, which no
-    // corpus satisfies). Which intents count (any vs the file's own)
-    // is specodelic-mp1 row 8's open question — this implements the
-    // checker spec text as written ("reachable(row, some intent row)").
-    let mut adj: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    for (source, target, _, _) in &edges {
-        if source != target {
-            adj.entry(source.clone())
-                .or_default()
-                .insert(target.clone());
-            adj.entry(target.clone())
-                .or_default()
-                .insert(source.clone());
+    // single_root_reachable — tiered own-file reachability
+    // (specodelic.md Revision 10, HITL mp1 row 8): every row reaches the
+    // file's OWN intent through own-file primary linkage — the edge set
+    // is the file's own-file resolved references (traces_to,
+    // derives_from, guard, satisfies, observes, emits, frontmatter) plus
+    // the model's from/to edges, connectivity not outbound-only (an
+    // outbound-only reading would flag every non-emitting state, which
+    // no corpus satisfies). Cross-file typed edges (guard citations of
+    // foreign constraints, satisfies, observes) are outbound leaves,
+    // NEVER reachability paths — they cannot carry a row to an intent.
+    // Tiered enforcement: a row with no own-file path whose component in
+    // the FULL graph still contains some intent row is advisory (warnings
+    // channel, exit 0 — its only ties are cross-file, possibly a
+    // cross-feature reference filed under the wrong id); a row with no
+    // path to ANY intent at all is an orphaned island and hard-fails.
+    // node → owning file id, so own-file vs cross-file edges split
+    // without re-parsing node names (intent nodes are bare file ids).
+    let mut node_file: BTreeMap<String, String> = BTreeMap::new();
+    for spec in specs {
+        let file_id = spec.intent.id.clone();
+        node_file.insert(file_id.clone(), file_id.clone());
+        for r in rows(spec) {
+            node_file.insert(format!("{file_id}.{}", r.1.id), file_id.clone());
+        }
+        for t in &spec.transitions {
+            node_file.insert(format!("{file_id}.{}", t.id), file_id.clone());
         }
     }
-    for (a, b) in &conn_edges {
+    let file_of = |node: &str| -> Option<String> { node_file.get(node).cloned() };
+    // Own-file adjacency: both endpoints in the same file. The full
+    // adjacency (any file) is kept for the advisory tier's "still
+    // connected to SOME intent" escape hatch.
+    let mut own_adj: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut adj: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut link = |own: bool, a: String, b: String| {
+        if a == b {
+            return;
+        }
         adj.entry(a.clone()).or_default().insert(b.clone());
         adj.entry(b.clone()).or_default().insert(a.clone());
-    }
-    let mut visited: BTreeSet<String> = BTreeSet::new();
-    let mut islands: Vec<(String, Vec<String>)> = vec![];
-    for node in all_rows.iter().cloned().collect::<Vec<_>>() {
-        if visited.contains(&node) {
-            continue;
+        if own {
+            own_adj.entry(a.clone()).or_default().insert(b.clone());
+            own_adj.entry(b.clone()).or_default().insert(a.clone());
         }
-        let mut comp: Vec<String> = vec![];
-        let mut stack = vec![node.clone()];
-        visited.insert(node.clone());
+    };
+    for (source, target, _, _) in &edges {
+        let own = file_of(source) == file_of(target) && file_of(source).is_some();
+        link(own, source.clone(), target.clone());
+    }
+    for (a, b) in &conn_edges {
+        // from/to are structural and always own-file by construction.
+        link(true, a.clone(), b.clone());
+    }
+    let component_has_intent = |start: &str| -> bool {
+        let mut seen: BTreeSet<String> = BTreeSet::new();
+        let mut stack = vec![start.to_string()];
+        seen.insert(start.to_string());
         while let Some(n) = stack.pop() {
-            comp.push(n.clone());
+            if intent_nodes.contains(&n) {
+                return true;
+            }
             for m in adj.get(&n).into_iter().flatten() {
-                if visited.insert(m.clone()) {
+                if seen.insert(m.clone()) {
                     stack.push(m.clone());
                 }
             }
         }
-        if !comp.iter().any(|n| intent_nodes.contains(n)) {
-            let anchor = comp.iter().min().cloned().unwrap_or_default();
-            comp.sort();
-            islands.push((anchor, comp));
+        false
+    };
+    let mut advisory: Vec<(String, Vec<String>)> = vec![];
+    let mut islands: Vec<(String, Vec<String>)> = vec![];
+    for spec in specs {
+        let file_id = spec.intent.id.clone();
+        // BFS from the file's own intent over own-file edges only; any
+        // row left unvisited has no own-file primary linkage.
+        let mut seen: BTreeSet<String> = BTreeSet::new();
+        let mut stack = vec![file_id.clone()];
+        seen.insert(file_id.clone());
+        while let Some(n) = stack.pop() {
+            for m in own_adj.get(&n).into_iter().flatten() {
+                if seen.insert(m.clone()) {
+                    stack.push(m.clone());
+                }
+            }
+        }
+        // This spec's rows only — never another same-id (id:spec)
+        // file's rows (the file-scope self-containment law).
+        let mut unanchored: Vec<String> = rows(spec)
+            .iter()
+            .map(|(_, r)| format!("{file_id}.{}", r.id))
+            .chain(
+                spec.transitions
+                    .iter()
+                    .map(|t| format!("{file_id}.{}", t.id)),
+            )
+            .filter(|r| !seen.contains(r.as_str()))
+            .collect();
+        if unanchored.is_empty() {
+            continue;
+        }
+        unanchored.sort();
+        // Per-row tier (Revision 10): a row still connected to SOME
+        // intent through the full graph (its only ties are cross-file)
+        // is advisory; a row connected to no intent at all hard-fails.
+        let (adv, hard): (Vec<_>, Vec<_>) = unanchored
+            .into_iter()
+            .partition(|r| component_has_intent(r));
+        if !adv.is_empty() {
+            advisory.push((file_id.clone(), adv));
+        }
+        if !hard.is_empty() {
+            islands.push((file_id, hard));
         }
     }
-    for (_, rows) in islands {
+    // Advisory tier — cross-file-only rows: warned, never gating.
+    for (file, rows) in advisory {
         let shown: Vec<String> = rows.iter().take(5).cloned().collect();
         let more = if rows.len() > shown.len() {
             format!(" (and {} more)", rows.len() - shown.len())
@@ -731,10 +800,23 @@ fn lint_graph_shape(specs: &[Spec], report: &mut Report) {
             String::new()
         };
         let shown = shown.join(", ");
-        let file = rows[0]
-            .rsplit_once('.')
-            .map(|(f, _)| f.to_string())
-            .unwrap_or_else(|| rows[0].clone());
+        report.warnings.push(Issue::new(
+            "single_root_reachable",
+            file,
+            format!(
+                "{} row(s) have no own-file path to this file's intent row — their only ties are cross-file references (guard/satisfies/observes are outbound leaves, never reachability paths): {shown}{more} — advisory: anchor them to this file's intent, or they may be filed under the wrong id",
+                rows.len()
+            ),
+        ));
+    }
+    for (file, rows) in islands {
+        let shown: Vec<String> = rows.iter().take(5).cloned().collect();
+        let more = if rows.len() > shown.len() {
+            format!(" (and {} more)", rows.len() - shown.len())
+        } else {
+            String::new()
+        };
+        let shown = shown.join(", ");
         report.issues.push(Issue::new(
             "single_root_reachable",
             file,
@@ -2983,10 +3065,11 @@ mod tests {
         );
     }
 
-    /// graph_shape.single_root_reachable: every row must be connected to
-    /// some intent row through the reference graph (traces_to, derives_from,
-    /// guard-as-edge, from/to, emits) — an island of rows tracing only to
-    /// each other has no owning purpose.
+    /// graph_shape.single_root_reachable: every row must reach its
+    /// file's OWN intent through own-file primary linkage (specodelic.md
+    /// Revision 10) — a row with no path to ANY intent (an island of
+    /// rows tracing only to each other) has no owning purpose and
+    /// hard-fails.
     #[test]
     fn orphan_cluster_fails_single_root_reachable() {
         let spec = spec_at(
@@ -3009,6 +3092,64 @@ mod tests {
             hits[0].message.contains("lost"),
             "finding names the disconnected row: {}",
             hits[0].message
+        );
+    }
+
+    /// Pinning test (specodelic-erb item 4): reachability semantics are
+    /// OWN-FILE (Revision 10), not corpus-wide — a component whose only
+    /// tie to the graph is a cross-file typed edge must produce the
+    /// advisory warning (never a silent pass), while the same shape with
+    /// an own-file guard chain passes. Regressing to the old
+    /// some-intent connectivity must fail this test.
+    #[test]
+    fn cross_file_only_rows_warn_advisory_own_file_chain_passes() {
+        let base = spec_at(
+            "---\nid: base\nkind: intent\nstatement: \"THE base SHALL anchor\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| base_inv | invariant | `x` | [[base]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[base.base_inv]] |\n",
+            "base.md",
+        );
+        // Consumer: the transition+state component's only tie is the
+        // cross-file guard citation of base's constraint.
+        let consumer = spec_at(
+            "---\nid: consumer\nkind: intent\nstatement: \"THE consumer SHALL consume\"\n---\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[base.base_inv]] |\n",
+            "consumer.md",
+        );
+        let report = lint_corpus(&[base.clone(), consumer.clone()]);
+        assert!(
+            report
+                .issues
+                .iter()
+                .all(|i| i.rule_id != "linter.single_root_reachable"),
+            "cross-file-only rows must not hard-fail: {:?}",
+            report.issues
+        );
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|w| w.rule_id == "linter.single_root_reachable"
+                    && w.file == "consumer"
+                    && w.message.contains("t")),
+            "cross-file-only component must ride the advisory tier: {:?}",
+            report.warnings
+        );
+        // Same shape with an OWN-FILE guard chain: no warning, no issue.
+        let own = spec_at(
+            "---\nid: own.file\nkind: intent\nstatement: \"THE own SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| inv | invariant | `x` | [[own.file]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[own.file.inv]] |\n",
+            "own-file.md",
+        );
+        let report = lint_corpus(&[own]);
+        assert!(
+            report
+                .issues
+                .iter()
+                .all(|i| i.rule_id != "linter.single_root_reachable")
+                && report
+                    .warnings
+                    .iter()
+                    .all(|w| w.rule_id != "linter.single_root_reachable"),
+            "own-file primary linkage must pass clean: {:?} / {:?}",
+            report.issues,
+            report.warnings
         );
     }
 

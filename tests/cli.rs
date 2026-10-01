@@ -243,6 +243,75 @@ fn graph_same_id_files_are_file_scoped() {
     );
 }
 
+/// Rev 10 tiered own-file reachability (specodelic-erb, RED first):
+/// `single_root_reachable` lands on the file's OWN intent through
+/// own-file primary linkage; cross-file typed edges (guard citations of
+/// foreign constraints, satisfies, observes) are outbound leaves, never
+/// reachability paths. Tiered: a row whose ONLY tie is cross-file gets
+/// an advisory warning (warnings channel), never a silent pass — while
+/// a row with no path to ANY intent still hard-fails.
+#[test]
+fn cross_file_only_rows_warn_advisory_never_silent() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("base.md"),
+        "---\nid: base\nkind: intent\nstatement: \"THE base SHALL anchor\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| base_invariant | invariant | `x` | [[base]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[base.base_invariant]] |\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("consumer.md"),
+        "---\nid: consumer\nkind: intent\nstatement: \"THE consumer SHALL consume\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| orphan_c | invariant | `y` | |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[base.base_invariant]] |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let issues = json["data"]["issues"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|i| i["rule_id"] == "linter.single_root_reachable")
+        .cloned()
+        .collect::<Vec<_>>();
+    // Hard tier: the unlinked row still fails.
+    assert_ne!(out.status.code(), Some(0), "orphan row must hard-fail");
+    assert!(
+        issues
+            .iter()
+            .any(|i| i["message"].as_str().unwrap().contains("orphan_c")),
+        "row with no path to ANY intent must hard-fail: {issues:?}"
+    );
+    // The cross-file-only component {t, s1} must NOT hard-fail.
+    assert!(
+        !issues.iter().any(|i| i["message"]
+            .as_str()
+            .unwrap()
+            .contains("[[base.base_invariant]]"))
+            || !issues.iter().any(|i| {
+                let m = i["message"].as_str().unwrap();
+                (m.contains(" t") || m.contains("s1")) && !m.contains("orphan_c")
+            }),
+        "cross-file-only rows must not ride the issues channel: {issues:?}"
+    );
+    // Advisory tier: the same rows warn on the warnings channel.
+    let warnings: Vec<String> = json["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|w| w["message"].as_str().unwrap_or_default().to_string())
+        .collect();
+    assert!(
+        warnings.iter().any(|w| w.contains("single_root_reachable")
+            && w.contains("t")
+            && w.contains("s1")
+            && w.contains("cross-file")),
+        "cross-file-only rows must produce the advisory warning: {warnings:?}"
+    );
+}
+
 /// add-error-contract task 1.1 (RED first): the corpus must publish the
 /// cross-cutting output contract — specs/errors.md owns the three
 /// `extension_point` rows, each pointing at its own intent and each

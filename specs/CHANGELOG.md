@@ -6,6 +6,45 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #97 — `single_root_reachable` enforces the Revision 10 own-file reading, tiered (specodelic-erb)
+
+The shipped checker had drifted from its spec (Rule-of-5 CORR-001,
+2026-10-01 review): it implemented undirected connectivity to SOME intent
+row corpus-wide, while `specodelic.md` Revision 10 (HITL mp1 row 8) had
+reworded the invariant to own-file primary linkage — a row reaches its
+file's OWN intent through `traces_to`/`derives_from` chains resolved
+within the file, and cross-file typed edges (`guard` citations of foreign
+constraints, `satisfies`, `observes`) are outbound leaves, never
+reachability paths. The loose reading was the exact bootstrapping bug the
+format's Notes warn about: a cross-feature reference filed under the wrong
+id false-resolved through another file's intent and passed silently —
+the self-lint was structurally blind to it.
+
+Now the checker builds the own-file edge set per file (plus the model's
+from/to edges — connectivity, not outbound-only, so non-emitting states
+are not flagged) and requires every row to reach its own intent within
+it. Enforcement is tiered exactly as Revision 10 specifies: a row with no
+own-file path whose full-graph component still contains some intent row
+produces an advisory warning on the warnings channel (exit 0 — "anchor
+them to this file's intent, or they may be filed under the wrong id"); a
+row with no path to ANY intent at all remains an orphaned island and
+hard-fails. `RULE_TABLE`'s semantics string (and therefore `spk explain
+lint-rules`) now states the own-file reading + tier note, replacing the
+superseded loose wording.
+
+Corpus effect: zero hard failures (the cxq reconciliation holds) — three
+law rows (`linter.coverage.coverage_naturality`,
+`linter.external_completeness.mapping_naturality`,
+`linter.referential_integrity.rename_naturality`) now ride the advisory
+tier by design: they derive from `[[specodelic.rename_naturality]]`
+cross-file, the "same claim, two altitudes" restatement pattern, so their
+only tie IS cross-file — the advisory tier is their sanctioned home (the
+converse anti-goal — hard-failing legitimate cross-file structure — is
+what Revision 10's tiering exists to prevent). The conformance case
+`graph_typing_traces_to_constraint` gains the advisory expectation: the
+rows stranded by the wrong-file `traces_to` are no longer silently
+false-resolved through the foreign intent.
+
 ## #96 — deployed llms.txt carries a version stamp; undeployed llm.txt variant resolved (specodelic-2m7, specodelic-cke)
 
 The deployed site rebuilds from main, but `llms.txt` carried no version
