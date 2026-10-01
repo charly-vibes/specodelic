@@ -51,7 +51,7 @@ traces_to = "[[specodelic]]"
 [[constraints]]
 id = "law_requires_cases"
 kind = "invariant"
-expr = """`∀ property where kind == "law": has(associativity) and has(identity)` — a floor, not a ceiling: a given law may require further named cases (e.g. unit, counit, naturality, triangle identity) in addition, listed in that property's own predicate"""
+expr = """`∀ property where kind == "law": the property's predicate enumerates its required cases in machine-findable **name:** case-label form, and the label set includes identity and associativity` — a floor, not a ceiling: a given law may require further named cases (e.g. unit, counit, naturality, triangle identity) in addition, as extra case labels in the same form; a prose mention of a case name is not an enumeration"""
 traces_to = "[[specodelic]]"
 
 [[constraints]]

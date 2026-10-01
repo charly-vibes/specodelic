@@ -9,7 +9,7 @@ traces_to = "[[linter.coverage]]"
 [[constraints]]
 id = "every_law_has_cases"
 kind = "invariant"
-expr = """`∀ property p where p.kind == "law": p has an associativity case and an identity case` — the rule this row re-owns from `specodelic.md`'s higher-altitude restatement (see Notes)"""
+expr = """`∀ property p where p.kind == "law": p's predicate enumerates its required cases as **name:** case labels, and the label set includes identity and associativity` — the rule this row re-owns from `specodelic.md`'s higher-altitude restatement (see Notes; machine form ratified in specodelic.md Revision 13)"""
 traces_to = "[[linter.coverage]]"
 
 [[constraints]]

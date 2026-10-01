@@ -50,6 +50,14 @@ pub mod spec_gen {
         Just(GenVal("law_case_failure_raised".into()))
     }
 
+    pub fn law_predicate_mentioning_cases_without_labels() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("law_predicate_mentioning_cases_without_labels".into()))
+    }
+
+    pub fn law_property_with_extra_case() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("law_property_with_extra_case".into()))
+    }
+
 }
 
 proptest! {
@@ -141,6 +149,26 @@ proptest! {
     #[test]
     fn law_case_failure_label_asserted(v0 in spec_gen::law_case_failure_raised()) {
         todo_predicate!("`error_label == \"linter.coverage.law_case_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: unlabeled_law_rejected
+    // generator: `law_predicate_mentioning_cases_without_labels()`
+    // predicate: `check(file) == failed` — a prose mention of a case name is not an enumeration (Revision 13 machine form)
+    #[test]
+    fn unlabeled_law_rejected(v0 in spec_gen::law_predicate_mentioning_cases_without_labels()) {
+        todo_predicate!("`check(file) == failed` — a prose mention of a case name is not an enumeration (Revision 13 machine form)");
+    }
+}
+
+proptest! {
+    // id: extra_case_is_declaration
+    // generator: `law_property_with_extra_case("commutativity")`
+    // predicate: `compile(file) emits one block per enumerated case` — an extra named case is a first-class checkable declaration, never prose
+    #[test]
+    fn extra_case_is_declaration(v0 in spec_gen::law_property_with_extra_case()) {
+        todo_predicate!("`compile(file) emits one block per enumerated case` — an extra named case is a first-class checkable declaration, never prose");
     }
 }
 

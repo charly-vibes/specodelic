@@ -21,7 +21,7 @@ traces_to = "[[compile]]"
 [[constraints]]
 id = "properties_to_proptest"
 kind = "invariant"
-expr = "`each Property row compiles to one proptest! block: generator becomes the block's input strategy, predicate becomes its assertion body; a law-kind property compiles to one block per required case (identity, associativity, ...)`"
+expr = "`each Property row compiles to one proptest! block: generator becomes the block's input strategy, predicate becomes its assertion body; a law-kind property compiles to one block per case enumerated in its predicate's **name:** case labels (the identity and associativity floor is lint-enforced ahead of compile, specodelic.md Revision 13)`"
 traces_to = "[[compile]]"
 
 [[constraints]]
