@@ -42,3 +42,49 @@ The CLI binary is `spk` (crate: `specodelic`).
 The format corpus (`specs/`) is written in the format and linted by the
 tool itself (`just lint-specs`). Engineering truth (openspec) shares
 the same grammar via the dual-format protocol.
+
+## Docs
+
+Deployed book: https://charly-vibes.github.io/specodelic/ (pages are
+HTML; no raw markdown is served). Read the per-spec pages first — each
+is small; `print.html` is the whole book in one page (~500 KB, roughly
+85K tokens of text) — bulk fallback only if you have the context budget.
+
+The format (read in this order):
+
+- [specodelic — the core format](https://charly-vibes.github.io/specodelic/specs/specodelic.html):
+  four layers (frontmatter, Constraints, Model, Properties), EARS
+  statements, closed kind sets, reference typing — start here.
+- [kinds](https://charly-vibes.github.io/specodelic/specs/kinds.html):
+  closed kind value sets for each table.
+
+Pipeline commands:
+
+- [graph](https://charly-vibes.github.io/specodelic/specs/graph.html) ·
+  [compile](https://charly-vibes.github.io/specodelic/specs/compile.html) ·
+  [model_check](https://charly-vibes.github.io/specodelic/specs/model_check.html) ·
+  [verify](https://charly-vibes.github.io/specodelic/specs/verify.html) ·
+  [rename](https://charly-vibes.github.io/specodelic/specs/rename.html) ·
+  [merge](https://charly-vibes.github.io/specodelic/specs/merge.html) ·
+  [refactor](https://charly-vibes.github.io/specodelic/specs/refactor.html) ·
+  [orchestrate](https://charly-vibes.github.io/specodelic/specs/orchestrate.html) ·
+  [errors](https://charly-vibes.github.io/specodelic/specs/errors.html)
+
+Lint rules (each file defines its rule's semantics):
+
+- [linter.frontmatter](https://charly-vibes.github.io/specodelic/specs/linter-frontmatter.html) ·
+  [linter.schema_shape](https://charly-vibes.github.io/specodelic/specs/linter-schema_shape.html) ·
+  [linter.ears_syntax](https://charly-vibes.github.io/specodelic/specs/linter-ears_syntax.html) ·
+  [linter.coverage](https://charly-vibes.github.io/specodelic/specs/linter-coverage.html) ·
+  [linter.graph_shape](https://charly-vibes.github.io/specodelic/specs/linter-graph_shape.html) ·
+  [linter.model_shape](https://charly-vibes.github.io/specodelic/specs/linter-model_shape.html) ·
+  [linter.referential_integrity](https://charly-vibes.github.io/specodelic/specs/linter-referential_integrity.html) ·
+  [linter.external_completeness](https://charly-vibes.github.io/specodelic/specs/linter-external_completeness.html) ·
+  [linter.failure_shape](https://charly-vibes.github.io/specodelic/specs/linter-failure_shape.html) ·
+  [linter.observability](https://charly-vibes.github.io/specodelic/specs/linter-observability.html)
+
+Getting started:
+
+- [Installation & Quick Start](https://charly-vibes.github.io/specodelic/installation.html) ·
+  [Command Reference](https://charly-vibes.github.io/specodelic/commands.html) ·
+  [Full book (bulk)](https://charly-vibes.github.io/specodelic/print.html)
