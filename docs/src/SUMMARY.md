@@ -58,3 +58,4 @@
 - [observability — capability](openspec/observability/spec.md)
 - [migrate — capability](openspec/migrate/spec.md)
 - [archive-companion — capability](openspec/archive-companion/spec.md)
+- [parse — capability](openspec/parse/spec.md)
