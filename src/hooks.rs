@@ -11,26 +11,22 @@
 //! the sanctioned extension point — this module never claims
 //! `core.hooksPath` and never writes `.git/hooks/*` or `.beads/hooks/*`.
 //!
-//! Wiring builds on `genesis::git_hooks` (0.8): `framework()` gates
-//! the config type; marker conventions follow
-//! `managed_block::BlockDef` (comment-prefixed variants). Stage-level
-//! injection is local (see `wrapper_at` for why genesis's
-//! `ensure_wired` is not used). The
-//! one piece genesis deliberately excludes ("no bespoke string
-//! surgery") is the *inside-mapping* insertion — empirically required,
-//! because lefthook 1.13.6 rejects a stage section that ends up with
-//! two `commands:` keys (`yaml: unmarshal errors: mapping key
-//! "commands" already defined`), which would kill the entire hook chain
-//! including beads' own gates. Indentation is never assumed: it is
-//! inferred from the stage's first child key line (YAML allows any
-//! consistent indent; mixed indent within one mapping fails the same
-//! way). Upstream consolidation target: `lefthook::ensure_command_wired`
-//! (beads specodelic-x56) — fold this local logic into genesis when it
-//! ships.
+//! Wiring rides `genesis::git_hooks` entirely: `framework()` gates the
+//! config type; marker conventions are a `managed_block::BlockDef`
+//! with custom comment-prefixed markers (bare `<!-- … -->` is not
+//! valid YAML); the two-case anchor (in-mapping insert / wrapper) is
+//! `lefthook::ensure_command_wired` — upstreamed from this module's
+//! donor implementation (genesis-au8; beads specodelic-x56), so no
+//! bespoke string surgery remains here. Indentation is never assumed:
+//! genesis infers it from the stage's first child key line (YAML
+//! allows any consistent indent; mixed indent within one mapping fails
+//! the same way).
 
 use std::path::{Path, PathBuf};
 
+use genesis::git_hooks::lefthook::{self, Stage};
 use genesis::git_hooks::{Framework, framework};
+use genesis::managed_block::BlockDef;
 use thiserror::Error;
 
 /// The wired gate command — self-contained at hook time: `spk lint`
@@ -41,8 +37,12 @@ pub const GATE_COMMAND: &str = "spk lint openspec";
 /// The lefthook command entry name for the gate.
 pub const COMMAND_NAME: &str = "specodelic-gates";
 
-/// Hook stage wired by this module.
+/// Hook stage wired by this module (reported in envelopes; the actual
+/// wiring passes [`lefthook::Stage::PreCommit`] to genesis).
 pub const STAGE: &str = "pre-commit";
+
+/// Managed-block name (marker identity, envelope payloads).
+pub const BLOCK_NAME: &str = "SPK";
 
 /// Start marker — `# ` prefix makes the line a YAML comment in any
 /// position (bare `<!-- … -->` is not valid YAML).
@@ -62,113 +62,6 @@ fn config_path(root: &Path) -> Option<PathBuf> {
         }
     }
     None
-}
-
-/// True when the line is a column-0 YAML key (starts with a
-/// non-whitespace character other than `#`) — a section boundary.
-/// (Mirrors genesis `lefthook::is_column_zero_key`, private.)
-fn is_column_zero_key(line: &str) -> bool {
-    let first = line.chars().next();
-    matches!(first, Some(c) if c != ' ' && c != '\t' && c != '#' && c != '\n' && c != '\r')
-}
-
-/// Find the column-0 stage-key anchor and return its byte offset.
-/// `Err(())` when the stage key appears only in a non-anchorable form
-/// (quoted, indented) — refuse to guess (genesis D6: refuse to anchor
-/// unrecognizable structure). (Mirrors genesis `lefthook::find_anchor`,
-/// private.)
-fn find_anchor(content: &str, stage: &str) -> Result<Option<usize>, ()> {
-    let anchor = format!("{stage}:");
-    let mut offset = 0usize;
-    for line in content.split_inclusive('\n') {
-        let start = offset;
-        offset += line.len();
-        if line.trim_end() == anchor && is_column_zero_key(line) {
-            return Ok(Some(start));
-        }
-        if line.contains(stage) {
-            // Present but not as a column-0 `key:` anchor — unrecognized
-            // structure, refuse.
-            return Err(());
-        }
-    }
-    Ok(None)
-}
-
-/// Extract the stage's section: from the anchor line to the next
-/// column-0 key or EOF. (Mirrors genesis `lefthook::section`, private.)
-fn stage_section(content: &str, anchor_offset: usize) -> &str {
-    let rest = &content[anchor_offset..];
-    let mut end = rest.len();
-    let mut offset = 0usize;
-    for (i, line) in rest.split_inclusive('\n').enumerate() {
-        if i == 0 {
-            offset = line.len();
-            continue;
-        }
-        if is_column_zero_key(line) {
-            end = offset;
-            break;
-        }
-        offset += line.len();
-    }
-    &rest[..end]
-}
-
-/// Indentation (in spaces) of the first child line of a stage section —
-/// the first non-blank, non-comment line. `None` when the section has
-/// no child lines at all (the caller defaults to 2).
-fn children_indent(section: &str) -> Option<usize> {
-    for line in section.split_inclusive('\n').skip(1) {
-        let trimmed = line.trim_end();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            continue;
-        }
-        return Some(line.len() - line.trim_start().len());
-    }
-    None
-}
-
-/// Byte offset and indent of a `commands:` key line anywhere within a
-/// stage section (any indent — the caller compares against the
-/// children indent to classify: at-children → insert, elsewhere →
-/// refuse, absent → wrapper path).
-fn find_commands_key(section: &str) -> Option<(usize, usize)> {
-    let mut offset = 0usize;
-    for line in section.split_inclusive('\n') {
-        let start = offset;
-        offset += line.len();
-        if line.trim() == "commands:" {
-            return Some((start, line.len() - line.trim_start().len()));
-        }
-    }
-    None
-}
-
-/// The marker-guarded gate entry, formatted at `indent` (the stage's
-/// children indent + 2 — inside the `commands:` mapping).
-fn wired_entry_at(indent: usize) -> String {
-    let pad = " ".repeat(indent);
-    format!(
-        "{pad}{MARKER_START}\n{pad}{COMMAND_NAME}:\n{pad}  run: {GATE_COMMAND}\n{pad}{MARKER_END}\n"
-    )
-}
-
-/// The full `commands:` wrapper (wrapper wiring case). Deliberately
-/// NOT delegated to genesis `lefthook::ensure_wired`, for two verified
-/// reasons: (1) its contract wraps caller content with the markers, so
-/// marker-bearing content gets double-wrapped; (2) it glues the END
-/// marker onto the next existing line (its own tests pin
-/// `END  parallel: true`), which with comment-prefixed markers turns
-/// that line into a YAML comment and silently deletes the following
-/// key — found by this module's red tests. Local injection keeps every
-/// marker on its own line. Still the anchored-surgery class genesis
-/// excludes — upstream consolidation target:
-/// `lefthook::ensure_command_wired` (specodelic-x56). Entries at
-/// commands indent + 2 (self-consistent new mapping).
-fn wrapper_at(indent: usize) -> String {
-    let pad = " ".repeat(indent);
-    format!("{pad}commands:\n{}", wired_entry_at(indent + 2))
 }
 
 /// Errors from wiring. Every variant renders as a labeled message with
@@ -253,12 +146,18 @@ pub enum UnwireOutcome {
 /// and additively (spec: `spk hooks install wires the gate additively
 /// into the lefthook config`).
 ///
-/// Two-case anchor (design Decision 1, empirically grounded):
+/// The two-case anchor is genesis `lefthook::ensure_command_wired`
+/// (upstreamed from this module's donor implementation — genesis-au8,
+/// beads specodelic-x56):
 /// - stage section has `commands:` at the children indent → the gate
-///   entry is inserted *inside* the existing mapping (local surgery);
-/// - otherwise the full `commands:` wrapper is injected via genesis
-///   `lefthook::ensure_wired` (stage missing, or empty section);
+///   entry is inserted *inside* the existing mapping at the mapping's
+///   own entry indent;
+/// - otherwise the full `commands:` wrapper is injected (stage missing,
+///   empty, or without a `commands:` key);
 /// - unanchorable structure refuses without modification.
+///
+/// The framework gate stays local (design Decision 3) so prek/husky
+/// repos get the labeled refusal before genesis is even consulted.
 ///
 /// Returns [`WireOutcome::AlreadyWired`] without writing when the
 /// markers are already present.
@@ -288,168 +187,47 @@ pub fn install(root: &Path) -> Result<WireOutcome, HooksError> {
             });
         }
     }
-    let path = config_path(root).ok_or_else(|| HooksError::MissingConfig {
-        root: root.to_path_buf(),
-    })?;
-    let text = std::fs::read_to_string(&path).map_err(|source| HooksError::Io {
-        path: path.clone(),
-        message: "failed to read lefthook config".to_string(),
-        source,
-    })?;
-
-    // Idempotence: markers already present → no write. Exactly one
-    // marker → unknown state, refuse rather than guess.
-    let has_start = text.contains(MARKER_START);
-    let has_end = text.contains(MARKER_END);
-    if has_start && has_end {
-        return Ok(WireOutcome::AlreadyWired);
-    }
-    if has_start || has_end {
-        return Err(HooksError::UnbalancedMarkers { path });
-    }
-
-    let stage_anchor = find_anchor(&text, STAGE).map_err(|()| HooksError::Unanchorable {
-        path: path.clone(),
-        stage: "pre-commit",
-        reason: "stage key is quoted or otherwise not anchorable at column 0".to_string(),
-    })?;
-
-    if let Some(anchor) = stage_anchor {
-        let section = stage_section(&text, anchor);
-        match (children_indent(section), find_commands_key(section)) {
-            // No child lines at all (empty stage) → wrapper path; the
-            // wrapper goes directly after the anchor.
-            (None, _) => {
-                return wire_wrapper(&path, &text, Some(anchor), 2).map(|_| WireOutcome::Injected);
-            }
-            // `commands:` at the children indent → the in-mapping insert.
-            (Some(indent), Some((offset, cmd_indent))) if cmd_indent == indent => {
-                return insert_inside_commands(&path, &text, anchor + offset, cmd_indent);
-            }
-            // `commands:` present but at another indent — unrecognized
-            // structure, refuse (honest_anchor).
-            (Some(_), Some((_, cmd_indent))) => {
-                return Err(HooksError::Unanchorable {
-                    path,
-                    stage: "pre-commit",
-                    reason: format!(
-                        "commands key is at indent {cmd_indent}, which differs from the stage's children indentation — unrecognized structure"
-                    ),
-                });
-            }
-            // Stage has children but no `commands:` key → wrapper path at
-            // the stage's own children indent.
-            (Some(indent), None) => {
-                return wire_wrapper(&path, &text, Some(anchor), indent)
-                    .map(|_| WireOutcome::Injected);
-            }
-        }
-    }
-
-    // Stage section missing entirely → wrapper path appended at EOF
-    // (children indent defaults to 2).
-    wire_wrapper(&path, &text, None, 2).map(|_| WireOutcome::Injected)
+    let block = BlockDef::with_markers(BLOCK_NAME, MARKER_START, MARKER_END);
+    lefthook::ensure_command_wired(root, Stage::PreCommit, COMMAND_NAME, GATE_COMMAND, &block)
+        .map(|outcome| match outcome {
+            lefthook::WiredOutcome::Injected => WireOutcome::Injected,
+            lefthook::WiredOutcome::AlreadyWired => WireOutcome::AlreadyWired,
+        })
+        .map_err(map_genesis_error)
 }
 
-/// Wrapper wiring case (stage missing, empty stage, or stage without a
-/// `commands:` key): insert `commands:` + the marker-guarded entry at
-/// `indent` — after the stage anchor line when present, else appended
-/// as a new stage section. Every marker on its own line; purely
-/// additive; byte-format edges (no trailing newline) handled.
-fn wire_wrapper(
-    path: &Path,
-    text: &str,
-    anchor: Option<usize>,
-    indent: usize,
-) -> Result<WireOutcome, HooksError> {
-    let insertion = wrapper_at(indent);
-    let mut updated = String::with_capacity(text.len() + insertion.len() + 16);
-    match anchor {
-        Some(offset) => {
-            // After the anchor line.
-            let line_end = text[offset..]
-                .find('\n')
-                .map_or(text.len(), |nl| offset + nl + 1);
-            updated.push_str(&text[..line_end]);
-            if line_end == text.len() && !text.ends_with('\n') {
-                updated.push('\n');
-            }
-            updated.push_str(&insertion);
-            updated.push_str(&text[line_end..]);
-        }
-        None => {
-            // Append the missing stage section at EOF.
-            updated.push_str(text);
-            if !updated.ends_with('\n') {
-                updated.push('\n');
-            }
-            updated.push_str(STAGE);
-            updated.push_str(":\n");
-            updated.push_str(&insertion);
-        }
+/// Map a genesis [`lefthook::GitHooksError`] onto this module's
+/// [`HooksError`], preserving the labeled message + remediation-hint
+/// discipline (genesis messages lack the module's manual-wiring hints).
+fn map_genesis_error(err: genesis::git_hooks::GitHooksError) -> HooksError {
+    use genesis::git_hooks::GitHooksError as G;
+    match err {
+        G::MissingLefthookConfig { root } => HooksError::MissingConfig { root },
+        G::UnbalancedLefthookMarkers { path, .. } => HooksError::UnbalancedMarkers { path },
+        G::UnanchorableLefthookConfig {
+            path,
+            stage: _,
+            message,
+        } => HooksError::Unanchorable {
+            path,
+            stage: "pre-commit",
+            reason: message,
+        },
+        G::Io {
+            path,
+            message,
+            source,
+        } => HooksError::Io {
+            path,
+            message,
+            source,
+        },
+        other => HooksError::Unanchorable {
+            path: PathBuf::from("lefthook.yml"),
+            stage: "pre-commit",
+            reason: format!("unexpected genesis error: {other}"),
+        },
     }
-    std::fs::write(path, updated).map_err(|source| HooksError::Io {
-        path: path.to_path_buf(),
-        message: "failed to write lefthook config".to_string(),
-        source,
-    })?;
-    Ok(WireOutcome::Injected)
-}
-
-/// In-mapping wiring case: insert the marker-guarded entry lines
-/// directly after the `commands:` line (byte offset `commands_end` in
-/// `text`). The entry indent is inferred from the mapping's existing
-/// children — the first line after `commands:` indented deeper than
-/// `commands_indent` — because YAML per-level indent is config-dependent
-/// (a 4-space config nests entries at commands+4, not +2). Default:
-/// commands_indent + 2 when the mapping is empty. Purely additive:
-/// everything before and after is byte-identical.
-fn insert_inside_commands(
-    path: &Path,
-    text: &str,
-    commands_end: usize,
-    commands_indent: usize,
-) -> Result<WireOutcome, HooksError> {
-    // Find the end of the commands line; handle a config whose last line
-    // has no trailing newline.
-    let line_end = text[commands_end..]
-        .find('\n')
-        .map_or(text.len(), |nl| commands_end + nl + 1);
-
-    // Entry indent = first existing entry's indent (deeper than the
-    // commands key, before the mapping closes); +2 default when empty.
-    let mut entry_indent = commands_indent + 2;
-    let mut offset = line_end;
-    for line in text[line_end..].split_inclusive('\n') {
-        let trimmed = line.trim_end();
-        let indent = line.len() - line.trim_start().len();
-        let is_child = indent > commands_indent
-            && !trimmed.is_empty()
-            && !trimmed.trim_start().starts_with('#');
-        if is_child {
-            entry_indent = indent;
-            break;
-        }
-        if !trimmed.is_empty() && indent <= commands_indent {
-            break; // mapping closed before any entry
-        }
-        offset += line.len();
-    }
-    let _ = offset;
-
-    let mut updated = String::with_capacity(text.len() + 128);
-    updated.push_str(&text[..line_end]);
-    if line_end == text.len() && !text.ends_with('\n') {
-        updated.push('\n');
-    }
-    updated.push_str(&wired_entry_at(entry_indent));
-    updated.push_str(&text[line_end..]);
-    std::fs::write(path, updated).map_err(|source| HooksError::Io {
-        path: path.to_path_buf(),
-        message: "failed to write lefthook config".to_string(),
-        source,
-    })?;
-    Ok(WireOutcome::Injected)
 }
 
 /// Remove the managed block from the lefthook config at `root`
@@ -743,6 +521,22 @@ mod tests {
     /// Read the fixture's lefthook.yml (test helper).
     fn std_fs_read(root: &Path) -> String {
         std::fs::read_to_string(root.join("lefthook.yml")).unwrap()
+    }
+
+    #[test]
+    fn install_delegates_to_genesis_ensure_command_wired() {
+        // The local two-case surgery is gone: install must route through
+        // genesis::git_hooks::lefthook::ensure_command_wired.
+        let config = "pre-commit:\n  commands:\n    a:\n      run: a\n";
+        let fixture = fixture_with_config(config);
+        install(fixture.root()).unwrap();
+        let after = std_fs_read(fixture.root());
+        // Byte-identical to the donor output the local code produced.
+        let genesis_wired = "pre-commit:\n  commands:\n    # <!-- SPK:START -->\n    specodelic-gates:\n      run: spk lint openspec\n    # <!-- SPK:END -->\n    a:\n      run: a\n";
+        assert_eq!(
+            after, genesis_wired,
+            "genesis wiring bytes match the donor output"
+        );
     }
 
     #[test]

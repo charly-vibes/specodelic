@@ -6,6 +6,25 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #85 — hooks wiring migrated onto genesis `ensure_command_wired` (specodelic-x56)
+
+The consolidation ticket closed the loop: genesis-vibes 0.10.0 ships
+`lefthook::ensure_command_wired` — the two-case anchor (in-mapping
+insert at the mapping's entry indent, wrapper for missing/empty/
+commands-less stages) upstreamed from this repo's donor implementation
+(genesis-au8). `src/hooks.rs` install() now delegates to it; the local
+`wire_wrapper` / `insert_inside_commands` surgery and the private-helper
+mirrors (`find_anchor`, `stage_section`, `children_indent`,
+`find_commands_key`, `is_column_zero_key`, `wrapper_at`,
+`wired_entry_at`) are deleted. The framework gate (husky/prek refusals)
+and uninstall stay local; genesis errors map onto the module's labeled
+`HooksError` variants, preserving remediation hints.
+
+Behavior is byte-identical, pinned by golden install/uninstall
+round-trip tests over 2-space and 4-space configs committed before the
+migration (so the pre-migration bytes were the baseline the migration
+had to reproduce). 21 hooks unit + 6 CLI integration tests green.
+
 ## #84 — failure_shape joins the Checker Ownership table and the lint stage (specodelic-hhp)
 
 The ct5 deferral resolved, **decision (a)**: the failure-shape checker
