@@ -356,7 +356,7 @@ mod tests {
     #[test]
     fn block_check_warns_when_stale() {
         let dir = fixture();
-        // a block naming a prehistoric revision → stale vs embedded Revision 12
+        // a block naming a prehistoric revision → stale vs embedded Revision 13
         std::fs::write(
             dir.path().join(blocks::BLOCK_FILE),
             "# repo\n\n<!-- SPECODELIC:START -->\nembedded format revision: specodelic.md Revision 1\n<!-- SPECODELIC:END -->\n",
@@ -449,7 +449,7 @@ mod tests {
             "{joined}"
         );
         assert!(
-            joined.contains("SPECODELIC block: ok (Revision 12 ≥ embedded)"),
+            joined.contains("SPECODELIC block: ok (Revision 13 ≥ embedded)"),
             "{joined}"
         );
         assert!(joined.contains("corpus discovery: ok (specs/)"), "{joined}");

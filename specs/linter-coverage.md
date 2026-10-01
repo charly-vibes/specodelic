@@ -1,7 +1,7 @@
 ---
 id: linter.coverage
 kind: intent
-statement: "WHEN a spec file's graph shape and model shape have both passed, THE linter SHALL reject it if any constraint has no property deriving from it, or if any law-kind property is missing its associativity or identity case."
+statement: "WHEN a spec file's graph shape and model shape have both passed, THE linter SHALL reject it if any constraint has no property deriving from it, or if any law-kind property fails to enumerate its required cases as machine-findable `**name:**` labels with the identity and associativity floor present."
 ---
 
 # Linter: Coverage Check
@@ -27,7 +27,7 @@ separate passes.
 | id                      | kind      | expr                                                                                     | traces_to | satisfies |
 |---------------------------|-----------|-----------------------------------------------------------------------------------------------|-----------------------------------------------|
 | every_constraint_covered  | invariant | `∀ constraint c: ∃ property p. p.derives_from == c.id` — the rule this row re-owns from `specodelic.md`'s higher-altitude restatement (see Notes) | [[linter.coverage]]         |          |
-| every_law_has_cases       | invariant | `∀ property p where p.kind == "law": p has an associativity case and an identity case` — the rule this row re-owns from `specodelic.md`'s higher-altitude restatement (see Notes) | [[linter.coverage]] |          |
+| every_law_has_cases       | invariant | `∀ property p where p.kind == "law": p's predicate enumerates its required cases as **name:** case labels, and the label set includes identity and associativity` — the rule this row re-owns from `specodelic.md`'s higher-altitude restatement (see Notes; machine form ratified in specodelic.md Revision 13) | [[linter.coverage]] |          |
 | no_orphan_property        | invariant | `∀ property p: p.derives_from resolves to a real constraint` (restates total_refs, scoped to this edge) | [[linter.coverage]]         |          |
 | coverage_is_computable    | invariant | `the derives_from multiplicity per constraint is countable in finite time from the parsed AST alone` | [[linter.coverage]]         |          |
 | count_failure | effect | `linter.coverage.count_failure(detail)` | [[linter.coverage]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
@@ -66,7 +66,20 @@ separate passes.
 | computed_derives_from_rejected | unit | [[linter.coverage.coverage_is_computable]]          | `spec_file_with(computed_or_templated_derives_from_id: true)`         | `check(file) == failed` — a non-literal id cannot be counted from the parsed AST alone |
 | count_failure_label_asserted | unit | [[linter.coverage.count_failure]] | `count_failure_raised()` | `error_label == "linter.coverage.count_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 | law_case_failure_label_asserted | unit | [[linter.coverage.law_case_failure]] | `law_case_failure_raised()` | `error_label == "linter.coverage.law_case_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| unlabeled_law_rejected       | unit | [[linter.coverage.every_law_has_cases]]              | `law_predicate_mentioning_cases_without_labels()`                     | `check(file) == failed` — a prose mention of a case name is not an enumeration (Revision 13 machine form) |
+| extra_case_is_declaration    | unit | [[linter.coverage.every_law_has_cases]]              | `law_property_with_extra_case("commutativity")`                       | `compile(file) emits one block per enumerated case` — an extra named case is a first-class checkable declaration, never prose |
 ## Notes
+
+**Machine-form ratification (2026-10-01, `specodelic-9qw`):**
+`every_law_has_cases` now executes `specodelic.md` Revision 13: a law
+row's required cases are whatever its predicate enumerates as
+`**name:**` case labels — the exact form `compile`'s
+`required_law_cases` has always parsed — with the identity and
+associativity floor mandatory. A predicate that only mentions a case
+name in prose is not an enumeration and fails the check; the label set
+may exceed the floor freely (see `extra_case_is_declaration`), which
+is what makes extra cases (commutativity, idempotence, ...) checkable
+declarations that compile one proptest block each.
 
 **Reference-typing reconciliation (2026-09-30, `specodelic-cxq`):**
 `every_constraint_covered`, `every_law_has_cases`, `no_orphan_property`,

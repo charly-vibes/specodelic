@@ -17,7 +17,7 @@
 /// hand when the corpus revision bumps; a corpus-lint style drift test
 /// (task 6.1) compares this numerically against the corpus so staleness
 /// fails CI, not consumers.
-pub const FORMAT_REVISION: &str = "specodelic.md Revision 12";
+pub const FORMAT_REVISION: &str = "specodelic.md Revision 13";
 
 /// The closed set of Intent `kind` values (frontmatter).
 pub const INTENT_KINDS: &[&str] = &["intent"];
@@ -365,6 +365,28 @@ mod tests {
         // placeholders (design Decision 2)
         assert!(!GUIDE_MD.contains("{invariant, advisory, effect, extension_point}"));
         assert!(!GUIDE_MD.contains("{unit, law}"));
+    }
+
+    #[test]
+    fn law_cases_machine_form_is_ratified_in_the_corpus() {
+        // update-law-named-cases task 2.1: the law_requires_cases row
+        // names the machine-findable case form (the one compile's
+        // required_law_cases parses) and Revision 13 records the
+        // ratification.
+        let corpus = std::fs::read_to_string("specs/specodelic.md")
+            .expect("specs/specodelic.md must be readable from the crate root");
+        let row = corpus
+            .lines()
+            .find(|l| l.starts_with("| law_requires_cases"))
+            .expect("law_requires_cases row must exist in specodelic.md");
+        assert!(
+            row.contains("**name:**"),
+            "law_requires_cases must name the machine-findable **name:** case-label form"
+        );
+        assert!(
+            corpus.contains("## Revision 13"),
+            "Revision 13 must record the law-case ratification"
+        );
     }
 
     #[test]

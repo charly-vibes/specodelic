@@ -24,7 +24,7 @@ the project/format/tool/subject terminology).
 | ears_statement           | invariant | `intent.statement matches one of the 5 EARS patterns`                      | [[specodelic]]  |
 | one_capability_per_row   | invariant | `no row.id joins two intents via "and"/"or"`                               | [[specodelic]]  |
 | coverage                 | invariant | `∀ constraint: ∃ property. property.derives_from == constraint.id`         | [[specodelic]]  |
-| law_requires_cases       | invariant | `∀ property where kind == "law": has(associativity) and has(identity)` — a floor, not a ceiling: a given law may require further named cases (e.g. unit, counit, naturality, triangle identity) in addition, listed in that property's own predicate | [[specodelic]]  |
+| law_requires_cases       | invariant | `∀ property where kind == "law": the property's predicate enumerates its required cases in machine-findable **name:** case-label form, and the label set includes identity and associativity` — a floor, not a ceiling: a given law may require further named cases (e.g. unit, counit, naturality, triangle identity) in addition, as extra case labels in the same form; a prose mention of a case name is not an enumeration | [[specodelic]]  |
 | no_boolean_columns       | invariant | `schema defines no bool column type; states are named variants only`       | [[specodelic]]  |
 | append_only_variants     | invariant | `∀ id-set S governed by 𝒦 — a variant-table's ids (chiefly States), a Constraint/Property row's own `kind` value-set, or the Reference Typing table's field set — across revisions r < r': S(r) ⊆ S(r'), grown only under a new Revision heading, never silently; an existing member's typing may narrow only in the same Revision that introduces the kind-split it depends on, and only if the narrowing invalidates nothing valid at r` | [[specodelic]]  |
 | prose_untouched          | invariant | `parser never inspects rationale/description content`                      | [[specodelic]]  |
@@ -646,3 +646,26 @@ added under this heading per `append_only_variants`; the target set
 WIDENS only, so nothing valid at Revision 11 is invalidated — a
 `unit` Property (`state_guard_citation_accepted`) now pins the
 acceptance beside the existing rejection rows.
+
+## Revision 13
+
+Law-row named cases become machine-checkable (`specodelic-9qw`,
+2026-10-01). The `law_requires_cases` row is reworded: the cases a law
+requires are enumerated as `**name:**` case labels in the property's
+own predicate — the form `compile`'s `required_law_cases` has parsed
+since the compile functor shipped — instead of free prose whose mention
+of a case name the linter could not tell apart from a declaration. The
+identity and associativity floor stands, unchanged, as a minimum; extra
+named cases (commutativity, idempotence, naturality, unit/counit,
+triangle identity, ...) remain first-class — each becomes its own
+checkable declaration and its own proptest block. The floor is now
+lint-enforced (`linter.law_cases`, executing `linter-coverage.md`'s
+`every_law_has_cases`) ahead of compile's precondition gate, so
+`required_law_cases`' unlabeled fallback survives only as
+defense-in-depth for input that skipped the gate.
+
+One Constraint row reworded under this heading per
+`append_only_variants`; the case set WIDENS only (labels beyond the
+floor stay legal), so nothing valid at Revision 12 is invalidated — a
+law predicate whose cases lived only in prose now fails `lint` instead
+of silently passing.
