@@ -185,7 +185,10 @@ A **dual-format file** carries both grammars:
 - Openspec half: `## Purpose`, `## ADDED Requirements`, and a sibling
   `## Requirements` section with identical text. A `## MODIFIED
   Requirements` delta is dual-format the same way — same id law, same
-  mirror; the mirror rules treat the two delta sections identically.
+  mirror. A file carrying both delta kinds mirrors every delta
+  requirement in `## Requirements`: `linter.requirement_drift`
+  compares per requirement, so the natural mirror (all delta
+  requirements, delta order) satisfies the rule.
 
 **Naming law**: openspec hard-requires the delta filename `spec.md`,
 so dual-format files declare `id: spec` (the `-` ⇔ `.` mapping makes
@@ -212,8 +215,9 @@ constraint → intent edge for a `id: spec` file.
 2. Derive the tables: one `invariant` Constraint per MUST the
    requirements imply, a Model covering the scenarios, one unit
    Property deriving from each constraint (the coverage rule).
-3. Mirror `## Requirements` (identical text to `## ADDED
-   Requirements`); a plain capability spec keeps only
-   `## Requirements`.
+3. Mirror `## Requirements` (identical text to every carried delta
+   section's requirements — `## ADDED Requirements` and, when
+   present, `## MODIFIED Requirements` alike); a plain capability
+   spec keeps only `## Requirements`.
 4. Gates: `spk lint <file>`, `openspec validate --all --strict`, and
    the section-sync check must all pass.

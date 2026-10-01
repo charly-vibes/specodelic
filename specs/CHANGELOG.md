@@ -6,6 +6,25 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #93 — `linter.requirement_drift` compares per requirement, not per section (specodelic-eh0, GH#8)
+
+`requirement_drift` (gh#4's rule) compared the `## Requirements`
+mirror against each delta section with whole-section normalized
+equality — which made a dual-format file carrying BOTH `## ADDED
+Requirements` and `## MODIFIED Requirements` unsatisfiable: the
+mirror can never equal both sections at once. Reported from the
+consumer side (espectacular's CI went red when the rule was widened
+to MODIFIED; their mixed-delta
+`2026-09-30-adopt-genesis/specs/cli/spec.md` has no satisfying
+mirror under 0.3.0).
+
+The rule now compares per requirement: each `### Requirement:` in
+every carried delta section must appear in the mirror with identical
+normalized text (same trailing-space/blank-line normalization as
+before). Single-section semantics are unchanged — a drifted
+requirement still fires, now naming the requirement and its delta
+section in the finding. RULE_TABLE semantics updated to match.
+
 ## #92 — `spk parse`: the typed Spec IR exits the crate (specodelic-9rv)
 
 The four-layer grammar was fully parsed in-process — `spec::Spec` is a

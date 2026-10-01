@@ -106,7 +106,7 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
     ),
     (
         "requirement_drift",
-        "a dual-format file's ## Requirements mirror must hold the same requirement text as ## ADDED Requirements (blank lines and trailing space ignored)",
+        "a dual-format file's ## Requirements mirror must hold every delta requirement (ADDED and MODIFIED sections alike) with identical requirement text, compared per requirement so mixed-delta files are satisfiable (blank lines and trailing space ignored)",
     ),
     (
         "dual_format_valid",
@@ -1016,25 +1016,62 @@ fn lint_frontmatter_family(spec: &Spec, report: &mut Report) {
         // agents hand-create the mirror, so drift is easy and was previously
         // only caught by this repo's local section-sync script, never by
         // `spk lint`), for every delta section the file carries.
-        // Normalization mirrors scripts/check_section_sync.py:
-        // per-line trailing space and blank lines are ignored.
+        // Comparison is PER-REQUIREMENT (gh#8 / specodelic-eh0): whole-section
+        // equality is unsatisfiable for a file carrying both `## ADDED` and
+        // `## MODIFIED Requirements` — no mirror matches both sections at
+        // once. Every requirement in each delta section must appear in the
+        // mirror with identical normalized text instead. Normalization
+        // mirrors scripts/check_section_sync.py: per-line trailing space
+        // and blank lines are ignored.
         if spec.has_requirements_section {
-            let norm = |body: &str| -> String {
-                body.lines()
-                    .map(str::trim_end)
-                    .filter(|l| !l.trim().is_empty())
-                    .collect::<Vec<_>>()
-                    .join("\n")
+            // Split a requirements-section body into (heading, normalized
+            // text) pairs at `### Requirement:` headings.
+            let parse = |body: &str| -> Vec<(String, String)> {
+                let mut reqs: Vec<(String, Vec<&str>)> = vec![];
+                for line in body.lines() {
+                    let t = line.trim();
+                    if let Some(h) = t.strip_prefix("### Requirement:") {
+                        reqs.push((h.trim().to_string(), vec![]));
+                    } else if let Some((_, lines)) = reqs.last_mut() {
+                        lines.push(t);
+                    }
+                }
+                reqs.into_iter()
+                    .map(|(h, lines)| {
+                        (
+                            h,
+                            lines
+                                .iter()
+                                .filter(|l| !l.trim().is_empty())
+                                .copied()
+                                .collect::<Vec<_>>()
+                                .join("\n"),
+                        )
+                    })
+                    .collect()
             };
+            let mirror = parse(&spec.requirements_body);
             for (section, body) in &delta_sections {
-                if norm(body) != norm(&spec.requirements_body) {
-                    report.issues.push(Issue::new(
-                        "requirement_drift",
-                        file.clone(),
-                        format!(
-                            "## Requirements does not match {section} — the mirror must hold identical requirement text (blank lines and trailing space ignored); regenerate it from the delta section"
-                        ),
-                    ));
+                for (heading, text) in parse(body) {
+                    match mirror.iter().find(|(h, _)| *h == heading) {
+                        None => report.issues.push(Issue::new(
+                            "requirement_drift",
+                            file.clone(),
+                            format!(
+                                "{heading} from {section} is missing from ## Requirements — the mirror must hold identical requirement text for every delta requirement (blank lines and trailing space ignored); regenerate it from the delta section"
+                            ),
+                        )),
+                        Some((_, mirror_text)) if *mirror_text != text => {
+                            report.issues.push(Issue::new(
+                                "requirement_drift",
+                                file.clone(),
+                                format!(
+                                    "{heading} in ## Requirements does not match {section} — the mirror must hold identical requirement text (blank lines and trailing space ignored); regenerate it from the delta section"
+                                ),
+                            ));
+                        }
+                        _ => {}
+                    }
                 }
             }
         }
@@ -2389,6 +2426,62 @@ mod tests {
                 .any(|i| i.rule_id == "linter.requirement_drift"),
             "blank-line/trailing-space-only differences must not fire: {:?}",
             report.issues
+        );
+    }
+
+    #[test]
+    fn requirement_drift_allows_mixed_added_and_modified_deltas() {
+        // gh#8 (specodelic-eh0): a dual-format file carrying BOTH delta
+        // sections was unsatisfiable — whole-section equality can never
+        // match a mirror that holds both sections' requirements. The rule
+        // is per-requirement: every delta requirement must appear in the
+        // mirror with identical normalized text.
+        let satisfiable = spec_at(
+            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n\n## Requirements\n\n### Requirement: One\none holds\n\n### Requirement: Two\ntwo holds\n",
+            "spec.md",
+        );
+        let report = lint_corpus(&[satisfiable]);
+        assert!(
+            !report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.requirement_drift"),
+            "a mirror holding both delta sections' requirements must be clean: {:?}",
+            report.issues
+        );
+
+        // Mirror missing one delta requirement → fires, naming it.
+        let missing = spec_at(
+            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n\n## Requirements\n\n### Requirement: One\none holds\n",
+            "spec.md",
+        );
+        let report = lint_corpus(&[missing]);
+        let drift = report
+            .issues
+            .iter()
+            .find(|i| i.rule_id == "linter.requirement_drift")
+            .expect("mirror missing a delta requirement must fire");
+        assert!(
+            drift.message.contains("Two") && drift.message.contains("## MODIFIED Requirements"),
+            "finding must name the missing requirement and its delta section: {}",
+            drift.message
+        );
+
+        // One requirement's text drifted in the mirror → fires, naming it.
+        let drifted = spec_at(
+            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds BUT THE MIRROR DRIFTED\n",
+            "spec.md",
+        );
+        let report = lint_corpus(&[drifted]);
+        let drift = report
+            .issues
+            .iter()
+            .find(|i| i.rule_id == "linter.requirement_drift")
+            .expect("drifted requirement text must fire");
+        assert!(
+            drift.message.contains("One"),
+            "finding must name the drifted requirement: {}",
+            drift.message
         );
     }
 
