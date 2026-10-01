@@ -331,7 +331,18 @@ fn deployed_target(root: &Path, delta: &Path) -> PathBuf {
     delta
         .parent()
         .and_then(|p| p.file_name())
-        .map(|cap| root.join("openspec/specs").join(cap).join("spec.md"))
+        .map(|cap| {
+            // Forward slashes in the reported path: the envelope crosses
+            // the fleet boundary (espectacular consumes the paths), and
+            // a windows-only `\specs\c\spec.md` string is unusable there
+            // (windows CI: tests/cli.rs archive_companion_dry_run).
+            root.join("openspec/specs")
+                .join(cap)
+                .join("spec.md")
+                .to_string_lossy()
+                .replace('\\', "/")
+                .into()
+        })
         .unwrap_or_else(|| root.join("openspec/specs/spec.md"))
 }
 
