@@ -158,6 +158,19 @@ impl Spec {
     }
 }
 
+/// Case labels in a law-kind Property row's predicate: every
+/// `**name:**` occurrence (specodelic.md Revision 13's
+/// machine-findable case form). Shared by compile's block expansion
+/// and the lint `law_cases` rule so the compiler and the linter
+/// cannot disagree on what a case is.
+pub(crate) fn law_case_labels(predicate: &str) -> Vec<String> {
+    let re = regex::Regex::new(r"\*\*([a-zA-Z][a-zA-Z _-]*?):\*\*").expect("static regex");
+    re.captures_iter(predicate)
+        .map(|c| c[1].trim().to_string())
+        .filter(|c| !c.is_empty())
+        .collect()
+}
+
 /// Parse a spec from a string (path-less; used by tests and stdin).
 pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
     let mut lines = text.lines().enumerate().peekable();

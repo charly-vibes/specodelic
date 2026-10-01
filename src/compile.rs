@@ -350,12 +350,7 @@ fn generator_names(cell: &str) -> Vec<String> {
 /// Required cases for a law row: `**case:**` labels in the predicate;
 /// falls back to the `law_requires_cases` floor (identity, associativity).
 fn required_law_cases(predicate: &str) -> Vec<String> {
-    let re = regex::Regex::new(r"\*\*([a-zA-Z][a-zA-Z _-]*?):\*\*").expect("static regex");
-    let cases: Vec<String> = re
-        .captures_iter(predicate)
-        .map(|c| c[1].trim().to_string())
-        .filter(|c| !c.is_empty())
-        .collect();
+    let cases = crate::spec::law_case_labels(predicate);
     if cases.is_empty() {
         vec!["identity".into(), "associativity".into()]
     } else {
