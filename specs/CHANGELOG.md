@@ -6,6 +6,34 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #98 — kinds.md Revision 7: reject guard de-tautologized; optional frontmatter keys declared (specodelic-x4w)
+
+Two spec bugs from the Rule-of-5 corpus review (2026-10-01, CORR-002 +
+CORR-003, both MEDIUM), fixed together in `kinds.md` Revision 7 —
+rewordings that narrow nothing:
+
+- **CORR-002 — `reject`'s guard was a tautology.**
+  `¬(intent_row_shape ∧ … ∧ property_row_shape)`: no single row can
+  satisfy all five mutually-exclusive shape conditions, so the
+  conjunction was always false and `reject` fired unconditionally from
+  `shape_checked` — well-formed rows had both `accept` and `reject`
+  enabled (non-deterministic model). The guard now negates the
+  applicable disjunct (`¬((row.kind==Intent ∧ intent_row_shape) ∨ …)`) —
+  exactly one disjunct applies per row. The same-shaped `reject` in
+  `linter-graph_shape.md` is correct as-is: its four conjuncts co-apply
+  to one artifact.
+- **CORR-003 — `intent_row_shape` now acknowledges
+  optionally-declared frontmatter keys.** It read "exactly
+  {id, kind, statement}", but ten corpus files carry the fourth key
+  `checked_against_core` (the `AGENTS.md` convention), documented but
+  undeclared. Base fields stay exact; optional keys are acknowledged,
+  mirroring the optional-typed-columns carve-out `constraint_row_shape`
+  got in Revision 5. No linter change: `frontmatter_valid` is a subset
+  check and stays one — the spec text is the only guard, and the
+  pinning fixture `extra_frontmatter_key_lints_clean` (tests/cli.rs)
+  asserts the tool-level reading (lints clean; the parser captures the
+  key as an extra field rather than dropping it).
+
 ## #97 — `single_root_reachable` enforces the Revision 10 own-file reading, tiered (specodelic-erb)
 
 The shipped checker had drifted from its spec (Rule-of-5 CORR-001,

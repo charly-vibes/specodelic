@@ -9,7 +9,7 @@ traces_to = "[[kinds]]"
 [[constraints]]
 id = "intent_row_shape"
 kind = "invariant"
-expr = """`an Intent row is the file's frontmatter block; its fields are exactly {id, kind, statement}, with kind == "intent"`"""
+expr = """`an Intent row is the file's frontmatter block; its fields are exactly {id, kind, statement}, with kind == "intent", plus optionally-declared frontmatter keys (currently `checked_against_core`, per `AGENTS.md`'s convention — see Revision 7)`"""
 traces_to = "[[kinds]]"
 
 [[constraints]]

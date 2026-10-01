@@ -243,6 +243,53 @@ fn graph_same_id_files_are_file_scoped() {
     );
 }
 
+/// Rev 7 of kinds.md — CORR-003 (RED first): intent_row_shape now
+/// acknowledges optionally-declared frontmatter keys (currently
+/// `checked_against_core`, per specs/AGENTS.md) beside the three base
+/// fields. The linter's frontmatter_valid stays a subset check, so a
+/// spec carrying the extra key must lint clean — this pins the
+/// spec-text reading at tool level (a future stricter check would fail
+/// here loudly, never silently).
+#[test]
+fn extra_frontmatter_key_lints_clean() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("extra.md"),
+        "---\nid: extra\nkind: intent\nchecked_against_core: clear\nstatement: \"THE extra SHALL carry an optional key\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | [[extra]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[extra.c]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p | unit | [[extra.c]] | `g()` | `x` |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "exit 0");
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    let issues = json["data"]["issues"].as_array().unwrap();
+    assert!(
+        issues.is_empty(),
+        "optional frontmatter key must lint clean (subset reading): {issues:?}"
+    );
+    // The parser must actually capture the key as an extra field, not
+    // silently drop it — this is what makes the spec-text assertion
+    // meaningful rather than vacuous (an unparsed key would "pass" any
+    // future strict check).
+    let out = spk()
+        .args([
+            "parse",
+            dir.path().join("extra.md").to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    assert!(
+        json["data"]["intent"]["extra"]["checked_against_core"].is_string(),
+        "parser captures the extra frontmatter field: {json}"
+    );
+}
+
 /// Rev 10 tiered own-file reachability (specodelic-erb, RED first):
 /// `single_root_reachable` lands on the file's OWN intent through
 /// own-file primary linkage; cross-file typed edges (guard citations of

@@ -24,7 +24,7 @@ Next ==
   \/ vpc = "kind_assigned" /\ vpc' = "kind_failed"
   \* accept: shape_checked -> passed (guard: `(row.kind==Intent ∧ [[kinds.intent_row_shape]]) ∨ (row.kind==Constraint ∧ [[kinds.constraint_row_shape]]) ∨ (row.kind==State ∧ [[kinds.state_row_shape]]) ∨ (row.kind==Transition ∧ [[kinds.transition_row_shape]]) ∨ (row.kind==Property ∧ [[kinds.property_row_shape]])`)
   \/ vpc = "shape_checked" /\ vpc' = "passed"
-  \* reject: shape_checked -> shape_failed (guard: `¬([[kinds.intent_row_shape]] ∧ [[kinds.constraint_row_shape]] ∧ [[kinds.state_row_shape]] ∧ [[kinds.transition_row_shape]] ∧ [[kinds.property_row_shape]])`)
+  \* reject: shape_checked -> shape_failed (guard: `¬((row.kind==Intent ∧ [[kinds.intent_row_shape]]) ∨ (row.kind==Constraint ∧ [[kinds.constraint_row_shape]]) ∨ (row.kind==State ∧ [[kinds.state_row_shape]]) ∨ (row.kind==Transition ∧ [[kinds.transition_row_shape]]) ∨ (row.kind==Property ∧ [[kinds.property_row_shape]]))`)
   \/ vpc = "shape_checked" /\ vpc' = "shape_failed"
   \* stuttering: guards are prose (uninterpreted) — a terminal
   \* state must not read as an engine-side deadlock

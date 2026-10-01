@@ -21,7 +21,7 @@ checkable fact instead of an unstated assumption.
 | id                    | kind      | expr                                                                                                                                            | traces_to | satisfies |
 |------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
 | kind_enum_closed        | invariant | `the five kinds are exactly {Intent, Constraint, State, Transition, Property}, one per top-level section of a spec file (frontmatter, Constraints table, Model/States, Model/Transitions, Properties table)` | [[kinds]] |          |
-| intent_row_shape        | invariant | `an Intent row is the file's frontmatter block; its fields are exactly {id, kind, statement}, with kind == "intent"`                                    | [[kinds]] |          |
+| intent_row_shape        | invariant | `an Intent row is the file's frontmatter block; its fields are exactly {id, kind, statement}, with kind == "intent", plus optionally-declared frontmatter keys (currently `checked_against_core`, per `AGENTS.md`'s convention — see Revision 7)`                                    | [[kinds]] |          |
 | constraint_row_shape    | invariant | `a Constraint row is one row of the Constraints table; its base fields are exactly {id, kind, expr, traces_to}, optionally followed by typed reference columns — each such column must be declared in `specodelic.md`'s Reference Typing table (currently `satisfies`, `observes`) and carries no meaning beyond that typing; kind ∈ {invariant, advisory, effect, extension_point}`   | [[kinds]] |          |
 | state_row_shape         | invariant | `a State row is one bullet under Model/States; its fields are exactly {id, emits?} and it has no kind column of its own — states are named variants, never a typed column; `emits` is optional and, when present, must resolve to a Constraint with kind == "effect" (see `specodelic.md`'s Reference Typing table) — a state with no `emits` is a bare automaton state, not a Moore state, and both are well-formed` | [[kinds]] |          |
 | transition_row_shape    | invariant | `a Transition row is one row of the Model/Transitions table; its fields are exactly {id, from, to, guard}, with no kind column of its own`              | [[kinds]] |          |
@@ -48,7 +48,7 @@ checkable fact instead of an unstated assumption.
 | assign_ok    | kind_assigned  | shape_checked  | [[kinds.kind_enum_closed]]                                                                                                                                                                                                                                                    |
 | assign_fail | kind_assigned | kind_failed | `¬([[kinds.kind_enum_closed]])` |
 | accept       | shape_checked  | passed         | `(row.kind==Intent ∧ [[kinds.intent_row_shape]]) ∨ (row.kind==Constraint ∧ [[kinds.constraint_row_shape]]) ∨ (row.kind==State ∧ [[kinds.state_row_shape]]) ∨ (row.kind==Transition ∧ [[kinds.transition_row_shape]]) ∨ (row.kind==Property ∧ [[kinds.property_row_shape]])` |
-| reject | shape_checked | shape_failed | `¬([[kinds.intent_row_shape]] ∧ [[kinds.constraint_row_shape]] ∧ [[kinds.state_row_shape]] ∧ [[kinds.transition_row_shape]] ∧ [[kinds.property_row_shape]])` |
+| reject | shape_checked | shape_failed | `¬((row.kind==Intent ∧ [[kinds.intent_row_shape]]) ∨ (row.kind==Constraint ∧ [[kinds.constraint_row_shape]]) ∨ (row.kind==State ∧ [[kinds.state_row_shape]]) ∨ (row.kind==Transition ∧ [[kinds.transition_row_shape]]) ∨ (row.kind==Property ∧ [[kinds.property_row_shape]]))` |
 
 
 ## Properties
@@ -225,3 +225,40 @@ it — not on a singleton. The rewrite of that property to a runnable
 `unit` row lands with the corpus-reconciliation work (`specodelic-cxq`);
 a genuinely unrunnable implementation claim remains a possible future
 widening, on demand and under a Revision heading, as always.
+
+## Revision 7
+
+Two spec-text fixes from the Rule-of-5 corpus review (2026-10-01,
+`specodelic-x4w`, CORR-002 + CORR-003, both MEDIUM) — rewordings that
+narrow nothing, folded under one Revision heading:
+
+- **`reject`'s guard was a tautology.** It read
+  `¬(intent_row_shape ∧ constraint_row_shape ∧ state_row_shape ∧
+  transition_row_shape ∧ property_row_shape)` — but no single row can
+  satisfy all five mutually-exclusive shape conditions (a frontmatter
+  block is never also a table row), so the conjunction is always false
+  and `reject` fired unconditionally from `shape_checked`:
+  well-formed rows had both `accept` and `reject` enabled — a
+  non-deterministic model. Fixed to negate the applicable disjunct:
+  `¬((row.kind==Intent ∧ intent_row_shape) ∨ (row.kind==Constraint ∧
+  constraint_row_shape) ∨ …)` — exactly one disjunct applies per row,
+  and its negation is the rejection condition. Contrast (kept as-is):
+  `linter-graph_shape.md`'s same-shaped `reject` is correct — its four
+  conjuncts co-apply to one artifact (the whole graph), not to five
+  alternative shapes of one row.
+- **`intent_row_shape` acknowledges optionally-declared frontmatter
+  keys.** It read "fields are exactly {id, kind, statement}", but ten
+  corpus files carry a fourth key, `checked_against_core` (the
+  `AGENTS.md` convention recording a core-check pass) — documented in
+  `specs/AGENTS.md`, undeclared in the format. `constraint_row_shape`
+  received the optional-declared-columns carve-out in
+  `specodelic.md` Revision 9's move (this file's Revision 5); the
+  Intent layer never did. Now: base fields stay exactly
+  `{id, kind, statement}`, plus optionally-declared frontmatter keys
+  (currently `checked_against_core`, per `AGENTS.md`'s convention).
+  No linter change accompanies this — `frontmatter_valid` is a subset
+  check (it never rejects unknown keys) and stays one; the spec text is
+  the only guard, and the pinning fixture
+  (`extra_frontmatter_key_lints_clean`, tests/cli.rs) asserts the
+  tool-level reading: a spec carrying the key lints clean, and the
+  parser captures it as an extra field rather than dropping it.
