@@ -103,9 +103,9 @@ Violations are bugs, not preferences. Established 2026-09-28.
   NOT enforce anything against the `specs/` domain corpus (that is
   specodelic's own format, governed by `spk lint`).
 - **Blockers**: adoption decision pending in specodelic-4ae (decision
-  note only — no wiring before it lands); specodelic-6pi (non-recursive
-  `spk lint <dir>`) must be fixed before any CI gate chains lint +
-  scenario-conformance checks.
+  note only — no wiring before it lands). (Former blocker specodelic-6pi
+  — non-recursive `spk lint <dir>` — was fixed 2026-09-28; lint-chaining
+  CI gates are no longer gated.)
 
 ### vampiro (seam/composition checks over source)
 
@@ -115,9 +115,9 @@ Violations are bugs, not preferences. Established 2026-09-28.
   treat Rust-scope findings as advisory (warn), not blocking (deny),
   until frontend parity; any future deny-level gate requires an explicit
   waiver mechanism agreed here first.
-- **Blocker**: no integration ticket exists — do not wire vampiro into
-  this repo's CI before the dual-format CI gates (blocked by
-  specodelic-6pi) land; file a ticket first when that work starts.
+- **Blocker**: no integration ticket exists — the dual-format CI gates
+  it was waiting on have landed; file a ticket first when wiring work
+  starts.
 
 ## What this repo is
 
