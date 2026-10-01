@@ -40,6 +40,7 @@ $ specodelic init            # write the SPECODELIC rules block into AGENTS.md
 $ specodelic doctor          # diagnose the workspace + block currency
 $ specodelic feedback bug --dry-run   # file an issue against upstream
 $ specodelic hooks install   # wire the dual-format gate into the pre-commit chain
+$ specodelic archive-companion my-change   # archive with the dual-format layer preserved
 ```
 
 Pipeline commands (`compile`, `model-check`, `verify`, `rename`,
@@ -96,6 +97,10 @@ CLI/envelope/self-healing infrastructure.
   marker-guarded lefthook managed block — never claiming
   `core.hooksPath`, never writing foreign hook files; install reports a
   gate dry-run over the envelope (failing gate = warning + escape hint)
+- ✅ `archive-companion` — archives an openspec change with the
+  dual-format layer preserved (`openspec archive --skip-specs` +
+  verbatim deploy of the archived deltas); fails closed on any delta
+  lacking the layer, `--dry-run` previews the plan (GH#7)
 - ⏳ nothing — every specced command ships; see `spk --help` for the full
   verb list
 

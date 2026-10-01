@@ -4508,3 +4508,87 @@ fn refactor_narrow_diff_with_coherent_dependency_is_clean() {
         "changeset depending on the node's other rows is coherent: {stdout}"
     );
 }
+
+/// archive-companion fixture: a fake repo root (a `.git` dir is all
+/// repo_root() needs to anchor) with an already-archived change.
+fn archive_companion_fixture(id: &str, delta: &str) -> tempfile::TempDir {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(root.path().join(".git")).unwrap();
+    let delta_path = root.path().join(format!(
+        "openspec/changes/archive/2026-10-01-{id}/specs/c/spec.md"
+    ));
+    std::fs::create_dir_all(delta_path.parent().unwrap()).unwrap();
+    std::fs::write(&delta_path, delta).unwrap();
+    root
+}
+
+const DUAL_DELTA_FIXTURE: &str = "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n";
+
+/// archive-companion dry-run over an already-archived change: exit 0,
+/// envelope lists the planned restore, and NOTHING is written
+/// (specodelic-fzo, dry_run_never_mutates).
+#[test]
+fn archive_companion_dry_run_reports_without_writing() {
+    let root = archive_companion_fixture("dryx", DUAL_DELTA_FIXTURE);
+    let out = spk()
+        .args(["archive-companion", "dryx", "--dry-run", "--json"])
+        .current_dir(root.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{stdout}");
+    assert_eq!(json["data"]["dry_run"], serde_json::json!(true));
+    assert_eq!(json["data"]["openspec_ran"], serde_json::json!(false));
+    assert_eq!(
+        json["data"]["restored"],
+        serde_json::json!(["openspec/specs/c/spec.md"])
+    );
+    assert!(
+        !root.path().join("openspec/specs").exists(),
+        "dry-run must not create deployed spec paths"
+    );
+}
+
+/// archive-companion fails closed on a frontmatterless archived delta
+/// (specodelic-fzo, fail_closed_unverifiable): exit 1, the delta is
+/// named, and no deployed spec is written.
+#[test]
+fn archive_companion_refuses_frontmatterless_delta() {
+    let root = archive_companion_fixture("plain", "# plain openspec delta\n");
+    let out = spk()
+        .args(["archive-companion", "plain", "--json"])
+        .current_dir(root.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(
+        stderr.contains("dual-format layer"),
+        "refusal must name the failure: {stderr}"
+    );
+    assert!(
+        stderr.contains("spk explain dual-format"),
+        "refusal must carry the migration-recipe hint: {stderr}"
+    );
+    assert!(
+        !root.path().join("openspec/specs").exists(),
+        "a refusal must not write any deployed spec"
+    );
+}
+
+/// archive-companion over an unknown change id: labeled error naming
+/// the id and the `openspec list` hint.
+#[test]
+fn archive_companion_unknown_change_is_labeled_error() {
+    let root = archive_companion_fixture("other", DUAL_DELTA_FIXTURE);
+    let out = spk()
+        .args(["archive-companion", "ghost-change", "--json"])
+        .current_dir(root.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(stderr.contains("ghost-change"), "{stderr}");
+    assert!(stderr.contains("openspec list"), "{stderr}");
+}

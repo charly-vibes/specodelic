@@ -341,10 +341,59 @@ pub fn hooks(payload: &serde_json::Value) -> String {
     }
 }
 
+/// Human summary for `spk archive-companion` (dual-format layer
+/// preserved through the archive round-trip).
+pub fn archive_companion(payload: &serde_json::Value) -> String {
+    let change_id = payload["change_id"].as_str().unwrap_or("?");
+    let restored = payload["restored"].as_array().cloned().unwrap_or_default();
+    let verb = if payload["dry_run"].as_bool().unwrap_or(false) {
+        "would restore"
+    } else {
+        "restored"
+    };
+    let ran = if payload["openspec_ran"].as_bool().unwrap_or(false) {
+        "openspec archive ran"
+    } else {
+        "openspec archive skipped (already archived or dry-run)"
+    };
+    let paths: Vec<String> = restored
+        .iter()
+        .filter_map(|p| p.as_str().map(str::to_string))
+        .collect();
+    if paths.is_empty() {
+        format!("archive-companion: {change_id} — {ran}, {verb}: nothing (no spec deltas)")
+    } else {
+        format!(
+            "archive-companion: {change_id} — {ran}, {verb} {} file(s):\n{}",
+            paths.len(),
+            paths
+                .iter()
+                .map(|p| format!("  {p}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn archive_companion_human_summary() {
+        let payload = json!({
+            "change_id": "add-x",
+            "openspec_ran": true,
+            "archive_dir": "openspec/changes/archive/2026-10-01-add-x",
+            "restored": ["openspec/specs/c/spec.md"],
+            "dry_run": false,
+        });
+        let text = archive_companion(&payload);
+        assert!(text.contains("add-x"));
+        assert!(text.contains("restored 1 file(s)"));
+        assert!(text.contains("openspec/specs/c/spec.md"));
+    }
 
     #[test]
     fn lint_text_carries_rule_ids_and_counts() {

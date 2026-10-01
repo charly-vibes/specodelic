@@ -182,6 +182,23 @@ created from scratch) and an `openspec/` tree; husky and prek repos
 get a labeled refusal with a manual-wiring hint. `spk hooks
 uninstall` strips only the managed block.
 
+## `spk archive-companion <CHANGE_ID>`
+
+`spk archive-companion` archives an openspec change while preserving
+its dual-format layer (specodelic-fzo, GH#7): default `openspec
+archive` regenerates deployed specs from parsed deltas and strips
+frontmatter + the Constraints/Model/Properties tables — the companion
+invokes the archiver with spec application skipped, verifies each
+archived delta still carries the layer, and deploys it verbatim to
+`openspec/specs/<cap>/spec.md`. Fail-closed: a delta lacking the layer
+is refused before any copy, with the `spk explain dual-format`
+migration recipe as the hint — the tool never deploys a stripped spec.
+Re-running on an already-archived change skips the openspec invocation
+and re-restores; a change with no spec deltas succeeds with an empty
+restored list; `--dry-run` resolves and verifies the plan without
+invoking openspec or writing anything. `just archive-change` delegates
+to this command.
+
 ## `spk rename <old_id> <new_id> [files|dirs]`
 
 The atomic rename (specs/rename.md): updates the defining row (an

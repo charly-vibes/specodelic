@@ -97,16 +97,12 @@ sync-sections-test:
 archive-change id:
     #!/usr/bin/env bash
     set -euo pipefail
-    if openspec list 2>/dev/null | grep -q "{{id}}"; then
-        openspec archive {{id}} --skip-specs --yes
-    fi
-    dir=$(find openspec/changes/archive -maxdepth 1 -type d -name "*-{{id}}" | sort | tail -1)
-    for f in "$dir"/specs/*/spec.md; do
-        cap=$(basename "$(dirname "$f")")
-        mkdir -p "openspec/specs/$cap"
-        cp "$f" "openspec/specs/$cap/spec.md"
-        echo "archived: openspec/specs/$cap/spec.md (dual-format, verbatim)"
-    done
+    # Delegates to the tool-level companion (specodelic-fzo / GH#7):
+    # openspec archive --skip-specs + verbatim deploy of the archived
+    # deltas, fail-closed on any delta lacking the dual-format layer.
+    # cargo run (not PATH spk) so the recipe can never hit a stale
+    # installed binary lacking the subcommand.
+    cargo run -q -- archive-companion "{{id}}"
 
 # Build the docs book locally, mirroring the docs.yml workflow steps
 docs-build:

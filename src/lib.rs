@@ -10,6 +10,7 @@
 //! library so the binary stays thin and the corpus can be dogfooded from
 //! integration tests.
 
+pub mod archive_companion;
 pub mod blocks;
 pub mod checklist;
 pub mod compile;

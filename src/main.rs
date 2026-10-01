@@ -315,6 +315,17 @@ enum Commands {
         #[arg(long)]
         title: Option<String>,
     },
+    /// Archive an openspec change while preserving its dual-format
+    /// layer (openspec archive --skip-specs + verbatim deploy of the
+    /// archived deltas; specodelic-fzo / GH#7)
+    ArchiveCompanion {
+        /// The openspec change id to archive
+        change_id: String,
+        /// Resolve and verify the restore plan without invoking openspec
+        /// or writing anything
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Wire or unwire the specodelic dual-format gate in the repo's
     /// hook chain (lefthook managed block — never claims core.hooksPath)
     Hooks {
@@ -645,6 +656,69 @@ fn cmd_hooks(
     }
 }
 
+/// `spk archive-companion <CHANGE_ID>` — archive a change with the
+/// dual-format layer preserved (specodelic-fzo / GH#7).
+fn cmd_archive_companion(
+    change_id: &str,
+    dry_run: bool,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let root = match genesis::git_hooks::repo_root() {
+        Ok(root) => root,
+        Err(err) => {
+            let out: Output<serde_json::Value> = Output::failure(err.to_string())
+                .with_next_step("run from inside the repository that owns the openspec tree");
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            return 1;
+        }
+    };
+
+    let mut runner = |root: &std::path::Path, id: &str| {
+        specodelic::archive_companion::openspec_archive_runner(root, id)
+    };
+    match specodelic::archive_companion::run(&root, change_id, dry_run, &mut runner) {
+        Ok(outcome) => {
+            let rel = |p: &std::path::Path| -> String {
+                p.strip_prefix(&root).unwrap_or(p).display().to_string()
+            };
+            let payload = serde_json::json!({
+                "change_id": outcome.change_id,
+                "openspec_ran": outcome.openspec_ran,
+                "archive_dir": rel(&outcome.archive_dir),
+                "restored": outcome.restored.iter().map(|p| rel(p)).collect::<Vec<_>>(),
+                "dry_run": outcome.dry_run,
+            });
+            let next_step = if outcome.dry_run {
+                "re-run without --dry-run to archive and restore: spk archive-companion".to_string()
+            } else if outcome.restored.is_empty() {
+                "the change carried no spec deltas — nothing to restore".to_string()
+            } else {
+                "verify the gates: just lint-specs && openspec validate --all --strict".to_string()
+            };
+            let out: Output<serde_json::Value> =
+                Output::success(payload.clone()).with_next_step(next_step);
+            emit_report(
+                out,
+                Some(human::archive_companion(&payload)),
+                format,
+                verbosity,
+                stdout,
+                stderr,
+            );
+            0
+        }
+        Err(err) => {
+            let out: Output<serde_json::Value> = Output::failure(err.to_string())
+                .with_next_step("resolve the reported cause, then re-run: spk archive-companion");
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            1
+        }
+    }
+}
+
 /// Outcome of the install-time gate dry-run.
 struct GateDryRun {
     passed: bool,
@@ -898,6 +972,9 @@ fn run(
             stdout,
             stderr,
         ),
+        Commands::ArchiveCompanion { change_id, dry_run } => {
+            cmd_archive_companion(change_id, *dry_run, format, verbosity, stdout, stderr)
+        }
         Commands::Completions { shell } => {
             let mut cmd = Cli::command();
             match generate_completions(&mut cmd, *shell) {
