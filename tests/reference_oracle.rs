@@ -353,26 +353,26 @@ mod oracle {
             .as_ref()
             .and_then(|f| f.id.clone())
             .unwrap_or_default();
-        if !source_id.is_empty() {
-            if let Some(rest) = target.strip_prefix(&format!("{source_id}.")) {
-                if let Some((kind, attr)) = state_kind_of_row(source, rest) {
-                    return Resolved::Found(Target {
-                        file: source_id,
-                        row: Some(rest.to_string()),
-                        kind,
-                        attr,
-                    });
-                }
-                if let Some((first, _)) = rest.split_once('.') {
-                    if let Some((kind, attr)) = state_kind_of_row(source, first) {
-                        return Resolved::Found(Target {
-                            file: source_id,
-                            row: Some(first.to_string()),
-                            kind,
-                            attr,
-                        });
-                    }
-                }
+        if !source_id.is_empty()
+            && let Some(rest) = target.strip_prefix(&format!("{source_id}."))
+        {
+            if let Some((kind, attr)) = state_kind_of_row(source, rest) {
+                return Resolved::Found(Target {
+                    file: source_id,
+                    row: Some(rest.to_string()),
+                    kind,
+                    attr,
+                });
+            }
+            if let Some((first, _)) = rest.split_once('.')
+                && let Some((kind, attr)) = state_kind_of_row(source, first)
+            {
+                return Resolved::Found(Target {
+                    file: source_id,
+                    row: Some(first.to_string()),
+                    kind,
+                    attr,
+                });
             }
         }
         // 3. Every dot split, last to first.
@@ -396,15 +396,15 @@ mod oracle {
             }
             // row.member: the row is the single segment right after the
             // split; the member path may itself be dotted.
-            if let Some((first, _)) = remainder.split_once('.') {
-                if let Some((kind, attr)) = state_kind_of_row(target_file, first) {
-                    return Resolved::Found(Target {
-                        file: prefix,
-                        row: Some(first.to_string()),
-                        kind,
-                        attr,
-                    });
-                }
+            if let Some((first, _)) = remainder.split_once('.')
+                && let Some((kind, attr)) = state_kind_of_row(target_file, first)
+            {
+                return Resolved::Found(Target {
+                    file: prefix,
+                    row: Some(first.to_string()),
+                    kind,
+                    attr,
+                });
             }
         }
         Resolved::Unresolved
@@ -593,16 +593,17 @@ mod oracle {
         let state_ids: BTreeSet<&str> = file.states.iter().map(|(id, _)| id.as_str()).collect();
         for t in &file.transitions {
             for field in ["from", "to"] {
-                if let Some(v) = t.cells.get(field) {
-                    if !v.is_empty() && !state_ids.contains(v.as_str()) {
-                        out.push(finding(
-                            "oracle.transition_unknown_state",
-                            format!(
-                                "{}: transition {} {field} -> {v:?} is not a declared state",
-                                file.path, t.id
-                            ),
-                        ));
-                    }
+                if let Some(v) = t.cells.get(field)
+                    && !v.is_empty()
+                    && !state_ids.contains(v.as_str())
+                {
+                    out.push(finding(
+                        "oracle.transition_unknown_state",
+                        format!(
+                            "{}: transition {} {field} -> {v:?} is not a declared state",
+                            file.path, t.id
+                        ),
+                    ));
                 }
             }
         }

@@ -86,7 +86,6 @@ pub fn has_block(path: &std::path::Path) -> bool {
 
 #[cfg(test)]
 mod discovery_tests {
-    use super::*;
     use genesis::discovery;
 
     // -- specodelic-las: spk init registers in .genesis/tools.toml -------
@@ -134,7 +133,7 @@ mod discovery_tests {
         assert!(manifest.tools.contains_key("specodelic"));
         // scan sees specodelic detected via its marker
         let tools = discovery::scan(dir.path());
-        let spk = tools.iter().find(|t| t.name == "specodelic").unwrap();
+        assert!(tools.iter().any(|t| t.name == "specodelic"));
         // detector: AGENTS.md must exist for `detected: true`
         std::fs::write(dir.path().join("AGENTS.md"), "x").unwrap();
         let tools = discovery::scan(dir.path());
