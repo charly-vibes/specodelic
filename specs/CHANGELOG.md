@@ -6,6 +6,31 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #95 — graph dangling messages for consumption edges are interface-shaped (specodelic-2q8)
+
+A dangling typed consumption reference (`satisfies`, and by symmetry
+`observes`) reported the generic dangling shape — `consumer →
+[[producer.nope]]` — which left a reader unable to tell "typo'd row id"
+from "consuming a contract nobody published"; the remediation differs
+(fix the id vs publish the row). Found by the contract-wiring spike
+(specodelic-x30, case p2a); the spike's review pass endorsed exactly
+this follow-up and no other.
+
+Now: when the failing link's column is a consumption column, the graph
+dangling entry is interface-shaped — `consumer.hooks_installed
+(satisfies) → [[producer.nope]]: no published contract row
+producer.nope exists — publish it in the producer's file or fix the
+id`. It names the consumer row, the consumption column, the missing
+row, and BOTH remediations without claiming which applies (honesty
+rule: structurally the two causes are the same fact). Non-consumption
+columns (`traces_to`, `derives_from`, `guard`, `transitions.*`,
+`supersedes`, `emits`) keep the generic shape. The wrong-kind path
+(Reference Typing violations) was already interface-shaped and is
+untouched. No spec row pins the dangling message format; `graph.md`'s
+`total_extraction` semantics are unchanged — this is message polish
+riding the existing dangling machinery, not a new checker (the spike
+rejected all four candidate checkers).
+
 ## #94 — `spk lint` fails on parse errors, even alongside clean files (specodelic-in9)
 
 A malformed-frontmatter file in a batch that also held parseable specs

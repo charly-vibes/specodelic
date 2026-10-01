@@ -3956,6 +3956,79 @@ fn observes_wrong_target_rejected_with_hint() {
     );
 }
 
+/// specodelic-2q8 (spike p2a, openspec/research/2026-10-01-contract-wiring-spike):
+/// a dangling `satisfies` reference must be interface-shaped — it names the
+/// consumer row, the consumption column, the missing contract row, and BOTH
+/// remediations (publish the row / fix the id) without claiming which applies.
+#[test]
+fn satisfies_dangling_message_is_interface_shaped() {
+    let dir = tempfile::tempdir().unwrap();
+    let producer = "---\nid: producer\nkind: intent\nstatement: \"THE producer SHALL publish the hook contract\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| hook_shape | extension_point | `hook fn` | [[producer]] |\n\n## Model\n\n### States\n\n- `s`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s | s | [[producer.hook_shape]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[producer.hook_shape]] | `g()` | `x` |\n";
+    // Spike p2a shape: the consumer satisfies a row the producer never
+    // published (`producer.nope`).
+    let consumer = "---\nid: consumer\nkind: intent\nstatement: \"THE consumer SHALL install hooks\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | satisfies |\n|----|------|------|-----------|-----------|\n| hooks_installed | effect | `hooks ok` | [[consumer]] | [[producer.nope]] |\n\n## Model\n\n### States\n\n- `s`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s | s | [[consumer.hooks_installed]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[consumer.hooks_installed]] | `g()` | `x` |\n";
+    std::fs::write(dir.path().join("producer.md"), producer).unwrap();
+    std::fs::write(dir.path().join("consumer.md"), consumer).unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let dangling = json["data"]["dangling"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d.as_str().unwrap())
+        .collect::<Vec<_>>()
+        .join("\n");
+    for part in [
+        "consumer.hooks_installed (satisfies)",
+        "[[producer.nope]]",
+        "no published contract row producer.nope exists",
+        "publish it in the producer's file",
+        "fix the id",
+    ] {
+        assert!(
+            dangling.contains(part),
+            "dangling satisfies entry must be interface-shaped ({part:?}): {dangling}"
+        );
+    }
+}
+
+/// specodelic-2q8 symmetry: a dangling `observes` reference gets the same
+/// interface-shaped treatment as a dangling `satisfies`.
+#[test]
+fn observes_dangling_message_is_interface_shaped() {
+    let dir = tempfile::tempdir().unwrap();
+    // The pair fixture with the observes cell pointed at a row nobody
+    // published — the observes ghost-row case.
+    write_observability_pair(dir.path(), "[[ghost.row]] |");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let dangling = json["data"]["dangling"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d.as_str().unwrap())
+        .collect::<Vec<_>>()
+        .join("\n");
+    for part in [
+        "con.watch (observes)",
+        "[[ghost.row]]",
+        "no published contract row ghost.row exists",
+        "publish it in the producer's file",
+        "fix the id",
+    ] {
+        assert!(
+            dangling.contains(part),
+            "dangling observes entry must be interface-shaped ({part:?}): {dangling}"
+        );
+    }
+}
+
 #[test]
 fn mutual_observation_is_not_a_cycle() {
     // observes is a claim, not a dependency — two files mutually

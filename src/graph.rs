@@ -390,18 +390,20 @@ pub fn build(specs: &[Spec]) -> GraphReport {
             if metasyn {
                 continue;
             }
+            // Edge anchoring (shared by the recorded edge and the
+            // interface-shaped dangling message below): frontmatter links
+            // anchor on the intent row, table links on `file.row`.
+            let from = if link.source.as_str() == file_id.as_str() {
+                format!("{file_id} (intent)")
+            } else {
+                format!("{file_id}.{}", link.source)
+            };
             match resolved {
                 Some(target) => {
                     let kind = if link.column.is_empty() {
                         link.field.clone()
                     } else {
                         format!("{}.{}", link.field, link.column)
-                    };
-                    let from = if link.source.as_str() == file_id.as_str() {
-                        // frontmatter links are anchored on the intent row
-                        format!("{file_id} (intent)")
-                    } else {
-                        format!("{file_id}.{}", link.source)
                     };
                     // Reference Typing (specs/specodelic.md): a typed
                     // reference column whose target kind is forbidden is
@@ -437,9 +439,29 @@ pub fn build(specs: &[Spec]) -> GraphReport {
                     *report.fan_in.entry(edge.to.clone()).or_default() += 1;
                     report.edges.push(edge);
                 }
-                None => report
-                    .dangling
-                    .push(format!("{} → [[{}]]", file_id, link.target)),
+                None => {
+                    // specodelic-2q8: consumption edges get an
+                    // interface-shaped dangling message — a reader cannot
+                    // tell "typo'd row id" from "consuming a contract
+                    // nobody published" from the generic shape, and the
+                    // remediation differs. Honesty rule (ticket scope):
+                    // name BOTH remediations; the message must not claim
+                    // to know which applies. Non-consumption columns keep
+                    // the generic shape (other tooling/tests may pin it).
+                    if matches!(link.column.as_str(), "satisfies" | "observes") {
+                        report.dangling.push(format!(
+                            "{from} ({column}) → [[{target}]]: no published \
+                             contract row {target} exists — publish it in the \
+                             producer's file or fix the id",
+                            column = link.column,
+                            target = link.target
+                        ));
+                    } else {
+                        report
+                            .dangling
+                            .push(format!("{} → [[{}]]", file_id, link.target));
+                    }
+                }
             }
         }
     }
