@@ -149,6 +149,17 @@ whole — the next verify pays one cold proptest rebuild. Set
 
 - Spec: [verify](specs/verify.md)
 
+## `spk parse <file>`
+
+Emits the parsed Spec IR for one file as a JSON envelope (specodelic-9rv):
+`data` carries the full structured layer — intent, constraints rows,
+states, transitions, properties rows (cells as keyed maps, not generated
+text), and structured links. Parse is syntax-only: it succeeds on files
+that fail `spk lint` and embeds no lint status — chain `spk lint`
+yourself (the envelope's hint names it). Exactly one file per invocation
+(no globbing — consumers loop); unparseable or missing input is a labeled
+error envelope with a remediation hint and a non-zero exit.
+
 ## `spk doctor`
 
 Classifies the workspace (`self_hosting` vs `consumer`), checks the

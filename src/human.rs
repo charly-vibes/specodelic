@@ -69,6 +69,25 @@ pub fn refactor(report: &crate::refactor::RefactorReport) -> String {
     out
 }
 
+/// `spk parse` — one-line IR summary + the lint-chain hint. The full
+/// structured layer is the JSON envelope's job; human output names what
+/// was parsed and where to go next.
+pub fn parse(spec: &crate::spec::Spec) -> String {
+    format!(
+        "parse: {} — {} constraint(s), {} state(s), {} transition(s), {} propert{} — syntax ok (lint not run; run: spk lint <file>)",
+        spec.intent.id,
+        spec.constraints.len(),
+        spec.states.len(),
+        spec.transitions.len(),
+        spec.properties.len(),
+        if spec.properties.len() == 1 {
+            "y"
+        } else {
+            "ies"
+        },
+    )
+}
+
 pub fn graph(report: &GraphReport) -> String {
     let mut out = format!(
         "graph: {} file(s), {} node(s), {} edge(s), {} dangling, {} typing violation(s), {} supersedes cycle(s), {} external boundary(ies)",

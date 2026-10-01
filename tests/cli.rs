@@ -4592,3 +4592,176 @@ fn archive_companion_unknown_change_is_labeled_error() {
     assert!(stderr.contains("ghost-change"), "{stderr}");
     assert!(stderr.contains("openspec list"), "{stderr}");
 }
+
+// ---- specodelic-9rv: spk parse — structured Spec IR export ----
+
+/// A well-formed four-layer spec with three Properties rows and links —
+/// the parse IR fixture.
+fn write_parse_fixture(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL parse as structured IR\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | c1 | invariant | `holds` | [[{id}]] |\n\
+             | c2 | invariant | `always` | [[{id}.c1]] |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1\n\
+             - s2\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s2 | [[{id}.c1]] |\n\
+             \n## Properties\n\
+             \n| id | kind | derives_from | generator | predicate |\n\
+             |----|------|--------------|-----------|------------|\n\
+             | p1 | unit | [[{id}.c1]] | `g()` | `x` |\n\
+             | p2 | unit | [[{id}.c2]] | `h()` | `y` |\n\
+             | p3 | unit | [[{id}.c1]] | `k()` | `z` |\n"
+        ),
+    )
+    .unwrap();
+}
+
+/// C-parse-ir + C-parse-envelope (tasks 1.1): a well-formed file parses
+/// into the full Spec IR under data, with a hint suggesting spk lint.
+#[test]
+fn parse_exports_full_spec_ir() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("parse_fixture.md");
+    write_parse_fixture(&file, "parse_fixture");
+    let out = spk()
+        .args(["parse", file.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(env["ok"], serde_json::Value::Bool(true));
+    // Shared envelope fields all present.
+    for field in ["ok", "data", "warnings", "hints", "meta"] {
+        assert!(
+            env.get(field).is_some(),
+            "envelope missing `{field}`: {stdout}"
+        );
+    }
+    let data = &env["data"];
+    // Full IR, no structured field omitted.
+    assert_eq!(data["intent"]["id"], "parse_fixture");
+    assert_eq!(data["constraints"].as_array().map(Vec::len), Some(2));
+    assert_eq!(data["states"].as_array().map(Vec::len), Some(2));
+    assert_eq!(data["transitions"].as_array().map(Vec::len), Some(1));
+    assert_eq!(data["properties"].as_array().map(Vec::len), Some(3));
+    assert_eq!(data["links"].as_array().map(Vec::len).unwrap_or(0), 6);
+    // Properties rows carry structured cells, not generated text.
+    assert_eq!(data["properties"][0]["id"], "p1");
+    // Hint suggests linting the parsed file.
+    let hints = env["hints"].as_array().cloned().unwrap_or_default();
+    assert!(
+        serde_json::to_string(&hints).unwrap().contains("spk lint")
+            || serde_json::to_string(&hints).unwrap().contains("lint"),
+        "hints must suggest spk lint: {hints:?}"
+    );
+    assert_eq!(out.status.code(), Some(0));
+}
+
+/// C-parse-lint-independent (task 1.2): parse succeeds on a lint-dirty
+/// file and the envelope embeds no lint status.
+#[test]
+fn parse_is_lint_independent() {
+    let dir = tempfile::tempdir().unwrap();
+    // Parses fine but fails lint: the statement violates the EARS grammar.
+    let file = dir.path().join("lint_dirty.md");
+    write_bad_ears_spec(&file, "lint_dirty");
+    let out = spk()
+        .args(["parse", file.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(env["ok"], serde_json::Value::Bool(true), "{stdout}");
+    assert_eq!(out.status.code(), Some(0));
+    // No lint status anywhere in the envelope.
+    let blob = serde_json::to_string(&env).unwrap().to_lowercase();
+    assert!(
+        !blob.contains("lint_ok") && !blob.contains("\"linted\"") && !blob.contains("lint_status"),
+        "envelope must not embed lint status: {blob}"
+    );
+    assert_eq!(env["data"]["intent"]["id"], "lint_dirty");
+}
+
+/// C-parse-error (task 1.3): unparseable input and a nonexistent path
+/// each yield a labeled error envelope with a hint and non-zero exit.
+#[test]
+fn parse_rejects_unparseable_and_missing_input() {
+    let dir = tempfile::tempdir().unwrap();
+    // Unparseable: broken YAML frontmatter.
+    let bad = dir.path().join("broken.md");
+    std::fs::write(&bad, "---\nid: [unclosed\nkind: intent\n---\nbody\n").unwrap();
+    let out = spk()
+        .args(["parse", bad.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(env["ok"], serde_json::Value::Bool(false), "{stdout}");
+    let blob = serde_json::to_string(&env).unwrap();
+    assert!(
+        blob.contains("broken.md"),
+        "error must name the file: {blob}"
+    );
+    assert!(
+        !env["hints"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .is_empty()
+            || !env["next_step"].is_null(),
+        "error envelope must carry a remediation hint: {blob}"
+    );
+    assert_ne!(out.status.code(), Some(0));
+
+    // Nonexistent path.
+    let ghost = dir.path().join("ghost.md");
+    let out = spk()
+        .args(["parse", ghost.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let env: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(env["ok"], serde_json::Value::Bool(false), "{stdout}");
+    let blob = serde_json::to_string(&env).unwrap();
+    assert!(
+        blob.contains("ghost.md"),
+        "error must name the path: {blob}"
+    );
+    assert_ne!(out.status.code(), Some(0));
+}
+
+/// C-parse-single-file (task 1.3): exactly one path per invocation —
+/// zero or multiple paths are a usage error.
+#[test]
+fn parse_accepts_exactly_one_path() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("one.md");
+    write_parse_fixture(&file, "one");
+    let other = dir.path().join("two.md");
+    write_parse_fixture(&other, "two");
+
+    // Zero paths.
+    let out = spk().args(["parse", "--json"]).output().unwrap();
+    assert_ne!(out.status.code(), Some(0), "zero paths must be rejected");
+    // Two paths.
+    let out = spk()
+        .args([
+            "parse",
+            file.to_str().unwrap(),
+            other.to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert_ne!(out.status.code(), Some(0), "two paths must be rejected");
+}

@@ -282,6 +282,13 @@ enum Commands {
         #[arg(short, long)]
         file: Option<String>,
     },
+    /// Export the parsed Spec IR for one file as a json envelope
+    /// (syntax-only — succeeds independently of lint status; no lint
+    /// status is embedded; exactly one file per invocation)
+    Parse {
+        /// Spec file to parse (exactly one)
+        file: String,
+    },
     /// Explain the Specodelic format — embedded guide, works offline
     Explain {
         /// Topic to explain; omit to list the topics
@@ -850,6 +857,7 @@ fn run(
 ) -> i32 {
     match &cli.command {
         Commands::Lint { paths } => cmd_lint(paths, format, verbosity, stdout, stderr),
+        Commands::Parse { file } => cmd_parse(file, format, verbosity, stdout, stderr),
         Commands::Graph { paths } => cmd_graph(paths, format, verbosity, stdout, stderr),
         Commands::Compile { paths, out_dir } => {
             cmd_compile(paths, out_dir, format, verbosity, stdout, stderr)
@@ -1226,6 +1234,45 @@ fn cmd_lint(
         stderr,
     );
     if failures > 0 { 1 } else { 0 }
+}
+
+/// `spk parse <file>` — the parsed `Spec` IR as a json envelope
+/// (specodelic-9rv). Syntax-only: succeeds on lint-dirty files and embeds
+/// no lint status (design D3 — consumers chain `spk lint` themselves);
+/// the hint names the lint command so the chain stays discoverable.
+/// Unparseable or missing input is a labeled error envelope with a
+/// remediation hint and non-zero exit (D4).
+fn cmd_parse(
+    file: &str,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    match specodelic::parse::parse_file(std::path::Path::new(file)) {
+        Ok(spec) => {
+            // The parsed Spec is emitted directly (D1): every structured
+            // field, no filtering — consumers decide what they need.
+            let payload = serde_json::to_value(&spec).unwrap_or_default();
+            let out: Output<serde_json::Value> =
+                Output::success(payload).with_next_step(format!("run: specodelic lint {file}"));
+            emit_report(
+                out,
+                Some(human::parse(&spec)),
+                format,
+                verbosity,
+                stdout,
+                stderr,
+            );
+            0
+        }
+        Err(err) => {
+            let out: Output<serde_json::Value> =
+                Output::failure(err.to_string()).with_next_step(err.hint());
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            1
+        }
+    }
 }
 
 fn cmd_graph(

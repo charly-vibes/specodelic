@@ -25,6 +25,7 @@ pub mod merge;
 pub mod migrate;
 pub mod model_check;
 pub mod orchestrate;
+pub mod parse;
 pub mod refactor;
 pub mod rename;
 pub mod spec;
