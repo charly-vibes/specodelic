@@ -6,6 +6,21 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #90 — spk archive-companion: dual-format survival of the openspec archive round-trip (specodelic-fzo, GH#7)
+
+`openspec archive` strips the specodelic half when merging deltas;
+the hardened recipe is now a tool: `spk archive-companion <id>` runs
+`openspec archive <id> --skip-specs --yes`, verifies each archived
+delta carries the layer (frontmatter + `## Constraints`), and deploys
+it verbatim to `openspec/specs/<cap>/spec.md`. Fail-closed on any
+stripped delta (the tool never deploys one); idempotent re-run skips
+the invocation; newest archive dir wins and is named; `--dry-run`
+resolves without invoking or writing; empty delta set is a stated
+success. `just archive-change` delegates via `cargo run` (never a
+stale PATH spk). Dogfood proof: the add-archive-companion change
+archived itself through its own command. 16 module tests (injectable
+runner seam, zero spawned processes) + 3 integration tests.
+
 ## #89 — SUMMARY.md forbids absolute-URL entries (specodelic-j0m)
 
 mdbook 0.5 materializes absolute-URL SUMMARY entries as literal

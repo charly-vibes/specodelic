@@ -53,3 +53,4 @@
 - [error-contract — capability](openspec/error-contract/spec.md)
 - [observability — capability](openspec/observability/spec.md)
 - [migrate — capability](openspec/migrate/spec.md)
+- [archive-companion — capability](openspec/archive-companion/spec.md)
