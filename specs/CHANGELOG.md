@@ -6,6 +6,30 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #91 — law-row named cases are machine-checkable: `linter.law_cases` (specodelic-9qw)
+
+Law rows are monoid witnesses, but where their cases appeared in the
+predicate was free prose — the linter could not tell a declaration from
+a mention. `specodelic.md` **Revision 13** ratifies the machine form
+compile's `required_law_cases` always parsed: required cases are
+`**name:**` case labels in the row's own predicate, the identity +
+associativity floor mandatory, extras first-class. The new append-only
+rule `law_cases` enforces the floor at lint time (shared
+`spec::law_case_labels` helper — compiler and linter cannot disagree),
+ahead of compile's precondition gate, whose unlabeled fallback is now
+defense-in-depth only. The repo's first `## MODIFIED Requirements`
+delta shipped alongside: the dual-format mirror rules
+(`requirement_drift`, `dual_format_valid`, `check_section_sync.py`)
+widen additively to MODIFIED-carrying files. Dogfood: the rule
+immediately caught three corpus law rows living on prose
+(`coverage_naturality`, `mapping_naturality` — missing associativity;
+`topo_sort_naturality` — missing both); each now carries
+rename-instantiation floor cases and compiles one proptest block per
+case. Companions: USAGE §2.10 (derived parallelism — the accumulator's
+algebra licenses the architecture) and the batch-resume worked example
+promoted out of /tmp to `docs/src/examples/`, its law rows relabeled to
+the machine form.
+
 ## #90 — spk archive-companion: dual-format survival of the openspec archive round-trip (specodelic-fzo, GH#7)
 
 `openspec archive` strips the specodelic half when merging deltas;

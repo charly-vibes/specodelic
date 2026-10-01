@@ -2549,7 +2549,10 @@ mod tests {
         // update-law-named-cases 3.1: the distinguishing case — a prose
         // mention of a case name is not an enumeration (specodelic.md
         // Revision 13). This file lints clean before the rule ships.
-        let spec = spec_at(&LAW_FIXTURE.replace("PREDICATE", "associative and has an identity element"), "b-law.md");
+        let spec = spec_at(
+            &LAW_FIXTURE.replace("PREDICATE", "associative and has an identity element"),
+            "b-law.md",
+        );
         let report = lint_all(&[spec], &checklist_fixtures());
         let finding = report
             .issues
@@ -2557,7 +2560,9 @@ mod tests {
             .find(|i| i.rule_id == "linter.law_cases")
             .expect("prose-only law predicate must fire linter.law_cases");
         assert!(
-            finding.message.contains("[\"identity\", \"associativity\"]"),
+            finding
+                .message
+                .contains("[\"identity\", \"associativity\"]"),
             "the finding names both missing floor cases: {:?}",
             finding.message
         );
@@ -2597,7 +2602,10 @@ mod tests {
         );
         let report = lint_all(&[spec], &checklist_fixtures());
         assert!(
-            !report.issues.iter().any(|i| i.rule_id == "linter.law_cases"),
+            !report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.law_cases"),
             "floor + extra case is clean: {:?}",
             report.issues
         );
@@ -2607,7 +2615,10 @@ mod tests {
     fn misspelled_floor_label_is_not_the_floor() {
         // update-law-named-cases 3.3b: **identiy:** is not identity —
         // the floor must be present by name.
-        let spec = spec_at(&LAW_FIXTURE.replace("PREDICATE", "**identiy:** `x`"), "b-law.md");
+        let spec = spec_at(
+            &LAW_FIXTURE.replace("PREDICATE", "**identiy:** `x`"),
+            "b-law.md",
+        );
         let report = lint_all(&[spec], &checklist_fixtures());
         let finding = report
             .issues
@@ -2615,7 +2626,9 @@ mod tests {
             .find(|i| i.rule_id == "linter.law_cases")
             .expect("a misspelled floor label is not the floor");
         assert!(
-            finding.message.contains("[\"identity\", \"associativity\"]"),
+            finding
+                .message
+                .contains("[\"identity\", \"associativity\"]"),
             "{:?}",
             finding.message
         );
@@ -2625,10 +2638,18 @@ mod tests {
     fn unit_rows_never_trigger_law_cases() {
         // update-law-named-cases 3.4: the rule is law-kind only — a
         // unit row with case-like text in its predicate never fires.
-        let spec = spec_at(&LAW_FIXTURE.replace("| nat | law |", "| nat | unit |").replace("PREDICATE", "identity of the accumulator holds"), "b-law.md");
+        let spec = spec_at(
+            &LAW_FIXTURE
+                .replace("| nat | law |", "| nat | unit |")
+                .replace("PREDICATE", "identity of the accumulator holds"),
+            "b-law.md",
+        );
         let report = lint_all(&[spec], &checklist_fixtures());
         assert!(
-            !report.issues.iter().any(|i| i.rule_id == "linter.law_cases"),
+            !report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.law_cases"),
             "{:?}",
             report.issues
         );
