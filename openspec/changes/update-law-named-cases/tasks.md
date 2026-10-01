@@ -100,7 +100,7 @@
 - [x] 7.2 CHANGELOG entry (#91+), `spk explain` topics untouched (no
   new topic needed — the floor semantics live in `dual-format`'s and
   `lint-rules`' existing bodies; verify the rule table renders).
-- [ ] 7.3 Rule-of-5 review of the change set; fix findings.
-- [ ] 7.4 Commit + push; at approval-archive time use
+- [x] 7.3 Rule-of-5 review of the change set; fix findings.
+- [x] 7.4 Commit + push; at approval-archive time use
   `spk archive-companion update-law-named-cases` (D8 — never default
   archive).
