@@ -6,6 +6,32 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #96 — deployed llms.txt carries a version stamp; undeployed llm.txt variant resolved (specodelic-2m7, specodelic-cke)
+
+The deployed site rebuilds from main, but `llms.txt` carried no version
+identifier — an agent writing specs from the deployed grammar could target
+a format newer than its installed `spk` crate, and lint failures were then
+undiagnosable (Rule-of-5 EDGE-001, 2026-10-01 session). Separately, the
+repo root had an `llm.txt` richer variant (install + Links sections) that
+was deployed nowhere (404) and referenced by no build recipe — pure drift
+surface.
+
+Now: `scripts/stamp_llms.py` runs at docs build time in BOTH paths (the
+docs.yml workflow and `just docs-build` share the script, so they cannot
+drift). The `page` phase generates `docs/src/release.md` from Cargo.toml
++ git ref before `mdbook build` (version claims never hand-typed — §6,
+DDL-j0u); the `llms` phase copies `llms.txt` into `book/llms.txt` after
+the build and appends a Release Status stamp — version, built-from ref,
+and a link to the generated Release Status page. The repo-source
+`llms.txt` is never touched (it stays the static, versionless input).
+The `llm_txt_served` invariant is unaffected — the deployed copy is still
+the tool summary at the site root. The undeployed `llm.txt` variant is
+deleted; its unique content (Installation, Links) is merged into
+`llms.txt`. Guards in `scripts/test_stamp_llms.py` (stdlib unittest,
+wired into `just ci` via the discover recipe): stamp content, source-file
+immutability, and the drift guards (no `llm.txt` at repo root; llms.txt
+carries the merged sections).
+
 ## #95 — graph dangling messages for consumption edges are interface-shaped (specodelic-2q8)
 
 A dangling typed consumption reference (`satisfies`, and by symmetry

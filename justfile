@@ -105,14 +105,17 @@ archive-change id:
     cargo run -q -- archive-companion "{{id}}"
 
 # Build the docs book locally, mirroring the docs.yml workflow steps
+# (specodelic-2m7: the shared scripts/stamp_llms.py keeps both paths in
+# lockstep — release page before the build, stamped llms.txt after)
 docs-build:
     #!/usr/bin/env bash
     set -euo pipefail
     rm -rf docs/src/specs docs/src/openspec
     cp -r specs docs/src/specs
     cp -r openspec/specs docs/src/openspec
+    python3 scripts/stamp_llms.py page
     mdbook build
-    cp llms.txt book/llms.txt
+    python3 scripts/stamp_llms.py llms
     echo "docs built: book/index.html"
 
 # === CI Pipeline ===

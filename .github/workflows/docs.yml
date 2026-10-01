@@ -38,29 +38,20 @@ jobs:
           cp -r specs docs/src/specs
           cp -r openspec/specs docs/src/openspec
 
-      - name: Generate release-status page from Cargo.toml
-        # §6 (DDL-j0u): the book's version claims must come from Cargo.toml,
-        # never from hand-typed text — hand-typed versions drift (ddl's
-        # deployed book said v0.5.0 while the repo was v0.7.0).
-        run: |
-          VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
-          TAG="${GITHUB_REF_NAME:-main}"
-          mkdir -p docs/src
-          cat > docs/src/release.md <<EOF
-          # Release Status
-
-          > **Generated artifact** (docs.yml, from Cargo.toml + git ref).
-          > Do not hand-edit — the repo source files remain authoritative.
-
-          - **Version:** v${VERSION}
-          - **Built from:** ${TAG} @ ${GITHUB_SHA::7}
-          EOF
+      - name: Generate release-status page
+        # scripts/stamp_llms.py — shared with `just docs-build` so the CI
+        # and local paths cannot drift (specodelic-2m7). Version comes from
+        # Cargo.toml, never hand-typed text — §6 (DDL-j0u).
+        run: python3 scripts/stamp_llms.py page
 
       - name: Build docs
         run: mdbook build
 
-      - name: Copy llms.txt to site root
-        run: cp llms.txt book/llms.txt
+      - name: Stamp llms.txt into site root
+        # scripts/stamp_llms.py — crate version + build ref + Release
+        # Status link on the DEPLOYED copy; repo-source llms.txt is never
+        # touched (specodelic-2m7).
+        run: python3 scripts/stamp_llms.py llms
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

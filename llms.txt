@@ -90,3 +90,15 @@ Getting started:
 - [Installation & Quick Start](https://charly-vibes.github.io/specodelic/installation.html) ·
   [Command Reference](https://charly-vibes.github.io/specodelic/commands.html) ·
   [Full book (bulk)](https://charly-vibes.github.io/specodelic/print.html)
+
+## Installation
+
+```bash
+cargo install specodelic
+```
+
+## Links
+
+- Repository: https://github.com/charly-vibes/specodelic
+- Docs: https://charly-vibes.github.io/specodelic/
+- charly-vibes suite: https://charly-vibes.github.io/charly-vibes/
