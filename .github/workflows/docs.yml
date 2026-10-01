@@ -8,6 +8,7 @@ on:
       - 'book.toml'
       - 'theme/**'
       - 'Cargo.toml'
+      - 'llms.txt'
     tags:
       - 'v*'
   workflow_dispatch:
