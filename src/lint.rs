@@ -101,6 +101,10 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
         "every property must derive from at least one constraint",
     ),
     (
+        "law_cases",
+        "every law-kind property must enumerate its required cases as **name:** labels in its own predicate — the identity and associativity floor is mandatory, extra named cases are checkable declarations",
+    ),
+    (
         "requirement_drift",
         "a dual-format file's ## Requirements mirror must hold the same requirement text as ## ADDED Requirements (blank lines and trailing space ignored)",
     ),
@@ -1690,6 +1694,40 @@ fn lint_coverage(specs: &[Spec], report: &mut Report) {
                 }
             }
         }
+
+        // every_law_has_cases (specodelic.md Revision 13) — a law-kind
+        // row's required cases are whatever its predicate enumerates as
+        // `**name:**` case labels, parsed by spec::law_case_labels (the
+        // same helper compile's block expansion consumes — the compiler
+        // and the linter cannot disagree on what a case is). The
+        // identity and associativity floor is mandatory; extra labels
+        // are first-class checkable declarations. A prose mention of a
+        // case name is not an enumeration.
+        for p in &spec.properties {
+            if p.kind.as_deref() != Some("law") {
+                continue;
+            }
+            let predicate = p.cells.get("predicate").cloned().unwrap_or_default();
+            let labels: BTreeSet<String> = crate::spec::law_case_labels(&predicate)
+                .into_iter()
+                .map(|c| c.to_lowercase())
+                .collect();
+            let missing: Vec<&str> = ["identity", "associativity"]
+                .iter()
+                .filter(|c| !labels.contains(**c))
+                .copied()
+                .collect();
+            if !missing.is_empty() {
+                report.issues.push(Issue::new(
+                    "law_cases",
+                    file_id.clone(),
+                    format!(
+                        "law property `{}` does not enumerate its required cases in machine-findable form — missing floor case(s) {missing:?}: write `**identity:** … **associativity:** …` case labels in the predicate (specodelic.md Revision 13; a prose mention of a case name is not an enumeration)",
+                        p.id
+                    ),
+                ));
+            }
+        }
     }
 }
 
@@ -1703,11 +1741,23 @@ mod tests {
         spec
     }
 
+    /// Lint-clean-unless-law_cases fixture: a law-kind property row
+    /// whose predicate is substituted per test. Fires `law_cases` and
+    /// nothing else (task 3.x).
+    const LAW_FIXTURE: &str = "---\nid: demo.law\nkind: intent\nstatement: \"THE demo SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| m | invariant | `x holds` | [[demo.law]] |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | `x` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| nat | law | [[demo.law.m]] | `g()` | PREDICATE |\n";
+
     /// Fixture corpus that triggers every rule in the catalog, so the
     /// test can assert the catalog covers exactly the rule ids the
     /// linter can emit (task 3.3).
     fn fixture_corpus() -> Vec<Spec> {
         vec![
+            // fires law_cases (update-law-named-cases): a law-kind row
+            // whose predicate mentions identity/associativity in prose
+            // only — no **name:** labels, no enumeration.
+            spec_at(
+                &LAW_FIXTURE.replace("PREDICATE", "associative and has an identity element"),
+                "b-law.md",
+            ),
             // fires frontmatter_valid (kind), no_conjoined_id,
             // no_universal_in_id — intent id must match its filename
             spec_at(
@@ -2464,6 +2514,96 @@ mod tests {
                 "rule_semantics must come from the rule table"
             );
         }
+    }
+
+    #[test]
+    fn law_row_with_prose_only_cases_is_rejected() {
+        // update-law-named-cases 3.1: the distinguishing case — a prose
+        // mention of a case name is not an enumeration (specodelic.md
+        // Revision 13). This file lints clean before the rule ships.
+        let spec = spec_at(&LAW_FIXTURE.replace("PREDICATE", "associative and has an identity element"), "b-law.md");
+        let report = lint_all(&[spec], &checklist_fixtures());
+        let finding = report
+            .issues
+            .iter()
+            .find(|i| i.rule_id == "linter.law_cases")
+            .expect("prose-only law predicate must fire linter.law_cases");
+        assert!(
+            finding.message.contains("[\"identity\", \"associativity\"]"),
+            "the finding names both missing floor cases: {:?}",
+            finding.message
+        );
+    }
+
+    #[test]
+    fn law_row_missing_one_floor_case_names_only_it() {
+        // update-law-named-cases 3.2: identity labeled, associativity
+        // not — the finding names the missing one.
+        let spec = spec_at(
+            &LAW_FIXTURE.replace("PREDICATE", "**identity:** `f(a) == a`"),
+            "b-law.md",
+        );
+        let report = lint_all(&[spec], &checklist_fixtures());
+        let finding = report
+            .issues
+            .iter()
+            .find(|i| i.rule_id == "linter.law_cases")
+            .expect("missing associativity must fire");
+        assert!(
+            finding.message.contains("[\"associativity\"]"),
+            "only the missing case is named: {:?}",
+            finding.message
+        );
+    }
+
+    #[test]
+    fn law_row_with_floor_and_extra_case_is_clean() {
+        // update-law-named-cases 3.3: the floor plus an extra named
+        // case — a first-class checkable declaration, no finding.
+        let spec = spec_at(
+            &LAW_FIXTURE.replace(
+                "PREDICATE",
+                "**identity:** `f(a) == a` **associativity:** `f(f(a)) == f(a)` **commutativity:** `f(a, b) == f(b, a)`",
+            ),
+            "b-law.md",
+        );
+        let report = lint_all(&[spec], &checklist_fixtures());
+        assert!(
+            !report.issues.iter().any(|i| i.rule_id == "linter.law_cases"),
+            "floor + extra case is clean: {:?}",
+            report.issues
+        );
+    }
+
+    #[test]
+    fn misspelled_floor_label_is_not_the_floor() {
+        // update-law-named-cases 3.3b: **identiy:** is not identity —
+        // the floor must be present by name.
+        let spec = spec_at(&LAW_FIXTURE.replace("PREDICATE", "**identiy:** `x`"), "b-law.md");
+        let report = lint_all(&[spec], &checklist_fixtures());
+        let finding = report
+            .issues
+            .iter()
+            .find(|i| i.rule_id == "linter.law_cases")
+            .expect("a misspelled floor label is not the floor");
+        assert!(
+            finding.message.contains("[\"identity\", \"associativity\"]"),
+            "{:?}",
+            finding.message
+        );
+    }
+
+    #[test]
+    fn unit_rows_never_trigger_law_cases() {
+        // update-law-named-cases 3.4: the rule is law-kind only — a
+        // unit row with case-like text in its predicate never fires.
+        let spec = spec_at(&LAW_FIXTURE.replace("| nat | law |", "| nat | unit |").replace("PREDICATE", "identity of the accumulator holds"), "b-law.md");
+        let report = lint_all(&[spec], &checklist_fixtures());
+        assert!(
+            !report.issues.iter().any(|i| i.rule_id == "linter.law_cases"),
+            "{:?}",
+            report.issues
+        );
     }
 
     #[test]

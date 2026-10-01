@@ -120,12 +120,34 @@ proptest! {
 
 proptest! {
     // id: topo_sort_naturality
+    // case: identity
+    // generator: `arbitrary_dag_repo(), arbitrary_id_rename()`
+    // predicate: **identity:** `topo_sort(rename(I, a, a)) == topo_sort(I)` — the rename identity case at the topo_sort observation point  **associativity:** `topo_sort(rename(rename(I, a, b), b, c)) == topo_sort(rename(I, a, c))` — the rename associativity case at the same point  **naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes
+    #[test]
+    fn topo_sort_naturality_identity(v0 in spec_gen::arbitrary_dag_repo(), v1 in spec_gen::arbitrary_id_rename()) {
+        todo_predicate!("**identity:** `topo_sort(rename(I, a, a)) == topo_sort(I)` — the rename identity case at the topo_sort observation point  **associativity:** `topo_sort(rename(rename(I, a, b), b, c)) == topo_sort(rename(I, a, c))` — the rename associativity case at the same point  **naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes");
+    }
+}
+
+proptest! {
+    // id: topo_sort_naturality
+    // case: associativity
+    // generator: `arbitrary_dag_repo(), arbitrary_id_rename()`
+    // predicate: **identity:** `topo_sort(rename(I, a, a)) == topo_sort(I)` — the rename identity case at the topo_sort observation point  **associativity:** `topo_sort(rename(rename(I, a, b), b, c)) == topo_sort(rename(I, a, c))` — the rename associativity case at the same point  **naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes
+    #[test]
+    fn topo_sort_naturality_associativity(v0 in spec_gen::arbitrary_dag_repo(), v1 in spec_gen::arbitrary_id_rename()) {
+        todo_predicate!("**identity:** `topo_sort(rename(I, a, a)) == topo_sort(I)` — the rename identity case at the topo_sort observation point  **associativity:** `topo_sort(rename(rename(I, a, b), b, c)) == topo_sort(rename(I, a, c))` — the rename associativity case at the same point  **naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes");
+    }
+}
+
+proptest! {
+    // id: topo_sort_naturality
     // case: naturality
     // generator: `arbitrary_dag_repo(), arbitrary_id_rename()`
-    // predicate: **naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes
+    // predicate: **identity:** `topo_sort(rename(I, a, a)) == topo_sort(I)` — the rename identity case at the topo_sort observation point  **associativity:** `topo_sort(rename(rename(I, a, b), b, c)) == topo_sort(rename(I, a, c))` — the rename associativity case at the same point  **naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes
     #[test]
     fn topo_sort_naturality_naturality(v0 in spec_gen::arbitrary_dag_repo(), v1 in spec_gen::arbitrary_id_rename()) {
-        todo_predicate!("**naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes");
+        todo_predicate!("**identity:** `topo_sort(rename(I, a, a)) == topo_sort(I)` — the rename identity case at the topo_sort observation point  **associativity:** `topo_sort(rename(rename(I, a, b), b, c)) == topo_sort(rename(I, a, c))` — the rename associativity case at the same point  **naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes");
     }
 }
 

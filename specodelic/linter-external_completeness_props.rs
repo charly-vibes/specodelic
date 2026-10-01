@@ -132,10 +132,21 @@ proptest! {
     // id: mapping_naturality
     // case: identity
     // generator: `arbitrary_repo_with_checklist(), arbitrary_id_rename()`
-    // predicate: **identity:** `mapped(repo renamed to itself) == mapped(repo)` — the rename identity case instantiated at the mapped-ids observation point  **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference
+    // predicate: **identity:** `mapped(repo renamed to itself) == mapped(repo)` — the rename identity case instantiated at the mapped-ids observation point  **associativity:** `mapped(rename(rename(I, a, b), b, c)) == mapped(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference
     #[test]
     fn mapping_naturality_identity(v0 in spec_gen::arbitrary_repo_with_checklist(), v1 in spec_gen::arbitrary_id_rename()) {
-        todo_predicate!("**identity:** `mapped(repo renamed to itself) == mapped(repo)` — the rename identity case instantiated at the mapped-ids observation point  **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference");
+        todo_predicate!("**identity:** `mapped(repo renamed to itself) == mapped(repo)` — the rename identity case instantiated at the mapped-ids observation point  **associativity:** `mapped(rename(rename(I, a, b), b, c)) == mapped(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference");
+    }
+}
+
+proptest! {
+    // id: mapping_naturality
+    // case: associativity
+    // generator: `arbitrary_repo_with_checklist(), arbitrary_id_rename()`
+    // predicate: **identity:** `mapped(repo renamed to itself) == mapped(repo)` — the rename identity case instantiated at the mapped-ids observation point  **associativity:** `mapped(rename(rename(I, a, b), b, c)) == mapped(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference
+    #[test]
+    fn mapping_naturality_associativity(v0 in spec_gen::arbitrary_repo_with_checklist(), v1 in spec_gen::arbitrary_id_rename()) {
+        todo_predicate!("**identity:** `mapped(repo renamed to itself) == mapped(repo)` — the rename identity case instantiated at the mapped-ids observation point  **associativity:** `mapped(rename(rename(I, a, b), b, c)) == mapped(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference");
     }
 }
 
@@ -143,10 +154,10 @@ proptest! {
     // id: mapping_naturality
     // case: naturality
     // generator: `arbitrary_repo_with_checklist(), arbitrary_id_rename()`
-    // predicate: **identity:** `mapped(repo renamed to itself) == mapped(repo)` — the rename identity case instantiated at the mapped-ids observation point  **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference
+    // predicate: **identity:** `mapped(repo renamed to itself) == mapped(repo)` — the rename identity case instantiated at the mapped-ids observation point  **associativity:** `mapped(rename(rename(I, a, b), b, c)) == mapped(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference
     #[test]
     fn mapping_naturality_naturality(v0 in spec_gen::arbitrary_repo_with_checklist(), v1 in spec_gen::arbitrary_id_rename()) {
-        todo_predicate!("**identity:** `mapped(repo renamed to itself) == mapped(repo)` — the rename identity case instantiated at the mapped-ids observation point  **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference");
+        todo_predicate!("**identity:** `mapped(repo renamed to itself) == mapped(repo)` — the rename identity case instantiated at the mapped-ids observation point  **associativity:** `mapped(rename(rename(I, a, b), b, c)) == mapped(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference");
     }
 }
 

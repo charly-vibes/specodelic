@@ -104,10 +104,21 @@ proptest! {
     // id: coverage_naturality
     // case: identity
     // generator: `arbitrary_spec_file(), arbitrary_id_rename()`
-    // predicate: **identity:** `coverage_ratio(coverage_ratio_placeholder_renamed_to_itself) == coverage_ratio(placeholder)` — the rename identity case, instantiated at the coverage_ratio observation point  **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered
+    // predicate: **identity:** `coverage_ratio(coverage_ratio_placeholder_renamed_to_itself) == coverage_ratio(placeholder)` — the rename identity case, instantiated at the coverage_ratio observation point  **associativity:** `coverage_ratio(rename(rename(I, a, b), b, c)) == coverage_ratio(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered
     #[test]
     fn coverage_naturality_identity(v0 in spec_gen::arbitrary_spec_file(), v1 in spec_gen::arbitrary_id_rename()) {
-        todo_predicate!("**identity:** `coverage_ratio(coverage_ratio_placeholder_renamed_to_itself) == coverage_ratio(placeholder)` — the rename identity case, instantiated at the coverage_ratio observation point  **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered");
+        todo_predicate!("**identity:** `coverage_ratio(coverage_ratio_placeholder_renamed_to_itself) == coverage_ratio(placeholder)` — the rename identity case, instantiated at the coverage_ratio observation point  **associativity:** `coverage_ratio(rename(rename(I, a, b), b, c)) == coverage_ratio(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered");
+    }
+}
+
+proptest! {
+    // id: coverage_naturality
+    // case: associativity
+    // generator: `arbitrary_spec_file(), arbitrary_id_rename()`
+    // predicate: **identity:** `coverage_ratio(coverage_ratio_placeholder_renamed_to_itself) == coverage_ratio(placeholder)` — the rename identity case, instantiated at the coverage_ratio observation point  **associativity:** `coverage_ratio(rename(rename(I, a, b), b, c)) == coverage_ratio(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered
+    #[test]
+    fn coverage_naturality_associativity(v0 in spec_gen::arbitrary_spec_file(), v1 in spec_gen::arbitrary_id_rename()) {
+        todo_predicate!("**identity:** `coverage_ratio(coverage_ratio_placeholder_renamed_to_itself) == coverage_ratio(placeholder)` — the rename identity case, instantiated at the coverage_ratio observation point  **associativity:** `coverage_ratio(rename(rename(I, a, b), b, c)) == coverage_ratio(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered");
     }
 }
 
@@ -115,10 +126,10 @@ proptest! {
     // id: coverage_naturality
     // case: naturality
     // generator: `arbitrary_spec_file(), arbitrary_id_rename()`
-    // predicate: **identity:** `coverage_ratio(coverage_ratio_placeholder_renamed_to_itself) == coverage_ratio(placeholder)` — the rename identity case, instantiated at the coverage_ratio observation point  **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered
+    // predicate: **identity:** `coverage_ratio(coverage_ratio_placeholder_renamed_to_itself) == coverage_ratio(placeholder)` — the rename identity case, instantiated at the coverage_ratio observation point  **associativity:** `coverage_ratio(rename(rename(I, a, b), b, c)) == coverage_ratio(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered
     #[test]
     fn coverage_naturality_naturality(v0 in spec_gen::arbitrary_spec_file(), v1 in spec_gen::arbitrary_id_rename()) {
-        todo_predicate!("**identity:** `coverage_ratio(coverage_ratio_placeholder_renamed_to_itself) == coverage_ratio(placeholder)` — the rename identity case, instantiated at the coverage_ratio observation point  **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered");
+        todo_predicate!("**identity:** `coverage_ratio(coverage_ratio_placeholder_renamed_to_itself) == coverage_ratio(placeholder)` — the rename identity case, instantiated at the coverage_ratio observation point  **associativity:** `coverage_ratio(rename(rename(I, a, b), b, c)) == coverage_ratio(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered");
     }
 }
 
