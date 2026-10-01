@@ -6,6 +6,22 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #94 — `spk lint` fails on parse errors, even alongside clean files (specodelic-in9)
+
+A malformed-frontmatter file in a batch that also held parseable specs
+rode the warnings channel of a success envelope — exit 0 — so the
+pre-commit gate let a corrupted spec commit (empirically verified with
+a gate-probe commit). The exit-2 failure only fired when NOTHING in
+the batch was linted.
+
+Now: parse errors fail the lint stage (exit 1) whenever any are
+present, with a next-step hint naming that the file was NOT linted;
+the error still names the offending file on the notes channel.
+Single-malformed-file invocations keep their labeled invocation
+failure (exit 2). Commands that consume `parse_batch` directly
+(orchestrate) already threaded parse errors into their stage results
+— the gap was lint-only.
+
 ## #93 — `linter.requirement_drift` compares per requirement, not per section (specodelic-eh0, GH#8)
 
 `requirement_drift` (gh#4's rule) compared the `## Requirements`

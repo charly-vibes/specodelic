@@ -1222,6 +1222,11 @@ fn cmd_lint(
         out = out.with_next_step(
             "fix the reported invariants — each rule's semantics: spk explain lint-rules",
         );
+    } else if !parse_errors.is_empty() {
+        // specodelic-in9: parse errors are never a silent pass — even when
+        // the rest of the batch linted clean, the stage fails so the
+        // pre-commit gate cannot let a corrupted spec commit.
+        out = out.with_next_step("fix the parse error reported above — the file was NOT linted");
     } else {
         out = out.with_next_step("run: specodelic graph");
     }
@@ -1233,7 +1238,11 @@ fn cmd_lint(
         stdout,
         stderr,
     );
-    if failures > 0 { 1 } else { 0 }
+    if failures > 0 || !parse_errors.is_empty() {
+        1
+    } else {
+        0
+    }
 }
 
 /// `spk parse <file>` — the parsed `Spec` IR as a json envelope

@@ -143,6 +143,43 @@ fn lint_fails_with_hint_when_no_specs_found() {
 }
 
 #[test]
+fn lint_fails_on_parse_error_even_when_other_specs_parse() {
+    // specodelic-in9: a malformed frontmatter file in a directory that
+    // also holds parseable specs rode the warnings channel of a success
+    // envelope — exit 0 — so the pre-commit gate let a corrupted spec
+    // commit (empirically verified with a gate-probe commit). A parse
+    // error is a failure regardless of the rest of the batch.
+    let dir = tempfile::tempdir().unwrap();
+    let good = dir.path().join("good.md");
+    write_parse_fixture(&good, "good");
+    let broken = dir.path().join("broken.md");
+    std::fs::write(&broken, "---\nid: [unclosed\nkind: intent\n---\nbody\n").unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    assert_ne!(
+        out.status.code(),
+        Some(0),
+        "parse error must fail the lint stage (exit 0 = gate passes)"
+    );
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        stdout.contains("broken.md"),
+        "the parse error must name the offending file: {stdout}"
+    );
+
+    // Single malformed file keeps its labeled invocation failure (exit 2).
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("broken.md"), "---\nid: [unclosed\n").unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+}
+
+#[test]
 fn lint_corpus_is_fully_clean() {
     // The corpus is the first dogfood target: every spec file must parse,
     // every reference must resolve, and every constraint must be covered

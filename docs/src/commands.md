@@ -27,7 +27,11 @@ Ingestion is hostile-input hardened (specodelic-suz): only regular files
 under a 2 MiB cap are ever read — a FIFO, device file, or oversized file
 named `*.md` is labeled, named, and skipped (never blocking or
 unbounded-memory); when nothing else was linted, the labeled notes ride
-the failure envelope.
+the failure envelope. A parse error (malformed frontmatter) fails the
+stage (exit 1) even when the rest of the batch linted clean — a
+corrupted spec is never a silent pass (specodelic-in9: the pre-commit
+gate must not let it commit); the error names the offending file and
+the file was NOT linted.
 
 A `*.checklist.md` file in the linted tree declares an external checklist
 (specs/linter-external_completeness.md — mp1 row 10's manifest format):
