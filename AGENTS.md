@@ -102,10 +102,11 @@ Violations are bugs, not preferences. Established 2026-09-28.
   `#### Scenario:` blocks under openspec requirement headers. It MUST
   NOT enforce anything against the `specs/` domain corpus (that is
   specodelic's own format, governed by `spk lint`).
-- **Blockers**: adoption decision pending in specodelic-4ae (decision
-  note only — no wiring before it lands). (Former blocker specodelic-6pi
-  — non-recursive `spk lint <dir>` — was fixed 2026-09-28; lint-chaining
-  CI gates are no longer gated.)
+- **Blockers**: adoption decided — DEFERRED per
+  `openspec/decisions/2026-10-01-espectacular-adoption.md`
+  (specodelic-4ae): no wiring now; revisit at orchestrate
+  (specodelic-8kk) against the note's criteria. Espectacular must stay
+  read-only over `openspec/` regardless of the outcome.
 
 ### vampiro (seam/composition checks over source)
 
