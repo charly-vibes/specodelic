@@ -6,6 +6,33 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #87 — `spk init` registers specodelic in `.genesis/tools.toml` (specodelic-las)
+
+`spk init` now declares specodelic's presence via
+genesis `discovery::register` — `.genesis/tools.toml` gains a
+`[tools.specodelic]` entry with a `file` detector on `AGENTS.md`, so
+orchestrators (wai) discover the tool without hardcoding. `register`
+creates the file when absent and merges without clobbering sibling tool
+entries; re-running init is idempotent (no duplicates). A failure
+(e.g. an unwritable `.genesis`) becomes a warnings-channel note — the
+AGENTS.md block stays the primary payload and init still succeeds.
+
+## #86 — `spk doctor` runs on the genesis doctor framework, gains `--fix` (specodelic-sok)
+
+The three issue checks (specs/ directory, beads, SPECODELIC block) are
+genesis `DoctorCheck` impls run through `DoctorRunner`; workspace facts
+(mode, core format spec, corpus discovery) render from detail helpers —
+a consumer workspace is a legitimate state, not a finding. Genesis maps
+Warning/Advisory to warn and only Error to fail, so the doctor
+capability's warn-never-fail invariant holds by construction.
+
+New `spk doctor --fix`: the SPECODELIC block check auto-fixes via
+`blocks::inject_into` (the same idempotent code path as `spk init`) and
+the runner verifies after fixing — an uncured fix is reported as a
+failure, honestly. Envelope shape, currency warnings, next-step
+footers, and exit 0 unchanged; all 10 existing doctor integration tests
+pass unchanged.
+
 ## #85 — hooks wiring migrated onto genesis `ensure_command_wired` (specodelic-x56)
 
 The consolidation ticket closed the loop: genesis-vibes 0.10.0 ships

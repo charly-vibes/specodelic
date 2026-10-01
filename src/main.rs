@@ -457,6 +457,22 @@ fn cmd_init(
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) -> i32 {
+    // Discovery manifest (specodelic-las): declare specodelic's presence
+    // in .genesis/tools.toml so orchestrators (wai) discover it without
+    // hardcoding. Best-effort: a failure (unwritable dir) becomes a
+    // warnings-channel note — the AGENTS.md block is the primary payload.
+    let mut discovery_warnings: Vec<String> = Vec::new();
+    if let Err(e) = genesis::discovery::register(
+        std::path::Path::new("."),
+        "specodelic",
+        "Specodelic spec format linter + pipeline (spk)",
+        "file",
+        blocks::BLOCK_FILE,
+    ) {
+        discovery_warnings.push(format!(
+            "could not register in .genesis/tools.toml ({e}) — tool discovery for this repo stays manual"
+        ));
+    }
     let path = std::path::Path::new(blocks::BLOCK_FILE);
     match blocks::inject_into(path) {
         Ok(result) => {
@@ -470,9 +486,13 @@ fn cmd_init(
                 "block": action,
                 "format_revision": guide::FORMAT_REVISION,
             });
-            let out: Output<serde_json::Value> = Output::success(payload.clone()).with_next_step(
-                "agents in this repo now see the spec rules; check specs with: spk lint",
-            );
+            let mut out: Output<serde_json::Value> = Output::success(payload.clone())
+                .with_next_step(
+                    "agents in this repo now see the spec rules; check specs with: spk lint",
+                );
+            for w in discovery_warnings {
+                out = out.with_warning(w);
+            }
             emit_report(
                 out,
                 Some(human::init(&payload)),

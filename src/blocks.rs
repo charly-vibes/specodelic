@@ -84,6 +84,65 @@ pub fn has_block(path: &std::path::Path) -> bool {
     injector().has_block(path, BLOCK_NAME)
 }
 
+#[cfg(test)]
+mod discovery_tests {
+    use super::*;
+    use genesis::discovery;
+
+    // -- specodelic-las: spk init registers in .genesis/tools.toml -------
+
+    #[test]
+    fn register_creates_manifest_with_specodelic_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        genesis::discovery::register(
+            dir.path(),
+            "specodelic",
+            "Specodelic spec format linter + pipeline (spk)",
+            "file",
+            "AGENTS.md",
+        )
+        .unwrap();
+        let manifest = discovery::read_manifest(dir.path()).expect("manifest written");
+        let entry = manifest.tools.get("specodelic").expect("entry present");
+        assert_eq!(entry.detector.detector_type, "file");
+        assert_eq!(entry.detector.path, "AGENTS.md");
+    }
+
+    #[test]
+    fn register_is_idempotent_and_merges_with_siblings() {
+        let dir = tempfile::tempdir().unwrap();
+        // a sibling tool registered first
+        discovery::register(dir.path(), "wai", "Workflow manager", "directory", ".wai").unwrap();
+        // register specodelic twice
+        for _ in 0..2 {
+            genesis::discovery::register(
+                dir.path(),
+                "specodelic",
+                "Specodelic spec format linter + pipeline (spk)",
+                "file",
+                "AGENTS.md",
+            )
+            .unwrap();
+        }
+        let manifest = discovery::read_manifest(dir.path()).unwrap();
+        assert_eq!(
+            manifest.tools.len(),
+            2,
+            "merge, never clobber: {manifest:?}"
+        );
+        assert!(manifest.tools.contains_key("wai"));
+        assert!(manifest.tools.contains_key("specodelic"));
+        // scan sees specodelic detected via its marker
+        let tools = discovery::scan(dir.path());
+        let spk = tools.iter().find(|t| t.name == "specodelic").unwrap();
+        // detector: AGENTS.md must exist for `detected: true`
+        std::fs::write(dir.path().join("AGENTS.md"), "x").unwrap();
+        let tools = discovery::scan(dir.path());
+        let spk = tools.iter().find(|t| t.name == "specodelic").unwrap();
+        assert!(spk.detected, "AGENTS.md present → detected");
+    }
+}
+
 /// The block's declared format revision, parsed from its content —
 /// `None` when the block is absent or names no revision. Scans every
 /// block line: the revision may appear in a heading or in prose

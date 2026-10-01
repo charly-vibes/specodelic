@@ -2116,6 +2116,84 @@ fn init_creates_agents_md_when_missing() {
     assert_eq!(json["data"]["block"], "created");
 }
 
+// ---- specodelic-las: init writes the .genesis/tools.toml manifest ----
+
+#[test]
+fn init_registers_in_genesis_tools_manifest() {
+    // spk init declares specodelic's presence in .genesis/tools.toml so
+    // orchestrators discover it without hardcoding (genesis::discovery)
+    let dir = tempfile::tempdir().unwrap();
+    spk()
+        .args(["init", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    let manifest = std::fs::read_to_string(dir.path().join(".genesis/tools.toml")).unwrap();
+    assert!(
+        manifest.contains("[tools.specodelic]"),
+        "manifest: {manifest}"
+    );
+    assert!(
+        manifest.contains("AGENTS.md"),
+        "detector names the marker: {manifest}"
+    );
+}
+
+#[test]
+fn init_manifest_registration_is_idempotent_and_merges() {
+    let dir = tempfile::tempdir().unwrap();
+    // a sibling tool registered first (hand-written manifest)
+    std::fs::create_dir_all(dir.path().join(".genesis")).unwrap();
+    std::fs::write(
+        dir.path().join(".genesis/tools.toml"),
+        "[tools.wai]\ndescription = \"Workflow manager\"\ndetector = { type = \"directory\", path = \".wai\" }\n",
+    )
+    .unwrap();
+    for _ in 0..2 {
+        let out = spk()
+            .args(["init", "--json"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(0));
+    }
+    let manifest = std::fs::read_to_string(dir.path().join(".genesis/tools.toml")).unwrap();
+    assert!(
+        manifest.contains("[tools.wai]"),
+        "sibling intact: {manifest}"
+    );
+    assert_eq!(
+        manifest.matches("[tools.specodelic]").count(),
+        1,
+        "no duplicate entries: {manifest}"
+    );
+}
+
+#[test]
+fn init_on_unwritable_genesis_dir_still_succeeds_with_warning() {
+    // ANTI-GOAL: init never fails on an unwritable .genesis beyond a
+    // warnings-channel note — the AGENTS.md block is the primary payload
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join(".genesis"), "not a directory\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(
+            dir.path().join(".genesis"),
+            std::fs::Permissions::from_mode(0o444),
+        )
+        .unwrap();
+    }
+    let out = spk()
+        .args(["init", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "init succeeds regardless");
+    let agents = std::fs::read_to_string(dir.path().join("AGENTS.md"));
+    assert!(agents.is_ok(), "AGENTS.md block still written");
+}
+
 #[test]
 fn doctor_reports_missing_or_stale_block() {
     // doctor: fresh block → silent ok; missing block → hint to run spk init
