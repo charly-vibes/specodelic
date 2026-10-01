@@ -19,7 +19,7 @@ thing `STATUS.md` called for — a checker that diffs against an external
 reference (a domain checklist, a list of known past incidents, a
 stakeholder sign-off list) instead of checking the repo against itself.
 
-Unlike the six checkers in the Checker Ownership table, this one is
+Unlike the eight gating checkers in the Checker Ownership table, this one is
 **optional per repo**: it only runs when a repo declares a checklist to
 check against. A repo with no checklist has nothing external to be
 incomplete *relative to* — that's a repo this checker doesn't apply to, not

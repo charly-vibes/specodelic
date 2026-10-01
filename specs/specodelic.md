@@ -79,7 +79,7 @@ is a [typed foreign key](theory.md#typed-foreign-keys-generating-morphisms).
 
 ### Checker Ownership
 
-`linted` is not one flat conjunction — it is the join point of seven
+`linted` is not one flat conjunction — it is the join point of eight
 independently-specified checker files, each its own instance of this same
 format (a spec-of-a-linter-check, verifying a spec). This table replaces
 the constraint-by-constraint guard with a reference to where each
@@ -96,6 +96,16 @@ in.
 | `linter-ears_syntax.md`           | `ears_statement`, `one_capability_per_row`                                            | `linter-frontmatter.md` (parallel to the above branch) |
 | `linter-schema_shape.md`          | `append_only_variants`, `prose_untouched`, `constraint_kind_closed`, `property_kind_closed` | `linter-frontmatter.md` (parallel to the referential/graph/model branch) |
 | `linter-coverage.md`              | `coverage`, `law_requires_cases`                                             | `linter-graph_shape.md`, `linter-model_shape.md` |
+
+Two further checker files exist but sit outside this table on purpose
+(they are instances of the same format, just never gating):
+`linter-observability.md` — advisory findings on the warnings channel,
+exit 0 by its own `advisory_severity` invariant — and
+`linter-external_completeness.md` — runs only when a repo declares an
+external checklist, and its outcome never gates per `orchestrate.md`'s
+`external_completeness_never_gating`. Their absence from the table is a
+membership statement: `linted` is the join over the eight rows above
+only.
 
 `linted` is an [all-must-pass dependency gate](theory.md#limit-over-a-dependency-diagram-independent-checks-joined)
 over this diagram: `lint` fires only when every terminal node reports
@@ -140,7 +150,7 @@ ears-syntax / schema-shape) run independently of each other.
 
 ## Notes
 
-This file is itself a [document instance](theory.md#document-instance-functor-copresheaf)
+This file is itself a [document instance](theory.md#document-instance-functor-and-copresheaf)
 of its own schema (`Intent`, `Constraint`, `State`, `Transition`,
 `Property`). Running this file through its own `lint` transition should
 produce zero findings — if it doesn't, the format and its own description

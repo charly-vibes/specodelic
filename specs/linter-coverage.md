@@ -119,9 +119,10 @@ has a property; it cannot tell you a constraint is missing, which is
 exactly the class of gap the first four checkers caught by inspection
 rather than by any mechanism this framework has yet.
 
-**All six checker files in the Checker Ownership table now exist**
-(`linter-frontmatter`, `linter-referential_integrity`,
-`linter-graph_shape`, `linter-model_shape`, `linter-ears_syntax`,
-`linter-schema_shape`) — `linted` in `specodelic.md` is fully specified.
-`linter-coverage.md` itself is not a row in that table; it gates `compile`
-separately, one step later in the pipeline.
+**All eight gating checker files in the Checker Ownership table now
+exist** (`linter-frontmatter`, `linter-referential_integrity`,
+`linter-graph_shape`, `linter-model_shape`, `linter-failure_shape`,
+`linter-ears_syntax`, `linter-schema_shape`, and `linter-coverage.md`
+itself — this checker joined the table as a gating row once its checks
+landed) — `linted` in `specodelic.md` is fully specified as the join
+over all eight.

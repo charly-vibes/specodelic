@@ -180,7 +180,7 @@ storage.arrow.md         — traces_to [[storage.abstract]], its own Model + Pro
 ```
 
 "All backends conform" is then the same thing `linted` already is for this
-repo's six checkers: a limit over a dependency diagram, `passed` only when
+repo's eight gating checkers: a limit over a dependency diagram, `passed` only when
 every leaf reports `passed`. No new object in `𝒦`, no new table — the
 proof this works is that it's already running, right now, as this repo's
 own lint pipeline.

@@ -91,8 +91,12 @@ guards would reintroduce exactly the duplication it argues against. The
 list is data to this checker (checked membership), not an assumption —
 a new zero-citation failure guard anywhere else is a finding.
 
-**Ownership is deliberately absent.** Unlike the seven checkers in
-`specodelic.md`'s Checker Ownership table, this file ships no table row:
-the checker's findings ride `spk lint` (specodelic-ct5) and any
-orchestrator wiring waits for an ownership decision — see the para above.
-The `AGENTS.md` staleness it once flagged is governance's to refresh.
+**Ownership was deliberately absent, then granted.** This file originally
+shipped no Checker Ownership row — its findings rode `spk lint` only
+after the checker was implemented (specodelic-ct5), and orchestrator
+wiring waited for an ownership decision. That decision landed
+(specodelic-hhp): the file now owns `terminal_states_emit`,
+`error_labels_unique`, and `guard_negation_total` as a gating row in
+`specodelic.md`'s Checker Ownership table (depending on
+`linter-model_shape.md`), and its findings gate `spk lint`. The
+`AGENTS.md` staleness it once flagged is governance's to refresh.

@@ -12,7 +12,7 @@ same rule stated three slightly different ways (`specodelic.md` Revision
 too.*
 
 *Links into this file use single-bracket markdown links
-(`[naturality](theory.md#naturality)`), never `[[double-bracket]]`
+(`[naturality](theory.md#naturality-safe-rename)`), never `[[double-bracket]]`
 wiki-links — this file carries no frontmatter `kind`, so it is not a valid
 target for any typed reference field, and a future linter resolving
 `[[...]]` against real `𝒦`-typed rows would treat a link here as
@@ -41,7 +41,7 @@ fixed source/target typing. The Reference Typing table in `specodelic.md`
 is that typing written out explicitly; `ref_kind_compatible` is the
 invariant that enforces it.
 
-### Document instance (functor / copresheaf)
+### Document instance (functor and copresheaf)
 **Plain:** One spec file is one document that conforms to the schema —
 the same relationship a JSON file has to its JSON Schema, or a row has to
 a table definition.
@@ -104,7 +104,7 @@ move on, and some depend on others finishing first, that's just a
 dependency graph with a single "all done" gate at the end — the same
 shape as a build system's DAG of tasks.
 **Rigorous:** `linted` is a limit over the Checker Ownership dependency
-diagram — the product of all six checkers' `passed` states, subject to the
+diagram — the product of all eight gating checkers' `passed` states, subject to the
 arrows between them; `lint` fires only when every terminal node reports
 `passed`, not on a fixed sequence.
 

@@ -6,6 +6,56 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #99 — corpus prose sweep: checker counts reconciled to eight, non-gating checkers named, copresheaf anchor fixed (specodelic-5f2)
+
+Rule-of-5 corpus review (2026-10-01) CLAR-001 (HIGH) + EDGE-001 (MEDIUM)
++ CLAR-002 (LOW) — a prose-only sweep, no schema change, no Revision
+heading (corrections of record per the review's own scope note):
+
+- **CLAR-001 — checker counts reconciled.** `specodelic.md`'s prose
+  said "the join point of seven" while its own Checker Ownership table
+  lists 8 rows (failure_shape joined 2026-09-30, specodelic-hhp); the
+  prose now says eight. `STATUS.md` §1's reading-order step 6 said
+  "the six checker files" and omitted `linter-failure_shape.md`; it now
+  names all eight gating rows including failure_shape (coverage
+  noted as the join leaf read with the tooling in step 7), and the
+  Revision 3 narrative's historical count is stamped as historical
+  ("had six then; eight gating rows today"). Two further stale counts
+  the review's line numbers missed, same class, fixed in the same
+  sweep: `theory.md`'s limit prose said "all six checkers" and
+  `USAGE.md` §2.3 "this repo's six checkers" — both now "eight gating
+  checkers"; `linter-external_completeness.md`'s "Unlike the six
+  checkers" → eight; `linter-failure_shape.md`'s "Ownership is
+  deliberately absent ... ships no table row" note was stale since the
+  row landed (specodelic-hhp) — rewritten as "was deliberately absent,
+  then granted" with the decision of record; and
+  `linter-coverage.md`'s "All six checker files ... now exist" (a list
+  missing failure_shape and coverage itself) → all eight, coverage
+  included.
+- **EDGE-001 — non-gating checker files named at the table.** A
+  one-line note under the Checker Ownership table now states that
+  `linter-observability.md` (advisory, warnings channel, exit 0 by its
+  own `advisory_severity`) and `linter-external_completeness.md`
+  (runs only when a repo declares a checklist; never gating per
+  `orchestrate.md`'s `external_completeness_never_gating`) exist as
+  instances of the same format but sit outside the join on purpose —
+  their absence is a membership statement, not an oversight.
+- **CLAR-002 — broken copresheaf anchor.** `specodelic.md`'s document
+  instance link targeted
+  `theory.md#document-instance-functor-copresheaf`, but the heading
+  "Document instance (functor / copresheaf)" slugs with a double hyphen
+  in every renderer — broken on the deployed docs site too. Heading
+  reworded to "(functor and copresheaf)" and the link updated to match.
+  A same-class dead example anchor in `theory.md`'s own link-usage
+  note (`#naturality` — no such slug; the heading is "Naturality (safe
+  rename)") fixed to the real one.
+
+Verification: table-row count == prose count (grep `^| \`linter-` = 8);
+no "six checker" in `STATUS.md`; an ad-hoc anchor check over all
+intra-corpus markdown links (heading-slug match, CHANGELOG's historical
+entries excluded) reports zero broken anchors; `just lint-specs` 0
+issues (prose_untouched holds); `just ci` green.
+
 ## #98 — kinds.md Revision 7: reject guard de-tautologized; optional frontmatter keys declared (specodelic-x4w)
 
 Two spec bugs from the Rule-of-5 corpus review (2026-10-01, CORR-002 +

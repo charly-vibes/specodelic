@@ -200,7 +200,8 @@ corpus drift against their installed binary.
   fix (see the corrected inventory table below). Also corrected two
   documentation-drift bugs the same review found: a miscounted claim in
   `linter-coverage.md` ("seven checker files" — the Checker Ownership
-  table has six, and coverage isn't a row in it), and stale
+  table had six then, and coverage wasn't a row in it; the table has
+  eight gating rows today — see §1's reading order), and stale
   "not yet written" notes in `specodelic.md` left over from before
   `linter-schema_shape.md` and `linter-coverage.md` existed.
 - **Revision 4**: writing `kinds.md` surfaced that a Constraint/Property
@@ -383,10 +384,12 @@ disambiguating-rename treatment applied to all three in one Revision:
    verified` lifecycle.
 5. Skim `CHANGELOG.md` for the chronological "what happened and why," if
    the reasoning behind a past decision isn't clear from the file itself.
-6. Read the six checker files in Checker Ownership order:
-   `frontmatter → referential_integrity → graph_shape → model_shape`,
-   and separately `ears_syntax`, `schema_shape` (these last two are
-   parallel branches, not sequential continuations).
+6. Read the eight gating checker files (the Checker Ownership table's
+   rows) in ownership order: `frontmatter → referential_integrity →
+   graph_shape → model_shape → failure_shape`, plus the parallel
+   branches `ears_syntax` and `schema_shape` (not sequential
+   continuations), and the join leaf `coverage` (step 7 reads it with
+   the tooling it feeds).
 7. Read `linter-coverage.md`, then `rename.md`,
    `linter-external_completeness.md`, and `orchestrate.md` — the tooling
    layer built on top of the checker files, in that order (each depends on
