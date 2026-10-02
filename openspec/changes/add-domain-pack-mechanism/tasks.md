@@ -52,17 +52,24 @@ are separate tasks from features.
       using declared vocabulary; `uses` edge enables pinning/skew checks;
       orphan vocabulary → labeled finding naming the pack + both
       remediations (error-contract).
-- [ ] 4.4 GREEN: vocabulary matching + `uses` edge in Reference Typing
-      (graph paths: typing violations for wrong-kind `uses` targets reuse
-      existing typing machinery); orphan finding rides the labeled
-      finding convention.
+- [ ] 4.4 GREEN: vocabulary matching (longest-prefix, per-pack activation with
+      findings attributed per pack) + `uses` edge in Reference Typing — a
+      set-valued column on any Constraint row resolving to the pack's
+      intent (per delta `uses_is_outbound_leaf`); wrong-kind `uses` targets
+      reuse existing typing machinery; orphan vocabulary → labeled failure
+      finding naming the pack + both remediations, exit non-zero
+      (error-contract).
 
 ## 5. Lifecycle + skew
 
 - [ ] 5.1 RED: lifecycle tests — draft/published/deprecated states parsed
-      from the pack's Model; `## Requires` pinning; skew = warning-channel
-      advisory naming both revisions, exit 0; deprecated pack findings
-      name the deprecation.
+      from the pack's Model; `pack_shape`-clean parse required in every
+      state; draft packs' checkers activate advisory naming the draft
+      status; pack self-exemption (a pack's own manifest rows trigger no
+      checkers and no orphan findings); `## Requires` pinning (pack-authored
+      `base` pin + pack deps); skew = warning-channel advisory naming the
+      pack's base pin and the corpus revision, exit 0; deprecated pack
+      findings name the deprecation.
 - [ ] 5.2 GREEN: lifecycle/skew logic in `src/packs.rs`; skew rides the
       warnings channel (knowledge-currency precedent).
 
@@ -71,8 +78,9 @@ are separate tasks from features.
 - [ ] 6.1 `just ci` (fmt-check, clippy -D warnings, tests, release build) +
       `just lint-specs` + `openspec validate --all --strict` green.
 - [ ] 6.2 Docs: docs/src pages for packs (SUMMARY.md entry), README CLI
-      section, STATUS §3; corpus `spk explain` topic only if primer-
-      adjacent (append-only, never renumbered).
+      section, STATUS §3. Decision of record: no separate `spk explain`
+      topic — pack guidance is covered by the guide.md primer topic update
+      in 2.2 (append-only, never renumbered).
 - [ ] 6.3 CHANGELOG entries; beads ticket filed/closed with
       metadata.files; `bd export -o .beads/issues.jsonl` (not bare export).
 

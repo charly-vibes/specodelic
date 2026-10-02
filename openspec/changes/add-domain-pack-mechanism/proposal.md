@@ -35,10 +35,13 @@ Make the extension mechanism **first-class** — a *domain pack*:
    self-hosting preserved.
 4. **Opt-in, advisory-first:** checking activates when a file uses the
    pack's declared vocabulary (upgradeable to a declared `uses` edge);
-   files without packs lint identically to today; vocabulary used with the
-   pack absent = labeled finding naming the pack (error-contract).
-5. **Lifecycle:** pack Model = draft → published → deprecated; consumers
-   pin base format_revision via `## Requires`; revision skew is a labeled
+   files without packs lint identically to today; vocabulary used with
+   no pack discovered or declared = labeled failure finding naming the
+   candidate pack and both remediations (error-contract).
+5. **Lifecycle:** pack Model = draft → published → deprecated; the pack
+   itself pins the base format_revision and pack deps via `## Requires`
+   (consumers declare enablement via `uses`); revision skew between the
+   pack's `base` pin and the workspace corpus revision is a labeled
    advisory, never silent.
 
 Governance: standard packs = in-repo, dogfooded, versioned, ≥3-independent-

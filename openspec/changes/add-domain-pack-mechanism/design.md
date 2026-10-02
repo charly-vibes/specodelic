@@ -48,7 +48,7 @@ HIGH findings), D6 pilot = bioimage-data (follow-on change).
 | References | new reference *fields* the pack adds (outbound leaves)     |
 | Checkers | lint rules the pack owns (ownership-table rows)              |
 | Floors   | required case-label sets per kind (`**name:**` machinery)    |
-| Requires | standard-pack deps + base format_revision + own Revisions    |
+| Requires | pack-authored requirements: the `base` format_revision pin + dependent pack ids with their revision pins (row shape: `\| <dep id \| base> \| <required revision> \|`) |
 
 ## Resolved open questions (from D1 v2's open list)
 
@@ -59,10 +59,20 @@ HIGH findings), D6 pilot = bioimage-data (follow-on change).
   and the audit trail. `uses` is a new outbound leaf in the same Revision
   delta — nothing targets it, so `single_root_reachable` needs no
   carve-out (mistral D4 precedent via `validated_against`).
+  Full Reference Typing row (mirrors the `satisfies`/`observes` pattern):
+
+  | Field  | Appears on           | Must resolve to |
+  |--------|----------------------|-----------------|
+  | `uses` | Constraint, any file | Intent of a `kind: profile` file (the pack file's frontmatter id) — set-valued (multiple `[[...]]` targets in one cell, like `traces_to`); an outbound leaf that joins no reachability path and no acyclic edge set, so mutual pack use (`packA` consumes `packB`'s vocabulary and vice versa) is well-formed |
 - **`## References` rows add fields, never reshape existing ones.** A pack
   may introduce a new reference field or a new outbound-leaf column
   vocabulary; it may never narrow or retype an existing field
   (`append_only_variants` applies to packs themselves).
+- **`## Requires` is authored by the pack, not the consumer.** The pack
+  declares what it needs (base revision, pack deps); a consumer declares
+  enablement via a `uses` edge. Skew compares the pack's `base` pin
+  against the workspace corpus revision (FORMAT_REVISION) — one
+  direction, no consumer-side pin artifact.
 - **Section registry (D2):** sections are registered per-pack in the
   manifest; two packs claiming the same section *mechanism* is legitimate;
   collision exists only at vocabulary level, resolved by pack-qualified
@@ -74,7 +84,18 @@ HIGH findings), D6 pilot = bioimage-data (follow-on change).
 ## Discovery & opt-in
 
 - Discovery = corpus scan: every `kind: profile` file in the workspace is
-  a candidate pack; no config file, no external registry.
+  a candidate pack; no config file, no external registry. The scan is
+  anchored at the git repository toplevel (the lint target directory
+  itself when no git root exists) — linting a subdirectory still
+  discovers packs living anywhere in the workspace, so vocabulary used
+  in a subdir never produces spurious orphan findings.
+- **Pack self-exemption:** a pack file is never a consumer of declared
+  vocabulary — its own manifest rows never trigger its or any pack's
+  checkers and never produce orphan findings.
+- **Activation is per-pack:** identical vocabulary declared by two
+  discovered packs activates both, findings attributed per pack;
+  vocabulary matching is longest-prefix (a `bioimage.tolerance.high` use
+  matches the most specific declaring pack).
 - Opt-in is advisory-first, vocabulary-use-triggered: when a file uses
   vocabulary a discovered pack declares, the pack's checkers run for that
   file. Two modes: implicit (vocabulary match) and declared (`uses` edge
@@ -82,12 +103,19 @@ HIGH findings), D6 pilot = bioimage-data (follow-on change).
 - Vocabulary used with no matching pack discovered = labeled finding
   naming the candidate pack (error-contract: name both remediations —
   enable/declare the pack, or fix the vocabulary).
+- Orphan vocabulary (declared vocabulary used with no pack discovered or
+  declared) is a labeled **failure** finding (non-zero exit) naming the
+  candidate pack — prefix-derived when only the namespace is known — and
+  both remediations (error-contract).
 - Files without packs lint byte-identically to today (zero migration).
 
 ## Lifecycle & skew
 
 - Pack Model states: `draft` → `published` → `deprecated` (frontmatter
-  `## Model` section, standard four-layer shape).
+  `## Model` section, standard four-layer shape). `pack_shape` must pass
+  at parse in every state; a `draft` pack's checkers activate
+  advisory-first with the draft status named in findings (draft is a
+  maturity label, not an activation gate).
 - `## Requires` pins base format_revision (+ optional pack deps). Skew
   between a consumer's enabled pack and the workspace corpus revision =
   labeled advisory on the warnings channel, never silent, never failing
