@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Decision Matrix</title>
+<style>
+body{font-family:sans-serif;margin:2rem;color:#1a1a1a;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ccc;padding:.5rem;text-align:left;vertical-align:top;}th.approach{background:#f5f5f5;}tr.crit td:first-child{font-weight:600;background:#fafafa;white-space:nowrap;}.banner{font-size:1.4rem;font-weight:700;margin-bottom:.25rem;}.decision{margin:.5rem 0 1.5rem;padding:.5rem 1rem;background:#eef;border-left:4px solid #55f;}.unset{color:#999;font-style:italic;background:#f7f7f7;}.chip{display:inline-block;padding:.1rem .5rem;border-radius:.75rem;font-size:.75rem;font-weight:600;color:#fff;margin-top:.25rem;}.chip-green{background:#2a7;}.chip-yellow{background:#da3;}.chip-red{background:#d43;}.chip-neutral{background:#888;}.key{margin-top:2rem;font-size:.85rem;}.key .chip{margin:0 .25rem;}
+</style>
+</head>
+<body>
+<div class="banner">How should the specodelic format enable first-class domain-specific extensions (domain packs) while preserving append-only evolution, prose_untouched, closed-kind discipline, and self-hosting?</div>
+<div class="decision">Not decided yet.</div>
+<table>
+<thead>
+<tr>
+<th></th>
+<th class="approach">01-status-quo</th>
+<th class="approach">02-profile-intent</th>
+<th class="approach">03-row-level-extension-point</th>
+<th class="approach">04-external-manifest</th>
+</tr>
+</thead>
+<tbody>
+<tr class="crit"><td>01-quantities-units</td><td>Expressible only as the six-move convention: mistral's `## Quantities` table
+(UCUM units) and grok's `tolerance` kind both land, but nothing registers
+either. Each pack reinvents units independently; mistral-quant's workspace
+`units.md` unit table is itself just another conventional extension point.<br><span class="chip chip-red">red</span></td>
+<td>Pack manifest declares its Quantities section and namespaced kind growth
+(quant.tolerance); the workspace units table stays an extension point the
+manifest cites. grok-fpa and mistral-quant designs drop in as packs without
+touching the global kind set.<br><span class="chip chip-green">green</span></td>
+<td>Units vocabulary can be a published extension_point row consumers satisfies
+(mistral-quant's units.md shape). But the ## Quantities section itself and
+the quantity field typing stay conventional — the edge carries row-level
+conformance, not section/field registration.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Mechanically identical to 02 (manifest declares sections/kinds/refs), so
+pack-hosting works — but the manifest is outside the corpus.<br><span class="chip chip-yellow">yellow</span></td>
+</tr>
+<tr class="crit"><td>02-numeric-guards</td><td>Works per-pack by hand: mistral-bioimage's closed 5-predicate grammar
+(dtype_is, shape_eq, same_shape_as, within, units_convertible) ships as a
+normal checker spec + parser change. No mechanism — every grammar is ad hoc
+and format-global; the honest-empty `invariants_checked` convention is
+followed, not enforced.<br><span class="chip chip-yellow">yellow</span></td>
+<td>The manifest registers the pack's closed predicate grammar + its checker
+(mistral's 5-predicate grammar becomes manifest data + one ownership-table
+row). Guards citing pack constraints join invariants_checked per the
+existing honesty convention; prose-only guards stay uninterpreted.<br><span class="chip chip-green">green</span></td>
+<td>Unchanged from status quo: predicate grammars remain hand-wired checker
+specs. The edge can declare &quot;this guard vocabulary is published here&quot; but
+nothing parses or negotiates it.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Same registration power as 02; grammar + checker declared in TOML. No
+self-hosting proof of the grammar itself.<br><span class="chip chip-yellow">yellow</span></td>
+</tr>
+<tr class="crit"><td>03-data-lineage-binding</td><td>Fully expressible today (mistral-bioimage landed the pattern): `## Data`
+section, `validated_against` as an outbound leaf so single_root_reachable
+needs no carve-out, verify fails closed on checksum mismatch. But nothing
+registers the section or the reference field — consumers discover it by
+reading the corpus.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Manifest declares the ## Data section and types validated_against as an
+outbound leaf — mistral D4 proved no single_root_reachable carve-out is
+needed. Checksum fail-closed verify stays a pack-owned checker + verify rule.<br><span class="chip chip-green">green</span></td>
+<td>Partial: the binding claim (&quot;consumer X conforms to benchmark contract Y&quot;)
+is expressible as satisfies — but validated_against's checksum fail-closed
+semantics live in verify code regardless. Row-level only.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Same as 02 structurally; the outbound-leaf discipline lives in the manifest
+schema instead of a lintable spec.<br><span class="chip chip-yellow">yellow</span></td>
+</tr>
+<tr class="crit"><td>04-per-kind-floors</td><td>Floors are hard-coded in the law checker. Mistral-bioimage's
+kind-dependent floor (identity/associativity only for algebraic domains) is
+its one flagged breaking change and requires a code change — the floor is
+data pretending to be code.<br><span class="chip chip-red">red</span></td>
+<td>The floor registry is manifest data: pack states required case labels per
+kind; the law checker's **name:** machinery is reused unchanged. E5 turns
+from mistral's breaking change into a manifest row.<br><span class="chip chip-green">green</span></td>
+<td>Not expressible: an extension_point row cannot carry per-kind label-set
+requirements; floors stay hard-coded (mistral's breaking change stands).<br><span class="chip chip-red">red</span></td>
+<td>Floors are manifest data (same win as 02), but the floor registry cannot be
+linted by spk itself — it is trusted config, not checked structure.<br><span class="chip chip-yellow">yellow</span></td>
+</tr>
+<tr class="crit"><td>05-composition-wiring</td><td>grok (Ports/Boxes/Wires open_system mode) and mistral (monoidal ## Ports,
+;/⊗, composition_law kinds) both ship as optional sections + hand-wired
+checkers. The categorical reading lives in theory.md prose. No tooling
+support beyond what each proposal hand-builds.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Ports/Boxes/Wires become pack-declared optional sections; open_system Model
+mode is pack-scoped kind growth under a Revision heading (grok's
+compatibility statement already claims append-only + zero migration).
+Compile targets phase in per the pack, not the format.<br><span class="chip chip-green">green</span></td>
+<td>Boxes reference files via wiki-links (grok's design already does this), so
+inter-box wiring is row-expressible — but the Ports/Wires row shapes and
+the open_system mode stay conventional section/grammar work.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Same as 02 mechanically. Loses the dogfood property: the wiring layer
+cannot describe itself in the format it wires.<br><span class="chip chip-yellow">yellow</span></td>
+</tr>
+<tr class="crit"><td>06-time-hybrid</td><td>Same hand-wired path: mistral-quant's temporal guard clauses and mistral-
+bioimage's `### Continuous` subsection are optional sections + checker specs.
+Nothing stops two packs inventing incompatible temporal grammars.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Temporal clauses and Continuous subsections are pack-declared; two packs
+with incompatible temporal grammars coexist namespaced instead of forking
+the format grammar.<br><span class="chip chip-green">green</span></td>
+<td>Not addressed: temporal grammars are frontmatter/table syntax, out of reach
+of a row-level edge.<br><span class="chip chip-red">red</span></td>
+<td>Same as 02 mechanically.<br><span class="chip chip-yellow">yellow</span></td>
+</tr>
+<tr class="crit"><td>07-quantitative-ears</td><td>Fine as a one-off: the sixth EARS pattern (`WITHIN &lt;ε&gt; [&lt;unit&gt;]`) is an
+append-only revision under the existing rule. But EARS acceptance is
+format-global code — a second domain wanting a seventh pattern forks the
+grammar or waits for the format.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Open sub-question: statement patterns are parsed in frontmatter, so a pack-
+declared sixth pattern needs the format's EARS validator to consult enabled
+packs — a small, bounded extension point in one validator.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Not addressed: EARS validation is frontmatter-level, not row-level.<br><span class="chip chip-red">red</span></td>
+<td>Same as 02 mechanically — validator consults manifests.<br><span class="chip chip-yellow">yellow</span></td>
+</tr>
+<tr class="crit"><td>08-pack-namespacing</td><td>None. Global closed kind sets: 2 vendors proposed `tolerance` (grok-quant: Constraint.kind;
+mistral-science: Property kind) and a third proposed `statistic` format-wide — under a single closed set they collide. `kind`
+overload (CLAR-002) worsens with every pack. Unmanaged by construction.<br><span class="chip chip-red">red</span></td>
+<td>Core strength: kind growth is namespaced in the manifest (quant.tolerance),
+resolving E1/E2. theory.md's Grothendieck namespacing story extends
+naturally to pack-qualified ids (open question D4: formalize or defer).<br><span class="chip chip-green">green</span></td>
+<td>Partial: file-qualified ids namespace contract rows (Grothendieck over
+files), but closed kind sets are still format-global — the tolerance
+collision (E2) stands.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Namespacing works (manifest-owned namespaces), arguably simpler to
+implement than spec-parsed manifests. But two manifests can drift from the
+specs they claim to describe — no in-corpus consistency check.<br><span class="chip chip-yellow">yellow</span></td>
+</tr>
+<tr class="crit"><td>09-capability-negotiation</td><td>Advisory-first and honest-empty are conventions every vendor restated
+(&quot;parallel branch, never gating on files without the new sections&quot;), but
+doctor has no notion of enabled packs; negotiation is tribal knowledge.<br><span class="chip chip-red">red</span></td>
+<td>doctor/lint read manifests and report the enabled set; checkers gate only
+files that opt in; honest-empty per pack (tolerance_checked: []). This is
+the negotiation every vendor described, made machine-readable.<br><span class="chip chip-green">green</span></td>
+<td>spk graph can report satisfies-edges into a pack's extension_point (the
+contract-wiring spike already exposed fan-in), so *some* negotiation falls
+out for free — but sections/kinds/checkers are invisible to it.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Cheapest to implement (parse TOML, no markdown parsing). doctor/lint read
+manifests directly.<br><span class="chip chip-green">green</span></td>
+</tr>
+<tr class="crit"><td>10-invariant-preservation</td><td>Preserved by discipline only. Nothing checks that a pack narrowing an
+existing set or reference typing is a bug — the append-only law applies to
+the format's own tables, not to pack claims.<br><span class="chip chip-red">red</span></td>
+<td>Enforceable: a checker validates manifests against the base format_revision
+(a pack may only add, never narrow — append_only_variants applies to pack
+manifests themselves). The invariant becomes lintable, not conventional.<br><span class="chip chip-green">green</span></td>
+<td>Enforced at row level only (ref_kind_compatible, reachability); nothing
+prevents a pack narrowing a kind set — the edge has no opinion.<br><span class="chip chip-red">red</span></td>
+<td>Weakest: manifest preservation rules are enforced by code reading config,
+not by the format's own lint discipline. Violates the self-hosting ethic
+every vendor preserved (and specodelic's own founding pattern).<br><span class="chip chip-red">red</span></td>
+</tr>
+<tr class="crit"><td>11-migration-cost</td><td>Zero for the corpus; also zero tooling cost — which is exactly the problem:
+no mechanism exists to build on.<br><span class="chip chip-green">green</span></td>
+<td>Zero corpus cost (packs optional, files without packs lint identically).
+Tooling cost: manifest parsing, namespacing in lint/graph, doctor
+negotiation — one bounded mechanism instead of N ad hoc wiring.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Zero everywhere — it is literally the status quo plus a USAGE pattern
+documenting &quot;publish your contract as an extension_point&quot;.<br><span class="chip chip-green">green</span></td>
+<td>Zero corpus cost; lowest tooling cost of the three mechanism approaches.<br><span class="chip chip-green">green</span></td>
+</tr>
+<tr class="crit"><td>12-discoverability</td><td>Discovery is reading the corpus + USAGE pattern catalog + spk explain topics.
+zai's &quot;community-driven domain packs&quot; and grok-bioimage's guidance-first
+change both work, but nothing makes a pack a first-class queryable object.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Self-hosting: the pack IS a four-layer spec in the corpus — lintable,
+graphable (satisfies/observes edges), explainable (spk explain topics render
+from manifests). zai's community-pack vision lands here.<br><span class="chip chip-green">green</span></td>
+<td>Conformance edges into a pack's extension_point render in spk graph and get
+blast-radius/fan-in treatment (the contract-wiring spike exposed fan-in).
+Everything sections/kinds-level stays invisible to discovery surfaces.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Weak: packs are not in the corpus, not in the graph, not explain-rendered.
+spk explain can read manifests, but the pack's spec content (if any) and
+its registration live in different worlds.<br><span class="chip chip-red">red</span></td>
+</tr>
+<tr class="crit"><td>13-pack-revision-compat</td><td>Nothing tracks which revision a pack extends. Mistral-science had to infer
+&quot;Revision 13&quot; from a table mention and flag the guess in its own provenance;
+grok-bioimage explicitly deferred all Revision work. Drift between pack and
+corpus revision is undetectable.<br><span class="chip chip-red">red</span></td>
+<td>The manifest carries a base format_revision (approach description), so
+doctor/lint can warn when the corpus revision moves past a pack's base —
+the knowledge-currency warning pattern already shipped in spk doctor
+(Revision N vs embedded FORMAT_REVISION) generalizes to per-pack bases.<br><span class="chip chip-green">green</span></td>
+<td>The edge carries no revision information; a satisfies row cannot state
+which revision its target contract was published under. Conformance checks
+silently compare across revisions.<br><span class="chip chip-red">red</span></td>
+<td>The manifest schema can carry a revision field and the CLI can compare it
+against the corpus mechanically — but nothing in-corpus checks the claim,
+so a stale manifest is trusted config until code says otherwise.<br><span class="chip chip-yellow">yellow</span></td>
+</tr>
+<tr class="crit"><td>14-section-collision</td><td>Unmanaged. The collision is not hypothetical: mistral-science and
+mistral-bioimage both proposed `## Data` with different schemas
+(id/kind/schema/produced_by vs name/shape/dtype/range/units). Adopting both
+as-written yields two incompatible meanings for one section header.<br><span class="chip chip-red">red</span></td>
+<td>The manifest registers section names, so a checker can detect the collision
+at enable time. Whether section names are pack-namespaced (like kinds) or
+registry-claimed first-come is open sub-question D2 — either way the
+collision becomes detectable instead of silent.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Out of reach: a row-level edge cannot see section headers, so colliding
+section declarations from two packs go undetected.<br><span class="chip chip-red">red</span></td>
+<td>The manifest registry detects name collisions mechanically at load time —
+the cheapest detection of the four approaches, though the check lives
+outside the corpus's own lint discipline.<br><span class="chip chip-yellow">yellow</span></td>
+</tr>
+<tr class="crit"><td>15-core-minimality</td><td>Core growth is gated by append_only_variants + Revision headings but not by
+any thinness principle: every vendor proposal (tolerance kind, ## Data,
+Ports, sixth EARS pattern) lands in core tables and global closed sets. The
+mistral-vs-mistral ## Data collision shows where that road ends.<br><span class="chip chip-yellow">yellow</span></td>
+<td>Core grows once — the pack mechanism itself — then stays thin: kind/section
+membership becomes fiber-relative (pack-qualified ids are the existing
+Grothendieck construction one level up, per theory.md), and R1-R6 ship as
+standard packs rather than core layers. The one instance-level exception
+(EARS pattern) stays a genuine, tiny Revision.<br><span class="chip chip-green">green</span></td>
+<td>Thinnest possible: the core schema is untouched entirely — but it is thin
+because nothing was added, not because extension was structured. All domain
+machinery remains ad hoc.<br><span class="chip chip-green">green</span></td>
+<td>Core schema untouched, but the mechanism lives in code and each pack's
+tooling grows core-adjacent code paths; thinness of the *format* is
+preserved while thinness of the *toolchain* is not governed by anything.<br><span class="chip chip-yellow">yellow</span></td>
+</tr>
+</tbody>
+</table>
+<div class="key"><strong>Assessment key:</strong> <span class="chip chip-neutral">neutral</span><span class="chip chip-green">green</span><span class="chip chip-yellow">yellow</span><span class="chip chip-red">red</span> — a cell with no color is <em>not yet assessed</em>; neutral is a judgment ("clear"), not incompleteness.</div>
+</body>
+</html>
