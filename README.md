@@ -43,6 +43,10 @@ $ specodelic hooks install   # wire the dual-format gate into the pre-commit cha
 $ specodelic archive-companion my-change   # archive with the dual-format layer preserved
 ```
 
+Domain packs: a workspace extends the format by adding `kind: profile`
+spec files (see the [packs spec](specs/packs.md)) — no config, no
+registry; vocabulary use activates a pack's checks advisory-first.
+
 Pipeline commands (`compile`, `model-check`, `verify`, `rename`,
 `refactor`, `merge`, `orchestrate`) are specced in
 [`specs/compile.md`](specs/compile.md),

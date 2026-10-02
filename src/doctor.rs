@@ -298,10 +298,11 @@ fn discover_workspace_packs(root: &Path) -> Vec<crate::packs::PackInfo> {
                 let path = entry.path();
                 if path.extension().and_then(|e| e.to_str()) == Some("md")
                     && let Ok(src) = std::fs::read_to_string(&path)
-                        && let Ok(mut s) = crate::spec::parse_str(&src) {
-                            s.path = Some(path);
-                            specs.push(s);
-                        }
+                    && let Ok(mut s) = crate::spec::parse_str(&src)
+                {
+                    s.path = Some(path);
+                    specs.push(s);
+                }
             }
         }
     }

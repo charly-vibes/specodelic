@@ -273,19 +273,21 @@ pub fn discover(specs: &[Spec]) -> Vec<PackInfo> {
                 }
                 continue;
             }
-            if name.ends_with(".md") && path.is_file()
+            if name.ends_with(".md")
+                && path.is_file()
                 && let Ok(src) = std::fs::read_to_string(&path)
-                    && is_profile_frontmatter(&src)
-                        && let Ok(mut spec) = crate::spec::parse_str(&src) {
-                            spec.path = Some(path.clone());
-                            let m = parse_manifest(&spec);
-                            packs.push(PackInfo {
-                                id: m.id.clone(),
-                                lifecycle: m.lifecycle.clone(),
-                                vocabulary: m.vocabulary(),
-                                base_pin: m.base_pin(),
-                            });
-                        }
+                && is_profile_frontmatter(&src)
+                && let Ok(mut spec) = crate::spec::parse_str(&src)
+            {
+                spec.path = Some(path.clone());
+                let m = parse_manifest(&spec);
+                packs.push(PackInfo {
+                    id: m.id.clone(),
+                    lifecycle: m.lifecycle.clone(),
+                    vocabulary: m.vocabulary(),
+                    base_pin: m.base_pin(),
+                });
+            }
         }
     }
     packs.sort_by(|a, b| a.id.cmp(&b.id));
@@ -312,12 +314,13 @@ fn discovery_root(specs: &[Spec]) -> PathBuf {
         && let Ok(out) = std::process::Command::new("git")
             .args(["-C", &dir.to_string_lossy(), "rev-parse", "--show-toplevel"])
             .output()
-            && out.status.success() {
-                let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                if !s.is_empty() {
-                    return PathBuf::from(s);
-                }
-            }
+        && out.status.success()
+    {
+        let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if !s.is_empty() {
+            return PathBuf::from(s);
+        }
+    }
     specs
         .iter()
         .filter_map(|s| {
@@ -516,9 +519,10 @@ fn corpus_revision(specs: &[Spec]) -> u32 {
     ];
     for c in candidates {
         if let Ok(src) = std::fs::read_to_string(&c)
-            && let Some(rev) = guide::latest_revision(&src) {
-                return rev;
-            }
+            && let Some(rev) = guide::latest_revision(&src)
+        {
+            return rev;
+        }
     }
     guide::revision_number(guide::FORMAT_REVISION).unwrap_or(0)
 }
