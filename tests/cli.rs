@@ -187,7 +187,7 @@ fn lint_corpus_is_fully_clean() {
     let out = spk().args(["lint", "specs", "--json"]).output().unwrap();
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let data = &json["data"];
-    assert_eq!(data["files_linted"], 21); // + errors.md + linter-failure_shape.md (add-error-contract)
+    assert_eq!(data["files_linted"], 22); // + errors.md + linter-failure_shape.md + packs.md (add-domain-pack-mechanism)
     let issues = data["issues"].as_array().unwrap();
     assert!(issues.is_empty(), "corpus lint findings: {issues:?}");
     assert_eq!(out.status.code(), Some(0));
@@ -1786,8 +1786,8 @@ fn compile_corpus_succeeds_and_reports_all_artifacts() {
     let json: serde_json::Value = serde_json::from_slice(&cmd.stdout).unwrap();
     let data = &json["data"];
     assert_eq!(data["files_failed"], 0);
-    // 21 corpus spec files (the exemption list's non-spec files are skipped)
-    assert_eq!(data["files_compiled"], 21);
+    // 22 corpus spec files (the exemption list's non-spec files are skipped)
+    assert_eq!(data["files_compiled"], 22);
     for f in data["compiled"].as_array().unwrap() {
         assert!(
             f["artifacts"]["toml"]
@@ -1879,7 +1879,8 @@ fn explain_bare_lists_exactly_the_seven_topics() {
             "references",
             "lifecycle",
             "lint-rules",
-            "dual-format"
+            "dual-format",
+            "packs"
         ]
     );
 }
@@ -1929,7 +1930,7 @@ fn explain_known_topic_works_offline_in_consumer_dir() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["ok"], true);
     assert_eq!(json["data"]["topic"], "format");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 13");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 14");
     let body = json["data"]["body"].as_str().unwrap();
     assert!(body.contains("## Constraints"));
     assert!(body.contains("## Properties"));
@@ -1998,7 +1999,7 @@ fn version_json_reports_format_revision() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["envelope_kind"], "version");
     assert_eq!(json["data"]["name"], "specodelic");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 13");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 14");
 }
 
 #[test]
@@ -2032,7 +2033,7 @@ fn doctor_consumer_with_corpus_reports_format_revision() {
     let json: serde_json::Value =
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["data"]["mode"], "consumer");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 13");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 14");
 }
 
 #[test]
@@ -2224,7 +2225,7 @@ fn init_injects_specodelic_block_into_agents_md() {
     // block content is self-describing: rule catalog + revision + commands
     assert!(agents.contains("linter.ears_syntax"));
     assert!(agents.contains("linter.frontmatter_valid"));
-    assert!(agents.contains("specodelic.md Revision 13"));
+    assert!(agents.contains("specodelic.md Revision 14"));
     assert!(agents.contains("spk lint"));
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(json["data"]["block"], "injected");

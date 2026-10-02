@@ -17,10 +17,13 @@
 /// hand when the corpus revision bumps; a corpus-lint style drift test
 /// (task 6.1) compares this numerically against the corpus so staleness
 /// fails CI, not consumers.
-pub const FORMAT_REVISION: &str = "specodelic.md Revision 13";
+pub const FORMAT_REVISION: &str = "specodelic.md Revision 14";
 
-/// The closed set of Intent `kind` values (frontmatter).
-pub const INTENT_KINDS: &[&str] = &["intent"];
+/// The closed set of Intent `kind` values (frontmatter). Revision 14
+/// added `profile` — a domain pack file (see `specs/packs.md`); the set
+/// freezes at {intent, profile} by policy, pack vocabulary is
+/// fiber-relative and never grows this set.
+pub const INTENT_KINDS: &[&str] = &["intent", "profile"];
 
 /// The closed set of Constraint row `kind` values
 /// (`constraint_kind_closed`).
@@ -80,6 +83,11 @@ pub const REFERENCE_TYPING: &[RefTyping] = &[
         resolves_to: "Constraint, kind == `extension_point` only",
     },
     RefTyping {
+        field: "uses",
+        appears_on: "Constraint",
+        resolves_to: "Intent of a `kind: profile` file (the pack's frontmatter id) — set-valued, declares explicit pack enablement (Revision 14)",
+    },
+    RefTyping {
         field: "observes",
         appears_on: "Constraint",
         resolves_to: "Constraint, kind == `effect` only",
@@ -114,6 +122,10 @@ pub const TOPICS: &[(&str, &str)] = &[
     (
         "dual-format",
         "The spec/openspec dual-format protocol — one file, two parsers, migration recipe",
+    ),
+    (
+        "packs",
+        "Domain packs — first-class, opt-in vocabulary extension (Revision 14)",
     ),
 ];
 
@@ -205,10 +217,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn topic_bodies_render_for_all_seven_topics() {
+    fn topic_bodies_render_for_all_topics() {
         // every declared topic renders non-empty (design Decision 2's
-        // prose-drift test)
-        assert_eq!(TOPICS.len(), 7);
+        // prose-drift test) — the count bumps with each append-only topic
+        assert_eq!(TOPICS.len(), 8);
         for (id, _title) in TOPICS {
             let body = topic_body(id).unwrap_or_else(|| panic!("topic `{id}` missing"));
             assert!(!body.trim().is_empty(), "topic `{id}` body is empty");
@@ -386,6 +398,63 @@ mod tests {
         assert!(
             corpus.contains("## Revision 13"),
             "Revision 13 must record the law-case ratification"
+        );
+    }
+
+    #[test]
+    fn pack_mechanism_sets_grown_per_revision_14() {
+        // add-domain-pack-mechanism (specodelic-dcx): Revision 14 grows
+        // INTENT_KINDS by `profile` (a pack file) and REFERENCE_TYPING by
+        // `uses` (Constraint, any file → Intent of a kind: profile file).
+        // Base closed sets freeze by policy from this Revision on — these
+        // are the last two core growths this mechanism needs.
+        assert!(
+            INTENT_KINDS.contains(&"profile"),
+            "INTENT_KINDS must contain `profile` (Revision 14)"
+        );
+        let uses = REFERENCE_TYPING
+            .iter()
+            .find(|r| r.field == "uses")
+            .expect("Reference Typing must carry a `uses` row (Revision 14)");
+        assert_eq!(uses.appears_on, "Constraint");
+        assert!(
+            uses.resolves_to.contains("profile"),
+            "uses must resolve to the intent of a kind: profile file: {}",
+            uses.resolves_to
+        );
+    }
+
+    #[test]
+    fn pack_mechanism_ratified_in_the_corpus() {
+        // Revision 14 is the decision of record for the pack mechanism:
+        // the corpus carries the grown rows and the append-only heading.
+        let corpus = std::fs::read_to_string("specs/specodelic.md")
+            .expect("specs/specodelic.md must be readable from the crate root");
+        assert!(
+            corpus.contains("## Revision 14"),
+            "Revision 14 must record the pack-mechanism growth"
+        );
+        let frontmatter_row = corpus
+            .lines()
+            .find(|l| l.starts_with("| frontmatter_valid"))
+            .expect("frontmatter_valid row must exist");
+        assert!(
+            frontmatter_row.contains("profile"),
+            "frontmatter_valid must admit kind: profile (Revision 14)"
+        );
+        let uses_row = corpus
+            .lines()
+            .find(|l| l.contains("| `uses`        |"))
+            .expect("uses Reference Typing row must exist");
+        assert!(
+            uses_row.contains("profile"),
+            "the uses row must resolve to a kind: profile file's intent"
+        );
+        let packs = std::fs::read_to_string("specs/packs.md")
+            .expect("specs/packs.md must be readable from the crate root");
+        assert!(
+            packs.contains("kind: profile"),
+            "specs/packs.md must describe the profile pack artifact"
         );
     }
 

@@ -448,8 +448,12 @@ mod tests {
             joined.contains("beads: ok (.beads/config.yaml)"),
             "{joined}"
         );
+        let embedded_rev = guide::revision_number(guide::FORMAT_REVISION)
+            .expect("FORMAT_REVISION names a Revision");
         assert!(
-            joined.contains("SPECODELIC block: ok (Revision 13 ≥ embedded)"),
+            joined.contains(&format!(
+                "SPECODELIC block: ok (Revision {embedded_rev} ≥ embedded)"
+            )),
             "{joined}"
         );
         assert!(joined.contains("corpus discovery: ok (specs/)"), "{joined}");

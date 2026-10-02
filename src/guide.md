@@ -221,3 +221,39 @@ constraint → intent edge for a `id: spec` file.
    spec keeps only `## Requirements`.
 4. Gates: `spk lint <file>`, `openspec validate --all --strict`, and
    the section-sync check must all pass.
+
+<!-- topic: packs -->
+## Domain packs — first-class vocabulary extension (Revision 14)
+
+A domain pack is a four-layer spec file with `kind: profile` frontmatter
+whose manifest is exactly six per-facet closed tables: `## Sections`,
+`## Kinds`, `## References`, `## Checkers`, `## Floors`, `## Requires`.
+The manifest declares exactly what the pack introduces; the structural
+rule is the append-only `pack_shape` lint finding. The corpus spec is
+`packs.md`.
+
+- **Discovery** is a corpus scan — every `kind: profile` file in the
+  workspace is a candidate pack (anchored at the git toplevel, so a
+  subdirectory lint still finds workspace packs). No config file, no
+  registry outside the corpus.
+- **Opt-in is advisory-first, triggered by vocabulary use**: a file
+  using vocabulary a discovered pack declares gets that pack's checkers
+  run for it (per-pack attribution, longest-prefix matching). An
+  explicit `uses` column (set-valued, targets the pack's frontmatter id)
+  upgrades to declared enablement and enables pinning/skew checks.
+  Declared vocabulary used with no pack discovered or declared is a
+  labeled failure finding naming the candidate pack and both
+  remediations.
+- **Lifecycle**: the pack's Model carries `draft` → `published` →
+  `deprecated`; `pack_shape` must pass in every state; draft packs'
+  findings name the draft status; deprecated packs stay advisory with
+  the deprecation named. The pack-authored `## Requires` table pins the
+  base format revision (and pack deps); skew against the workspace
+  corpus revision is a warnings-channel advisory, never silent, never
+  failing.
+- **Self-exemption**: a pack file is never a consumer — its own manifest
+  rows trigger no checkers and produce no orphan findings.
+- **Base closed sets freeze by policy** from Revision 14 on: pack
+  vocabulary is pack-qualified (`bioimage.tolerance`), never global —
+  two packs claiming the same mechanism is legitimate; collision exists
+  only at vocabulary level.
