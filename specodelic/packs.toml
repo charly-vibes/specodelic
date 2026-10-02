@@ -1,0 +1,79 @@
+source = "packs"
+
+[[constraints]]
+id = "pack_is_profile_file"
+kind = "invariant"
+expr = "`a pack is a four-layer spec file with kind: profile in frontmatter — no separate artifact format, no external manifest, self-hosting preserved`"
+traces_to = "[[packs]]"
+
+[[constraints]]
+id = "manifest_six_tables"
+kind = "invariant"
+expr = "`a pack manifest is exactly six per-facet closed tables — ## Sections, ## Kinds, ## References, ## Checkers, ## Floors, ## Requires — each with a fixed row shape checked by the pack_shape lint rule`"
+traces_to = "[[packs]]"
+
+[[constraints]]
+id = "discovery_corpus_scan"
+kind = "invariant"
+expr = "`every kind: profile file in the workspace is a candidate pack, found by corpus scan alone anchored at the git repository toplevel (the lint target directory when no git root exists) — no config file, no registry outside the corpus, and a subdirectory lint discovers packs living anywhere in the workspace`"
+traces_to = "[[packs]]"
+
+[[constraints]]
+id = "namespaced_vocabulary"
+kind = "invariant"
+expr = "`pack-declared kinds, sections, reference fields, and predicate names are pack-qualified in fiber scope; two packs claiming the same mechanism is legitimate, collision exists only at vocabulary level and resolves by pack-qualified naming`"
+traces_to = "[[packs]]"
+
+[[constraints]]
+id = "base_closed_sets_frozen"
+kind = "invariant"
+expr = "`base closed sets (constraint kinds, property kinds, intent kinds, reference typing) stop growing except by true format Revision; a pack can never narrow or retype an existing set entry`"
+traces_to = "[[packs]]"
+
+[[constraints]]
+id = "advisory_first_opt_in"
+kind = "invariant"
+expr = "`pack checking activates advisory-first when a file uses the pack's declared vocabulary, upgradeable to a declared uses edge; activation is per-pack — identical vocabulary declared by two discovered packs activates both with findings attributed per pack — and vocabulary matching is longest-prefix; files without packs lint byte-identically to pre-mechanism behavior`"
+traces_to = "[[packs]]"
+
+[[constraints]]
+id = "orphan_vocabulary_labeled"
+kind = "invariant"
+expr = "`declared vocabulary used with no pack discovered or declared produces a labeled failure finding (non-zero exit) naming the candidate pack — prefix-derived when only the namespace is known — and both remediations; never a generic dangling message, never silent`"
+traces_to = "[[packs]]"
+
+[[constraints]]
+id = "uses_is_outbound_leaf"
+kind = "invariant"
+expr = "`the uses reference field appears as a set-valued column on any Constraint row and resolves to the intent of a kind: profile file (the pack's frontmatter id); it is an outbound leaf joining no reachability path and no acyclic edge set — nothing targets it, single_root_reachable needs no carve-out, mutual pack use is well-formed`"
+traces_to = "[[packs]]"
+
+[[constraints]]
+id = "pack_self_exempt"
+kind = "invariant"
+expr = "`a pack file is never a consumer of declared vocabulary — its own manifest rows never trigger its or any pack's checkers and never produce orphan findings`"
+traces_to = "[[packs]]"
+
+[[constraints]]
+id = "lifecycle_labeled"
+kind = "invariant"
+expr = "`pack states are draft, published, deprecated; pack_shape must pass at parse in every state and draft packs' checkers activate advisory-first naming the draft status; the pack-authored ## Requires table pins the base format_revision and pack deps; deprecated packs stay advisory with deprecation named in findings`"
+traces_to = "[[packs]]"
+
+[[constraints]]
+id = "skew_advisory"
+kind = "invariant"
+expr = "`revision skew between a pack's Requires base pin and the workspace corpus revision is a labeled advisory on the warnings channel — never silent, never failing`"
+traces_to = "[[packs]]"
+
+[[constraints]]
+id = "honest_empty"
+kind = "invariant"
+expr = "`a pack checker with no workspace fixtures, data, or vocabulary instances reports an empty checked-set honestly — no fabricated discoveries`"
+traces_to = "[[packs]]"
+
+[[constraints]]
+id = "append_only_packs"
+kind = "invariant"
+expr = "`append_only_variants applies to packs themselves — a pack release may only add vocabulary, never remove or narrow previously declared entries`"
+traces_to = "[[packs]]"

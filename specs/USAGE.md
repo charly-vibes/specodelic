@@ -405,6 +405,40 @@ is actually *measured* against a corpus or a load scenario, not merely
 
 ---
 
+### 2.11 Declaring what your domain adds (domain packs)
+
+When your domain needs vocabulary the core format doesn't have — an
+optional section, an extra `kind` value, a new outbound reference field,
+per-kind required case labels — declare it as a **domain pack**
+(`specodelic.md` Revision 14, full contract in `packs.md`): a four-layer
+spec file with `kind: profile` whose six manifest tables
+(`## Sections`, `## Kinds`, `## References`, `## Checkers`, `## Floors`,
+`## Requires`) declare exactly what the pack introduces.
+
+| id        | kind      | expr                                                          | traces_to   | uses                        |
+|-----------|-----------|----------------------------------------------------------------|-------------|-----------------------------|
+| foo.uses.bar | invariant | `foo's rows may carry bar's declared vocabulary`              | [[foo]]     | [[bar]] [[baz]]             |
+
+Three facts govern the mechanism:
+
+- **Opt-in is advisory-first and triggered by use.** A file that uses
+  vocabulary a discovered pack declares gets that pack's checkers run
+  for it (advisory-first); an explicit `uses` column (set-valued, like
+  `traces_to`) upgrades to declared enablement, which is what pinning
+  and revision-skew checks read. Files using no pack vocabulary lint
+  byte-identically to before.
+- **The pack is discovered by corpus scan** — every `kind: profile`
+  file in the workspace is a candidate pack; no config file, no
+  registry. Declared vocabulary used with no pack discovered or
+  declared is a labeled failure finding naming the candidate pack and
+  both remediations (enable/declare it, or fix the vocabulary).
+- **Base closed sets are frozen.** `profile` and `uses` are the only
+  core growth (Revision 14); everything else a pack introduces is
+  pack-qualified (`bioimage.tolerance`) so independent packs coexist
+  instead of colliding.
+
+---
+
 ## 3. Migrating an existing spec into specodelic
 
 This maps most naturally from artifact-per-purpose formats (OpenSpec-style

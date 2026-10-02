@@ -16,7 +16,7 @@ the project/format/tool/subject terminology).
 
 | id                      | kind      | expr                                                                    | traces_to        |
 |--------------------------|-----------|----------------------------------------------------------------------------|-------------------|
-| frontmatter_valid        | invariant | `frontmatter has id, kind, statement; kind ∈ {intent}`                     | [[specodelic]]  |
+| frontmatter_valid        | invariant | `frontmatter has id, kind, statement; kind ∈ {intent, profile}` — `profile` marks a domain pack (see [[packs]], Revision 14) | [[specodelic]]  |
 | unique_id                | invariant | `∀ row ∈ file: unique(row.id)`                                             | [[specodelic]]  |
 | total_refs               | invariant | `∀ ref ∈ file: resolves(ref)` — no dangling `[[...]]`                      | [[specodelic]]  |
 | acyclic_traces           | invariant | `the traces_to/derives_from graph is a DAG`                                | [[specodelic]]  |
@@ -56,6 +56,7 @@ is a [typed foreign key](theory.md#typed-foreign-keys-generating-morphisms).
 | `emits`       | State       | Constraint, kind == `effect` only — a state's declared Moore-machine output; optional and absent on a state with no output of its own |
 | `satisfies`   | Constraint, any file | Constraint, kind == `extension_point` only — one-directional, outbound from a *consumer's* file to a contract published elsewhere, possibly in a file the consumer's author never edits or fully reads. The row carrying `satisfies` still has its own ordinary `traces_to` pointing at its own file's Intent, so `single_root_reachable` needs no carve-out: `satisfies` is an extra outbound pointer, exactly like `guard` or `emits`, not a second reachability edge |
 | `observes`    | Constraint, any file | Constraint, kind == `effect` only — a declared observable: an outbound pointer from the row that consumes/monitors the output to the effect row that publishes it, possibly cross-file. The row carrying `observes` still has its own ordinary `traces_to` pointing at its own file's Intent, so `single_root_reachable` needs no carve-out: `observes` is an extra outbound pointer, exactly like `guard`, `emits`, or `satisfies` — not a second reachability edge, and it joins no acyclic edge set (an observation claim is not a dependency; mutual cross-file observation is well-formed). Checking "every effect is observed" is `linter-observability.md`'s contract — advisory, never gating in this Revision |
+| `uses`        | Constraint, any file | Intent of a `kind: profile` file (the pack's frontmatter id) — set-valued (multiple `[[...]]` targets in one cell, like `traces_to`); declares a file's explicit pack enablement, upgradeable from vocabulary-triggered activation ([[packs]]). An outbound leaf joining no reachability path and no acyclic edge set — nothing targets it, `single_root_reachable` needs no carve-out, and mutual pack use (two files each `uses`-ing the other's pack) is well-formed (Revision 14) |
 
 ## Model
 
@@ -679,3 +680,39 @@ One Constraint row reworded under this heading per
 floor stay legal), so nothing valid at Revision 12 is invalidated — a
 law predicate whose cases lived only in prose now fails `lint` instead
 of silently passing.
+
+## Revision 14
+
+The extension mechanism becomes first-class: **domain packs**
+(`specodelic-dcx`, `add-domain-pack-mechanism`, 2026-10-02). Independent
+vendors converged on the same extension moves — optional sections,
+per-kind case-label floors, new outbound reference fields — but nothing
+in the format *named* an extension, so pack vocabulary collided in the
+global closed kind sets. A pack is now a declared, discoverable, versioned
+artifact in the corpus itself; its full contract is [[packs]].
+
+- **`frontmatter_valid` reworded** — the frontmatter-kind closed set
+  grows once, narrowly: `kind ∈ {intent, profile}`. `profile` marks a
+  pack file; every other rule for profile files is pack-fiber-relative
+  (pack-shape checking, not base-set growth). Nothing valid at Revision
+  13 is invalidated — a pure widening.
+- **Reference Typing grows by `uses`** — Constraint, any file → Intent of
+  a `kind: profile` file, set-valued, outbound leaf. This is the one new
+  generating morphism the mechanism requires; `satisfies` is NOT
+  overloaded (conforming to a published extension_point contract and
+  enabling a vocabulary fiber are different relations).
+- **Base closed sets freeze by policy** — `constraint_kind_closed`,
+  `property_kind_closed`, and the Reference Typing field set stop
+  growing except by true format Revisions like this one; pack vocabulary
+  is per-pack (namespaced, fiber-relative — the Grothendieck
+  construction one level up), never global.
+- **Checker Ownership stays closed**: the pack manifest's structural
+  rule (`pack_shape`, owned by [[packs]]) sits outside the eight-row
+  gating table on the `linter-observability` precedent — it is
+  conditional on pack discovery and advisory-first by its own
+  contract, and a workspace with no `kind: profile` files lints
+  byte-identically to Revision 13.
+
+One Constraint row reworded and one Reference Typing row added under this
+heading per `append_only_variants`; every widening, no narrowing — the
+`profile` kind is opt-in per file and `uses` is optional per row.

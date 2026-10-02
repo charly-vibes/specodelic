@@ -3,7 +3,7 @@ source = "specodelic"
 [[constraints]]
 id = "frontmatter_valid"
 kind = "invariant"
-expr = "`frontmatter has id, kind, statement; kind ∈ {intent}`"
+expr = "`frontmatter has id, kind, statement; kind ∈ {intent, profile}` — `profile` marks a domain pack (see [[packs]], Revision 14)"
 traces_to = "[[specodelic]]"
 
 [[constraints]]

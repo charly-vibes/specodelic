@@ -132,7 +132,7 @@ same way a self-hosting compiler compiles its own source).
 
 | File | Kind / id | Describes | Status |
 |---|---|---|---|
-| `specodelic.md` | `specodelic` | The format itself: its own constraints, its own lifecycle (`draft → parsed → linted → compiled → model_checked → verified`), the Reference Typing table, the Checker Ownership table | **Done — Revision 8** |
+| `specodelic.md` | `specodelic` | The format itself: its own constraints, its own lifecycle (`draft → parsed → linted → compiled → model_checked → verified`), the Reference Typing table, the Checker Ownership table | **Done — Revision 14** (frontmatter kind set now `{intent, profile}`, `uses` reference field — the domain-pack mechanism, see `packs.md`) |
 | `kinds.md` | `kinds` | Canonical field set and closed `kind`-column value set for each of `𝒦`'s five objects (Intent, Constraint, State, Transition, Property) | **Done — Revision 4** |
 | `USAGE.md` | — | How to point the four layers at a real domain: quick-start, pattern catalog (sealed enumerations, Moore output, multi-implementation conformance, staged/lazy evaluation, extended law cases, consumer-extended contracts, event-sourced logs, empirical runtime bounds), and a migration guide from artifact-per-purpose formats (e.g. OpenSpec) | Living document |
 | `theory.md` | — | Every category-theoretic claim in this repo, stated once, each paired with a plain-language restatement; every other file links here instead of restating the math locally | Done (Changelog #24) |
@@ -233,6 +233,13 @@ corpus drift against their installed binary.
   three reference fields by hand and had already gone stale (missing
   `supersedes`); reworded to read the Reference Typing table generically,
   matching what the implementation was already doing.
+- **Revision 14**: the extension mechanism became first-class — domain
+  packs. `frontmatter_valid`'s kind set grows `{intent}` → `{intent,
+  profile}` (a `profile` frontmatter marks a pack file) and the Reference
+  Typing table gains `uses` (Constraint, any file → Intent of a
+  `kind: profile` file, set-valued, outbound leaf). The full pack
+  contract lives in `packs.md`; base closed sets freeze by policy from
+  this Revision on — pack vocabulary is per-pack, never global.
 
 ---
 
