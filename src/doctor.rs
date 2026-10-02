@@ -269,11 +269,57 @@ pub fn payload(root: &Path, report: &DoctorReport) -> serde_json::Value {
         ("SPECODELIC block".into(), block_row),
         ("corpus discovery".into(), discovery_detail(root)),
     ];
-    serde_json::json!({
+    // Discovered domain packs (specs/packs.md, Revision 14) — surfaced
+    // only when at least one `kind: profile` file exists in the
+    // workspace; absent otherwise (machinery inert, zero migration).
+    let packs: Vec<serde_json::Value> = discover_workspace_packs(root)
+        .iter()
+        .map(|p| serde_json::json!({"id": p.id, "lifecycle": p.lifecycle}))
+        .collect();
+    let mut payload = serde_json::json!({
         "mode": workspace_mode(root),
         "checks": checks,
         "format_revision": guide::FORMAT_REVISION,
-    })
+    });
+    if !packs.is_empty() {
+        payload["packs"] = serde_json::Value::Array(packs);
+    }
+    payload
+}
+
+/// Discover packs in the workspace's corpus (specs/ or the repo root) —
+/// the doctor's surfacing of the pack mechanism (task 4.2).
+fn discover_workspace_packs(root: &Path) -> Vec<crate::packs::PackInfo> {
+    let mut specs = vec![];
+    let dirs = [root.join("specs"), root.to_path_buf()];
+    for dir in dirs {
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) == Some("md")
+                    && let Ok(src) = std::fs::read_to_string(&path)
+                        && let Ok(mut s) = crate::spec::parse_str(&src) {
+                            s.path = Some(path);
+                            specs.push(s);
+                        }
+            }
+        }
+    }
+    // only corpus files, not the whole workspace scan — the doctor
+    // reports what the corpus declares
+    specs.retain(|s| s.intent.kind == "profile");
+    specs
+        .iter()
+        .map(|s| {
+            let m = crate::packs::parse_manifest(s);
+            crate::packs::PackInfo {
+                id: m.id.clone(),
+                lifecycle: m.lifecycle.clone(),
+                vocabulary: m.vocabulary(),
+                base_pin: m.base_pin(),
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

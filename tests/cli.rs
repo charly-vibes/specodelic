@@ -4992,3 +4992,526 @@ fn parse_accepts_exactly_one_path() {
         .unwrap();
     assert_ne!(out.status.code(), Some(0), "two paths must be rejected");
 }
+
+// -- domain packs (specs/packs.md, Revision 14; specodelic-dcx) ------------
+
+/// A well-formed `kind: profile` pack file — all six manifest tables,
+/// full lifecycle machine, base pin at the current revision.
+fn write_pack_file(path: &std::path::Path, id: &str, revision: u32) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: profile\nstatement: \"WHEN a workspace enables this pack, THE format SHALL provide the {id} vocabulary and its declared checkers\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | vocab_declared | invariant | `the six manifest tables declare the vocabulary` | [[{id}]] |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- draft\n\
+             - published\n\
+             - deprecated\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | publish | draft | published | [[{id}.vocab_declared]] |\n\
+             | deprecate | published | deprecated | [[{id}.vocab_declared]] |\n\
+             \n## Properties\n\
+             \n| id | kind | derives_from | generator | predicate |\n\
+             |----|------|--------------|-----------|------------|\n\
+             | p | unit | [[{id}.vocab_declared]] | `g()` | `x` |\n\
+             \n## Sections\n\
+             \n| section | row_shape |\n\
+             |---------|-----------|\n\
+             | Data | `\\| name \\| dtype \\|` |\n\
+             \n## Kinds\n\
+             \n| kind | vocabulary |\n\
+             |------|------------|\n\
+             | {id}.tolerance | `an empirical bound` |\n\
+             \n## References\n\
+             \n| field | resolves_to |\n\
+             |-------|-------------|\n\
+             | measures | `a {id}.tolerance kind row` |\n\
+             \n## Checkers\n\
+             \n| rule | semantics |\n\
+             |------|-----------|\n\
+             | {id}.bound_present | `every {id}.tolerance row carries a bound` |\n\
+             \n## Floors\n\
+             \n| kind | required_cases |\n\
+             |------|----------------|\n\
+             | {id}.tolerance | `identity` |\n\
+             \n## Requires\n\
+             \n| dep | revision |\n\
+             |-----|----------|\n\
+             | base | specodelic.md Revision {revision} |\n"
+        ),
+    )
+    .unwrap();
+}
+
+/// A lint-clean consumer intent spec, optionally carrying a `uses` column
+/// and pack vocabulary in its expr.
+fn write_consumer_spec(path: &std::path::Path, id: &str, uses: &str, vocab: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to | uses |\n\
+             |----|------|------|-----------|------|\n\
+             | c1 | invariant | `{vocab}` | [[{id}]] | {uses} |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1\n\
+             - s2\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s2 | [[{id}.c1]] |\n\
+             \n## Properties\n\
+             \n| id | kind | derives_from | generator | predicate |\n\
+             |----|------|--------------|-----------|------------|\n\
+             | p | unit | [[{id}.c1]] | `g()` | `x` |\n"
+        ),
+    )
+    .unwrap();
+}
+
+#[test]
+fn well_formed_pack_lints_clean_and_is_discovered() {
+    let dir = tempfile::tempdir().unwrap();
+    write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
+    write_consumer_spec(&dir.path().join("consumer.md"), "consumer", "", "plain");
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{json}");
+    let issues = json["data"]["issues"].as_array().unwrap();
+    assert!(issues.is_empty(), "pack corpus lint findings: {issues:?}");
+    let packs = json["data"]["packs"].as_array().expect("packs surfaced");
+    assert_eq!(packs.len(), 1);
+    assert_eq!(packs[0]["id"], "bioimage");
+    assert_eq!(packs[0]["lifecycle"], "published");
+}
+
+#[test]
+fn missing_manifest_table_is_a_labeled_pack_shape_finding() {
+    let dir = tempfile::tempdir().unwrap();
+    write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
+    // drop the ## Floors table
+    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap();
+    let stripped = text.split("## Floors").next().unwrap();
+    std::fs::write(dir.path().join("bioimage.md"), stripped).unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_ne!(out.status.code(), Some(0));
+    let issues = json["data"]["issues"].as_array().unwrap();
+    assert!(
+        issues.iter().any(|i| {
+            i["rule_id"] == "linter.pack_shape" && i["message"].as_str().unwrap().contains("Floors")
+        }),
+        "no pack_shape finding naming Floors: {issues:?}"
+    );
+}
+
+#[test]
+fn malformed_manifest_row_is_a_labeled_pack_shape_finding() {
+    let dir = tempfile::tempdir().unwrap();
+    write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
+    // Sections row with three cells (the facet's fixed row shape is 2)
+    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap();
+    let bad = text.replace(
+        "| Data | `\\| name \\| dtype \\|` |",
+        "| Data | `x` | `extra` |",
+    );
+    assert_ne!(bad, text, "mutation must apply");
+    std::fs::write(dir.path().join("bioimage.md"), bad).unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_ne!(out.status.code(), Some(0));
+    let issues = json["data"]["issues"].as_array().unwrap();
+    assert!(
+        issues.iter().any(|i| {
+            i["rule_id"] == "linter.pack_shape"
+                && i["message"].as_str().unwrap().contains("Sections")
+        }),
+        "no pack_shape finding naming Sections: {issues:?}"
+    );
+}
+
+#[test]
+fn non_profile_file_claiming_a_manifest_is_a_finding() {
+    let dir = tempfile::tempdir().unwrap();
+    write_consumer_spec(&dir.path().join("consumer.md"), "consumer", "", "plain");
+    // a kind: intent file carrying manifest headings
+    let text = std::fs::read_to_string(dir.path().join("consumer.md")).unwrap();
+    std::fs::write(
+        dir.path().join("sneaky.md"),
+        text.replace("id: consumer", "id: sneaky")
+            .replace("THE system SHALL hold", "THE sneaky SHALL claim a manifest")
+            + "\n## Sections\n\n| section | row_shape |\n|---------|-----------|\n| Data | `x` |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_ne!(out.status.code(), Some(0));
+    let issues = json["data"]["issues"].as_array().unwrap();
+    assert!(
+        issues.iter().any(|i| {
+            i["rule_id"] == "linter.pack_shape"
+                && i["message"].as_str().unwrap().contains("profile")
+        }),
+        "no pack_shape finding for non-profile manifest: {issues:?}"
+    );
+}
+
+#[test]
+fn pack_kinds_must_be_pack_qualified_narrowing_is_rejected() {
+    let dir = tempfile::tempdir().unwrap();
+    write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
+    // a Kinds row claiming a base closed-set name unqualified
+    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap();
+    let bad = text.replace(
+        "| bioimage.tolerance | `an empirical bound` |",
+        "| invariant | `an empirical bound` |",
+    );
+    assert_ne!(bad, text, "mutation must apply");
+    std::fs::write(dir.path().join("bioimage.md"), bad).unwrap();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_ne!(out.status.code(), Some(0));
+    let issues = json["data"]["issues"].as_array().unwrap();
+    assert!(
+        issues.iter().any(|i| {
+            i["rule_id"] == "linter.pack_shape"
+                && i["message"].as_str().unwrap().contains("append-only")
+        }),
+        "no narrowing finding: {issues:?}"
+    );
+}
+
+#[test]
+fn no_profile_files_means_pack_machinery_is_inert() {
+    let dir = tempfile::tempdir().unwrap();
+    write_consumer_spec(&dir.path().join("plain.md"), "plain", "", "plain");
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    // byte-identical guarantee: no packs key surfaces when nothing is discovered
+    assert!(
+        json["data"].get("packs").is_none(),
+        "packs key surfaced with no profile files: {json}"
+    );
+    let warnings = json["warnings"].as_array().unwrap();
+    assert!(
+        !warnings
+            .iter()
+            .any(|w| w["message"].as_str().unwrap_or("").contains("pack")),
+        "pack advisory with no packs: {warnings:?}"
+    );
+}
+
+#[test]
+fn vocabulary_use_activates_the_pack_advisory() {
+    let dir = tempfile::tempdir().unwrap();
+    write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
+    write_consumer_spec(
+        &dir.path().join("consumer.md"),
+        "consumer",
+        "",
+        "bioimage.tolerance applies here",
+    );
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{json}");
+    let warnings = json["warnings"].as_array().unwrap();
+    assert!(
+        warnings.iter().any(|w| {
+            w["message"].as_str().unwrap_or("").contains("bioimage")
+                && w["message"].as_str().unwrap_or("").contains("consumer")
+        }),
+        "no activation advisory: {warnings:?}"
+    );
+}
+
+#[test]
+fn declared_uses_edge_enables_the_pack() {
+    let dir = tempfile::tempdir().unwrap();
+    write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
+    write_consumer_spec(
+        &dir.path().join("consumer.md"),
+        "consumer",
+        "[[bioimage]]",
+        "plain",
+    );
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{json}");
+    let warnings = json["warnings"].as_array().unwrap();
+    assert!(
+        warnings.iter().any(|w| {
+            let s = w["message"].as_str().unwrap_or("");
+            s.contains("bioimage") && s.contains("declared uses edge")
+        }),
+        "no declared-mode advisory: {warnings:?}"
+    );
+}
+
+#[test]
+fn uses_edge_to_a_missing_pack_is_a_labeled_orphan_failure() {
+    let dir = tempfile::tempdir().unwrap();
+    write_consumer_spec(
+        &dir.path().join("consumer.md"),
+        "consumer",
+        "[[ghost]]",
+        "plain",
+    );
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_ne!(out.status.code(), Some(0));
+    let issues = json["data"]["issues"].as_array().unwrap();
+    assert!(
+        issues.iter().any(|i| {
+            let m = i["message"].as_str().unwrap_or("");
+            m.contains("ghost") && m.contains("kind: profile") && m.contains("fix")
+        }),
+        "no labeled orphan finding naming candidate pack + both remediations: {issues:?}"
+    );
+}
+
+#[test]
+fn overlapping_vocabulary_activates_both_packs() {
+    let dir = tempfile::tempdir().unwrap();
+    write_pack_file(&dir.path().join("alpha.md"), "alpha", 14);
+    write_pack_file(&dir.path().join("beta.md"), "beta", 14);
+    write_consumer_spec(
+        &dir.path().join("consumer.md"),
+        "consumer",
+        "",
+        "shared.tolerance applies here",
+    );
+    // both packs declare the identical token
+    for (pack, id) in [("alpha.md", "alpha"), ("beta.md", "beta")] {
+        let path = dir.path().join(pack);
+        let text = std::fs::read_to_string(&path).unwrap();
+        let needle = format!("| {id}.tolerance | `an empirical bound` |");
+        let grown = text.replace(
+            &needle,
+            &format!("{needle}\n| shared.tolerance | `an empirical bound` |"),
+        );
+        assert_ne!(grown, text, "mutation must apply for {id}");
+        std::fs::write(&path, grown).unwrap();
+    }
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{json}");
+    let warnings = json["warnings"].as_array().unwrap();
+    for pack in ["alpha", "beta"] {
+        assert!(
+            warnings.iter().any(|w| w["message"]
+                .as_str()
+                .unwrap_or("")
+                .contains(&format!("pack `{pack}` activated"))),
+            "pack {pack} not activated: {warnings:?}"
+        );
+    }
+}
+
+#[test]
+fn pack_file_linted_alone_is_self_exempt() {
+    let dir = tempfile::tempdir().unwrap();
+    write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{json}");
+    let issues = json["data"]["issues"].as_array().unwrap();
+    assert!(
+        issues.is_empty(),
+        "self-exempt pack has findings: {issues:?}"
+    );
+    // the pack's own vocabulary never activates anything — no advisories
+    let warnings = json["warnings"].as_array().unwrap();
+    assert!(
+        !warnings
+            .iter()
+            .any(|w| w["message"].as_str().unwrap_or("").contains("activated")),
+        "pack activated itself: {warnings:?}"
+    );
+}
+
+#[test]
+fn revision_skew_is_a_warning_not_a_failure() {
+    let dir = tempfile::tempdir().unwrap();
+    write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 10);
+    write_consumer_spec(
+        &dir.path().join("consumer.md"),
+        "consumer",
+        "[[bioimage]]",
+        "plain",
+    );
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{json}");
+    let warnings = json["warnings"].as_array().unwrap();
+    assert!(
+        warnings.iter().any(|w| {
+            let s = w["message"].as_str().unwrap_or("");
+            s.contains("bioimage") && s.contains("Revision 10") && s.contains("Revision 14")
+        }),
+        "no skew advisory naming both revisions: {warnings:?}"
+    );
+}
+
+#[test]
+fn draft_pack_findings_name_the_draft_status() {
+    let dir = tempfile::tempdir().unwrap();
+    write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
+    // single-state draft model
+    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap();
+    let draft = text
+        .replace("- draft\n- published\n- deprecated\n", "- draft\n")
+        .replace(
+            "| publish | draft | published | [[bioimage.vocab_declared]] |\n| deprecate | published | deprecated | [[bioimage.vocab_declared]] |",
+            "| self | draft | draft | [[bioimage.vocab_declared]] |",
+        );
+    assert_ne!(draft, text, "mutation must apply");
+    std::fs::write(dir.path().join("bioimage.md"), draft).unwrap();
+    write_consumer_spec(
+        &dir.path().join("consumer.md"),
+        "consumer",
+        "",
+        "bioimage.tolerance applies here",
+    );
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{json}");
+    let warnings = json["warnings"].as_array().unwrap();
+    assert!(
+        warnings.iter().any(|w| {
+            let s = w["message"].as_str().unwrap_or("");
+            s.contains("bioimage") && s.contains("draft")
+        }),
+        "draft status not named: {warnings:?}"
+    );
+}
+
+#[test]
+fn deprecated_pack_findings_name_the_deprecation() {
+    let dir = tempfile::tempdir().unwrap();
+    write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
+    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap();
+    let dead = text
+        .replace("- draft\n- published\n- deprecated\n", "- deprecated\n")
+        .replace(
+            "| publish | draft | published | [[bioimage.vocab_declared]] |\n| deprecate | published | deprecated | [[bioimage.vocab_declared]] |",
+            "| self | deprecated | deprecated | [[bioimage.vocab_declared]] |",
+        );
+    assert_ne!(dead, text, "mutation must apply");
+    std::fs::write(dir.path().join("bioimage.md"), dead).unwrap();
+    write_consumer_spec(
+        &dir.path().join("consumer.md"),
+        "consumer",
+        "",
+        "bioimage.tolerance applies here",
+    );
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{json}");
+    let warnings = json["warnings"].as_array().unwrap();
+    assert!(
+        warnings.iter().any(|w| {
+            let s = w["message"].as_str().unwrap_or("");
+            s.contains("bioimage") && s.contains("deprecated")
+        }),
+        "deprecation not named: {warnings:?}"
+    );
+}
+
+#[test]
+fn subdirectory_lint_discovers_workspace_packs() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("work")).unwrap();
+    write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
+    write_consumer_spec(
+        &dir.path().join("work/consumer.md"),
+        "consumer",
+        "",
+        "bioimage.tolerance applies here",
+    );
+    // anchor the scan at the git toplevel — the tempdir becomes a repo
+    std::process::Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    let out = spk()
+        .args(["lint", "work", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{json}");
+    let packs = json["data"]["packs"].as_array().expect("packs surfaced");
+    assert_eq!(packs.len(), 1, "workspace pack not discovered: {packs:?}");
+    assert_eq!(packs[0]["id"], "bioimage");
+}
+
+#[test]
+fn doctor_surfaces_discovered_packs() {
+    // task 4.2: the pack mechanism is surfaced in `spk doctor` output —
+    // the workspace's `kind: profile` files reported with their lifecycle
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("specs")).unwrap();
+    write_pack_file(&dir.path().join("specs/bioimage.md"), "bioimage", 14);
+    let out = spk()
+        .args(["doctor", "--json"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let packs = json["data"]["packs"].as_array().expect("packs surfaced");
+    assert_eq!(packs.len(), 1);
+    assert_eq!(packs[0]["id"], "bioimage");
+}

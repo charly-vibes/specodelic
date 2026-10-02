@@ -8,7 +8,7 @@
 > that can't be checked — specodelic gives agent-facing specs checkable structure
 > (Constraints, state Model, Properties) plus a linter and verify pipeline, so a
 > spec can fail CI instead of silently underdetermining the build.
-> **Status:** [experimental](docs/src/status.md) · v0.1.0, self-hosting round in progress · [Motivation & design](docs/src/index.md) · [charly-vibes Tool Ecosystem](https://charly-vibes.github.io/dulce-de-leche/ecosystem-map.html)
+> **Status:** [experimental](docs/src/status.md) · v0.4.0, self-hosting round in progress · [Motivation & design](docs/src/index.md) · [charly-vibes Tool Ecosystem](https://charly-vibes.github.io/dulce-de-leche/ecosystem-map.html)
 Specodelic (formerly `spec-format`) is a self-hosting specification
 format: every file in [`specs/`](specs/) is a markdown spec describing
 either the format or one check its linter performs, written in the

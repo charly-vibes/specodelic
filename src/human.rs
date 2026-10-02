@@ -425,6 +425,7 @@ mod tests {
             )],
             warnings: vec![],
             checklists_declared: 0,
+            packs: vec![],
         };
         let text = lint(&report);
         assert!(

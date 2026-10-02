@@ -14,6 +14,7 @@
 
 - [specodelic — the core format](specs/specodelic.md)
 - [kinds — closed kind value sets](specs/kinds.md)
+- [packs — domain-pack mechanism](specs/packs.md)
 
 # Pipeline
 

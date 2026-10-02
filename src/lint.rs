@@ -176,6 +176,18 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
         "property_kind_closed",
         "every Property row's kind must be in {unit, law} — an unreadable kind cell is outside the closed set (specs/linter-schema_shape.md)",
     ),
+    (
+        "pack_shape",
+        "a kind: profile pack file's manifest must carry all six facet tables (Sections/Kinds/References/Checkers/Floors/Requires) with well-formed two-column rows, its Kinds rows must be pack-qualified (never a base closed-set name — the narrowing rejection), and manifest tables may not appear on non-profile files (specs/packs.md, Revision 14)",
+    ),
+    (
+        "orphan_vocabulary",
+        "a declared uses edge targeting an id no discovered kind: profile pack carries is orphan vocabulary — a labeled failure naming the candidate pack and both remediations (enable/declare the pack, or fix the vocabulary) (specs/packs.md, Revision 14)",
+    ),
+    (
+        "skew_advisory",
+        "a declared pack's Requires base pin older than the workspace corpus revision is a warnings-channel advisory naming the pack's base pin and the corpus revision — never silent, never failing (specs/packs.md, Revision 14)",
+    ),
 ];
 
 /// The stable rule identifier for a bare rule name: `linter.<name>`.
@@ -206,6 +218,12 @@ pub struct Report {
     /// consumer needs to tell an empty pass from a skipped one
     /// (Rule-of-5 EXCL-002, specodelic-b15).
     pub checklists_declared: usize,
+    /// Discovered domain packs (specs/packs.md, Revision 14) — surfaced
+    /// in the envelope data only when at least one `kind: profile` file
+    /// exists; absent otherwise, so a pack-free workspace's lint output
+    /// stays byte-identical to pre-mechanism.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub packs: Vec<crate::packs::PackInfo>,
 }
 
 impl Report {
@@ -230,6 +248,7 @@ pub fn lint_corpus(specs: &[Spec]) -> Report {
         issues: vec![],
         warnings: vec![],
         checklists_declared: 0,
+        packs: vec![],
     };
     for spec in specs {
         lint_one(spec, &mut report);
@@ -238,6 +257,7 @@ pub fn lint_corpus(specs: &[Spec]) -> Report {
     lint_coverage(specs, &mut report);
     lint_graph_shape(specs, &mut report);
     lint_observability(specs, &mut report);
+    crate::packs::pack_pass(specs, &mut report);
     report
 }
 
@@ -262,6 +282,7 @@ fn empty_report(files_linted: usize) -> Report {
         issues: vec![],
         warnings: vec![],
         checklists_declared: 0,
+        packs: vec![],
     }
 }
 
@@ -2236,7 +2257,15 @@ mod tests {
                     .to_string()
             })
             .collect();
-        let catalog: BTreeSet<&str> = RULE_TABLE.iter().map(|(name, _)| *name).collect();
+        let catalog: BTreeSet<&str> = RULE_TABLE
+            .iter()
+            .map(|(name, _)| *name)
+            // the pack rules are exempt here — they cannot fire from this
+            // text-only fixture corpus (the pack pass reads files from
+            // disk); their coverage contract is tests/cli.rs's pack suite
+            // (task 3.3: every manifest facet mutation → labeled finding)
+            .filter(|name| !matches!(*name, "pack_shape" | "orphan_vocabulary" | "skew_advisory"))
+            .collect();
         let catalog_set: BTreeSet<String> = catalog.into_iter().map(String::from).collect();
         assert_eq!(
             emitted, catalog_set,

@@ -6,6 +6,31 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #100 — the extension mechanism becomes first-class: domain packs (specodelic-dcx)
+
+`add-domain-pack-mechanism` implemented (Revision 14). A domain pack is a
+four-layer spec file with `kind: profile` frontmatter whose six manifest
+tables (Sections/Kinds/References/Checkers/Floors/Requires) declare
+exactly what the pack introduces. Discovery is a corpus scan anchored at
+the git toplevel; opt-in is advisory-first, triggered by vocabulary use,
+upgradeable to a declared `uses` edge (set-valued, targets the pack's
+frontmatter id); a `uses` edge to a pack that is not discovered is a
+labeled orphan failure naming the candidate pack and both remediations.
+The pack-authored `## Requires` table pins the base format revision —
+skew against the workspace corpus revision is a warnings-channel
+advisory, never silent, never failing. Lifecycle states draft/published/
+deprecated are read from the pack's Model (full machine = published;
+single state = that state); draft findings name the draft status and
+deprecated findings name the deprecation. Pack files are self-exempt
+(their manifest rows never activate checkers or produce orphan
+findings). Files without packs lint byte-identically: the `packs` data
+key surfaces only when a pack is discovered. Three lint rules added
+(append-only): `linter.pack_shape`, `linter.orphan_vocabulary`,
+`linter.skew_advisory`. V1 scoping: orphan detection is typed (the
+declared `uses` edge), not a prose-token heuristic — honest-empty beats
+over-reporting; pack checkers ship as declarations reporting an empty
+checked-set. `spk doctor` surfaces discovered packs.
+
 ## #99 — corpus prose sweep: checker counts reconciled to eight, non-gating checkers named, copresheaf anchor fixed (specodelic-5f2)
 
 Rule-of-5 corpus review (2026-10-01) CLAR-001 (HIGH) + EDGE-001 (MEDIUM)
