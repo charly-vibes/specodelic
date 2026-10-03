@@ -1604,6 +1604,204 @@ fn verify_executes_failing_predicate_blocks() {
         .stdout(contains("forced failure for 1pv"));
 }
 
+// ---- specodelic-rjb: executable predicate fragments (Revision 15) ----
+
+/// A lint-clean spec with an executable predicate fragment, an executable
+/// invariant, and a fragment-free sibling property — the end-to-end demo
+/// (verify.md's fragments_reach_verified).
+fn write_fragment_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL verify end-to-end with executable fragments\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | c1 | invariant | `**rust:** state != \"blackhole\"` | [[{id}]] |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1\n\
+             - s2\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s2 | [[{id}.c1]] |\n\
+             \n## Properties\n\
+             \n| id | kind | derives_from | generator | predicate |\n\
+             |----|------|--------------|-----------|------------|\n\
+             | p | unit | [[{id}.c1]] | `word()` | `**rust:** v0.len() >= 1` |\n"
+        ),
+    )
+    .unwrap();
+}
+
+#[test]
+fn fragments_reach_verified_end_to_end() {
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("fmdemo.md");
+    write_fragment_spec(&spec, "fmdemo");
+    let out = td.path().join("out");
+    spk()
+        .args([
+            "compile",
+            spec.to_str().unwrap(),
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    // The executable-invariant run: real no_counterexample from a real
+    // scratch-crate BFS (engine native-bfs), invariants_checked = [c1].
+    let mc = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(mc.status.code(), Some(0));
+    let json: serde_json::Value = serde_json::from_slice(&mc.stdout).unwrap();
+    let checked = &json["data"]["checked"][0];
+    assert_eq!(json["data"]["outcome"], "no_counterexample");
+    assert_eq!(checked["backend"]["engine"], "native-bfs");
+    assert_eq!(checked["invariants_checked"], serde_json::json!(["c1"]));
+    // Both gates now hold — the verdict the gate could never reach
+    // before Revision 15.
+    spk()
+        .args([
+            "verify",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(contains("\"status\":\"verified\""));
+}
+
+#[test]
+fn fragment_invariant_violation_reports_minimal_trace() {
+    // counterexample_names_violated_invariant + counterexample_is_minimal
+    // on a real fragment: the invariant forbids reaching s2; BFS finds
+    // the shortest violating path (s1 -> s2) and names the constraint id.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("fmcx.md");
+    write_fragment_spec(&spec, "fmcx");
+    let text = std::fs::read_to_string(&spec).unwrap();
+    std::fs::write(
+        &spec,
+        text.replace(
+            "`**rust:** state != \"blackhole\"`",
+            "`**rust:** state != \"s2\"`",
+        ),
+    )
+    .unwrap();
+    let out = td.path().join("out");
+    spk()
+        .args([
+            "compile",
+            spec.to_str().unwrap(),
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    let mc = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&mc.stdout).unwrap();
+    let checked = &json["data"]["checked"][0];
+    assert_eq!(json["data"]["outcome"], "counterexample_found");
+    assert_eq!(checked["violated_invariant_id"], "c1");
+    assert_eq!(checked["trace"], serde_json::json!(["s1", "s2"]));
+}
+
+#[test]
+fn fragment_compile_failures_are_labeled() {
+    // Hygiene: a fragment carrying a banned token fails compile labeled
+    // (fragment_extraction naming the token), never a silent artifact.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("fmhyg.md");
+    write_fragment_spec(&spec, "fmhyg");
+    let text = std::fs::read_to_string(&spec).unwrap();
+    std::fs::write(
+        &spec,
+        text.replace(
+            "`**rust:** v0.len() >= 1`",
+            "`**rust:** std::fs::metadata(\"x\").is_ok()`",
+        ),
+    )
+    .unwrap();
+    let out = spk()
+        .args([
+            "compile",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            td.path().join("out").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let failed = &json["data"]["failed"][0];
+    assert_eq!(failed["stage"], "fragment_extraction");
+    assert!(failed["message"].as_str().unwrap().contains("std::fs"));
+}
+
+#[test]
+fn fragment_that_does_not_compile_is_a_labeled_model_check_error() {
+    // An invariant fragment with a syntax error passes hygiene but cannot
+    // build — the scratch run fails labeled (fragment_compile), never a
+    // verdict. (Predicate fragments compile at verify time — the props
+    // artifact — not here; a bad predicate is properties_uncompilable.)
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("fmbad.md");
+    write_fragment_spec(&spec, "fmbad");
+    let text = std::fs::read_to_string(&spec).unwrap();
+    std::fs::write(
+        &spec,
+        text.replace(
+            "`**rust:** state != \"blackhole\"`",
+            "`**rust:** state != ] ]`",
+        ),
+    )
+    .unwrap();
+    let out = td.path().join("out");
+    spk()
+        .args([
+            "compile",
+            spec.to_str().unwrap(),
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    let mc = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(mc.status.code(), Some(1));
+    let stdout = String::from_utf8_lossy(&mc.stdout);
+    assert!(stdout.contains("fragment_compile"), "{stdout}");
+}
+
 // ---- specodelic-nx7: the model_check step (add-model-check) ----
 
 #[test]

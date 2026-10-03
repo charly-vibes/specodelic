@@ -13,13 +13,16 @@
 //! stateright default and the opt-in TLC JVM reference engine (`run_tlc`,
 //! `--backend tlc`; a missing binary/jar is a `missing_checker` error,
 //! never a verdict). Rationale: guards and
-//! predicates in the corpus language are prose (no executable predicate
-//! language exists — openspec change `add-model-check`, Decision 3
-//! Option A), so the native backend honestly reports
+//! predicates in the corpus language are prose unless a cell opts in
+//! with the `**rust:**` marker (executable predicate fragments —
+//! specodelic.md Revision 15, specodelic-rjb; before that Revision no
+//! executable predicate language existed — `add-model-check`, Decision 3
+//! Option A). Fragment-less input honestly reports
 //! `invariants_checked: []` and never fabricates a counterexample — and
 //! a completed exploration reports `exploration_only`, never
 //! `no_counterexample` (specodelic-len): exhaustiveness is not a clean
-//! verdict.
+//! verdict. Fragment-bearing IR goes through the scratch-crate run
+//! (`run_executable`) where `no_counterexample` becomes producible.
 
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
@@ -570,6 +573,451 @@ pub fn run_tlc(
     })
 }
 
+// ---------------------------------------------------------------------------
+// Executable invariants: the scratch-crate run (Revision 15, specodelic-rjb)
+// ---------------------------------------------------------------------------
+
+/// The executable mode's engine attribution (`backend_identified`): the
+/// scratch-crate BFS run is NOT stateright — it is this tool's own
+/// dependency-free breadth-first search over the same program-counter
+/// model, and the report must not imply otherwise.
+pub const EXEC_ENGINE: &str = "native-bfs";
+pub const EXEC_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// The scratch crate's manifest: deliberately dependency-free — std-only
+/// BFS, no registry access, builds offline and instantly. Fragments are
+/// verbatim user Rust; hygiene (compile.md's `fragment_hygiene`) was
+/// validated labeled at compile time, and the Rust compiler is not a
+/// sandbox — fragments run with the invoking user's privileges, exactly
+/// like every other compiled artifact.
+pub const SCRATCH_RUN_MANIFEST: &str = "[package]\n\nname = \"specodelic-model-check-scratch\"\n\nversion = \"0.0.0\"\n\nedition = \"2021\"\n";
+
+/// The scratch binary's output: the raw facts of one BFS run. The parent
+/// (spk) owns the outcome policy — the mapping to `Outcome` stays here,
+/// unit-tested, not in generated code.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RunFacts {
+    pub violated_invariant_id: Option<String>,
+    #[serde(default)]
+    pub trace: Option<Vec<String>>,
+    pub states_explored: u64,
+    pub deadline_hit: bool,
+    pub states_capped: bool,
+    #[serde(default)]
+    pub depth_capped: bool,
+}
+
+/// Transition from/to cells as state indices — labeled `invalid_model` on
+/// an unknown reference (lint's every_transition_valid should have caught
+/// these upstream; IR integrity before execution, same as `run`).
+fn resolve_edges(ir: &ModelIr) -> Result<Vec<(usize, usize)>, ModelCheckError> {
+    let mut index = BTreeMap::new();
+    for (i, s) in ir.states.iter().enumerate() {
+        index.insert(s.id.as_str(), i);
+    }
+    ir.transitions
+        .iter()
+        .map(|t| {
+            let from = *index.get(t.from.as_str()).ok_or_else(|| {
+                err(
+                    "invalid_model",
+                    format!(
+                        "transition `{}` has unknown from-state `{}` — not in the Model section's states",
+                        t.id, t.from
+                    ),
+                )
+            })?;
+            let to = *index.get(t.to.as_str()).ok_or_else(|| {
+                err(
+                    "invalid_model",
+                    format!(
+                        "transition `{}` has unknown to-state `{}` — not in the Model section's states",
+                        t.id, t.to
+                    ),
+                )
+            })?;
+            Ok((from, to))
+        })
+        .collect()
+}
+
+/// Generate the scratch crate's `src/main.rs`: a std-only BFS over the
+/// same program-counter model the embedded interpreter walks, with one
+/// `inv_<i>` fn per executable invariant (fragment verbatim) evaluated at
+/// every visited state through `catch_unwind` (`invariant_totality`: a
+/// panicking fragment is a violation, never a pass). BFS order keeps
+/// `counterexample_is_minimal` holding by construction — the first
+/// violated state discovered carries the shortest path to it.
+pub fn scratch_run_source(ir: &ModelIr, edges: &[(usize, usize)], bound: &Bound) -> String {
+    let names: Vec<String> = ir.states.iter().map(|s| s.id.clone()).collect();
+    let ids: Vec<String> = ir.invariants.iter().map(|i| i.id.clone()).collect();
+    let max_states = bound.max_states.map(|n| n as usize).unwrap_or(usize::MAX);
+    let timeout_nanos: u128 = bound
+        .timeout_secs
+        .map(|s| s as u128 * 1_000_000_000)
+        .unwrap_or(u128::MAX);
+
+    let mut out = String::new();
+    out.push_str(
+        "// Generated by `spk model-check` — the executable-invariant run\n\
+         // (specodelic.md Revision 15). Source of truth: the spec file;\n\
+         // edit there, not here.\n\n\
+         use std::collections::VecDeque;\n\
+         use std::time::Instant;\n\n",
+    );
+    out.push_str(&format!("const MAX_STATES: usize = {max_states};\n"));
+    out.push_str(&format!("const MAX_DEPTH: u32 = {};\n", bound.max_depth));
+    out.push_str(&format!("const TIMEOUT_NANOS: u128 = {timeout_nanos};\n"));
+    out.push_str("const INIT: usize = 0usize;\n\n");
+    out.push_str(&format!(
+        "fn state_names() -> Vec<&'static str> {{\n    vec![{}]\n}}\n\n",
+        names
+            .iter()
+            .map(|n| format!("{n:?}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    ));
+    out.push_str(&format!(
+        "fn edges() -> Vec<(usize, usize)> {{\n    vec![{}]\n}}\n\n",
+        edges
+            .iter()
+            .map(|(f, t)| format!("({f}, {t})"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    ));
+    for (i, inv) in ir.invariants.iter().enumerate() {
+        out.push_str(&format!(
+            "// INVARIANT {} — fragment verbatim\nfn inv_{i}(state: &str) -> bool {{\n    {}\n}}\n\n",
+            inv.id, inv.fragment
+        ));
+    }
+    out.push_str(
+        r#"
+fn eval_inv(i: usize, state: &str) -> bool {
+    // invariant_totality: a panicking fragment is a violation at that
+    // state — never a pass, never silently skipped.
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match i {
+"#,
+    );
+    for i in 0..ids.len() {
+        out.push_str(&format!("        {i} => inv_{i}(state),\n"));
+    }
+    out.push_str(
+        r#"
+        _ => true,
+    }))
+    .unwrap_or(false)
+}
+
+fn json_escape(s: &str) -> String {
+    let mut out = String::from("\"");
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+"#,
+    );
+    out.push_str(&format!(
+        "fn main() {{\n\
+             let names = state_names();\n\
+             let edges = edges();\n\
+             let inv_ids: Vec<&str> = vec![{}];\n\
+             let t0 = Instant::now();\n\
+             let n = names.len();\n\
+             let mut visited = vec![false; n];\n\
+             let mut parent = vec![usize::MAX; n];\n\
+             let mut depth = vec![0u32; n];\n\
+             let mut queue: VecDeque<usize> = VecDeque::new();\n\
+             visited[INIT] = true;\n\
+             queue.push_back(INIT);\n\
+             let mut states_explored: usize = 0;\n\
+             let mut violated: Option<(usize, usize)> = None;\n\
+             let mut deadline_hit = false;\n\
+             let mut states_capped = false;\n\
+             let mut depth_capped = false;\n\
+             'search: while let Some(s) = queue.pop_front() {{\n\
+                 if TIMEOUT_NANOS != u128::MAX\n\
+                     && (Instant::now() - t0).as_nanos() >= TIMEOUT_NANOS\n\
+                 {{\n\
+                     deadline_hit = true;\n\
+                     break 'search;\n\
+                 }}\n\
+                 states_explored += 1;\n\
+                 if states_explored > MAX_STATES {{\n\
+                     states_capped = true;\n\
+                     break 'search;\n\
+                 }}\n\
+                 for i in 0..inv_ids.len() {{\n\
+                     if !eval_inv(i, &names[s]) {{\n\
+                         violated = Some((s, i));\n\
+                         break 'search;\n\
+                     }}\n\
+                 }}\n\
+                 if depth[s] >= MAX_DEPTH {{\n\
+                     // exhaustive_within_bound: the stated depth bound\n\
+                     // refused to explore this state's successors — the\n\
+                     // space is not proven exhausted (conservative).\n\
+                     if edges.iter().any(|(from, _)| *from == s) {{\n\
+                         depth_capped = true;\n\
+                         break 'search;\n\
+                     }}\n\
+                     continue 'search;\n\
+                 }}\n\
+                 for (from, to) in edges.iter() {{\n\
+                     if *from == s && !visited[*to] {{\n\
+                         visited[*to] = true;\n\
+                         parent[*to] = s;\n\
+                         depth[*to] = depth[s] + 1;\n\
+                         queue.push_back(*to);\n\
+                     }}\n\
+                 }}\n\
+             }}\n",
+        ids.iter()
+            .map(|i| format!("{i:?}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    ));
+    out.push_str(r#"
+    let trace = violated.map(|(s, _)| {
+        let mut path = Vec::new();
+        let mut cur = s;
+        loop {
+            path.push(names[cur].to_string());
+            if cur == INIT {
+                break;
+            }
+            cur = parent[cur];
+        }
+        path.reverse();
+        path
+    });
+    let violated_json = match &violated {
+        Some((_, i)) => json_escape(inv_ids[*i]),
+        None => "null".to_string(),
+    };
+    let trace_json = match &trace {
+        Some(t) => format!(
+            "[{}]",
+            t.iter().map(|s| json_escape(s)).collect::<Vec<_>>().join(",")
+        ),
+        None => "null".to_string(),
+    };
+    println!(
+        "{{\"violated_invariant_id\":{},\"trace\":{},\"states_explored\":{},\"deadline_hit\":{},\"states_capped\":{}}}",
+        violated_json,
+        trace_json,
+        states_explored,
+        deadline_hit,
+        states_capped
+    );
+}
+"#);
+    out
+}
+
+/// The outcome policy for one scratch run's facts (unit-tested here, not
+/// in generated code): a violation is `counterexample_found` (the BFS
+/// trace is minimal by construction); a budget breach is `timed_out`; a
+/// completed exploration with ≥ 1 executed invariant and no violation is
+/// `no_counterexample` — the leg the gate could never reach before
+/// Revision 15. The run executes every invariant at every visited state,
+/// so `invariants_checked` is exactly the fragment set.
+pub fn report_from_facts(
+    facts: &RunFacts,
+    artifact_sha256: String,
+    invariant_ids: &[String],
+    backend: &Backend,
+    bound: &Bound,
+) -> RunReport {
+    let outcome = if facts.violated_invariant_id.is_some() {
+        Outcome::CounterexampleFound
+    } else if facts.deadline_hit || facts.states_capped || facts.depth_capped {
+        Outcome::TimedOut
+    } else {
+        Outcome::NoCounterexample
+    };
+    RunReport {
+        backend: backend.clone(),
+        bound: bound.clone(),
+        outcome,
+        invariants_checked: invariant_ids.to_vec(),
+        violated_invariant_id: facts.violated_invariant_id.clone(),
+        trace: facts.trace.clone(),
+        artifact_sha256,
+        states_explored: facts.states_explored,
+    }
+}
+
+/// Run the native backend's executable mode: one invariant fragment or
+/// more is present in the IR, so the report may honestly say
+/// `no_counterexample` (or name a real minimal counterexample). The run
+/// is a dependency-free scratch crate (fragments are verbatim Rust —
+/// `executable_invariants_execute`), compiled and executed by cargo with
+/// a wall-clock backstop; a missing toolchain or a fragment that does not
+/// compile is a labeled error, never a verdict.
+pub fn run_executable(
+    ir: &ModelIr,
+    tla_artifact: &[u8],
+    bound: &Bound,
+) -> Result<RunReport, ModelCheckError> {
+    let artifact_sha = artifact_sha256(tla_artifact);
+    assert_artifact_consistent(ir, tla_artifact)?;
+    if ir.states.is_empty() {
+        return Err(err(
+            "empty_model",
+            "the compiled model has no states — model_present requires a Model section with states and transitions",
+        ));
+    }
+    if ir.invariants.is_empty() {
+        // Defense-in-depth: the caller routes executable IR here only.
+        return run(ir, tla_artifact, bound);
+    }
+    let edges = resolve_edges(ir)?;
+
+    // Per-invocation scratch crate under the shared scratch base (the
+    // CARGO_TARGET_DIR there is shared with verify's runner, so cargo
+    // locks coordinate concurrent invocations).
+    let unique = format!(
+        "{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    );
+    let base = crate::verify::scratch_base()
+        .join("model-check")
+        .join(&unique);
+    std::fs::create_dir_all(base.join("src")).map_err(|e| {
+        err(
+            "scratch_dir",
+            format!("could not create {}: {e}", base.display()),
+        )
+    })?;
+    // Unique package (hence binary) name per invocation: `cargo run`
+    // releases the target-dir build lock before executing, so a parallel
+    // scratch build of the SAME binary name could overwrite it mid-run
+    // — two fragment files model-checked concurrently must not race.
+    let manifest = SCRATCH_RUN_MANIFEST.replace(
+        "specodelic-model-check-scratch",
+        &format!("spk-mc-{unique}"),
+    );
+    std::fs::write(base.join("Cargo.toml"), manifest)
+        .map_err(|e| err("scratch_dir", e.to_string()))?;
+    std::fs::write(
+        base.join("src").join("main.rs"),
+        scratch_run_source(ir, &edges, bound),
+    )
+    .map_err(|e| err("scratch_dir", e.to_string()))?;
+    let result = run_scratch(&base, bound);
+    let _ = std::fs::remove_dir_all(&base); // best effort
+    let stdout = result?;
+
+    // The scratch binary prints exactly one JSON line (the facts).
+    let line = stdout
+        .lines()
+        .rev()
+        .find(|l| !l.trim().is_empty())
+        .ok_or_else(|| {
+            err(
+                "scratch_output",
+                "the executable-invariant run printed no facts line — not a verdict",
+            )
+        })?;
+    let facts: RunFacts = serde_json::from_str(line.trim()).map_err(|e| {
+        err(
+            "scratch_output",
+            format!("the run's facts line does not parse: {e} — not a verdict"),
+        )
+    })?;
+    let backend = Backend {
+        engine: EXEC_ENGINE.into(),
+        version: EXEC_VERSION.into(),
+    };
+    let ids: Vec<String> = ir.invariants.iter().map(|i| i.id.clone()).collect();
+    Ok(report_from_facts(
+        &facts,
+        artifact_sha,
+        &ids,
+        &backend,
+        bound,
+    ))
+}
+
+/// Spawn `cargo run` on the scratch crate and wait under a wall-clock
+/// backstop (`bound.timeout_secs` + grace — the generated BFS bounds
+/// itself first; this backstop covers a pathological fragment). Returns
+/// the child's stdout on clean exit.
+fn run_scratch(base: &std::path::Path, bound: &Bound) -> Result<String, ModelCheckError> {
+    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+    let mut command = std::process::Command::new(&cargo);
+    command
+        .args(["run", "--quiet", "--manifest-path"])
+        .arg(base.join("Cargo.toml"))
+        .env(
+            "CARGO_TARGET_DIR",
+            crate::verify::scratch_base().join("target"),
+        )
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    let mut child = spawn_with_etxtbsy_retry(&mut command)
+        .map_err(|e| err("missing_runner", format!("the executable-invariant run compiles and runs a scratch crate — the Rust toolchain must be available ({e})")))?;
+    let backstop = bound
+        .timeout_secs
+        .map(|s| Duration::from_secs(s.saturating_add(10)));
+    let started = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let mut stdout = String::new();
+                if let Some(mut out) = child.stdout.take() {
+                    use std::io::Read;
+                    let _ = out.read_to_string(&mut stdout);
+                }
+                if !status.success() {
+                    let mut stderr = String::new();
+                    if let Some(mut err_out) = child.stderr.take() {
+                        use std::io::Read;
+                        let _ = err_out.read_to_string(&mut stderr);
+                    }
+                    return Err(err(
+                        "fragment_compile",
+                        format!(
+                            "the executable-invariant scratch run failed ({status}) — fragments are verbatim Rust: fix the **rust:** expression (first errors: {})",
+                            tail(&stderr, 400)
+                        ),
+                    ));
+                }
+                return Ok(stdout);
+            }
+            Ok(None) => {
+                if let Some(limit) = backstop
+                    && started.elapsed() >= limit
+                {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(err(
+                        "scratch_timeout",
+                        "the executable-invariant run exceeded its wall-clock backstop and was killed — a pathological fragment is an unbounded run; raise --timeout-secs",
+                    ));
+                }
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            Err(e) => return Err(err("scratch_spawn", e.to_string())),
+        }
+    }
+}
+
 /// A fresh scratch directory for one TLC run (pid + a process-local
 /// counter — unique across sequential runs in one invocation). Removed
 /// best-effort when the run finishes; a leftover from a killed process
@@ -698,6 +1146,24 @@ fn assert_artifact_consistent(ir: &ModelIr, tla_artifact: &[u8]) -> Result<(), M
             "the module's Output function differs from the spec's emits",
         ));
     }
+    // Revision 15 (specodelic-rjb): the executable-invariant manifest —
+    // id + verbatim **rust:** fragment per invariant — must match the
+    // IR's invariants. A fragment edited after the run changes these
+    // bytes, so rerun_on_model_change fails the stale report closed; a
+    // manifest absent while the IR carries fragments is equally stale.
+    let mut artifact_invariants = shape.invariants.clone();
+    artifact_invariants.sort();
+    let mut ir_invariants: Vec<(String, String)> = ir
+        .invariants
+        .iter()
+        .map(|i| (i.id.clone(), i.fragment.clone()))
+        .collect();
+    ir_invariants.sort();
+    if artifact_invariants != ir_invariants {
+        return Err(stale(
+            "the module's invariant manifest differs from the spec's executable invariants",
+        ));
+    }
     Ok(())
 }
 
@@ -712,6 +1178,10 @@ pub(crate) struct ArtifactShape {
     /// parallel transitions.
     pub edges: Vec<(String, String)>,
     pub output: std::collections::BTreeMap<String, String>,
+    /// The executable-invariant manifest comment: `(id, fragment)` per
+    /// `\* INVARIANT <id> **rust:** <fragment>` line — empty for modules
+    /// compiled before Revision 15 or with no fragment invariants.
+    pub invariants: Vec<(String, String)>,
 }
 
 /// Parse the machine-generated format `add-tla-emitter` commits: the
@@ -751,9 +1221,16 @@ pub(crate) fn parse_artifact_shape(tla_artifact: &[u8]) -> Result<ArtifactShape,
     let mut transition_ids: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     let mut edges: Vec<(String, String)> = vec![];
     let mut output: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
+    let mut invariants: Vec<(String, String)> = vec![];
     let mut in_output = false;
     for line in text.lines() {
         let comment = line.trim_start().strip_prefix("\\*").map(str::trim_start);
+        if let Some(c) = comment
+            && let Some(rest) = c.strip_prefix("INVARIANT ")
+            && let Some((id, fragment)) = rest.split_once(" **rust:** ")
+        {
+            invariants.push((id.trim().to_string(), fragment.trim().to_string()));
+        }
         if let Some(c) = comment
             && c.contains(" -> ")
             && c.contains("(guard:")
@@ -812,6 +1289,7 @@ pub(crate) fn parse_artifact_shape(tla_artifact: &[u8]) -> Result<ArtifactShape,
         transition_ids,
         edges,
         output,
+        invariants,
     })
 }
 
@@ -905,6 +1383,197 @@ mod tests {
             out.push('\n');
         }
         out.into_bytes()
+    }
+
+    // --- specodelic-rjb: executable invariants (Revision 15) ---
+
+    use crate::compile::InvariantIr;
+
+    fn ir_with_invariants(invariants: &[(&str, &str)]) -> ModelIr {
+        let base = chain_ir();
+        ModelIr {
+            invariants: invariants
+                .iter()
+                .map(|(id, f)| InvariantIr {
+                    id: (*id).to_string(),
+                    fragment: (*f).to_string(),
+                })
+                .collect(),
+            ..base
+        }
+    }
+
+    fn artifact_with_manifest(
+        states: &[&str],
+        transitions: &[(&str, &str, &str)],
+        invariants: &[(&str, &str)],
+    ) -> Vec<u8> {
+        let mut text = String::from_utf8(artifact_for(states, transitions, &[])).unwrap();
+        if !invariants.is_empty() {
+            let manifest = invariants
+                .iter()
+                .map(|(id, f)| format!("\\* INVARIANT {id} **rust:** {f}\n"))
+                .collect::<Vec<_>>()
+                .join("");
+            text = text.replace(
+                "StateValues ==",
+                &format!(
+                    "\\* Executable invariant fragments — id + verbatim **rust:** fragment;\n\\* carried in the module so the artifact hash covers fragment edits.\n{manifest}\nStateValues =="
+                ),
+            );
+        }
+        text.into_bytes()
+    }
+
+    #[test]
+    fn artifact_manifest_parses_into_shape() {
+        let tla = artifact_with_manifest(
+            &["a", "b", "c"],
+            &[("t1", "a", "b"), ("t2", "b", "c")],
+            &[("c_hold", "state != \"blackhole\"")],
+        );
+        let shape = parse_artifact_shape(&tla).expect("parses");
+        assert_eq!(
+            shape.invariants,
+            vec![("c_hold".to_string(), "state != \"blackhole\"".to_string())],
+            "the manifest comment carries id + fragment verbatim"
+        );
+        // Manifest absence means zero invariants (the corpus modules keep
+        // their bytes — the manifest is only emitted when one exists).
+        let plain = artifact_with_manifest(&["a"], &[("t1", "a", "a")], &[]);
+        assert!(parse_artifact_shape(&plain).unwrap().invariants.is_empty());
+    }
+
+    #[test]
+    fn consistency_checks_the_manifest_against_the_ir() {
+        let ir = ir_with_invariants(&[("c_hold", "state != \"blackhole\"")]);
+        let tla = artifact_with_manifest(
+            &["a", "b", "c"],
+            &[("t1", "a", "b"), ("t2", "b", "c")],
+            &[("c_hold", "state != \"blackhole\"")],
+        );
+        assert!(assert_artifact_consistent(&ir, &tla).is_ok());
+        // A fragment edit changes the manifest — the run fails closed as
+        // stale (rerun_on_model_change, Revision 15 rewording).
+        let drifted = artifact_with_manifest(
+            &["a", "b", "c"],
+            &[("t1", "a", "b"), ("t2", "b", "c")],
+            &[("c_hold", "state != \"doom\"")],
+        );
+        assert!(assert_artifact_consistent(&ir, &drifted).is_err());
+        // Manifest absent while the IR carries fragments — also stale.
+        let bare = artifact_for(&["a", "b", "c"], &[("t1", "a", "b"), ("t2", "b", "c")], &[]);
+        assert!(assert_artifact_consistent(&ir, &bare).is_err());
+    }
+
+    #[test]
+    fn scratch_source_compiles_fragments_verbatim() {
+        let ir = ir_with_invariants(&[
+            ("c_hold", "state != \"blackhole\""),
+            ("c_other", "state != \"doom\""),
+        ]);
+        let edges = resolve_edges(&ir).unwrap();
+        let src = scratch_run_source(&ir, &edges, &Bound::default());
+        assert!(
+            src.contains("fn inv_0(state: &str) -> bool {\n    state != \"blackhole\"\n}"),
+            "fragment verbatim in the generated invariant fn: {src}"
+        );
+        assert!(src.contains("fn inv_1(state: &str) -> bool {\n    state != \"doom\"\n}"));
+        assert!(
+            src.contains("catch_unwind"),
+            "panicking fragment → violated"
+        );
+        assert!(src.contains("\"a\", \"b\", \"c\""), "state names");
+        assert!(src.contains("(0, 1)"), "edges from the IR");
+        assert!(src.contains("usize::MAX"), "unbounded state cap");
+        assert!(
+            !SCRATCH_RUN_MANIFEST.contains("[dependencies]"),
+            "dependency-free scratch crate — builds offline, instantly"
+        );
+    }
+
+    #[test]
+    fn facts_parse_from_the_scratch_line() {
+        let facts: RunFacts = serde_json::from_str(
+            r#"{"violated_invariant_id":"c_hold","trace":["a","b","c"],"states_explored":3,"deadline_hit":false,"states_capped":false}"#,
+        )
+        .expect("the scratch line parses");
+        assert_eq!(facts.violated_invariant_id.as_deref(), Some("c_hold"));
+        assert_eq!(
+            facts.trace,
+            Some(vec!["a".to_string(), "b".to_string(), "c".to_string()])
+        );
+    }
+
+    #[test]
+    fn facts_map_to_outcomes() {
+        let ids = ["c_hold".to_string()];
+        let backend = Backend {
+            engine: EXEC_ENGINE.into(),
+            version: EXEC_VERSION.into(),
+        };
+        let clean = RunFacts {
+            violated_invariant_id: None,
+            trace: None,
+            states_explored: 3,
+            deadline_hit: false,
+            states_capped: false,
+            depth_capped: false,
+        };
+        let report = report_from_facts(
+            &clean,
+            "sha256".to_string(),
+            &ids,
+            &backend,
+            &Bound::default(),
+        );
+        assert_eq!(report.outcome, Outcome::NoCounterexample);
+        assert_eq!(report.invariants_checked, ids);
+        assert_eq!(report.violated_invariant_id, None);
+
+        let violated = RunFacts {
+            violated_invariant_id: Some("c_hold".into()),
+            trace: Some(vec!["a".into(), "b".into(), "c".into()]),
+            states_explored: 3,
+            deadline_hit: false,
+            states_capped: false,
+            depth_capped: false,
+        };
+        let report = report_from_facts(
+            &violated,
+            "sha256".to_string(),
+            &ids,
+            &backend,
+            &Bound::default(),
+        );
+        assert_eq!(report.outcome, Outcome::CounterexampleFound);
+        assert_eq!(report.violated_invariant_id.as_deref(), Some("c_hold"));
+        assert_eq!(
+            report.trace,
+            Some(
+                ["a", "b", "c"]
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>()
+            )
+        );
+
+        let capped = RunFacts {
+            violated_invariant_id: None,
+            trace: None,
+            states_explored: 1000,
+            deadline_hit: true,
+            states_capped: false,
+            depth_capped: false,
+        };
+        let report = report_from_facts(
+            &capped,
+            "sha256".to_string(),
+            &ids,
+            &backend,
+            &Bound::default(),
+        );
+        assert_eq!(report.outcome, Outcome::TimedOut);
     }
 
     #[test]
@@ -1003,9 +1672,10 @@ mod tests {
 
     #[test]
     fn prose_invariants_are_reported_unchecked_not_fabricated() {
-        // Decision 3 Option A: no executable predicate language exists,
-        // so the native backend checks nothing semantic — and never
-        // invents a counterexample.
+        // Decision 3 Option A, unchanged for fragment-less IR: prose
+        // predicates are uninterpreted — the in-process native backend
+        // checks nothing semantic and never invents a counterexample.
+        // Fragment-bearing IR takes run_executable instead.
         let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap();
         assert!(report.invariants_checked.is_empty());
         assert_eq!(report.violated_invariant_id, None);

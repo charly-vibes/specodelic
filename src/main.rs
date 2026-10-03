@@ -1831,7 +1831,11 @@ fn cmd_model_check(
         let ir = compile::extract_model_ir(spec);
         let result = match &tlc_paths {
             Some(tlc) => model_check::run_tlc(&ir, &tla_path, &tla_artifact, &target.bound, tlc),
-            None => model_check::run(&ir, &tla_artifact, &target.bound),
+            // Executable invariants (Revision 15): fragment-bearing IR goes
+            // through the scratch-crate run — no_counterexample becomes
+            // producible; fragment-less IR keeps the in-process run.
+            None if ir.invariants.is_empty() => model_check::run(&ir, &tla_artifact, &target.bound),
+            None => model_check::run_executable(&ir, &tla_artifact, &target.bound),
         };
         match result {
             Ok(report) => {
@@ -1857,6 +1861,8 @@ fn cmd_model_check(
                     "backend": report.backend,
                     "bound": report.bound,
                     "invariants_checked": report.invariants_checked,
+                    "violated_invariant_id": report.violated_invariant_id,
+                    "trace": report.trace,
                     "states_explored": report.states_explored,
                     "artifact_sha256": report.artifact_sha256,
                     "written": report_path.display().to_string(),

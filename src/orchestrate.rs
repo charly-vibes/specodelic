@@ -388,7 +388,10 @@ fn run_model_check_stage(
         let ir = compile::extract_model_ir(spec);
         let result = match &backends.tlc {
             Some(tlc) => model_check::run_tlc(&ir, &tla_path, &tla_artifact, bound, tlc),
-            None => model_check::run(&ir, &tla_artifact, bound),
+            // Executable invariants (Revision 15): fragment-bearing IR goes
+            // through the scratch-crate run, like cmd_model_check.
+            None if ir.invariants.is_empty() => model_check::run(&ir, &tla_artifact, bound),
+            None => model_check::run_executable(&ir, &tla_artifact, bound),
         };
         match result {
             Ok(report) => {

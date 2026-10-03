@@ -88,6 +88,16 @@ pub struct TransitionIr {
     pub guard: Option<String>,
 }
 
+/// An executable invariant fragment (specodelic.md Revision 15): the
+/// constraint's id and the verbatim Rust expression after the `**rust:**`
+/// marker in its `expr` cell. Consumed by `model_check`'s executable
+/// scratch-crate run and carried in the `.tla` manifest comment.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct InvariantIr {
+    pub id: String,
+    pub fragment: String,
+}
+
 /// Backend-neutral intermediate representation of the Model section.
 /// Both candidate backends (native stateright interpreter, opt-in TLC)
 /// consume this same structure; the follow-up change adds the emitter.
@@ -107,6 +117,177 @@ pub struct ModelIr {
     /// this verbatim, so value drift cannot pass silently.
     #[serde(default)]
     pub emits_values: BTreeMap<String, String>,
+    /// Executable invariant fragments from the Constraints table — empty
+    /// unless an invariant row opts in with the `**rust:**` marker
+    /// (specodelic.md Revision 15). `compile_spec` validates fragments
+    /// labeled before any artifact exists, so the lenient parse here
+    /// never fires on a compiled artifact's input.
+    #[serde(default)]
+    pub invariants: Vec<InvariantIr>,
+}
+
+// ---------------------------------------------------------------------------
+// Executable predicate fragments (specodelic.md Revision 15, specodelic-rjb)
+// ---------------------------------------------------------------------------
+
+/// The opt-in marker: in a Property `predicate` or invariant Constraint
+/// `expr` cell, the cell text after its first occurrence is the fragment —
+/// a Rust boolean expression, emitted/evaluated verbatim.
+pub const FRAGMENT_MARKER: &str = "**rust:**";
+
+/// `fragment_hygiene`'s banned tokens — defense-in-depth, not a sandbox:
+/// fragments run on the invoking user's machine with the invoking user's
+/// privileges, exactly like every other compiled artifact; this list
+/// rejects the escape hatches a table cell should never legitimately need
+/// (memory-unsafe code, compilation side doors, IO, processes, network,
+/// environment reads, assembly). Substring match is deliberately
+/// conservative — a false positive rejects a fragment at compile time
+/// with a label naming the token, never a silent pass.
+pub const FRAGMENT_BANNED: &[&str] = &[
+    "unsafe",
+    "extern",
+    "include!",
+    "include_str!",
+    "include_bytes!",
+    "std::fs",
+    "std::process",
+    "std::net",
+    "std::env",
+    "asm!",
+    "Command",
+];
+
+/// Strict fragment parse: `Ok(None)` when the cell carries no marker
+/// (unchanged pre-Revision-15 behavior), `Ok(Some(fragment))` for exactly
+/// one marker with a non-empty fragment after it, `Err(reason)` otherwise
+/// (more than one marker, or an empty fragment). Used by
+/// `validate_fragments` (labeled) and, leniently via `fragment_of`, by
+/// the IR/tla extraction — which only ever see compile-validated input.
+pub fn fragment_of_strict(cell: &str) -> Result<Option<String>, String> {
+    let count = cell.matches(FRAGMENT_MARKER).count();
+    match count {
+        0 => Ok(None),
+        1 => {
+            // The fragment runs to the cell's end or the code span's
+            // closing backtick — cells author fragments as
+            // `` `**rust:** <expr>` ``, so the closing backtick is part of
+            // the cell, never part of the fragment (Rust boolean
+            // expressions do not contain backticks).
+            let after = cell.split_once(FRAGMENT_MARKER).unwrap().1;
+            let fragment = match after.find('`') {
+                Some(i) => &after[..i],
+                None => after,
+            }
+            .trim();
+            if fragment.is_empty() {
+                Err(
+                    "empty **rust:** fragment — write the Rust boolean expression after the marker"
+                        .into(),
+                )
+            } else {
+                Ok(Some(fragment.to_string()))
+            }
+        }
+        _ => Err(
+            "more than one **rust:** marker in one cell — at most one executable fragment per cell"
+                .into(),
+        ),
+    }
+}
+
+/// The lenient fragment parse for extraction contexts that only ever see
+/// compile-validated input (`extract_model_ir`, `model_to_tla`): a
+/// malformed cell yields `None` — compile itself never emits such an
+/// artifact, so this cannot silently drop a real fragment.
+pub fn fragment_of(cell: &str) -> Option<String> {
+    fragment_of_strict(cell).ok().flatten()
+}
+
+fn hygiene_violation(fragment: &str) -> Option<&'static str> {
+    FRAGMENT_BANNED
+        .iter()
+        .copied()
+        .find(|t| fragment.contains(t))
+}
+
+fn fragment_error(row_id: &str, reason: impl std::fmt::Display) -> CompileError {
+    CompileError {
+        stage: "fragment_extraction".into(),
+        message: format!(
+            "row `{row_id}`: {reason} — fix or remove the **rust:** marker (executable predicate fragments, specodelic.md Revision 15)"
+        ),
+    }
+}
+
+/// Every fragment-bearing cell in the spec is validated labeled before
+/// any artifact is emitted (compile_is_total): single non-empty marker,
+/// hygiene, and the three rejection rows — law-kind Property predicates,
+/// non-invariant Constraint exprs, and Transition guards (no binding over
+/// the program-counter model — deferred of record).
+pub fn validate_fragments(spec: &Spec) -> Result<(), CompileError> {
+    for p in &spec.properties {
+        let predicate = p.cells.get("predicate").cloned().unwrap_or_default();
+        let kind = p.cells.get("kind").cloned().unwrap_or_default();
+        match fragment_of_strict(&predicate) {
+            Err(reason) => return Err(fragment_error(&p.id, reason)),
+            Ok(Some(fragment)) => {
+                if kind == "law" {
+                    return Err(fragment_error(
+                        &p.id,
+                        "law-kind properties cannot carry **rust:** fragments — each required case needs its own body, and one fragment cannot honestly serve several named cases",
+                    ));
+                }
+                if let Some(token) = hygiene_violation(&fragment) {
+                    return Err(fragment_error(
+                        &p.id,
+                        format!(
+                            "fragment contains banned token `{token}` (fragment_hygiene — fragments are compiled Rust, never a sandbox)"
+                        ),
+                    ));
+                }
+            }
+            Ok(None) => {}
+        }
+    }
+    for c in &spec.constraints {
+        let expr = c.cells.get("expr").cloned().unwrap_or_default();
+        let kind = c.cells.get("kind").cloned().unwrap_or_default();
+        match fragment_of_strict(&expr) {
+            Err(reason) => return Err(fragment_error(&c.id, reason)),
+            Ok(Some(fragment)) => {
+                if kind != "invariant" {
+                    return Err(fragment_error(
+                        &c.id,
+                        format!(
+                            "**rust:** fragments are only defined for kind == invariant Constraints — `{}` is kind `{kind}`",
+                            c.id
+                        ),
+                    ));
+                }
+                if let Some(token) = hygiene_violation(&fragment) {
+                    return Err(fragment_error(
+                        &c.id,
+                        format!(
+                            "fragment contains banned token `{token}` (fragment_hygiene — fragments are compiled Rust, never a sandbox)"
+                        ),
+                    ));
+                }
+            }
+            Ok(None) => {}
+        }
+    }
+    for t in &spec.transitions {
+        if let Some(guard) = &t.guard
+            && fragment_of_strict(guard).is_ok()
+            && guard.contains(FRAGMENT_MARKER)
+        {
+            return Err(fragment_error(
+                &t.id,
+                "transition guards cannot carry **rust:** fragments — the program-counter model has no data binding a guard could constrain, so executable guards have no defined semantics in this Revision (decision of record, deferred)",
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Constraint id → its `expr` cell (empty when absent) — the single
@@ -177,11 +358,28 @@ pub fn extract_model_ir(spec: &Spec) -> ModelIr {
             .unwrap_or(resolved.as_str());
         emits_values.insert(s.id.clone(), value.to_string());
     }
+    // Executable invariant fragments (Revision 15): kind == invariant rows
+    // whose expr opts in. Lenient parse — compile_spec's labeled validation
+    // has already rejected malformed fragments before any artifact exists.
+    let invariants = spec
+        .constraints
+        .iter()
+        .filter(|c| c.cells.get("kind").map(String::as_str) == Some("invariant"))
+        .filter_map(|c| {
+            fragment_of(c.cells.get("expr").map(String::as_str).unwrap_or("")).map(|fragment| {
+                InvariantIr {
+                    id: c.id.clone(),
+                    fragment,
+                }
+            })
+        })
+        .collect();
     ModelIr {
         states,
         transitions,
         emits,
         emits_values,
+        invariants,
     }
 }
 
@@ -202,6 +400,10 @@ struct PropBlock {
     generator: String,
     /// Verbatim predicate cell text.
     predicate: String,
+    /// The row's executable fragment when its predicate opts in with the
+    /// `**rust:**` marker (specodelic.md Revision 15) — `None` keeps the
+    /// un-translated placeholder.
+    fragment: Option<String>,
     /// Generator function names referenced by the row, in order.
     gens: Vec<String>,
 }
@@ -211,9 +413,12 @@ struct PropBlock {
 /// law-kind rows (`law_property_compiles_required_cases`).
 ///
 /// Emission is compilable scaffolding, not a pseudo-code translation: the
-/// strategy is a call into the generated `spec_gen` helpers and the
+/// strategy is a call into the generated `spec_gen` helpers (yielding
+/// plain Strings — Revision 15 retired the `GenVal` wrapper) and the
 /// predicate is carried verbatim through `todo_predicate!`, which compiles
 /// here and only fails when executed — execution is `verify`'s (1pv) job.
+/// A predicate opting in with the `**rust:**` marker (specodelic.md
+/// Revision 15) is emitted verbatim as a real `assert!` body instead.
 pub fn properties_to_proptest(spec: &Spec) -> String {
     let file_id = &spec.intent.id;
     let mut blocks: Vec<PropBlock> = spec
@@ -238,8 +443,10 @@ pub fn properties_to_proptest(spec: &Spec) -> String {
         "//! proptest scaffolding for `{file_id}` — generated by `spk compile`.\n\
          //! Source of truth: the spec file itself — edit there, not here.\n\
          //! Each block quotes its row's generator and predicate verbatim;\n\
-         //! predicates not yet translated to Rust fail in `verify` via\n\
-         //! `todo_predicate!`, never at artifact emission.\n\n"
+         //! a predicate opting in with the **rust:** marker (executable\n\
+         //! fragment, specodelic.md Revision 15) is emitted verbatim as the\n\
+         //! block's assertion body; predicates not yet translated fail in\n\
+         //! `verify` via `todo_predicate!`, never at artifact emission.\n\n"
     ));
     if blocks.is_empty() {
         // No property rows: an empty-but-present artifact beats an absent one.
@@ -248,12 +455,10 @@ pub fn properties_to_proptest(spec: &Spec) -> String {
     }
     out.push_str("use proptest::prelude::*;\n\n");
     out.push_str(
-        "/// Placeholder element type for generated values; `verify` replaces\n\
-         /// this scaffolding with real strategies and assertion bodies.\n\
-         #[derive(Debug, Clone)]\n\
-         pub struct GenVal(pub String);\n\n\
-         /// Marker for predicates not yet translated to Rust: compiles here,\n\
-         /// panics when executed — execution is `verify`'s job.\n\
+        "/// Marker for predicates not yet translated to Rust: compiles here,\n\
+         /// panics when executed — execution is `verify`'s job. A predicate\n\
+         /// opting in with **rust:** compiles as a real assertion instead\n\
+         /// (executable predicate fragment, specodelic.md Revision 15).\n\
          macro_rules! todo_predicate {\n    ($reason:expr) => { todo!(\"{}\", $reason) };\n}\n\n",
     );
 
@@ -269,12 +474,13 @@ pub fn properties_to_proptest(spec: &Spec) -> String {
     if !gens.is_empty() {
         out.push_str(
             "/// Generated strategies — one per generator named in the spec rows.\n\
-             /// The real element types and strategies are `verify`'s domain.\n\
+             /// Each yields a String (the generator's name; executable\n\
+             /// fragments bind these directly — Revision 15).\n\
              pub mod spec_gen {\n    use super::*;\n\n",
         );
         for g in &gens {
             out.push_str(&format!(
-                "    pub fn {g}() -> impl Strategy<Value = GenVal> {{\n        Just(GenVal({g:?}.into()))\n    }}\n\n"
+                "    pub fn {g}() -> impl Strategy<Value = String> {{\n        Just({g:?}.into())\n    }}\n\n"
             ));
         }
         out.push_str("}\n\n");
@@ -297,7 +503,18 @@ pub fn properties_to_proptest(spec: &Spec) -> String {
             .collect::<Vec<_>>()
             .join(", ");
         out.push_str(&format!("    fn {}({}) {{\n", b.fn_name, args));
-        out.push_str(&format!("        todo_predicate!({:?});\n", b.predicate));
+        if let Some(fragment) = &b.fragment {
+            // Executable predicate fragment (specodelic.md Revision 15):
+            // the Rust expression after the **rust:** marker, verbatim —
+            // no mini-language. The assertion failure message names the
+            // row id so the failing block is attributable.
+            out.push_str(&format!(
+                "        assert!(\n            {},\n            \"predicate `{}` violated (executable fragment)\",\n        );\n",
+                fragment, b.id
+            ));
+        } else {
+            out.push_str(&format!("        todo_predicate!({:?});\n", b.predicate));
+        }
         out.push_str("    }\n}\n\n");
     }
     out
@@ -318,6 +535,9 @@ fn blocks_for_row(id: String, kind: Option<&str>, row: &crate::spec::Row) -> Vec
                 fn_name: format!("{base}_{}", sanitize_ident(&case)),
                 id: id.clone(),
                 case: Some(case),
+                // Law rows never carry fragments (fragment_law_rejected —
+                // compile_spec fails labeled before emission runs).
+                fragment: None,
                 generator: generator.clone(),
                 predicate: predicate.clone(),
                 gens: gens.clone(),
@@ -327,6 +547,7 @@ fn blocks_for_row(id: String, kind: Option<&str>, row: &crate::spec::Row) -> Vec
             fn_name: base,
             id,
             case: None,
+            fragment: fragment_of(&predicate),
             generator,
             predicate,
             gens,
@@ -451,6 +672,26 @@ pub fn model_to_tla(spec: &Spec) -> String {
         "\\* Generated by `spk compile` from spec `{}` — source of truth is the\n\\* spec file; edit there, not here. Extends nothing: the module is\n\\* self-contained so any engine can open it.\n\n",
         spec.intent.id
     ));
+
+    // Executable-invariant manifest (specodelic.md Revision 15): id +
+    // fragment verbatim as module comments. Purely a staleness key and a
+    // human-reviewable record — no engine parses it — but a fragment edit
+    // changes these bytes, so the artifact hash covers fragment edits
+    // (model_check.md's rerun_on_model_change, reworded to name fragments).
+    if ir.invariants.is_empty() {
+        out.push_str("\\* No executable invariant fragments (Revision 15).\n\n");
+    } else {
+        out.push_str(
+            "\\* Executable invariant fragments — id + verbatim **rust:** fragment;\n\\* carried in the module so the artifact hash covers fragment edits.\n",
+        );
+        for inv in &ir.invariants {
+            out.push_str(&format!(
+                "\\* INVARIANT {} **rust:** {}\n",
+                inv.id, inv.fragment
+            ));
+        }
+        out.push('\n');
+    }
 
     // Each State becomes a value in the state variable's range.
     let state_values: Vec<String> = ir.states.iter().map(|s| format!("\"{}\"", s.id)).collect();
@@ -640,6 +881,9 @@ pub fn write_artifacts(
 /// Compile one spec file through the full contract. Idempotent and
 /// byte-stable: the same input yields byte-identical artifacts.
 pub fn compile_spec(spec: &Spec) -> Result<Compiled, CompileError> {
+    // fragment_extraction — every fragment-bearing cell is validated
+    // labeled before any artifact is emitted (compile_is_total; Revision 15).
+    validate_fragments(spec)?;
     // model_to_tla needs a non-empty state range; lint's `model_present`
     // gate covers this for CLI runs, but the lib contract is total — a
     // spec without states fails labeled, never with a malformed module.
@@ -963,6 +1207,149 @@ mod tests {
                 "id `{id}` dropped"
             );
         }
+    }
+
+    // --- specodelic-rjb: executable predicate fragments (Revision 15) ---
+
+    const FRAGMENT_SAMPLE: &str = "---\nid: demo.frags\nkind: intent\nstatement: \"THE system SHALL work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `**rust:** state != \"blackhole\"` | [[demo.frags]] |\n| b | effect | `y fires` | [[demo.frags]] |\n\n## Model\n\n### States\n\n- s1\n- s2\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t1 | s1 | s2 | [[demo.frags.a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p1 | unit | [[demo.frags.a]] | `word()` | `**rust:** v0.len() >= 1` |\n| p2 | unit | [[demo.frags.a]] | `word(), num()` | `**rust:** v0.len() >= 1 && v1.len() >= 1` |\n";
+
+    fn fragment_sample() -> Spec {
+        parse_str(FRAGMENT_SAMPLE).expect("fragment sample parses")
+    }
+
+    #[test]
+    fn fragment_body_emitted_verbatim() {
+        let src = properties_to_proptest(&fragment_sample());
+        assert!(
+            src.contains("assert!(\n            v0.len() >= 1,\n            \"predicate `p1` violated (executable fragment)\",\n        );"),
+            "fragment must be the assertion body, verbatim: {src}"
+        );
+        assert!(
+            src.contains("assert!(\n            v0.len() >= 1 && v1.len() >= 1,"),
+            "multi-generator fragment binds v0 and v1: {src}"
+        );
+        // The fragment rows carry no placeholder.
+        assert!(!src.contains("todo_predicate!(\"**rust:**"));
+    }
+
+    #[test]
+    fn fragment_values_bind_generators_as_strings() {
+        let src = properties_to_proptest(&fragment_sample());
+        assert!(
+            src.contains("impl Strategy<Value = String>"),
+            "generators yield plain Strings (GenVal retired, Revision 15): {src}"
+        );
+        assert!(!src.contains("GenVal"), "GenVal must be gone: {src}");
+    }
+
+    #[test]
+    fn prose_predicate_stays_placeholder() {
+        // Pure widening: a cell without the marker compiles exactly as
+        // before (specodelic.md Revision 15).
+        let src = properties_to_proptest(&sample());
+        assert!(src.contains("todo_predicate!"));
+        assert!(!src.contains("executable fragment"));
+    }
+
+    #[test]
+    fn law_fragment_rejected_labeled() {
+        let text = FRAGMENT_SAMPLE.replace(
+            "| p1 | unit | [[demo.frags.a]] | `word()` | `**rust:** v0.len() >= 1` |",
+            "| p1 | law | [[demo.frags.a]] | `word()` | **identity:** `f(a) == a` **associativity:** `f(f(a)) == f(a)` **rust:** v0.len() >= 1 |",
+        );
+        let spec = parse_str(&text).expect("parses");
+        let e = compile_spec(&spec).expect_err("law fragment must fail");
+        assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
+        assert!(e.message.contains("law"), "{}", e.message);
+    }
+
+    #[test]
+    fn hygiene_violation_rejected_labeled_names_token() {
+        for (token, frag) in [
+            ("unsafe", "unsafe { 1 == 1 }"),
+            ("std::fs", "std::fs::metadata(\"x\").is_ok()"),
+            ("Command", "Command::new(\"sh\") == never"),
+        ] {
+            let text = FRAGMENT_SAMPLE
+                .replace("`**rust:** v0.len() >= 1`", &format!("`**rust:** {frag}`"));
+            let spec = parse_str(&text).expect("parses");
+            let e = compile_spec(&spec).expect_err("banned token must fail");
+            assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
+            assert!(
+                e.message.contains(token),
+                "message must name the token {token}: {}",
+                e.message
+            );
+        }
+    }
+
+    #[test]
+    fn guard_fragment_rejected_labeled() {
+        let text = FRAGMENT_SAMPLE.replace(
+            "| t1 | s1 | s2 | [[demo.frags.a]] |",
+            "| t1 | s1 | s2 | `**rust:** true` |",
+        );
+        let spec = parse_str(&text).expect("parses");
+        let e = compile_spec(&spec).expect_err("guard fragment must fail");
+        assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
+        assert!(e.message.contains("t1"), "{}", e.message);
+    }
+
+    #[test]
+    fn non_invariant_fragment_rejected_labeled() {
+        let text = FRAGMENT_SAMPLE.replace(
+            "| b | effect | `y fires` | [[demo.frags]] |",
+            "| b | effect | `**rust:** true` | [[demo.frags]] |",
+        );
+        let spec = parse_str(&text).expect("parses");
+        let e = compile_spec(&spec).expect_err("effect fragment must fail");
+        assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
+        assert!(e.message.contains("b"), "{}", e.message);
+    }
+
+    #[test]
+    fn double_marker_rejected_labeled() {
+        let text = FRAGMENT_SAMPLE.replace(
+            "`**rust:** v0.len() >= 1`",
+            "`**rust:** v0.len() >= 1 **rust:** v0.len() >= 2`",
+        );
+        let spec = parse_str(&text).expect("parses");
+        let e = compile_spec(&spec).expect_err("two markers must fail");
+        assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
+    }
+
+    #[test]
+    fn empty_fragment_rejected_labeled() {
+        let text = FRAGMENT_SAMPLE.replace("`**rust:** v0.len() >= 1`", "`**rust:**`");
+        let spec = parse_str(&text).expect("parses");
+        let e = compile_spec(&spec).expect_err("empty fragment must fail");
+        assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
+    }
+
+    #[test]
+    fn executable_invariants_extract_into_the_ir() {
+        let ir = extract_model_ir(&fragment_sample());
+        assert_eq!(
+            ir.invariants,
+            vec![InvariantIr {
+                id: "a".into(),
+                fragment: "state != \"blackhole\"".into(),
+            }],
+            "invariant fragments ride the ModelIR"
+        );
+        assert!(extract_model_ir(&sample()).invariants.is_empty());
+    }
+
+    #[test]
+    fn module_carries_the_fragment_manifest() {
+        // rerun_on_model_change: the manifest comment makes a fragment
+        // edit change the artifact hash.
+        let tla = model_to_tla(&fragment_sample());
+        assert!(
+            tla.contains("\\* INVARIANT a **rust:** state != \"blackhole\""),
+            "manifest comment must carry id + fragment verbatim: {tla}"
+        );
+        assert!(!model_to_tla(&sample()).contains("INVARIANT"));
     }
 
     #[test]

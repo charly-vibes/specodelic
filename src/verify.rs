@@ -183,7 +183,7 @@ pub fn verdict(properties: &PropsGateState, model: &ModelGateState) -> Verdict {
             ModelGateState::NotClean { outcome } => (
                 "model_not_clean",
                 format!(
-                    "the most recent model-check run against the current artifact reported {outcome:?} — only no_counterexample verifies, and exploration_only is explicitly not clean (the native backend executes no invariant predicates)"
+                    "the most recent model-check run against the current artifact reported {outcome:?} — only no_counterexample verifies, and exploration_only is explicitly not clean (no invariant predicates were executed; give the model executable invariant fragments — the **rust:** marker, specodelic.md Revision 15 — and re-run)"
                 ),
                 "run: specodelic model-check with a backend that executes invariants, or treat the model as unverified".to_string(),
             ),
@@ -591,7 +591,7 @@ fn run_bounded(
 /// `SPECODELIC_VERIFY_SCRATCH` — e.g. to relocate off a size-capped tmpfs);
 /// `CARGO_TARGET_DIR` is shared across runs so proptest compiles once per
 /// machine, not per verify invocation.
-fn scratch_base() -> PathBuf {
+pub(crate) fn scratch_base() -> PathBuf {
     scratch_base_impl(std::env::var_os("SPECODELIC_VERIFY_SCRATCH").as_deref())
 }
 
