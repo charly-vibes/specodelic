@@ -157,15 +157,16 @@ pub const FRAGMENT_BANNED: &[&str] = &[
     "Command",
 ];
 
-/// Strict fragment parse: `Ok(None)` when the cell carries no marker
-/// (unchanged pre-Revision-15 behavior), `Ok(Some(fragment))` for exactly
-/// one marker with a non-empty fragment after it, `Err(reason)` otherwise
-/// (more than one marker, or an empty fragment). Used by
+/// Strict fragment parse: `Ok(None)` when the cell carries no marker in
+/// fragment position (unchanged pre-Revision-15 behavior),
+/// `Ok(Some(fragment))` for exactly one fragment-position marker with a
+/// non-empty fragment after it, `Err(reason)` otherwise (more than one
+/// fragment-position marker, or an empty fragment). Used by
 /// `validate_fragments` (labeled) and, leniently via `fragment_of`, by
 /// the IR/tla extraction — which only ever see compile-validated input.
 pub fn fragment_of_strict(cell: &str) -> Result<Option<String>, String> {
-    let count = cell.matches(FRAGMENT_MARKER).count();
-    match count {
+    let positions = fragment_positions(cell);
+    match positions.len() {
         0 => Ok(None),
         1 => {
             // The fragment runs to the cell's end or the code span's
@@ -173,9 +174,10 @@ pub fn fragment_of_strict(cell: &str) -> Result<Option<String>, String> {
             // `` `**rust:** <expr>` ``, so the closing backtick is part of
             // the cell, never part of the fragment (Rust boolean
             // expressions do not contain backticks).
-            let after = cell.split_once(FRAGMENT_MARKER).unwrap().1;
+            let i = positions[0];
+            let after = &cell[i + FRAGMENT_MARKER.len()..];
             let fragment = match after.find('`') {
-                Some(i) => &after[..i],
+                Some(j) => &after[..j],
                 None => after,
             }
             .trim();
@@ -189,10 +191,44 @@ pub fn fragment_of_strict(cell: &str) -> Result<Option<String>, String> {
             }
         }
         _ => Err(
-            "more than one **rust:** marker in one cell — at most one executable fragment per cell"
+            "more than one **rust:** marker in fragment position in one cell — at most one executable fragment per cell"
                 .into(),
         ),
     }
+}
+
+/// Marker occurrences in FRAGMENT POSITION — the only occurrences that
+/// opt a cell into executable translation (specodelic-sd1): at the very
+/// start of the cell (after leading whitespace), or immediately after an
+/// opening code-span backtick (`` `**rust:** <expr>` `` — the Revision 15
+/// form). An occurrence anywhere else — mid-span (the corpus rows that
+/// DEFINE the marker carry one, e.g. compile.md's
+/// `predicate_fragment_opt_in`) or in prose between spans (verify.md's
+/// `fragments_reach_verified`) — is a mention of the mechanism and never
+/// extracts. Span scanning toggles on single backticks; the corpus does
+/// not use multi-backtick spans. A marker after a CLOSING backtick
+/// (`` `x` **rust:** y ``) is prose-position — a mention, not an opt-in.
+fn fragment_positions(cell: &str) -> Vec<usize> {
+    let lead = cell.len() - cell.trim_start().len();
+    let mut positions = vec![];
+    let mut in_span = false;
+    let mut prev: Option<char> = None;
+    for (i, c) in cell.char_indices() {
+        let prev_backtick = prev == Some('`');
+        if c == '`' {
+            in_span = !in_span;
+        } else if cell[i..].starts_with(FRAGMENT_MARKER) {
+            let at_cell_start = i == lead;
+            // The marker is span-opening when the backtick just before it
+            // opened the span we are inside (`` `**rust:** … ``).
+            let opens_span = in_span && prev_backtick;
+            if at_cell_start || opens_span {
+                positions.push(i);
+            }
+        }
+        prev = Some(c);
+    }
+    positions
 }
 
 /// The lenient fragment parse for extraction contexts that only ever see
@@ -278,8 +314,10 @@ pub fn validate_fragments(spec: &Spec) -> Result<(), CompileError> {
     }
     for t in &spec.transitions {
         if let Some(guard) = &t.guard
-            && fragment_of_strict(guard).is_ok()
-            && guard.contains(FRAGMENT_MARKER)
+            // specodelic-sd1: only a marker in fragment position (a real
+            // opt-in) rejects a guard — a mention of the marker in a
+            // guard cell is prose, never an executable fragment.
+            && matches!(fragment_of_strict(guard), Ok(Some(_)))
         {
             return Err(fragment_error(
                 &t.id,
@@ -1360,9 +1398,12 @@ mod tests {
 
     #[test]
     fn law_fragment_rejected_labeled() {
+        // specodelic-sd1: the fixture opts in via the canonical fragment
+        // position (span-opening marker) — a mid-cell prose marker is a
+        // mention, not an opt-in.
         let text = FRAGMENT_SAMPLE.replace(
             "| p1 | unit | [[demo.frags.a]] | `word()` | `**rust:** v0.len() >= 1` |",
-            "| p1 | law | [[demo.frags.a]] | `word()` | **identity:** `f(a) == a` **associativity:** `f(f(a)) == f(a)` **rust:** v0.len() >= 1 |",
+            "| p1 | law | [[demo.frags.a]] | `word()` | `**rust:** v0.len() >= 1` |",
         );
         let spec = parse_str(&text).expect("parses");
         let e = compile_spec(&spec).expect_err("law fragment must fail");
@@ -1416,12 +1457,15 @@ mod tests {
 
     #[test]
     fn double_marker_rejected_labeled() {
+        // specodelic-sd1: two markers in FRAGMENT POSITION (each opening
+        // its own code span) are still the labeled at-most-one failure —
+        // a mid-span second occurrence is a mention, not a second marker.
         let text = FRAGMENT_SAMPLE.replace(
             "`**rust:** v0.len() >= 1`",
-            "`**rust:** v0.len() >= 1 **rust:** v0.len() >= 2`",
+            "`**rust:** v0.len() >= 1`, `**rust:** v0.len() >= 2`",
         );
         let spec = parse_str(&text).expect("parses");
-        let e = compile_spec(&spec).expect_err("two markers must fail");
+        let e = compile_spec(&spec).expect_err("two fragment-position markers must fail");
         assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
     }
 
@@ -1431,6 +1475,56 @@ mod tests {
         let spec = parse_str(&text).expect("parses");
         let e = compile_spec(&spec).expect_err("empty fragment must fail");
         assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
+    }
+
+    // --- specodelic-sd1: marker mentions are not opt-ins ---
+
+    /// The two corpus mention shapes: a **rust:** occurrence MID-SPAN in a
+    /// defining row's expr cell (compile.md's predicate_fragment_opt_in et
+    /// al.) and one in PROSE between code spans (verify.md's
+    /// fragments_reach_verified predicate).
+    const MENTION_SAMPLE: &str = "---\nid: demo.mention\nkind: intent\nstatement: \"THE system SHALL work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `every row compiles verbatim as a **rust:** fragment when the row opts in, else the placeholder` | [[demo.mention]] |\n\n## Model\n\n### States\n\n- s1\n- s2\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t1 | s1 | s2 | [[demo.mention.a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[demo.mention.a]] | `word()` | `check(file) == verified` — a passing **rust:** predicate and a clean executable-invariant run verify a real file |\n";
+
+    #[test]
+    fn marker_mentions_never_extract() {
+        // specodelic-sd1: an occurrence of **rust:** that is not in
+        // fragment position (cell start, or opening the fragment's code
+        // span) is a mention of the mechanism, never an opt-in — the
+        // extractor must not read the prose after it as a fragment. The
+        // corpus rows that DEFINE the marker carry such mentions in their
+        // own cells; before this fix the defining-row prose was extracted
+        // as Rust and the scratch runs hard-failed.
+        let spec = parse_str(MENTION_SAMPLE).expect("parses");
+        // Mid-span mention → no executable invariant in the IR.
+        let ir = extract_model_ir(&spec);
+        assert!(
+            ir.invariants.is_empty(),
+            "mid-span mention must not extract an invariant: {ir:?}"
+        );
+        // Prose mention between spans → the honest placeholder body.
+        let src = properties_to_proptest(&spec);
+        assert!(
+            !src.contains("assert!("),
+            "prose mention must not extract: {src}"
+        );
+        assert!(src.contains("todo_predicate!("));
+    }
+
+    #[test]
+    fn span_opening_optin_extracts_mention_alongside_ignored() {
+        // The Revision 15 opt-in form still extracts when the cell ALSO
+        // mentions the marker in prose outside the fragment span — the
+        // mention is not a second marker, the cell compiles cleanly.
+        let text = FRAGMENT_SAMPLE.replace(
+            "`**rust:** v0.len() >= 1`",
+            "`**rust:** v0.len() >= 1` — mentioned again as a **rust:** fragment in prose",
+        );
+        let spec = parse_str(&text).expect("parses");
+        let src = properties_to_proptest(&spec);
+        assert!(
+            src.contains("assert!(\n            v0.len() >= 1,"),
+            "span-opening opt-in must still extract: {src}"
+        );
     }
 
     #[test]

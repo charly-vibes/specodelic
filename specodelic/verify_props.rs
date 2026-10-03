@@ -126,13 +126,10 @@ proptest! {
     }
     // id: fragments_reach_verified
     // generator: `fixture_with(fragment_predicate_passing, executable_invariant_clean)`
-    // predicate: `check(file) == verified` — with executable fragments (specodelic.md Revision 15) both gates are reachable: a passing **rust:** predicate and a clean executable-invariant run verify a real file, the state the gate could never reach before this Revision
+    // predicate: `check(file) == verified` — with executable fragments (specodelic.md Revision 15) both gates are reachable: a passing executable predicate and a clean executable-invariant run verify a real file, the state the gate could never reach before this Revision
     #[test]
     fn fragments_reach_verified(v0 in spec_gen::fixture_with()) {
-        assert!(
-            predicate and a clean executable-invariant run verify a real file, the state the gate could never reach before this Revision,
-            "predicate `fragments_reach_verified` violated (executable fragment)",
-        );
+        todo_predicate!("`check(file) == verified` — with executable fragments (specodelic.md Revision 15) both gates are reachable: a passing executable predicate and a clean executable-invariant run verify a real file, the state the gate could never reach before this Revision");
     }
 }
 

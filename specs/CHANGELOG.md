@@ -6,6 +6,44 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #109 — `**rust:**` mentions are not opt-ins (specodelic-sd1)
+
+The extractor treated ANY occurrence of the marker as an opt-in — including
+mentions. The corpus rows that DEFINE the mechanism (compile.md's
+`predicate_fragment_opt_in`, `invariant_fragment_opt_in`,
+`fragment_law_rejected`, `fragment_guard_rejected`, `properties_to_proptest`;
+model_check.md's `executable_invariants_execute`) carry a `**rust:**`
+occurrence inside their own expr code spans, and verify.md's
+`fragments_reach_verified` carries one in prose between spans — so the prose
+after each mention was extracted as a "fragment": committed `compile.tla`
+carried 5 bogus `INVARIANT` entries of raw prose, and the scratch runs
+hard-failed (`spk model-check specs` exit 101 on 2 files; the verify.md
+predicate left a `properties_uncompilable` residual after specodelic-8aq).
+The exact bootstrapping-bug shape specodelic.md's Notes warn about: the
+tool's own description of the mechanism broke the mechanism.
+
+- Fragment position is now structural: an occurrence opts in only when it
+  STARTS the cell (after leading whitespace) or immediately follows an
+  opening code-span backtick (`` `**rust:** <expr>` `` — the Revision 15
+  authoring form). Any other occurrence — mid-span or in prose between
+  spans — is a mention and never extracts. A marker after a CLOSING
+  backtick (`` `x` **rust:** y ``) is prose-position: a mention.
+- "Exactly one marker" sharpens to "exactly one marker in fragment
+  position"; the two-opt-in-span cell still fails labeled.
+- Transition-guard rejection now fires only on real opt-ins (a mentioning
+  guard cell is prose, never a labeled rejection).
+- Spec-side sharpening: compile.md's `predicate_fragment_opt_in` /
+  `invariant_fragment_opt_in` rows define fragment position; verify.md's
+  `fragments_reach_verified` predicate reworded to not carry the literal
+  marker in prose.
+- Deliberately NO new advisory: mention-position markers are legitimate
+  prose in a spec ABOUT the marker — this corpus proves the pattern; an
+  advisory would fire on the defining rows forever. A mis-authored opt-in
+  falls back to the honest placeholder (pre-Revision-15 behavior).
+- Corpus artifacts regenerated: `compile.tla` / `model_check.tla` now
+  declare "No executable invariant fragments"; `spk model-check specs` runs
+  20/20 scratch-clean; `spk verify specs` reports 0 uncompilable.
+
 ## #108 — parameterless property blocks emit outside `proptest!` (specodelic-8aq)
 
 A Property row whose generator cell yields no strategy params (no

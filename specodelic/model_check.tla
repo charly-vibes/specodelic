@@ -3,9 +3,7 @@
 \* spec file; edit there, not here. Extends nothing: the module is
 \* self-contained so any engine can open it.
 
-\* Executable invariant fragments — id + verbatim **rust:** fragment;
-\* carried in the module so the artifact hash covers fragment edits.
-\* INVARIANT executable_invariants_execute **rust:** marker in a kind == invariant Constraint's expr — specodelic.md Revision 15) as an invariant over the compiled model: each evaluated at every reachable state, each named by its Constraints-table id in the report's invariants_checked. Fragments are Rust, compiled verbatim — executed by a scratch-crate run, since the interpreter backend cannot evaluate user Rust in-process; a backend that cannot execute fragments reports exploration_only, never a fabricated clean
+\* No executable invariant fragments (Revision 15).
 
 \* Each State becomes a value in the state variable's range.
 StateValues == {"not_run", "running", "clean", "counterexample_found", "timed_out", "exploration_only"}

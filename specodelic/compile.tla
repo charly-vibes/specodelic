@@ -3,13 +3,7 @@
 \* spec file; edit there, not here. Extends nothing: the module is
 \* self-contained so any engine can open it.
 
-\* Executable invariant fragments — id + verbatim **rust:** fragment;
-\* carried in the module so the artifact hash covers fragment edits.
-\* INVARIANT properties_to_proptest **rust:** fragment when the row opts in ([[compile.predicate_fragment_opt_in]]), else the un-translated todo_predicate! placeholder that compiles here and fails only at execution; a law-kind property compiles to one block per case enumerated in its predicate's **name:** case labels (the identity and associativity floor is lint-enforced ahead of compile, specodelic.md Revision 13)
-\* INVARIANT predicate_fragment_opt_in **rust:** marker and a non-empty fragment after it — the fragment is a Rust boolean expression emitted verbatim as the block's assertion body, the cell text after the marker — to the cell's end or the code span's closing backtick — is the fragment, binding the block's generated values (v0…, one per generator named in the generator cell, each a String); a cell with no marker compiles exactly as before (the placeholder) — pure widening, nothing valid before this Revision is invalidated
-\* INVARIANT invariant_fragment_opt_in **rust:** fragment when the row's kind is invariant — the fragment becomes an executable invariant model_check's native backend executes (model_check.md Revision 15); a fragment on a Constraint of any other kind (effect, advisory, a pack fiber kind) is a labeled extraction failure, never a silently ignored marker
-\* INVARIANT fragment_law_rejected **rust:** fragment — each required case needs its own assertion body and one fragment cannot honestly serve several named cases; violation is a labeled extraction failure
-\* INVARIANT fragment_guard_rejected **rust:** fragment in this Revision — the program-counter model has no data binding a guard could constrain, so executable guards have no defined semantics; violation is a labeled extraction failure, never a silently ignored marker (decision of record: deferred to a future Revision alongside a data-carrying state space)
+\* No executable invariant fragments (Revision 15).
 
 \* Each State becomes a value in the state variable's range.
 StateValues == {"not_started", "extracting", "emitting", "compiled", "extract_failed", "emit_failed"}
