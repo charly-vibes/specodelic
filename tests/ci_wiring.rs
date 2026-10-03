@@ -136,6 +136,15 @@ fn espectacular_gate_wired_structural_in_precommit_executed_in_ci() {
         !hook.contains("--run-tests"),
         "lefthook pre-commit must stay structural-only (no --run-tests, EDGE-003)"
     );
+    // Exit-127 shakedown (v0.9.2 gate on CI): ah is not preinstalled on
+    // runners — ci.yml must cargo-install the pinned espectacular crate
+    // (binary name ah) alongside the other ecosystem tools.
+    let ci_yml = read(".github/workflows/ci.yml");
+    assert!(
+        ci_yml.contains("cargo install") && ci_yml.contains("espectacular@"),
+        "ci.yml must cargo-install the pinned espectacular crate (binary ah) — \
+         without it guard-espectacular fails with exit 127 on the runner"
+    );
 }
 
 #[test]
