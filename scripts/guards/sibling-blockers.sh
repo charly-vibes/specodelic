@@ -8,8 +8,10 @@
 #      MUST NOT claim it (AGENTS.md "pretender" section).
 #   2. .git/hooks contains only .sample files — no unguarded writes by any
 #     tool that does not own hooks.
-#   3. No espectacular/vampiro wiring in .github/workflows — both are blocked
-#      from CI (specodelic-4ae pending; no vampiro integration ticket).
+#   3. No vampiro wiring in .github/workflows — vampiro is blocked from CI
+#      (no filed integration ticket). Espectacular wiring is ALLOWED since
+#      specodelic-tlv (deferral overturned 2026-10-03) — but espectacular
+#      stays READ-ONLY over openspec/ (AGENTS.md).
 #
 # Usage: sibling-blockers.sh [repo-dir]   (default: current directory)
 # Exit 0 = compliant. Designed to run in pre-commit/pre-push (lefthook.yml)
@@ -55,17 +57,17 @@ if [ -d "$git_hooks" ]; then
   done
 fi
 
-# --- Check 3: no espectacular/vampiro wiring in CI ----------------------------
+# --- Check 3: no vampiro wiring in CI (espectacular allowed, specodelic-tlv)
 # Prose mentions in YAML comments are fine (see publish.yml); only actual
 # wiring (non-comment lines invoking the tool) is a violation.
 workflows="$repo/.github/workflows"
 if [ -d "$workflows" ]; then
-  matches="$(grep -rilE 'espectacular|vampiro' "$workflows" 2>/dev/null | while IFS= read -r f; do
-    sed 's/#.*$//' "$f" | grep -qiE 'espectacular|vampiro' && echo "$f"
+  matches="$(grep -rilE 'vampiro' "$workflows" 2>/dev/null | while IFS= read -r f; do
+    sed 's/#.*$//' "$f" | grep -qiE 'vampiro' && echo "$f"
   done || true)"
   if [ -n "$matches" ]; then
     die "blocked sibling tool wired into CI: $(echo "$matches" | tr '\n' ' ')" \
-      "espectacular is blocked on specodelic-4ae (adoption decision note); vampiro needs a filed integration ticket first — remove the wiring"
+      "vampiro needs a filed integration ticket first (AGENTS.md vampiro section) — remove the wiring"
   fi
 fi
 

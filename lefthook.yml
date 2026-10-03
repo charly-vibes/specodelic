@@ -11,6 +11,10 @@ pre-commit:
     specodelic-gates:
       run: spk lint openspec
     # <!-- SPK:END -->
+    # <!-- PRETENDER:START --> gate mode; pretender.toml ratchets only DOWN
+    pretender-gate:
+      run: pretender check --staged
+    # <!-- PRETENDER:END -->
     sibling-blockers:
       run: scripts/guards/sibling-blockers.sh .
 

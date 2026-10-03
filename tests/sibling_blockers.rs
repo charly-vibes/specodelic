@@ -114,8 +114,11 @@ fn unguarded_git_hooks_write_fails() {
     );
 }
 
+// specodelic-tlv: the 2026-10-01 espectacular deferral was overturned (owner
+// instruction 2026-10-03) — espectacular CI wiring is now ALLOWED. The
+// read-only-over-openspec constraint is enforced elsewhere, not here.
 #[test]
-fn espectacular_in_ci_fails() {
+fn espectacular_in_ci_allowed() {
     let (_dir, repo) = fixture_repo("espectacular_ci");
     make_compliant(&repo);
     fs::write(
@@ -124,10 +127,9 @@ fn espectacular_in_ci_fails() {
     )
     .unwrap();
     let (ok, out) = run_guard(&repo);
-    assert!(!ok, "espectacular wired into CI must fail");
     assert!(
-        out.contains("espectacular"),
-        "hint should name the tool, got: {out}"
+        ok,
+        "espectacular wired into CI must be allowed since specodelic-tlv; got: {out}"
     );
 }
 

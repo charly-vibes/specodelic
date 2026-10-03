@@ -102,11 +102,11 @@ Violations are bugs, not preferences. Established 2026-09-28.
   `#### Scenario:` blocks under openspec requirement headers. It MUST
   NOT enforce anything against the `specs/` domain corpus (that is
   specodelic's own format, governed by `spk lint`).
-- **Blockers**: adoption decided — DEFERRED per
-  `openspec/decisions/2026-10-01-espectacular-adoption.md`
-  (specodelic-4ae): no wiring now; revisit at orchestrate
-  (specodelic-8kk) against the note's criteria. Espectacular must stay
-  read-only over `openspec/` regardless of the outcome.
+- **Gate status**: ADOPTED-WITH-SEQUENCING — the 2026-10-01 DEFER was
+  overturned per `openspec/decisions/2026-10-01-espectacular-adoption.md`
+  (specodelic-tlv, owner instruction 2026-10-03): wiring (`ah init`, gate
+  recipe) is allowed; full per-scenario contract authoring is sequenced as a
+  follow-up. Espectacular must stay read-only over `openspec/` regardless.
 
 ### vampiro (seam/composition checks over source)
 

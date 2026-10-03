@@ -1,5 +1,21 @@
 # Decision: espectacular scenario-conformance over specodelic's openspec specs
 
+- **Status**: **ADOPTED-WITH-SEQUENCING** (supersedes the 2026-10-01 DEFER
+  below, which is kept as historical context) — specodelic-tlv, owner
+  instruction 2026-10-03.
+- **Hard constraints that survive the reversal** (AGENTS.md, enforced by
+  `scripts/guards/sibling-blockers.sh` + tests/sibling_blockers.rs):
+  - espectacular stays **read-only over `openspec/`** — contracts live in
+    `.espectacular/`, never inside `openspec/`.
+  - The sibling-blockers guard must be updated in the SAME commit as any
+    wiring (EDGE-002).
+- **Sequencing**: `ah init` + gate wiring (`just ci` + lefthook) land first;
+  full per-scenario contract authoring (~123 deployed `#### Scenario:`
+  blocks) is a separate follow-up tracked in beads. Until contracts exist,
+  `ah check` is wired advisory-only, not gating.
+
+## Historical record: the 2026-10-01 DEFER (superseded by specodelic-tlv)
+
 - **Date**: 2026-10-01
 - **Ticket**: specodelic-4ae (P3)
 - **Decision**: **DEFER** — revisit at orchestrate (`specodelic-8kk`), per this

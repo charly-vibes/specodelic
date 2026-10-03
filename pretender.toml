@@ -1,0 +1,73 @@
+# pretender.toml — structural-quality hard gate (AGENTS.md sibling-tool
+# constraints honored: pretender does NOT claim core.hooksPath and never
+# writes .git/hooks; the gate runs via lefthook.yml pre-commit (the beads
+# shim chain) and `just ci` / `just pretender-check`).
+#
+# Mode "gate" promotes every threshold breach to a CI/pre-commit failure.
+# Thresholds are a RATCHET set at the current observed maxima (2026-10-01:
+# worst fn cyclomatic 66, cognitive 65, abc 163, function_lines 308; largest
+# file tests/cli.rs 5909 lines) — existing code passes, nothing worse than
+# today's worst does. Tightening = editing this file; entries only move DOWN.
+# Follow-up tightening is tracked as a beads refactor ticket.
+
+# Grandfathered hotspots (known offenders AT the ratchet ceiling — refactor
+# targets, tracked in beads; do NOT raise thresholds to add new headroom):
+#   src/verify.rs::model_gate_clean_and_not_clean_outcomes
+#   src/lint.rs::lint_model_family
+#   src/merge.rs::run
+#   src/main.rs::parse_batch
+
+[pretender]
+mode = "gate"
+languages = ["auto"]
+exclude = [
+  "target/**",
+  "book/**",
+  "docs/**",
+  "vendor/**",
+  "node_modules/**",
+  "**/*_generated.*",
+]
+
+[thresholds]
+cyclomatic_max = 70
+cognitive_max = 70
+abc_max = 170
+function_lines_max = 320
+nesting_max = 8
+params_max = 8
+file_lines_max = 6000
+exported_cyclomatic_max = 70
+exported_params_max = 8
+exported_lines_max = 320
+
+# Test role (tests/**): ratchet at current test-suite maxima.
+[thresholds.test]
+cyclomatic_max = 20
+cognitive_max = 35
+function_lines_max = 320
+nesting_max = 5
+params_max = 8
+min_assertions = 0
+
+# Script role (scripts/**): ratchet at current script maxima.
+[thresholds.script]
+cyclomatic_max = 16
+cognitive_max = 35
+function_lines_max = 80
+nesting_max = 5
+params_max = 4
+min_assertions = 0
+
+# Library-exported role: ratchet (worst exported fn cyclomatic 66).
+[thresholds.library]
+exported_cyclomatic_max = 70
+exported_params_max = 8
+exported_lines_max = 320
+file_lines_max = 6000
+
+[roles.test]
+paths = ["tests/**", "tests/**/**", "**/tests/**"]
+
+[roles.script]
+paths = ["scripts/**", "examples/**"]

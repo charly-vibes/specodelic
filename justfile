@@ -120,7 +120,13 @@ docs-build:
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections sync-sections-test summary-completeness lint-doc-examples lint-baseline guard-siblings
+ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections sync-sections-test summary-completeness lint-doc-examples lint-baseline pretender-check guard-siblings
+
+# Structural-quality hard gate (pretender, gate mode — pretender.toml
+# thresholds are a ratchet: entries only move DOWN; never touch .git/hooks,
+# the gate runs here and via lefthook pre-commit instead)
+pretender-check:
+    pretender check
 
 # Sibling-tool constraint guard (AGENTS.md hard blockers) — also wired into
 # pre-commit/pre-push via lefthook.yml and the .beads/hooks shim chain
