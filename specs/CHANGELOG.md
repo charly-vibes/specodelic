@@ -6,6 +6,27 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #104 — pack fiber kinds are typeable in base-table kind columns (specodelic-ung)
+
+The domain-pack mechanism's closed-set walkers (`property_kind_closed` /
+`constraint_kind_closed`) walked the static base sets, so a
+pack-declared fiber kind (e.g. `empirical.statistic`) fired the finding
+even with its pack discovered. The walkers' effective set is now
+base ∪ active-pack-fiber — the `## Kinds` tokens of every pack active
+for the file (declared `uses` edge or vocabulary match, the standard
+advisory-first activation rule) — never narrower than the base set: base
+set members are accepted unconditionally, the base sets themselves do
+not grow (no format Revision; the packs' Revision 14 base pins stay
+valid), and a fiber kind with no active declaring pack stays outside the
+closed set, firing the labeled finding — never a silent pass. A pack
+activates per-file, so a file using none of a pack's vocabulary keeps
+byte-identical lint findings. Recorded in `specs/packs.md` (Notes +
+`fiber_kinds_typeable` property), `specs/linter-schema_shape.md` (both
+closed-set rows + Notes), and `specs/kinds.md` (row shapes + Notes).
+Implementation: `packs::active_fiber_kinds` (workspace scan shared with
+discovery) wired into the schema-shape family; the empirical-registry
+pack's `fiber_kinds_typeable` contract is now enforced end-to-end.
+
 ## #103 — the third standard pack: empirical registry (add-empirical-registry-pack)
 
 `add-empirical-registry-pack` implemented — no code, no base-set change:

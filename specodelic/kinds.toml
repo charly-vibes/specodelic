@@ -15,7 +15,7 @@ traces_to = "[[kinds]]"
 [[constraints]]
 id = "constraint_row_shape"
 kind = "invariant"
-expr = "`a Constraint row is one row of the Constraints table; its base fields are exactly {id, kind, expr, traces_to}, optionally followed by typed reference columns — each such column must be declared in `specodelic.md`'s Reference Typing table (currently `satisfies`, `observes`) and carries no meaning beyond that typing; kind ∈ {invariant, advisory, effect, extension_point}`"
+expr = "`a Constraint row is one row of the Constraints table; its base fields are exactly {id, kind, expr, traces_to}, optionally followed by typed reference columns — each such column must be declared in `specodelic.md`'s Reference Typing table (currently `satisfies`, `observes`) and carries no meaning beyond that typing; kind ∈ {invariant, advisory, effect, extension_point}, extended per-file by the active packs' declared kinds (specs/packs.md fiber kinds — never narrower, see linter-schema_shape Notes)`"
 traces_to = "[[kinds]]"
 
 [[constraints]]
@@ -33,7 +33,7 @@ traces_to = "[[kinds]]"
 [[constraints]]
 id = "property_row_shape"
 kind = "invariant"
-expr = "`a Property row is one row of the Properties table; its fields are exactly {id, kind, derives_from, generator, predicate}, with kind ∈ {unit, law}`"
+expr = "`a Property row is one row of the Properties table; its fields are exactly {id, kind, derives_from, generator, predicate}, with kind ∈ {unit, law}, extended per-file by the active packs' declared kinds (specs/packs.md fiber kinds — never narrower, see linter-schema_shape Notes)`"
 traces_to = "[[kinds]]"
 
 [[constraints]]

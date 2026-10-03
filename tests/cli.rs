@@ -5077,6 +5077,101 @@ fn write_consumer_spec(path: &std::path::Path, id: &str, uses: &str, vocab: &str
     .unwrap();
 }
 
+/// A consumer spec whose Properties and Constraints rows carry a
+/// pack-qualified fiber kind in their base-table `kind` columns
+/// (specodelic-ung).
+fn write_fiber_kind_consumer(path: &std::path::Path, id: &str, uses: &str, fiber: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to | uses |\n\
+             |----|------|------|-----------|------|\n\
+             | c1 | {fiber} | `holds` | [[{id}]] | {uses} |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1\n\
+             - s2\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s2 | [[{id}.c1]] |\n\
+             \n## Properties\n\
+             \n| id | kind | derives_from | generator | predicate |\n\
+             |----|------|--------------|-----------|------------|\n\
+             | p | {fiber} | [[{id}.c1]] | `g()` | `x` |\n"
+        ),
+    )
+    .unwrap();
+}
+
+#[test]
+fn fiber_kinds_typeable_when_pack_active_finding_without() {
+    // specodelic-ung: the closed-set walkers' effective set is
+    // base ∪ active-pack-fiber — a base-table kind column carrying a
+    // pack-qualified fiber kind is accepted when the pack is active
+    // (declared uses edge or vocabulary match), and the same token
+    // fires the labeled finding when no pack declares it — never a
+    // silent pass.
+    let dir = tempfile::tempdir().unwrap();
+    write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
+    // declared uses edge → active
+    write_fiber_kind_consumer(
+        &dir.path().join("declared.md"),
+        "declared",
+        "[[bioimage]]",
+        "bioimage.tolerance",
+    );
+    // no uses edge, but the kind token vocabulary-matches → active
+    write_fiber_kind_consumer(
+        &dir.path().join("implicit.md"),
+        "implicit",
+        "",
+        "bioimage.tolerance",
+    );
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "active fiber kinds accepted: {json}"
+    );
+    let issues = json["data"]["issues"].as_array().unwrap();
+    assert!(
+        !issues.iter().any(|i| {
+            i["rule_id"] == "linter.property_kind_closed"
+                || i["rule_id"] == "linter.constraint_kind_closed"
+        }),
+        "fiber kinds must not fire the closed-set walkers when the pack is active: {issues:?}"
+    );
+
+    // the same token with no pack discovered → the labeled finding fires
+    let dir = tempfile::tempdir().unwrap();
+    write_fiber_kind_consumer(
+        &dir.path().join("orphan.md"),
+        "orphan",
+        "",
+        "bioimage.tolerance",
+    );
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_ne!(out.status.code(), Some(0));
+    let issues = json["data"]["issues"].as_array().unwrap();
+    assert!(
+        issues
+            .iter()
+            .any(|i| i["rule_id"] == "linter.property_kind_closed"),
+        "without the pack active the token stays outside the closed set: {issues:?}"
+    );
+}
+
 #[test]
 fn well_formed_pack_lints_clean_and_is_discovered() {
     let dir = tempfile::tempdir().unwrap();

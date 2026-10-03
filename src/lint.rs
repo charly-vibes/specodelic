@@ -251,7 +251,7 @@ pub fn lint_corpus(specs: &[Spec]) -> Report {
         packs: vec![],
     };
     for spec in specs {
-        lint_one(spec, &mut report);
+        lint_one(spec, specs, &mut report);
     }
     lint_references(specs, &mut report);
     lint_coverage(specs, &mut report);
@@ -353,18 +353,28 @@ pub fn ears_findings(specs: &[Spec]) -> Vec<Issue> {
 pub fn schema_shape_findings(specs: &[Spec]) -> Vec<Issue> {
     let mut report = empty_report(specs.len());
     for spec in specs {
-        lint_schema_shape_family(spec, &mut report);
+        lint_schema_shape_family(spec, specs, &mut report);
     }
     report.issues
 }
 
 /// Checker-family slice: `linter-schema_shape.md`'s two closed-set
 /// table-walkers (specodelic-7h8). Per-file, appended last in
-/// [`lint_one`]'s composition.
-fn lint_schema_shape_family(spec: &Spec, report: &mut Report) {
+/// [`lint_one`]'s composition. The effective closed set is the base
+/// set extended with the active packs' fiber kinds (specodelic-ung:
+/// base ∪ active-pack-fiber, never narrower — specs/packs.md); the
+/// finding message still names the base set, whose members are
+/// unconditional.
+fn lint_schema_shape_family(spec: &Spec, corpus: &[Spec], report: &mut Report) {
+    let fiber = crate::packs::active_fiber_kinds(spec, corpus);
+    let fiber_kinds: Vec<&str> = fiber.iter().map(String::as_str).collect();
+    let constraint_closed =
+        |k: &str| crate::guide::CONSTRAINT_KINDS.contains(&k) || fiber_kinds.contains(&k);
+    let property_closed =
+        |k: &str| crate::guide::PROPERTY_KINDS.contains(&k) || fiber_kinds.contains(&k);
     let file_id = &spec.intent.id;
     for c in &spec.constraints {
-        if !crate::guide::CONSTRAINT_KINDS.contains(&c.kind.as_deref().unwrap_or("")) {
+        if !constraint_closed(c.kind.as_deref().unwrap_or("")) {
             report.issues.push(Issue::new(
                 "constraint_kind_closed",
                 file_id.clone(),
@@ -378,7 +388,7 @@ fn lint_schema_shape_family(spec: &Spec, report: &mut Report) {
         }
     }
     for p in &spec.properties {
-        if !crate::guide::PROPERTY_KINDS.contains(&p.kind.as_deref().unwrap_or("")) {
+        if !property_closed(p.kind.as_deref().unwrap_or("")) {
             report.issues.push(Issue::new(
                 "property_kind_closed",
                 file_id.clone(),
@@ -1551,13 +1561,13 @@ fn lint_ears_family(spec: &Spec, report: &mut Report) {
 /// order (frontmatter → referential → model_shape → ears →
 /// failure_shape → schema_shape). The composition order is load-bearing
 /// — tests pin issue order.
-fn lint_one(spec: &Spec, report: &mut Report) {
+fn lint_one(spec: &Spec, corpus: &[Spec], report: &mut Report) {
     lint_frontmatter_family(spec, report);
     lint_referential_family(spec, report);
     lint_model_family(spec, report);
     lint_ears_family(spec, report);
     lint_failure_shape_family(spec, report);
-    lint_schema_shape_family(spec, report);
+    lint_schema_shape_family(spec, corpus, report);
 }
 
 /// All rows in a file as (table-name, row) pairs.
@@ -3480,7 +3490,7 @@ statement: "maybe works"
         let spec = spec_from(corpus, "orchestrate-bad.md");
         let flat = {
             let mut r = empty_report(1);
-            lint_one(&spec, &mut r);
+            lint_one(&spec, std::slice::from_ref(&spec), &mut r);
             r.issues
         };
         let composed = {
@@ -3490,7 +3500,7 @@ statement: "maybe works"
             lint_model_family(&spec, &mut r);
             lint_ears_family(&spec, &mut r);
             lint_failure_shape_family(&spec, &mut r);
-            lint_schema_shape_family(&spec, &mut r);
+            lint_schema_shape_family(&spec, std::slice::from_ref(&spec), &mut r);
             r.issues
         };
         assert_eq!(flat.len(), composed.len(), "same finding count");

@@ -15,13 +15,13 @@ traces_to = "[[linter.schema_shape]]"
 [[constraints]]
 id = "constraint_kind_closed"
 kind = "invariant"
-expr = "`∀ Constraint row: row.kind ∈ {invariant, advisory, effect, extension_point}` — see [[kinds.constraint_row_shape]]"
+expr = "`∀ Constraint row: row.kind ∈ {invariant, advisory, effect, extension_point}, extended per-file by the active packs' declared kinds (specs/packs.md fiber kinds — base ∪ active-pack-fiber, never narrower; without the pack active the token stays outside the closed set and the labeled finding fires)` — see [[kinds.constraint_row_shape]]"
 traces_to = "[[linter.schema_shape]]"
 
 [[constraints]]
 id = "property_kind_closed"
 kind = "invariant"
-expr = "`∀ Property row: row.kind ∈ {unit, law}` — see [[kinds.property_row_shape]]"
+expr = "`∀ Property row: row.kind ∈ {unit, law}, extended per-file by the active packs' declared kinds (specs/packs.md fiber kinds — base ∪ active-pack-fiber, never narrower; without the pack active the token stays outside the closed set and the labeled finding fires)` — see [[kinds.property_row_shape]]"
 traces_to = "[[linter.schema_shape]]"
 
 [[constraints]]

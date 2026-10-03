@@ -257,6 +257,25 @@ fn contains_word(haystack: &str, token: &str) -> bool {
 /// root (git toplevel, else the common parent of the linted specs) for
 /// `kind: profile` frontmatter. No config file, no registry.
 pub fn discover(specs: &[Spec]) -> Vec<PackInfo> {
+    let mut packs: Vec<PackInfo> = scan_workspace(specs)
+        .into_iter()
+        .map(|(_, m)| PackInfo {
+            id: m.id.clone(),
+            lifecycle: m.lifecycle.clone(),
+            vocabulary: m.vocabulary(),
+            base_pin: m.base_pin(),
+        })
+        .collect();
+    packs.sort_by(|a, b| a.id.cmp(&b.id));
+    packs.dedup_by(|a, b| a.id == b.id);
+    packs
+}
+
+/// The workspace scan behind [`discover`]: every `kind: profile` file
+/// under the discovery root with its parsed manifest (the full manifest
+/// is needed by the fiber-kind walkers — `PackInfo` surfaces only the
+/// joined vocabulary).
+fn scan_workspace(specs: &[Spec]) -> Vec<(PathBuf, Manifest)> {
     let root = discovery_root(specs);
     let mut packs = vec![];
     let mut stack = vec![root];
@@ -280,18 +299,12 @@ pub fn discover(specs: &[Spec]) -> Vec<PackInfo> {
                 && let Ok(mut spec) = crate::spec::parse_str(&src)
             {
                 spec.path = Some(path.clone());
-                let m = parse_manifest(&spec);
-                packs.push(PackInfo {
-                    id: m.id.clone(),
-                    lifecycle: m.lifecycle.clone(),
-                    vocabulary: m.vocabulary(),
-                    base_pin: m.base_pin(),
-                });
+                packs.push((path, parse_manifest(&spec)));
             }
         }
     }
-    packs.sort_by(|a, b| a.id.cmp(&b.id));
-    packs.dedup_by(|a, b| a.id == b.id);
+    packs.sort_by(|a, b| a.1.id.cmp(&b.1.id));
+    packs.dedup_by(|a, b| a.1.id == b.1.id);
     packs
 }
 
@@ -525,6 +538,34 @@ fn corpus_revision(specs: &[Spec]) -> u32 {
         }
     }
     guide::revision_number(guide::FORMAT_REVISION).unwrap_or(0)
+}
+
+/// The fiber kinds active for one file (specodelic-ung): the `## Kinds`
+/// tokens of every discovered pack the file activates — by a declared
+/// `uses` edge or by vocabulary match (advisory-first, same activation
+/// rule as [`pack_pass`]). The base∪fiber closed-set walkers in
+/// `linter-schema_shape` extend their closed sets with these tokens:
+/// the effective set is never narrower than the base set, and a kind no
+/// active pack declares stays outside it (the labeled finding fires).
+pub fn active_fiber_kinds(spec: &Spec, specs: &[Spec]) -> Vec<String> {
+    let declared_uses: std::collections::BTreeSet<&str> = spec
+        .links
+        .iter()
+        .filter(|l| l.column == "uses")
+        .map(|l| l.target.as_str())
+        .collect();
+    let raw_text = raw(spec);
+    let mut out = vec![];
+    for (_, m) in scan_workspace(specs) {
+        let active = declared_uses.contains(m.id.as_str())
+            || m.vocabulary()
+                .iter()
+                .any(|tok| contains_word(&raw_text, tok));
+        if active {
+            out.extend(m.kinds.iter().cloned());
+        }
+    }
+    out
 }
 
 /// `pack_shape` over one pack file: the six manifest tables must be

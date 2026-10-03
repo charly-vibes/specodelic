@@ -82,6 +82,10 @@ pub mod spec_gen {
         Just(GenVal("pack_model_section_parsed".into()))
     }
 
+    pub fn base_table_kind_column_with_active_fiber_kind() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("base_table_kind_column_with_active_fiber_kind".into()))
+    }
+
 }
 
 proptest! {
@@ -231,6 +235,16 @@ proptest! {
     #[test]
     fn lifecycle_states_parsed(v0 in spec_gen::pack_model_section_parsed()) {
         todo_predicate!("`each lifecycle state yields exactly its declared checking behavior`");
+    }
+}
+
+proptest! {
+    // id: fiber_kinds_typeable
+    // generator: `base_table_kind_column_with_active_fiber_kind()`
+    // predicate: `the base closed-set walkers accept the pack-qualified kind when the pack is active; the same token without the pack fires the labeled finding (base ∪ active-pack-fiber, never narrower)`
+    #[test]
+    fn fiber_kinds_typeable(v0 in spec_gen::base_table_kind_column_with_active_fiber_kind()) {
+        todo_predicate!("`the base closed-set walkers accept the pack-qualified kind when the pack is active; the same token without the pack fires the labeled finding (base ∪ active-pack-fiber, never narrower)`");
     }
 }
 

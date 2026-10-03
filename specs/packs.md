@@ -65,3 +65,25 @@ colliding in the global kind sets.
 | pack_vocabulary_qualified   | unit | [[packs.namespaced_vocabulary]]   | `two_packs_claim_same_mechanism()`          | `both packs' declared vocabulary resolves without cross-pack collision`       |
 | base_sets_unchanged_by_packs| unit | [[packs.base_closed_sets_frozen]] | `guide_sets_compared_across_pack_enable()`  | `INTENT_KINDS and Reference Typing sets identical with and without packs discovered` |
 | lifecycle_states_parsed     | unit | [[packs.lifecycle_labeled]]       | `pack_model_section_parsed()`               | `each lifecycle state yields exactly its declared checking behavior`          |
+| fiber_kinds_typeable        | unit | [[packs.namespaced_vocabulary]]   | `base_table_kind_column_with_active_fiber_kind()` | `the base closed-set walkers accept the pack-qualified kind when the pack is active; the same token without the pack fires the labeled finding (base ∪ active-pack-fiber, never narrower)` |
+
+## Notes
+
+**Fiber kinds in base-table kind columns (2026-10-03, beads
+`specodelic-ung`):** mechanism v1's closed-set walkers
+(`property_kind_closed` / `constraint_kind_closed`,
+`specs/linter-schema_shape.md`) walked the static base sets, so a
+pack-declared fiber kind in a base-table `kind` column fired the
+finding even with its pack discovered — the sibling packs never hit
+this because their kinds live in pack-added sections. The walkers'
+effective set is now base ∪ active-pack-fiber: the `## Kinds` tokens of
+every pack active for the file (declared `uses` edge or vocabulary
+match — the same advisory-first activation rule as everything else
+here). This completes `namespaced_vocabulary`: a fiber kind is
+*typeable* in fiber scope, per-file. The base sets themselves do not
+grow (no format Revision; base pins stay valid) and a fiber kind with
+no active declaring pack stays outside the closed set — the labeled
+finding fires, never a silent pass. First consumer:
+`empirical.registry`'s `empirical.statistic` (the
+empirical-registry-pack capability spec's `fiber_kinds_typeable`
+constraint and `kind_column_accepts_fiber_kinds` property).
