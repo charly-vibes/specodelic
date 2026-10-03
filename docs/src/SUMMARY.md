@@ -61,3 +61,4 @@
 - [archive-companion — capability](openspec/archive-companion/spec.md)
 - [parse — capability](openspec/parse/spec.md)
 - [packs — capability](openspec/packs/spec.md)
+- [data-lineage-pack — capability](openspec/data-lineage-pack/spec.md)
