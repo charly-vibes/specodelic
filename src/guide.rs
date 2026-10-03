@@ -17,7 +17,7 @@
 /// hand when the corpus revision bumps; a corpus-lint style drift test
 /// (task 6.1) compares this numerically against the corpus so staleness
 /// fails CI, not consumers.
-pub const FORMAT_REVISION: &str = "specodelic.md Revision 14";
+pub const FORMAT_REVISION: &str = "specodelic.md Revision 15";
 
 /// The closed set of Intent `kind` values (frontmatter). Revision 14
 /// added `profile` — a domain pack file (see `specs/packs.md`); the set
@@ -455,6 +455,45 @@ mod tests {
         assert!(
             packs.contains("kind: profile"),
             "specs/packs.md must describe the profile pack artifact"
+        );
+    }
+
+    #[test]
+    fn predicate_fragments_ratified_in_the_corpus() {
+        // specodelic-rjb (Revision 15): executable predicate fragments —
+        // the `**rust:**` opt-in marker, verbatim Rust, compiled into the
+        // proptest artifact and executed as scratch-crate invariants.
+        let compile_md = std::fs::read_to_string("specs/compile.md")
+            .expect("specs/compile.md must be readable from the crate root");
+        let pred_row = compile_md
+            .lines()
+            .find(|l| l.starts_with("| predicate_fragment_opt_in"))
+            .expect("predicate_fragment_opt_in row must exist in compile.md");
+        assert!(
+            pred_row.contains("**rust:**"),
+            "predicate_fragment_opt_in must name the **rust:** marker form"
+        );
+        let inv_row = compile_md
+            .lines()
+            .find(|l| l.starts_with("| invariant_fragment_opt_in"))
+            .expect("invariant_fragment_opt_in row must exist in compile.md");
+        assert!(
+            inv_row.contains("**rust:**"),
+            "invariant_fragment_opt_in must name the **rust:** marker form"
+        );
+        let model_md = std::fs::read_to_string("specs/model_check.md")
+            .expect("specs/model_check.md must be readable from the crate root");
+        assert!(
+            model_md
+                .lines()
+                .any(|l| l.starts_with("| executable_invariants_execute")),
+            "model_check.md must specify executable invariant execution"
+        );
+        let corpus = std::fs::read_to_string("specs/specodelic.md")
+            .expect("specs/specodelic.md must be readable from the crate root");
+        assert!(
+            corpus.contains("## Revision 15"),
+            "Revision 15 must record the predicate-fragment decision"
         );
     }
 

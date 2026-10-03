@@ -258,7 +258,14 @@ specified: `compile.md` (the `Set^𝒦 → TOML`/`TLA+`/`proptest!` functor),
 `model_check.md` (what running the checker against `compile.md`'s output
 means, and the `model_checked` vs. `no_counterexample` distinction —
 CLAR-003), and `verify.md` (executing `compile.md`'s proptest! blocks and
-combining that with `model_check.md`'s outcome into one gate).
+combining that with `model_check.md`'s outcome into one gate). The
+`verified` verdict is now REACHABLE, not merely honest: specodelic.md
+Revision 15 (specodelic-rjb, 2026-10-03) adds executable predicate
+fragments — the `**rust:**` opt-in marker whose fragment compiles verbatim
+into the proptest artifact and executes as a scratch-crate BFS invariant —
+so a file whose predicate and invariant fragments pass verifies for real;
+files without fragments behave exactly as before (honest
+exploration_only / properties_failed).
 
 ### Done — the rename/refactor tool
 `rename_naturality` appeared as a property in three different files

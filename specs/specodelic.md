@@ -716,3 +716,51 @@ artifact in the corpus itself; its full contract is [[packs]].
 One Constraint row reworded and one Reference Typing row added under this
 heading per `append_only_variants`; every widening, no narrowing — the
 `profile` kind is opt-in per file and `uses` is optional per row.
+
+## Revision 15
+
+**Executable predicate fragments** (`specodelic-rjb`, 2026-10-03 — the
+`specodelic-mp1` row 7 option-C decision of record). The verified gate was
+unreachable by construction: every compiled predicate was a
+`todo_predicate!` placeholder that panics at execution, and the native
+model-check backend executed zero invariant predicates, so `verify` could
+never honestly report `verified` for any file. The way out is opt-in
+verbatim Rust:
+
+- **The `**rust:** marker.** A Property's `predicate` cell or an
+  invariant-kind Constraint's `expr` cell may carry exactly one `**rust:`
+  marker; the cell text after it is the fragment — a Rust boolean
+  expression emitted verbatim (compile.md's `predicate_fragment_opt_in`,
+  `invariant_fragment_opt_in`). Property fragments bind the block's
+  generated values `v0…` (one per named generator, each a `String`);
+  invariant fragments bind the current state's id. A cell without the
+  marker compiles and checks exactly as before — pure widening.
+- **Verbatim, not interpreted.** The fragment is user Rust, compiled by
+  the Rust compiler, never re-parsed into a mini-language. Property
+  fragments land in the proptest! artifact (verify's existing scratch
+  crate executes them); invariant fragments execute through a
+  dependency-free scratch-crate BFS run whose engine attribution is
+  `native-bfs` (model_check.md's `executable_invariants_execute`) —
+  exploration_only remains the honest outcome wherever no fragment is
+  executable, and TLC, which cannot execute Rust, never claims clean.
+- **Rejections are labeled, never silent.** A fragment on a law-kind
+  Property (each case needs its own body), a non-invariant Constraint, or
+  a Transition guard (the program-counter model has no data binding a
+  guard could constrain — deferred of record) fails extraction with a
+  label naming the rule (compile.md's `fragment_law_rejected`,
+  `fragment_guard_rejected`).
+- **Hygiene is defense-in-depth, not a sandbox** (compile.md's
+  `fragment_hygiene`): fragments run on the invoking user's machine with
+  the invoking user's privileges, exactly like every other compiled
+  artifact; the banned-token list (`unsafe`, `extern`, `include!`,
+  `std::fs`, `std::process`, `std::net`, `std::env`, `asm!`, `Command`)
+  rejects the escape hatches a table cell should never legitimately need.
+  A panicking fragment is a violation, never a pass (model_check.md's
+  `invariant_totality`).
+
+No row of this file's own tables changes in this Revision — the growth
+lives entirely in `compile.md`, `model_check.md`, and `verify.md`
+(`fragments_reach_verified` pins the now-reachable verdict). The only
+reworded rows sit in those files; nothing valid at Revision 14 is
+invalidated, and the proptest scaffolding's element type simplifies from
+the `GenVal` wrapper to plain `String` in the same stroke.

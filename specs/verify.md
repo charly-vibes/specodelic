@@ -60,6 +60,7 @@ into the one fact `specodelic.md`'s lifecycle calls `verified`.
 | rerun_matches_prior_outcome        | unit | [[verify.verify_is_idempotent]]                             | `(run_1, run_2)` on an unchanged compiled artifact                                | `outcome(run_1) == outcome(run_2)`                                   |
 | verification_failure_label_asserted | unit | [[verify.verification_failure]] | `verification_failure_raised()` | `error_label == "verify.verification_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 | hang_reported_as_labeled_timeout    | unit | [[verify.bounded_wall_clock]] | `runner_with(predicate_that_never_terminates, timeout: 1)` | `check(run) == timeout_labeled ∧ outcome(run) ≠ failed` — a timeout is no verdict on the property: distinct from properties_failed so a legitimately long suite can be re-run with a raised bound instead of misread as a failing predicate |
+| fragments_reach_verified            | unit | [[verify.both_gates_required]] | `fixture_with(fragment_predicate_passing, executable_invariant_clean)` | `check(file) == verified` — with executable fragments (specodelic.md Revision 15) both gates are reachable: a passing **rust:** predicate and a clean executable-invariant run verify a real file, the state the gate could never reach before this Revision |
 ## Notes
 
 **This closes `STATUS.md` §4's P0.** The three pipeline items —
@@ -89,3 +90,15 @@ different pipeline stages, on either side of `compile.md`.
 `checked_against_core: clear` (see `AGENTS.md`'s convention). With this
 file, `STATUS.md` §4's P0 is fully done; **P1 (the rename/refactor tool)
 is next.**
+
+**Executable fragments make `verified` reachable (specodelic.md
+Revision 15, specodelic-rjb).** Before that Revision the verdict's
+`verified` status was unreachable by construction — every compiled block
+carried a `todo_predicate!` placeholder that panics at execution, and the
+native backend executed zero invariant predicates, so both gates failed
+honestly on every file. `fragments_reach_verified` pins the way out
+without touching `both_gates_required` or any honesty rule: a predicate
+opting in with `**rust:**` executes for real, an executable invariant
+gives the model run a predicate to actually check, and `verified` becomes
+the conjunction both gates always demanded — reachable, never redefined.
+Files whose cells carry no fragment behave exactly as before.

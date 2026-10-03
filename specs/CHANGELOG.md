@@ -6,6 +6,43 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #106 — executable predicate fragments (specodelic.md Revision 15, specodelic-rjb)
+
+The verified gate becomes reachable: `specodelic-mp1` row 7's option C
+ships as a format Revision. A Property's `predicate` cell or an
+invariant-kind Constraint's `expr` cell may opt into executable
+translation with exactly one `**rust:**` marker — the cell text after it
+is a Rust boolean expression emitted **verbatim** (no mini-language;
+Property fragments bind the generator values `v0…` as `String`s,
+invariant fragments bind the current state's id). Cells without the
+marker behave byte-identically to Revision 14 — pure widening.
+
+- **compile.md** grows the fragment contract: `predicate_fragment_opt_in`,
+  `invariant_fragment_opt_in`, and the three labeled rejection rows
+  (`fragment_law_rejected` — one fragment cannot honestly serve a law
+  row's several named cases; `fragment_guard_rejected` — executable
+  guards have no binding over the program-counter model, deferred of
+  record; `non_invariant_fragment_labeled`) plus `fragment_hygiene` — the
+  banned-token security/totality guard (`unsafe`, `extern`, `include!`,
+  `std::fs`, `std::process`, `std::net`, `std::env`, `asm!`, `Command`),
+  defense-in-depth, not a sandbox. The proptest scaffolding's element
+  type simplifies from the `GenVal` wrapper to plain `String`.
+- **model_check.md** grows the execution contract:
+  `executable_invariants_execute` (the native backend executes every
+  executable invariant as a dependency-free scratch-crate BFS run —
+  engine attribution `native-bfs`, BFS keeps `counterexample_is_minimal`
+  by construction) and `invariant_totality` (a panicking fragment is a
+  violation, never a pass). `rerun_on_model_change` extends to fragment
+  edits: the module now carries the fragment manifest as comments, so the
+  artifact hash covers them. TLC still reports `exploration_only` against
+  fragment artifacts — it cannot execute Rust and never claims clean.
+- **verify.md** pins the reachable verdict: `fragments_reach_verified` —
+  both gates clean on a fragment fixture is `verified` at last;
+  `both_gates_required` and every honesty rule untouched.
+
+`specodelic.md` carries the Revision 15 decision-of-record heading; no
+row of its own tables changes.
+
 ## #105 — the D6 pilot: bioimage-data domain pack (add-bioimage-pack)
 
 `add-bioimage-pack` implemented — no code, no base-set change: the

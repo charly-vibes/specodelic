@@ -27,7 +27,9 @@ contain.
 | counterexample_names_violated_invariant | invariant | `a counterexample report names exactly one violated invariant, by its Constraints-table id, together with the full state trace leading to it`     | [[model_check]] |
 | backend_identified                     | invariant | `a run report names the backend engine and version that produced it, so two backends' reports on the same compiled model and bound are attributable and comparable` | [[model_check]] |
 | no_counterexample_feeds_verify        | invariant | `[[specodelic.no_counterexample]] holds iff the most recent run on the current compiled module reported clean within its stated bound`             | [[model_check]] |
-| rerun_on_model_change                 | invariant | `a run's clean result does not satisfy [[specodelic.no_counterexample]] once the Model section (States or Transitions) has changed since that run — the model must be re-run, not assumed still clean` | [[model_check]] |
+| rerun_on_model_change                 | invariant | `a run's clean result does not satisfy [[specodelic.no_counterexample]] once the Model section (States or Transitions) or any executable invariant fragment has changed since that run — the model must be re-run, not assumed still clean (the fragment extension is specodelic.md Revision 15; the compiled module carries the fragment manifest, so the artifact hash covers it)` | [[model_check]] |
+| executable_invariants_execute         | invariant | `the native backend executes every executable invariant fragment (the **rust:** marker in a kind == invariant Constraint's expr — specodelic.md Revision 15) as an invariant over the compiled model: each evaluated at every reachable state, each named by its Constraints-table id in the report's invariants_checked. Fragments are Rust, compiled verbatim — executed by a scratch-crate run, since the interpreter backend cannot evaluate user Rust in-process; a backend that cannot execute fragments reports exploration_only, never a fabricated clean` | [[model_check]] |
+| invariant_totality                    | invariant | `an executable invariant fragment evaluation that panics reports the invariant violated at the state where the panic occurred — a panicking predicate is never a pass and never silently skipped` | [[model_check]] |
 
 ## Model
 
@@ -62,6 +64,10 @@ contain.
 | stale_result_invalidated_by_edit         | unit | [[model_check.rerun_on_model_change]]                       | `(clean_run, model_edited_afterward_with_no_rerun)`                       | `no_counterexample(file) == false` — until re-run                          |
 | clean_model_passes                       | unit | [[model_check.checker_invoked]]                             | `arbitrary_model_with_no_violation_within_bound()`                        | `check(model) == clean`                                                    |
 | exploration_run_is_not_a_clean_verdict   | unit | [[model_check.no_counterexample_feeds_verify]]              | `model_with_only_prose_invariants_exhausted_within_bound()`               | `check(model).outcome == exploration_only` — never read as no_counterexample |
+| fragment_invariants_checked           | unit | [[model_check.executable_invariants_execute]]               | `compiled_model_with_one_executable_invariant()`                          | `check(model).invariants_checked == [the_invariant_id]` |
+| fragment_clean_run_is_no_counterexample | unit | [[model_check.executable_invariants_execute]]               | `model_with_executable_invariants_no_violation()`                         | `check(model).outcome == no_counterexample` — the model gate's reachable leg |
+| panicking_fragment_violates           | unit | [[model_check.invariant_totality]]                          | `model_with_panicking_invariant_fragment()`                               | `check(model).outcome == counterexample_found ∧ violated_invariant_id == the_panicking_id` |
+| fragment_violation_traces             | unit | [[model_check.counterexample_names_violated_invariant]]     | `model_with_falsifiable_executable_invariant()`                           | `check(model).trace == the_reachable_state_path` — the trace leg is the existing constraint's, not a new one |
 
 ## Notes
 
@@ -122,3 +128,30 @@ inconclusive run.
 referenced, not restated. `verify` (`STATUS.md` §4, now done — see
 `verify.md`) consumes this file's `clean`/`counterexample_found`
 outcome alongside `compile.md`'s proptest! blocks.
+
+**Executable invariants (specodelic.md Revision 15, specodelic-rjb).**
+Decision 3's Option C ships: the `**rust:**` fragment (see `compile.md`)
+turns a kind == `invariant` Constraint into something the native backend
+actually executes — as a scratch-crate run, because a Rust expression
+cannot be evaluated in-process from source text. The scratch runner is a
+dependency-free breadth-first search over the same program-counter model
+the embedded interpreter walks, which keeps `counterexample_is_minimal`
+holding by construction (BFS discovers the shortest violating path) and
+keeps the bound semantics honest: a completed exploration with ≥ 1
+executed invariant and no violation is `no_counterexample`; zero executed
+invariants stays `exploration_only`; a budget cap is `timed_out`. A
+panicking fragment is a violation at the state where it panicked
+(`invariant_totality` — a predicate that explodes is not a predicate that
+holds). The engine attribution of the scratch run is `native-bfs` with
+the tool's own version — it is not stateright, and `backend_identified`
+requires the report not to imply otherwise. TLC cannot execute Rust
+fragments at all: against the same artifact it still reports
+`exploration_only`, which is the honesty this file already pinned for
+prose predicates.
+
+The module's staleness key now covers fragments: `model_to_tla` emits the
+executable-invariant manifest (id + fragment verbatim) as module comments,
+so editing a fragment changes the artifact hash and `rerun_on_model_change`
+(reworded above to name fragments explicitly) fails the stale report
+closed — an invariant that changed since the clean run is not the
+invariant the run checked.
