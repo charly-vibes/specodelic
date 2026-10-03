@@ -6,15 +6,21 @@ Tidying commits are separate from feature commits.
 
 ## 1. Snapshot fixtures (parity harness)
 
-- [ ] 1.1 **RED**: snapshot tests — `spk graph --json` over the full
-      corpus (byte-identical before/after snapshots, incl. the 38 known
-      typing violations), plus a fixture corpus containing each violation
-      class and each dangling-reference shape. Run `just test` — the
-      snapshots must already pass (they pin today's behaviour); this is
-      the parity oracle, not a failing test.
+- [ ] 1.1 **BASELINE** (pinning, exempt from the red step): snapshot
+      tests — `spk graph --json` over the full corpus (byte-identical
+      before/after snapshots; note: the corpus currently reports 0
+      typing violations — pin violation CLASSES via fixtures, never a
+      count), plus a fixture corpus per violation class and per
+      dangling-reference shape, plus a zero-file directory and a
+      single-intent corpus. Run `just test` — the snapshots must already
+      pass (they pin today's behaviour); this is the parity oracle, not
+      a failing test.
 - [ ] 1.2 **RED**: parity property skeleton — `edges(from_specs(c)) ==
       graph::build(c).edges` property over `arbitrary_corpus()` proptest
-      cases (fails: `from_specs` doesn't exist yet).
+      cases (fails: `from_specs` doesn't exist yet). Scope note: the
+      gate covers every corpus the existing builder accepts, including
+      lint-dirty ones (duplicate ids, dangling links) — the builder
+      tolerates exactly what the old path tolerates.
 
 ## 2. Schema value + generic typing check
 
@@ -42,7 +48,10 @@ Tidying commits are separate from feature commits.
 - [ ] 3.1 **RED**: unit tests — `dangling_is_a_value`,
       `no_link_dropped` (stored + dangling + violations == links),
       `forbidden_edge_not_stored`, `rebuild_is_byte_stable` (shuffled
-      file order), `duplicate_id_rejected`.
+      file order), `duplicate_id_first_wins_parity` (builder on a
+      duplicate-id corpus matches the existing `kind_index` or_insert
+      result and names the collision — the old path never fails, so the
+      builder must not either).
 - [ ] 3.2 **GREEN**: implement `src/acset/instance.rs` — interning
       (dense, bidirectional, sorted-order assignment), partial morphism
       vectors, attribute cells carried untouched (`cells_carried`).

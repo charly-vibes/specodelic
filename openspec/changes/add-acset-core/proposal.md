@@ -54,7 +54,11 @@ day one.
   (blast-radius walk), new `src/acset/` module family; `specs/`
   corpus untouched (the `theory.md` patch ships with the later
   pushout/writer changes, not here).
-- Behaviour: none visible — every migration step is gated by
-  edge-for-edge parity against the existing walks (`adapter_graph_
-  equivalent`, `parity_with_existing` in the delta). Outputs stay
-  byte-identical.
+- Behaviour: graph/merge/refactor outputs stay byte-identical — every
+  migration step is gated by edge-for-edge parity against the existing
+  walks (`adapter_graph_equivalent`, `parity_with_existing` in the
+  delta). The one new observable is the schema-drift lint finding class
+  (`schema_matches_typing_table`), which reports zero findings on the
+  current corpus; the builder additionally surfaces a collision report
+  for duplicate-id corpora, resolving them exactly as the old path did
+  (first-wins).

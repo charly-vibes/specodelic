@@ -14,13 +14,13 @@ slice 1+2.
 
 | id | finding (verified) | resolution here |
 |----|--------------------|-----------------|
-| CORR-001 (HIGH, conf 0.97) | `acset.pushout`'s `universal_property` is declared kind=invariant but quantifies over all instances — undecidable per the repo's model_check discipline | **Deferred with fix**: recorded in the pushout ticket — re-tier as a law in Properties (or state a finite bound). Not in scope here. |
-| CORR-002 (HIGH, conf 0.94) | `acset.morphism.dangling_preserved` ("an edit never resolves … a dangling reference") contradicts `acset.pushout.rename_replay_resolves_dangling` (a repair) | **Deferred with fix**: recorded in the pushout ticket — scope `dangling_preserved` to pure rename edits and add a reconciliation note in the pushout spec. Not in scope here. |
+| CORR-001 (HIGH, conf 0.97) | `acset.pushout`'s `universal_property` is declared kind=invariant but quantifies over all instances — undecidable per the repo's model_check discipline | **Deferred with fix**: recorded in the pushout ticket `specodelic-9um` — re-tier as a law in Properties (or state a finite bound). Not in scope here. |
+| CORR-002 (HIGH, conf 0.94) | `acset.morphism.dangling_preserved` ("an edit never resolves … a dangling reference") contradicts `acset.pushout.rename_replay_resolves_dangling` (a repair) | **Deferred with fix**: recorded in the pushout ticket `specodelic-9um` — scope `dangling_preserved` to pure rename edits and add a reconciliation note in the pushout spec. Not in scope here. |
 | CORR-003 (MEDIUM) | `src/merge.rs:122-130` builds a private adjacency despite `specs/merge.md`'s "Depends on graph.md, not a local reachability walk" | **Resolved by this change**: merge's blast-radius queries migrate onto the shared closure primitive; the private map is deleted in the parity phase. |
 | CLAR-001 (MEDIUM) | No CLI surface named for any acset module | **Decision**: acset-core is **internal-only** — no new subcommand, flag, or exit-code path. The writer/pushout changes must name their surfaces when proposed. |
-| EDGE-001 (MEDIUM) | `acset.writer.width_padding_policy` permits misaligned tables with no lint rule to notice | Not in scope (writer deferred); noted in the writer ticket. |
+| EDGE-001 (MEDIUM) | `acset.writer.width_padding_policy` permits misaligned tables with no lint rule to notice | Not in scope (writer deferred); noted in the writer ticket `specodelic-p5b`. |
 | EDGE-002 (HIGH, conf 0.87) | `acset.pushout` gluing is unspecified for `None` (dangling) entries | **Deferred with fix**: recorded in the pushout ticket — None glues with None per morphism and reports in the dangling report; None-vs-defined is not a conflict. |
-| EDGE-003 (MEDIUM) | `add-graph-views` derives the schema view from `guide`'s closed value sets; `acset.schema` introduces a second source for the same table | **Handed off**: a beads ticket re-points the schema view at the `Schema` value once this change lands (or adds the cross-check). |
+| EDGE-003 (MEDIUM) | `add-graph-views` derives the schema view from `guide`'s closed value sets; `acset.schema` introduces a second source for the same table | **Handed off**: ticket `specodelic-hya` re-points the schema view at the `Schema` value once this change lands (or adds the cross-check). |
 
 ## Key decisions
 
@@ -48,11 +48,17 @@ slice 1+2.
 
 ## Risks
 
-- **Parity mismatch on typing violations** — the corpus currently carries
-  38 typing violations (verified via `spk graph -j`, add-graph-views
-  proposal); the builder must reproduce violation classification
-  exactly. Mitigation: fixture corpus containing each violation class
-  before any code.
+- **Parity mismatch on typing violations** — the add-graph-views proposal
+  cited 38 typing violations, but the current corpus reports **0** (re-
+  verified via `spk graph -j`, 2026-10-03, after orphan-labeling and
+  Revision 15 landed); the builder must still reproduce violation
+  classification exactly. Mitigation: a fixture corpus containing each
+  violation CLASS before any code — pin classes, never a count.
+- **Duplicate-id corpora** — the old path is first-wins and cannot fail
+  (`or_insert`, `pub fn build -> GraphReport`); the builder must resolve
+  collisions identically and surface them only as a collision report,
+  or the parity gate's scope is unsatisfiable (Rule-of-5 CORR-001 on
+  this proposal, fixed in the delta).
 - **Duplicated edge loops collapse** (`graph.rs:345`/`:438`) — behaviour
   differences hide in annotation details. Mitigation: byte-identical
   `spk graph --json` snapshots before/after.

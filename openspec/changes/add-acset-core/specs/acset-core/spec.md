@@ -27,9 +27,9 @@ category) ships with the later pushout change; nothing here needs it.
 | typing_table_is_data | invariant | `allowed_targets(m) is read from the Schema value for every morphism m — never decided by a per-field match arm; adding a reference field is adding one row` | [[spec]] |
 | refinement_declared | invariant | `a typing rule that depends on a row's own kind column (emits targets effect Constraints only; satisfies targets extension_point only; observes targets effect only) is declared as a refinement predicate on the morphism's target, never inlined into the checker` | [[spec]] |
 | endo_acyclicity_flagged | invariant | `an endo-morphism (supersedes; derives_from between laws) carries an explicit flag saying whether cycles through it are forbidden; acyclicity is checked generically for flagged morphisms only` | [[spec]] |
-| schema_matches_typing_table | invariant | `the Schema value equals the Reference Typing table of specs/specodelic.md row for row, reported as a lint finding on divergence — the document and the code cannot drift` | [[spec]] |
+| schema_matches_typing_table | invariant | `when the lint target carries the format doc, the Schema value equals its Reference Typing table (specs/specodelic.md) row for row, reported as a lint finding on divergence — the document and the code cannot drift; a corpus without the format doc is out of the gate's scope (no-op, never fabricated expected rows)` | [[spec]] |
 | canonical_order | invariant | `objects and morphisms are enumerated in a canonical sorted order, so every artifact derived from the Schema is byte-stable` | [[spec]] |
-| ids_interned | invariant | `each object's id-set is a dense index 0..n-1 with a bidirectional map to the file-qualified string id; the same string never denotes two objects within one instance` | [[spec]] |
+| ids_interned | invariant | `each object's id-set is a dense index 0..n-1 with a bidirectional map to the file-qualified string id; a duplicate file-qualified id is resolved first-wins and recorded in the builder's collision report — identical to the existing graph builder's or_insert behavior — and a lint-clean corpus carries none (no_duplicate_claim fires upstream)` | [[spec]] |
 | morphisms_partial | invariant | `each schema morphism is stored as a vector of optional indices, None meaning an unresolved reference; the builder never drops an unresolved reference at parse time` | [[spec]] |
 | typing_enforced_at_build | invariant | `a resolved reference whose target object or sub-kind violates the Schema's allowed_targets is recorded as a typing violation and is not stored as a morphism value — the behaviour of specs/graph.md's edge_kind_matches_typing` | [[spec]] |
 | adapter_total | invariant | `from_specs is total on parsed corpora: every Link of every spec is stored as a morphism value, recorded as dangling, or recorded as a typing violation — none is silently dropped` | [[spec]] |
@@ -68,6 +68,7 @@ category) ships with the later pushout change; nothing here needs it.
 |----|------|--------------|-----------|-----------|
 | sixth_object_rejected | unit | [[spec.objects_closed]] | `schema_with_extra_object("Action")` | `check(schema) == failed` |
 | duplicate_morphism_rejected | unit | [[spec.morphisms_typed]] | `schema_with_two_morphisms_same_source_and_name()` | `check(schema) == failed` |
+| duplicate_id_first_wins_parity | unit | [[spec.ids_interned]] | `corpus_with_two_rows_same_qualified_id()` | `node_kinds(builder(corpus)) == node_kinds(existing kind_index(corpus))` — first-wins, and the collision report names the id |
 | typing_read_from_schema | unit | [[spec.typing_table_is_data]] | `schema_with_one_added_reference_field()` | `typing_violation(edge_over_new_field) is decided with no change to checker code` |
 | endo_cycle_detected | unit | [[spec.endo_acyclicity_flagged]] | `supersedes_cycle_a_b_a()` | `check(instance) == failed` |
 | unflagged_endo_cycle_tolerated | unit | [[spec.endo_acyclicity_flagged]] | `law_derives_from_law_self_edge()` | `check(instance) == passed` — only flagged morphisms are cycle-checked |
@@ -140,6 +141,14 @@ representable value (None) that is never dropped and never a parse error.
 - **WHEN** the same corpus is built with input files in two different orders
 - **THEN** both serializations are byte-identical
 
+#### Scenario: Duplicate id parity
+- **WHEN** a corpus contains two rows with the same file-qualified id (a corpus the existing builder accepts first-wins)
+- **THEN** the builder resolves the same way and records the collision in its collision report — never a hard failure the old path did not emit
+
+#### Scenario: Empty corpus builds an empty instance
+- **WHEN** the input directory contains zero spec files
+- **THEN** the instance is empty and well-formed, closures over it are empty, and parity with the existing builder holds
+
 ### Requirement: Single traversal primitive
 The acset-core SHALL expose forward and backward closure over a seed set
 and a chosen set of schema morphisms as its only traversal primitives,
@@ -211,6 +220,14 @@ representable value (None) that is never dropped and never a parse error.
 #### Scenario: Byte-stable rebuild
 - **WHEN** the same corpus is built with input files in two different orders
 - **THEN** both serializations are byte-identical
+
+#### Scenario: Duplicate id parity
+- **WHEN** a corpus contains two rows with the same file-qualified id (a corpus the existing builder accepts first-wins)
+- **THEN** the builder resolves the same way and records the collision in its collision report — never a hard failure the old path did not emit
+
+#### Scenario: Empty corpus builds an empty instance
+- **WHEN** the input directory contains zero spec files
+- **THEN** the instance is empty and well-formed, closures over it are empty, and parity with the existing builder holds
 
 ### Requirement: Single traversal primitive
 The acset-core SHALL expose forward and backward closure over a seed set
