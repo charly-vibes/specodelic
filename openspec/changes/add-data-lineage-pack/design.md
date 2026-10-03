@@ -37,7 +37,7 @@ outbound-leaf discipline).
 |----------|-------------|
 | Sections | `## Data` with row shape `\| name \| kind \| dtype \| units \| binding \|` |
 | Kinds    | `data.dataset`, `data.artifact`, `data.environment` — the R3 closed trio |
-| References | `produces`, `produced_by`, `consumed_by` — each resolves to a `## Data` row of the declaring file |
+| References | `produced_by`, `consumed_by` — each resolves to a `## Data` row of the declaring file. Bare `produces` is deliberately NOT declared: the word appears in corpus prose (`compile.md`, `graph.md`, `orchestrate.md`), and the mechanism's vocabulary match is whole-word over file text — declaring it would falsely activate the pack on every lint. Append-only lets a later release add it once activation can disambiguate |
 | Checkers | `data.lineage.closure` — every lineage field names a declared `## Data` row; honest-empty otherwise |
 | Floors   | `data.artifact` requires a `**provenance:**` case label (the `**name:**` machinery with a different required label set, per mistral's R4 reuse phrasing) |
 | Requires | `base` pinned at `specodelic.md Revision 14` (the mechanism revision) |
@@ -78,6 +78,35 @@ The artifact lands in `draft` (advisory naming the draft status); the
 publish transition guard — `pack_shape` zero findings over the declared
 vocabulary — is checked in the dogfood task, then the state flips to
 `published` in the same change, before archive.
+
+### D6 — Vocabulary hygiene beats symmetry (the `produces` cut)
+
+The R3 synthesis named three lineage edges (`produces`, `produced_by`,
+`consumed_by`) and D1 originally declared all three. Dogfooding caught
+the trap: `produces` is an ordinary English word the corpus itself uses
+in prose and constraint exprs (`compile.md` "produces all three
+artifacts", `graph.md`, `orchestrate.md`), and the mechanism's
+activation signal is whole-word containment over file text — declaring
+`produces` would activate the pack for six corpus files with zero
+vocabulary intent. Since pack declarations are append-only, shipping
+`produced_by`/`consumed_by` now and adding `produces` later (only when
+a workspace-anchored signal exists) costs nothing; shipping all three
+and trying to un-declare later is forbidden by `append_only_packs`.
+Same shape as the v1 orphan-detection call (typed signal over prose
+heuristic — honest-empty beats over-reporting).
+
+### D7 — The delta file's own activation is honest noise
+
+The capability delta (`specs/data-lineage-pack/spec.md` in this change)
+is a dual-format file whose mirrored requirement text names the pack's
+kinds and fields, so linting the `openspec` tree vocabulary-activates
+the pack for the `spec` delta file — one advisory on the warnings
+channel, exit 0, findings empty. Not fixed by rewording the
+requirements (their text is the contract); the advisory disappears when
+the delta archives to `changes/archive/` (outside the linted tree per
+the summary-completeness exclusion) and the capability spec under
+`openspec/specs/` carries the same text deliberately — the format's own
+documentation of a pack legitimately mentions the pack.
 
 ## Rejected alternatives
 

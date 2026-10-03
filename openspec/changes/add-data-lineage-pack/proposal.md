@@ -30,6 +30,20 @@ pack so the mechanism has a real instance before the D6 bioimage pilot.
 - **No checker code.** Pack checkers ship as declarations per
   `specs/packs.md` (honest-empty convention): the mechanism activates them
   advisory-first; nothing in `src/` changes.
+- **Vocabulary hygiene**: the pack's `## References` table declares
+  `produced_by` and `consumed_by` but NOT bare `produces` — the English
+  word `produces` appears in corpus prose (`compile.md`, `graph.md`), so
+  declaring it would trigger false activations by vocabulary match on
+  every lint (the mechanism matches whole words in file text). The
+  lineage direction the R3 reviews asked for by name (`produces`) stays
+  available as append-only vocabulary for a future pack release once a
+  workspace-anchored activation signal exists.
+- **Dogfood exception**: `openspec/changes/<id>/specs/<cap>/spec.md`
+  dual-format deltas mirror requirement text that names the pack's kinds
+  and fields, so linting the `openspec` tree activates the pack for the
+  `spec` delta file (one honest vocabulary-match advisory, exit 0). This
+  is advisory channel only; findings stay empty, and it goes away at
+  archive when the delta moves to `changes/archive/`.
 
 ## Capabilities
 

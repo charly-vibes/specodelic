@@ -6,6 +6,29 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #101 — the first standard pack: data/lineage (add-data-lineage-pack)
+
+`add-data-lineage-pack` implemented — no code, no base-set change: the
+first standard pack on the Revision 14 mechanism ships as an in-repo
+`kind: profile` artifact at `packs/data-lineage.md` (id `data.lineage`,
+four-layer spec in its own right, base pin `specodelic.md` Revision 14).
+It declares a typed `## Data` section (row shape `| name | kind | dtype
+| units | binding |`), the namespaced `data.dataset` / `data.artifact` /
+`data.environment` kinds, the `produced_by` / `consumed_by` lineage
+reference fields (each resolving to a `## Data` row of the declaring
+declarative file — outbound leaves, intra-file), the
+`data.lineage.closure` checker declaration (honest-empty), and the
+`data.artifact` provenance floor. The `binding` column stays opaque:
+external standards (OME/NGFF, Parquet, BioImage.IO) are bridged, never
+absorbed — lint is byte-identical regardless of binding target.
+Deviation from the R3 trio, recorded in the change's design D6: bare
+`produces` is NOT declared — the word appears in corpus prose and the
+mechanism's whole-word vocabulary match would falsely activate the pack
+on every lint; `append_only_packs` lets a later release add it. The
+corpus lints byte-identically with the pack discovered (issues +
+warnings diffed equal); `data.lineage` is now the enablement target the
+bioimage pilot (`specodelic-0dn`) consumes via `uses`.
+
 ## #100 — the extension mechanism becomes first-class: domain packs (specodelic-dcx)
 
 `add-domain-pack-mechanism` implemented (Revision 14). A domain pack is a
