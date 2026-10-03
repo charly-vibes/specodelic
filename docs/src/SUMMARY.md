@@ -62,3 +62,4 @@
 - [parse — capability](openspec/parse/spec.md)
 - [packs — capability](openspec/packs/spec.md)
 - [data-lineage-pack — capability](openspec/data-lineage-pack/spec.md)
+- [numeric-predicates-pack — capability](openspec/numeric-predicates-pack/spec.md)
