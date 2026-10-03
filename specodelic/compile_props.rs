@@ -54,6 +54,34 @@ pub mod spec_gen {
         Just(GenVal("emission_stage_fails".into()))
     }
 
+    pub fn property_row_with_rust_fragment() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("property_row_with_rust_fragment".into()))
+    }
+
+    pub fn property_row_without_fragment() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("property_row_without_fragment".into()))
+    }
+
+    pub fn property_row_with_two_generators() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("property_row_with_two_generators".into()))
+    }
+
+    pub fn law_row_with_fragment() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("law_row_with_fragment".into()))
+    }
+
+    pub fn fragment_with() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("fragment_with".into()))
+    }
+
+    pub fn transition_row_with_fragment_guard() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("transition_row_with_fragment_guard".into()))
+    }
+
+    pub fn effect_row_with_fragment() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("effect_row_with_fragment".into()))
+    }
+
 }
 
 proptest! {
@@ -163,6 +191,76 @@ proptest! {
     #[test]
     fn emission_failure_label_asserted(v0 in spec_gen::emission_stage_fails()) {
         todo_predicate!("`error_label == \"compile.emission_failure\"` — same three-site rename rule (EDGE-002)");
+    }
+}
+
+proptest! {
+    // id: fragment_body_emitted_verbatim
+    // generator: `property_row_with_rust_fragment()`
+    // predicate: `the emitted block body contains the fragment verbatim`
+    #[test]
+    fn fragment_body_emitted_verbatim(v0 in spec_gen::property_row_with_rust_fragment()) {
+        todo_predicate!("`the emitted block body contains the fragment verbatim`");
+    }
+}
+
+proptest! {
+    // id: prose_predicate_stays_placeholder
+    // generator: `property_row_without_fragment()`
+    // predicate: `compile(row).body contains todo_predicate!` — no widening of pre-Revision behavior
+    #[test]
+    fn prose_predicate_stays_placeholder(v0 in spec_gen::property_row_without_fragment()) {
+        todo_predicate!("`compile(row).body contains todo_predicate!` — no widening of pre-Revision behavior");
+    }
+}
+
+proptest! {
+    // id: fragment_values_bind_generators
+    // generator: `property_row_with_two_generators()`
+    // predicate: `the emitted block's args are v0, v1 — one per named generator, each a String`
+    #[test]
+    fn fragment_values_bind_generators(v0 in spec_gen::property_row_with_two_generators()) {
+        todo_predicate!("`the emitted block's args are v0, v1 — one per named generator, each a String`");
+    }
+}
+
+proptest! {
+    // id: law_fragment_labeled
+    // generator: `law_row_with_fragment()`
+    // predicate: `error_stage == fragment_extraction`
+    #[test]
+    fn law_fragment_labeled(v0 in spec_gen::law_row_with_fragment()) {
+        todo_predicate!("`error_stage == fragment_extraction`");
+    }
+}
+
+proptest! {
+    // id: hygiene_violation_labeled
+    // generator: `fragment_with(banned_token: "std::fs")`
+    // predicate: `error_stage == fragment_extraction ∧ message names the token`
+    #[test]
+    fn hygiene_violation_labeled(v0 in spec_gen::fragment_with()) {
+        todo_predicate!("`error_stage == fragment_extraction ∧ message names the token`");
+    }
+}
+
+proptest! {
+    // id: guard_fragment_labeled
+    // generator: `transition_row_with_fragment_guard()`
+    // predicate: `error_stage == fragment_extraction`
+    #[test]
+    fn guard_fragment_labeled(v0 in spec_gen::transition_row_with_fragment_guard()) {
+        todo_predicate!("`error_stage == fragment_extraction`");
+    }
+}
+
+proptest! {
+    // id: non_invariant_fragment_labeled
+    // generator: `effect_row_with_fragment()`
+    // predicate: `error_stage == fragment_extraction`
+    #[test]
+    fn non_invariant_fragment_labeled(v0 in spec_gen::effect_row_with_fragment()) {
+        todo_predicate!("`error_stage == fragment_extraction`");
     }
 }
 

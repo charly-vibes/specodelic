@@ -50,6 +50,22 @@ pub mod spec_gen {
         Just(GenVal("model_with_only_prose_invariants_exhausted_within_bound".into()))
     }
 
+    pub fn compiled_model_with_one_executable_invariant() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("compiled_model_with_one_executable_invariant".into()))
+    }
+
+    pub fn model_with_executable_invariants_no_violation() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("model_with_executable_invariants_no_violation".into()))
+    }
+
+    pub fn model_with_panicking_invariant_fragment() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("model_with_panicking_invariant_fragment".into()))
+    }
+
+    pub fn model_with_falsifiable_executable_invariant() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("model_with_falsifiable_executable_invariant".into()))
+    }
+
 }
 
 proptest! {
@@ -139,6 +155,46 @@ proptest! {
     #[test]
     fn exploration_run_is_not_a_clean_verdict(v0 in spec_gen::model_with_only_prose_invariants_exhausted_within_bound()) {
         todo_predicate!("`check(model).outcome == exploration_only` — never read as no_counterexample");
+    }
+}
+
+proptest! {
+    // id: fragment_invariants_checked
+    // generator: `compiled_model_with_one_executable_invariant()`
+    // predicate: `check(model).invariants_checked == [the_invariant_id]`
+    #[test]
+    fn fragment_invariants_checked(v0 in spec_gen::compiled_model_with_one_executable_invariant()) {
+        todo_predicate!("`check(model).invariants_checked == [the_invariant_id]`");
+    }
+}
+
+proptest! {
+    // id: fragment_clean_run_is_no_counterexample
+    // generator: `model_with_executable_invariants_no_violation()`
+    // predicate: `check(model).outcome == no_counterexample` — the model gate's reachable leg
+    #[test]
+    fn fragment_clean_run_is_no_counterexample(v0 in spec_gen::model_with_executable_invariants_no_violation()) {
+        todo_predicate!("`check(model).outcome == no_counterexample` — the model gate's reachable leg");
+    }
+}
+
+proptest! {
+    // id: panicking_fragment_violates
+    // generator: `model_with_panicking_invariant_fragment()`
+    // predicate: `check(model).outcome == counterexample_found ∧ violated_invariant_id == the_panicking_id`
+    #[test]
+    fn panicking_fragment_violates(v0 in spec_gen::model_with_panicking_invariant_fragment()) {
+        todo_predicate!("`check(model).outcome == counterexample_found ∧ violated_invariant_id == the_panicking_id`");
+    }
+}
+
+proptest! {
+    // id: fragment_violation_traces
+    // generator: `model_with_falsifiable_executable_invariant()`
+    // predicate: `check(model).trace == the_reachable_state_path` — the trace leg is the existing constraint's, not a new one
+    #[test]
+    fn fragment_violation_traces(v0 in spec_gen::model_with_falsifiable_executable_invariant()) {
+        todo_predicate!("`check(model).trace == the_reachable_state_path` — the trace leg is the existing constraint's, not a new one");
     }
 }
 

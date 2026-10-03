@@ -46,6 +46,10 @@ pub mod spec_gen {
         Just(GenVal("runner_with".into()))
     }
 
+    pub fn fixture_with() -> impl Strategy<Value = GenVal> {
+        Just(GenVal("fixture_with".into()))
+    }
+
 }
 
 proptest! {
@@ -135,6 +139,16 @@ proptest! {
     #[test]
     fn hang_reported_as_labeled_timeout(v0 in spec_gen::runner_with()) {
         todo_predicate!("`check(run) == timeout_labeled ∧ outcome(run) ≠ failed` — a timeout is no verdict on the property: distinct from properties_failed so a legitimately long suite can be re-run with a raised bound instead of misread as a failing predicate");
+    }
+}
+
+proptest! {
+    // id: fragments_reach_verified
+    // generator: `fixture_with(fragment_predicate_passing, executable_invariant_clean)`
+    // predicate: `check(file) == verified` — with executable fragments (specodelic.md Revision 15) both gates are reachable: a passing **rust:** predicate and a clean executable-invariant run verify a real file, the state the gate could never reach before this Revision
+    #[test]
+    fn fragments_reach_verified(v0 in spec_gen::fixture_with()) {
+        todo_predicate!("`check(file) == verified` — with executable fragments (specodelic.md Revision 15) both gates are reachable: a passing **rust:** predicate and a clean executable-invariant run verify a real file, the state the gate could never reach before this Revision");
     }
 }
 

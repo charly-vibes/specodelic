@@ -21,7 +21,37 @@ traces_to = "[[compile]]"
 [[constraints]]
 id = "properties_to_proptest"
 kind = "invariant"
-expr = "`each Property row compiles to one proptest! block: generator becomes the block's input strategy, predicate becomes its assertion body; a law-kind property compiles to one block per case enumerated in its predicate's **name:** case labels (the identity and associativity floor is lint-enforced ahead of compile, specodelic.md Revision 13)`"
+expr = "`each Property row compiles to one proptest! block: generator becomes the block's input strategy, predicate becomes its assertion body — verbatim as a **rust:** fragment when the row opts in ([[compile.predicate_fragment_opt_in]]), else the un-translated todo_predicate! placeholder that compiles here and fails only at execution; a law-kind property compiles to one block per case enumerated in its predicate's **name:** case labels (the identity and associativity floor is lint-enforced ahead of compile, specodelic.md Revision 13)`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "predicate_fragment_opt_in"
+kind = "invariant"
+expr = "`a Property's predicate cell may opt into executable translation with exactly one **rust:** marker and a non-empty fragment after it — the fragment is a Rust boolean expression emitted verbatim as the block's assertion body, binding the block's generated values (v0…, one per generator named in the generator cell, each a String); a cell with no marker compiles exactly as before (the placeholder) — pure widening, nothing valid before this Revision is invalidated`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "invariant_fragment_opt_in"
+kind = "invariant"
+expr = "`a Constraint's expr cell may carry the same **rust:** fragment when the row's kind is invariant — the fragment becomes an executable invariant model_check's native backend executes (model_check.md Revision 15); a fragment on a Constraint of any other kind (effect, advisory, a pack fiber kind) is a labeled extraction failure, never a silently ignored marker`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "fragment_law_rejected"
+kind = "invariant"
+expr = "`a law-kind Property row's predicate cell must not carry a **rust:** fragment — each required case needs its own assertion body and one fragment cannot honestly serve several named cases; violation is a labeled extraction failure`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "fragment_guard_rejected"
+kind = "invariant"
+expr = "`a Transition's guard cell must not carry a **rust:** fragment in this Revision — the program-counter model has no data binding a guard could constrain, so executable guards have no defined semantics; violation is a labeled extraction failure, never a silently ignored marker (decision of record: deferred to a future Revision alongside a data-carrying state space)`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "fragment_hygiene"
+kind = "invariant"
+expr = "`a fragment's text must not contain unsafe, extern, include!, include_str!, include_bytes!, std::fs, std::process, std::net, std::env, asm!, or Command — defense-in-depth against a fragment escaping its artifact's role (fragments run on the invoking user's machine with the invoking user's privileges, exactly like every other compiled artifact; the Rust compiler is not a sandbox); violation is a labeled extraction failure naming the token`"
 traces_to = "[[compile]]"
 
 [[constraints]]

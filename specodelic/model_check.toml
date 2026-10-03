@@ -39,5 +39,17 @@ traces_to = "[[model_check]]"
 [[constraints]]
 id = "rerun_on_model_change"
 kind = "invariant"
-expr = "`a run's clean result does not satisfy [[specodelic.no_counterexample]] once the Model section (States or Transitions) has changed since that run — the model must be re-run, not assumed still clean`"
+expr = "`a run's clean result does not satisfy [[specodelic.no_counterexample]] once the Model section (States or Transitions) or any executable invariant fragment has changed since that run — the model must be re-run, not assumed still clean (the fragment extension is specodelic.md Revision 15; the compiled module carries the fragment manifest, so the artifact hash covers it)`"
+traces_to = "[[model_check]]"
+
+[[constraints]]
+id = "executable_invariants_execute"
+kind = "invariant"
+expr = "`the native backend executes every executable invariant fragment (the **rust:** marker in a kind == invariant Constraint's expr — specodelic.md Revision 15) as an invariant over the compiled model: each evaluated at every reachable state, each named by its Constraints-table id in the report's invariants_checked. Fragments are Rust, compiled verbatim — executed by a scratch-crate run, since the interpreter backend cannot evaluate user Rust in-process; a backend that cannot execute fragments reports exploration_only, never a fabricated clean`"
+traces_to = "[[model_check]]"
+
+[[constraints]]
+id = "invariant_totality"
+kind = "invariant"
+expr = "`an executable invariant fragment evaluation that panics reports the invariant violated at the state where the panic occurred — a panicking predicate is never a pass and never silently skipped`"
 traces_to = "[[model_check]]"
