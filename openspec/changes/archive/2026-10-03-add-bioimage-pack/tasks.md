@@ -35,7 +35,7 @@ every phase.
 
 ## 2. Pack artifact (after approval)
 
-- [ ] 2.1 Create `packs/bioimage-data.md` (id `bioimage.data`,
+- [x] 2.1 Create `packs/bioimage-data.md` (id `bioimage.data`,
       `kind: profile`, state `published` via the full three-state Model)
       — six manifest tables per design.md D1: `## Sections` (Axes
       row shape), `## Kinds` (bioimage.transform), `## References`
@@ -46,18 +46,18 @@ every phase.
       empirical.registry pack deps). Four-layer spec shape so the
       file lints clean as a spec in its own right. No bare-English
       vocabulary tokens (design D2 audit).
-- [ ] 2.2 Verify `pack_shape` reports zero findings over the pack's own
+- [x] 2.2 Verify `pack_shape` reports zero findings over the pack's own
       declared vocabulary and the pack self-exemption holds (its manifest
       rows trigger no checkers, no orphan findings); verified in a
       scratch git workspace before landing: lint 0 issues in draft,
       published, and deprecated variants; graph 0 dangling/violations;
       compile 3 artifacts; vocabulary surface exactly [bioimage.transform,
-      Axes, same_shape_as, bioimage.dtype_is, bioimage.shape_eq,
-      bioimage.units_convertible].
+      Axes, same_shape_as] (checker rule names never join vocabulary() —
+      implementation fix-pass note in design.md).
 
 ## 3. Dogfood
 
-- [ ] 3.1 `cargo run -- lint openspec` and `just lint-specs` with all
+- [x] 3.1 `cargo run -- lint openspec` and `just lint-specs` with all
       FOUR packs discovered: zero findings on files using none of the
       vocabulary (issues+warnings diffed byte-identical with/without
       all four packs discovered — the D2 prose-safety claim verified
@@ -65,11 +65,11 @@ every phase.
       in this repo) reports an empty checked-set. Known exception per
       design D7: the dual-format delta vocabulary-activates the pack
       for the `spec` delta file (warnings channel only, exit 0).
-- [ ] 3.2 Orphan probe in a scratch workspace: a declared
+- [x] 3.2 Orphan probe in a scratch workspace: a declared
       `uses: [[bioimage.data]]` edge with the pack absent produces
       the labeled `linter.orphan_vocabulary` finding naming the
       candidate pack `bioimage.data` and both remediations, exit 1.
-- [ ] 3.3 Cross-pack probes (the pilot's stress tests, design D3/D8):
+- [x] 3.3 Cross-pack probes (the pilot's stress tests, design D3/D8):
       (a) `same_shape_as` resolving against a declared `## Data` row
       with the data-lineage pack active — file-local, no join; a
       dangling one fires the labeled finding; (b) `kind =
@@ -77,12 +77,12 @@ every phase.
       with the pack active (the ung mechanism), labeled finding
       without it; (c) a `## Requires` dep row naming a pack absent
       from the workspace yields the labeled advisory.
-- [ ] 3.4 Floor probes (design D4): base `law` property floor findings
+- [x] 3.4 Floor probes (design D4): base `law` property floor findings
       byte-identical with the pack discovered; a `bioimage.transform`
       property owing `**preserves:**`/`**dtype:**` exercises the
       transform floor; additive labels from the consumed packs ride
       along.
-- [ ] 3.5 Ro5 review verdict check: all fix-pass findings from
+- [x] 3.5 Ro5 review verdict check: all fix-pass findings from
       design.md "Review outcome" are reflected in the artifact — D2
       pre-paid hygiene audit (vocabulary surface verified
       token-by-token), D3 intra-file cross-pack resolution, D4

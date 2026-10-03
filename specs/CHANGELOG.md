@@ -6,6 +6,45 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #105 — the D6 pilot: bioimage-data domain pack (add-bioimage-pack)
+
+`add-bioimage-pack` implemented — no code, no base-set change: the
+mechanism's thin domain instance (the decision of record's D6 pilot)
+ships as an in-repo `kind: profile` artifact at
+`packs/bioimage-data.md` (id `bioimage.data`, base pin `specodelic.md`
+Revision 14) and the mechanism's **first cross-pack `## Requires`
+consumer** (deps: `data.lineage`, `numeric.predicates`,
+`empirical.registry`). It declares a namespaced `## Axes` section (row
+shape `| name | axis | scale | unit |` — OME-NGFF-style axis semantics
+with opaque `scale`/`unit` columns, bridge-never-absorb), the
+`bioimage.transform` property kind (the first fiber kind whose natural
+home is a base-table kind column — riding `specodelic-ung`'s
+base ∪ active-pack-fiber walkers), the `same_shape_as` reference field
+resolving to a `## Data` row of the declaring file (cross-pack
+dependency, intra-file resolution — no reachability join, no acyclic
+edge set), the R2 data-shaped predicate grammar declared as named
+pack-qualified checkers (`bioimage.dtype_is`, `bioimage.shape_eq`,
+`bioimage.units_convertible` — the mechanism names them, never
+executes them; `specodelic-rjb` owns the executable-fragment track)
+plus the `bioimage.same_shape_closed` closure checker (the
+`data.lineage.closure` precedent), and the kind-dependent transform
+floor (`**preserves:**` + `**dtype:**` — the base `law` floor's
+non-universality critique made concrete; purely additive,
+byte-identical with the pack discovered).
+Vocabulary hygiene pre-paid a third time: every declared token is
+dotted or verified absent (`Axes`, `same_shape_as`, `preserves` 0-file;
+bare `bioimage` documented asymmetry; bare predicate tokens never
+declared — they ride the checker rule names; `pipeline` prose-heavy →
+rejected, `within` prose-toxic → excluded; `dtype` survives only as an
+opaque column header and floor label). Pilot probes verified: orphan
+`uses: [[bioimage.data]]` with the pack absent → labeled
+`linter.orphan_vocabulary` exit 1; `kind = bioimage.transform` accepted
+with the pack active, labeled finding without it; base `law` floor
+byte-identical with all four packs discovered; corpus lint
+byte-identical except the delta's own known activation. Probe gap
+filed: vocabulary-triggered orphan labeling (no pack, no `uses` edge)
+is mechanism work, not this pack's.
+
 ## #104 — pack fiber kinds are typeable in base-table kind columns (specodelic-ung)
 
 The domain-pack mechanism's closed-set walkers (`property_kind_closed` /

@@ -29,14 +29,14 @@ bridge-don't-absorb stance.
 
 ## Decisions
 
-### D1 — Thin vocabulary (one section, one kind, one field, three checkers, one floor, cross-pack Requires)
+### D1 — Thin vocabulary (one section, one kind, one field, four checkers, one floor, cross-pack Requires)
 
 | Facet    | Declaration |
 |----------|-------------|
 | Sections | `## Axes` with row shape `\| name \| axis \| scale \| unit \|` — the workspace's declared image axes (OME-NGFF-style T/C/Z/Y/X semantics); `scale` and `unit` columns are opaque prose the format never parses (bridge-never-absorb) |
 | Kinds    | `bioimage.transform` — a scientific image-transform law: a stated property about how a pipeline step transforms image data; a pack-fiber PROPERTY kind, typeable in a base Properties row's `kind` column when the pack is active (the ung mechanism — the pilot is the first pack whose kind naturally lands in a base kind column) |
 | References | `same_shape_as` — resolves to a `## Data` row of the declaring file (the data-lineage pack's section); outbound leaf, intra-file resolution, the `measured_by`/`tested_by` precedent with a cross-pack *target section* |
-| Checkers | `bioimage.dtype_is`, `bioimage.shape_eq`, `bioimage.units_convertible` — R2's data-shaped closed predicate grammar declared as named pack-qualified checkers over `## Data` rows: every predicate occurrence in a law predicate resolves against the closed set; with no `## Data` rows the checked-set is empty. Declaration-only — the mechanism can name them, never execute them |
+| Checkers | `bioimage.dtype_is`, `bioimage.shape_eq`, `bioimage.units_convertible` — R2's data-shaped closed predicate grammar declared as named pack-qualified checkers over `## Data` rows: every predicate occurrence in a law predicate resolves against the closed set; with no `## Data` rows the checked-set is empty. Declaration-only — the mechanism can name them, never execute them. Plus `bioimage.same_shape_closed` (implementation fix-pass): the delta's dangling-`same_shape_as` requirement needs a declared closure checker (the `data.lineage.closure` precedent) — the scaffold's three-checker enumeration under-listed it |
 | Floors   | `bioimage.transform` requires `preserves` + `dtype` case labels (the kind-dependent floor: what invariant the transform preserves, and its dtype contract) |
 | Requires | `base` pinned at `specodelic.md Revision 14` (the mechanism revision) plus pack deps `data.lineage`, `numeric.predicates`, `empirical.registry` — the first cross-pack `## Requires` consumer |
 
@@ -184,3 +184,29 @@ pack needs stat tests): `bioimage.transform` properties may be
 empirically held (`empirical.statistic` typing + `tested_by` edges) —
 recorded in D1's Requires row and D4's additivity note. No blocking
 findings.
+
+## Implementation fix-pass notes (2026-10-03, probes)
+
+- **Closure checker added**: `bioimage.same_shape_closed` — the delta's
+  dangling-`same_shape_as` requirement is unrealizable without a
+  declared closure checker (pack-declared reference closure rides
+  declared checkers; the `data.lineage.closure` precedent). D1's
+  scaffold enumeration said three checkers; the artifact ships four.
+- **Vocabulary surface corrected**: `vocabulary()` = kinds + sections +
+  references only — checker rule names never join it (verified
+  empirically; matches all three sibling packs). The task-2.2 surface
+  expectation of six tokens corrects to three: `[bioimage.transform,
+  Axes, same_shape_as]`.
+- **Single-state variants**: pack_shape is clean in draft, published,
+  and deprecated; the hand-stripped single-state variants carry two
+  residual model-shape advisories (state row without transitions) —
+  variant-construction artifacts, not pack findings.
+- **Requires pack-dep advisory**: declaration-only at this revision (D8
+  as scoped) — a dep naming no discovered pack fires nothing; recorded,
+  not waved at.
+- **Mechanism gap found (filed, not folded)**: vocabulary-triggered
+  orphan labeling (pack vocabulary used, no pack discovered, no `uses`
+  edge) is unimplemented in `packs.rs` — the orphan rule fires only on
+  declared `uses` edges; `packs.md`'s `orphan_vocabulary_labeled`
+  requires both halves. Filed as its own beads ticket: this change's
+  no-`src/`-edit anti-goal holds.
