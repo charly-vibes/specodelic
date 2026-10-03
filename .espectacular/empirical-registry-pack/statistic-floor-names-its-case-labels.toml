@@ -1,0 +1,9 @@
+id = "statistic-floor-names-its-case-labels"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "help_does_not_leak_flattened_struct_docs_and_labels_orchestrate"

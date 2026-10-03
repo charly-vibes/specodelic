@@ -1,0 +1,9 @@
+id = "unlabeled-floor-fails-the-precondition"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "compile_corpus_succeeds_and_reports_all_artifacts"

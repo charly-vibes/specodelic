@@ -1,0 +1,9 @@
+id = "any-external-standard-binds-without-lint-change"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "lint_fails_with_hint_when_no_specs_found"

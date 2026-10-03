@@ -1,0 +1,8 @@
+id = "push-deploys-the-site"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+[[tests.shell]]
+command = "grep -q 'docs' .github/workflows/docs.yml"

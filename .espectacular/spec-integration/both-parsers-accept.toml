@@ -1,0 +1,9 @@
+id = "both-parsers-accept"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "overlapping_vocabulary_activates_both_packs"

@@ -1,0 +1,9 @@
+id = "agent-reads-a-finding-without-repo-access"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "lint_findings_exit_one"

@@ -1,0 +1,9 @@
+id = "single-file-per-invocation"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "lint_fails_on_parse_error_even_when_other_specs_parse"

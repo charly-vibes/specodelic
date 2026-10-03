@@ -1,0 +1,9 @@
+id = "second-run-is-a-refusal"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "migrate_wraps_delta_then_refuses_second_run"

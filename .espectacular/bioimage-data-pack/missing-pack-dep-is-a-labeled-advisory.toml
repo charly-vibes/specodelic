@@ -1,0 +1,9 @@
+id = "missing-pack-dep-is-a-labeled-advisory"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "uses_edge_to_a_missing_pack_is_a_labeled_orphan_failure"

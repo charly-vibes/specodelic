@@ -1,0 +1,9 @@
+id = "prose-bioimage-mentions-stay-inert"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "no_profile_files_means_pack_machinery_is_inert"

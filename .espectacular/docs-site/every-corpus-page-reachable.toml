@@ -1,0 +1,11 @@
+id = "every-corpus-page-reachable"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "doctor_consumer_with_corpus_reports_format_revision"
+[[tests.shell]]
+command = "python3 scripts/check_summary_completeness.py ."

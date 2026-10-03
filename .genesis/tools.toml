@@ -1,0 +1,6 @@
+[tools.espectacular]
+description = "Spec-test correspondence enforcer"
+
+[tools.espectacular.detector]
+type = "directory"
+path = ".espectacular"

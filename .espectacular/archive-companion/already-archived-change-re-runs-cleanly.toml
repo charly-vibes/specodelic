@@ -1,0 +1,9 @@
+id = "already-archived-change-re-runs-cleanly"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "archive_companion_unknown_change_is_labeled_error"

@@ -1,0 +1,9 @@
+id = "carve-out-file-passes"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "error_contract_rows_are_published"

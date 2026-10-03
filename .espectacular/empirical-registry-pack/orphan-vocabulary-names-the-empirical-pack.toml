@@ -1,0 +1,9 @@
+id = "orphan-vocabulary-names-the-empirical-pack"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "vocabulary_orphan_suppressed_when_uses_edge_names_the_pack"

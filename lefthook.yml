@@ -7,6 +7,10 @@
 
 pre-commit:
   commands:
+# ah:managed:start
+    ah-check:
+      run: ah check
+# ah:managed:end
     # <!-- SPK:START -->
     specodelic-gates:
       run: spk lint openspec

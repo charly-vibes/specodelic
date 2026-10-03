@@ -1,0 +1,9 @@
+id = "local-build-succeeds"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "lint_skips_hidden_and_build_directories"

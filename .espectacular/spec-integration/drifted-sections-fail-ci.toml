@@ -1,0 +1,9 @@
+id = "drifted-sections-fail-ci"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "lint_carved_out_stage_fail_passes"
