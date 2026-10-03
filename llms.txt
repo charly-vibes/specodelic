@@ -23,6 +23,11 @@ The CLI binary is `spk` (crate: `specodelic`).
 - **Closed kind sets** — row `kind` values are closed sets enforced
   from the same constants that document them.
 - **Reference typing** — what a `[[link]]` in each column may point at.
+- **Domain packs** — a workspace extends the format via `kind: profile`
+  manifest specs (no config, no registry; lint discovers packs by corpus
+  scan). Four ship in-repo: `data.lineage`, `numeric.predicates`,
+  `empirical.registry`, and the `bioimage.data` D6 pilot (first
+  cross-pack `## Requires`). Contract: [[packs]].
 - **Pipeline** — lint → compile (TOML + proptest + TLA+) →
   model-check (embedded stateright) → verify (proptest execution).
 
@@ -38,6 +43,9 @@ The CLI binary is `spk` (crate: `specodelic`).
 - `spk parse <file>` — the parsed Spec IR as a json envelope (syntax-only,
   one file per invocation; for fleet consumers integrating over the binary)
 - `spk rename` / `spk merge` / `spk refactor` / `spk orchestrate` (specced, stubbed)
+- `spk migrate <file>` — wrap an openspec delta into the dual-format skeleton
+- `spk archive-companion <CHANGE_ID>` — archive an openspec change preserving its dual-format layer
+- `spk hooks install|uninstall` — wire/unwire the dual-format lint gate in the hook chain
 
 ## Self-hosting
 
@@ -59,6 +67,9 @@ The format (read in this order):
   statements, closed kind sets, reference typing — start here.
 - [kinds](https://charly-vibes.github.io/specodelic/specs/kinds.html):
   closed kind value sets for each table.
+- [packs](https://charly-vibes.github.io/specodelic/specs/packs.html):
+  the domain-pack mechanism — manifests, discovery, activation, orphan
+  vocabulary labeling.
 
 Pipeline commands:
 

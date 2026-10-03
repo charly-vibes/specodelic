@@ -38,15 +38,16 @@ fan-in/out and dangling detection), `spk rename` / `spk merge` /
 **Domain packs** extend the format without a format revision: a
 `kind: profile` manifest declares typed sections, fiber kinds, and
 reference fields for a domain (no config file — lint discovers packs by
-corpus scan). Three standard packs ship in-repo (`data.lineage`,
-`numeric.predicates`, `empirical.registry`); see the
-[packs spec](specs/packs.md).
+corpus scan). Four packs ship in-repo — the three standard packs
+(`data.lineage`, `numeric.predicates`, `empirical.registry`) plus the
+bioimage D6 pilot (`bioimage.data`, the first cross-pack `## Requires`);
+see the [packs spec](specs/packs.md).
 
 ## For agents
 
 No repo access needed: `spk explain` serves the distilled format guide
-from inside the binary — seven topics (`format`, `ears`, `kinds`,
-`references`, `lifecycle`, `lint-rules`, `dual-format`), and every lint
+from inside the binary — eight topics (`format`, `ears`, `kinds`,
+`references`, `lifecycle`, `lint-rules`, `dual-format`, `packs`), and every lint
 finding carries its own `rule_id` and one-line semantics. See `llms.txt`
 at the site root for a machine summary.
 
