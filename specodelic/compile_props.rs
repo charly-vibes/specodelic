@@ -92,9 +92,6 @@ proptest! {
     fn precondition_violation_rejected(v0 in spec_gen::file_that_has_not_passed_lint()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: toml_roundtrips
     // generator: `arbitrary_constraint_row()`
     // predicate: `parse_toml(compile(row)) == row`
@@ -102,9 +99,6 @@ proptest! {
     fn toml_roundtrips(v0 in spec_gen::arbitrary_constraint_row()) {
         todo_predicate!("`parse_toml(compile(row)) == row`");
     }
-}
-
-proptest! {
     // id: tla_disjunct_count_matches
     // generator: `arbitrary_model_section(n_transitions)`
     // predicate: `count(disjuncts(compile(model).Next)) == n_transitions + 1` — the closing stuttering disjunct
@@ -112,9 +106,6 @@ proptest! {
     fn tla_disjunct_count_matches(v0 in spec_gen::arbitrary_model_section()) {
         todo_predicate!("`count(disjuncts(compile(model).Next)) == n_transitions + 1` — the closing stuttering disjunct");
     }
-}
-
-proptest! {
     // id: output_function_covers_emitting_states_only
     // generator: `arbitrary_model_section(n_states_with_emits, n_states_without)`
     // predicate: `domain(compile(model).Output) == the_states_with_emits` — no entry for the rest
@@ -122,9 +113,6 @@ proptest! {
     fn output_function_covers_emitting_states_only(v0 in spec_gen::arbitrary_model_section()) {
         todo_predicate!("`domain(compile(model).Output) == the_states_with_emits` — no entry for the rest");
     }
-}
-
-proptest! {
     // id: proptest_block_per_property
     // generator: `arbitrary_property_row()`
     // predicate: `count(compile(row).blocks) ≥ 1`
@@ -132,9 +120,6 @@ proptest! {
     fn proptest_block_per_property(v0 in spec_gen::arbitrary_property_row()) {
         todo_predicate!("`count(compile(row).blocks) ≥ 1`");
     }
-}
-
-proptest! {
     // id: law_property_compiles_required_cases
     // generator: `law_property_row_with(cases: ["identity", "associativity"])`
     // predicate: `count(compile(row).blocks) == 2`
@@ -142,9 +127,6 @@ proptest! {
     fn law_property_compiles_required_cases(v0 in spec_gen::law_property_row_with()) {
         todo_predicate!("`count(compile(row).blocks) == 2`");
     }
-}
-
-proptest! {
     // id: compile_completes_or_fails_cleanly
     // generator: `arbitrary_linted_and_covered_file()`
     // predicate: `compile(file) ∈ {all_three_artifacts, single_labeled_failure}` — never partial
@@ -152,9 +134,6 @@ proptest! {
     fn compile_completes_or_fails_cleanly(v0 in spec_gen::arbitrary_linted_and_covered_file()) {
         todo_predicate!("`compile(file) ∈ {all_three_artifacts, single_labeled_failure}` — never partial");
     }
-}
-
-proptest! {
     // id: id_preservation_holds
     // generator: `arbitrary_linted_and_covered_file()`
     // predicate: `ids_in(file) ⊆ ids_in(compile(file))`
@@ -162,9 +141,6 @@ proptest! {
     fn id_preservation_holds(v0 in spec_gen::arbitrary_linted_and_covered_file()) {
         todo_predicate!("`ids_in(file) ⊆ ids_in(compile(file))`");
     }
-}
-
-proptest! {
     // id: roundtrip_stable
     // generator: `arbitrary_linted_and_covered_file()`
     // predicate: `compile(file) == compile(parse(compile(file)))`
@@ -172,9 +148,6 @@ proptest! {
     fn roundtrip_stable(v0 in spec_gen::arbitrary_linted_and_covered_file()) {
         todo_predicate!("`compile(file) == compile(parse(compile(file)))`");
     }
-}
-
-proptest! {
     // id: extraction_failure_label_asserted
     // generator: `extraction_stage_fails_on_row()`
     // predicate: `error_label == "compile.extraction_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -182,9 +155,6 @@ proptest! {
     fn extraction_failure_label_asserted(v0 in spec_gen::extraction_stage_fails_on_row()) {
         todo_predicate!("`error_label == \"compile.extraction_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: emission_failure_label_asserted
     // generator: `emission_stage_fails()`
     // predicate: `error_label == "compile.emission_failure"` — same three-site rename rule (EDGE-002)
@@ -192,9 +162,6 @@ proptest! {
     fn emission_failure_label_asserted(v0 in spec_gen::emission_stage_fails()) {
         todo_predicate!("`error_label == \"compile.emission_failure\"` — same three-site rename rule (EDGE-002)");
     }
-}
-
-proptest! {
     // id: fragment_body_emitted_verbatim
     // generator: `property_row_with_rust_fragment()`
     // predicate: `the emitted block body contains the fragment verbatim`
@@ -202,9 +169,6 @@ proptest! {
     fn fragment_body_emitted_verbatim(v0 in spec_gen::property_row_with_rust_fragment()) {
         todo_predicate!("`the emitted block body contains the fragment verbatim`");
     }
-}
-
-proptest! {
     // id: prose_predicate_stays_placeholder
     // generator: `property_row_without_fragment()`
     // predicate: `compile(row).body contains todo_predicate!` — no widening of pre-Revision behavior
@@ -212,9 +176,6 @@ proptest! {
     fn prose_predicate_stays_placeholder(v0 in spec_gen::property_row_without_fragment()) {
         todo_predicate!("`compile(row).body contains todo_predicate!` — no widening of pre-Revision behavior");
     }
-}
-
-proptest! {
     // id: fragment_values_bind_generators
     // generator: `property_row_with_two_generators()`
     // predicate: `the emitted block's args are v0, v1 — one per named generator, each a String`
@@ -222,9 +183,6 @@ proptest! {
     fn fragment_values_bind_generators(v0 in spec_gen::property_row_with_two_generators()) {
         todo_predicate!("`the emitted block's args are v0, v1 — one per named generator, each a String`");
     }
-}
-
-proptest! {
     // id: law_fragment_labeled
     // generator: `law_row_with_fragment()`
     // predicate: `error_stage == fragment_extraction`
@@ -232,9 +190,6 @@ proptest! {
     fn law_fragment_labeled(v0 in spec_gen::law_row_with_fragment()) {
         todo_predicate!("`error_stage == fragment_extraction`");
     }
-}
-
-proptest! {
     // id: hygiene_violation_labeled
     // generator: `fragment_with(banned_token: "std::fs")`
     // predicate: `error_stage == fragment_extraction ∧ message names the token`
@@ -242,9 +197,6 @@ proptest! {
     fn hygiene_violation_labeled(v0 in spec_gen::fragment_with()) {
         todo_predicate!("`error_stage == fragment_extraction ∧ message names the token`");
     }
-}
-
-proptest! {
     // id: guard_fragment_labeled
     // generator: `transition_row_with_fragment_guard()`
     // predicate: `error_stage == fragment_extraction`
@@ -252,9 +204,6 @@ proptest! {
     fn guard_fragment_labeled(v0 in spec_gen::transition_row_with_fragment_guard()) {
         todo_predicate!("`error_stage == fragment_extraction`");
     }
-}
-
-proptest! {
     // id: non_invariant_fragment_labeled
     // generator: `effect_row_with_fragment()`
     // predicate: `error_stage == fragment_extraction`

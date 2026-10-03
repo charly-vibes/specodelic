@@ -60,9 +60,6 @@ proptest! {
     fn upstream_failure_skips_dependents(v0 in spec_gen::repo_where()) {
         todo_predicate!("`invocation_count(linter.referential_integrity) == 0` — never run against unvalidated input");
     }
-}
-
-proptest! {
     // id: independent_branch_failure_isolated
     // generator: `repo_where(linter.ears_syntax: fails, linter.referential_integrity_branch: passes)`
     // predicate: `report(linter.graph_shape) == passed` — the passing branch's own outcome is unaffected
@@ -70,9 +67,6 @@ proptest! {
     fn independent_branch_failure_isolated(v0 in spec_gen::repo_where()) {
         todo_predicate!("`report(linter.graph_shape) == passed` — the passing branch's own outcome is unaffected");
     }
-}
-
-proptest! {
     // id: compile_blocked_on_partial_lint
     // generator: `repo_where(five_of_six_checkers_pass, one_still_pending)`
     // predicate: `invocation_count(compile) == 0`
@@ -80,9 +74,6 @@ proptest! {
     fn compile_blocked_on_partial_lint(v0 in spec_gen::repo_where()) {
         todo_predicate!("`invocation_count(compile) == 0`");
     }
-}
-
-proptest! {
     // id: external_completeness_failure_ignored
     // generator: `repo_where(all_seven_checkers_and_pipeline_pass, declared_checklist: fails)`
     // predicate: `orchestrate reaches succeeded`
@@ -90,9 +81,6 @@ proptest! {
     fn external_completeness_failure_ignored(v0 in spec_gen::repo_where()) {
         todo_predicate!("`orchestrate reaches succeeded`");
     }
-}
-
-proptest! {
     // id: rerun_idempotent
     // generator: `run_orchestrator_twice_against_unchanged_repo()`
     // predicate: `report(run_1) == report(run_2)`
@@ -100,9 +88,6 @@ proptest! {
     fn rerun_idempotent(v0 in spec_gen::run_orchestrator_twice_against_unchanged_repo()) {
         todo_predicate!("`report(run_1) == report(run_2)`");
     }
-}
-
-proptest! {
     // id: clean_repo_succeeds
     // generator: `arbitrary_repo_that_independently_passes_lint_compile_model_check_verify()`
     // predicate: `orchestrate reaches succeeded`
@@ -110,9 +95,6 @@ proptest! {
     fn clean_repo_succeeds(v0 in spec_gen::arbitrary_repo_that_independently_passes_lint_compile_model_check_verify()) {
         todo_predicate!("`orchestrate reaches succeeded`");
     }
-}
-
-proptest! {
     // id: coverage_failure_holds_compile
     // generator: `repo_where(linter.coverage: failed, every_other_checker_and_pipeline_stage: passed)`
     // predicate: `orchestrate halts at compile_stage` — never reaches model_check_stage, and by exactly the coverage checker's verdict, not a looser or stricter one
@@ -120,9 +102,6 @@ proptest! {
     fn coverage_failure_holds_compile(v0 in spec_gen::repo_where()) {
         todo_predicate!("`orchestrate halts at compile_stage` — never reaches model_check_stage, and by exactly the coverage checker's verdict, not a looser or stricter one");
     }
-}
-
-proptest! {
     // id: lint_stage_failure_label_asserted
     // generator: `lint_stage_failure_raised()`
     // predicate: `error_label == "orchestrate.lint_stage_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -130,9 +109,6 @@ proptest! {
     fn lint_stage_failure_label_asserted(v0 in spec_gen::lint_stage_failure_raised()) {
         todo_predicate!("`error_label == \"orchestrate.lint_stage_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: compile_stage_failure_label_asserted
     // generator: `compile_stage_failure_raised()`
     // predicate: `error_label == "orchestrate.compile_stage_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -140,9 +116,6 @@ proptest! {
     fn compile_stage_failure_label_asserted(v0 in spec_gen::compile_stage_failure_raised()) {
         todo_predicate!("`error_label == \"orchestrate.compile_stage_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: model_check_stage_failure_label_asserted
     // generator: `model_check_stage_failure_raised()`
     // predicate: `error_label == "orchestrate.model_check_stage_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -150,9 +123,6 @@ proptest! {
     fn model_check_stage_failure_label_asserted(v0 in spec_gen::model_check_stage_failure_raised()) {
         todo_predicate!("`error_label == \"orchestrate.model_check_stage_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: verify_stage_failure_label_asserted
     // generator: `verify_stage_failure_raised()`
     // predicate: `error_label == "orchestrate.verify_stage_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)

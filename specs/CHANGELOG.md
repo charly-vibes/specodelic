@@ -6,6 +6,30 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #108 — parameterless property blocks emit outside `proptest!` (specodelic-8aq)
+
+A Property row whose generator cell yields no strategy params (no
+`name(` occurrence — e.g. `` `(a, b)` where one was removed `` prose) was
+emitted as a bare `fn name()` INSIDE the `proptest!` macro, which requires
+`(pat in strategy)` on every fn — a parse error that left the scratch crate
+uncompilable, so `verify` reported `properties_uncompilable` (worse than the
+honest todo-panic failure it replaced) for 7/22 corpus files.
+
+- Blocks with no generators now emit OUTSIDE the macro as plain `#[test]`
+  fns — same metadata comments (`// id:` / `// case:` / `// generator:` /
+  `// predicate:`) so `verify`'s staleness fingerprint and block discovery
+  are unchanged, same honest `todo_predicate!` / verbatim-fragment `assert!`
+  bodies. Blocks with strategies keep the `proptest!` form; the macro is
+  opened/closed around contiguous runs so row order is preserved.
+- Law-case splitting is intact: a parameterless law row still yields one
+  plain `#[test]` fn per required case.
+- The `use proptest::prelude::*;` import is emitted only when at least one
+  block carries strategies — a fully parameterless artifact stays
+  warning-clean.
+- Fragment rows are unchanged (the rjb emission shape); a parameterless row
+  opting in with `**rust:**` emits its verbatim fragment as the `assert!`
+  body of the plain fn.
+
 ## #107 — vocabulary-triggered orphan labeling (the second half of `orphan_vocabulary_labeled`, specodelic-erd)
 
 The pack mechanism's orphan rule fired only on declared `uses` edges —

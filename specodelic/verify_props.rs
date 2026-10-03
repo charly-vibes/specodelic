@@ -62,14 +62,12 @@ proptest! {
     }
 }
 
-proptest! {
-    // id: cached_result_rejected
-    // generator: `(passing_run, properties_edited_afterward_with_no_rerun)`
-    // predicate: `properties_pass(file) == false` — until re-run
-    #[test]
-    fn cached_result_rejected() {
+// id: cached_result_rejected
+// generator: `(passing_run, properties_edited_afterward_with_no_rerun)`
+// predicate: `properties_pass(file) == false` — until re-run
+#[test]
+fn cached_result_rejected() {
         todo_predicate!("`properties_pass(file) == false` — until re-run");
-    }
 }
 
 proptest! {
@@ -80,9 +78,6 @@ proptest! {
     fn shrunk_counterexample_reported(v0 in spec_gen::block_with()) {
         todo_predicate!("`reported_input(check(block)) == the_smaller_one`");
     }
-}
-
-proptest! {
     // id: single_gate_insufficient
     // generator: `file_with(properties_pass: true, no_counterexample: false)`
     // predicate: `check(file) == failed`
@@ -90,9 +85,6 @@ proptest! {
     fn single_gate_insufficient(v0 in spec_gen::file_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: both_gates_clean_passes
     // generator: `file_with(properties_pass: true, no_counterexample: true)`
     // predicate: `check(file) == verified`
@@ -100,9 +92,6 @@ proptest! {
     fn both_gates_clean_passes(v0 in spec_gen::file_with()) {
         todo_predicate!("`check(file) == verified`");
     }
-}
-
-proptest! {
     // id: partial_law_case_rejected
     // generator: `law_property_with(identity_case: "pass", associativity_case: "fail")`
     // predicate: `check(property) == failed`
@@ -112,14 +101,12 @@ proptest! {
     }
 }
 
-proptest! {
-    // id: rerun_matches_prior_outcome
-    // generator: `(run_1, run_2)` on an unchanged compiled artifact
-    // predicate: `outcome(run_1) == outcome(run_2)`
-    #[test]
-    fn rerun_matches_prior_outcome() {
+// id: rerun_matches_prior_outcome
+// generator: `(run_1, run_2)` on an unchanged compiled artifact
+// predicate: `outcome(run_1) == outcome(run_2)`
+#[test]
+fn rerun_matches_prior_outcome() {
         todo_predicate!("`outcome(run_1) == outcome(run_2)`");
-    }
 }
 
 proptest! {
@@ -130,9 +117,6 @@ proptest! {
     fn verification_failure_label_asserted(v0 in spec_gen::verification_failure_raised()) {
         todo_predicate!("`error_label == \"verify.verification_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: hang_reported_as_labeled_timeout
     // generator: `runner_with(predicate_that_never_terminates, timeout: 1)`
     // predicate: `check(run) == timeout_labeled ∧ outcome(run) ≠ failed` — a timeout is no verdict on the property: distinct from properties_failed so a legitimately long suite can be re-run with a raised bound instead of misread as a failing predicate
@@ -140,9 +124,6 @@ proptest! {
     fn hang_reported_as_labeled_timeout(v0 in spec_gen::runner_with()) {
         todo_predicate!("`check(run) == timeout_labeled ∧ outcome(run) ≠ failed` — a timeout is no verdict on the property: distinct from properties_failed so a legitimately long suite can be re-run with a raised bound instead of misread as a failing predicate");
     }
-}
-
-proptest! {
     // id: fragments_reach_verified
     // generator: `fixture_with(fragment_predicate_passing, executable_invariant_clean)`
     // predicate: `check(file) == verified` — with executable fragments (specodelic.md Revision 15) both gates are reachable: a passing **rust:** predicate and a clean executable-invariant run verify a real file, the state the gate could never reach before this Revision

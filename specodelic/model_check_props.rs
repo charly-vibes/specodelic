@@ -76,9 +76,6 @@ proptest! {
     fn stale_claim_rejected(v0 in spec_gen::compiled_module_with_zero_runs_against_it()) {
         todo_predicate!("`no_counterexample(file) == undetermined` — never defaults to true");
     }
-}
-
-proptest! {
     // id: bound_must_be_stated
     // generator: `run_report_with_no_stated_bound()`
     // predicate: `check(report) == invalid`
@@ -86,9 +83,6 @@ proptest! {
     fn bound_must_be_stated(v0 in spec_gen::run_report_with_no_stated_bound()) {
         todo_predicate!("`check(report) == invalid`");
     }
-}
-
-proptest! {
     // id: shortest_counterexample_reported
     // generator: `model_with(two_violating_traces_of_different_length: true)`
     // predicate: `reported_trace(check(model)) == the_shorter_of_the_two`
@@ -96,9 +90,6 @@ proptest! {
     fn shortest_counterexample_reported(v0 in spec_gen::model_with()) {
         todo_predicate!("`reported_trace(check(model)) == the_shorter_of_the_two`");
     }
-}
-
-proptest! {
     // id: violated_invariant_named
     // generator: `model_with_exactly_one_violated_invariant()`
     // predicate: `check(model).violated_invariant_id == the_expected_id`
@@ -106,9 +97,6 @@ proptest! {
     fn violated_invariant_named(v0 in spec_gen::model_with_exactly_one_violated_invariant()) {
         todo_predicate!("`check(model).violated_invariant_id == the_expected_id`");
     }
-}
-
-proptest! {
     // id: backend_named_in_report
     // generator: `run_report_from_any_backend()`
     // predicate: `check(report).backend == a named engine and version`
@@ -116,9 +104,6 @@ proptest! {
     fn backend_named_in_report(v0 in spec_gen::run_report_from_any_backend()) {
         todo_predicate!("`check(report).backend == a named engine and version`");
     }
-}
-
-proptest! {
     // id: clean_run_satisfies_verify_gate
     // generator: `arbitrary_model_with_no_violation_within_bound()`
     // predicate: `no_counterexample(file) == true`
@@ -128,14 +113,12 @@ proptest! {
     }
 }
 
-proptest! {
-    // id: stale_result_invalidated_by_edit
-    // generator: `(clean_run, model_edited_afterward_with_no_rerun)`
-    // predicate: `no_counterexample(file) == false` — until re-run
-    #[test]
-    fn stale_result_invalidated_by_edit() {
+// id: stale_result_invalidated_by_edit
+// generator: `(clean_run, model_edited_afterward_with_no_rerun)`
+// predicate: `no_counterexample(file) == false` — until re-run
+#[test]
+fn stale_result_invalidated_by_edit() {
         todo_predicate!("`no_counterexample(file) == false` — until re-run");
-    }
 }
 
 proptest! {
@@ -146,9 +129,6 @@ proptest! {
     fn clean_model_passes(v0 in spec_gen::arbitrary_model_with_no_violation_within_bound()) {
         todo_predicate!("`check(model) == clean`");
     }
-}
-
-proptest! {
     // id: exploration_run_is_not_a_clean_verdict
     // generator: `model_with_only_prose_invariants_exhausted_within_bound()`
     // predicate: `check(model).outcome == exploration_only` — never read as no_counterexample
@@ -156,9 +136,6 @@ proptest! {
     fn exploration_run_is_not_a_clean_verdict(v0 in spec_gen::model_with_only_prose_invariants_exhausted_within_bound()) {
         todo_predicate!("`check(model).outcome == exploration_only` — never read as no_counterexample");
     }
-}
-
-proptest! {
     // id: fragment_invariants_checked
     // generator: `compiled_model_with_one_executable_invariant()`
     // predicate: `check(model).invariants_checked == [the_invariant_id]`
@@ -166,9 +143,6 @@ proptest! {
     fn fragment_invariants_checked(v0 in spec_gen::compiled_model_with_one_executable_invariant()) {
         todo_predicate!("`check(model).invariants_checked == [the_invariant_id]`");
     }
-}
-
-proptest! {
     // id: fragment_clean_run_is_no_counterexample
     // generator: `model_with_executable_invariants_no_violation()`
     // predicate: `check(model).outcome == no_counterexample` — the model gate's reachable leg
@@ -176,9 +150,6 @@ proptest! {
     fn fragment_clean_run_is_no_counterexample(v0 in spec_gen::model_with_executable_invariants_no_violation()) {
         todo_predicate!("`check(model).outcome == no_counterexample` — the model gate's reachable leg");
     }
-}
-
-proptest! {
     // id: panicking_fragment_violates
     // generator: `model_with_panicking_invariant_fragment()`
     // predicate: `check(model).outcome == counterexample_found ∧ violated_invariant_id == the_panicking_id`
@@ -186,9 +157,6 @@ proptest! {
     fn panicking_fragment_violates(v0 in spec_gen::model_with_panicking_invariant_fragment()) {
         todo_predicate!("`check(model).outcome == counterexample_found ∧ violated_invariant_id == the_panicking_id`");
     }
-}
-
-proptest! {
     // id: fragment_violation_traces
     // generator: `model_with_falsifiable_executable_invariant()`
     // predicate: `check(model).trace == the_reachable_state_path` — the trace leg is the existing constraint's, not a new one

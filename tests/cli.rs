@@ -1,6 +1,7 @@
 //! Integration tests — run the `specodelic` binary against the repo's own corpus.
 
 use assert_cmd::Command;
+use predicates::prelude::PredicateBooleanExt;
 use predicates::str::contains;
 
 fn spk() -> Command {
@@ -1602,6 +1603,72 @@ fn verify_executes_failing_predicate_blocks() {
         .failure()
         .stdout(contains("properties_failed"))
         .stdout(contains("forced failure for 1pv"));
+}
+
+// ---- specodelic-8aq: parameterless property rows must compile and fail honestly ----
+
+/// A lint-clean spec whose property row's generator cell yields no strategy
+/// params (no `name(` occurrences — the corpus shape behind specodelic-8aq,
+/// e.g. linter-schema_shape's `(a, b)` where-prose).
+fn write_parameterless_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL fail parameterless properties honestly\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | c1 | invariant | `holds` | [[{id}]] |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1\n\
+             - s2\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s2 | [[{id}.c1]] |\n\
+             \n## Properties\n\
+             \n| id | kind | derives_from | generator | predicate |\n\
+             |----|------|--------------|-----------|------------|\n\
+             | p | unit | [[{id}.c1]] | `(a, b)` where one was removed | `check holds` |\n"
+        ),
+    )
+    .unwrap();
+}
+
+#[test]
+fn parameterless_property_rows_fail_honestly_not_uncompilable() {
+    // specodelic-8aq: a generator cell with no strategy params used to emit
+    // `fn p()` INSIDE proptest! — a parse error, so the scratch crate never
+    // compiled and the verdict was properties_uncompilable (worse than the
+    // honest todo-panic failure it replaced). The block must compile and
+    // fail honestly via todo_predicate! (properties_failed).
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("p8aq.md");
+    write_parameterless_spec(&spec, "p8aq");
+    let out = td.path().join("out");
+    spk()
+        .args([
+            "compile",
+            spec.to_str().unwrap(),
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    spk()
+        .args([
+            "verify",
+            spec.to_str().unwrap(),
+            "--out-dir",
+            out.to_str().unwrap(),
+            "--json",
+        ])
+        .timeout(std::time::Duration::from_secs(600))
+        .assert()
+        .failure()
+        .stdout(contains("properties_failed"))
+        .stdout(contains("properties_uncompilable").not());
 }
 
 // ---- specodelic-rjb: executable predicate fragments (Revision 15) ----

@@ -80,9 +80,6 @@ proptest! {
     fn unknown_kind_rejected(v0 in spec_gen::row_belonging_to_a_sixth_section()) {
         todo_predicate!("`check(row) == failed`");
     }
-}
-
-proptest! {
     // id: intent_missing_statement_rejected
     // generator: `intent_row_without("statement")`
     // predicate: `check(row) == failed`
@@ -90,9 +87,6 @@ proptest! {
     fn intent_missing_statement_rejected(v0 in spec_gen::intent_row_without()) {
         todo_predicate!("`check(row) == failed`");
     }
-}
-
-proptest! {
     // id: constraint_row_extra_field_rejected
     // generator: `constraint_row_with(extra_field: "guard")`
     // predicate: `check(row) == failed`
@@ -100,9 +94,6 @@ proptest! {
     fn constraint_row_extra_field_rejected(v0 in spec_gen::constraint_row_with()) {
         todo_predicate!("`check(row) == failed`");
     }
-}
-
-proptest! {
     // id: state_row_with_extra_field_rejected
     // generator: `state_row_with(extra_field: "kind")`
     // predicate: `check(row) == failed`
@@ -110,9 +101,6 @@ proptest! {
     fn state_row_with_extra_field_rejected(v0 in spec_gen::state_row_with()) {
         todo_predicate!("`check(row) == failed`");
     }
-}
-
-proptest! {
     // id: transition_missing_guard_rejected
     // generator: `transition_row_without("guard")`
     // predicate: `check(row) == failed`
@@ -120,9 +108,6 @@ proptest! {
     fn transition_missing_guard_rejected(v0 in spec_gen::transition_row_without()) {
         todo_predicate!("`check(row) == failed`");
     }
-}
-
-proptest! {
     // id: property_row_bad_subkind_rejected
     // generator: `property_row_with(kind: "audit")`
     // predicate: `check(row) == failed`
@@ -130,9 +115,6 @@ proptest! {
     fn property_row_bad_subkind_rejected(v0 in spec_gen::property_row_with()) {
         todo_predicate!("`check(row) == failed`");
     }
-}
-
-proptest! {
     // id: subkind_addition_without_revision_rejected
     // generator: `diff_adding_subkind_value_with_no_new_Revision_heading()`
     // predicate: `check(diff) == failed`
@@ -140,9 +122,6 @@ proptest! {
     fn subkind_addition_without_revision_rejected(v0 in spec_gen::diff_adding_subkind_value_with_no_new_Revision_heading()) {
         todo_predicate!("`check(diff) == failed`");
     }
-}
-
-proptest! {
     // id: constraint_row_advisory_accepted
     // generator: `constraint_row_with(kind: "advisory")`
     // predicate: `check(row) == passed`
@@ -150,9 +129,6 @@ proptest! {
     fn constraint_row_advisory_accepted(v0 in spec_gen::constraint_row_with()) {
         todo_predicate!("`check(row) == passed`");
     }
-}
-
-proptest! {
     // id: constraint_row_effect_accepted
     // generator: `constraint_row_with(kind: "effect")`
     // predicate: `check(row) == passed`
@@ -160,9 +136,6 @@ proptest! {
     fn constraint_row_effect_accepted(v0 in spec_gen::constraint_row_with()) {
         todo_predicate!("`check(row) == passed`");
     }
-}
-
-proptest! {
     // id: state_row_emits_accepted
     // generator: `state_row_with(emits: an_effect_kind_constraint_id)`
     // predicate: `check(row) == passed`
@@ -170,9 +143,6 @@ proptest! {
     fn state_row_emits_accepted(v0 in spec_gen::state_row_with()) {
         todo_predicate!("`check(row) == passed`");
     }
-}
-
-proptest! {
     // id: state_row_without_emits_still_passes
     // generator: `state_row_with(fields: {id})` — no `emits`
     // predicate: `check(row) == passed` — `emits` is optional, not a second required field
@@ -180,9 +150,6 @@ proptest! {
     fn state_row_without_emits_still_passes(v0 in spec_gen::state_row_with()) {
         todo_predicate!("`check(row) == passed` — `emits` is optional, not a second required field");
     }
-}
-
-proptest! {
     // id: state_row_emits_wrong_kind_rejected
     // generator: `state_row_with(emits: an_invariant_kind_constraint_id)`
     // predicate: `check(row) == failed`
@@ -190,9 +157,6 @@ proptest! {
     fn state_row_emits_wrong_kind_rejected(v0 in spec_gen::state_row_with()) {
         todo_predicate!("`check(row) == failed`");
     }
-}
-
-proptest! {
     // id: constraint_row_extension_point_accepted
     // generator: `constraint_row_with(kind: "extension_point")`
     // predicate: `check(row) == passed`
@@ -200,9 +164,6 @@ proptest! {
     fn constraint_row_extension_point_accepted(v0 in spec_gen::constraint_row_with()) {
         todo_predicate!("`check(row) == passed`");
     }
-}
-
-proptest! {
     // id: well_formed_row_passes
     // generator: `arbitrary_well_formed_row_of_one_kind()`
     // predicate: `check(row) == passed`
@@ -210,9 +171,6 @@ proptest! {
     fn well_formed_row_passes(v0 in spec_gen::arbitrary_well_formed_row_of_one_kind()) {
         todo_predicate!("`check(row) == passed`");
     }
-}
-
-proptest! {
     // id: kind_shape_naturality
     // case: identity
     // generator: `arbitrary_row_of_one_kind(), arbitrary_id_rename()`
@@ -221,9 +179,6 @@ proptest! {
     fn kind_shape_naturality_identity(v0 in spec_gen::arbitrary_row_of_one_kind(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `assigned_kind(rename(row,a,a)) == assigned_kind(row)`  **associativity:** `assigned_kind(rename(rename(row,a,b),b,c)) == assigned_kind(rename(row,a,c))` — renaming a row's id never changes which of the five kinds it belongs to");
     }
-}
-
-proptest! {
     // id: kind_shape_naturality
     // case: associativity
     // generator: `arbitrary_row_of_one_kind(), arbitrary_id_rename()`
@@ -232,9 +187,6 @@ proptest! {
     fn kind_shape_naturality_associativity(v0 in spec_gen::arbitrary_row_of_one_kind(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `assigned_kind(rename(row,a,a)) == assigned_kind(row)`  **associativity:** `assigned_kind(rename(rename(row,a,b),b,c)) == assigned_kind(rename(row,a,c))` — renaming a row's id never changes which of the five kinds it belongs to");
     }
-}
-
-proptest! {
     // id: kind_assignment_failure_label_asserted
     // generator: `kind_assignment_failure_raised()`
     // predicate: `error_label == "kinds.kind_assignment_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -242,9 +194,6 @@ proptest! {
     fn kind_assignment_failure_label_asserted(v0 in spec_gen::kind_assignment_failure_raised()) {
         todo_predicate!("`error_label == \"kinds.kind_assignment_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: shape_check_failure_label_asserted
     // generator: `shape_check_failure_raised()`
     // predicate: `error_label == "kinds.shape_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)

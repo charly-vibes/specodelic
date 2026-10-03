@@ -81,9 +81,6 @@ proptest! {
     fn rename_naturality_identity(v0 in spec_gen::arbitrary_spec_repo(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`");
     }
-}
-
-proptest! {
     // id: rename_naturality
     // case: associativity
     // generator: `arbitrary_spec_repo(), arbitrary_id_rename()`
@@ -92,9 +89,6 @@ proptest! {
     fn rename_naturality_associativity(v0 in spec_gen::arbitrary_spec_repo(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`");
     }
-}
-
-proptest! {
     // id: rename_naturality
     // case: naturality
     // generator: `arbitrary_spec_repo(), arbitrary_id_rename()`
@@ -105,14 +99,12 @@ proptest! {
     }
 }
 
-proptest! {
-    // id: collision_rejected
-    // generator: `(repo_with_id: "x", new_id: "x_taken_by_other_row")`
-    // predicate: `check(request) == failed`
-    #[test]
-    fn collision_rejected() {
+// id: collision_rejected
+// generator: `(repo_with_id: "x", new_id: "x_taken_by_other_row")`
+// predicate: `check(request) == failed`
+#[test]
+fn collision_rejected() {
         todo_predicate!("`check(request) == failed`");
-    }
 }
 
 proptest! {
@@ -123,9 +115,6 @@ proptest! {
     fn filename_mismatch_rejected(v0 in spec_gen::rename_of_a_files_own_intent_id_without_a_matching_filename_change()) {
         todo_predicate!("`check(request) == failed`");
     }
-}
-
-proptest! {
     // id: partial_failure_rolls_back
     // generator: `apply_interrupted_after_definition_row_updated_but_before_all_refs_rewritten()`
     // predicate: `post_state(repo) == pre_state(repo)`
@@ -133,9 +122,6 @@ proptest! {
     fn partial_failure_rolls_back(v0 in spec_gen::apply_interrupted_after_definition_row_updated_but_before_all_refs_rewritten()) {
         todo_predicate!("`post_state(repo) == pre_state(repo)`");
     }
-}
-
-proptest! {
     // id: stray_ref_caught_by_verify
     // generator: `rename_that_misses_one_[[old_id]]_occurrence()`
     // predicate: `check(request) == failed` — caught at `verify`, not silently accepted
@@ -143,9 +129,6 @@ proptest! {
     fn stray_ref_caught_by_verify(v0 in spec_gen::_occurrence()) {
         todo_predicate!("`check(request) == failed` — caught at `verify`, not silently accepted");
     }
-}
-
-proptest! {
     // id: prose_mention_left_alone
     // generator: `row_whose_rationale_prose_contains_the_old_id_as_a_word()`
     // predicate: `rationale_text(post_rename_row) == rationale_text(pre_rename_row)`
@@ -153,9 +136,6 @@ proptest! {
     fn prose_mention_left_alone(v0 in spec_gen::row_whose_rationale_prose_contains_the_old_id_as_a_word()) {
         todo_predicate!("`rationale_text(post_rename_row) == rationale_text(pre_rename_row)`");
     }
-}
-
-proptest! {
     // id: clean_rename_passes
     // generator: `well_formed_repo(), id_not_used_elsewhere()`
     // predicate: `check(request) == passed`
@@ -163,9 +143,6 @@ proptest! {
     fn clean_rename_passes(v0 in spec_gen::well_formed_repo(), v1 in spec_gen::id_not_used_elsewhere()) {
         todo_predicate!("`check(request) == passed`");
     }
-}
-
-proptest! {
     // id: kind_preserved_by_rename
     // generator: `rename_of_a_constraint_row_to_a_new_id()`
     // predicate: `assigned_kind(post_rename_row) == assigned_kind(pre_rename_row)` — both the five-object kind and, where present, the row's own kind column survive the rewrite
@@ -173,9 +150,6 @@ proptest! {
     fn kind_preserved_by_rename(v0 in spec_gen::rename_of_a_constraint_row_to_a_new_id()) {
         todo_predicate!("`assigned_kind(post_rename_row) == assigned_kind(pre_rename_row)` — both the five-object kind and, where present, the row's own kind column survive the rewrite");
     }
-}
-
-proptest! {
     // id: validation_failure_label_asserted
     // generator: `validation_failure_raised()`
     // predicate: `error_label == "rename.validation_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -183,9 +157,6 @@ proptest! {
     fn validation_failure_label_asserted(v0 in spec_gen::validation_failure_raised()) {
         todo_predicate!("`error_label == \"rename.validation_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: apply_failure_label_asserted
     // generator: `apply_failure_raised()`
     // predicate: `error_label == "rename.apply_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -193,9 +164,6 @@ proptest! {
     fn apply_failure_label_asserted(v0 in spec_gen::apply_failure_raised()) {
         todo_predicate!("`error_label == \"rename.apply_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: post_check_failure_label_asserted
     // generator: `post_check_failure_raised()`
     // predicate: `error_label == "rename.post_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)

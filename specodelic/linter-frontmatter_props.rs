@@ -56,9 +56,6 @@ proptest! {
     fn missing_id_rejected(v0 in spec_gen::frontmatter_without()) {
         todo_predicate!("`check(frontmatter) == failed`");
     }
-}
-
-proptest! {
     // id: wrong_kind_rejected
     // generator: `frontmatter_with_kind(≠ "intent")`
     // predicate: `check(frontmatter) == failed`
@@ -66,9 +63,6 @@ proptest! {
     fn wrong_kind_rejected(v0 in spec_gen::frontmatter_with_kind()) {
         todo_predicate!("`check(frontmatter) == failed`");
     }
-}
-
-proptest! {
     // id: valid_passes
     // generator: `arbitrary_valid_frontmatter()`
     // predicate: `check(frontmatter) == passed`
@@ -76,9 +70,6 @@ proptest! {
     fn valid_passes(v0 in spec_gen::arbitrary_valid_frontmatter()) {
         todo_predicate!("`check(frontmatter) == passed`");
     }
-}
-
-proptest! {
     // id: filename_mismatch
     // generator: `(id, filename)` pairs where `id ≠ stem(filename)`
     // predicate: `check(id, filename) == failed`
@@ -86,9 +77,6 @@ proptest! {
     fn filename_mismatch(v0 in spec_gen::stem()) {
         todo_predicate!("`check(id, filename) == failed`");
     }
-}
-
-proptest! {
     // id: missing_statement_rejected
     // generator: `frontmatter_without("statement")` and `frontmatter_with(statement: "")`
     // predicate: `check(frontmatter) == failed` — absent and empty are both rejections
@@ -96,9 +84,6 @@ proptest! {
     fn missing_statement_rejected(v0 in spec_gen::frontmatter_without(), v1 in spec_gen::frontmatter_with()) {
         todo_predicate!("`check(frontmatter) == failed` — absent and empty are both rejections");
     }
-}
-
-proptest! {
     // id: check_failure_label_asserted
     // generator: `check_failure_raised()`
     // predicate: `error_label == "linter.frontmatter.check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)

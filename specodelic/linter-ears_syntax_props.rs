@@ -56,9 +56,6 @@ proptest! {
     fn non_ears_rejected(v0 in spec_gen::statement_not_matching_any_ears_pattern()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: missing_shall_rejected
     // generator: `statement_matching_pattern_but_missing("SHALL")`
     // predicate: `check(file) == failed`
@@ -66,9 +63,6 @@ proptest! {
     fn missing_shall_rejected(v0 in spec_gen::statement_matching_pattern_but_missing()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: conjoined_id_rejected
     // generator: `row_with(id: "order.cancel_and_refund")`
     // predicate: `check(file) == failed`
@@ -76,9 +70,6 @@ proptest! {
     fn conjoined_id_rejected(v0 in spec_gen::row_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: universal_token_rejected
     // generator: `row_with(id: "order.always_validate")`
     // predicate: `check(file) == failed`
@@ -86,9 +77,6 @@ proptest! {
     fn universal_token_rejected(v0 in spec_gen::row_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: valid_ears_passes
     // generator: `arbitrary_ears_compliant_statement()`
     // predicate: `check(file) == passed`
@@ -96,9 +84,6 @@ proptest! {
     fn valid_ears_passes(v0 in spec_gen::arbitrary_ears_compliant_statement()) {
         todo_predicate!("`check(file) == passed`");
     }
-}
-
-proptest! {
     // id: pattern_failure_label_asserted
     // generator: `pattern_failure_raised()`
     // predicate: `error_label == "linter.ears_syntax.pattern_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -106,9 +91,6 @@ proptest! {
     fn pattern_failure_label_asserted(v0 in spec_gen::pattern_failure_raised()) {
         todo_predicate!("`error_label == \"linter.ears_syntax.pattern_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: id_check_failure_label_asserted
     // generator: `id_check_failure_raised()`
     // predicate: `error_label == "linter.ears_syntax.id_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)

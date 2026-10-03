@@ -48,9 +48,6 @@ proptest! {
     fn missing_guard_rejected(v0 in spec_gen::spec_file_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: unpaired_states_rejected
     // generator: `spec_file_with(states_section_but_no_transitions: true)`
     // predicate: `check(file) == failed`
@@ -58,9 +55,6 @@ proptest! {
     fn unpaired_states_rejected(v0 in spec_gen::spec_file_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: unreachable_state_rejected
     // generator: `spec_file_with(declared_state_never_referenced: true)`
     // predicate: `check(file) == failed`
@@ -68,9 +62,6 @@ proptest! {
     fn unreachable_state_rejected(v0 in spec_gen::spec_file_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: bad_edge_rejected
     // generator: `spec_file_with(transition.to_not_in_states: true)`
     // predicate: `check(file) == failed`
@@ -78,9 +69,6 @@ proptest! {
     fn bad_edge_rejected(v0 in spec_gen::spec_file_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: bool_column_rejected
     // generator: `spec_file_with(state_row_having_bool_typed_column: true)`
     // predicate: `check(file) == failed`
@@ -88,9 +76,6 @@ proptest! {
     fn bool_column_rejected(v0 in spec_gen::spec_file_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: well_formed_model_passes
     // generator: `arbitrary_well_formed_state_machine()`
     // predicate: `check(file) == passed`
@@ -98,9 +83,6 @@ proptest! {
     fn well_formed_model_passes(v0 in spec_gen::arbitrary_well_formed_state_machine()) {
         todo_predicate!("`check(file) == passed`");
     }
-}
-
-proptest! {
     // id: pairing_failure_label_asserted
     // generator: `pairing_failure_raised()`
     // predicate: `error_label == "linter.model_shape.pairing_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -108,9 +90,6 @@ proptest! {
     fn pairing_failure_label_asserted(v0 in spec_gen::pairing_failure_raised()) {
         todo_predicate!("`error_label == \"linter.model_shape.pairing_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: field_check_failure_label_asserted
     // generator: `field_check_failure_raised()`
     // predicate: `error_label == "linter.model_shape.field_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)

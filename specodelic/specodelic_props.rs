@@ -124,9 +124,6 @@ proptest! {
     fn referential_integrity(v0 in spec_gen::arbitrary_spec_file()) {
         todo_predicate!("`∀ ref ∈ file: lookup(ref) ≠ None`");
     }
-}
-
-proptest! {
     // id: acyclicity
     // generator: `arbitrary_spec_repo()`
     // predicate: `is_dag(traces_to_graph(repo))`
@@ -134,9 +131,6 @@ proptest! {
     fn acyclicity(v0 in spec_gen::arbitrary_spec_repo()) {
         todo_predicate!("`is_dag(traces_to_graph(repo))`");
     }
-}
-
-proptest! {
     // id: rename_naturality
     // case: identity
     // generator: `arbitrary_spec_repo(), arbitrary_id_rename()`
@@ -145,9 +139,6 @@ proptest! {
     fn rename_naturality_identity(v0 in spec_gen::arbitrary_spec_repo(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`");
     }
-}
-
-proptest! {
     // id: rename_naturality
     // case: associativity
     // generator: `arbitrary_spec_repo(), arbitrary_id_rename()`
@@ -156,9 +147,6 @@ proptest! {
     fn rename_naturality_associativity(v0 in spec_gen::arbitrary_spec_repo(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`");
     }
-}
-
-proptest! {
     // id: rename_naturality
     // case: naturality
     // generator: `arbitrary_spec_repo(), arbitrary_id_rename()`
@@ -169,14 +157,12 @@ proptest! {
     }
 }
 
-proptest! {
-    // id: filename_convention
-    // generator: `(id, mismatched_filename)` pairs
-    // predicate: `check(id, filename) == failed`
-    #[test]
-    fn filename_convention() {
+// id: filename_convention
+// generator: `(id, mismatched_filename)` pairs
+// predicate: `check(id, filename) == failed`
+#[test]
+fn filename_convention() {
         todo_predicate!("`check(id, filename) == failed`");
-    }
 }
 
 proptest! {
@@ -187,9 +173,6 @@ proptest! {
     fn typing_enforced(v0 in spec_gen::guard_field_pointing_at_a_property_row()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: own_intent_reachable
     // generator: `spec_repo_with(disconnected_constraint_cluster: true)`
     // predicate: `check(repo) == failed`
@@ -197,9 +180,6 @@ proptest! {
     fn own_intent_reachable(v0 in spec_gen::spec_repo_with()) {
         todo_predicate!("`check(repo) == failed`");
     }
-}
-
-proptest! {
     // id: model_well_formed
     // generator: `spec_file_with(transition.to_not_in_states: true)`
     // predicate: `check(file) == failed`
@@ -207,9 +187,6 @@ proptest! {
     fn model_well_formed(v0 in spec_gen::spec_file_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: advisory_cannot_gate
     // generator: `guard_field_pointing_at_an_advisory_constraint()`
     // predicate: `check(file) == failed`
@@ -217,9 +194,6 @@ proptest! {
     fn advisory_cannot_gate(v0 in spec_gen::guard_field_pointing_at_an_advisory_constraint()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: state_guard_citation_accepted
     // generator: `transition_guard_citing_a_declared_state()`
     // predicate: `check(file) == passed` — the "has reached state X" guard pattern (Revision 12); a State target gates nothing, it records progress — but it is a legal typed citation
@@ -227,9 +201,6 @@ proptest! {
     fn state_guard_citation_accepted(v0 in spec_gen::transition_guard_citing_a_declared_state()) {
         todo_predicate!("`check(file) == passed` — the \"has reached state X\" guard pattern (Revision 12); a State target gates nothing, it records progress — but it is a legal typed citation");
     }
-}
-
-proptest! {
     // id: supersedes_cross_kind_rejected
     // generator: `constraint_row_with(supersedes: a_property_row_id)`
     // predicate: `check(file) == failed`
@@ -237,9 +208,6 @@ proptest! {
     fn supersedes_cross_kind_rejected(v0 in spec_gen::constraint_row_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: constraint_derives_from_rejected
     // generator: `constraint_row_with(derives_from: a_constraint_row_id)`
     // predicate: `check(file) == failed` — the Appears-on column is normative, not descriptive: `derives_from` appears on Property rows only (decided of record 2026-10-01, `specodelic-huf`; a constraint is derived FROM by properties, it does not derive), and `ref_kind_compatible` reads the column source-side the same way it already reads `supersedes`' same-kind rule
@@ -247,9 +215,6 @@ proptest! {
     fn constraint_derives_from_rejected(v0 in spec_gen::constraint_row_with()) {
         todo_predicate!("`check(file) == failed` — the Appears-on column is normative, not descriptive: `derives_from` appears on Property rows only (decided of record 2026-10-01, `specodelic-huf`; a constraint is derived FROM by properties, it does not derive), and `ref_kind_compatible` reads the column source-side the same way it already reads `supersedes`' same-kind rule");
     }
-}
-
-proptest! {
     // id: supersedes_cycle_rejected
     // generator: `spec_repo_with(supersedes_cycle: length ≥ 2)`
     // predicate: `check(repo) == failed`
@@ -257,9 +222,6 @@ proptest! {
     fn supersedes_cycle_rejected(v0 in spec_gen::spec_repo_with()) {
         todo_predicate!("`check(repo) == failed`");
     }
-}
-
-proptest! {
     // id: no_stored_superseded_flag
     // generator: `schema_with(explicit is_superseded: bool column)`
     // predicate: `check(schema) == rejected` — supersession status is derived (`superseded(x) ⟺ ∃ y. y.supersedes ∋ x`), never stored
@@ -267,9 +229,6 @@ proptest! {
     fn no_stored_superseded_flag(v0 in spec_gen::schema_with()) {
         todo_predicate!("`check(schema) == rejected` — supersession status is derived (`superseded(x) ⟺ ∃ y. y.supersedes ∋ x`), never stored");
     }
-}
-
-proptest! {
     // id: emits_cannot_target_non_effect
     // generator: `emits_field_pointing_at_an_invariant_constraint()`
     // predicate: `check(file) == failed` — same shape as `advisory_cannot_gate`, mirrored onto the other direction of the kind-split
@@ -277,9 +236,6 @@ proptest! {
     fn emits_cannot_target_non_effect(v0 in spec_gen::emits_field_pointing_at_an_invariant_constraint()) {
         todo_predicate!("`check(file) == failed` — same shape as `advisory_cannot_gate`, mirrored onto the other direction of the kind-split");
     }
-}
-
-proptest! {
     // id: satisfies_wrong_kind_rejected
     // generator: `satisfies_field_pointing_at_an_invariant_constraint()`
     // predicate: `check(file) == failed` — same shape as `advisory_cannot_gate` and `emits_cannot_target_non_effect`, mirrored onto the third kind-typed reference field
@@ -287,9 +243,6 @@ proptest! {
     fn satisfies_wrong_kind_rejected(v0 in spec_gen::satisfies_field_pointing_at_an_invariant_constraint()) {
         todo_predicate!("`check(file) == failed` — same shape as `advisory_cannot_gate` and `emits_cannot_target_non_effect`, mirrored onto the third kind-typed reference field");
     }
-}
-
-proptest! {
     // id: extension_point_needs_no_reachability_carveout
     // generator: `constraint_row_with(satisfies: an_extension_point_in_another_file, traces_to: own_file_intent)`
     // predicate: `check(row) == passed` — `satisfies` adds no reachability obligation; the row is reachable the ordinary way, through its own `traces_to`
@@ -297,9 +250,6 @@ proptest! {
     fn extension_point_needs_no_reachability_carveout(v0 in spec_gen::constraint_row_with()) {
         todo_predicate!("`check(row) == passed` — `satisfies` adds no reachability obligation; the row is reachable the ordinary way, through its own `traces_to`");
     }
-}
-
-proptest! {
     // id: frontmatter_missing_field_rejected
     // generator: `frontmatter_missing(one of id, kind, statement)`
     // predicate: `check(file) == failed`
@@ -307,9 +257,6 @@ proptest! {
     fn frontmatter_missing_field_rejected(v0 in spec_gen::frontmatter_missing()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: guardless_transition_rejected
     // generator: `transition_row_with(empty guard cell)`
     // predicate: `check(file) == failed`
@@ -317,9 +264,6 @@ proptest! {
     fn guardless_transition_rejected(v0 in spec_gen::transition_row_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: non_ears_statement_rejected
     // generator: `statement_outside_the_five_ears_patterns("the system should maybe work")`
     // predicate: `check(file) == failed`
@@ -327,9 +271,6 @@ proptest! {
     fn non_ears_statement_rejected(v0 in spec_gen::statement_outside_the_five_ears_patterns()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: multi_intent_join_rejected
     // generator: `row_id_joined_to_two_intents_via_and()`
     // predicate: `check(file) == failed`
@@ -337,9 +278,6 @@ proptest! {
     fn multi_intent_join_rejected(v0 in spec_gen::row_id_joined_to_two_intents_via_and()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: coverage_gap_flagged
     // generator: `spec_file_with(constraint_with_no_deriving_property: true)`
     // predicate: `lint(file) reports rule == failed`
@@ -347,9 +285,6 @@ proptest! {
     fn coverage_gap_flagged(v0 in spec_gen::spec_file_with()) {
         todo_predicate!("`lint(file) reports rule == failed`");
     }
-}
-
-proptest! {
     // id: law_missing_case_rejected
     // generator: `law_property_missing("associativity")`
     // predicate: `check(file) == failed`
@@ -357,9 +292,6 @@ proptest! {
     fn law_missing_case_rejected(v0 in spec_gen::law_property_missing()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: orphan_state_rejected
     // generator: `state_appearing_in_no_transition()`
     // predicate: `check(file) == failed`
@@ -367,9 +299,6 @@ proptest! {
     fn orphan_state_rejected(v0 in spec_gen::state_appearing_in_no_transition()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: missing_model_section_rejected
     // generator: `spec_file_without_states_or_transitions()`
     // predicate: `check(file) == failed`
@@ -377,9 +306,6 @@ proptest! {
     fn missing_model_section_rejected(v0 in spec_gen::spec_file_without_states_or_transitions()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: invariant_violation_blocks_verify
     // generator: `model_with_a_violated_invariant()`
     // predicate: `check(model_check) == failed`
@@ -387,9 +313,6 @@ proptest! {
     fn invariant_violation_blocks_verify(v0 in spec_gen::model_with_a_violated_invariant()) {
         todo_predicate!("`check(model_check) == failed`");
     }
-}
-
-proptest! {
     // id: failing_proptest_blocks_verify
     // generator: `compiled_proptest_block_that_fails()`
     // predicate: `check(verify) == failed`
@@ -397,9 +320,6 @@ proptest! {
     fn failing_proptest_blocks_verify(v0 in spec_gen::compiled_proptest_block_that_fails()) {
         todo_predicate!("`check(verify) == failed`");
     }
-}
-
-proptest! {
     // id: prose_does_not_affect_lint
     // generator: `two_specs_identical_except_rationale_prose()`
     // predicate: `lint(a) == lint(b)` — differing prose never changes a lint result
@@ -409,14 +329,12 @@ proptest! {
     }
 }
 
-proptest! {
-    // id: silently_shrunk_id_set_rejected
-    // generator: `(r, r')` where a 𝒦-governed id-set member was removed with no Revision heading
-    // predicate: `check(revisions) == failed`
-    #[test]
-    fn silently_shrunk_id_set_rejected() {
+// id: silently_shrunk_id_set_rejected
+// generator: `(r, r')` where a 𝒦-governed id-set member was removed with no Revision heading
+// predicate: `check(revisions) == failed`
+#[test]
+fn silently_shrunk_id_set_rejected() {
         todo_predicate!("`check(revisions) == failed`");
-    }
 }
 
 proptest! {
@@ -427,9 +345,6 @@ proptest! {
     fn constraint_kind_out_of_set_rejected(v0 in spec_gen::constraint_row_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: property_kind_out_of_set_rejected
     // generator: `property_row_with(kind: "audit")`
     // predicate: `check(file) == failed`

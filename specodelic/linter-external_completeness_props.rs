@@ -76,9 +76,6 @@ proptest! {
     fn unmapped_item_rejected(v0 in spec_gen::checklist_item_with_no_mapping_row()) {
         todo_predicate!("`check(repo) == failed`");
     }
-}
-
-proptest! {
     // id: dangling_mapped_id_rejected
     // generator: `mapping_row_with(status: "covered", mapped_ids: ["nonexistent.id"])`
     // predicate: `check(repo) == failed`
@@ -86,9 +83,6 @@ proptest! {
     fn dangling_mapped_id_rejected(v0 in spec_gen::mapping_row_with()) {
         todo_predicate!("`check(repo) == failed`");
     }
-}
-
-proptest! {
     // id: unrationalized_waiver_rejected
     // generator: `mapping_row_with(status: "waived", rationale: "")`
     // predicate: `check(repo) == failed`
@@ -96,9 +90,6 @@ proptest! {
     fn unrationalized_waiver_rejected(v0 in spec_gen::mapping_row_with()) {
         todo_predicate!("`check(repo) == failed`");
     }
-}
-
-proptest! {
     // id: duplicate_claim_rejected
     // generator: `two_mapping_rows_targeting_the_same_checklist_item()`
     // predicate: `check(repo) == failed`
@@ -106,9 +97,6 @@ proptest! {
     fn duplicate_claim_rejected(v0 in spec_gen::two_mapping_rows_targeting_the_same_checklist_item()) {
         todo_predicate!("`check(repo) == failed`");
     }
-}
-
-proptest! {
     // id: fully_mapped_checklist_passes
     // generator: `checklist_where_every_item_has_a_covered_or_waived_mapping()`
     // predicate: `check(repo) == passed`
@@ -116,9 +104,6 @@ proptest! {
     fn fully_mapped_checklist_passes(v0 in spec_gen::checklist_where_every_item_has_a_covered_or_waived_mapping()) {
         todo_predicate!("`check(repo) == passed`");
     }
-}
-
-proptest! {
     // id: no_checklist_not_applicable
     // generator: `repo_with_no_declared_checklist()`
     // predicate: `check(repo) == not_applicable` — distinct from `passed`, see Notes
@@ -126,9 +111,6 @@ proptest! {
     fn no_checklist_not_applicable(v0 in spec_gen::repo_with_no_declared_checklist()) {
         todo_predicate!("`check(repo) == not_applicable` — distinct from `passed`, see Notes");
     }
-}
-
-proptest! {
     // id: mapping_naturality
     // case: identity
     // generator: `arbitrary_repo_with_checklist(), arbitrary_id_rename()`
@@ -137,9 +119,6 @@ proptest! {
     fn mapping_naturality_identity(v0 in spec_gen::arbitrary_repo_with_checklist(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `mapped(repo renamed to itself) == mapped(repo)` — the rename identity case instantiated at the mapped-ids observation point  **associativity:** `mapped(rename(rename(I, a, b), b, c)) == mapped(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference");
     }
-}
-
-proptest! {
     // id: mapping_naturality
     // case: associativity
     // generator: `arbitrary_repo_with_checklist(), arbitrary_id_rename()`
@@ -148,9 +127,6 @@ proptest! {
     fn mapping_naturality_associativity(v0 in spec_gen::arbitrary_repo_with_checklist(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `mapped(repo renamed to itself) == mapped(repo)` — the rename identity case instantiated at the mapped-ids observation point  **associativity:** `mapped(rename(rename(I, a, b), b, c)) == mapped(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference");
     }
-}
-
-proptest! {
     // id: mapping_naturality
     // case: naturality
     // generator: `arbitrary_repo_with_checklist(), arbitrary_id_rename()`
@@ -159,9 +135,6 @@ proptest! {
     fn mapping_naturality_naturality(v0 in spec_gen::arbitrary_repo_with_checklist(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `mapped(repo renamed to itself) == mapped(repo)` — the rename identity case instantiated at the mapped-ids observation point  **associativity:** `mapped(rename(rename(I, a, b), b, c)) == mapped(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `mapped(rename(I)) == rename(mapped(I))` — renaming a constraint or property id updates every `mapped_ids` cell claiming it, the same as any other reference");
     }
-}
-
-proptest! {
     // id: malformed_checklist_rejected
     // generator: `declared_checklist_with(a_nested_item, an_item_missing_its_id)`
     // predicate: `check(repo) == failed`
@@ -169,9 +142,6 @@ proptest! {
     fn malformed_checklist_rejected(v0 in spec_gen::declared_checklist_with()) {
         todo_predicate!("`check(repo) == failed`");
     }
-}
-
-proptest! {
     // id: manifest_failure_label_asserted
     // generator: `manifest_failure_raised()`
     // predicate: `error_label == "linter.external_completeness.manifest_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -179,9 +149,6 @@ proptest! {
     fn manifest_failure_label_asserted(v0 in spec_gen::manifest_failure_raised()) {
         todo_predicate!("`error_label == \"linter.external_completeness.manifest_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: mapping_failure_label_asserted
     // generator: `mapping_failure_raised()`
     // predicate: `error_label == "linter.external_completeness.mapping_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -189,9 +156,6 @@ proptest! {
     fn mapping_failure_label_asserted(v0 in spec_gen::mapping_failure_raised()) {
         todo_predicate!("`error_label == \"linter.external_completeness.mapping_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: resolution_failure_label_asserted
     // generator: `resolution_failure_raised()`
     // predicate: `error_label == "linter.external_completeness.resolution_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)

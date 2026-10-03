@@ -453,7 +453,11 @@ pub fn properties_to_proptest(spec: &Spec) -> String {
         out.push_str("//! (no Property rows in the source spec)\n");
         return out;
     }
-    out.push_str("use proptest::prelude::*;\n\n");
+    // specodelic-8aq: the import is only needed by proptest! blocks — a
+    // fully parameterless artifact stays warning-clean without it.
+    if blocks.iter().any(|b| !b.gens.is_empty()) {
+        out.push_str("use proptest::prelude::*;\n\n");
+    }
     out.push_str(
         "/// Marker for predicates not yet translated to Rust: compiles here,\n\
          /// panics when executed — execution is `verify`'s job. A predicate\n\
@@ -486,38 +490,77 @@ pub fn properties_to_proptest(spec: &Spec) -> String {
         out.push_str("}\n\n");
     }
 
+    // specodelic-8aq: a generator cell yielding no strategy params cannot
+    // carry (pat in strategy) — proptest! requires one on every fn, so a
+    // bare fn inside the macro is a parse error that left the scratch
+    // crate uncompilable. Such blocks are emitted OUTSIDE the macro as
+    // plain #[test] fns (same honest todo_predicate!/assert! bodies,
+    // same metadata comments); blocks with strategies keep the proptest!
+    // form. Blocks are emitted in row order, opening and closing the
+    // macro around contiguous runs.
+    let mut in_macro = false;
     for b in &blocks {
-        out.push_str("proptest! {\n");
-        out.push_str(&format!("    // id: {}\n", b.id));
-        if let Some(case) = &b.case {
-            out.push_str(&format!("    // case: {case}\n"));
-        }
-        out.push_str(&format!("    // generator: {}\n", b.generator));
-        out.push_str(&format!("    // predicate: {}\n", b.predicate));
-        out.push_str("    #[test]\n");
-        let args = b
-            .gens
-            .iter()
-            .enumerate()
-            .map(|(i, g)| format!("v{i} in spec_gen::{g}()"))
-            .collect::<Vec<_>>()
-            .join(", ");
-        out.push_str(&format!("    fn {}({}) {{\n", b.fn_name, args));
-        if let Some(fragment) = &b.fragment {
-            // Executable predicate fragment (specodelic.md Revision 15):
-            // the Rust expression after the **rust:** marker, verbatim —
-            // no mini-language. The assertion failure message names the
-            // row id so the failing block is attributable.
-            out.push_str(&format!(
-                "        assert!(\n            {},\n            \"predicate `{}` violated (executable fragment)\",\n        );\n",
-                fragment, b.id
-            ));
+        if b.gens.is_empty() {
+            if in_macro {
+                out.push_str("}\n\n");
+                in_macro = false;
+            }
+            out.push_str(&format!("// id: {}\n", b.id));
+            if let Some(case) = &b.case {
+                out.push_str(&format!("// case: {case}\n"));
+            }
+            out.push_str(&format!("// generator: {}\n", b.generator));
+            out.push_str(&format!("// predicate: {}\n", b.predicate));
+            out.push_str("#[test]\n");
+            out.push_str(&format!("fn {}() {{\n", b.fn_name));
+            push_predicate_body(&mut out, b);
+            out.push_str("}\n\n");
         } else {
-            out.push_str(&format!("        todo_predicate!({:?});\n", b.predicate));
+            if !in_macro {
+                out.push_str("proptest! {\n");
+                in_macro = true;
+            }
+            out.push_str(&format!("    // id: {}\n", b.id));
+            if let Some(case) = &b.case {
+                out.push_str(&format!("    // case: {case}\n"));
+            }
+            out.push_str(&format!("    // generator: {}\n", b.generator));
+            out.push_str(&format!("    // predicate: {}\n", b.predicate));
+            out.push_str("    #[test]\n");
+            let args = b
+                .gens
+                .iter()
+                .enumerate()
+                .map(|(i, g)| format!("v{i} in spec_gen::{g}()"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            out.push_str(&format!("    fn {}({}) {{\n", b.fn_name, args));
+            push_predicate_body(&mut out, b);
+            out.push_str("    }\n");
         }
-        out.push_str("    }\n}\n\n");
+    }
+    if in_macro {
+        out.push_str("}\n\n");
     }
     out
+}
+
+/// The body of an emitted property block — the verbatim executable
+/// fragment as an `assert!` (specodelic.md Revision 15), or the honest
+/// `todo_predicate!` placeholder that only fails when executed.
+fn push_predicate_body(out: &mut String, b: &PropBlock) {
+    if let Some(fragment) = &b.fragment {
+        // Executable predicate fragment (specodelic.md Revision 15):
+        // the Rust expression after the **rust:** marker, verbatim —
+        // no mini-language. The assertion failure message names the
+        // row id so the failing block is attributable.
+        out.push_str(&format!(
+            "        assert!(\n            {},\n            \"predicate `{}` violated (executable fragment)\",\n        );\n",
+            fragment, b.id
+        ));
+    } else {
+        out.push_str(&format!("        todo_predicate!({:?});\n", b.predicate));
+    }
 }
 
 /// One or more blocks for a single Property row: unit rows yield exactly
@@ -1101,6 +1144,70 @@ mod tests {
         assert!(src.contains("pub fn other()"));
         assert!(src.contains("v0 in spec_gen::arbitrary_row()"));
         assert!(src.contains("v1 in spec_gen::other()"));
+    }
+
+    // --- specodelic-8aq: parameterless property blocks ---
+
+    const PARAMETERLESS_SAMPLE: &str = "---\nid: demo.par\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[demo.par]] |\n\n## Model\n\n### States\n\n- s\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s | s | [[demo.par.a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[demo.par.a]] | `(a, b)` where one was removed | `x holds` |\n| l | law | [[demo.par.a]] |  | `f holds` |\n";
+
+    #[test]
+    fn parameterless_generator_rows_emit_plain_test_fns() {
+        // specodelic-8aq: a generator cell yielding no strategy params (no
+        // `name(` occurrences — the corpus shape, e.g. linter-schema_shape's
+        // `(a, b)` where-prose) must NOT emit `fn p()` inside proptest! —
+        // proptest! requires (pat in strategy) on every fn, so a bare fn is
+        // a parse error that left the scratch crate properties_uncompilable.
+        // The block goes outside the macro as a plain #[test] fn, honest via
+        // todo_predicate!, with the metadata comments verify fingerprints.
+        let spec = parse_str(PARAMETERLESS_SAMPLE).expect("parses");
+        let src = properties_to_proptest(&spec);
+        // No proptest! macro at all: every block in this fixture is
+        // parameterless.
+        assert!(
+            !src.contains("proptest!"),
+            "bare fn inside proptest! is a parse error: {src}"
+        );
+        // Plain #[test] fns at top level (unindented `fn`).
+        assert!(src.contains("#[test]\nfn p("), "unit block: {src}");
+        // Law-case splitting intact: one plain fn per required case.
+        assert!(
+            src.contains("#[test]\nfn l_identity("),
+            "law identity: {src}"
+        );
+        assert!(
+            src.contains("#[test]\nfn l_associativity("),
+            "law associativity: {src}"
+        );
+        // Honest failure preserved — never a silent pass.
+        assert_eq!(
+            src.matches("todo_predicate!(").count(),
+            3,
+            "placeholder bodies: {src}"
+        );
+        // Metadata comments preserved for verify's staleness fingerprint.
+        assert!(src.contains("// id: p"));
+        assert!(src.contains("// id: l"));
+        // verify's block discovery still finds every emitted block.
+        let blocks = crate::verify::blocks_from_source(&src);
+        assert_eq!(blocks.len(), 3, "all blocks discoverable: {src}");
+    }
+
+    #[test]
+    fn parameterless_fragment_row_asserts_outside_proptest() {
+        // A parameterless row that opts in with **rust:** keeps its verbatim
+        // fragment body (fragment rows unchanged) — just outside proptest!.
+        let text = PARAMETERLESS_SAMPLE.replace(
+            "| p | unit | [[demo.par.a]] | `(a, b)` where one was removed | `x holds` |",
+            "| p | unit | [[demo.par.a]] | `(a, b)` where one was removed | `**rust:** state != \"blackhole\"` |",
+        );
+        let spec = parse_str(&text).expect("parses");
+        let src = properties_to_proptest(&spec);
+        assert!(src.contains("#[test]\nfn p("), "plain fn: {src}");
+        assert!(!src.contains("proptest!"), "no macro fn: {src}");
+        assert!(
+            src.contains("assert!(\n            state != \"blackhole\","),
+            "verbatim fragment body: {src}"
+        );
     }
 
     // --- model_to_tla ---

@@ -56,9 +56,6 @@ proptest! {
     fn unobserved_effect_warned(v0 in spec_gen::effect_with_zero_observes_edges()) {
         todo_predicate!("`exit 0 ∧ a warning naming the row id and the rule id linter.observability`");
     }
-}
-
-proptest! {
     // id: observed_effect_silent
     // generator: `effect_with_at_least_one_observes_edge()`
     // predicate: `no observability warning`
@@ -66,9 +63,6 @@ proptest! {
     fn observed_effect_silent(v0 in spec_gen::effect_with_at_least_one_observes_edge()) {
         todo_predicate!("`no observability warning`");
     }
-}
-
-proptest! {
     // id: warning_never_gates
     // generator: `corpus_with_unobserved_effects()`
     // predicate: `exit code 0 ∧ zero Issue findings attributable to this check`
@@ -76,9 +70,6 @@ proptest! {
     fn warning_never_gates(v0 in spec_gen::corpus_with_unobserved_effects()) {
         todo_predicate!("`exit code 0 ∧ zero Issue findings attributable to this check`");
     }
-}
-
-proptest! {
     // id: mutual_observation_passes
     // generator: `two_files_mutually_observing_each_others_effects()`
     // predicate: `both effects counted as observed — no warning`
@@ -86,9 +77,6 @@ proptest! {
     fn mutual_observation_passes(v0 in spec_gen::two_files_mutually_observing_each_others_effects()) {
         todo_predicate!("`both effects counted as observed — no warning`");
     }
-}
-
-proptest! {
     // id: self_observation_still_warned
     // generator: `effect_row_pointing_observes_at_itself()`
     // predicate: `warning fires — vacuous self-observation is not an observer`
@@ -96,9 +84,6 @@ proptest! {
     fn self_observation_still_warned(v0 in spec_gen::effect_row_pointing_observes_at_itself()) {
         todo_predicate!("`warning fires — vacuous self-observation is not an observer`");
     }
-}
-
-proptest! {
     // id: dangling_observes_not_doubled
     // generator: `observes_pointing_at_an_absent_row()`
     // predicate: `exactly one total_refs finding; zero observability warnings`
@@ -106,9 +91,6 @@ proptest! {
     fn dangling_observes_not_doubled(v0 in spec_gen::observes_pointing_at_an_absent_row()) {
         todo_predicate!("`exactly one total_refs finding; zero observability warnings`");
     }
-}
-
-proptest! {
     // id: waiver_input_ignored
     // generator: `corpus_with_unobserved_effects()`
     // predicate: `the warning fires regardless of any claimed-waiver text — no waiver channel exists`

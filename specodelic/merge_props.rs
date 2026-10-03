@@ -80,9 +80,6 @@ proptest! {
     fn collision_across_branches_rejected(v0 in spec_gen::two_branches_each_independently_defining_new_id()) {
         todo_predicate!("`check(merge) == failed`");
     }
-}
-
-proptest! {
     // id: inherited_id_not_falsely_flagged
     // generator: `id_defined_in_common_ancestor_unchanged_in_both_branches()`
     // predicate: `check(merge) != failed`
@@ -90,9 +87,6 @@ proptest! {
     fn inherited_id_not_falsely_flagged(v0 in spec_gen::id_defined_in_common_ancestor_unchanged_in_both_branches()) {
         todo_predicate!("`check(merge) != failed`");
     }
-}
-
-proptest! {
     // id: textually_clean_semantic_conflict_flagged
     // generator: `branch_A(renames x to y), branch_B(adds a new [[x]] reference in a file branch_A never touched)`
     // predicate: `check(merge) == needs_review`
@@ -102,14 +96,12 @@ proptest! {
     }
 }
 
-proptest! {
-    // id: rename_replay_repairs_dangling_ref
-    // generator: `same scenario, after human approval`
-    // predicate: `post_merge_repo has zero occurrences of [[x]]; branch_B's new reference now reads [[y]]`
-    #[test]
-    fn rename_replay_repairs_dangling_ref() {
+// id: rename_replay_repairs_dangling_ref
+// generator: `same scenario, after human approval`
+// predicate: `post_merge_repo has zero occurrences of [[x]]; branch_B's new reference now reads [[y]]`
+#[test]
+fn rename_replay_repairs_dangling_ref() {
         todo_predicate!("`post_merge_repo has zero occurrences of [[x]]; branch_B's new reference now reads [[y]]`");
-    }
 }
 
 proptest! {
@@ -120,9 +112,6 @@ proptest! {
     fn disjoint_blast_radii_auto_merge(v0 in spec_gen::two_branches_touching_disjoint_namespaces_with_disjoint_blast_radii()) {
         todo_predicate!("`check(merge) == merged` — no human review required");
     }
-}
-
-proptest! {
     // id: duplicate_sequential_number_renumbered
     // generator: `both_branches_add_a_CHANGELOG_entry_claiming_the_same_next_number()`
     // predicate: `post_merge_repo has two distinct sequential numbers; neither is duplicated`
@@ -130,9 +119,6 @@ proptest! {
     fn duplicate_sequential_number_renumbered(v0 in spec_gen::both_branches_add_a_CHANGELOG_entry_claiming_the_same_next_number()) {
         todo_predicate!("`post_merge_repo has two distinct sequential numbers; neither is duplicated`");
     }
-}
-
-proptest! {
     // id: relint_gates_merge
     // generator: `merge_where(linter.referential_integrity or linter.graph_shape: fails against the merged tree)`
     // predicate: `check(merge) == failed` — mirrors `rename.md`'s `stray_ref_caught_by_verify`
@@ -140,9 +126,6 @@ proptest! {
     fn relint_gates_merge(v0 in spec_gen::merge_where()) {
         todo_predicate!("`check(merge) == failed` — mirrors `rename.md`'s `stray_ref_caught_by_verify`");
     }
-}
-
-proptest! {
     // id: blast_radius_recorded_before_apply
     // generator: `merge_history_where_edits_were_applied_before_both_branches'_radii_were_recorded()`
     // predicate: `check(merge) == failed` — apply never precedes the recording step, for either branch
@@ -150,9 +133,6 @@ proptest! {
     fn blast_radius_recorded_before_apply(v0 in spec_gen::_radii_were_recorded()) {
         todo_predicate!("`check(merge) == failed` — apply never precedes the recording step, for either branch");
     }
-}
-
-proptest! {
     // id: reachability_from_graph_artifact_only
     // generator: `merge_invoked_with_the_markdown_walker_patched_to_panic()`
     // predicate: `merge of an otherwise-clean diverged repo succeeds` — collision and blast-radius checks only query [[graph]]'s artifact
@@ -160,9 +140,6 @@ proptest! {
     fn reachability_from_graph_artifact_only(v0 in spec_gen::merge_invoked_with_the_markdown_walker_patched_to_panic()) {
         todo_predicate!("`merge of an otherwise-clean diverged repo succeeds` — collision and blast-radius checks only query [[graph]]'s artifact");
     }
-}
-
-proptest! {
     // id: collision_failure_label_asserted
     // generator: `collision_failure_raised()`
     // predicate: `error_label == "merge.collision_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -170,9 +147,6 @@ proptest! {
     fn collision_failure_label_asserted(v0 in spec_gen::collision_failure_raised()) {
         todo_predicate!("`error_label == \"merge.collision_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: reverification_failure_label_asserted
     // generator: `reverification_failure_raised()`
     // predicate: `error_label == "merge.reverification_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -180,9 +154,6 @@ proptest! {
     fn reverification_failure_label_asserted(v0 in spec_gen::reverification_failure_raised()) {
         todo_predicate!("`error_label == \"merge.reverification_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: merge_aborted_label_asserted
     // generator: `merge_aborted_raised()`
     // predicate: `error_label == "merge.merge_aborted"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)

@@ -96,9 +96,6 @@ proptest! {
     fn manifest_round_trips(v0 in spec_gen::pack_file_parsed_then_manifest_read()) {
         todo_predicate!("`declared entries equal parsed manifest rows — no drift, no prose leakage`");
     }
-}
-
-proptest! {
     // id: discovery_finds_all_packs
     // generator: `corpus_with_n_profile_files()`
     // predicate: `scan reports exactly n packs, order-independent`
@@ -106,9 +103,6 @@ proptest! {
     fn discovery_finds_all_packs(v0 in spec_gen::corpus_with_n_profile_files()) {
         todo_predicate!("`scan reports exactly n packs, order-independent`");
     }
-}
-
-proptest! {
     // id: subdir_lint_discovers_workspace_packs
     // generator: `lint_subdirectory_with_pack_at_workspace_root()`
     // predicate: `pack discovered, its vocabulary checks run, zero orphan findings`
@@ -116,9 +110,6 @@ proptest! {
     fn subdir_lint_discovers_workspace_packs(v0 in spec_gen::lint_subdirectory_with_pack_at_workspace_root()) {
         todo_predicate!("`pack discovered, its vocabulary checks run, zero orphan findings`");
     }
-}
-
-proptest! {
     // id: no_pack_no_change
     // generator: `corpus_linted_before_and_after_mechanism()`
     // predicate: `lint findings byte-identical for a corpus using no pack vocabulary`
@@ -126,9 +117,6 @@ proptest! {
     fn no_pack_no_change(v0 in spec_gen::corpus_linted_before_and_after_mechanism()) {
         todo_predicate!("`lint findings byte-identical for a corpus using no pack vocabulary`");
     }
-}
-
-proptest! {
     // id: overlapping_vocabulary_activates_both
     // generator: `two_packs_declare_identical_vocabulary_and_a_file_uses_it()`
     // predicate: `both packs' checkers run; findings attributed per pack`
@@ -136,9 +124,6 @@ proptest! {
     fn overlapping_vocabulary_activates_both(v0 in spec_gen::two_packs_declare_identical_vocabulary_and_a_file_uses_it()) {
         todo_predicate!("`both packs' checkers run; findings attributed per pack`");
     }
-}
-
-proptest! {
     // id: orphan_finding_names_pack
     // generator: `corpus_using_vocabulary_without_pack()`
     // predicate: `failure finding names the candidate pack and both remediations, exit non-zero`
@@ -146,9 +131,6 @@ proptest! {
     fn orphan_finding_names_pack(v0 in spec_gen::corpus_using_vocabulary_without_pack()) {
         todo_predicate!("`failure finding names the candidate pack and both remediations, exit non-zero`");
     }
-}
-
-proptest! {
     // id: uses_edge_typing
     // generator: `file_with_uses_edge_to_profile_id()`
     // predicate: `graph edge typed uses resolves to the profile id; wrong-kind targets violate typing`
@@ -156,9 +138,6 @@ proptest! {
     fn uses_edge_typing(v0 in spec_gen::file_with_uses_edge_to_profile_id()) {
         todo_predicate!("`graph edge typed uses resolves to the profile id; wrong-kind targets violate typing`");
     }
-}
-
-proptest! {
     // id: pack_self_activation_absent
     // generator: `pack_file_linted_alone()`
     // predicate: `its checkers report an empty checked-set; no orphan findings from the pack's own manifest rows`
@@ -166,9 +145,6 @@ proptest! {
     fn pack_self_activation_absent(v0 in spec_gen::pack_file_linted_alone()) {
         todo_predicate!("`its checkers report an empty checked-set; no orphan findings from the pack's own manifest rows`");
     }
-}
-
-proptest! {
     // id: skew_is_warning_not_failure
     // generator: `pack_pinned_to_older_revision()`
     // predicate: `exit 0 with warning-channel advisory naming the pack's base pin and the corpus revision`
@@ -176,9 +152,6 @@ proptest! {
     fn skew_is_warning_not_failure(v0 in spec_gen::pack_pinned_to_older_revision()) {
         todo_predicate!("`exit 0 with warning-channel advisory naming the pack's base pin and the corpus revision`");
     }
-}
-
-proptest! {
     // id: empty_vocabulary_honest
     // generator: `pack_enabled_without_instances()`
     // predicate: `checker reports empty checked-set; no fabricated findings`
@@ -186,9 +159,6 @@ proptest! {
     fn empty_vocabulary_honest(v0 in spec_gen::pack_enabled_without_instances()) {
         todo_predicate!("`checker reports empty checked-set; no fabricated findings`");
     }
-}
-
-proptest! {
     // id: narrowing_rejected
     // generator: `pack_removing_previously_declared_kind()`
     // predicate: `pack_shape fails naming the removed entry and the append-only law`
@@ -196,9 +166,6 @@ proptest! {
     fn narrowing_rejected(v0 in spec_gen::pack_removing_previously_declared_kind()) {
         todo_predicate!("`pack_shape fails naming the removed entry and the append-only law`");
     }
-}
-
-proptest! {
     // id: profile_file_is_four_layer
     // generator: `pack_parsed_as_standard_spec()`
     // predicate: `all four layers parse from the pack file alone — no sidecar artifact needed`
@@ -206,9 +173,6 @@ proptest! {
     fn profile_file_is_four_layer(v0 in spec_gen::pack_parsed_as_standard_spec()) {
         todo_predicate!("`all four layers parse from the pack file alone — no sidecar artifact needed`");
     }
-}
-
-proptest! {
     // id: pack_vocabulary_qualified
     // generator: `two_packs_claim_same_mechanism()`
     // predicate: `both packs' declared vocabulary resolves without cross-pack collision`
@@ -216,9 +180,6 @@ proptest! {
     fn pack_vocabulary_qualified(v0 in spec_gen::two_packs_claim_same_mechanism()) {
         todo_predicate!("`both packs' declared vocabulary resolves without cross-pack collision`");
     }
-}
-
-proptest! {
     // id: base_sets_unchanged_by_packs
     // generator: `guide_sets_compared_across_pack_enable()`
     // predicate: `INTENT_KINDS and Reference Typing sets identical with and without packs discovered`
@@ -226,9 +187,6 @@ proptest! {
     fn base_sets_unchanged_by_packs(v0 in spec_gen::guide_sets_compared_across_pack_enable()) {
         todo_predicate!("`INTENT_KINDS and Reference Typing sets identical with and without packs discovered`");
     }
-}
-
-proptest! {
     // id: lifecycle_states_parsed
     // generator: `pack_model_section_parsed()`
     // predicate: `each lifecycle state yields exactly its declared checking behavior`
@@ -236,9 +194,6 @@ proptest! {
     fn lifecycle_states_parsed(v0 in spec_gen::pack_model_section_parsed()) {
         todo_predicate!("`each lifecycle state yields exactly its declared checking behavior`");
     }
-}
-
-proptest! {
     // id: fiber_kinds_typeable
     // generator: `base_table_kind_column_with_active_fiber_kind()`
     // predicate: `the base closed-set walkers accept the pack-qualified kind when the pack is active; the same token without the pack fires the labeled finding (base ∪ active-pack-fiber, never narrower)`

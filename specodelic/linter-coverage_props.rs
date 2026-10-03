@@ -68,9 +68,6 @@ proptest! {
     fn uncovered_constraint_rejected(v0 in spec_gen::spec_file_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: orphan_property_rejected
     // generator: `spec_file_with(property.derives_from_pointing_at_nonexistent_id: true)`
     // predicate: `check(file) == failed`
@@ -78,9 +75,6 @@ proptest! {
     fn orphan_property_rejected(v0 in spec_gen::spec_file_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: incomplete_law_rejected
     // generator: `law_property_missing("identity")`
     // predicate: `check(file) == failed`
@@ -88,9 +82,6 @@ proptest! {
     fn incomplete_law_rejected(v0 in spec_gen::law_property_missing()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: full_coverage_passes
     // generator: `arbitrary_fully_covered_spec_file()`
     // predicate: `check(file) == passed`
@@ -98,9 +89,6 @@ proptest! {
     fn full_coverage_passes(v0 in spec_gen::arbitrary_fully_covered_spec_file()) {
         todo_predicate!("`check(file) == passed`");
     }
-}
-
-proptest! {
     // id: coverage_naturality
     // case: identity
     // generator: `arbitrary_spec_file(), arbitrary_id_rename()`
@@ -109,9 +97,6 @@ proptest! {
     fn coverage_naturality_identity(v0 in spec_gen::arbitrary_spec_file(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `coverage_ratio(coverage_ratio_placeholder_renamed_to_itself) == coverage_ratio(placeholder)` — the rename identity case, instantiated at the coverage_ratio observation point  **associativity:** `coverage_ratio(rename(rename(I, a, b), b, c)) == coverage_ratio(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered");
     }
-}
-
-proptest! {
     // id: coverage_naturality
     // case: associativity
     // generator: `arbitrary_spec_file(), arbitrary_id_rename()`
@@ -120,9 +105,6 @@ proptest! {
     fn coverage_naturality_associativity(v0 in spec_gen::arbitrary_spec_file(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `coverage_ratio(coverage_ratio_placeholder_renamed_to_itself) == coverage_ratio(placeholder)` — the rename identity case, instantiated at the coverage_ratio observation point  **associativity:** `coverage_ratio(rename(rename(I, a, b), b, c)) == coverage_ratio(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered");
     }
-}
-
-proptest! {
     // id: coverage_naturality
     // case: naturality
     // generator: `arbitrary_spec_file(), arbitrary_id_rename()`
@@ -131,9 +113,6 @@ proptest! {
     fn coverage_naturality_naturality(v0 in spec_gen::arbitrary_spec_file(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `coverage_ratio(coverage_ratio_placeholder_renamed_to_itself) == coverage_ratio(placeholder)` — the rename identity case, instantiated at the coverage_ratio observation point  **associativity:** `coverage_ratio(rename(rename(I, a, b), b, c)) == coverage_ratio(rename(I, a, c))` — the rename associativity case at the same observation point  **naturality:** `coverage_ratio(rename(I)) == coverage_ratio(I)` — renaming a constraint doesn't change whether it's covered");
     }
-}
-
-proptest! {
     // id: computed_derives_from_rejected
     // generator: `spec_file_with(computed_or_templated_derives_from_id: true)`
     // predicate: `check(file) == failed` — a non-literal id cannot be counted from the parsed AST alone
@@ -141,9 +120,6 @@ proptest! {
     fn computed_derives_from_rejected(v0 in spec_gen::spec_file_with()) {
         todo_predicate!("`check(file) == failed` — a non-literal id cannot be counted from the parsed AST alone");
     }
-}
-
-proptest! {
     // id: count_failure_label_asserted
     // generator: `count_failure_raised()`
     // predicate: `error_label == "linter.coverage.count_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -151,9 +127,6 @@ proptest! {
     fn count_failure_label_asserted(v0 in spec_gen::count_failure_raised()) {
         todo_predicate!("`error_label == \"linter.coverage.count_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: law_case_failure_label_asserted
     // generator: `law_case_failure_raised()`
     // predicate: `error_label == "linter.coverage.law_case_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -161,9 +134,6 @@ proptest! {
     fn law_case_failure_label_asserted(v0 in spec_gen::law_case_failure_raised()) {
         todo_predicate!("`error_label == \"linter.coverage.law_case_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: unlabeled_law_rejected
     // generator: `law_predicate_mentioning_cases_without_labels()`
     // predicate: `check(file) == failed` — a prose mention of a case name is not an enumeration (Revision 13 machine form)
@@ -171,9 +141,6 @@ proptest! {
     fn unlabeled_law_rejected(v0 in spec_gen::law_predicate_mentioning_cases_without_labels()) {
         todo_predicate!("`check(file) == failed` — a prose mention of a case name is not an enumeration (Revision 13 machine form)");
     }
-}
-
-proptest! {
     // id: extra_case_is_declaration
     // generator: `law_property_with_extra_case("commutativity")`
     // predicate: `compile(file) emits one block per enumerated case` — an extra named case is a first-class checkable declaration, never prose

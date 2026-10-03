@@ -56,9 +56,6 @@ proptest! {
     fn cycle_rejected(v0 in spec_gen::spec_repo_with()) {
         todo_predicate!("`check(repo) == failed`");
     }
-}
-
-proptest! {
     // id: self_ref_rejected
     // generator: `spec_row_with(traces_to == self.id)`
     // predicate: `check(repo) == failed`
@@ -66,9 +63,6 @@ proptest! {
     fn self_ref_rejected(v0 in spec_gen::spec_row_with()) {
         todo_predicate!("`check(repo) == failed`");
     }
-}
-
-proptest! {
     // id: orphan_subgraph_rejected
     // generator: `spec_repo_with(disconnected_constraint_cluster: true)`
     // predicate: `check(repo) == failed`
@@ -76,9 +70,6 @@ proptest! {
     fn orphan_subgraph_rejected(v0 in spec_gen::spec_repo_with()) {
         todo_predicate!("`check(repo) == failed`");
     }
-}
-
-proptest! {
     // id: dag_passes
     // generator: `arbitrary_dag_shaped_repo()`
     // predicate: `check(repo) == passed`
@@ -86,9 +77,6 @@ proptest! {
     fn dag_passes(v0 in spec_gen::arbitrary_dag_shaped_repo()) {
         todo_predicate!("`check(repo) == passed`");
     }
-}
-
-proptest! {
     // id: supersedes_cycle_rejected
     // generator: `spec_repo_with(supersedes_cycle: length ≥ 2)`
     // predicate: `check(repo) == failed`
@@ -96,9 +84,6 @@ proptest! {
     fn supersedes_cycle_rejected(v0 in spec_gen::spec_repo_with()) {
         todo_predicate!("`check(repo) == failed`");
     }
-}
-
-proptest! {
     // id: supersedes_dag_ignores_traces_cycle
     // generator: `spec_repo_with(traces_to_cycle: true, supersedes: acyclic)`
     // predicate: `check(repo).supersedes_dag == passed` — the two graphs are checked independently; a cycle in one must not be attributed to the other
@@ -106,9 +91,6 @@ proptest! {
     fn supersedes_dag_ignores_traces_cycle(v0 in spec_gen::spec_repo_with()) {
         todo_predicate!("`check(repo).supersedes_dag == passed` — the two graphs are checked independently; a cycle in one must not be attributed to the other");
     }
-}
-
-proptest! {
     // id: derives_from_edges_property_sourced
     // generator: `spec_repo_with(constraint_row_carrying_derives_from: true)`
     // predicate: `check(repo) == failed` — the malformed edge is typing's finding (the graph layer reports it and records no edge), so it joins no acyclic edge set; the invariant and the checker now agree on the same closed edge set (specodelic-huf)
@@ -116,9 +98,6 @@ proptest! {
     fn derives_from_edges_property_sourced(v0 in spec_gen::spec_repo_with()) {
         todo_predicate!("`check(repo) == failed` — the malformed edge is typing's finding (the graph layer reports it and records no edge), so it joins no acyclic edge set; the invariant and the checker now agree on the same closed edge set (specodelic-huf)");
     }
-}
-
-proptest! {
     // id: topo_sort_naturality
     // case: identity
     // generator: `arbitrary_dag_repo(), arbitrary_id_rename()`
@@ -127,9 +106,6 @@ proptest! {
     fn topo_sort_naturality_identity(v0 in spec_gen::arbitrary_dag_repo(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `topo_sort(rename(I, a, a)) == topo_sort(I)` — the rename identity case at the topo_sort observation point  **associativity:** `topo_sort(rename(rename(I, a, b), b, c)) == topo_sort(rename(I, a, c))` — the rename associativity case at the same point  **naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes");
     }
-}
-
-proptest! {
     // id: topo_sort_naturality
     // case: associativity
     // generator: `arbitrary_dag_repo(), arbitrary_id_rename()`
@@ -138,9 +114,6 @@ proptest! {
     fn topo_sort_naturality_associativity(v0 in spec_gen::arbitrary_dag_repo(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `topo_sort(rename(I, a, a)) == topo_sort(I)` — the rename identity case at the topo_sort observation point  **associativity:** `topo_sort(rename(rename(I, a, b), b, c)) == topo_sort(rename(I, a, c))` — the rename associativity case at the same point  **naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes");
     }
-}
-
-proptest! {
     // id: topo_sort_naturality
     // case: naturality
     // generator: `arbitrary_dag_repo(), arbitrary_id_rename()`
@@ -149,9 +122,6 @@ proptest! {
     fn topo_sort_naturality_naturality(v0 in spec_gen::arbitrary_dag_repo(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `topo_sort(rename(I, a, a)) == topo_sort(I)` — the rename identity case at the topo_sort observation point  **associativity:** `topo_sort(rename(rename(I, a, b), b, c)) == topo_sort(rename(I, a, c))` — the rename associativity case at the same point  **naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes");
     }
-}
-
-proptest! {
     // id: check_failure_label_asserted
     // generator: `check_failure_raised()`
     // predicate: `error_label == "linter.graph_shape.check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)

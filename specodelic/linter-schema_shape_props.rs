@@ -56,34 +56,28 @@ pub mod spec_gen {
 
 }
 
-proptest! {
-    // id: shrunk_id_set_rejected
-    // generator: `(revision_n, revision_n_plus_1)` where a member was removed from a variant table, a kind value-set, or the Reference Typing table
-    // predicate: `check(revisions) == failed` — one generator, parametrized over which of the three id-sets it targets
-    #[test]
-    fn shrunk_id_set_rejected() {
+// id: shrunk_id_set_rejected
+// generator: `(revision_n, revision_n_plus_1)` where a member was removed from a variant table, a kind value-set, or the Reference Typing table
+// predicate: `check(revisions) == failed` — one generator, parametrized over which of the three id-sets it targets
+#[test]
+fn shrunk_id_set_rejected() {
         todo_predicate!("`check(revisions) == failed` — one generator, parametrized over which of the three id-sets it targets");
-    }
 }
 
-proptest! {
-    // id: reordered_id_set_rejected
-    // generator: `(revision_n, revision_n_plus_1)` where two existing members of any 𝒦-governed id-set swapped order
-    // predicate: `check(revisions) == failed`
-    #[test]
-    fn reordered_id_set_rejected() {
+// id: reordered_id_set_rejected
+// generator: `(revision_n, revision_n_plus_1)` where two existing members of any 𝒦-governed id-set swapped order
+// predicate: `check(revisions) == failed`
+#[test]
+fn reordered_id_set_rejected() {
         todo_predicate!("`check(revisions) == failed`");
-    }
 }
 
-proptest! {
-    // id: silent_narrowing_rejected
-    // generator: `(revision_n, revision_n_plus_1)` where a Reference Typing field's target narrowed with no accompanying kind-split cited
-    // predicate: `check(revisions) == failed`
-    #[test]
-    fn silent_narrowing_rejected() {
+// id: silent_narrowing_rejected
+// generator: `(revision_n, revision_n_plus_1)` where a Reference Typing field's target narrowed with no accompanying kind-split cited
+// predicate: `check(revisions) == failed`
+#[test]
+fn silent_narrowing_rejected() {
         todo_predicate!("`check(revisions) == failed`");
-    }
 }
 
 proptest! {
@@ -94,9 +88,6 @@ proptest! {
     fn constraint_kind_invalid_rejected(v0 in spec_gen::constraint_row_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: property_kind_invalid_rejected
     // generator: `property_row_with(kind: "audit")`
     // predicate: `check(file) == failed`
@@ -104,9 +95,6 @@ proptest! {
     fn property_kind_invalid_rejected(v0 in spec_gen::property_row_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: kind_closed_passes
     // generator: `arbitrary_file_with(only_closed_kind_values: true)`
     // predicate: `check(file) == passed`
@@ -114,9 +102,6 @@ proptest! {
     fn kind_closed_passes(v0 in spec_gen::arbitrary_file_with()) {
         todo_predicate!("`check(file) == passed`");
     }
-}
-
-proptest! {
     // id: prose_roundtrips
     // generator: `arbitrary_unicode_string()` as rationale content
     // predicate: `compile(parse(s)).rationale == s` — no normalization, no truncation
@@ -126,14 +111,12 @@ proptest! {
     }
 }
 
-proptest! {
-    // id: appended_id_set_member_passes
-    // generator: `(revision_n, revision_n_plus_1)` where only new members were added, to any of the three id-sets
-    // predicate: `check(revisions) == passed`
-    #[test]
-    fn appended_id_set_member_passes() {
+// id: appended_id_set_member_passes
+// generator: `(revision_n, revision_n_plus_1)` where only new members were added, to any of the three id-sets
+// predicate: `check(revisions) == passed`
+#[test]
+fn appended_id_set_member_passes() {
         todo_predicate!("`check(revisions) == passed`");
-    }
 }
 
 proptest! {
@@ -144,9 +127,6 @@ proptest! {
     fn constraint_kind_advisory_passes(v0 in spec_gen::constraint_row_with()) {
         todo_predicate!("`check(file) == passed`");
     }
-}
-
-proptest! {
     // id: constraint_kind_effect_passes
     // generator: `constraint_row_with(kind: "effect")`
     // predicate: `check(file) == passed`
@@ -154,9 +134,6 @@ proptest! {
     fn constraint_kind_effect_passes(v0 in spec_gen::constraint_row_with()) {
         todo_predicate!("`check(file) == passed`");
     }
-}
-
-proptest! {
     // id: constraint_kind_extension_point_passes
     // generator: `constraint_row_with(kind: "extension_point")`
     // predicate: `check(file) == passed`
@@ -164,9 +141,6 @@ proptest! {
     fn constraint_kind_extension_point_passes(v0 in spec_gen::constraint_row_with()) {
         todo_predicate!("`check(file) == passed`");
     }
-}
-
-proptest! {
     // id: parser_ast_prose_free
     // generator: `spec_file_with(prose_in_rationale_and_description: arbitrary_unicode_string())`
     // predicate: `∀ parsed row: the row's parsed fields contain no fragment of the planted prose` — a planted-prose differential parse (see Notes)
@@ -174,9 +148,6 @@ proptest! {
     fn parser_ast_prose_free(v0 in spec_gen::spec_file_with(), v1 in spec_gen::arbitrary_unicode_string()) {
         todo_predicate!("`∀ parsed row: the row's parsed fields contain no fragment of the planted prose` — a planted-prose differential parse (see Notes)");
     }
-}
-
-proptest! {
     // id: kind_check_failure_label_asserted
     // generator: `kind_check_failure_raised()`
     // predicate: `error_label == "linter.schema_shape.kind_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -184,9 +155,6 @@ proptest! {
     fn kind_check_failure_label_asserted(v0 in spec_gen::kind_check_failure_raised()) {
         todo_predicate!("`error_label == \"linter.schema_shape.kind_check_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: diff_failure_label_asserted
     // generator: `diff_failure_raised()`
     // predicate: `error_label == "linter.schema_shape.diff_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -194,9 +162,6 @@ proptest! {
     fn diff_failure_label_asserted(v0 in spec_gen::diff_failure_raised()) {
         todo_predicate!("`error_label == \"linter.schema_shape.diff_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: parser_audit_failure_label_asserted
     // generator: `parser_audit_failure_raised()`
     // predicate: `error_label == "linter.schema_shape.parser_audit_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)

@@ -64,9 +64,6 @@ proptest! {
     fn duplicate_id_rejected(v0 in spec_gen::spec_file_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: cross_file_collision
     // generator: `two_spec_files_sharing_id()`
     // predicate: `check(repo) == failed`
@@ -74,9 +71,6 @@ proptest! {
     fn cross_file_collision(v0 in spec_gen::two_spec_files_sharing_id()) {
         todo_predicate!("`check(repo) == failed`");
     }
-}
-
-proptest! {
     // id: dangling_ref_rejected
     // generator: `spec_file_with(ref_to_nonexistent_id: true)`
     // predicate: `check(file) == failed`
@@ -84,9 +78,6 @@ proptest! {
     fn dangling_ref_rejected(v0 in spec_gen::spec_file_with()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: wrong_target_kind
     // generator: `guard_field_pointing_at_a_property_row()`
     // predicate: `check(file) == failed`
@@ -94,9 +85,6 @@ proptest! {
     fn wrong_target_kind(v0 in spec_gen::guard_field_pointing_at_a_property_row()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: rename_naturality
     // case: identity
     // generator: `arbitrary_spec_repo(), arbitrary_id_rename()`
@@ -105,9 +93,6 @@ proptest! {
     fn rename_naturality_identity(v0 in spec_gen::arbitrary_spec_repo(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))`  **naturality:** `lookup_all(rename(I)) == rename(lookup_all(I))` — every `[[ref]]` pointing at a renamed id is updated with it, the naturality case this checker is the enforcement layer for");
     }
-}
-
-proptest! {
     // id: rename_naturality
     // case: associativity
     // generator: `arbitrary_spec_repo(), arbitrary_id_rename()`
@@ -116,9 +101,6 @@ proptest! {
     fn rename_naturality_associativity(v0 in spec_gen::arbitrary_spec_repo(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))`  **naturality:** `lookup_all(rename(I)) == rename(lookup_all(I))` — every `[[ref]]` pointing at a renamed id is updated with it, the naturality case this checker is the enforcement layer for");
     }
-}
-
-proptest! {
     // id: rename_naturality
     // case: naturality
     // generator: `arbitrary_spec_repo(), arbitrary_id_rename()`
@@ -127,9 +109,6 @@ proptest! {
     fn rename_naturality_naturality(v0 in spec_gen::arbitrary_spec_repo(), v1 in spec_gen::arbitrary_id_rename()) {
         todo_predicate!("**identity:** `resolve(rename(I,a,a)) == resolve(I)`  **associativity:** `resolve(rename(rename(I,a,b),b,c)) == resolve(rename(I,a,c))`  **naturality:** `lookup_all(rename(I)) == rename(lookup_all(I))` — every `[[ref]]` pointing at a renamed id is updated with it, the naturality case this checker is the enforcement layer for");
     }
-}
-
-proptest! {
     // id: clean_repo_passes
     // generator: `arbitrary_well_formed_repo()`
     // predicate: `check(repo) == passed`
@@ -137,9 +116,6 @@ proptest! {
     fn clean_repo_passes(v0 in spec_gen::arbitrary_well_formed_repo()) {
         todo_predicate!("`check(repo) == passed`");
     }
-}
-
-proptest! {
     // id: index_failure_label_asserted
     // generator: `index_failure_raised()`
     // predicate: `error_label == "linter.referential_integrity.index_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
@@ -147,9 +123,6 @@ proptest! {
     fn index_failure_label_asserted(v0 in spec_gen::index_failure_raised()) {
         todo_predicate!("`error_label == \"linter.referential_integrity.index_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
-}
-
-proptest! {
     // id: resolution_failure_label_asserted
     // generator: `resolution_failure_raised()`
     // predicate: `error_label == "linter.referential_integrity.resolution_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)

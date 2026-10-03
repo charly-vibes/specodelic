@@ -52,9 +52,6 @@ proptest! {
     fn fan_in_graph_sourced(v0 in spec_gen::node_with_precomputed_blast_radius_in_graph()) {
         todo_predicate!("`advisor_source_calls(markdown_walker) == 0` — every count comes from `graph`'s artifact");
     }
-}
-
-proptest! {
     // id: unrelated_fan_in_flagged
     // generator: `node_referenced_by_dependents_in_three_disjoint_top_level_namespaces()`
     // predicate: `check(node) == found`
@@ -62,9 +59,6 @@ proptest! {
     fn unrelated_fan_in_flagged(v0 in spec_gen::node_referenced_by_dependents_in_three_disjoint_top_level_namespaces()) {
         todo_predicate!("`check(node) == found`");
     }
-}
-
-proptest! {
     // id: related_fan_in_not_flagged
     // generator: `node_referenced_only_by_dependents_within_its_own_namespace_subtree()`
     // predicate: `check(node) == clean`
@@ -72,9 +66,6 @@ proptest! {
     fn related_fan_in_not_flagged(v0 in spec_gen::node_referenced_only_by_dependents_within_its_own_namespace_subtree()) {
         todo_predicate!("`check(node) == clean`");
     }
-}
-
-proptest! {
     // id: narrow_diff_flagged_low_fan_in
     // generator: `changeset_touching_one_of_five_constraints_owned_by_a_node_with_fan_in(1)`
     // predicate: `check(node) == found` — flagged even though fan-in alone wouldn't trigger it
@@ -84,14 +75,12 @@ proptest! {
     }
 }
 
-proptest! {
-    // id: emitted_finding_shape
-    // generator: `found state reached for node N with dependent_count 4, 2 unrelated`
-    // predicate: `emits(found) == {node_id: N, dependent_count: 4, unrelated_namespace_count: 2, suggested_split: true}`
-    #[test]
-    fn emitted_finding_shape() {
+// id: emitted_finding_shape
+// generator: `found state reached for node N with dependent_count 4, 2 unrelated`
+// predicate: `emits(found) == {node_id: N, dependent_count: 4, unrelated_namespace_count: 2, suggested_split: true}`
+#[test]
+fn emitted_finding_shape() {
         todo_predicate!("`emits(found) == {node_id: N, dependent_count: 4, unrelated_namespace_count: 2, suggested_split: true}`");
-    }
 }
 
 proptest! {

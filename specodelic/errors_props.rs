@@ -88,9 +88,6 @@ proptest! {
     fn unnamespaced_label_rejected(v0 in spec_gen::error_constraint_with_label_lacking_file_id_prefix()) {
         todo_predicate!("`check(file) == failed` — a bare `extraction_failure(...)` head is not a valid label (tier 2)");
     }
-}
-
-proptest! {
     // id: mute_failure_state_detected
     // generator: `tool_file_with_failure_terminal_and_no_emits_edge()`
     // predicate: `check(file) == failed` — the corpus's pre-change shape, asserting the red is real (tier 2; the emits-typing half is tier 1)
@@ -98,9 +95,6 @@ proptest! {
     fn mute_failure_state_detected(v0 in spec_gen::tool_file_with_failure_terminal_and_no_emits_edge()) {
         todo_predicate!("`check(file) == failed` — the corpus's pre-change shape, asserting the red is real (tier 2; the emits-typing half is tier 1)");
     }
-}
-
-proptest! {
     // id: emits_wrong_kind_rejected
     // generator: `failure_state_emitting_an_invariant_constraint()`
     // predicate: `check(file) == failed` — existing ref_kind_compatible typing, restated as the contract's edge (tier 1)
@@ -108,9 +102,6 @@ proptest! {
     fn emits_wrong_kind_rejected(v0 in spec_gen::failure_state_emitting_an_invariant_constraint()) {
         todo_predicate!("`check(file) == failed` — existing ref_kind_compatible typing, restated as the contract's edge (tier 1)");
     }
-}
-
-proptest! {
     // id: multiclass_single_state_detected
     // generator: `failed_state_with_inbound_failure_transitions_citing_different_constraint_sets()`
     // predicate: `check(file) == failed` — compile.md's pre-change shape, detected from the graph (tier 2)
@@ -118,9 +109,6 @@ proptest! {
     fn multiclass_single_state_detected(v0 in spec_gen::failed_state_with_inbound_failure_transitions_citing_different_constraint_sets()) {
         todo_predicate!("`check(file) == failed` — compile.md's pre-change shape, detected from the graph (tier 2)");
     }
-}
-
-proptest! {
     // id: untyped_negation_detected
     // generator: `failure_transition_whose_citation_set_differs_from_its_success_transition()`
     // predicate: `check(file) == failed` — citation-set inequality is graph-decidable (tier 2)
@@ -128,9 +116,6 @@ proptest! {
     fn untyped_negation_detected(v0 in spec_gen::failure_transition_whose_citation_set_differs_from_its_success_transition()) {
         todo_predicate!("`check(file) == failed` — citation-set inequality is graph-decidable (tier 2)");
     }
-}
-
-proptest! {
     // id: zero_citation_failure_flagged
     // generator: `failure_transition_citing_zero_intrafile_constraints_not_on_carveout_list()`
     // predicate: `check(file) == failed` — the carve-out is a checked list, not an escape hatch (tier 2)
@@ -138,9 +123,6 @@ proptest! {
     fn zero_citation_failure_flagged(v0 in spec_gen::failure_transition_citing_zero_intrafile_constraints_not_on_carveout_list()) {
         todo_predicate!("`check(file) == failed` — the carve-out is a checked list, not an escape hatch (tier 2)");
     }
-}
-
-proptest! {
     // id: carved_out_guard_not_flagged
     // generator: `orchestrate_stage_fail_transition()`
     // predicate: `check(file) == passed` — the carve-out is checked, not assumed (tier 2)
@@ -148,9 +130,6 @@ proptest! {
     fn carved_out_guard_not_flagged(v0 in spec_gen::orchestrate_stage_fail_transition()) {
         todo_predicate!("`check(file) == passed` — the carve-out is checked, not assumed (tier 2)");
     }
-}
-
-proptest! {
     // id: labeled_failure_is_single
     // generator: `failing_stage_with_two_extractable_errors()`
     // predicate: `report(stage) == one labeled error naming stage and class` — never a partial bundle (tier 3)
@@ -158,9 +137,6 @@ proptest! {
     fn labeled_failure_is_single(v0 in spec_gen::failing_stage_with_two_extractable_errors()) {
         todo_predicate!("`report(stage) == one labeled error naming stage and class` — never a partial bundle (tier 3)");
     }
-}
-
-proptest! {
     // id: envelope_kind_wrong_rejected
     // generator: `failing_stage_reported_as_ok_envelope()`
     // predicate: `check(report) == failed` — a failure must never ride a success-shaped envelope (tier 3)
@@ -168,9 +144,6 @@ proptest! {
     fn envelope_kind_wrong_rejected(v0 in spec_gen::failing_stage_reported_as_ok_envelope()) {
         todo_predicate!("`check(report) == failed` — a failure must never ride a success-shaped envelope (tier 3)");
     }
-}
-
-proptest! {
     // id: exit_code_mismatch_rejected
     // generator: `failure_stage_with_wrong_exit_code()`
     // predicate: `check(report) == failed` — exit codes are contract, not convention (tier 3)
@@ -178,9 +151,6 @@ proptest! {
     fn exit_code_mismatch_rejected(v0 in spec_gen::failure_stage_with_wrong_exit_code()) {
         todo_predicate!("`check(report) == failed` — exit codes are contract, not convention (tier 3)");
     }
-}
-
-proptest! {
     // id: hint_missing_rejected
     // generator: `error_report_with_empty_remediation_hint()`
     // predicate: `check(report) == failed` (tier 3)
@@ -188,9 +158,6 @@ proptest! {
     fn hint_missing_rejected(v0 in spec_gen::error_report_with_empty_remediation_hint()) {
         todo_predicate!("`check(report) == failed` (tier 3)");
     }
-}
-
-proptest! {
     // id: label_property_asserts_exact_label
     // generator: `error_constraint_with_property_predicating_a_different_label()`
     // predicate: `check(file) == failed` — coverage alone cannot catch this; the property must name the label
@@ -198,9 +165,6 @@ proptest! {
     fn label_property_asserts_exact_label(v0 in spec_gen::error_constraint_with_property_predicating_a_different_label()) {
         todo_predicate!("`check(file) == failed` — coverage alone cannot catch this; the property must name the label");
     }
-}
-
-proptest! {
     // id: routing_matches_reality
     // generator: `each_rule_checked_against_its_stated_tier()`
     // predicate: `every scenario's tool claim agrees with its tier — no scenario claims today's spk lint for a tier-2 rule`
@@ -208,9 +172,6 @@ proptest! {
     fn routing_matches_reality(v0 in spec_gen::each_rule_checked_against_its_stated_tier()) {
         todo_predicate!("`every scenario's tool claim agrees with its tier — no scenario claims today's spk lint for a tier-2 rule`");
     }
-}
-
-proptest! {
     // id: contract_satisfied_from_consumer
     // generator: `tool_file_with_satisfies_pointing_at_contract_row()`
     // predicate: `extraction yields exactly one satisfies edge and lint passes` — the satisfies precedent's shape

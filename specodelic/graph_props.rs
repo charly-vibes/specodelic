@@ -72,9 +72,6 @@ proptest! {
     fn every_edge_extracted(v0 in spec_gen::arbitrary_spec_repo()) {
         todo_predicate!("`count(edges(graph)) == count(reference_field_instances(repo))`");
     }
-}
-
-proptest! {
     // id: wrongly_typed_edge_rejected
     // generator: `hand_inserted_edge(source_kind: State, field: "guard", target_kind: Property)`
     // predicate: `check(artifact) == rejected` — `guard` targets an invariant Constraint or a State (specodelic.md Revision 12); a Property target is still rejected
@@ -82,9 +79,6 @@ proptest! {
     fn wrongly_typed_edge_rejected(v0 in spec_gen::hand_inserted_edge()) {
         todo_predicate!("`check(artifact) == rejected` — `guard` targets an invariant Constraint or a State (specodelic.md Revision 12); a Property target is still rejected");
     }
-}
-
-proptest! {
     // id: rerun_deterministic
     // generator: `run_extraction_twice_against_unchanged_repo()`
     // predicate: `artifact(run_1) == artifact(run_2)`
@@ -92,9 +86,6 @@ proptest! {
     fn rerun_deterministic(v0 in spec_gen::run_extraction_twice_against_unchanged_repo()) {
         todo_predicate!("`artifact(run_1) == artifact(run_2)`");
     }
-}
-
-proptest! {
     // id: blast_radius_transitive
     // generator: `chain(a traces_to b, b derives_from c)`
     // predicate: `c ∈ blast_radius(a)` — reachable through two hops, no direct edge required
@@ -102,9 +93,6 @@ proptest! {
     fn blast_radius_transitive(v0 in spec_gen::chain()) {
         todo_predicate!("`c ∈ blast_radius(a)` — reachable through two hops, no direct edge required");
     }
-}
-
-proptest! {
     // id: blast_radius_bidirectional
     // generator: `edge(a → b)`
     // predicate: `a ∈ blast_radius(b) ∧ b ∈ blast_radius(a)` — renaming `a` must be able to find dependent `b`, and vice versa
@@ -112,9 +100,6 @@ proptest! {
     fn blast_radius_bidirectional(v0 in spec_gen::edge()) {
         todo_predicate!("`a ∈ blast_radius(b) ∧ b ∈ blast_radius(a)` — renaming `a` must be able to find dependent `b`, and vice versa");
     }
-}
-
-proptest! {
     // id: stale_detected_on_edit
     // generator: `edit_one_reference_field_without_re_extracting()`
     // predicate: `check(artifact) == stale`
@@ -122,9 +107,6 @@ proptest! {
     fn stale_detected_on_edit(v0 in spec_gen::edit_one_reference_field_without_re_extracting()) {
         todo_predicate!("`check(artifact) == stale`");
     }
-}
-
-proptest! {
     // id: hand_authored_edge_rejected
     // generator: `graph_artifact_with_a_manually_inserted_edge_absent_from_any_file()`
     // predicate: `check(artifact) == rejected`
@@ -132,9 +114,6 @@ proptest! {
     fn hand_authored_edge_rejected(v0 in spec_gen::graph_artifact_with_a_manually_inserted_edge_absent_from_any_file()) {
         todo_predicate!("`check(artifact) == rejected`");
     }
-}
-
-proptest! {
     // id: boundary_tracks_extension_points
     // generator: `file_hosting_extension_point_row_then_all_removed()`
     // predicate: `classified(file) == true before, == false after removal — no authored residue`
@@ -142,9 +121,6 @@ proptest! {
     fn boundary_tracks_extension_points(v0 in spec_gen::file_hosting_extension_point_row_then_all_removed()) {
         todo_predicate!("`classified(file) == true before, == false after removal — no authored residue`");
     }
-}
-
-proptest! {
     // id: observes_edge_extracted
     // generator: `constraint_row_carrying_observes_pointing_at_effect()`
     // predicate: `exactly one edge, kind constraints.observes — and zero edges when the column is absent`
@@ -152,9 +128,6 @@ proptest! {
     fn observes_edge_extracted(v0 in spec_gen::constraint_row_carrying_observes_pointing_at_effect()) {
         todo_predicate!("`exactly one edge, kind constraints.observes — and zero edges when the column is absent`");
     }
-}
-
-proptest! {
     // id: extraction_failure_label_asserted
     // generator: `extraction_failure_raised()`
     // predicate: `error_label == "graph.extraction_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)

@@ -60,9 +60,6 @@ proptest! {
     fn mute_terminal_rejected(v0 in spec_gen::tool_file_with_failure_terminal_and_no_emits_edge()) {
         todo_predicate!("`check(file) == failed` — the corpus's pre-add-error-contract shape, kept as the negative fixture");
     }
-}
-
-proptest! {
     // id: label_collision_rejected
     // generator: `file_with_two_error_constraints_sharing_a_variant_head()`
     // predicate: `check(file) == failed`
@@ -70,9 +67,6 @@ proptest! {
     fn label_collision_rejected(v0 in spec_gen::file_with_two_error_constraints_sharing_a_variant_head()) {
         todo_predicate!("`check(file) == failed`");
     }
-}
-
-proptest! {
     // id: zero_citation_flagged
     // generator: `failure_transition_citing_nothing_off_the_carveout_list()`
     // predicate: `check(file) == failed` — the carve-out is a checked list, not an escape hatch
@@ -80,9 +74,6 @@ proptest! {
     fn zero_citation_flagged(v0 in spec_gen::failure_transition_citing_nothing_off_the_carveout_list()) {
         todo_predicate!("`check(file) == failed` — the carve-out is a checked list, not an escape hatch");
     }
-}
-
-proptest! {
     // id: carved_out_guard_passes
     // generator: `orchestrate_stage_fail_transition()`
     // predicate: `check(file) == passed` — the carve-out is checked, not assumed
@@ -90,9 +81,6 @@ proptest! {
     fn carved_out_guard_passes(v0 in spec_gen::orchestrate_stage_fail_transition()) {
         todo_predicate!("`check(file) == passed` — the carve-out is checked, not assumed");
     }
-}
-
-proptest! {
     // id: negation_set_mismatch_flagged
     // generator: `failure_transition_whose_citations_differ_from_its_siblings()`
     // predicate: `check(file) == failed` — citation-set inequality is graph-decidable
@@ -100,9 +88,6 @@ proptest! {
     fn negation_set_mismatch_flagged(v0 in spec_gen::failure_transition_whose_citations_differ_from_its_siblings()) {
         todo_predicate!("`check(file) == failed` — citation-set inequality is graph-decidable");
     }
-}
-
-proptest! {
     // id: clean_repo_passes
     // generator: `the_repo_itself()`
     // predicate: `check(repo) == passed` — the corpus dogfoods this checker's contract
@@ -110,9 +95,6 @@ proptest! {
     fn clean_repo_passes(v0 in spec_gen::the_repo_itself()) {
         todo_predicate!("`check(repo) == passed` — the corpus dogfoods this checker's contract");
     }
-}
-
-proptest! {
     // id: check_failure_label_asserted
     // generator: `failure_shape_violation_found()`
     // predicate: `error_label == "linter.failure_shape.check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
