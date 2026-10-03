@@ -42,7 +42,11 @@ checkers, and floors. Lint discovers packs by corpus scan (no config file),
 activates them when a file's vocabulary matches, and reports:
 
 - `linter.pack_shape` findings — a malformed pack manifest is a labeled failure
-- pack-activation notes and `orphan_vocabulary` advisories (warnings channel, exit 0)
+- pack-activation notes (warnings channel, exit 0) and `orphan_vocabulary`
+  labeled failures — pack vocabulary used with no pack discovered or declared
+  is never silent: a `uses` edge naming an absent pack, or a pack-qualified
+  token in a kind/field position whose namespace has no discovered pack,
+  names the candidate pack and both remediations
 - lifecycle/revision-skew advisories (draft packs activate advisory-first;
   a pack pinned to an older base `format_revision` is named)
 

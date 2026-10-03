@@ -14,18 +14,22 @@
 //! - activate pack checking advisory-first: vocabulary use triggers the
 //!   pack's advisory (per-pack attribution); a declared `uses` edge
 //!   upgrades to declared enablement and enables the revision-skew
-//!   advisory; a `uses` edge with no matching discovered pack is a
-//!   labeled orphan failure naming the candidate pack and both
-//!   remediations.
+//!   advisory; orphan vocabulary is a labeled failure naming the
+//!   candidate pack and both remediations — two halves
+//!   (specodelic-erd): a `uses` edge with no matching discovered pack
+//!   (concrete candidate), and a pack-qualified (dotted) token in a
+//!   structured kind/field position whose namespace matches no
+//!   discovered pack (prefix-derived candidate).
 //!
 //! **Rationale (v1 scoping decisions, pinned by tests):**
 //! - *Orphan detection is typed, not heuristic*: a bare dotted token in
 //!   prose cannot be told apart from a row id (`compile.extraction_failure`
-//!   is not vocabulary), so the mechanical orphan signal is the declared
-//!   `uses` edge — the "or declared" half of the contract. Namespace-prefix
-//!   prose scanning stays out until a fixture corpus proves a
-//!   false-positive-free signal (honest-empty: we would rather under- than
-//!   over-report).
+//!   is not vocabulary), so the mechanical orphan signal is two halves —
+//!   the declared `uses` edge, and (specodelic-erd) pack-qualified tokens
+//!   in *structured* kind/field positions only (kind cells, table column
+//!   headers). Prose stays unscanned, so the signal stays
+//!   false-positive-free: files using no pack vocabulary lint
+//!   byte-identically (we would rather under- than over-report).
 //! - *Lifecycle current-state*: the Model's States list either names the
 //!   full three-state machine (`draft`, `published`, `deprecated` — the
 //!   steady state is `published`) or a single state naming exactly where
@@ -256,6 +260,26 @@ fn contains_word(haystack: &str, token: &str) -> bool {
 /// Discover packs workspace-wide: scan `.md` files under the discovery
 /// root (git toplevel, else the common parent of the linted specs) for
 /// `kind: profile` frontmatter. No config file, no registry.
+/// The namespace prefix of a pack-qualified (dotted) token —
+/// `data.dataset` → `data`. Identifier-shaped segments only (alphabetic
+/// first char): a dotted prose token never yields one, so the
+/// vocabulary-orphan signal stays structured-position-only and
+/// false-positive-free (specodelic-erd).
+fn namespace_of(token: &str) -> Option<String> {
+    let ident = |s: &str| {
+        s.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+            && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    };
+    let mut segs = token.split('.');
+    let ns = segs.next()?;
+    let head = segs.next()?; // dotted — at least two segments
+    if ident(ns) && ident(head) && segs.all(ident) {
+        Some(ns.to_string())
+    } else {
+        None
+    }
+}
+
 pub fn discover(specs: &[Spec]) -> Vec<PackInfo> {
     let mut packs: Vec<PackInfo> = scan_workspace(specs)
         .into_iter()
@@ -409,12 +433,23 @@ pub fn pack_pass(specs: &[Spec], report: &mut Report) {
     let by_id: BTreeMap<String, PackInfo> =
         packs.iter().map(|p| (p.id.clone(), p.clone())).collect();
 
-    // 3. consumers: activation + skew + orphan (typed, via `uses` edges)
+    // 3. consumers: activation + skew + orphan (typed, via `uses` edges
+    // and — specodelic-erd — vocabulary positions)
+    // a pack's namespace is its id's first segment — dotless ids name
+    // their namespace directly (`bioimage`)
+    let pack_namespaces: std::collections::BTreeSet<String> = packs
+        .iter()
+        .map(|p| p.id.split('.').next().unwrap_or(&p.id).to_string())
+        .collect();
     for spec in specs {
         // pack self-exemption: a pack file is never a consumer
         if spec.intent.kind == "profile" {
             continue;
         }
+        // namespaces whose concrete uses-edge orphan already fired for
+        // this file — the prefix-derived vocabulary finding must not
+        // duplicate them
+        let mut orphan_namespaces = std::collections::BTreeSet::new();
         // declared enablement: every `uses`-column link
         for link in &spec.links {
             if link.column != "uses" {
@@ -473,6 +508,9 @@ pub fn pack_pass(specs: &[Spec], report: &mut Report) {
                     }
                 }
                 None => {
+                    if let Some(ns) = namespace_of(&link.target) {
+                        orphan_namespaces.insert(ns);
+                    }
                     report.issues.push(Issue::new(
                         "orphan_vocabulary",
                         spec.intent.id.clone(),
@@ -483,6 +521,59 @@ pub fn pack_pass(specs: &[Spec], report: &mut Report) {
                     ));
                 }
             }
+        }
+        // vocabulary-triggered orphan (specodelic-erd): the "no pack
+        // discovered" half of `orphan_vocabulary_labeled` — a
+        // pack-qualified (dotted) token in a structured kind/field
+        // position whose namespace matches no discovered pack. Prose
+        // stays unscanned (a dotted token in prose —
+        // `compile.extraction_failure` — is not vocabulary), so the
+        // signal stays false-positive-free and files using no pack
+        // vocabulary lint byte-identically (no_pack_no_change).
+        let mut vocab_orphans: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let scan = |tok: &str, out: &mut BTreeMap<String, Vec<String>>| {
+            if let Some(ns) = namespace_of(tok)
+                && !pack_namespaces.contains(ns.as_str())
+            {
+                out.entry(ns).or_default().push(tok.to_string());
+            }
+        };
+        scan(&spec.intent.kind, &mut vocab_orphans);
+        for c in &spec.constraints {
+            if let Some(k) = c.kind.as_deref() {
+                scan(k, &mut vocab_orphans);
+            }
+            for h in c.cells.keys() {
+                scan(h, &mut vocab_orphans);
+            }
+        }
+        for p in &spec.properties {
+            if let Some(k) = p.kind.as_deref() {
+                scan(k, &mut vocab_orphans);
+            }
+            for h in p.cells.keys() {
+                scan(h, &mut vocab_orphans);
+            }
+        }
+        for (ns, mut tokens) in vocab_orphans {
+            if orphan_namespaces.contains(&ns) {
+                continue; // the concrete uses-edge finding already names the pack
+            }
+            tokens.sort();
+            tokens.dedup();
+            let shown = tokens
+                .iter()
+                .map(|t| format!("`{t}`"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            report.issues.push(Issue::new(
+                "orphan_vocabulary",
+                spec.intent.id.clone(),
+                format!(
+                    "orphan vocabulary: pack-qualified token(s) {shown} used by `{}`, but no `kind: profile` pack in namespace `{ns}` is discovered — candidate pack `{ns}.*` (prefix-derived: only the namespace is known); remediations: add/enable a `kind: profile` pack file declaring the vocabulary, or fix the vocabulary (un-qualify or retype the token)",
+                    spec.intent.id
+                ),
+            ));
         }
         // implicit activation: vocabulary use (per-pack attribution,
         // overlapping vocabulary activates every declaring pack)

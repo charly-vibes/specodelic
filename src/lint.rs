@@ -182,7 +182,7 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
     ),
     (
         "orphan_vocabulary",
-        "a declared uses edge targeting an id no discovered kind: profile pack carries is orphan vocabulary — a labeled failure naming the candidate pack and both remediations (enable/declare the pack, or fix the vocabulary) (specs/packs.md, Revision 14)",
+        "orphan vocabulary is a labeled failure naming the candidate pack and both remediations (enable/declare the pack, or fix the vocabulary) — a declared uses edge targeting an id no discovered kind: profile pack carries, or a pack-qualified token used in a kind/field position with no discovered pack in its namespace (candidate prefix-derived when only the namespace is known) (specs/packs.md, Revision 14)",
     ),
     (
         "skew_advisory",

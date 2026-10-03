@@ -6,6 +6,34 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #107 — vocabulary-triggered orphan labeling (the second half of `orphan_vocabulary_labeled`, specodelic-erd)
+
+The pack mechanism's orphan rule fired only on declared `uses` edges —
+pack vocabulary used with **no pack discovered and no `uses` edge** fell
+through silently (found by the bioimage D6 pilot's probes: `## Data` +
+`data.dataset` used with the data.lineage pack absent produced no orphan
+finding). `packs.md`'s `orphan_vocabulary_labeled` constraint requires
+both halves; the vocabulary half now ships.
+
+- The signal is **structured-position-only**: a pack-qualified (dotted)
+  token in a kind cell (frontmatter kind, Constraint/Property `kind`
+  cells) or a table column header whose namespace matches no discovered
+  pack's namespace. Prose stays unscanned — a dotted token in prose
+  (`compile.extraction_failure`, a row-id citation) is not vocabulary —
+  so the signal stays false-positive-free and files using no pack
+  vocabulary lint byte-identically (`no_pack_no_change` holds).
+- A discovered pack in the token's namespace (namespace = the pack id's
+  first segment; dotless ids name their namespace directly) means the
+  token is in an active-namespace workspace — vocabulary matching and
+  the fiber-kind walkers handle it, no orphan fires.
+- The finding names the candidate pack **prefix-derived when only the
+  namespace is known** (`data.dataset` → candidate `data.*`) and both
+  remediations (add/enable a `kind: profile` pack declaring the
+  vocabulary, or fix the vocabulary) — never a generic dangling message,
+  never silent. A concrete `uses`-edge orphan for the same namespace
+  wins (it names the exact pack); the prefix-derived finding does not
+  duplicate it.
+
 ## #106 — executable predicate fragments (specodelic.md Revision 15, specodelic-rjb)
 
 The verified gate becomes reachable: `specodelic-mp1` row 7's option C

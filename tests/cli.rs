@@ -5599,6 +5599,105 @@ fn uses_edge_to_a_missing_pack_is_a_labeled_orphan_failure() {
 }
 
 #[test]
+fn vocabulary_used_without_any_pack_is_a_labeled_orphan_failure() {
+    // specodelic-erd: the vocabulary half of orphan_vocabulary_labeled —
+    // a pack-qualified kind token used with no pack discovered and no
+    // `uses` edge produces the labeled orphan finding naming the
+    // prefix-derived candidate pack and both remediations, never
+    // silent.
+    let dir = tempfile::tempdir().unwrap();
+    write_fiber_kind_consumer(&dir.path().join("orphan.md"), "orphan", "", "data.dataset");
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_ne!(out.status.code(), Some(0));
+    let issues = json["data"]["issues"].as_array().unwrap();
+    let orphan = issues
+        .iter()
+        .find(|i| i["rule_id"] == "linter.orphan_vocabulary")
+        .expect("no labeled orphan finding for pack vocabulary with no pack: {issues:?}");
+    let m = orphan["message"].as_str().unwrap();
+    assert!(
+        m.contains("data.dataset") && m.contains("data.*") && m.contains("kind: profile"),
+        "orphan finding must name the token, the prefix-derived candidate pack, and the pack kind: {m}"
+    );
+    assert!(
+        m.contains("add/enable") && m.contains("fix the vocabulary"),
+        "orphan finding must carry both remediations: {m}"
+    );
+}
+
+#[test]
+fn vocabulary_orphan_suppressed_when_uses_edge_names_the_pack() {
+    // A concrete `uses`-edge orphan for the same namespace already names
+    // the candidate pack — the prefix-derived vocabulary finding must
+    // not duplicate it.
+    let dir = tempfile::tempdir().unwrap();
+    write_fiber_kind_consumer(
+        &dir.path().join("orphan.md"),
+        "orphan",
+        "[[data.lineage]]",
+        "data.dataset",
+    );
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let issues = json["data"]["issues"].as_array().unwrap();
+    let orphans: Vec<&serde_json::Value> = issues
+        .iter()
+        .filter(|i| i["rule_id"] == "linter.orphan_vocabulary")
+        .collect();
+    assert_eq!(
+        orphans.len(),
+        1,
+        "one orphan finding per namespace, the concrete one: {issues:?}"
+    );
+    let m = orphans[0]["message"].as_str().unwrap();
+    assert!(
+        m.contains("data.lineage") && !m.contains("data.*"),
+        "the concrete uses-edge finding must win: {m}"
+    );
+}
+
+#[test]
+fn vocabulary_orphan_absent_when_namespace_pack_discovered() {
+    // A discovered pack in the token's namespace means the token is in
+    // an active-namespace workspace — vocabulary matching and the
+    // closed-set walkers handle it; no orphan fires.
+    let dir = tempfile::tempdir().unwrap();
+    // write_pack_file declares the `{id}.tolerance` kind; a dotted id
+    // namespaces it (`data.lineage.tolerance` — namespace `data`).
+    write_pack_file(&dir.path().join("data-lineage.md"), "data.lineage", 15);
+    write_fiber_kind_consumer(
+        &dir.path().join("consumer.md"),
+        "consumer",
+        "",
+        "data.lineage.tolerance",
+    );
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let issues = json["data"]["issues"].as_array().unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "active vocabulary is advisory: {issues:?}"
+    );
+    assert!(
+        !issues
+            .iter()
+            .any(|i| i["rule_id"] == "linter.orphan_vocabulary"),
+        "no orphan when the namespace's pack is discovered: {issues:?}"
+    );
+}
+
+#[test]
 fn overlapping_vocabulary_activates_both_packs() {
     let dir = tempfile::tempdir().unwrap();
     write_pack_file(&dir.path().join("alpha.md"), "alpha", 14);
