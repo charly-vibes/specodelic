@@ -8,6 +8,6 @@
   },
   "outcome": "exploration_only",
   "invariants_checked": [],
-  "artifact_sha256": "441a0d949dacf3b981c54e8834ed0bf4d72a0258c25710e8ee0a9792f6cc05f1",
+  "artifact_sha256": "fab730181228ab493bacbd87e41cd94831298701d6d5cd5b368671c2b5aa4270",
   "states_explored": 3
 }

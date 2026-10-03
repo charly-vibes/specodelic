@@ -3,6 +3,8 @@
 \* spec file; edit there, not here. Extends nothing: the module is
 \* self-contained so any engine can open it.
 
+\* No executable invariant fragments (Revision 15).
+
 \* Each State becomes a value in the state variable's range.
 StateValues == {"unchecked", "kind_checking", "diffing", "parser_audited", "passed", "kind_failed", "diff_failed", "parser_audit_failed"}
 

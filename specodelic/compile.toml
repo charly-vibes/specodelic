@@ -27,7 +27,7 @@ traces_to = "[[compile]]"
 [[constraints]]
 id = "predicate_fragment_opt_in"
 kind = "invariant"
-expr = "`a Property's predicate cell may opt into executable translation with exactly one **rust:** marker and a non-empty fragment after it — the fragment is a Rust boolean expression emitted verbatim as the block's assertion body, binding the block's generated values (v0…, one per generator named in the generator cell, each a String); a cell with no marker compiles exactly as before (the placeholder) — pure widening, nothing valid before this Revision is invalidated`"
+expr = "`a Property's predicate cell may opt into executable translation with exactly one **rust:** marker and a non-empty fragment after it — the fragment is a Rust boolean expression emitted verbatim as the block's assertion body, the cell text after the marker — to the cell's end or the code span's closing backtick — is the fragment, binding the block's generated values (v0…, one per generator named in the generator cell, each a String); a cell with no marker compiles exactly as before (the placeholder) — pure widening, nothing valid before this Revision is invalidated`"
 traces_to = "[[compile]]"
 
 [[constraints]]

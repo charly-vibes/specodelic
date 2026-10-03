@@ -3,6 +3,8 @@
 \* spec file; edit there, not here. Extends nothing: the module is
 \* self-contained so any engine can open it.
 
+\* No executable invariant fragments (Revision 15).
+
 \* Each State becomes a value in the state variable's range.
 StateValues == {"idle", "lint_stage", "compile_stage", "model_check_stage", "verify_stage", "succeeded", "lint_failed", "compile_failed", "model_check_failed", "verify_failed"}
 
