@@ -6,6 +6,30 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #102 — the second standard pack: numeric predicates (add-numeric-predicates-pack)
+
+`add-numeric-predicates-pack` implemented — no code, no base-set change:
+the numeric half of the R1/R2/R4 vendor convergence ships as an in-repo
+`kind: profile` artifact at `packs/numeric-predicates.md` (id
+`numeric.predicates`, base pin `specodelic.md` Revision 14). It declares
+a typed `## Quantities` section (row shape `| name | kind | unit |
+domain |`), the namespaced `numeric.quantity` / `numeric.bound` /
+`numeric.tolerance` kinds, the `measured_by` outbound-leaf reference
+field, the `numeric.quantity_closed` and `numeric.tolerance_labels`
+checker declarations (honest-empty), and the tolerance case-label floor
+(`**bound:**` + `**against:**` — R4's reuse phrasing; floors are not in
+`vocabulary()`, so the labels never trigger activation). Unit systems
+(UCUM, ISO4217, microscopy) stay opaque in `unit`/`domain` —
+bridge-never-absorb, lint byte-identical across systems.
+Vocabulary hygiene pre-paid (the data pack's D6 lesson): no bare-English
+token is declared — `within` (13 corpus files + 7 dual-format files),
+`bound`, `against`, `unit`, `domain` are excluded from every
+vocabulary-carrying facet; corpus lint issues+warnings verified
+byte-identical with both packs discovered. A tolerance *kind* here is
+pack-fiber-relative — the general per-kind floor registry is
+`specodelic-aal`'s separate proposal. Completes a third of what the
+bioimage pilot (`specodelic-0dn`) consumes.
+
 ## #101 — the first standard pack: data/lineage (add-data-lineage-pack)
 
 `add-data-lineage-pack` implemented — no code, no base-set change: the
