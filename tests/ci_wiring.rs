@@ -103,6 +103,41 @@ fn ci_lints_fenced_spec_examples() {
 /// so if either directory is not gitignored the crate tarball swells past
 /// crates.io's 10 MiB upload cap and publish fails with 413 (observed:
 /// "Payload Too Large" on the v0.2.0 tag push).
+/// Espectacular scenario-conformance gate (specodelic-c0o acceptance):
+/// the gate must run in BOTH places, with test execution in exactly one —
+/// `just ci` runs `guard-espectacular` (structural + executed contracts),
+/// while the lefthook pre-commit runs the structural-only `ah check`
+/// (EDGE-003: keep test execution out of pre-commit for commit latency).
+#[test]
+fn espectacular_gate_wired_structural_in_precommit_executed_in_ci() {
+    let justfile = read("justfile");
+    let ci_line = justfile
+        .lines()
+        .find(|l| l.starts_with("ci:"))
+        .expect("justfile must define a ci: recipe");
+    assert!(
+        ci_line.contains("guard-espectacular"),
+        "justfile ci: must run the scenario-conformance gate (guard-espectacular)"
+    );
+    let guard = justfile
+        .lines()
+        .filter(|l| l.trim_start() == "ah check --run-tests")
+        .count();
+    assert!(
+        guard >= 1,
+        "a guard-espectacular recipe must run ah check --run-tests (executed contracts)"
+    );
+    let hook = read("lefthook.yml");
+    assert!(
+        hook.contains("ah check"),
+        "lefthook pre-commit must run the structural gate (ah check)"
+    );
+    assert!(
+        !hook.contains("--run-tests"),
+        "lefthook pre-commit must stay structural-only (no --run-tests, EDGE-003)"
+    );
+}
+
 #[test]
 fn release_scratch_dirs_are_gitignored() {
     let gitignore = read(".gitignore");

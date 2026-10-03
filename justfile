@@ -120,7 +120,7 @@ docs-build:
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections sync-sections-test summary-completeness lint-doc-examples lint-baseline pretender-check guard-siblings
+ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections sync-sections-test summary-completeness lint-doc-examples lint-baseline pretender-check guard-siblings guard-espectacular
 
 # Structural-quality hard gate (pretender, gate mode — pretender.toml
 # thresholds are a ratchet: entries only move DOWN; never touch .git/hooks,
@@ -132,6 +132,15 @@ pretender-check:
 # pre-commit/pre-push via lefthook.yml and the .beads/hooks shim chain
 guard-siblings:
     scripts/guards/sibling-blockers.sh .
+
+# Espectacular scenario-conformance gate (specodelic-c0o): every deployed
+# openspec #### Scenario: block must resolve to a contract TOML in
+# .espectacular/ whose bound test actually runs and passes. Espectacular is
+# READ-ONLY over openspec/ — findings never drive spec edits. Pre-commit
+# runs the structural-only half (ah check in lefthook.yml, EDGE-003: no
+# test execution at commit time); this recipe adds the executed half.
+guard-espectacular:
+    ah check --run-tests
 
 # Session start
 prime:

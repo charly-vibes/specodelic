@@ -4430,6 +4430,29 @@ fn graph_classifies_extension_point_host_as_external_boundary() {
     );
 }
 
+/// No-tag-drift (linter-observability spec): the boundary classification is
+/// DERIVED from published contracts, never authored — remove the
+/// extension_point rows and the classification disappears with them; there
+/// is no stale tag left to clean up.
+#[test]
+fn graph_no_extension_point_rows_yield_no_external_boundary() {
+    let dir = tempfile::tempdir().unwrap();
+    // OBSERVABILITY_PUB declares only an effect row — no extension_point.
+    std::fs::write(dir.path().join("pub.md"), OBSERVABILITY_PUB).unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let boundaries = json["data"]["external_boundaries"]
+        .as_array()
+        .expect("external_boundaries must be in the graph payload");
+    assert!(
+        boundaries.is_empty(),
+        "no extension_point rows → no external boundary, no stale tag: {boundaries:?}"
+    );
+}
+
 // ---- external_completeness (specs/linter-external_completeness.md, mp1 row 10) ----
 
 /// A lint-clean two-constraint spec a checklist can map to.
