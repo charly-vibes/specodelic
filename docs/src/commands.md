@@ -33,6 +33,25 @@ corrupted spec is never a silent pass (specodelic-in9: the pre-commit
 gate must not let it commit); the error names the offending file and
 the file was NOT linted.
 
+## Domain packs
+
+A workspace extends the format with **domain packs**: `kind: profile` spec
+files whose six manifest tables (Sections, Kinds, References, Checkers,
+Floors, Requires) declare typed sections, fiber kinds, reference fields,
+checkers, and floors. Lint discovers packs by corpus scan (no config file),
+activates them when a file's vocabulary matches, and reports:
+
+- `linter.pack_shape` findings — a malformed pack manifest is a labeled failure
+- pack-activation notes and `orphan_vocabulary` advisories (warnings channel, exit 0)
+- lifecycle/revision-skew advisories (draft packs activate advisory-first;
+  a pack pinned to an older base `format_revision` is named)
+
+The three in-repo standard packs live in [`packs/`](https://github.com/charly-vibes/specodelic/tree/main/packs)
+(`data.lineage`, `numeric.predicates`, `empirical.registry`); a consuming
+file opts in explicitly via a `uses` reference to the pack's frontmatter id.
+
+- Spec: [packs](specs/packs.md)
+
 A `*.checklist.md` file in the linted tree declares an external checklist
 (specs/linter-external_completeness.md — mp1 row 10's manifest format):
 a flat `## Items` list plus a `## Mapping` table

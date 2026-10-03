@@ -35,6 +35,13 @@ fan-in/out and dangling detection), `spk rename` / `spk merge` /
 `spk explain` (the embedded format guide for agents), `spk new` (scaffold),
 `spk init` and `spk feedback`.
 
+**Domain packs** extend the format without a format revision: a
+`kind: profile` manifest declares typed sections, fiber kinds, and
+reference fields for a domain (no config file — lint discovers packs by
+corpus scan). Three standard packs ship in-repo (`data.lineage`,
+`numeric.predicates`, `empirical.registry`); see the
+[packs spec](specs/packs.md).
+
 ## For agents
 
 No repo access needed: `spk explain` serves the distilled format guide
