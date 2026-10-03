@@ -46,13 +46,17 @@ $ specodelic archive-companion my-change   # archive with the dual-format layer 
 Domain packs: a workspace extends the format by adding `kind: profile`
 spec files (see the [packs spec](specs/packs.md)) — no config, no
 registry; vocabulary use activates a pack's checks advisory-first. The
-first two standard packs ship in-repo:
+first three standard packs ship in-repo:
 [`packs/data-lineage.md`](packs/data-lineage.md) (a typed `## Data`
 table with lineage edges; external data standards are bridged through
-an opaque `binding` column, never absorbed) and
+an opaque `binding` column, never absorbed),
 [`packs/numeric-predicates.md`](packs/numeric-predicates.md) (a typed
 `## Quantities` table with tolerance case-label floors; unit systems
-are bridged through opaque `unit`/`domain` columns, never absorbed).
+are bridged through opaque `unit`/`domain` columns, never absorbed), and
+[`packs/empirical-registry.md`](packs/empirical-registry.md) (a typed
+`## StatTests` table with the `empirical.statistic` kind and per-kind
+case-label floors over `alpha`/`window`; statistical tests stay
+authoritative outside the format, never absorbed).
 
 Pipeline commands (`compile`, `model-check`, `verify`, `rename`,
 `refactor`, `merge`, `orchestrate`) are specced in

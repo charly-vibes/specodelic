@@ -63,3 +63,4 @@
 - [packs — capability](openspec/packs/spec.md)
 - [data-lineage-pack — capability](openspec/data-lineage-pack/spec.md)
 - [numeric-predicates-pack — capability](openspec/numeric-predicates-pack/spec.md)
+- [empirical-registry-pack — capability](openspec/empirical-registry-pack/spec.md)

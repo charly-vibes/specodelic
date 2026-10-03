@@ -6,6 +6,38 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #103 — the third standard pack: empirical registry (add-empirical-registry-pack)
+
+`add-empirical-registry-pack` implemented — no code, no base-set change:
+the statistical half of the R4 vendor convergence (mistral ×2, grok, zai)
+ships as an in-repo `kind: profile` artifact at
+`packs/empirical-registry.md` (id `empirical.registry`, base pin
+`specodelic.md` Revision 14). It declares a namespaced `## StatTests`
+section (row shape `| name | metric | alpha | window |`), the
+`empirical.statistic` property kind, the `tested_by` outbound-leaf
+reference field, the `empirical.statistic_labels` and
+`empirical.stat_test_closed` checker declarations (honest-empty), and
+the per-kind case-label floor (`**alpha:**` + `**window:**` — the
+Floors facet's first real consumer, reusing the `**name:**`
+enumeration machinery with a different required label set than the base
+`law` floor; floors are per-kind in the pack fiber, purely additive —
+the base `law` floor is byte-identical with the pack discovered, and a
+law-kind row may carry the labels additively, floor-not-ceiling).
+Vocabulary hygiene pre-paid twice (the D6 lesson): no bare-English
+token is declared — `window` appears in corpus prose and is excluded
+from every vocabulary-carrying facet (floor label + column only,
+neither in `vocabulary()`); `StatTests`, `tested_by`, `alpha`, bare
+`statistic` verified absent; bare `empirical` cannot falsely activate
+(dotted tokens cannot match prose words). Orphan probe verified: a
+declared `uses: [[empirical.registry]]` edge with the pack absent
+produces the labeled `linter.orphan_vocabulary` finding naming the
+candidate pack and both remediations, exit 1. A fiber kind in a base
+Properties `kind` column is not typeable under mechanism v1
+(`property_kind_closed` walks the static base set) — the mechanism
+follow-up is `specodelic-ung`, never silently passing. Completes what
+the bioimage D6 pilot (`specodelic-0dn`) consumes; its proposal sits at
+the approval gate as `openspec/changes/add-empirical-registry-pack/`.
+
 ## #102 — the second standard pack: numeric predicates (add-numeric-predicates-pack)
 
 `add-numeric-predicates-pack` implemented — no code, no base-set change:

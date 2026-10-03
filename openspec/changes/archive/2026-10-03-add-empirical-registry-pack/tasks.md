@@ -36,7 +36,7 @@ every phase.
 
 ## 2. Pack artifact (after approval)
 
-- [ ] 2.1 Create `packs/empirical-registry.md` (id `empirical.registry`,
+- [x] 2.1 Create `packs/empirical-registry.md` (id `empirical.registry`,
       `kind: profile`, state `published` via the full three-state Model)
       — six manifest tables per design.md D1: `## Sections` (StatTests
       row shape), `## Kinds` (empirical.statistic), `## References`
@@ -45,7 +45,7 @@ every phase.
       alpha + window), `## Requires` (base = specodelic.md Revision 14).
       Four-layer spec shape so the file lints clean as a spec in its
       own right. No bare-English vocabulary tokens (design D2 audit).
-- [ ] 2.2 Verify `pack_shape` reports zero findings over the pack's own
+- [x] 2.2 Verify `pack_shape` reports zero findings over the pack's own
       declared vocabulary and the pack self-exemption holds (its manifest
       rows trigger no checkers, no orphan findings); verified in a
       scratch git workspace before landing: lint 0 issues in draft,
@@ -55,7 +55,7 @@ every phase.
 
 ## 3. Dogfood
 
-- [ ] 3.1 `spk lint openspec` and `just lint-specs` with all THREE packs
+- [x] 3.1 `spk lint openspec` and `just lint-specs` with all THREE packs
       discovered: zero findings on files using none of the vocabulary
       (issues+warnings diffed byte-identical with/without all three
       packs discovered — the D2 prose-safety claim verified
@@ -63,16 +63,16 @@ every phase.
       this repo) reports an empty checked-set. Known exception per
       design D7: the dual-format delta vocabulary-activates the pack
       for the `spec` delta file (warnings channel only, exit 0).
-- [ ] 3.2 Orphan probe in a scratch workspace: a declared
+- [x] 3.2 Orphan probe in a scratch workspace: a declared
       `uses: [[empirical.registry]]` edge with the pack absent produces
       the labeled `linter.orphan_vocabulary` finding naming the
       candidate pack `empirical.registry` and both remediations, exit 1
       (alongside the expected dangling-reference finding).
-- [ ] 3.3 Floor-additivity probe (design D4): base `law` property floor
+- [x] 3.3 Floor-additivity probe (design D4): base `law` property floor
       findings byte-identical with the pack discovered; a
       `empirical.statistic` property owing `**alpha:**`/`**window:**`
       exercises the statistic floor declaration.
-- [ ] 3.4 Ro5 review verdict check: all fix-pass findings from
+- [x] 3.4 Ro5 review verdict check: all fix-pass findings from
       design.md "Review outcome" are reflected in the artifact — D2
       pre-paid hygiene audit (vocabulary surface verified
       token-by-token), D4 additivity (law-floor probe), D6 lifecycle
@@ -81,17 +81,17 @@ every phase.
 
 ## 4. Gates + docs
 
-- [ ] 4.1 Gates: `just ci` + `just lint-specs` +
+- [x] 4.1 Gates: `just ci` + `just lint-specs` +
       `openspec validate --all --strict` + `spk lint openspec` green.
-- [ ] 4.2 Docs: README packs paragraph mentions the third standard
+- [x] 4.2 Docs: README packs paragraph mentions the third standard
       pack; CHANGELOG entry; docs/src/SUMMARY.md gains the
       empirical-registry-pack capability page after archive.
 
 ## 5. Close-out
 
-- [ ] 5.1 Archive via `just archive-change` (verbatim dual-format copy);
+- [x] 5.1 Archive via `just archive-change` (verbatim dual-format copy);
       close beads specodelic-aal with the probe trail;
       `bd export -o .beads/issues.jsonl`; commit + push.
-- [ ] 5.2 Unblocks: specodelic-0dn (bioimage D6 pilot) — all three of
+- [x] 5.2 Unblocks: specodelic-0dn (bioimage D6 pilot) — all three of
       its standard-pack deps closed; the pilot proposal consumes the
       trio via `uses` edges.
