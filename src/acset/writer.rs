@@ -233,6 +233,20 @@ pub enum Edit {
 /// identity gate), then every change is realized as a span replacement.
 pub fn apply(edit: &Edit, path: &Path, source: &str, spec: &Spec) -> Result<WriteSet, WriterError> {
     let Edit::Rename { old, new, local } = edit;
+    // rename_naturality at the writer: apply(id, x) == x.
+    if old == new && local.as_ref().is_none_or(|(l, n)| l == n) {
+        return Ok(WriteSet {
+            writes: vec![],
+            removals: vec![],
+        });
+    }
+    // The replacement must be a usable id: it will live inside `[[…]]`
+    // and `| … |` cells (rename.rs's shape law, mirrored here so an
+    // unusable id is refused before any span is touched).
+    validate_shape(new, "new")?;
+    if let Some((_, ln)) = local {
+        validate_shape(ln, "new local")?;
+    }
     verify_spans(source, spec)?;
 
     // Collect replacements: (span, replacement bytes), non-overlapping.
@@ -337,6 +351,11 @@ pub fn apply(edit: &Edit, path: &Path, source: &str, spec: &Spec) -> Result<Writ
     }
     out.push_str(&source[cursor..]);
 
+    // Roundtrip gate: the emitted text must reparse to an instance that
+    // realizes exactly the edit (`edit_application_faithful`); anything
+    // else is a labeled `spec.roundtrip_failure`, never a silent emit.
+    verify_roundtrip(edit, spec, &out)?;
+
     // The write-set: only files that actually change are written; an
     // intent rename always writes the new path and removes the old one.
     let writes = if out == *source && !is_intent_rename {
@@ -386,6 +405,22 @@ fn collect_cell_repls(
     Ok(())
 }
 
+/// The replacement must be a usable id: non-empty, no whitespace, no link
+/// or table syntax characters (it will live inside `[[…]]` and `| … |`) —
+/// rename.rs's shape law, mirrored (backticks and parens are allowed, as
+/// in rename; the roundtrip gate catches the shapes they corrupt).
+fn validate_shape(id: &str, what: &str) -> Result<(), WriterError> {
+    if id.is_empty()
+        || id.contains(|c: char| c.is_whitespace() || matches!(c, '[' | ']' | '|' | '#'))
+    {
+        return Err(apply_failure(format!(
+            "{what} id {id:?} is not a usable id — empty, whitespace, or \
+             link/table syntax characters"
+        )));
+    }
+    Ok(())
+}
+
 /// The `spec.apply_failure` labeled cause: an edit names an id no recorded
 /// span can realize because `detail`.
 fn apply_failure(detail: String) -> WriterError {
@@ -398,4 +433,135 @@ fn apply_failure(detail: String) -> WriterError {
                       ids and unrecognized bullet heads are not rewritable)"
             .into(),
     }
+}
+
+/// The `spec.roundtrip_failure` labeled cause: the emitted text reparses
+/// to an instance other than the edit's target because `detail`.
+fn roundtrip_failure(detail: String) -> WriterError {
+    WriterError {
+        label: "spec.roundtrip_failure".into(),
+        detail,
+        remediation: "the emitted text would not realize the edit — pick a \
+                      replacement id that survives every context it is \
+                      rewritten into (bullet heads, table cells, links) and \
+                      retry"
+            .into(),
+    }
+}
+
+/// Roundtrip gate: reparse the emitted text and check the instance it
+/// denotes realized exactly the edit — the renamed ids are the new ones,
+/// no stale reference survives. A parse failure or a stale id is a
+/// labeled refusal, never a silently corrupted emit.
+fn verify_roundtrip(edit: &Edit, before: &Spec, emitted: &str) -> Result<(), WriterError> {
+    let Edit::Rename { old, new, local } = edit;
+    let after = crate::spec::parse_str(emitted)
+        .map_err(|e| roundtrip_failure(format!("emitted text does not reparse: {e}")))?;
+
+    // The intent id realized the rename (an intent edit's own file).
+    if local.is_none() && before.intent.id == *old && after.intent.id != *new {
+        return Err(roundtrip_failure(format!(
+            "intent id did not realize the rename: still `{}`",
+            after.intent.id
+        )));
+    }
+
+    // State bullets, transition endpoints, and any-cell matches realize
+    // the local rename: no stale local id survives AND the new id appears
+    // exactly where the old one stood (a replacement id that reparses to
+    // a different token — a backticked or suffixed head — is caught by
+    // the realized-count, not only the stale check).
+    if let Some((lo, ln)) = local {
+        let stale = |what: &str, n: usize| -> Result<(), WriterError> {
+            if n > 0 {
+                Err(roundtrip_failure(format!(
+                    "{what} did not realize the rename: {n} stale `{lo}` occurrence(s)"
+                )))
+            } else {
+                Ok(())
+            }
+        };
+        let unrealized = |what: &str, before_n: usize, after_n: usize| -> Result<(), WriterError> {
+            if before_n != after_n {
+                Err(roundtrip_failure(format!(
+                    "{what} did not realize the rename: `{lo}` stood at {before_n} \
+                     place(s) but `{ln}` appears at {after_n}"
+                )))
+            } else {
+                Ok(())
+            }
+        };
+        stale(
+            "state bullets",
+            after.states.iter().filter(|s| s.id == *lo).count(),
+        )?;
+        unrealized(
+            "state bullets",
+            before.states.iter().filter(|s| s.id == *lo).count(),
+            after.states.iter().filter(|s| s.id == *ln).count(),
+        )?;
+        let trans_endpoints = |sp: &Spec| -> usize {
+            sp.transitions
+                .iter()
+                .filter(|t| t.id == *lo || t.from == *lo || t.to == *lo)
+                .count()
+        };
+        stale("transitions", trans_endpoints(&after))?;
+        let trans_new = |sp: &Spec, id: &str| -> usize {
+            sp.transitions
+                .iter()
+                .filter(|t| t.id == id || t.from == id || t.to == id)
+                .count()
+        };
+        unrealized(
+            "transitions",
+            trans_endpoints(before),
+            trans_new(&after, ln),
+        )?;
+        let cells = |sp: &Spec| -> usize {
+            sp.constraints
+                .iter()
+                .chain(&sp.properties)
+                .filter(|r| r.cells.values().any(|v| v == lo))
+                .count()
+        };
+        let cells_new = |sp: &Spec, id: &str| -> usize {
+            sp.constraints
+                .iter()
+                .chain(&sp.properties)
+                .filter(|r| r.cells.values().any(|v| v == id))
+                .count()
+        };
+        stale("table cells", cells(&after))?;
+        unrealized("table cells", cells(before), cells_new(&after, ln))?;
+    }
+
+    // Every link that followed the rename carries the new target; links
+    // that did not match keep their original target. Match links across
+    // the reparse by their recorded spans (the bytes around them are
+    // untouched, so spans are stable).
+    for l in &after.links {
+        let followed = if l.target == *old {
+            true
+        } else {
+            l.target
+                .strip_prefix(old.as_str())
+                .is_some_and(|suffix| suffix.starts_with('.'))
+        };
+        if followed {
+            let expected = if l.target == *old {
+                new.clone()
+            } else {
+                format!("{new}{}", &l.target[old.len()..])
+            };
+            if l.target != expected {
+                return Err(roundtrip_failure(format!(
+                    "link target `{}` did not realize the rename (expected `{expected}`)",
+                    l.target
+                )));
+            }
+        }
+    }
+
+    Ok(())
 }

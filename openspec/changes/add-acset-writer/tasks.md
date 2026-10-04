@@ -40,22 +40,22 @@ Tidying commits are separate from feature commits.
 
 ## 4. Edit application
 
-- [ ] 4.1 **RED**: applied-edit fixtures — CRLF survives
+- [x] 4.1 **RED**: applied-edit fixtures — CRLF survives
       (`crlf_survives_edit`), prose mentioning the old id as a word
       survives (`prose_survives_edit`), padding is not realigned
       (`padding_not_realigned`), a file's own intent-id rename maps the
       path and returns one removal (`intent_rename_moves_file`), no I/O
       in the write-set path (`writer_does_no_io`).
-- [ ] 4.2 **GREEN**: `apply(f, x)` realizes the edit through spans and
+- [x] 4.2 **GREEN**: `apply(f, x)` realizes the edit through spans and
       returns the write-set `(path, contents)` + removals
       (`write_set_atomic`, `filename_follows_intent_id`,
       `width_padding_policy`, `untouched_bytes_preserved`).
-- [ ] 4.3 **RED→GREEN**: roundtrip faithfulness — `from_specs(apply(f,
+- [x] 4.3 **RED→GREEN**: roundtrip faithfulness — `from_specs(apply(f,
       x)) == rename(from_specs(x), a, b)` over arbitrary spec/rename
       proptest cases (`edit_application_faithful`), and composition —
       `apply(g, apply(f, x)) == apply(compose(g, f), x)`
       (`writer_edit_law`); failures label `acset.writer.roundtrip_failure`.
-- [ ] 4.4 **RED→GREEN**: apply-time failures (edit names an id that no
+- [x] 4.4 **RED→GREEN**: apply-time failures (edit names an id that no
       recorded span can realize) label `acset.writer.apply_failure`
       (`apply_failure_label_asserted`).
 

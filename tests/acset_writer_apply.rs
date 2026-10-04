@@ -322,3 +322,170 @@ fn apply_failure_label_asserted_on_unspanned_bullet() {
     assert_eq!(err.label, "spec.apply_failure");
     assert!(!err.remediation.is_empty());
 }
+
+// ---------------------------------------------------------------------------
+// Task 4.3: the writer edit laws — identity, composition, and roundtrip
+// faithfulness (`edit_application_faithful`, `writer_edit_law`), plus the
+// `spec.roundtrip_failure` label for emissions that reparse to an instance
+// other than the edit's target.
+// ---------------------------------------------------------------------------
+
+use proptest::prelude::*;
+
+/// rename_naturality at the writer: apply(id, x) == x — an edit whose
+/// replacement equals its target writes nothing and removes nothing.
+#[test]
+fn identity_edit_is_a_no_op() {
+    let source = full_family_spec("fam.a");
+    let spec = parse_ok(&source);
+    let out = writer::apply(
+        &Edit::Rename {
+            old: "fam.a.c1".into(),
+            new: "fam.a.c1".into(),
+            local: Some(("c1".into(), "c1".into())),
+        },
+        Path::new("fam-a.md"),
+        &source,
+        &spec,
+    )
+    .expect("identity edit applies");
+    assert!(out.writes.is_empty() && out.removals.is_empty());
+}
+
+/// writer_edit_law's composition: apply(g, apply(f, x)) == apply(compose(g,
+/// f), x) for chained renames whose intermediate id does not pre-exist
+/// (the precondition rename.rs's collision gate guarantees). The composed
+/// edit chains the qualified ids and the local ids.
+#[test]
+fn edits_compose() {
+    let source = full_family_spec("fam.a");
+    let spec = parse_ok(&source);
+    let f = row_rename("c1", "c2", "fam.a");
+    let g = row_rename("c2", "c3", "fam.a");
+    let composed = row_rename("c1", "c3", "fam.a");
+    let step1 = writer::apply(&f, Path::new("fam-a.md"), &source, &spec).expect("f applies");
+    let (p1, t1) = &step1.writes[0];
+    let mid_spec = parse_ok(t1);
+    let step2 = writer::apply(&g, p1, t1, &mid_spec).expect("g applies");
+    let (p2, t2) = &step2.writes[0];
+    let one_shot =
+        writer::apply(&composed, Path::new("fam-a.md"), &source, &spec).expect("composed applies");
+    assert_eq!(one_shot.writes[0].0, *p2, "the same file is written");
+    assert_eq!(
+        one_shot.writes[0].1, *t2,
+        "one step == two steps, byte for byte"
+    );
+}
+
+/// roundtrip_failure: a replacement id that passes shape validation but
+/// corrupts a bullet head (`` `x `` reparses as head token `x`, dropping
+/// the backtick) makes the emitted text reparse to an instance other than
+/// the edit's target — the writer refuses with the labeled error instead
+/// of emitting it.
+#[test]
+fn roundtrip_failure_label_asserted() {
+    let source = full_family_spec("fam.a");
+    let spec = parse_ok(&source);
+    let err = writer::apply(
+        &row_rename("spanned", "`x", "fam.a"),
+        Path::new("fam-a.md"),
+        &source,
+        &spec,
+    )
+    .expect_err("a corrupting replacement must not be emitted");
+    assert_eq!(err.label, "spec.roundtrip_failure");
+    assert!(
+        !err.remediation.is_empty(),
+        "the fleet error contract requires a non-empty remediation hint"
+    );
+}
+
+// edit_application_faithful as the delta's proptest: for generated files
+// and an arbitrary (valid) local rename, the emitted text reparses to
+// exactly the renamed instance — the picked row's id renamed everywhere
+// it appears (cell, links), prose and padding untouched, and no stale
+// reference to the old id surviving.
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+    #[test]
+    fn roundtrip_faithful(
+        n_rows in 1usize..4,
+        padded in prop::bool::ANY,
+        crlf in prop::bool::ANY,
+        pick in 0usize..3,
+    ) {
+        let id = "fam.a";
+        let pick = pick % n_rows;
+        let old_local = format!("r{pick}");
+        let new_local = format!("renamed{pick}");
+        let cell = |c: &str| {
+            if padded { format!(" {c}  ") } else { format!(" {c} ") }
+        };
+        let mut file = format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE {id} SHALL round trip\"\n---\n\nProse may say r0 as a word — untouched.\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n"
+        );
+        for i in 0..n_rows {
+            file.push_str(&format!(
+                "|{}|{}|{}|{}|\n",
+                cell(&format!("r{i}")),
+                cell("invariant"),
+                cell("`holds`"),
+                cell(&format!("[[{id}.r{i}]]")),
+            ));
+        }
+        file.push_str(&format!(
+            "\n## Model\n\n### States\n- st{i} (emits: [[{id}.r0]])\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t1 | st0 | st1 | [[{id}.r{pick}]] |\n",
+            i = pick,
+            pick = pick,
+        ));
+        if crlf {
+            file = file.replace('\n', "\r\n");
+        }
+        let spec = if let Ok(s) = parse_str(&file) {
+            s
+        } else {
+            prop_assume!(false, "generator produced an unparseable file");
+            unreachable!()
+        };
+        let edit = Edit::Rename {
+            old: format!("{id}.{old_local}"),
+            new: format!("{id}.{new_local}"),
+            local: Some((old_local.clone(), new_local.clone())),
+        };
+        let out = writer::apply(&edit, Path::new("fam-a.md"), &file, &spec)
+            .map_err(|e| TestCaseError::fail(format!("apply failed: {e}")))?;
+        let (_, text) = &out.writes[0];
+        let reparsed = parse_str(text)
+            .map_err(|e| TestCaseError::fail(format!("emitted text does not reparse: {e}")))?;
+
+        // The picked row's id is the new one; every other row keeps its id.
+        for (i, r) in reparsed.constraints.iter().enumerate() {
+            let expected: &str = if i == pick { &new_local } else { &format!("r{i}") };
+            prop_assert_eq!(&r.id, expected);
+        }
+        // No stale qualified reference to the old id survives.
+        prop_assert!(
+            reparsed
+                .links
+                .iter()
+                .all(|l| l.target != format!("{id}.{old_local}")),
+            "stale link target after rename"
+        );
+        // The renamed row's own trace link follows.
+        let want = format!("[[{id}.{new_local}]]");
+        prop_assert!(
+            reparsed
+                .constraints
+                .iter()
+                .any(|r| r.cells.get("traces_to").is_some_and(|c| c.contains(&want)))
+        );
+        // Prose is untouched, byte for byte — including its mention of
+        // r0 as a plain word.
+        let prose = if crlf {
+            "Prose may say r0 as a word — untouched.".to_string()
+        } else {
+            "Prose may say r0 as a word — untouched.\n".to_string()
+        };
+        prop_assert!(text.contains(&prose), "prose must survive: {text}");
+    }
+}
