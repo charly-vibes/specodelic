@@ -63,12 +63,12 @@ data-shaped predicate grammar as named checkers, and the mechanism's
 first cross-pack `## Requires` consuming the three standard packs;
 OME/NGFF stays authoritative outside the format, never absorbed.
 
-Pipeline commands (`compile`, `model-check`, `verify`, `rename`,
-`refactor`, `merge`, `orchestrate`) are specced in
-[`specs/compile.md`](specs/compile.md),
-[`specs/rename.md`](specs/rename.md),
-[`specs/orchestrate.md`](specs/orchestrate.md), etc. — not implemented
-yet; track progress with `bd ready`.
+Every specced pipeline verb ships (`compile`, `model-check`, `verify`,
+`rename`, `refactor`, `merge`, `orchestrate`, `migrate`, `parse`); each
+verb's contract lives in its own spec ([`specs/compile.md`](specs/compile.md),
+[`specs/verify.md`](specs/verify.md),
+[`specs/orchestrate.md`](specs/orchestrate.md), etc.) — see `spk --help`
+for the full list.
 
 Output follows the [genesis-vibes](https://github.com/charly-vibes/genesis)
 envelope convention: JSON envelopes by default for agents/pipes,
@@ -110,8 +110,10 @@ CLI/envelope/self-healing infrastructure.
   proptest! scaffolding (backend-neutral ModelIR), byte-stable artifacts
 - ✅ `model-check` — native stateright backend over the compiled model,
   exhaustive-within-bound runs, persisted `.check.json` reports with
-  artifact provenance (no executable predicate language yet — reports
-  `invariants_checked: []` honestly)
+  artifact provenance; executable `**rust:**` predicate fragments
+  (specodelic.md Revision 15) are compiled and executed natively, so
+  `no_counterexample` can be honestly earned — prose-guard-only models
+  still report `invariants_checked: []` honestly
 - ✅ `hooks` — `spk hooks install`/`uninstall` wire the dual-format gate
   (`spk lint openspec`) into the repo's pre-commit chain as a
   marker-guarded lefthook managed block — never claiming
@@ -121,6 +123,10 @@ CLI/envelope/self-healing infrastructure.
   dual-format layer preserved (`openspec archive --skip-specs` +
   verbatim deploy of the archived deltas); fails closed on any delta
   lacking the layer, `--dry-run` previews the plan (GH#7)
+- ✅ `verify` — combined gate: compiled `proptest!` blocks executed and
+  the current model run's outcome checked (`no_counterexample` only —
+  `exploration_only` is explicitly not clean); fails closed on every
+  deviation
 - ⏳ nothing — every specced command ships; see `spk --help` for the full
   verb list
 

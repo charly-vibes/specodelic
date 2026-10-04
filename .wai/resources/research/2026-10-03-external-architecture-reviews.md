@@ -13,6 +13,7 @@ deduplicated artifact; the raw packages are the evidence.
 | Grok 4.5 (xAI) | v0.4.0 main (no commit pin) | `~/Downloads/cv/specodelic-design-review.zip` |
 | Vibe / GLM `glm-5-latest-short` (Mistral infra) | `d055583` | `~/Downloads/cv/mistral` |
 | GLM `x-preview-l` (chat.z.ai) | `ad4a2c0` (stale, v0.2.0-era) | `~/Downloads/cv/zai-architectural-health-review-of-specodelic.{md,json}`, `zai` (share URL) |
+| Vibe / GLM `glm-5-latest-short` (Mistral infra) — 2nd generation | `3e76089` (v0.5.0) | `~/Downloads/cv/specodelic-v0-5-0-technical-architecture-audit-self-contained.md` (+ raw chat `specodelic-tech-audit.{md,json}`, zips) |
 
 All four are static-read only (no build, no test run). Method for grounding:
 every finding re-validated against HEAD `a6278d6` before ticketing; CRITICAL/HIGH
@@ -38,6 +39,8 @@ parallel encodings, not the four-layer format.
 | — | "3+ parallel lifecycle FSMs" (Mistral) | **TypeSafe contradicted 0.91** — corpus delegates (specs/graph.md:53), not restates | Dropped |
 | — | "Demote dual-format gate to plugin" (Z.ai) | **TypeSafe contradicted 0.99** — gate ADOPTED 2026-10-01 (AGENTS.md); review saw stale repo state | Dropped |
 | — | "Reference Typing is a hard-coded match" (Grok) | Partially stale — it IS a data table; real issue is the doc-only consumer split (= F1) | Merged into F1 |
+| F7 | README claims stale vs code: pipeline verbs "not implemented yet" (all ship) and "no executable predicate language yet" (Rev 15 `**rust:**` fragments landed) — found by the 2nd-gen Mistral audit, re-verified against HEAD `7e4df13` | Direct inspection | **Fixed 2026-10-04** (README pipeline paragraph + Status table; same class as F5) |
+| F8 | No corpus revision-upgrade tooling: `spk migrate` wraps openspec deltas only; a user corpus written at Revision r has no `spk migrate --from` path across format revisions (audit §2.4) | Direct inspection (`src/migrate.rs` header) | **specodelic-75m** (P4, filed 2026-10-04) |
 | — | Constraints+Properties merge (Z.ai only) | Rejected by all current-state reviewers; loses teaching value | Rejected |
 
 ## Meta-observation
