@@ -13,7 +13,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::acset::schema::{self, Endpoint, Morphism, Schema, Typing, classify};
-use crate::graph::{self, Edge, NodeKind, TYPED_REFERENCE_COLUMNS};
+use crate::graph::{self, Edge, NodeKind};
 use crate::spec::Spec;
 
 /// A link that resolved to no id — stored as a value (`None` in the
@@ -311,106 +311,85 @@ impl Instance {
                 file_rows.clone()
             };
             for link in &spec.links {
-                // total_extraction: only typed reference columns produce
-                // graph structure. Links elsewhere (expr/predicate cells,
-                // frontmatter) are the linter's `total_refs` beat —
-                // skipped entirely here.
-                if !TYPED_REFERENCE_COLUMNS.contains(&link.column.as_str()) {
-                    continue;
-                }
-                let resolved = graph::resolve(&scoped_rows, file_id, &link.target);
-                // Bare-local rows (specodelic-15g, Option A): in an id:spec
-                // file a dotless target naming one of the file's own rows
-                // resolves; dotful spellings keep the skip.
-                let bare_local = file_id == "spec"
-                    && !link.target.contains('.')
-                    && scoped_rows
-                        .get(file_id)
-                        .is_some_and(|rows| rows.contains(&link.target));
-                // Metasyntactic example links (`[[old_id]]`, `[[...]]`) are
-                // format documentation — not graph edges.
-                let metasyn = !bare_local
-                    && (!link.target.contains('.') && !scoped_rows.contains_key(&link.target)
-                        || link.target == "..."
-                        || link.target == "\u{2026}");
-                let _ = bare_local;
-                if metasyn {
-                    continue;
-                }
-                // Edge anchoring: frontmatter links anchor on the intent
-                // row, table links on `file.row`.
-                let anchor = if link.source.as_str() == file_id.as_str() {
-                    format!("{file_id} (intent)")
-                } else {
-                    format!("{file_id}.{}", link.source)
-                };
-                let Some(target) = resolved else {
-                    // Dangling is a value — stored, never dropped.
-                    let morph = morph_by_column(&schema, &link.column).unwrap_or(from_morph);
-                    stored.push(Value {
-                        morph,
-                        from: intern_of(&intern, &source_node(file_id, &link.source)),
-                        to: None,
-                        kind: link.column.clone(),
-                        raw: link.target.clone(),
-                    });
-                    dangling.push(Dangling {
-                        from: anchor,
-                        kind: link.column.clone(),
-                        target: link.target.clone(),
-                    });
+                // The shared edge derivation (task 3.4 TIDY): the
+                // typed-column filter, resolution, bare-local and
+                // metasyntactic skips, anchoring, and source-kind lookup
+                // are graph.rs's `resolve_link` — one walk, two consumers.
+                let Some(outcome) = graph::resolve_link(link, file_id, &scoped_rows, &kinds) else {
                     continue;
                 };
-                let kind = if link.column.is_empty() {
-                    link.field.clone()
-                } else {
-                    format!("{}.{}", link.field, link.column)
-                };
-                // Reference Typing: a typed reference column whose target
-                // kind is forbidden is reported as a labeled violation,
-                // never stored as a value
-                // (`edge_kind_matches_typing`, specs/graph.md).
                 let endpoint = |k: &NodeKind| Endpoint {
                     object: k.object().to_string(),
                     kind: k.kind_cell().to_string(),
                     describe: k.describe(),
                 };
-                let source_kind = match (link.field.as_str(), link.source.as_str()) {
-                    ("constraints", _) | ("properties", _) | ("transitions", _) | ("states", _) => {
-                        let own = format!("{file_id}.{}", link.source);
-                        kinds.get(&own)
-                    }
-                    _ => None,
-                };
-                let morph = match classify(
-                    &schema,
-                    &link.column,
-                    source_kind.map(&endpoint),
-                    kinds.get(&target).map(&endpoint),
-                ) {
-                    Typing::Allowed(Some(row)) => morph_index(&schema, row),
-                    // No row consulted (unresolvable target kind) — the
-                    // column's first row, as the reason composition does.
-                    Typing::Allowed(None) => {
-                        morph_by_column(&schema, &link.column).unwrap_or(from_morph)
-                    }
-                    Typing::Forbidden(reason) => {
-                        violations.push(Violation {
-                            from: anchor,
-                            to: target,
-                            edge_kind: kind,
-                            reason,
+                match outcome {
+                    graph::ResolvedLink::Stored {
+                        anchor,
+                        source_node,
+                        column,
+                        kind,
+                        target,
+                        source_kind,
+                    } => {
+                        // Reference Typing: a typed reference column whose
+                        // target kind is forbidden is reported as a labeled
+                        // violation, never stored as a value
+                        // (`edge_kind_matches_typing`, specs/graph.md).
+                        let morph = match classify(
+                            &schema,
+                            &column,
+                            source_kind.as_ref().map(&endpoint),
+                            kinds.get(&target).map(&endpoint),
+                        ) {
+                            Typing::Allowed(Some(row)) => morph_index(&schema, row),
+                            // No row consulted (unresolvable target kind) —
+                            // the column's first row, as the reason
+                            // composition does.
+                            Typing::Allowed(None) => {
+                                morph_by_column(&schema, &column).unwrap_or(from_morph)
+                            }
+                            Typing::Forbidden(reason) => {
+                                violations.push(Violation {
+                                    from: anchor,
+                                    to: target,
+                                    edge_kind: kind,
+                                    reason,
+                                });
+                                continue;
+                            }
+                        };
+                        stored.push(Value {
+                            morph,
+                            from: intern_of(&intern, &source_node),
+                            to: Some(intern_of(&intern, &target)),
+                            kind,
+                            raw: String::new(),
                         });
-                        continue;
                     }
-                };
-                stored.push(Value {
-                    morph,
-                    from: intern_of(&intern, &source_node(file_id, &link.source)),
-                    to: Some(intern_of(&intern, &target)),
-                    kind,
-                    raw: String::new(),
-                });
+                    graph::ResolvedLink::Dangling {
+                        file_id: _,
+                        anchor,
+                        source_node,
+                        column,
+                        target,
+                    } => {
+                        // Dangling is a value — stored, never dropped.
+                        let morph = morph_by_column(&schema, &column).unwrap_or(from_morph);
+                        stored.push(Value {
+                            morph,
+                            from: intern_of(&intern, &source_node),
+                            to: None,
+                            kind: column.clone(),
+                            raw: target.clone(),
+                        });
+                        dangling.push(Dangling {
+                            from: anchor,
+                            kind: column,
+                            target,
+                        });
+                    }
+                }
             }
         }
 
@@ -564,16 +543,6 @@ fn note_row(
             .entry(format!("{file_id}.{id}"))
             .or_default()
             .insert(col.clone(), cell.clone());
-    }
-}
-
-/// The source node a link is anchored to: the intent node for frontmatter
-/// links, `file.row` for table links.
-fn source_node(file_id: &str, source: &str) -> String {
-    if source == file_id {
-        file_id.to_string()
-    } else {
-        format!("{file_id}.{source}")
     }
 }
 

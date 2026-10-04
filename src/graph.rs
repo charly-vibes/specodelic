@@ -14,7 +14,7 @@ use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::acset::schema::{self, Endpoint, Schema};
-use crate::spec::Spec;
+use crate::spec::{Link, Spec};
 
 /// One directed, typed edge.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -199,6 +199,124 @@ fn record_edge(report: &mut GraphReport, edge: Edge) {
     report.edges.push(edge);
 }
 
+/// One typed reference link's shared resolution (task 3.4 TIDY): the
+/// outcome both `graph::build`'s report and the acset builder consume —
+/// the typed-column filter, `resolve`, the bare-local and metasyntactic
+/// skips, the anchoring, and the source-kind lookup are derived exactly
+/// once here, so the two walks cannot drift apart.
+pub(crate) enum ResolvedLink {
+    /// The link resolved to a node — classify it against the Reference
+    /// Typing schema before storing.
+    Stored {
+        /// The anchor the graph reports the edge from: `file (intent)` for
+        /// frontmatter links, `file.row` for table links.
+        anchor: String,
+        /// The source node the instance's morphism vector keys on.
+        source_node: String,
+        /// The Reference Typing column the link sat in.
+        column: String,
+        /// The graph's edge-kind spelling (`field.column`).
+        kind: String,
+        /// The resolved target id.
+        target: String,
+        /// The source node's kind, for the typing check.
+        source_kind: Option<NodeKind>,
+    },
+    /// The link resolved to nothing — the dangling value, with the pieces
+    /// both the message shapes and the instance's stored `None` derive
+    /// from.
+    Dangling {
+        file_id: String,
+        anchor: String,
+        source_node: String,
+        column: String,
+        target: String,
+    },
+}
+
+/// Resolve one parsed link against the walk's resolution index — `None`
+/// when the link is not graph structure at all (an untyped column, a
+/// metasyntactic example). The one derivation `graph::build` and the
+/// acset builder share: whatever it computes, both paths see identically.
+pub(crate) fn resolve_link(
+    link: &Link,
+    file_id: &str,
+    scoped_rows: &BTreeMap<String, Vec<String>>,
+    kinds: &BTreeMap<String, NodeKind>,
+) -> Option<ResolvedLink> {
+    // total_extraction: only typed reference columns produce graph
+    // structure. Links elsewhere (expr/predicate cells, frontmatter) are
+    // the linter's `total_refs` beat — skipped entirely here.
+    if !TYPED_REFERENCE_COLUMNS.contains(&link.column.as_str()) {
+        return None;
+    }
+    let resolved = resolve(scoped_rows, file_id, &link.target);
+    // Bare-local rows (specodelic-15g, Option A): in an id:spec file a
+    // dotless target naming one of the file's own rows has exactly one
+    // possible meaning — the local row — so it resolves instead of
+    // vanishing into the metasyntactic skip. Dotful spellings keep the
+    // skip (ambiguous with `file.row`); other files keep corpus-wide
+    // behavior.
+    let bare_local = file_id == "spec"
+        && !link.target.contains('.')
+        && scoped_rows
+            .get(file_id)
+            .is_some_and(|rows| rows.contains(&link.target));
+    // Metasyntactic example links (`[[old_id]]`, `[[...]]`) are format
+    // documentation inside expr cells — not graph edges.
+    let metasyn = !bare_local
+        && (!link.target.contains('.') && !scoped_rows.contains_key(&link.target)
+            || link.target == "..."
+            || link.target == "\u{2026}");
+    if metasyn {
+        return None;
+    }
+    // Edge anchoring (shared by the recorded edge and the interface-shaped
+    // dangling message below): frontmatter links anchor on the intent row,
+    // table links on `file.row`.
+    let anchor = if link.source == *file_id {
+        format!("{file_id} (intent)")
+    } else {
+        format!("{file_id}.{}", link.source)
+    };
+    let source_node = if link.source == *file_id {
+        file_id.to_string()
+    } else {
+        format!("{file_id}.{}", link.source)
+    };
+    Some(match resolved {
+        Some(target) => {
+            let kind = if link.column.is_empty() {
+                link.field.clone()
+            } else {
+                format!("{}.{}", link.field, link.column)
+            };
+            let source_kind = match (link.field.as_str(), link.source.as_str()) {
+                ("constraints", _) | ("properties", _) | ("transitions", _) | ("states", _) => {
+                    let own = format!("{file_id}.{}", link.source);
+                    kinds.get(&own)
+                }
+                _ => None,
+            };
+            ResolvedLink::Stored {
+                anchor,
+                source_node,
+                column: link.column.clone(),
+                kind,
+                target,
+                source_kind: source_kind.cloned(),
+            }
+        }
+        None => ResolvedLink::Dangling {
+            file_id: file_id.to_string(),
+            anchor,
+            source_node,
+            column: link.column.clone(),
+            target: link.target.clone(),
+        },
+    })
+}
+
 /// Cycles in the `supersedes` edge set (`supersedes_dag`,
 /// `specs/linter-graph_shape.md`). Deterministic: BTreeMap iteration plus
 /// rotation-normalized cycle paths (a cycle found from any of its nodes
@@ -322,81 +440,53 @@ pub fn build(specs: &[Spec]) -> GraphReport {
             file_rows.clone()
         };
         for link in &spec.links {
-            // total_extraction: only typed reference columns produce graph
-            // structure. Links elsewhere (expr/predicate cells, frontmatter)
-            // are the linter's `total_refs` beat — skipped entirely here.
-            if !TYPED_REFERENCE_COLUMNS.contains(&link.column.as_str()) {
+            // The shared edge derivation (task 3.4 TIDY): the typed-column
+            // filter, resolution, bare-local and metasyntactic skips,
+            // anchoring, and source-kind lookup are derived once — the
+            // graph report and the acset builder consume the same result.
+            let Some(outcome) = resolve_link(link, file_id, &scoped_rows, &kinds) else {
                 continue;
-            }
-            let resolved = resolve(&scoped_rows, file_id, &link.target);
-            // Bare-local rows (specodelic-15g, Option A): in an id:spec
-            // file a dotless target naming one of the file's own rows has
-            // exactly one possible meaning — the local row — so it
-            // resolves instead of vanishing into the metasyntactic skip.
-            // Dotful spellings keep the skip (ambiguous with `file.row`);
-            // other files keep corpus-wide behavior.
-            let bare_local = file_id == "spec"
-                && !link.target.contains('.')
-                && scoped_rows
-                    .get(file_id)
-                    .is_some_and(|rows| rows.contains(&link.target));
-            // Metasyntactic example links (`[[old_id]]`, `[[...]]`) are
-            // format documentation inside expr cells — not graph edges.
-            let metasyn = !bare_local
-                && (!link.target.contains('.') && !scoped_rows.contains_key(&link.target)
-                    || link.target == "..."
-                    || link.target == "…");
-            if metasyn {
-                continue;
-            }
-            // Edge anchoring (shared by the recorded edge and the
-            // interface-shaped dangling message below): frontmatter links
-            // anchor on the intent row, table links on `file.row`.
-            let from = if link.source.as_str() == file_id.as_str() {
-                format!("{file_id} (intent)")
-            } else {
-                format!("{file_id}.{}", link.source)
             };
-            match resolved {
-                Some(target) => {
-                    let kind = if link.column.is_empty() {
-                        link.field.clone()
-                    } else {
-                        format!("{}.{}", link.field, link.column)
-                    };
+            match outcome {
+                ResolvedLink::Stored {
+                    anchor,
+                    column,
+                    kind,
+                    target,
+                    source_kind,
+                    ..
+                } => {
                     // Reference Typing (specs/specodelic.md): a typed
                     // reference column whose target kind is forbidden is
                     // reported as a labeled violation, never recorded as an
                     // edge (edge_kind_matches_typing, specs/graph.md).
-                    let source_kind = match (link.field.as_str(), link.source.as_str()) {
-                        ("constraints", _)
-                        | ("properties", _)
-                        | ("transitions", _)
-                        | ("states", _) => {
-                            let own = format!("{file_id}.{}", link.source);
-                            kinds.get(&own)
-                        }
-                        _ => None,
-                    };
                     if let Some(reason) =
-                        typing_violation(&schema, &link.column, source_kind, kinds.get(&target))
+                        typing_violation(&schema, &column, source_kind.as_ref(), kinds.get(&target))
                     {
                         report.violations.push(Violation {
-                            from,
+                            from: anchor,
                             to: target,
                             edge_kind: kind,
                             reason,
                         });
                         continue;
                     }
-                    let edge = Edge {
-                        from,
-                        to: target,
-                        kind,
-                    };
-                    record_edge(&mut report, edge);
+                    record_edge(
+                        &mut report,
+                        Edge {
+                            from: anchor,
+                            to: target,
+                            kind,
+                        },
+                    );
                 }
-                None => {
+                ResolvedLink::Dangling {
+                    file_id,
+                    anchor,
+                    column,
+                    target,
+                    ..
+                } => {
                     // specodelic-2q8: consumption edges get an
                     // interface-shaped dangling message — a reader cannot
                     // tell "typo'd row id" from "consuming a contract
@@ -405,18 +495,14 @@ pub fn build(specs: &[Spec]) -> GraphReport {
                     // name BOTH remediations; the message must not claim
                     // to know which applies. Non-consumption columns keep
                     // the generic shape (other tooling/tests may pin it).
-                    if matches!(link.column.as_str(), "satisfies" | "observes") {
+                    if matches!(column.as_str(), "satisfies" | "observes") {
                         report.dangling.push(format!(
-                            "{from} ({column}) → [[{target}]]: no published \
+                            "{anchor} ({column}) → [[{target}]]: no published \
                              contract row {target} exists — publish it in the \
-                             producer's file or fix the id",
-                            column = link.column,
-                            target = link.target
+                             producer's file or fix the id"
                         ));
                     } else {
-                        report
-                            .dangling
-                            .push(format!("{} → [[{}]]", file_id, link.target));
+                        report.dangling.push(format!("{file_id} → [[{target}]]"));
                     }
                 }
             }
