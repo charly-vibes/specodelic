@@ -41,6 +41,7 @@ parallel encodings, not the four-layer format.
 | — | "Reference Typing is a hard-coded match" (Grok) | Partially stale — it IS a data table; real issue is the doc-only consumer split (= F1) | Merged into F1 |
 | F7 | README claims stale vs code: pipeline verbs "not implemented yet" (all ship) and "no executable predicate language yet" (Rev 15 `**rust:**` fragments landed) — found by the 2nd-gen Mistral audit, re-verified against HEAD `7e4df13` | Direct inspection | **Fixed 2026-10-04** (README pipeline paragraph + Status table; same class as F5) |
 | F8 | No corpus revision-upgrade tooling: `spk migrate` wraps openspec deltas only; a user corpus written at Revision r has no `spk migrate --from` path across format revisions (audit §2.4) | Direct inspection (`src/migrate.rs` header) | **specodelic-75m** (P4, filed 2026-10-04) |
+| F9 | Rev 15 doc-sync residual: specodelic.md guard-typing row still reads "machine-uninterpreted… invariants_checked: []" with no mention of the `**rust:**` executable-fragment escape hatch, though the mechanism is landed + wired (9fca967, main.rs:1838) — the corpus lags its own feature (Rule-of-5 review of the 2nd-gen audit, 2026-10-04) | Direct inspection (specodelic.md:53, HEAD) | **specodelic-814** (P3, filed 2026-10-04) |
 | — | Constraints+Properties merge (Z.ai only) | Rejected by all current-state reviewers; loses teaching value | Rejected |
 
 ## Meta-observation
