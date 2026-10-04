@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 4a2b4356243e44d7a85270ee52c7c9a299d6eefd1c1ee74de76444e096c89457 # shrinks to id = "a", new_local = "a", n_rows = 1, padded_cells = false, backticked_ids = false, padded_links = true, crlf = false
+cc f624f37cfcaf286101e07139199cb40ad475d49623f847ae5e4a6c6c71b0ac33 # shrinks to id = "a", new_local = "a", n_rows = 1, padded_cells = false, backticked_ids = true, padded_links = false, crlf = false
+cc 5bcc0dde2919ea61b70aa38ca69257d4b491c4b5900de8fa1cb48bb392c446da # shrinks to id = "i", new_local = "a", n_rows = 1, padded_cells = false, backticked_ids = false, padded_links = false, crlf = false
