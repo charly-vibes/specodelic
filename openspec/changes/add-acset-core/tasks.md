@@ -74,13 +74,13 @@ Tidying commits are separate from feature commits.
       `blast_radius_parity`) — closure results equal `graph.rs` fan-in /
       fan-out / supersedes cycles and `merge.rs`'s `dependents`/`reaches`
       blast radii over fixture branches.
-- [ ] 4.4 **RED→GREEN**: migrate `src/graph.rs` fan-in/fan-out onto the
+- [x] 4.4 **RED→GREEN**: migrate `src/graph.rs` fan-in/fan-out onto the
       closure primitive (snapshots byte-identical).
-- [ ] 4.5 **RED→GREEN**: migrate `src/merge.rs` blast-radius onto the
+- [x] 4.5 **RED→GREEN**: migrate `src/merge.rs` blast-radius onto the
       closure primitive; **delete** the private `dependents`/`reaches`
       adjacency (closes the specs/merge.md↔code drift, CORR-003) —
       `merge` command snapshots byte-identical.
-- [ ] 4.6 **TIDY**: `src/refactor.rs` consumes query-derived counts;
+- [x] 4.6 **TIDY**: `src/refactor.rs` consumes query-derived counts;
       `just ci`.
 
 ## 5. Corpus + gates
