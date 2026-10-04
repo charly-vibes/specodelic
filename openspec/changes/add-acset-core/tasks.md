@@ -6,7 +6,7 @@ Tidying commits are separate from feature commits.
 
 ## 1. Snapshot fixtures (parity harness)
 
-- [ ] 1.1 **BASELINE** (pinning, exempt from the red step): snapshot
+- [x] 1.1 **BASELINE** (pinning, exempt from the red step): snapshot
       tests — `spk graph --json` over the full corpus (byte-identical
       before/after snapshots; note: the corpus currently reports 0
       typing violations — pin violation CLASSES via fixtures, never a

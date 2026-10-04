@@ -1,0 +1,36 @@
+files: 2
+nodes: 12
+edge: c1.t1 -[transitions.from]-> c1.alive
+edge: c1.t1 -[transitions.to]-> c1.dead
+edge: c1.t2 -[transitions.from]-> c1.alive
+edge: c1.t2 -[transitions.to]-> c1.dead
+edge: c1.c1_row -[constraints.observes]-> c2.c2_effect
+edge: c1.c1_row -[constraints.satisfies]-> c2.c2_ext
+edge: c1.c1_row -[constraints.supersedes]-> c2.c2_row
+edge: c1.c1_row -[constraints.traces_to]-> c1
+edge: c1.alive -[states.emits]-> c2.c2_effect
+edge: c1.t1 -[transitions.guard]-> c2.c2_row
+edge: c1.t2 -[transitions.guard]-> c1.alive
+edge: c1.prop1 -[properties.derives_from]-> c2.c2_row
+edge: c1.prop2 -[properties.derives_from]-> c1.prop1
+edge: c2.c2_row -[constraints.traces_to]-> c2
+edge: c2.c2_effect -[constraints.traces_to]-> c2
+edge: c2.c2_ext -[constraints.traces_to]-> c2
+external_boundary: c2
+fan_in: c1 = 1
+fan_in: c1.alive = 3
+fan_in: c1.dead = 2
+fan_in: c1.prop1 = 1
+fan_in: c2 = 3
+fan_in: c2.c2_effect = 2
+fan_in: c2.c2_ext = 1
+fan_in: c2.c2_row = 3
+fan_out: c1.alive = 1
+fan_out: c1.c1_row = 4
+fan_out: c1.prop1 = 1
+fan_out: c1.prop2 = 1
+fan_out: c1.t1 = 3
+fan_out: c1.t2 = 3
+fan_out: c2.c2_effect = 1
+fan_out: c2.c2_ext = 1
+fan_out: c2.c2_row = 1

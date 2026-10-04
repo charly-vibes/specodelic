@@ -1,0 +1,19 @@
+files: 2
+nodes: 9
+edge: c1.t1 -[transitions.from]-> c1.alive
+edge: c1.t1 -[transitions.to]-> c1.dead
+edge: c1.d_row2 -[constraints.traces_to]-> c1
+edge: c2.c2_real -[constraints.traces_to]-> c2
+dangling: c1.t2 (transitions.from) → state `ghost_from` is not defined in c1
+dangling: c1.t2 (transitions.to) → state `ghost_to` is not defined in c1
+dangling: c1 → [[c1.ghost_row]]
+dangling: c1.d_row2 (satisfies) → [[c2.ghost_ext]]: no published contract row c2.ghost_ext exists — publish it in the producer's file or fix the id
+dangling: c1 → [[c1.ghost_row]]
+external_boundary: c2
+fan_in: c1 = 1
+fan_in: c1.alive = 1
+fan_in: c1.dead = 1
+fan_in: c2 = 1
+fan_out: c1.d_row2 = 1
+fan_out: c1.t1 = 2
+fan_out: c2.c2_real = 1

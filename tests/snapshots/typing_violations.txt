@@ -1,0 +1,29 @@
+files: 2
+nodes: 11
+edge: c1.t1 -[transitions.from]-> c1.alive
+edge: c1.t1 -[transitions.to]-> c1.dead
+edge: c1.v_row1 -[constraints.supersedes]-> c1.v_row2
+edge: c1.v_row2 -[constraints.supersedes]-> c1.v_row1
+edge: c1.v_row2 -[constraints.traces_to]-> c2
+edge: c1.v_row3 -[constraints.traces_to]-> c2
+edge: c2.c2_row -[constraints.traces_to]-> c2
+edge: c2.c2_effect -[constraints.traces_to]-> c2
+violation: c1.v_row1 -[constraints.observes]-> c2.c2_row: observes must resolve to an effect Constraint (Reference Typing); target is a Constraint (kind `invariant`)
+violation: c1.v_row1 -[constraints.satisfies]-> c2.c2_row: satisfies must resolve to an extension_point Constraint (Reference Typing); target is a Constraint (kind `invariant`)
+violation: c1.v_row1 -[constraints.traces_to]-> c2.c2_row: traces_to must resolve to an Intent (Reference Typing); target is a Constraint (kind `invariant`)
+violation: c1.v_row3 -[constraints.supersedes]-> c1.v_prop1: supersedes must target the same kind as the row it appears on (Reference Typing); source is a Constraint (kind `invariant`), target is a Property (kind `unit`)
+violation: c1.alive -[states.emits]-> c2.c2_row: emits must resolve to an effect Constraint (Reference Typing); target is a Constraint (kind `invariant`)
+violation: c1.t1 -[transitions.guard]-> c2.c2_effect: guard must resolve to an invariant Constraint or a State (Reference Typing); target is a Constraint (kind `effect`)
+violation: c1.v_prop1 -[properties.derives_from]-> c2: derives_from must resolve to a Constraint, or to a Property when the source is a law (Reference Typing); target is an Intent
+supersedes_cycle: c1.v_row1 → c1.v_row2 → c1.v_row1
+fan_in: c1.alive = 1
+fan_in: c1.dead = 1
+fan_in: c1.v_row1 = 1
+fan_in: c1.v_row2 = 1
+fan_in: c2 = 4
+fan_out: c1.t1 = 2
+fan_out: c1.v_row1 = 1
+fan_out: c1.v_row2 = 2
+fan_out: c1.v_row3 = 1
+fan_out: c2.c2_effect = 1
+fan_out: c2.c2_row = 1
