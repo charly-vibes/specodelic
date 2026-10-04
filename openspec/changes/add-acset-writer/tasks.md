@@ -75,11 +75,20 @@ Tidying commits are separate from feature commits.
 
 ## 6. table_after evaluation (packs.rs:126)
 
-- [ ] 6.1 Evaluate folding `packs.rs`'s `table_after` onto the spanning
+- [x] 6.1 Evaluate folding `packs.rs`'s `table_after` onto the spanning
       parse path: if its semantics are exactly the spanned parse's table
       extraction, fold and delete the parallel parser; otherwise keep
       it with a comment citing this decision and the blocker. The
       outcome is recorded in this checklist item (design decision D5).
+      **Outcome: KEPT.** The spanned parser extracts only
+      `TableKind::{Constraints, Properties, Transitions}` under known
+      headings (`src/spec.rs` `on_h2`); the six manifest facets are
+      pack vocabulary outside `Spec`'s structure — their rows never
+      reach the parser, spanned or otherwise. A fold needs new parser
+      surface (arbitrary-heading spanned tables) plus escaped-pipe
+      semantics parity, far beyond this change's blast radius, for a
+      file kind the writer never edits. Decision of record is the doc
+      comment on `table_after` (src/packs.rs).
 
 ## 7. Gates
 

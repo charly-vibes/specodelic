@@ -123,6 +123,19 @@ impl Manifest {
 
 /// Extract the markdown table that immediately follows a `## <heading>`
 /// line, as raw `| ... |` rows (cell count preserved for shape checks).
+///
+/// Deliberately NOT folded onto the spanned parse path (design decision
+/// D5, evaluated in `add-acset-writer` task 6.1, 2026-10-04): the
+/// spanned parser only extracts the format's own tables —
+/// `TableKind::{Constraints, Properties, Transitions}` under known
+/// headings (`src/spec.rs` `on_h2`) — while the six manifest facets
+/// (`## Sections` … `## Requires`) are pack vocabulary outside `Spec`'s
+/// structure; their rows never reach the parser, spanned or otherwise.
+/// A fold would need new parser surface (arbitrary-heading spanned
+/// tables) plus escaped-pipe semantics parity — far beyond this
+/// change's blast radius, for a file kind the writer never edits. Kept
+/// as a second, independent table parse until a manifest-in-`Spec`
+/// capability change exists; this comment is the decision of record.
 fn table_after(lines: &[&str], heading: &str) -> Option<Vec<Vec<String>>> {
     let start = lines.iter().position(|l| l.trim() == heading)?;
     let mut rows = vec![];
