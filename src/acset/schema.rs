@@ -534,36 +534,41 @@ pub fn check_endo_acyclicity(
     }
 }
 
-/// The Reference Typing check for one resolved reference, decided from the
-/// schema's rows — the generic checker the retired per-field match arms in
-/// `graph.rs::typing_violation` are replaced by (`typing_table_is_data`):
-/// adding a reference field is adding one row, never checker code.
-///
-/// Evaluation order (pinned byte-for-byte by the graph fixtures):
-///
-/// 1. A column with no rows is not a typed reference field — allowed.
-/// 2. `AppearsOn` columns police the source before the target is even
-///    considered (specodelic-huf): a source that cannot sit on any of the
-///    column's source objects — including an untyped source row — fires
-///    the column's source-side reason.
-/// 3. The rows are consulted in canonical order: a row accepts the edge
-///    when the target's object and the row's target-side refinements and
-///    source-side refinements all hold, and the row's `SourceRule` is
-///    satisfied. No row accepting composes the column's target-side
-///    reason from its template.
-pub fn typing_violation(
-    schema: &Schema,
+/// The classification outcome for one resolved link — the decision core
+/// of [`typing_violation`], exposed so the instance builder can name the
+/// morphism row a stored value belongs to (add-acset-core task 3.2).
+pub(crate) enum Typing<'a> {
+    /// Typing allows the link. `Some(row)` names the morphism whose
+    /// predicates accepted it; `None` when the column carries no rows (not
+    /// a typed reference field) or the target is unresolvable — the
+    /// caller's beat (the old `let target = target_kind?` behaviour).
+    Allowed(Option<&'a Morphism>),
+    /// Typing forbids the edge — the labeled reason from the column's
+    /// templates.
+    Forbidden(String),
+}
+
+/// The Reference Typing check for one resolved link: the matching row when
+/// typing allows it, the labeled reason when it does not. The decision is
+/// the Schema's (`typing_table_is_data`).
+pub(crate) fn classify<'a>(
+    schema: &'a Schema,
     column: &str,
     source: Option<Endpoint>,
-    target: Endpoint,
-) -> Option<String> {
+    target: Option<Endpoint>,
+) -> Typing<'a> {
     let rows: Vec<&Morphism> = schema
         .morphisms
         .iter()
         .filter(|m| m.column == column)
         .collect();
+    // Dangling references are the caller's beat (`let target = ...?`), and
+    // a column with no rows is not a typed reference field — allowed.
+    let Some(target) = target else {
+        return Typing::Allowed(None);
+    };
     if rows.is_empty() {
-        return None;
+        return Typing::Allowed(None);
     }
     if rows.iter().any(|r| r.source_rule == SourceRule::AppearsOn) {
         let source_ok = source.as_ref().is_some_and(|s| {
@@ -578,7 +583,7 @@ pub fn typing_violation(
                 .iter()
                 .find_map(|r| r.source_violation)
                 .expect("AppearsOn rows carry a source template");
-            return Some(template.replace("{src}", &src));
+            return Typing::Forbidden(template.replace("{src}", &src));
         }
     }
     for row in &rows {
@@ -604,18 +609,18 @@ pub fn typing_violation(
             continue;
         }
         match row.source_rule {
-            SourceRule::Unchecked => return None,
+            SourceRule::Unchecked => return Typing::Allowed(Some(row)),
             SourceRule::AppearsOn => {
                 if source.as_ref().is_some_and(|s| s.object == row.source.0) {
-                    return None;
+                    return Typing::Allowed(Some(row));
                 }
                 continue;
             }
             SourceRule::SameKind => match source {
                 // An untyped source row is not policed by the same-kind
                 // rule (current `let source = source_kind?` behaviour).
-                None => return None,
-                Some(s) if s.object == target.object => return None,
+                None => return Typing::Allowed(Some(row)),
+                Some(s) if s.object == target.object => return Typing::Allowed(Some(row)),
                 Some(_) => continue,
             },
         }
@@ -627,7 +632,41 @@ pub fn typing_violation(
             &source.map_or_else(|| "an untyped row".to_string(), |s| s.describe),
         )
         .replace("{tk}", &target.describe);
-    Some(reason)
+    Typing::Forbidden(reason)
+}
+
+/// The Reference Typing check for one resolved reference, decided from the
+/// schema's rows — the generic checker the retired per-field match arms in
+/// `graph.rs::typing_violation` are replaced by (`typing_table_is_data`):
+/// adding a reference field is adding one row, never checker code.
+///
+/// Evaluation order (pinned byte-for-byte by the graph fixtures):
+///
+/// 1. A column with no rows is not a typed reference field — allowed.
+/// 2. `AppearsOn` columns police the source before the target is even
+///    considered (specodelic-huf): a source that cannot sit on any of the
+///    column's source objects — including an untyped source row — fires
+///    the column's source-side reason.
+/// 3. The rows are consulted in canonical order: a row accepts the edge
+///    when the target's object and the row's target-side refinements and
+///    source-side refinements all hold, and the row's `SourceRule` is
+///    satisfied. No row accepting composes the column's target-side
+///    reason from its template.
+///
+/// The Reference Typing check for one resolved link: `None` when the edge
+/// is allowed (or the column is not a typed reference field), `Some(reason)`
+/// when the typing table forbids it — a thin wrapper over [`classify`],
+/// whose matched row the instance builder stores under (task 3.2).
+pub fn typing_violation(
+    schema: &Schema,
+    column: &str,
+    source: Option<Endpoint>,
+    target: Endpoint,
+) -> Option<String> {
+    match classify(schema, column, source, Some(target)) {
+        Typing::Allowed(_) => None,
+        Typing::Forbidden(reason) => Some(reason),
+    }
 }
 
 #[cfg(test)]

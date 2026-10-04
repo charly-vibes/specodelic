@@ -69,7 +69,7 @@ pub struct GraphReport {
 /// What kind of node a resolved id addresses — the target side of the
 /// Reference Typing checks.
 #[derive(Debug, Clone, PartialEq)]
-enum NodeKind {
+pub(crate) enum NodeKind {
     Intent,
     /// The row's own `kind` cell (`invariant`/`advisory`/`effect`), empty
     /// when absent.
@@ -82,7 +82,7 @@ enum NodeKind {
 
 impl NodeKind {
     /// Human phrase for violation reasons, e.g. `an Intent`.
-    fn describe(&self) -> String {
+    pub(crate) fn describe(&self) -> String {
         match self {
             NodeKind::Intent => "an Intent".into(),
             NodeKind::Constraint(k) if k.is_empty() => "a Constraint".into(),
@@ -96,7 +96,7 @@ impl NodeKind {
 
     /// The schema object this node kind belongs to (the Reference Typing
     /// table's Appears-on / Must-resolve-to vocabulary).
-    fn object(&self) -> &'static str {
+    pub(crate) fn object(&self) -> &'static str {
         match self {
             NodeKind::Intent => "Intent",
             NodeKind::Constraint(_) => "Constraint",
@@ -108,7 +108,7 @@ impl NodeKind {
 
     /// The row's own kind cell — empty when the object carries none
     /// (Intent/State/Transition have no kind column of their own).
-    fn kind_cell(&self) -> &str {
+    pub(crate) fn kind_cell(&self) -> &str {
         match self {
             NodeKind::Constraint(k) | NodeKind::Property(k) => k,
             NodeKind::Intent | NodeKind::State | NodeKind::Transition => "",
@@ -118,7 +118,7 @@ impl NodeKind {
 
 /// Index every resolvable id in the corpus to its node kind: file ids to
 /// their Intent, row ids (file-qualified `file.row`) to the row's layer.
-fn kind_index(specs: &[Spec]) -> BTreeMap<String, NodeKind> {
+pub(crate) fn kind_index(specs: &[Spec]) -> BTreeMap<String, NodeKind> {
     let mut idx = BTreeMap::new();
     for spec in specs {
         let file = &spec.intent.id;
@@ -156,7 +156,7 @@ fn kind_index(specs: &[Spec]) -> BTreeMap<String, NodeKind> {
 /// file (beads specodelic-mlg). `from`/`to` are absent here by design: the
 /// transitions walk below owns those fields (one edge per well-formed
 /// cell), so the links loop must not double-record them.
-const TYPED_REFERENCE_COLUMNS: [&str; 7] = [
+pub(crate) const TYPED_REFERENCE_COLUMNS: [&str; 7] = [
     "traces_to",
     "derives_from",
     "guard",
@@ -444,7 +444,7 @@ pub fn build(specs: &[Spec]) -> GraphReport {
 
 /// Resolve a target relative to a source file. Returns the canonical
 /// resolved id when found.
-fn resolve(
+pub(crate) fn resolve(
     file_rows: &BTreeMap<String, Vec<String>>,
     source_file: &str,
     target: &str,
