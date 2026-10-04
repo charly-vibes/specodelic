@@ -68,6 +68,199 @@ pub fn run(
             remove: None,
         });
     }
+    let plan = plan_rename(files, old_id, new_id)?;
+    let owner_path = plan.specs[plan.owner_index]
+        .path
+        .clone()
+        .expect("definition file must have a path");
+
+    // Rewrite every file; collect the ones that actually change. Only
+    // the definition file gets local-id (cell/bullet) rewrites; every
+    // file gets wiki-link rewrites. Checklists are not specs — their
+    // mapped_ids cells follow the rename instead (mapping_naturality:
+    // mapped(rename(I)) == rename(mapped(I))).
+    let mut writes = vec![];
+    for (path, raw) in files {
+        let in_owner = owner_path == *path;
+        let new_text = if checklist::is_checklist_path(path) {
+            checklist::rewrite_text(raw, old_id, new_id)
+        } else {
+            rewrite_text(
+                raw,
+                old_id,
+                new_id,
+                if in_owner {
+                    plan.local.as_ref().map(|(a, b)| (a.as_str(), b.as_str()))
+                } else {
+                    None
+                },
+            )
+        };
+        if new_text != *raw {
+            writes.push((path.clone(), new_text));
+        }
+    }
+
+    // Intent renames move the file per the naming law (`-` ⇔ `.`).
+    let mut remove = None;
+    if plan.is_intent_rename {
+        let old_path = owner_path.clone();
+        let new_name = format!("{}.md", new_id.replace('.', "-"));
+        let new_path = old_path
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .join(new_name);
+        // The rewritten definition file becomes the new file; the old
+        // path dies. Its rewrite is carried by the new path.
+        let owner_text = files
+            .iter()
+            .find(|(p, _)| *p == old_path)
+            .expect("owner in files")
+            .1
+            .clone();
+        writes.retain(|(p, _)| *p != old_path);
+        writes.push((new_path, rewrite_text(&owner_text, old_id, new_id, None)));
+        remove = Some(old_path);
+    }
+
+    verify_would_be_repo(files, &writes, &remove)?;
+
+    Ok(RenameOutcome {
+        old_id: old_id.into(),
+        new_id: new_id.into(),
+        writes,
+        remove,
+    })
+}
+
+/// Apply the rename through the span-preserving writer
+/// (`acset-writer` capability, `add-acset-writer` task 5.2): the same
+/// validation, owner lookup, and verify gate as `run` — only the
+/// per-file text realization differs. Every rewrite rides the recorded
+/// byte spans (`src/acset/writer.rs`); the hand-wired line-wise
+/// rewriting stays only where no spans exist (files the parser rejects:
+/// plain prose markdown carries no spec structure, so its `[[…]]`
+/// occurrences get the same link-only rewrite `run` gives them).
+/// Checklists are not specs — the writer's parse never covers them —
+/// so their mapped_ids cells keep `checklist::rewrite_text`.
+pub fn run_via_writer(
+    files: &[(PathBuf, String)],
+    old_id: &str,
+    new_id: &str,
+) -> Result<RenameOutcome, RenameError> {
+    validate_shape(new_id)?;
+    if old_id == new_id {
+        // rename_naturality's identity law: rename(I, a, a) == I.
+        return Ok(RenameOutcome {
+            old_id: old_id.into(),
+            new_id: new_id.into(),
+            writes: vec![],
+            remove: None,
+        });
+    }
+    let plan = plan_rename(files, old_id, new_id)?;
+    let owner_path = plan.specs[plan.owner_index]
+        .path
+        .clone()
+        .expect("definition file must have a path");
+
+    let mut writes = vec![];
+    let mut removals = vec![];
+    for (path, raw) in files {
+        if checklist::is_checklist_path(path) {
+            let new_text = checklist::rewrite_text(raw, old_id, new_id);
+            if new_text != *raw {
+                writes.push((path.clone(), new_text));
+            }
+            continue;
+        }
+        let spec = plan
+            .specs
+            .iter()
+            .find(|s| s.path.as_ref().is_some_and(|p| p == path));
+        match spec {
+            Some(spec) => {
+                // Only the definition file of a row rename gets the
+                // local cell/bullet rewrite; every parsed file gets the
+                // wiki-link rewrite (the writer's link family is
+                // file-agnostic, exactly like `run`).
+                let in_owner = owner_path == *path;
+                let edit = crate::acset::writer::Edit::Rename {
+                    old: old_id.into(),
+                    new: new_id.into(),
+                    local: if in_owner { plan.local.clone() } else { None },
+                };
+                let ws = crate::acset::writer::apply(&edit, path, raw, spec).map_err(|e| {
+                    RenameError::VerifyFailed {
+                        details: vec![format!(
+                            "{}: {}: {} — {}",
+                            path.display(),
+                            e.label,
+                            e.detail,
+                            e.remediation
+                        )],
+                    }
+                })?;
+                writes.extend(ws.writes);
+                removals.extend(ws.removals);
+            }
+            None => {
+                // No recorded spans exist: the hand-wired link-only
+                // rewrite is the only realization possible (identical
+                // to `run`'s per-line behavior for this file).
+                let new_text = rewrite_text(raw, old_id, new_id, None);
+                if new_text != *raw {
+                    writes.push((path.clone(), new_text));
+                }
+            }
+        }
+    }
+
+    // The writer already realizes the intent rename's file move: its
+    // write-set carries the new path and one removal for the old one
+    // (`filename_follows_intent_id`). Nothing to re-shape here; the
+    // plan's flag is realized by the writer, not re-derived.
+    debug_assert_eq!(
+        plan.is_intent_rename,
+        !removals.is_empty(),
+        "the writer must remove exactly the moved file of an intent rename"
+    );
+    let remove = removals.into_iter().next();
+
+    verify_would_be_repo(files, &writes, &remove)?;
+
+    Ok(RenameOutcome {
+        old_id: old_id.into(),
+        new_id: new_id.into(),
+        writes,
+        remove,
+    })
+}
+
+/// The shared rename preamble: shape validation, the identity
+/// no-op (`rename_naturality`), parse, owner lookup, collision
+/// check, and the row-namespace law. Returns the parsed specs, the
+/// owner's index into them, the `(local_old, local_new)` pair of a row
+/// rename (empty for an intent rename), and whether this is an intent
+/// rename.
+struct RenamePlan {
+    /// Every parsed spec, with its path attached.
+    specs: Vec<Spec>,
+    /// The definition file's index into `specs`.
+    owner_index: usize,
+    /// `(local_old, local_new)` of a row rename; empty for an intent
+    /// rename.
+    local: Option<(String, String)>,
+    /// `old_id` names the definition file's own Intent id.
+    is_intent_rename: bool,
+}
+
+fn plan_rename(
+    files: &[(PathBuf, String)],
+    old_id: &str,
+    new_id: &str,
+) -> Result<RenamePlan, RenameError> {
+    validate_shape(new_id)?;
 
     let specs: Vec<Spec> = files
         .iter()
@@ -83,23 +276,23 @@ pub fn run(
     // whose row's QUALIFIED id (`intent.id` + `.` + local row id —
     // table cells carry the local id, links carry the qualified one)
     // is `old_id`.
-    let mut owners: Vec<(&Spec, Option<String>)> = vec![]; // None = intent, Some(local) = row
-    for spec in &specs {
+    let mut owners: Vec<(usize, Option<String>)> = vec![]; // None = intent, Some(local) = row
+    for (i, spec) in specs.iter().enumerate() {
         if spec.intent.id == old_id {
-            owners.push((spec, None));
+            owners.push((i, None));
         }
         for rid in &spec.defined_ids() {
             if *rid != spec.intent.id && format!("{}.{}", spec.intent.id, rid) == old_id {
-                owners.push((spec, Some(rid.clone())));
+                owners.push((i, Some(rid.clone())));
             }
         }
     }
-    match owners.len() {
+    let (owner_index, local) = match owners.len() {
         0 => return Err(RenameError::UnknownId(old_id.into())),
-        1 => {}
+        1 => owners[0].clone(),
         _ => return Err(RenameError::Ambiguous(old_id.into())),
-    }
-    let (owner, local) = (&owners[0].0, owners[0].1.clone());
+    };
+    let owner = &specs[owner_index];
 
     // new_id must not collide with any existing id anywhere (intents by
     // their id, rows by their qualified id).
@@ -133,73 +326,37 @@ pub fn run(
                     "{new_id} — a row rename stays in its file's namespace ({parent}<new-local>)"
                 )));
             }
-            Some((local_old.as_str(), &new_id[parent.len()..]))
+            Some((local_old.clone(), new_id[parent.len()..].to_string()))
         }
         None => None,
     };
-
-    // Rewrite every file; collect the ones that actually change. Only
-    // the definition file gets local-id (cell/bullet) rewrites; every
-    // file gets wiki-link rewrites. Checklists are not specs — their
-    // mapped_ids cells follow the rename instead (mapping_naturality:
-    // mapped(rename(I)) == rename(mapped(I))).
     let is_intent_rename = local.is_none();
-    let mut writes = vec![];
-    for (path, raw) in files {
-        let in_owner = owner.path.as_ref().is_some_and(|p| p == path);
-        let new_text = if checklist::is_checklist_path(path) {
-            checklist::rewrite_text(raw, old_id, new_id)
-        } else {
-            rewrite_text(
-                raw,
-                old_id,
-                new_id,
-                if in_owner { local_pair } else { None },
-            )
-        };
-        if new_text != *raw {
-            writes.push((path.clone(), new_text));
-        }
-    }
+    Ok(RenamePlan {
+        specs,
+        owner_index,
+        local: local_pair,
+        is_intent_rename,
+    })
+}
 
-    // Intent renames move the file per the naming law (`-` ⇔ `.`).
-    let mut remove = None;
-    if is_intent_rename {
-        let old_path = owner
-            .path
-            .clone()
-            .expect("definition file must have a path");
-        let new_name = format!("{}.md", new_id.replace('.', "-"));
-        let new_path = old_path
-            .parent()
-            .unwrap_or_else(|| std::path::Path::new("."))
-            .join(new_name);
-        // The rewritten definition file becomes the new file; the old
-        // path dies. Its rewrite is carried by the new path.
-        let owner_text = files
-            .iter()
-            .find(|(p, _)| *p == old_path)
-            .expect("owner in files")
-            .1
-            .clone();
-        writes.retain(|(p, _)| *p != old_path);
-        writes.push((new_path, rewrite_text(&owner_text, old_id, new_id, None)));
-        remove = Some(old_path);
-    }
-
-    // Verify gate (rename.verify → accept): re-parse the would-be repo
-    // and re-run linter.referential_integrity — zero dangling or the
-    // rename is rejected before a single write. A pure rename cannot
-    // introduce a cycle (structure is preserved), so dangling is the
-    // gate that can actually fire (specs/rename.md Notes). Checklists
-    // ride the same gate through their own linter: the post-rename
-    // manifests must still be well-formed with resolving mapped_ids —
-    // a missed cell is caught here (stray_ref_caught_by_verify), never
-    // silently accepted.
+/// Verify gate (rename.verify → accept): re-parse the would-be repo
+/// and re-run linter.referential_integrity — zero dangling or the
+/// rename is rejected before a single write. A pure rename cannot
+/// introduce a cycle (structure is preserved), so dangling is the
+/// gate that can actually fire (specs/rename.md Notes). Checklists
+/// ride the same gate through their own linter: the post-rename
+/// manifests must still be well-formed with resolving mapped_ids —
+/// a missed cell is caught here (stray_ref_caught_by_verify), never
+/// silently accepted.
+fn verify_would_be_repo(
+    files: &[(PathBuf, String)],
+    writes: &[(PathBuf, String)],
+    remove: &Option<PathBuf>,
+) -> Result<(), RenameError> {
     let mut details = vec![];
     let mut new_specs = vec![];
     let mut new_checklists = vec![];
-    for (path, text) in &writes {
+    for (path, text) in writes {
         if checklist::is_checklist_path(path) {
             new_checklists.push(checklist::parse_str(path.clone(), text));
             continue;
@@ -213,7 +370,7 @@ pub fn run(
         }
     }
     for (path, text) in files {
-        if remove.as_ref().is_some_and(|r| r == path) {
+        if remove.as_ref().is_some_and(|r| *r == *path) {
             continue; // the moved file is represented by its new path
         }
         if writes.iter().any(|(p, _)| p == path) {
@@ -243,15 +400,16 @@ pub fn run(
         }
     }
     if !details.is_empty() {
+        // Canonical order: the details' sequence follows the write-set's
+        // file order, which differs between the hand-wired and the
+        // writer-driven realizations (the moved file's write lands last
+        // in one, first in the other). The refusal must not depend on
+        // that incidental order — sort so both drivers report the same
+        // refusal byte for byte.
+        details.sort();
         return Err(RenameError::VerifyFailed { details });
     }
-
-    Ok(RenameOutcome {
-        old_id: old_id.into(),
-        new_id: new_id.into(),
-        writes,
-        remove,
-    })
+    Ok(())
 }
 
 /// new_id must be usable as an id: non-empty, no whitespace, no link or
@@ -287,8 +445,13 @@ fn rewrite_text(raw: &str, old_id: &str, new_id: &str, local: Option<(&str, &str
         };
         let trimmed = content.trim_start();
         let rewritten: String = if local.is_none() && trimmed == format!("id: {old_id}") {
-            // Frontmatter Intent id (the definition file's own).
-            content.replacen(old_id, new_id, 1)
+            // Frontmatter Intent id (the definition file's own). Anchor
+            // the replacement on the `id: ` prefix — a bare replacen of
+            // `old_id` hits its first occurrence ANYWHERE in the line,
+            // so a single-character id (`id: i`) corrupted the key
+            // itself (`irenamed: i`); found by the rename↔writer parity
+            // property (add-acset-writer task 5.1).
+            content.replacen(&format!("id: {old_id}"), &format!("id: {new_id}"), 1)
         } else if trimmed.starts_with('|') {
             rewrite_table_row(content, old_id, new_id, local)
         } else if trimmed.starts_with("- ") {

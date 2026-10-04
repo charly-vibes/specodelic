@@ -254,10 +254,18 @@ pub fn apply(edit: &Edit, path: &Path, source: &str, spec: &Spec) -> Result<Writ
 
     // Wiki-links: qualified targets follow the rename everywhere. The
     // emitted link is rebuilt from the trimmed target (the parser's
-    // value); raw inner padding around a target is normalized — the
-    // same normalization rename.rs's link rewrite performs.
+    // value). rename's exact-match law realized mechanically: only a
+    // link whose raw bytes are exactly `[[target]]` follows — raw inner
+    // padding (`[[ target ]]`) never matches rename's exact comparison,
+    // so the writer leaves it untouched too (the link still RESOLVES
+    // through its trimmed target corpus-wide, but a rename that would
+    // strand it refuses at rename's verify gate, exactly as before the
+    // writer existed).
     for l in &spec.links {
         let Some(s) = l.span else { continue };
+        if source[s.start..s.end] != format!("[[{}]]", l.target) {
+            continue;
+        }
         let follows = if l.target == *old {
             Some(new.clone())
         } else if l
@@ -539,8 +547,15 @@ fn verify_roundtrip(edit: &Edit, before: &Spec, emitted: &str) -> Result<(), Wri
     // Every link that followed the rename carries the new target; links
     // that did not match keep their original target. Match links across
     // the reparse by their recorded spans (the bytes around them are
-    // untouched, so spans are stable).
+    // untouched, so spans are stable). The same exact-raw-match law as
+    // the rewrite above: a padded link (`[[ target ]]`) never follows.
     for l in &after.links {
+        let raw_exact = l
+            .span
+            .is_some_and(|s| emitted[s.start..s.end] == format!("[[{}]]", l.target));
+        if !raw_exact {
+            continue;
+        }
         let followed = if l.target == *old {
             true
         } else {
