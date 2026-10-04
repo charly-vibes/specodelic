@@ -13,3 +13,17 @@
 //! of one schema — one data value retires all three.
 
 pub mod schema;
+
+/// The typed instance over a parsed corpus (tasks 3.x). A bare skeleton so
+/// the 1.2 parity property compiles and fails at runtime (todo!-panic red,
+/// the documented 1.2 convention) while the snapshot oracle (task 1.1)
+/// runs and pins `graph::build`'s bytes.
+pub struct Acset;
+
+impl Acset {
+    /// The corpus's edge set, derived from the instance — the parity
+    /// property compares it, edge for edge, with `graph::build`'s.
+    pub fn edges(&self) -> Vec<crate::graph::Edge> {
+        todo!("instance builder (tasks 3.2/3.3)")
+    }
+}

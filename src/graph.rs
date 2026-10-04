@@ -16,7 +16,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::spec::Spec;
 
 /// One directed, typed edge.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Edge {
     /// Source id (the row or intent the link is anchored to).
     pub from: String,
