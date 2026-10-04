@@ -34,7 +34,7 @@ Tidying commits are separate from feature commits.
       (`identity_emission_exact`).
 - [x] 3.2 **GREEN**: `src/acset/writer.rs` emits from recorded spans
       only — never re-serializes a table (`source_spans_recorded`).
-- [ ] 3.3 **RED→GREEN**: span extraction failures surface as
+- [x] 3.3 **RED→GREEN**: span extraction failures surface as
       `acset.writer.span_failure` with remediation hint
       (`span_failure_label_asserted`).
 

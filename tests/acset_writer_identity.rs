@@ -201,3 +201,50 @@ proptest! {
         prop_assert_eq!(emitted, file);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Task 3.3: span-extraction failures surface as `spec.span_failure` —
+// labeled, with a non-empty remediation hint (`span_failure_label_asserted`).
+// The failure paths: a recorded span whose bytes no longer match its parsed
+// element (source mutated after parse), and a span driven out of bounds by
+// a shrunken source — emit must return the labeled error, never panic and
+// never return doctored text.
+// ---------------------------------------------------------------------------
+
+/// The delta's exact label — the property asserts the string verbatim.
+const SPAN_FAILURE_LABEL: &str = "spec.span_failure";
+
+#[test]
+fn span_failure_label_asserted_on_disagreement() {
+    let source = full_family_spec("spanf.a");
+    let spec = parse_str(&source).expect("fixture parses");
+    // Mutate the source AFTER parsing: the row's recorded id-cell span now
+    // covers bytes that are not the parsed id — the writer must refuse.
+    let mutated = source.replace("| c1 |", "| cZ |");
+    assert_ne!(mutated, source, "mutation must actually change the source");
+    let err = writer::emit(&mutated, &spec).expect_err("span disagreement must fail");
+    assert_eq!(err.label, SPAN_FAILURE_LABEL);
+    assert!(
+        err.detail.contains("c1"),
+        "detail must name the disagreed element, got: {}",
+        err.detail
+    );
+    assert!(
+        !err.remediation.is_empty(),
+        "the fleet error contract requires a non-empty remediation hint"
+    );
+}
+
+#[test]
+fn span_failure_label_asserted_on_out_of_bounds() {
+    let source = full_family_spec("spanf.b");
+    let spec = parse_str(&source).expect("fixture parses");
+    // Shrink the source after parsing: recorded spans now point past EOF.
+    let truncated = &source[..source.len() / 2];
+    let err = writer::emit(truncated, &spec).expect_err("out-of-bounds span must fail");
+    assert_eq!(err.label, SPAN_FAILURE_LABEL);
+    assert!(
+        !err.remediation.is_empty(),
+        "the fleet error contract requires a non-empty remediation hint"
+    );
+}
