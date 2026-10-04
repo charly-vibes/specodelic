@@ -85,6 +85,12 @@ pub struct Spec {
     pub modified_requirements_body: String,
     /// Body of `## Requirements` (lines rstripped, joined).
     pub requirements_body: String,
+    /// Body of `### Reference Typing` captured verbatim (add-acset-core
+    /// task 2.4) — the `schema_matches_typing_table` lint gate compares
+    /// this section against [`crate::acset::schema::canonical`], so the
+    /// format doc and the code cannot drift. Empty when the file has no
+    /// such section (only the format doc itself carries one).
+    pub reference_typing_body: String,
     /// All `[[wiki-links]]` found in *structured* fields (frontmatter and
     /// table cells) — never prose. Each link is the raw inner text, which may
     /// be a file id (`specodelic`), a row id (`specodelic.model_present`), or
@@ -253,6 +259,7 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
         has_modified_requirements: false,
         modified_requirements_body: String::new(),
         requirements_body: String::new(),
+        reference_typing_body: String::new(),
         links: vec![],
     };
     spec.links
@@ -262,6 +269,9 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
     let mut current_table: TableKind = TableKind::None;
     let mut headers: Vec<String> = vec![];
     let mut in_states = false;
+    // Inside `### Reference Typing` — capture the section verbatim for the
+    // schema drift gate (add-acset-core task 2.4).
+    let mut in_reference_typing = false;
     // Which dual-format requirement section (if any) we are inside —
     // bodies are captured verbatim (line-rstripped) for the drift check.
     let mut dual_section = 0u8; // 0 none · 1 ADDED Requirements · 2 Requirements · 3 MODIFIED Requirements
@@ -316,12 +326,14 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
                 spec.has_requirements_section = true;
             }
             in_states = false;
+            in_reference_typing = false;
             headers = vec![];
             continue;
         }
         if let Some(heading) = t.strip_prefix("### ") {
             let h = heading.trim();
             in_states = h == "States";
+            in_reference_typing = h == "Reference Typing";
             headers = vec![];
             current_table = match (current_table, h) {
                 (TableKind::Model, "Transitions") => TableKind::Transitions,
@@ -334,6 +346,14 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
                 _ => TableKind::None,
             };
             continue;
+        }
+
+        // Reference Typing capture: headings above already `continue`d, so
+        // every line reaching here is section body — kept verbatim (the
+        // same rstripped discipline as the dual-section bodies).
+        if in_reference_typing {
+            spec.reference_typing_body.push_str(line.trim_end());
+            spec.reference_typing_body.push('\n');
         }
 
         match current_table {
@@ -453,12 +473,12 @@ fn table_field(k: TableKind) -> &'static str {
     }
 }
 
-fn is_separator(line: &str) -> bool {
+pub(crate) fn is_separator(line: &str) -> bool {
     line.replace(['|', '-', ':', ' '], "").is_empty() && line.contains('-')
 }
 
 /// Split a markdown table line into cells, honoring backtick fences.
-fn parse_row(line: &str) -> Result<Vec<String>, String> {
+pub(crate) fn parse_row(line: &str) -> Result<Vec<String>, String> {
     let t = line.trim();
     let t = t.strip_prefix('|').ok_or("row does not start with `|`")?;
     let t = t.strip_suffix('|').unwrap_or(t);

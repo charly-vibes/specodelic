@@ -292,7 +292,6 @@ fn typing_allowed_fixture_covers_named_edges() {
 /// the links matter for the parity property — the table rows are the layers
 /// the edges point at.
 fn in_memory_corpus() -> Vec<Spec> {
-    use specodelic::spec::Spec as _;
     let _ = 0; // silence unused
     todo!("in-memory corpus: intent file + rows + links (task 1.2 RED)")
 }
@@ -327,10 +326,8 @@ fn parity_property_edges_from_specs_matches_graph_build() {
 
 /// The real format doc, parsed.
 fn format_doc() -> Spec {
-    Spec::from_file(
-        &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("specs/specodelic.md"),
-    )
-    .expect("the format doc parses")
+    Spec::from_file(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("specs/specodelic.md"))
+        .expect("the format doc parses")
 }
 
 /// GREEN state: the real doc's Reference Typing table equals `canonical()`
@@ -354,9 +351,8 @@ fn schema_missing_one_row_of_the_typing_table() {
         .expect("the format doc's Reference Typing table parses");
     let mut schema = specodelic::acset::schema::canonical();
     schema.morphisms.retain(|m| m.column != "traces_to");
-    let drift =
-        specodelic::acset::doc::matches_typing_table(&schema, &rows)
-            .expect_err("a schema missing a doc row must fail the comparison");
+    let drift = specodelic::acset::doc::matches_typing_table(&schema, &rows)
+        .expect_err("a schema missing a doc row must fail the comparison");
     assert!(
         drift.iter().any(|d| d.contains("traces_to")),
         "the drift report must name the missing row: {drift:?}"

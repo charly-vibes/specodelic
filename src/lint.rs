@@ -188,6 +188,10 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
         "skew_advisory",
         "a declared pack's Requires base pin older than the workspace corpus revision is a warnings-channel advisory naming the pack's base pin and the corpus revision — never silent, never failing (specs/packs.md, Revision 14)",
     ),
+    (
+        "schema_matches_typing_table",
+        "when the lint target carries the format doc, its Reference Typing table must equal the Schema value row for row — the document and the code cannot drift; a corpus without the format doc is out of the gate's scope (no-op, never fabricated expected rows) (add-acset-core, linter-schema_shape family)",
+    ),
 ];
 
 /// The stable rule identifier for a bare rule name: `linter.<name>`.
@@ -257,6 +261,7 @@ pub fn lint_corpus(specs: &[Spec]) -> Report {
     lint_coverage(specs, &mut report);
     lint_graph_shape(specs, &mut report);
     lint_observability(specs, &mut report);
+    report.issues.extend(schema_drift_findings(specs));
     crate::packs::pack_pass(specs, &mut report);
     report
 }
@@ -356,6 +361,41 @@ pub fn schema_shape_findings(specs: &[Spec]) -> Vec<Issue> {
         lint_schema_shape_family(spec, specs, &mut report);
     }
     report.issues
+}
+
+/// The `schema_matches_typing_table` drift gate (add-acset-core task 2.4,
+/// design.md decision 3): when the corpus carries the format doc, its
+/// Reference Typing table must equal the canonical Schema row for row — a
+/// lint finding on divergence, in either direction. A corpus without the
+/// format doc is out of the gate's scope: no-op, never fabricated expected
+/// rows. Uninterpretable cells fire too — an unrecognized doc edit is a
+/// drift signal by construction, never silence.
+pub fn schema_drift_findings(specs: &[Spec]) -> Vec<Issue> {
+    let mut issues = Vec::new();
+    let Some(doc) = specs
+        .iter()
+        .find(|s| s.intent.id == "specodelic" && !s.reference_typing_body.trim().is_empty())
+    else {
+        return issues;
+    };
+    let file = doc.intent.id.clone();
+    let rows = match crate::acset::doc::parse_typing_table(&doc.reference_typing_body) {
+        Ok(rows) => rows,
+        Err(errors) => {
+            for e in errors {
+                issues.push(Issue::new("schema_matches_typing_table", file.clone(), e));
+            }
+            return issues;
+        }
+    };
+    if let Err(drift) =
+        crate::acset::doc::matches_typing_table(&crate::acset::schema::canonical(), &rows)
+    {
+        for d in drift {
+            issues.push(Issue::new("schema_matches_typing_table", file.clone(), d));
+        }
+    }
+    issues
 }
 
 /// Checker-family slice: `linter-schema_shape.md`'s two closed-set
@@ -2022,6 +2062,19 @@ mod tests {
             spec_at(
                 "---\nid: k.made\nkind: intent\nstatement: \"THE kinds SHALL stay closed\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | made_up | `x` | [[k.made]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | `x` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | audit | [[k.made.c]] | `g()` | `x` |\n",
                 "k-made.md",
+            ),
+            // fires schema_matches_typing_table (add-acset-core task 2.4):
+            // a file with the format doc's id whose Reference Typing table
+            // is MISSING the traces_to row — the drift gate fires on the
+            // code-side row the doc lost. (It also fires model_present and
+            // coverage — both already covered by other fixtures.)
+            spec_at(
+                "---\nid: specodelic\nkind: intent\nstatement: \"THE specodelic SHALL define the format\"\n---\n\
+                 \n### Reference Typing\n\
+                 \n| Field | Appears on | Must resolve to |\n\
+                 |-------|------------|-----------------|\n\
+                 | `guard` | Transition | an invariant Constraint — or a State |\n",
+                "specodelic.md",
             ),
         ]
     }

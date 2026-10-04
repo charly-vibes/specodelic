@@ -12,6 +12,7 @@
 //! in merge.rs, and duplicated edge loops in graph.rs are three renderings
 //! of one schema — one data value retires all three.
 
+pub mod doc;
 pub mod schema;
 
 /// The typed instance over a parsed corpus (tasks 3.x). A bare skeleton so

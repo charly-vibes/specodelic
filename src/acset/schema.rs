@@ -147,6 +147,11 @@ pub struct Endpoint {
     pub describe: String,
 }
 
+/// The closed object set (`objects_closed`) — shared with the doc-side
+/// reader (`acset::doc`), which extracts exactly these names from the
+/// format doc's Reference Typing cells.
+pub const CLOSED_OBJECTS: [&str; 5] = ["Constraint", "Intent", "Property", "State", "Transition"];
+
 /// A schema-level failure, named after the invariant it violates.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SchemaError {
@@ -392,14 +397,14 @@ pub fn canonical() -> Schema {
 pub fn check(schema: &Schema) -> Result<(), Vec<SchemaError>> {
     let mut errs = Vec::new();
     // objects_closed: the objects are exactly the closed five.
-    const CLOSED: [&str; 5] = ["Constraint", "Intent", "Property", "State", "Transition"];
-    for id in CLOSED {
+    let closed = CLOSED_OBJECTS;
+    for id in closed {
         if !schema.objects.contains(&ObjectId::new(id)) {
             errs.push(SchemaError::MissingClosedObject(ObjectId::new(id)));
         }
     }
     for o in &schema.objects {
-        if !CLOSED.contains(&o.0.as_str()) {
+        if !CLOSED_OBJECTS.contains(&o.0.as_str()) {
             errs.push(SchemaError::ObjectOutsideClosedSet(o.clone()));
         }
     }
