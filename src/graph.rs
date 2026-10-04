@@ -188,14 +188,14 @@ fn typing_violation(
     schema::typing_violation(schema, column, source_kind.map(&endpoint), endpoint(target))
 }
 
-/// Record one resolved edge and its fan counts — the single place an edge
-/// enters the report (task 2.5 TIDY: both derivation sites — the
-/// transitions' from/to cells and the typed reference links — carried the
-/// same three-line fan/edge dance; now they share one entry point, so a
-/// future change to edge accounting cannot miss one site).
+/// Record one resolved edge — the single place an edge enters the report
+/// (task 2.5 TIDY: both derivation sites — the transitions' from/to cells
+/// and the typed reference links — carried the same three-line fan/edge
+/// dance; now they share one entry point). The fan counts are no longer
+/// accumulated here: task 4.4 derives them once, after the walk, through
+/// `acset::query`'s primitives (`fan_in_is_preimage_size`), so edge
+/// accounting and fan accounting cannot drift apart.
 fn record_edge(report: &mut GraphReport, edge: Edge) {
-    *report.fan_out.entry(edge.from.clone()).or_default() += 1;
-    *report.fan_in.entry(edge.to.clone()).or_default() += 1;
     report.edges.push(edge);
 }
 
@@ -510,6 +510,12 @@ pub fn build(specs: &[Spec]) -> GraphReport {
     }
 
     report.supersedes_cycles = find_supersedes_cycles(&report.edges);
+    // Fan counts derive from the same instance the parity property pins
+    // (`fan_in_is_preimage_size`, task 4.4): one derivation, through the
+    // acset primitives, after the walk — never accumulated per site.
+    let instance = crate::acset::instance::Instance::from_specs(specs);
+    report.fan_in = crate::acset::query::fan_in(&instance);
+    report.fan_out = crate::acset::query::fan_out(&instance);
     // External boundaries (specs/graph.md `external_boundary_derived`):
     // derived from published contracts alone — a stale tag cannot exist
     // because there is no tag.
