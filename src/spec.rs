@@ -22,6 +22,17 @@ pub enum ParseError {
     File(String, String),
 }
 
+/// A byte span in the source text a spec was parsed from — `[start, end)`.
+/// The writer edits only recorded spans (acset-writer's
+/// `source_spans_recorded`); spans are mechanical bookkeeping and are
+/// skipped in serialization, so `spk parse --json` stays byte-stable
+/// (add-acset-writer design D3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Span {
+    pub start: usize,
+    pub end: usize,
+}
+
 /// A row from one of the three structured tables.
 #[derive(Debug, Clone, Serialize)]
 pub struct Row {
@@ -32,6 +43,10 @@ pub struct Row {
     pub kind: Option<String>,
     /// All cells of the row, keyed by column header.
     pub cells: BTreeMap<String, String>,
+    /// Byte span of the row's `id` cell content in the source text
+    /// (add-acset-writer task 2.2). Not serialized.
+    #[serde(skip_serializing)]
+    pub id_span: Option<Span>,
 }
 
 /// A transition row from the Model's `### Transitions` table.
@@ -42,6 +57,14 @@ pub struct Transition {
     pub to: String,
     /// `None` when the guard cell is empty (`null` guard).
     pub guard: Option<String>,
+    /// Byte spans of the id/from/to cells in the source text — a state
+    /// rename rewrites the from/to cells through them. Not serialized.
+    #[serde(skip_serializing)]
+    pub id_span: Option<Span>,
+    #[serde(skip_serializing)]
+    pub from_span: Option<Span>,
+    #[serde(skip_serializing)]
+    pub to_span: Option<Span>,
 }
 
 /// Parsed frontmatter (the Intent layer).
@@ -52,6 +75,10 @@ pub struct Intent {
     pub statement: String,
     /// Any extra frontmatter fields (e.g. `checked_against_core`).
     pub extra: BTreeMap<String, serde_yaml_ng::Value>,
+    /// Byte span of the frontmatter `id:` value in the source text
+    /// (add-acset-writer task 2.2). Not serialized.
+    #[serde(skip_serializing)]
+    pub id_span: Option<Span>,
 }
 
 /// A parsed spec file.
@@ -110,6 +137,10 @@ pub struct Link {
     pub column: String,
     /// Source id it is anchored to (row id, or the intent id for frontmatter).
     pub source: String,
+    /// Byte span of the full `[[…]]` occurrence in the source text
+    /// (add-acset-writer task 2.2). Not serialized.
+    #[serde(skip_serializing)]
+    pub span: Option<Span>,
 }
 
 impl Spec {
@@ -185,6 +216,11 @@ pub(crate) fn law_case_labels(predicate: &str) -> Vec<String> {
 
 /// Parse a spec from a string (path-less; used by tests and stdin).
 pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
+    // Byte offset of each line's start — the coordinate system for every
+    // recorded span (add-acset-writer task 2.2).
+    let line_starts: Vec<usize> = std::iter::once(0)
+        .chain(text.match_indices('\n').map(|(i, _)| i + 1))
+        .collect();
     let mut lines = text.lines().enumerate().peekable();
 
     // --- Frontmatter: leading `---` fenced block ---
@@ -232,6 +268,7 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
         .map_err(|e| ParseError::File("<frontmatter>".into(), e.to_string()))?;
     let get = |k: &str| -> Option<String> { fm.get(k).map(v_to_string) };
     let intent = Intent {
+        id_span: None,
         id: get("id")
             .ok_or_else(|| ParseError::File("<frontmatter>".into(), "missing `id` field".into()))?,
         kind: get("kind").ok_or_else(|| {
@@ -262,8 +299,8 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
         reference_typing_body: String::new(),
         links: vec![],
     };
-    spec.links
-        .extend(collect_links(&fm_raw, "frontmatter", "", &spec.intent.id));
+    spec.links.extend(frontmatter_links(text, &spec.intent.id));
+    spec.intent.id_span = frontmatter_id_span(text, &spec.intent.id);
 
     // --- Body sections ---
     let mut current_table: TableKind = TableKind::None;
@@ -364,19 +401,29 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
                     let (id, emits) = parse_state_bullet(bullet);
                     let mut cells = BTreeMap::new();
                     cells.insert("id".into(), id.clone());
+                    let (id_span, emits_at) = state_bullet_spans(line, line_starts[n]);
                     if let Some(e) = emits {
                         cells.insert("emits".into(), e.clone());
                         // emits is a typed reference to a Constraint — extract
                         // the [[link]] rather than treating the raw cell as
                         // the target.
-                        for l in collect_links(&e, "states", "emits", &id) {
-                            spec.links.push(l);
+                        let base = emits_at.and_then(|at| {
+                            line.get(at - line_starts[n]..)
+                                .and_then(|rest| rest.find(e.as_str()))
+                                .map(|rel| at + rel)
+                        });
+                        if let Some(b) = base {
+                            spec.links
+                                .extend(collect_links_spanned(&e, b, "states", "emits", &id));
+                        } else {
+                            spec.links.extend(collect_links(&e, "states", "emits", &id));
                         }
                     }
                     spec.states.push(Row {
                         id,
                         kind: None,
                         cells,
+                        id_span,
                     });
                 }
             }
@@ -387,8 +434,17 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
                             .map_err(|m| ParseError::Cell("<table>".into(), lineno, m))?;
                         continue;
                     }
-                    let cells_raw =
-                        parse_row(t).map_err(|m| ParseError::Cell("<table>".into(), lineno, m))?;
+                    let cells_spanned = parse_row_spans(line, line_starts[n])
+                        .map_err(|m| ParseError::Cell("<table>".into(), lineno, m))?;
+                    let cells_raw: Vec<String> =
+                        cells_spanned.iter().map(|(c, _)| c.clone()).collect();
+                    let cell_span = |name: &str| -> Option<Span> {
+                        headers
+                            .iter()
+                            .position(|h| h == name)
+                            .and_then(|i| cells_spanned.get(i))
+                            .map(|(_, s)| *s)
+                    };
                     let get_col = |name: &str| -> Option<String> {
                         headers
                             .iter()
@@ -415,18 +471,47 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
                         if h == "id" || h == "kind" {
                             continue;
                         }
-                        spec.links
-                            .extend(collect_links(v, table_field(current_table), h, &id));
+                        // Spanned when the cell's bytes can be located in
+                        // the raw line; unspanned fallback otherwise (the
+                        // writer reports span_failure when it needs one).
+                        if let Some(i) = headers.iter().position(|x| x == h)
+                            && let Some((_, s)) = cells_spanned.get(i)
+                        {
+                            spec.links.extend(collect_links_spanned(
+                                v,
+                                s.start,
+                                table_field(current_table),
+                                h,
+                                &id,
+                            ));
+                        } else {
+                            spec.links
+                                .extend(collect_links(v, table_field(current_table), h, &id));
+                        }
                     }
+                    let id_span = cell_span("id");
                     match current_table {
-                        TableKind::Constraints => spec.constraints.push(Row { id, kind, cells }),
-                        TableKind::Properties => spec.properties.push(Row { id, kind, cells }),
+                        TableKind::Constraints => spec.constraints.push(Row {
+                            id,
+                            kind,
+                            cells,
+                            id_span,
+                        }),
+                        TableKind::Properties => spec.properties.push(Row {
+                            id,
+                            kind,
+                            cells,
+                            id_span,
+                        }),
                         TableKind::Transitions => {
                             spec.transitions.push(Transition {
-                                id,
+                                id_span,
                                 from: get_col("from").unwrap_or_default(),
                                 to: get_col("to").unwrap_or_default(),
                                 guard: get_col("guard").filter(|g| !g.trim().is_empty()),
+                                from_span: cell_span("from"),
+                                to_span: cell_span("to"),
+                                id,
                             });
                         }
                         _ => unreachable!(),
@@ -537,10 +622,31 @@ fn parse_state_bullet(bullet: &str) -> (String, Option<String>) {
 }
 
 /// Extract every `[[link]]` from a structured cell, with backtick awareness
-/// not needed — `[[...]]` is unambiguous.
+/// not needed — `[[...]]` is unambiguous. (Unspanned fallback: used when a
+/// cell's bytes cannot be located in the raw line.)
 fn collect_links(cell: &str, field: &str, column: &str, source: &str) -> Vec<Link> {
+    collect_links_spanned(cell, 0, field, column, source)
+        .into_iter()
+        .map(|mut l| {
+            l.span = None;
+            l
+        })
+        .collect()
+}
+
+/// [`collect_links`] with byte spans: `cell_base` is the cell content's
+/// absolute offset in the source text; each recorded span covers the
+/// full `[[…]]` occurrence (add-acset-writer task 2.2).
+fn collect_links_spanned(
+    cell: &str,
+    cell_base: usize,
+    field: &str,
+    column: &str,
+    source: &str,
+) -> Vec<Link> {
     let mut links = vec![];
     let mut rest = cell;
+    let mut consumed = 0usize;
     while let Some(start) = rest.find("[[") {
         let after = &rest[start + 2..];
         match after.find("]]") {
@@ -552,12 +658,184 @@ fn collect_links(cell: &str, field: &str, column: &str, source: &str) -> Vec<Lin
                         field: field.into(),
                         column: column.into(),
                         source: source.into(),
+                        span: Some(Span {
+                            start: cell_base + consumed + start,
+                            end: cell_base + consumed + start + 2 + end + 2,
+                        }),
                     });
                 }
+                let adv = start + 2 + end + 2;
                 rest = &after[end + 2..];
+                consumed += adv;
             }
             None => break,
         }
+    }
+    links
+}
+
+/// Split a markdown table row into cells WITH byte spans — the spanned
+/// counterpart of [`parse_row`]. `base` is the line's absolute start
+/// offset in the source text; each span covers the cell's trimmed
+/// content (what an id edit rewrites — padding around it is untouched,
+/// `width_padding_policy`).
+pub(crate) fn parse_row_spans(line: &str, base: usize) -> Result<Vec<(String, Span)>, String> {
+    let t = line.trim();
+    let t_off = line.len() - line.trim_start().len();
+    let t = t.strip_prefix('|').ok_or("row does not start with `|`")?;
+    let t_off = t_off + 1;
+    let t = t.strip_suffix('|').unwrap_or(t);
+    let mut cells: Vec<(String, Span)> = vec![];
+    let mut buf = String::new();
+    let mut first: Option<usize> = None;
+    let mut in_backtick = false;
+    let mut push_cell = |buf: &str, first: Option<usize>, pos: usize| {
+        let content = buf.trim();
+        let span = match first {
+            Some(f) => Span {
+                start: base + t_off + f,
+                end: base + t_off + f + content.len(),
+            },
+            None => Span {
+                start: base + pos,
+                end: base + pos,
+            },
+        };
+        cells.push((content.to_string(), span));
+    };
+    for (bi, c) in t.char_indices() {
+        match c {
+            '`' => {
+                if first.is_none() {
+                    first = Some(bi);
+                }
+                in_backtick = !in_backtick;
+                buf.push(c);
+            }
+            '|' if !in_backtick => {
+                push_cell(&buf, first, t_off + bi);
+                buf.clear();
+                first = None;
+            }
+            _ => {
+                if first.is_none() && !c.is_whitespace() {
+                    first = Some(bi);
+                }
+                buf.push(c);
+            }
+        }
+    }
+    push_cell(&buf, first, t_off + t.len());
+    Ok(cells)
+}
+
+/// Byte span of a States bullet's leading id token in the raw line
+/// (mirrors [`parse_state_bullet`]'s head logic), plus the absolute
+/// offset where the emits region begins (for link spans). `base` is the
+/// line's absolute start offset. `(None, None)` when the shape is
+/// unrecognized — the writer reports `span_failure` if an edit needs it.
+fn state_bullet_spans(line: &str, base: usize) -> (Option<Span>, Option<usize>) {
+    let trimmed = line.trim_start();
+    let lead = line.len() - trimmed.len();
+    let Some(rest) = trimmed.strip_prefix("- ") else {
+        return (None, None);
+    };
+    let off = |i: usize| base + lead + 2 + i;
+    let content_off = rest.len() - rest.trim_start().len();
+    let c = &rest[content_off..];
+    if let Some(stripped) = c.strip_prefix('`') {
+        let inner = content_off + 1;
+        match stripped.find('`') {
+            Some(end) => (
+                Some(Span {
+                    start: off(inner),
+                    end: off(inner + end),
+                }),
+                Some(off(inner + end + 1)),
+            ),
+            None => (None, None),
+        }
+    } else {
+        let tok_end = c.find([' ', '(']).unwrap_or(c.len());
+        if tok_end == 0 {
+            return (None, None);
+        }
+        (
+            Some(Span {
+                start: off(content_off),
+                end: off(content_off + tok_end),
+            }),
+            Some(off(content_off + tok_end)),
+        )
+    }
+}
+
+/// Byte span of the frontmatter `id:` value in the raw text — `None`
+/// unless the raw value bytes are exactly the parsed id (a quoted or
+/// multi-line value is not a span the writer can safely rewrite).
+fn frontmatter_id_span(text: &str, id: &str) -> Option<Span> {
+    let mut in_fm = false;
+    let mut off = 0usize;
+    for seg in text.split_inclusive('\n') {
+        let line = seg.strip_suffix('\n').unwrap_or(seg);
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        let this_off = off;
+        off += seg.len();
+        let t = line.trim();
+        if !in_fm {
+            if t == "---" {
+                in_fm = true;
+            }
+            continue;
+        }
+        if t == "---" {
+            break;
+        }
+        let Some(value) = t.strip_prefix("id:") else {
+            continue;
+        };
+        let lead = line.len() - line.trim_start().len();
+        let value_off_in_line = lead + 3 + (value.len() - value.trim_start().len());
+        let v = value.trim();
+        return (v == id).then(|| Span {
+            start: this_off + value_off_in_line,
+            end: this_off + value_off_in_line + v.len(),
+        });
+    }
+    None
+}
+
+/// Every `[[link]]` in the frontmatter region with absolute byte spans
+/// (the spanned counterpart of the old `collect_links(&fm_raw, …)` —
+/// `fm_raw` is a reconstructed string whose offsets do not map back to
+/// the source, so the raw region is scanned directly).
+fn frontmatter_links(text: &str, source: &str) -> Vec<Link> {
+    let mut links = vec![];
+    let mut in_fm = false;
+    let mut off = 0usize;
+    for seg in text.split_inclusive('\n') {
+        let line = seg.strip_suffix('\n').unwrap_or(seg);
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        let this_off = off;
+        off += seg.len();
+        let t = line.trim();
+        if !in_fm {
+            if t == "---" {
+                in_fm = true;
+            }
+            continue;
+        }
+        if t == "---" {
+            break;
+        }
+        let lead = line.len() - line.trim_start().len();
+        links.extend(collect_links_spanned(
+            t,
+            this_off + lead,
+            "frontmatter",
+            "",
+            source,
+        ));
     }
     links
 }
