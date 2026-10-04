@@ -85,6 +85,9 @@ const ZERO_FILE: &str = "tests/fixtures/zero_file";
 const SINGLE_INTENT: &str = "tests/fixtures/single_intent";
 
 fn assert_oracle(dir: &str, expected: &str) {
+    // Windows runners check out the snapshots with CRLF (no .gitattributes);
+    // compare line-ending-agnostically — the oracle emits bare \n.
+    let expected = expected.replace("\r\n", "\n");
     let specs = collect_fixture(dir);
     let bytes = oracle_bytes(&graph::build(&specs));
     assert!(
