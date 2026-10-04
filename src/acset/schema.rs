@@ -84,6 +84,17 @@ pub struct Morphism {
     /// Declared refinement predicates over a row's own kind column
     /// (`refinement_declared`), evaluated at build time.
     pub refinements: Vec<Refinement>,
+    /// The source-side rule this row enforces (see `SourceRule`).
+    pub source_rule: SourceRule,
+    /// The labeled reason when no row of this column accepts the edge —
+    /// the exact prose the graph fixtures pin, carried as data.
+    /// `{tk}` interpolates the target's description. For a column split
+    /// across rows, every row carries the same template.
+    pub target_violation: &'static str,
+    /// The appears-on reason (`AppearsOn` rows only), fired before the
+    /// target is considered; `{src}` interpolates the source's
+    /// description (or `an untyped row`).
+    pub source_violation: Option<&'static str>,
     /// Endo-acyclicity flag (`endo_acyclicity_flagged`): `Some(flag)` when
     /// the morphism is structurally endo (source == target), `None` when
     /// not.
@@ -104,6 +115,36 @@ pub enum Side {
 pub struct Refinement {
     pub side: Side,
     pub kind: &'static str,
+}
+
+/// The source-side rule a morphism row enforces, as data. Three generic
+/// rules cover every Reference Typing row; adding a reference field is
+/// adding one row, never checker code (`typing_table_is_data`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SourceRule {
+    /// The source side is not consulted — target-side typing alone
+    /// (traces_to, guard, emits, satisfies, observes, uses, from/to).
+    Unchecked,
+    /// The source must be a row of the morphism's source object — the
+    /// Appears-on column read as normative (specodelic-huf); an untyped
+    /// source row violates, and the rule fires before the target is
+    /// considered.
+    AppearsOn,
+    /// The source must be of the same class as the target (the
+    /// Constraint→Constraint / Property→Property rule). An untyped source
+    /// row is not policed by it — a frontmatter supersedes link stays
+    /// allowed (the current `let source = source_kind?` behaviour).
+    SameKind,
+}
+
+/// One endpoint of a typed reference — the row's schema object, its own
+/// kind cell (empty when the object carries none), and the human
+/// description the violation reasons interpolate (`{tk}` / `{src}`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Endpoint {
+    pub object: String,
+    pub kind: String,
+    pub describe: String,
 }
 
 /// A schema-level failure, named after the invariant it violates.
@@ -145,6 +186,15 @@ pub fn canonical() -> Schema {
     // Reference Typing table read as data. Authored in table order; the
     // canonical (source, name) sort below makes declaration order
     // irrelevant (`order_is_canonical`).
+    //
+    // The violation templates are the exact prose the graph fixtures pin
+    // (byte parity with the retired match arms). Split columns share a
+    // constant so their rows cannot drift apart.
+    const DERIVES_FROM_TARGET_VIOLATION: &str = "derives_from must resolve to a Constraint, or to a Property when the source is a law (Reference Typing); target is {tk}";
+    const DERIVES_FROM_SOURCE_VIOLATION: &str =
+        "derives_from appears on Property rows only (Reference Typing); source is {src}";
+    const GUARD_TARGET_VIOLATION: &str = "guard must resolve to an invariant Constraint or a State (Reference Typing); target is {tk}";
+    const SUPERSEDES_TARGET_VIOLATION: &str = "supersedes must target the same kind as the row it appears on (Reference Typing); source is {src}, target is {tk}";
     let mut morphisms = vec![
         // traces_to | Constraint | Intent
         Morphism {
@@ -153,6 +203,9 @@ pub fn canonical() -> Schema {
             source: o("Constraint"),
             target: o("Intent"),
             refinements: vec![],
+            source_rule: SourceRule::Unchecked,
+            target_violation: "traces_to must resolve to an Intent (Reference Typing); target is {tk}",
+            source_violation: None,
             endo_acyclic: None,
         },
         // derives_from | Property | Constraint
@@ -162,27 +215,29 @@ pub fn canonical() -> Schema {
             source: o("Property"),
             target: o("Constraint"),
             refinements: vec![],
+            source_rule: SourceRule::AppearsOn,
+            target_violation: DERIVES_FROM_TARGET_VIOLATION,
+            source_violation: Some(DERIVES_FROM_SOURCE_VIOLATION),
             endo_acyclic: None,
         },
         // derives_from | Property | the same Property when the deriving
-        // row is itself a law — the endo case; cycle policing stays with
-        // the linter's acyclic_traces (flag false).
+        // row is itself a law — the endo case; the source-side law
+        // refinement is the whole rule (Revision 10: any Property may be
+        // restated); cycle policing stays with the linter's
+        // acyclic_traces (flag false).
         Morphism {
             column: "derives_from",
             name: "derives_from_law",
             source: o("Property"),
             target: o("Property"),
-            refinements: vec![
-                Refinement {
-                    side: Side::Source,
-                    kind: "law",
-                },
-                Refinement {
-                    side: Side::Target,
-                    kind: "law",
-                },
-            ],
+            source_rule: SourceRule::AppearsOn,
+            target_violation: DERIVES_FROM_TARGET_VIOLATION,
+            source_violation: Some(DERIVES_FROM_SOURCE_VIOLATION),
             endo_acyclic: Some(false),
+            refinements: vec![Refinement {
+                side: Side::Source,
+                kind: "law",
+            }],
         },
         // guard | Transition | an invariant Constraint
         Morphism {
@@ -194,6 +249,9 @@ pub fn canonical() -> Schema {
                 side: Side::Target,
                 kind: "invariant",
             }],
+            source_rule: SourceRule::Unchecked,
+            target_violation: GUARD_TARGET_VIOLATION,
+            source_violation: None,
             endo_acyclic: None,
         },
         // guard | Transition | a State — the "has reached state X"
@@ -204,6 +262,9 @@ pub fn canonical() -> Schema {
             source: o("Transition"),
             target: o("State"),
             refinements: vec![],
+            source_rule: SourceRule::Unchecked,
+            target_violation: GUARD_TARGET_VIOLATION,
+            source_violation: None,
             endo_acyclic: None,
         },
         // supersedes | Constraint | Constraint — flagged: cycles forbidden
@@ -214,6 +275,9 @@ pub fn canonical() -> Schema {
             source: o("Constraint"),
             target: o("Constraint"),
             refinements: vec![],
+            source_rule: SourceRule::SameKind,
+            target_violation: SUPERSEDES_TARGET_VIOLATION,
+            source_violation: None,
             endo_acyclic: Some(true),
         },
         // supersedes | Property | Property — flagged the same way
@@ -223,6 +287,9 @@ pub fn canonical() -> Schema {
             source: o("Property"),
             target: o("Property"),
             refinements: vec![],
+            source_rule: SourceRule::SameKind,
+            target_violation: SUPERSEDES_TARGET_VIOLATION,
+            source_violation: None,
             endo_acyclic: Some(true),
         },
         // emits | State | Constraint, kind == effect only
@@ -235,6 +302,9 @@ pub fn canonical() -> Schema {
                 side: Side::Target,
                 kind: "effect",
             }],
+            source_rule: SourceRule::Unchecked,
+            target_violation: "emits must resolve to an effect Constraint (Reference Typing); target is {tk}",
+            source_violation: None,
             endo_acyclic: None,
         },
         // satisfies | Constraint | Constraint, kind == extension_point
@@ -249,6 +319,9 @@ pub fn canonical() -> Schema {
                 side: Side::Target,
                 kind: "extension_point",
             }],
+            source_rule: SourceRule::Unchecked,
+            target_violation: "satisfies must resolve to an extension_point Constraint (Reference Typing); target is {tk}",
+            source_violation: None,
             endo_acyclic: Some(false),
         },
         // observes | Constraint | Constraint, kind == effect only —
@@ -263,6 +336,9 @@ pub fn canonical() -> Schema {
                 side: Side::Target,
                 kind: "effect",
             }],
+            source_rule: SourceRule::Unchecked,
+            target_violation: "observes must resolve to an effect Constraint (Reference Typing); target is {tk}",
+            source_violation: None,
             endo_acyclic: Some(false),
         },
         // uses | Constraint | Intent of a kind: profile file (Revision 14)
@@ -275,6 +351,9 @@ pub fn canonical() -> Schema {
                 side: Side::Target,
                 kind: "profile",
             }],
+            source_rule: SourceRule::Unchecked,
+            target_violation: "uses must resolve to a profile Intent (Reference Typing); target is {tk}",
+            source_violation: None,
             endo_acyclic: None,
         },
         // from / to | Transition | State — the transitions walk owns these
@@ -286,6 +365,9 @@ pub fn canonical() -> Schema {
             source: o("Transition"),
             target: o("State"),
             refinements: vec![],
+            source_rule: SourceRule::Unchecked,
+            target_violation: "from must resolve to a State (Reference Typing); target is {tk}",
+            source_violation: None,
             endo_acyclic: None,
         },
         Morphism {
@@ -294,6 +376,9 @@ pub fn canonical() -> Schema {
             source: o("Transition"),
             target: o("State"),
             refinements: vec![],
+            source_rule: SourceRule::Unchecked,
+            target_violation: "to must resolve to a State (Reference Typing); target is {tk}",
+            source_violation: None,
             endo_acyclic: None,
         },
     ];
@@ -444,6 +529,102 @@ pub fn check_endo_acyclicity(
     }
 }
 
+/// The Reference Typing check for one resolved reference, decided from the
+/// schema's rows — the generic checker the retired per-field match arms in
+/// `graph.rs::typing_violation` are replaced by (`typing_table_is_data`):
+/// adding a reference field is adding one row, never checker code.
+///
+/// Evaluation order (pinned byte-for-byte by the graph fixtures):
+///
+/// 1. A column with no rows is not a typed reference field — allowed.
+/// 2. `AppearsOn` columns police the source before the target is even
+///    considered (specodelic-huf): a source that cannot sit on any of the
+///    column's source objects — including an untyped source row — fires
+///    the column's source-side reason.
+/// 3. The rows are consulted in canonical order: a row accepts the edge
+///    when the target's object and the row's target-side refinements and
+///    source-side refinements all hold, and the row's `SourceRule` is
+///    satisfied. No row accepting composes the column's target-side
+///    reason from its template.
+pub fn typing_violation(
+    schema: &Schema,
+    column: &str,
+    source: Option<Endpoint>,
+    target: Endpoint,
+) -> Option<String> {
+    let rows: Vec<&Morphism> = schema
+        .morphisms
+        .iter()
+        .filter(|m| m.column == column)
+        .collect();
+    if rows.is_empty() {
+        return None;
+    }
+    if rows.iter().any(|r| r.source_rule == SourceRule::AppearsOn) {
+        let source_ok = source.as_ref().is_some_and(|s| {
+            rows.iter()
+                .any(|r| r.source_rule == SourceRule::AppearsOn && s.object == r.source.0)
+        });
+        if !source_ok {
+            let src = source
+                .map(|s| s.describe)
+                .unwrap_or_else(|| "an untyped row".to_string());
+            let template = rows
+                .iter()
+                .find_map(|r| r.source_violation)
+                .expect("AppearsOn rows carry a source template");
+            return Some(template.replace("{src}", &src));
+        }
+    }
+    for row in &rows {
+        // Target object + target-side refinements.
+        if target.object != row.target.0 {
+            continue;
+        }
+        if !row
+            .refinements
+            .iter()
+            .filter(|r| r.side == Side::Target)
+            .all(|r| target.kind == r.kind)
+        {
+            continue;
+        }
+        // Source-side refinements (the derives_from law case).
+        if !row
+            .refinements
+            .iter()
+            .filter(|r| r.side == Side::Source)
+            .all(|r| source.as_ref().is_some_and(|s| s.kind == r.kind))
+        {
+            continue;
+        }
+        match row.source_rule {
+            SourceRule::Unchecked => return None,
+            SourceRule::AppearsOn => {
+                if source.as_ref().is_some_and(|s| s.object == row.source.0) {
+                    return None;
+                }
+                continue;
+            }
+            SourceRule::SameKind => match source {
+                // An untyped source row is not policed by the same-kind
+                // rule (current `let source = source_kind?` behaviour).
+                None => return None,
+                Some(s) if s.object == target.object => return None,
+                Some(_) => continue,
+            },
+        }
+    }
+    let reason = rows[0]
+        .target_violation
+        .replace(
+            "{src}",
+            &source.map_or_else(|| "an untyped row".to_string(), |s| s.describe),
+        )
+        .replace("{tk}", &target.describe);
+    Some(reason)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -559,13 +740,20 @@ mod tests {
         });
         let source_state = Some(endpoint("State", "", "a State"));
         assert_eq!(
-            typing_violation(&s, "backs", source_state, endpoint("Intent", "", "an Intent")),
+            typing_violation(
+                &s,
+                "backs",
+                source_state,
+                endpoint("Intent", "", "an Intent")
+            ),
             None,
             "the added row admits State→Intent with no checker change"
         );
         assert_eq!(
             typing_violation(&s, "backs", None, endpoint("State", "", "a State")),
-            Some("backs must resolve to an Intent (Reference Typing); target is a State".to_string()),
+            Some(
+                "backs must resolve to an Intent (Reference Typing); target is a State".to_string()
+            ),
             "the added row's own template composes the reason"
         );
         assert_eq!(
@@ -619,10 +807,18 @@ mod tests {
         // carrying traces_to is typed on the target alone).
         assert_eq!(
             typing_violation(&s, "traces_to", Some(property.clone()), constraint.clone()),
-            Some("traces_to must resolve to an Intent (Reference Typing); target is a Constraint".to_string()),
+            Some(
+                "traces_to must resolve to an Intent (Reference Typing); target is a Constraint"
+                    .to_string()
+            ),
         );
         assert_eq!(
-            typing_violation(&s, "traces_to", Some(property), endpoint("Intent", "", "an Intent")),
+            typing_violation(
+                &s,
+                "traces_to",
+                Some(property),
+                endpoint("Intent", "", "an Intent")
+            ),
             None,
         );
         // derives_from: appears-on fires first, even over a matching target.
@@ -634,21 +830,29 @@ mod tests {
             typing_violation(&s, "derives_from", None, constraint),
             Some("derives_from appears on Property rows only (Reference Typing); source is an untyped row".to_string()),
         );
-        // The law case: law→law allowed, law→non-law Property rejected.
+        // The law case: law→law allowed, and (Revision 10) a law may
+        // restate any Property — the source-side refinement is the whole
+        // rule; a non-law source over a Property target is rejected.
         assert_eq!(
-            typing_violation(&s, "derives_from", Some(law.clone()), law),
+            typing_violation(&s, "derives_from", Some(law.clone()), law.clone()),
             None,
             "a law derives from a law"
         );
         let unit_law = endpoint("Property", "unit", "a Property (kind `unit`)");
         assert_eq!(
             typing_violation(&s, "derives_from", Some(law), unit_law),
-            Some("derives_from must resolve to a Constraint, or to a Property when the source is a law (Reference Typing); target is a Property (kind `unit`)".to_string()),
+            None,
+            "Revision 10: a law restates any Property"
         );
         // guard: the split column admits a State (Revision 12).
         let source_transition = Some(endpoint("Transition", "", "a Transition"));
         assert_eq!(
-            typing_violation(&s, "guard", source_transition.clone(), endpoint("State", "", "a State")),
+            typing_violation(
+                &s,
+                "guard",
+                source_transition.clone(),
+                endpoint("State", "", "a State")
+            ),
             None,
         );
         assert_eq!(
@@ -662,7 +866,12 @@ mod tests {
         );
         // supersedes: the same-kind rule, with the exact combined reason.
         assert_eq!(
-            typing_violation(&s, "supersedes", Some(endpoint("Constraint", "", "a Constraint")), endpoint("Constraint", "", "a Constraint")),
+            typing_violation(
+                &s,
+                "supersedes",
+                Some(endpoint("Constraint", "", "a Constraint")),
+                endpoint("Constraint", "", "a Constraint")
+            ),
             None,
         );
         assert_eq!(
@@ -672,7 +881,12 @@ mod tests {
         // An untyped source row is not policed by the same-kind rule
         // (frontmatter supersedes links stay allowed — current behaviour).
         assert_eq!(
-            typing_violation(&s, "supersedes", None, endpoint("Constraint", "", "a Constraint")),
+            typing_violation(
+                &s,
+                "supersedes",
+                None,
+                endpoint("Constraint", "", "a Constraint")
+            ),
             None,
         );
         // satisfies/observes: extension_point-only / effect-only.

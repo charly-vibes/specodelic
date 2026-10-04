@@ -32,7 +32,7 @@ Tidying commits are separate from feature commits.
       morphisms, allowed-targets incl. the three refinement rules as
       declared predicates, endo-acyclicity flags, canonical sorted
       order).
-- [ ] 2.3 **RED→GREEN**: switch `typing_violation` in `src/graph.rs` to
+- [x] 2.3 **RED→GREEN**: switch `typing_violation` in `src/graph.rs` to
       read allowed targets from the Schema — the snapshot fixtures from
       1.1 must stay byte-identical (`adapter_graph_equivalent` gate).
 - [ ] 2.4 **RED→GREEN**: lint-time drift gate

@@ -13,6 +13,7 @@
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::acset::schema::{self, Endpoint, Schema};
 use crate::spec::Spec;
 
 /// One directed, typed edge.
@@ -93,17 +94,25 @@ impl NodeKind {
         }
     }
 
-    /// Do two node kinds belong to the same class (the `supersedes` same-kind
-    /// rule: Constraint→Constraint, Property→Property)?
-    fn same_class(&self, other: &NodeKind) -> bool {
-        matches!(
-            (self, other),
-            (NodeKind::Constraint(_), NodeKind::Constraint(_))
-                | (NodeKind::Property(_), NodeKind::Property(_))
-                | (NodeKind::Intent, NodeKind::Intent)
-                | (NodeKind::State, NodeKind::State)
-                | (NodeKind::Transition, NodeKind::Transition)
-        )
+    /// The schema object this node kind belongs to (the Reference Typing
+    /// table's Appears-on / Must-resolve-to vocabulary).
+    fn object(&self) -> &'static str {
+        match self {
+            NodeKind::Intent => "Intent",
+            NodeKind::Constraint(_) => "Constraint",
+            NodeKind::Property(_) => "Property",
+            NodeKind::State => "State",
+            NodeKind::Transition => "Transition",
+        }
+    }
+
+    /// The row's own kind cell — empty when the object carries none
+    /// (Intent/State/Transition have no kind column of their own).
+    fn kind_cell(&self) -> &str {
+        match self {
+            NodeKind::Constraint(k) | NodeKind::Property(k) => k,
+            NodeKind::Intent | NodeKind::State | NodeKind::Transition => "",
+        }
     }
 }
 
@@ -159,88 +168,24 @@ const TYPED_REFERENCE_COLUMNS: [&str; 7] = [
 
 /// The Reference Typing check for one resolved link: `None` when the edge
 /// is allowed (or the column is not a typed reference field), `Some(reason)`
-/// when the typing table forbids it.
+/// when the typing table forbids it. The decision is the Schema's — this
+/// adapter only maps `NodeKind` onto the schema's endpoint vocabulary; the
+/// per-field match arms this function used to carry are retired
+/// (`typing_table_is_data`, add-acset-core task 2.3).
 fn typing_violation(
+    schema: &Schema,
     column: &str,
     source_kind: Option<&NodeKind>,
     target_kind: Option<&NodeKind>,
 ) -> Option<String> {
+    // Dangling references are the caller's beat (`let target = ...?`).
     let target = target_kind?;
-    let tk = target.describe();
-    match column {
-        "traces_to" if *target != NodeKind::Intent => Some(format!(
-            "traces_to must resolve to an Intent (Reference Typing); target is {tk}"
-        )),
-        "derives_from" => {
-            // The Appears-on column is normative (specodelic-huf):
-            // derives_from appears on Property rows only — a Constraint
-            // (or State/Transition) carrying it is out-of-format, before
-            // the target is even considered. Supersedes already reads
-            // this column the same way.
-            if !matches!(source_kind, Some(NodeKind::Property(_))) {
-                return Some(format!(
-                    "derives_from appears on Property rows only (Reference Typing); source is {}",
-                    source_kind
-                        .map(|s| s.describe())
-                        .unwrap_or_else(|| "an untyped row".to_string())
-                ));
-            }
-            match target {
-                NodeKind::Constraint(_) => None,
-                // Revision 10 (specodelic-cxq): a `law` Property may derive
-                // from another Property — the same-kind law-restates-law edge
-                // (checker `*_naturality` laws → `specodelic.rename_naturality`).
-                NodeKind::Property(_) if matches!(source_kind, Some(NodeKind::Property(k)) if k == "law") => {
-                    None
-                }
-                _ => Some(format!(
-                    "derives_from must resolve to a Constraint, or to a Property when the source is a law (Reference Typing); target is {tk}"
-                )),
-            }
-        }
-        "guard" => match target {
-            NodeKind::Constraint(k) if k == "invariant" => None,
-            // Revision 12 (specodelic-tik reconciliation): a guard may
-            // cite a State — the "has reached state X" pattern
-            // (graph.md extract, refactor.md analyze, orchestrate.md
-            // start_lint).
-            NodeKind::State => None,
-            _ => Some(format!(
-                "guard must resolve to an invariant Constraint or a State (Reference Typing); target is {tk}"
-            )),
-        },
-        "emits" => match target {
-            NodeKind::Constraint(k) if k == "effect" => None,
-            _ => Some(format!(
-                "emits must resolve to an effect Constraint (Reference Typing); target is {tk}"
-            )),
-        },
-        "satisfies" => match target {
-            NodeKind::Constraint(k) if k == "extension_point" => None,
-            _ => Some(format!(
-                "satisfies must resolve to an extension_point Constraint (Reference Typing); target is {tk}"
-            )),
-        },
-        "observes" => match target {
-            NodeKind::Constraint(k) if k == "effect" => None,
-            _ => Some(format!(
-                "observes must resolve to an effect Constraint (Reference Typing); target is {tk}"
-            )),
-        },
-        "supersedes" => {
-            let source = source_kind?;
-            if source.same_class(target) {
-                None
-            } else {
-                Some(format!(
-                    "supersedes must target the same kind as the row it appears on \
-                     (Reference Typing); source is {}, target is {tk}",
-                    source.describe()
-                ))
-            }
-        }
-        _ => None,
-    }
+    let endpoint = |k: &NodeKind| Endpoint {
+        object: k.object().to_string(),
+        kind: k.kind_cell().to_string(),
+        describe: k.describe(),
+    };
+    schema::typing_violation(schema, column, source_kind.map(&endpoint), endpoint(target))
 }
 
 /// Cycles in the `supersedes` edge set (`supersedes_dag`,
@@ -294,6 +239,9 @@ fn dfs_supersedes<'a>(
 
 /// Build the graph for a corpus of parsed specs.
 pub fn build(specs: &[Spec]) -> GraphReport {
+    // The Reference Typing table as data — the schema the typing check
+    // reads (`typing_table_is_data`), built once per report.
+    let schema = schema::canonical();
     // Node-kind index for the Reference Typing checks.
     let kinds = kind_index(specs);
     // Resolution index: file id -> defined ids (intent + rows).
@@ -420,7 +368,7 @@ pub fn build(specs: &[Spec]) -> GraphReport {
                         _ => None,
                     };
                     if let Some(reason) =
-                        typing_violation(&link.column, source_kind, kinds.get(&target))
+                        typing_violation(&schema, &link.column, source_kind, kinds.get(&target))
                     {
                         report.violations.push(Violation {
                             from,
