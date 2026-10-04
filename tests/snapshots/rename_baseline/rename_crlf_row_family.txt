@@ -1,0 +1,34 @@
+old: crlf.a.c1
+new: crlf.a.c2
+remove: none
+--- write: crlf-a.md ---
+---
+id: crlf.a
+kind: intent
+statement: "THE crlf.a SHALL hold one of every rewrite family"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| c2 | invariant | `holds` | [[crlf.a]] |
+
+## Model
+
+### States
+- spanned
+- applied (emits: [[crlf.a.c2]])
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| t1 | spanned | applied | [[crlf.a.c2]] |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|-----------|
+| p1 | unit | [[crlf.a.c2]] | `g()` | `x` |
+

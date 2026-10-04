@@ -1,0 +1,47 @@
+old: fam.a
+new: fam.z
+remove: fam-a.md
+--- write: fam-b.md ---
+---
+id: fam.b
+kind: intent
+statement: "THE fam.b SHALL reference fam.a"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| c1 | invariant | `holds` | [[fam.z.c1]] and [[fam.z]] |
+
+--- write: fam-z.md ---
+---
+id: fam.z
+kind: intent
+statement: "THE fam.a SHALL hold one of every rewrite family"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| c1 | invariant | `holds` | [[fam.z]] |
+
+## Model
+
+### States
+- spanned
+- applied (emits: [[fam.z.c1]])
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| t1 | spanned | applied | [[fam.z.c1]] |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|-----------|
+| p1 | unit | [[fam.z.c1]] | `g()` | `x` |
+
