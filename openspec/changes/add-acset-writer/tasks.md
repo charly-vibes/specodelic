@@ -28,11 +28,11 @@ Tidying commits are separate from feature commits.
 
 ## 3. Writer core — identity emission
 
-- [ ] 3.1 **RED**: `emit(parse(x), no edit) == x` byte for byte — first
+- [x] 3.1 **RED**: `emit(parse(x), no edit) == x` byte for byte — first
       as fixtures over the whole `specs/` corpus (fails: writer does
       not exist), then as a proptest over generated spec-shaped inputs
       (`identity_emission_exact`).
-- [ ] 3.2 **GREEN**: `src/acset/writer.rs` emits from recorded spans
+- [x] 3.2 **GREEN**: `src/acset/writer.rs` emits from recorded spans
       only — never re-serializes a table (`source_spans_recorded`).
 - [ ] 3.3 **RED→GREEN**: span extraction failures surface as
       `acset.writer.span_failure` with remediation hint
