@@ -47,6 +47,14 @@ pub struct Row {
     /// (add-acset-writer task 2.2). Not serialized.
     #[serde(skip_serializing)]
     pub id_span: Option<Span>,
+    /// Byte span of EVERY column's cell content, keyed by header — the
+    /// writer rewrites any cell whose content an edit names (rename's
+    /// any-cell rule: a bare `derives_from` id, a plain `traces_to`),
+    /// through spans only. Additive, not serialized (add-acset-writer
+    /// task 4.2). Bullet rows (States) carry no cell spans — their head
+    /// id is [`Row::id_span`].
+    #[serde(skip_serializing)]
+    pub cell_spans: BTreeMap<String, Span>,
 }
 
 /// A transition row from the Model's `### Transitions` table.
@@ -65,6 +73,11 @@ pub struct Transition {
     pub from_span: Option<Span>,
     #[serde(skip_serializing)]
     pub to_span: Option<Span>,
+    /// Byte span of EVERY column's cell content, keyed by header — the
+    /// writer's any-cell rewrite surface (add-acset-writer task 4.2).
+    /// Additive, not serialized.
+    #[serde(skip_serializing)]
+    pub cell_spans: BTreeMap<String, Span>,
 }
 
 /// Parsed frontmatter (the Intent layer).
@@ -364,6 +377,9 @@ fn push_state_row(spec: &mut Spec, line: &str, line_start: usize) {
         kind: None,
         cells,
         id_span,
+        // Bullets are not table rows: the head id span is the only
+        // editable surface (add-acset-writer task 4.2).
+        cell_spans: BTreeMap::new(),
     });
 }
 
@@ -434,18 +450,28 @@ fn push_table_row(
         }
     }
     let id_span = cell_span("id");
+    // Every column's content span — the writer's any-cell rewrite
+    // surface (add-acset-writer task 4.2). Mirrors the `cells` map's
+    // last-duplicate-wins construction.
+    let cell_spans: BTreeMap<String, Span> = headers
+        .iter()
+        .cloned()
+        .zip(cells_spanned.iter().map(|(_, s)| *s))
+        .collect();
     match current_table {
         TableKind::Constraints => spec.constraints.push(Row {
             id,
             kind,
             cells,
             id_span,
+            cell_spans,
         }),
         TableKind::Properties => spec.properties.push(Row {
             id,
             kind,
             cells,
             id_span,
+            cell_spans,
         }),
         TableKind::Transitions => spec.transitions.push(Transition {
             id,
@@ -455,6 +481,7 @@ fn push_table_row(
             id_span,
             from_span: cell_span("from"),
             to_span: cell_span("to"),
+            cell_spans,
         }),
         _ => unreachable!(),
     }

@@ -14,6 +14,7 @@
 //! the format its byte-stable round trip.
 
 use crate::spec::Spec;
+use std::path::Path;
 
 /// A writer failure — one labeled cause per the fleet error contract
 /// (`specs/errors.md`): the label names the owning file's id (`spec`, the
@@ -104,9 +105,15 @@ fn verify_spans(src: &str, spec: &Spec) -> Result<(), WriterError> {
         .chain(&spec.properties)
     {
         check(r.id_span, &r.id, format!("row id `{}`", r.id))?;
+        // Every column's cell span (task 4.2) — the any-cell rewrite
+        // surface must resolve to the bytes its parsed value carries.
+        for (col, s) in &r.cell_spans {
+            let expected = r.cells.get(col).map(String::as_str).unwrap_or("");
+            check(Some(*s), expected, format!("row `{}` cell `{col}`", r.id))?;
+        }
     }
 
-    // Transitions: id, from, to cells.
+    // Transitions: id, from, to cells, plus every column's cell span.
     for t in &spec.transitions {
         check(t.id_span, &t.id, format!("transition id `{}`", t.id))?;
         check(
@@ -115,6 +122,19 @@ fn verify_spans(src: &str, spec: &Spec) -> Result<(), WriterError> {
             format!("transition `{}` from cell", t.id),
         )?;
         check(t.to_span, &t.to, format!("transition `{}` to cell", t.id))?;
+        for (col, s) in &t.cell_spans {
+            let expected = match col.as_str() {
+                "id" => t.id.as_str(),
+                "from" => t.from.as_str(),
+                "to" => t.to.as_str(),
+                _ => t.guard.as_deref().unwrap_or(""),
+            };
+            check(
+                Some(*s),
+                expected,
+                format!("transition `{}` cell `{col}`", t.id),
+            )?;
+        }
     }
 
     // Wiki-links: the span covers the full `[[…]]` occurrence; the inner
@@ -163,6 +183,219 @@ fn span_failure(what: String, detail: String) -> WriterError {
                       span is persistently unresolvable the parser's span \
                       recording has drifted from its extraction — see the \
                       acset-writer identity gate"
+            .into(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Edit application (add-acset-writer task 4.2) — `apply(f, x)` realizes an
+// instance edit through the recorded spans and returns the write-set.
+// ---------------------------------------------------------------------------
+
+/// The write-set: writes of `(path, full new contents)` plus removals —
+/// data, never I/O; applying it is the caller's single transaction
+/// (`write_set_atomic`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WriteSet {
+    /// Files to write: the edited file's path and its FULL new contents.
+    pub writes: Vec<(std::path::PathBuf, String)>,
+    /// Paths to remove (an intent rename moves the file: one removal).
+    pub removals: Vec<std::path::PathBuf>,
+}
+
+/// One edit: rename id `old` to `new` within a file. The shape mirrors
+/// `rename.rs`'s per-file rewrite contract so the migration (phase 5) can
+/// flip one rewrite family at a time behind the 1.1 parity snapshots:
+///
+/// - wiki-link targets matching `old` (or `old.<child>`) follow the
+///   rename, in every file;
+/// - when this file's own Intent id IS `old`, the frontmatter id is
+///   rewritten and the file moves to the filename the new id implies
+///   (`filename_follows_intent_id`);
+/// - `local` rewrites cells and state bullets carrying the local id —
+///   present only for the definition file of a row rename.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Edit {
+    Rename {
+        /// The qualified id being renamed (links match this and its
+        /// `.<child>` suffixes).
+        old: String,
+        /// The qualified replacement.
+        new: String,
+        /// `(local_old, local_new)` — the definition-file cell/bullet
+        /// rewrite of a row rename.
+        local: Option<(String, String)>,
+    },
+}
+
+/// Apply `edit` to the file at `path` whose parsed form is `spec` and raw
+/// bytes `source`. Performs no I/O; span coherence is verified first (the
+/// identity gate), then every change is realized as a span replacement.
+pub fn apply(edit: &Edit, path: &Path, source: &str, spec: &Spec) -> Result<WriteSet, WriterError> {
+    let Edit::Rename { old, new, local } = edit;
+    verify_spans(source, spec)?;
+
+    // Collect replacements: (span, replacement bytes), non-overlapping.
+    let mut repls: Vec<(crate::spec::Span, String)> = Vec::new();
+
+    // Wiki-links: qualified targets follow the rename everywhere. The
+    // emitted link is rebuilt from the trimmed target (the parser's
+    // value); raw inner padding around a target is normalized — the
+    // same normalization rename.rs's link rewrite performs.
+    for l in &spec.links {
+        let Some(s) = l.span else { continue };
+        let follows = if l.target == *old {
+            Some(new.clone())
+        } else if l
+            .target
+            .strip_prefix(old.as_str())
+            .is_some_and(|suffix| suffix.starts_with('.'))
+        {
+            Some(format!("{new}{}", &l.target[old.len()..]))
+        } else {
+            None
+        };
+        if let Some(nt) = follows {
+            repls.push((s, format!("[[{nt}]]")));
+        }
+    }
+
+    // The file's own Intent id: rewritten through its span, and the file
+    // moves. A quoted id has no recordable span — the edit cannot be
+    // realized (`apply_failure`), never a silent partial rewrite.
+    let is_intent_rename = local.is_none() && spec.intent.id == *old;
+    if is_intent_rename {
+        match spec.intent.id_span {
+            Some(s) => repls.push((s, new.clone())),
+            None => {
+                return Err(apply_failure(format!(
+                    "intent id `{old}` is recorded without a rewritable span \
+                     (quoted or multi-line frontmatter value)"
+                )));
+            }
+        }
+    }
+
+    // Definition-file cells and bullets carrying the local id — rename's
+    // any-cell rule, realized through per-column spans.
+    if let Some((lo, ln)) = local {
+        for r in &spec.constraints {
+            collect_cell_repls(&r.cells, &r.cell_spans, lo, ln, &mut repls)?;
+        }
+        for r in &spec.properties {
+            collect_cell_repls(&r.cells, &r.cell_spans, lo, ln, &mut repls)?;
+        }
+        // State bullets: the head id is the only editable surface.
+        for s in &spec.states {
+            if s.id == *lo {
+                match s.id_span {
+                    Some(sp) => repls.push((sp, ln.clone())),
+                    None => {
+                        return Err(apply_failure(format!(
+                            "state bullet `{lo}` is recorded without a rewritable \
+                             span (unrecognized bullet shape)"
+                        )));
+                    }
+                }
+            }
+        }
+        for t in &spec.transitions {
+            for (col, value) in [("id", &t.id), ("from", &t.from), ("to", &t.to)] {
+                if value == lo
+                    && let Some(sp) = t.cell_spans.get(col)
+                {
+                    repls.push((*sp, ln.clone()));
+                }
+            }
+        }
+    }
+
+    // Overlap guard: spans from different families must be disjoint —
+    // structural corruption here means the parser double-recorded.
+    repls.sort_by_key(|(s, _)| s.start);
+    for pair in repls.windows(2) {
+        if pair[0].0.end > pair[1].0.start {
+            return Err(span_failure(
+                "edit realization".into(),
+                format!(
+                    "replacement spans overlap: [{}, {}) and [{}, {})",
+                    pair[0].0.start, pair[0].0.end, pair[1].0.start, pair[1].0.end
+                ),
+            ));
+        }
+    }
+
+    // Realize: splice the replacements into the source bytes — every
+    // byte outside a replaced span, padding and terminators included,
+    // passes through untouched (`untouched_bytes_preserved`).
+    let mut out = String::with_capacity(source.len());
+    let mut cursor = 0usize;
+    for (s, text) in &repls {
+        out.push_str(&source[cursor..s.start]);
+        out.push_str(text);
+        cursor = s.end;
+    }
+    out.push_str(&source[cursor..]);
+
+    // The write-set: only files that actually change are written; an
+    // intent rename always writes the new path and removes the old one.
+    let writes = if out == *source && !is_intent_rename {
+        vec![]
+    } else {
+        let target = if is_intent_rename {
+            let new_name = format!("{}.md", new.replace('.', "-"));
+            path.parent()
+                .unwrap_or_else(|| Path::new("."))
+                .join(new_name)
+        } else {
+            path.to_path_buf()
+        };
+        vec![(target, out)]
+    };
+    let removals = if is_intent_rename {
+        vec![path.to_path_buf()]
+    } else {
+        vec![]
+    };
+    Ok(WriteSet { writes, removals })
+}
+
+/// Cell replacements for one table row: every column whose parsed value
+/// equals the local id is rewritten through its recorded span (rename's
+/// any-cell rule). A matching cell without a span cannot realize the edit.
+fn collect_cell_repls(
+    cells: &std::collections::BTreeMap<String, String>,
+    cell_spans: &std::collections::BTreeMap<String, crate::spec::Span>,
+    lo: &str,
+    ln: &str,
+    repls: &mut Vec<(crate::spec::Span, String)>,
+) -> Result<(), WriterError> {
+    for (col, value) in cells {
+        if value == lo {
+            match cell_spans.get(col) {
+                Some(sp) => repls.push((*sp, ln.to_string())),
+                None => {
+                    return Err(apply_failure(format!(
+                        "cell `{col}` carrying `{lo}` is recorded without a \
+                         rewritable span"
+                    )));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The `spec.apply_failure` labeled cause: an edit names an id no recorded
+/// span can realize because `detail`.
+fn apply_failure(detail: String) -> WriterError {
+    WriterError {
+        label: "spec.apply_failure".into(),
+        detail,
+        remediation: "the edit cannot be realized through recorded spans — \
+                      reparse the file, and if the shape persists, fix the \
+                      id's spelling in the source first (quoted frontmatter \
+                      ids and unrecognized bullet heads are not rewritable)"
             .into(),
     }
 }
