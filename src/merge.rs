@@ -21,7 +21,7 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-use crate::graph;
+use crate::acset;
 use crate::lint;
 use crate::spec::{Spec, parse_str};
 
@@ -112,40 +112,26 @@ fn touched_ids(tip: &Tip, base: &Tip) -> Vec<String> {
     touched
 }
 
-/// The blast radius of touching `touched`: the transitive fan-in closure
+/// The blast radius of touching `touched`: the mixed transitive closure
 /// over the branch's OWN graph artifact (`graph::build` — the reachability
-/// query is a graph query, never a fresh markdown walk), plus the targets
-/// the touched definitions reach (a new reference reaches its target too).
+/// query is a graph query, never a fresh markdown walk). Task 4.5: the
+/// walk IS `acset::query::blast_radius` now — the mixed closure the
+/// parity property pinned — and the private adjacency maps are gone
+/// (CORR-003 closed, `single_traversal_primitive`). A touched id the
+/// branch no longer defines is a deletion touch: it contributes itself
+/// (no tip edges reference or leave it — a reference to it dangles and
+/// dangles are not edges), so it is seeded directly and excluded from
+/// the query's seed set (`seeds_exist`).
 fn blast_radius(tip: &Tip, touched: &[String]) -> BTreeSet<String> {
-    let g = graph::build(&tip.specs);
-    // Reverse adjacency (to -> froms): dependents of a touched node.
-    let mut dependents: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-    // Forward adjacency from touched definitions to their targets.
-    let mut reaches: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-    for e in &g.edges {
-        dependents
-            .entry(e.to.as_str())
-            .or_default()
-            .push(e.from.as_str());
-        reaches
-            .entry(e.from.as_str())
-            .or_default()
-            .push(e.to.as_str());
-    }
+    let instance = acset::instance::Instance::from_specs(&tip.specs);
+    let (_deleted, existing): (Vec<&str>, Vec<&str>) = touched
+        .iter()
+        .map(String::as_str)
+        .partition(|id| instance.index_of(id).is_none());
     let mut affected: BTreeSet<String> = touched.iter().cloned().collect();
-    let mut queue: Vec<String> = touched.to_vec();
-    while let Some(node) = queue.pop() {
-        for dep in dependents.get(node.as_str()).into_iter().flatten() {
-            if affected.insert((*dep).to_string()) {
-                queue.push((*dep).to_string());
-            }
-        }
-        for target in reaches.get(node.as_str()).into_iter().flatten() {
-            if affected.insert((*target).to_string()) {
-                queue.push((*target).to_string());
-            }
-        }
-    }
+    let reached = acset::query::blast_radius(&instance, &existing, &instance.morphism_names())
+        .expect("touched ids are filtered to instance nodes");
+    affected.extend(reached);
     affected
 }
 
@@ -363,7 +349,7 @@ pub fn run(
                 issue.rule_id, issue.message
             ));
         }
-        let g = graph::build(&merged_specs);
+        let g = crate::graph::build(&merged_specs);
         for d in &g.dangling {
             details.push(format!("dangling reference in merged tree: {d}"));
         }

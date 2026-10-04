@@ -364,9 +364,9 @@ fn walk_parity_fan_and_cycles() {
     }
 }
 
-/// `blast_radius_parity` (spec.parity_with_existing over merge's walk):
-/// for arbitrary touched sets over the hand corpus, the query-derived
-/// blast radius equals `merge`'s pre-migration walk's.
+// `blast_radius_parity` (spec.parity_with_existing over merge's walk):
+// for arbitrary touched sets over the hand corpus, the query-derived
+// blast radius equals `merge`'s pre-migration walk's.
 proptest! {
     #[test]
     fn blast_radius_parity(touched_mask in prop::collection::vec(any::<bool>(), IDS.len())) {
