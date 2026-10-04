@@ -216,3 +216,38 @@ fn typing_allowed_fixture_covers_named_edges() {
     assert!(kinds.iter().any(|x| x.ends_with("observes")));
     assert!(kinds.iter().any(|x| x.ends_with("supersedes")));
 }
+
+// ---------------------------------------------------------------------------
+// Phase 2: parity property over arbitrary corpora (task 1.2 — RED first).
+// ---------------------------------------------------------------------------
+
+/// A hand-built in-memory corpus: intent file + constraints + properties +
+/// states + transitions, with typed reference cells. Only the intent id and
+/// the links matter for the parity property — the table rows are the layers
+/// the edges point at.
+fn in_memory_corpus() -> Vec<Spec> {
+    use specodelic::spec::Spec as _;
+    let _ = 0; // silence unused
+    todo!("in-memory corpus: intent file + rows + links (task 1.2 RED)")
+}
+
+/// `from_specs` does not exist yet — the RED constructor the parity property
+/// references. Its contract: build the acset from a corpus of parsed specs,
+/// such that `edges(from_specs(c)) == graph::build(c).edges` for every
+/// corpus.
+fn from_specs(specs: &[Spec]) -> specodelic::acset::Acset {
+    let _ = specs;
+    todo!("from_specs: acset constructor (task 1.2 RED)")
+}
+
+/// Parity property (task 1.2): the acset's edge set is invariant under the
+/// acset constructor — `edges(from_specs(c)) == graph::build(c).edges` for
+/// every hand-built corpus. RED: from_specs is todo!() and the acset module
+/// does not exist yet, so this test fails to compile / todo!-panics.
+#[test]
+fn parity_property_edges_from_specs_matches_graph_build() {
+    let specs = in_memory_corpus();
+    let acset_edges = from_specs(&specs).edges();
+    let graph_edges = graph::build(&specs).edges.clone();
+    assert_eq!(acset_edges, graph_edges);
+}
