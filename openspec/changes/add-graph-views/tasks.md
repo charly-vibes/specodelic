@@ -47,8 +47,9 @@ Tidying commits are separate from feature commits.
       targets) plus `format_revision` as a JSON envelope. Run — must fail
       (no such command).
 - [ ] 2.2 **GREEN**: implement the `guide --json` subcommand in
-      `src/main.rs` serializing `src/guide.rs`'s constants; schema-view
-      fixture test consumes its output.
+      `src/main.rs` serializing `src/guide.rs`'s constants (kinds, row
+      shapes, format_revision — for value-set-only consumers; the schema
+      view does NOT consume this, per D4's 2026-10-04 revision).
 - [ ] 2.3 **RED**: script tests against three checked-in fixture corpora —
       empty (zero spec files = intentless: asserts `out_of_scope_refused`,
       exits non-zero with a remediation hint), single-intent
@@ -62,9 +63,14 @@ Tidying commits are separate from feature commits.
       D2's multiplicity rule).
 - [ ] 2.5 **GREEN**: implement file-level traceability view (collapse to
       intents, fan-in annotation).
-- [ ] 2.6 **GREEN**: implement schema view from `spk guide --json`
-      output, labeled with the format revision (D4). Assert the view
-      changes when a fixture guide gains a field — no renderer edit.
+- [ ] 2.6 **GREEN**: implement schema view from the acset `Schema`
+      value (`acset::schema::canonical()` — lint-gated against
+      `specs/specodelic.md` by `schema_matches_typing_table`), labeled
+      with `guide::FORMAT_REVISION` (D4 as revised 2026-10-04).
+      Derivation proof: render two constructed `Schema` values differing
+      in one morphism — the views differ, no renderer edit (the shipped
+      `canonical()` is compile-time, so the perturbation test uses
+      constructed values, not a fixture doc).
 - [ ] 2.7 **TIDY**: shared rendering helpers; prose-independence test
       (`views_from_artifact_only`: perturb prose blocks of a fixture, view
       output byte-identical).
@@ -87,9 +93,11 @@ Tidying commits are separate from feature commits.
 
 ## 4. Dogfood and follow-ups
 
-- [ ] 4.1 Run the full pipeline over this repo's corpus; eyeball the 38
-      annotated violations in the rendered views — confirm nothing reads
-      as silently clean.
+- [ ] 4.1 Run the full pipeline over this repo's corpus; confirm the
+      rendered views are honestly clean — the corpus is at 0 typing
+      violations since the acset-core landing (was 38 when drafted), so
+      zero annotated elements must appear AND the violation-rendering
+      path must be exercised by the fixture corpora (2.3), not assumed.
 - [ ] 4.2 Run the pipeline over `../bajan/specs` (out-of-CI, manual check
       recorded in the change notes): views derive with zero
       corpus-specific code. Update vs the 5qj decision note: bajan now

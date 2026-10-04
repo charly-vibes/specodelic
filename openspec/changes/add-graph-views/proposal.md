@@ -18,8 +18,9 @@ Design was reviewed under a Rule-of-5 pass (converged at Stage 4); its
 binding corrections are folded in as decisions D1–D7 in `design.md`,
 notably: canonical node ids in projections (raw output contains display
 labels like `refactor (intent)`), typing violations are never silently
-hidden by a rendered view (the specodelic corpus currently carries 38 —
-verified via `spk graph -j`),
+hidden by a rendered view (the specodelic corpus carried 38 when this
+was drafted — the acset-core landing typed them away; 0 as of
+2026-10-04, verified via `spk graph -j`),
 the schema view is derived from `guide`'s closed value sets and labeled
 with the format revision (not hardcoded), and the categorical
 string-diagram IR is explicitly deferred.
@@ -57,8 +58,10 @@ string-diagram IR is explicitly deferred.
   from the format's Reference Typing value sets, labeled with the format
   revision; (d) the wiring view above. Violations render as annotated
   (dashed) rows — a view is never
-  silently cleaner than the graph artifact (this repo's corpus carries 38
-  typing violations as of this writing). Empty views are labeled
+  silently cleaner than the graph artifact (the corpus carried 38 typing
+  violations when drafted; acset-core landed a lint-gated `Schema` value
+  and typed them away — 0 as of 2026-10-04 — so future violations come
+  from drift, caught by fixtures and the lint-time gate). Empty views are labeled
   (`no_transitions`, `no_wiring`), never silently clean.
 - **Agent guidance:** a `spk explain graph-views` primer topic teaching
   the one-pipe render recipes (dot/graph-easy/mermaid consumers) — the
@@ -91,7 +94,9 @@ change touches only tool output, not the format corpus.
   projection), `src/main.rs` (`--format edges|dot|mermaid` and `--view`
   flags on the `Graph` command; new `guide --json` subcommand),
   `src/guide.rs` (JSON serialization of the closed value sets; explain
-  topic), new `scripts/graph_views.py`, `justfile` (`docs-graphs` recipe),
+  topic), `src/acset/schema.rs` (the Schema value the schema view
+  derives from — see D4), new `scripts/graph_views.py`, `justfile`
+  (`docs-graphs` recipe),
   `docs/src/` (one view page consuming generated includes),
   `tests/cli.rs` (projection fixtures: empty corpus, single-intent
   corpus, violation-bearing corpus).

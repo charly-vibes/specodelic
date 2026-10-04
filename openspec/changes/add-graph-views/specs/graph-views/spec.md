@@ -1,7 +1,7 @@
 ---
 id: spec
 kind: intent
-statement: "THE graph-views capability SHALL emit a deterministic edge-list projection with canonical ids and annotated typing violations from any specodelic-compliant corpus, and SHALL derive per-file state-machine, file-level traceability, and revision-labeled schema views from that artifact and guide's closed value sets alone — never from prose."
+statement: "THE graph-views capability SHALL emit a deterministic edge-list projection with canonical ids and annotated typing violations from any specodelic-compliant corpus, and SHALL derive per-file state-machine, file-level traceability, and revision-labeled schema views from that artifact plus the lint-gated acset Schema value and the format revision marker alone — never from prose."
 ---
 
 # graph-views Specification
@@ -22,7 +22,7 @@ the artifact they came from.
 | canonical_ids            | invariant | `every edge-list endpoint is a frontmatter id value; display labels (e.g. `refactor (intent)`-style label-qualified nodes) never appear in the projection — normalization happens at or before projection`                                                                 | [[spec]]  |
 | deterministic_projection | invariant | `re-running the projection over an unchanged corpus produces a byte-identical edge list — rows sorted, no timestamps, no iteration-order leakage`                                                                                                                        | [[spec]]  |
 | violations_annotated     | invariant | `every violation in the graph artifact appears as an annotation row in the edge list; a view rendered from a corpus with violations is never silently clean — dashed/annotated rendering is mandatory, omission forbidden`                                                | [[spec]]  |
-| derived_views_only       | invariant | `each view consumes only the edge-list artifact plus guide's closed value sets and format revision; no view parses prose, re-walks markdown, or embeds hand-authored structure`                                                                                            | [[spec]]  |
+| derived_views_only       | invariant | `each view consumes only the edge-list artifact plus the lint-gated acset Schema value and the format revision marker; no view parses prose, re-walks markdown, or embeds hand-authored structure`                                                                                            | [[spec]]  |
 | build_time_generation    | invariant | `rendered views are generated into the docs build at build time and never committed; no hand-edit path exists, so graph_is_derived_not_authored holds by construction and no staleness check is needed`                                                                    | [[spec]]  |
 | empty_corpus_valid       | invariant | `spk graph --format edges over any parseable corpus — including a directory with zero spec files, or a single intent with no cross-file edges — exits 0 and emits a well-formed (possibly empty) row set: graph extraction requires parsed, not linted (specs/graph.md's scope note); rendered views are transform-level and additionally gated by corpus_scope_operational — an intentless corpus is refused there with a remediation hint, never silently rendered`                                                        | [[spec]]  |
 | corpus_scope_operational | invariant | `a corpus is in scope iff spk lint over it reports no invariant-rule findings and ≥1 intent file parses; corpora failing this (e.g. openspec-layout repositories) are out of scope until a parse-boundary adapter change lands — no view special-cases them`                                | [[spec]]  |
@@ -52,7 +52,7 @@ the artifact they came from.
 | violations_survive_projection | unit | [[spec.violations_annotated]]    | `corpus_with_known_typing_violations()`               | `edge list contains one annotation row per violation, none missing`       |
 | clean_corpus_no_annotations   | unit | [[spec.violations_annotated]]    | `lint_clean_corpus()`                                 | `edge list contains zero annotation rows`                                 |
 | views_from_artifact_only      | unit | [[spec.derived_views_only]]      | `view_rendered_with_prose_perturbation()`             | `rendered view byte-identical after perturbing prose blocks`              |
-| schema_view_revision_labeled  | unit | [[spec.derived_views_only]]      | `guide_value_sets_rendered()`                         | `schema view names the format revision it was derived from`               |
+| schema_view_revision_labeled  | unit | [[spec.derived_views_only]]      | `schema_value_rendered()`                         | `schema view names the format revision it was derived from`               |
 | build_output_not_committed    | unit | [[spec.build_time_generation]]   | `docs_build_completed()`                              | `git status clean — no rendered artifact tracked or staged`               |
 | empty_corpus_projection       | unit | [[spec.empty_corpus_valid]]      | `directory_with_zero_spec_files()`                    | `projection exits 0 with empty output — the view half is governed by corpus_scope_operational (an intentless corpus is refused: out_of_scope_refused)` |
 | single_intent_sane            | unit | [[spec.empty_corpus_valid]]      | `corpus_with_one_intent_no_cross_file_edges()`        | `file-level view renders one node; no crash`                              |
@@ -122,16 +122,18 @@ The system SHALL derive a corpus-level view collapsing all edges to intent
 
 ### Requirement: Derived revision-labeled schema view
 The system SHALL derive the schema view (kinds as nodes, typed reference
-fields as typed edges with allowed targets) from the closed value sets
-served by the new `spk guide --json` subcommand alone, labeled with the
-format revision it was derived from.
+fields as typed edges with allowed targets) from the acset `Schema`
+value (`acset::schema::canonical()` — the Reference Typing table as
+data, lint-gated against `specs/specodelic.md` by
+`schema_matches_typing_table`) and the format revision marker, labeled
+with the revision it was derived from.
 
-#### Scenario: Schema from guide value sets
+#### Scenario: Schema from the Schema value
 - **WHEN** the schema view is rendered
-- **THEN** its nodes and typed edges match the value sets served by `spk guide --json`, and the format revision is named in the output
+- **THEN** its nodes and typed edges match the `Schema` value's objects and morphisms, and the format revision is named in the output
 
 #### Scenario: Revision bump changes the view
-- **WHEN** a new Revision adds a Reference Typing field and guide reflects it
+- **WHEN** a new Revision adds a Reference Typing field (Schema + corpus doc updated together under the lint gate)
 - **THEN** the regenerated schema view includes the new field without any renderer change
 
 ### Requirement: Build-time generation, never committed
@@ -211,16 +213,18 @@ The system SHALL derive a corpus-level view collapsing all edges to intent
 
 ### Requirement: Derived revision-labeled schema view
 The system SHALL derive the schema view (kinds as nodes, typed reference
-fields as typed edges with allowed targets) from the closed value sets
-served by the new `spk guide --json` subcommand alone, labeled with the
-format revision it was derived from.
+fields as typed edges with allowed targets) from the acset `Schema`
+value (`acset::schema::canonical()` — the Reference Typing table as
+data, lint-gated against `specs/specodelic.md` by
+`schema_matches_typing_table`) and the format revision marker, labeled
+with the revision it was derived from.
 
-#### Scenario: Schema from guide value sets
+#### Scenario: Schema from the Schema value
 - **WHEN** the schema view is rendered
-- **THEN** its nodes and typed edges match the value sets served by `spk guide --json`, and the format revision is named in the output
+- **THEN** its nodes and typed edges match the `Schema` value's objects and morphisms, and the format revision is named in the output
 
 #### Scenario: Revision bump changes the view
-- **WHEN** a new Revision adds a Reference Typing field and guide reflects it
+- **WHEN** a new Revision adds a Reference Typing field (Schema + corpus doc updated together under the lint gate)
 - **THEN** the regenerated schema view includes the new field without any renderer change
 
 ### Requirement: Build-time generation, never committed

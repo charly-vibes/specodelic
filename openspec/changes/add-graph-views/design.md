@@ -21,7 +21,9 @@ corpora), the AGENTS.md output-discipline exception note in D3, and the
 tab-safety pin on reason text (task 1.2). Two review
 findings are *evidence-backed*: the raw graph output contains display
 labels (`refactor (intent)`) alongside ids, and this repo's own corpus
-currently produces 38 typing violations (verified via `spk graph -j`) that
+currently produced 38 typing violations when drafted (verified via
+`spk graph -j` at the time; the acset-core landing typed them away —
+0 as of 2026-10-04) that
 a rendered view must not silently hide. A second review of this proposal
 itself verified the referenced CLI surfaces, catching that `spk guide
 --json` did not exist (D4).
@@ -78,8 +80,8 @@ total_extraction); view-layer fan-in counts *distinct* targets.
 ### D3 — Violations ride along; silent-clean is forbidden
 
 `graph.md` mandates forbidden edges are "reported, never recorded" — so an
-edge list alone would render this repo's 38 known typing violations as a
-clean graph, a false model. The projection therefore includes one
+edge list alone would render the 38 typing violations this corpus
+knows when they exist as a clean graph, a false model. The projection therefore includes one
 annotation row per violation, mapped into the same six columns (empty
 source id/kind, `violation:<edge_kind>` in the field column, target
 id/kind, annotation column carrying the finding), and the transform
@@ -88,9 +90,11 @@ byte-honest only because violations were absent from the artifact, not
 dropped by a view. Open for task 1.2: whether the annotation column
 carries the full reason text or a class code (reason then only via JSON).
 
-*Evidence:* `spk graph` over `specs/` reports 38 `violations[]` entries
-(e.g. `linter.frontmatter.has_id` → `specodelic.frontmatter_valid`,
-`transitions.guard` → intent targets).
+*Evidence:* `spk graph` over `specs/` reported 38 `violations[]`
+entries when drafted (e.g. `linter.frontmatter.has_id` →
+`specodelic.frontmatter_valid`, `transitions.guard` → intent targets);
+0 as of 2026-10-04 after the acset-core landing — violation-rendering
+is exercised by fixture corpora instead.
 
 Flag precedence: `--format edges` emits raw TSV directly to stdout and
 overrides envelope formatting (`--json`/`--human`); documented in the
@@ -100,20 +104,38 @@ output-discipline convention ("every command emits through
 pipelines) is the point, and the exception is scoped to this one flag,
 not the command.
 
-### D4 — The schema view is derived from `guide`, revision-labeled
+### D4 — The schema view is derived from the acset `Schema` value, revision-labeled
 
-"Every compliant corpus shares one fixed schema diagram" is false in
-detail: `append_only_variants` (`specs/specodelic.md`) governs the
-Reference Typing table's field set as append-only under new Revisions.
-The schema view is therefore generated from the closed value sets
-(kinds, reference fields, allowed targets) and labeled with the format
-revision it was derived from. Never hardcoded in the renderer.
+*Revised 2026-10-04 (specodelic-hya, after add-acset-core landed).* The
+Reference Typing table now exists as data — `acset::schema::canonical()`
+— and is **lint-gated** against `specs/specodelic.md` row-for-row by
+`schema_matches_typing_table` (lint fires on divergence in either
+direction). That gate closes the drift concern this decision originally
+answered: the view's source is verified current by the same discipline
+that polices the format corpus itself.
 
-Those value sets live in the internal `guide` module but no command
-serves them as JSON (`spk explain` serves prose topics only — verified).
-This change therefore adds `spk guide --json` (new subcommand) as the
-derivation source; the schema view consumes that output and nothing
-else.
+The schema view therefore derives from the `Schema` value (objects +
+morphisms) and nothing else. `guide`'s `REFERENCE_TYPING` const stays
+out of the derivation path entirely — it is ungated code and would
+recreate the two-sources-for-one-table problem. It remains the embedded
+guide's rendering surface only (`{{reference_typing}}` prose), a
+value-set consumer.
+
+The revision label comes from `guide::FORMAT_REVISION` (the binary's
+implemented-revision marker) — a version label, not a duplicate of the
+typing table. `spk guide --json` still ships (kinds, row shapes,
+format_revision) for value-set-only consumers, but the schema view no
+longer consumes it.
+
+*Alternatives considered:* keep both sources plus a cross-check failing
+the build on divergence (rejected: redundant machinery — the Schema is
+already doc-gated at lint time; a second gate re-verifies a verified
+value and doubles the sync surface).
+
+*History:* the original D4 (2026-09-29) pinned the view to `guide`'s
+closed value sets served via `spk guide --json`, because no data source
+for the table existed outside the ungated `guide` module.
+Never-hardcoded-in-the-renderer is retained unchanged.
 
 ### D5 — Categorical IR deferred, with operational definitions recorded
 
