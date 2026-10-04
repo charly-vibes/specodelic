@@ -15,7 +15,7 @@ Tidying commits are separate from feature commits.
       single-intent corpus. Run `just test` — the snapshots must already
       pass (they pin today's behaviour); this is the parity oracle, not
       a failing test.
-- [ ] 1.2 **RED**: parity property skeleton — `edges(from_specs(c)) ==
+- [x] 1.2 **RED**: parity property skeleton — `edges(from_specs(c)) ==
       graph::build(c).edges` property over `arbitrary_corpus()` proptest
       cases (fails: `from_specs` doesn't exist yet). Scope note: the
       gate covers every corpus the existing builder accepts, including
