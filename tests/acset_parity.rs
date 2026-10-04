@@ -13,8 +13,9 @@
 //! references a `from_specs` constructor that does not exist yet (compile
 //! error is an acceptable observed-red for a missing constructor).
 
+use proptest::prelude::*;
 use specodelic::graph;
-use specodelic::spec::Spec;
+use specodelic::spec::{self, Spec};
 
 /// Parse the given fixture directory recursively for `.md` files, sorted,
 /// skipping dot/target/node_modules dirs (mirrors main.rs's collect_specs).
@@ -292,8 +293,65 @@ fn typing_allowed_fixture_covers_named_edges() {
 /// the links matter for the parity property — the table rows are the layers
 /// the edges point at.
 fn in_memory_corpus() -> Vec<Spec> {
-    let _ = 0; // silence unused
-    todo!("in-memory corpus: intent file + rows + links (task 1.2 RED)")
+    // One of every layer and every outcome: stored edges across every
+    // morphism (traces_to, derives_from, guard→constraint, guard→state,
+    // supersedes, emits, satisfies, observes), one dangling link, and two
+    // typing violations (a constraint target for traces_to, an invariant
+    // target for observes) — parsed through the real parser.
+    let c1 = spec::parse_str(
+        r#"---
+id: c1
+kind: intent
+statement: "one of every layer and every outcome"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to | satisfies | observes | supersedes |
+|----|------|------|-----------|-----------|----------|------------|
+| r1 | invariant | `true` | [[c2]] | [[c2.effect_row]] | [[c2.effect_row]] | [[c1.r2]] |
+| r2 | invariant | `true` |  |  |  | [[c1.r1]] |
+| r3 | invariant | `true` | [[c1.ghost_row]] |  |  |  |
+| r4 | invariant | `true` | [[c2.r1]] |  | [[c2.r1]] |  |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|-----------|
+| p1 | unit | [[c2.r1]] | `arb()` | `true` |
+
+## Model
+
+### States
+- `alive` (emits: `[[c2.effect_row]]`)
+- `dead`
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| t1 | alive | dead | [[c2.r1]] |
+| t2 | alive | ghost_state |  |
+"#,
+    )
+    .expect("c1 parses");
+    let c2 = spec::parse_str(
+        r#"---
+id: c2
+kind: intent
+statement: "the rows c1's links resolve to"
+---
+
+## Constraints
+
+| id | kind | expr |
+|----|------|------|
+| r1 | invariant | `true` |
+| effect_row | effect | `true` |
+"#,
+    )
+    .expect("c2 parses");
+    vec![c1, c2]
 }
 
 /// `from_specs` does not exist yet — the RED constructor the parity property
@@ -301,8 +359,7 @@ fn in_memory_corpus() -> Vec<Spec> {
 /// such that `edges(from_specs(c)) == graph::build(c).edges` for every
 /// corpus.
 fn from_specs(specs: &[Spec]) -> specodelic::acset::Acset {
-    let _ = specs;
-    todo!("from_specs: acset constructor (task 1.2 RED)")
+    specodelic::acset::Acset::from_specs(specs)
 }
 
 /// Parity property (task 1.2): the acset's edge set is invariant under the
@@ -315,6 +372,97 @@ fn parity_property_edges_from_specs_matches_graph_build() {
     let acset_edges = from_specs(&specs).edges();
     let graph_edges = graph::build(&specs).edges.clone();
     assert_eq!(acset_edges, graph_edges);
+}
+
+/// `adapter_graph_equivalent` over the snapshot fixtures (task 3.3): every
+/// violation class and dangling shape the byte oracle pins is parity-checked
+/// edge for edge — the old path stays authoritative until this holds on all
+/// of them.
+#[test]
+fn adapter_graph_equivalent_over_fixture_corpora() {
+    for dir in [SMALL, TYPING_ALLOWED, TYPING_VIOLATIONS, DANGLING] {
+        let specs = collect_fixture(dir);
+        let acset_edges = from_specs(&specs).edges();
+        let graph_edges = graph::build(&specs).edges.clone();
+        assert_eq!(
+            acset_edges, graph_edges,
+            "the acset constructor must reproduce graph::build's edges for {dir}"
+        );
+    }
+}
+
+/// The real corpus, collected the way main.rs does: `.md` files, skipping
+/// the non-spec ones (no frontmatter — AGENTS.md, STATUS.md, theory.md, the
+/// checklist manifest) before parsing.
+fn collect_corpus(dir: &str) -> Vec<Spec> {
+    fn walk(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) {
+        let mut entries: Vec<_> = std::fs::read_dir(dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .collect();
+        entries.sort();
+        for p in entries {
+            if p.is_dir() {
+                walk(&p, files);
+            } else if p.extension().and_then(|e| e.to_str()) == Some("md") {
+                files.push(p);
+            }
+        }
+    }
+    let mut files = Vec::new();
+    walk(std::path::Path::new(dir), &mut files);
+    files
+        .iter()
+        .filter_map(|p| {
+            let text = std::fs::read_to_string(p).ok()?;
+            // Non-spec files (STATUS.md, ...) have no frontmatter — skip,
+            // exactly as main.rs's collect does.
+            if !text.trim_start().starts_with("---") {
+                return None;
+            }
+            spec::parse_str(&text).ok()
+        })
+        .collect()
+}
+
+/// The real corpus is in the gate too — the parity property covers every
+/// corpus the existing builder accepts, specs/ included.
+#[test]
+fn adapter_graph_equivalent_over_the_real_corpus() {
+    let specs = collect_corpus("specs");
+    let acset_edges = from_specs(&specs).edges();
+    let graph_edges = graph::build(&specs).edges.clone();
+    assert_eq!(
+        acset_edges, graph_edges,
+        "the acset must reproduce the whole corpus's edge set exactly"
+    );
+}
+
+/// Deterministically shuffle a fixture corpus under proptest-generated sort
+/// keys — the parity property must hold in every input order.
+fn shuffled(specs: &[Spec], keys: &[u32]) -> Vec<Spec> {
+    let mut indexed: Vec<(u64, &Spec)> = specs
+        .iter()
+        .enumerate()
+        .map(|(i, s)| ((u64::from(keys[i % keys.len()]) << 32) | i as u64, s))
+        .collect();
+    indexed.sort_by_key(|(k, _)| *k);
+    indexed.into_iter().map(|(_, s)| s.clone()).collect()
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+    /// `adapter_graph_equivalent` under input reordering (task 3.3): the
+    /// acset's edge set is invariant under the walk order — the same
+    /// shuffled corpus feeds both paths, edge for edge.
+    #[test]
+    fn adapter_graph_equivalent_under_shuffle(keys in prop::collection::vec(any::<u32>(), 8)) {
+        let specs = collect_fixture(TYPING_VIOLATIONS);
+        let shuffled = shuffled(&specs, &keys);
+        prop_assert_eq!(from_specs(&shuffled).edges(), graph::build(&shuffled).edges);
+    }
 }
 
 // ---------------------------------------------------------------------------
