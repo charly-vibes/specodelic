@@ -13,6 +13,7 @@
 //! of one schema — one data value retires all three.
 
 pub mod doc;
+pub mod instance;
 pub mod schema;
 
 /// The typed instance over a parsed corpus (tasks 3.x). A bare skeleton so
