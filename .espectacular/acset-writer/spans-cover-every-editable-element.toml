@@ -1,0 +1,9 @@
+id = "spans-cover-every-editable-element"
+description = "Contract test binding the spec scenario to its cargo test"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "every_id_cell_and_link_and_bullet_carries_a_span"

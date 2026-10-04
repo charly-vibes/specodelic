@@ -1,0 +1,9 @@
+id = "writer-performs-no-i-o"
+description = "Contract test binding the spec scenario to its cargo test"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "writer_does_no_io"

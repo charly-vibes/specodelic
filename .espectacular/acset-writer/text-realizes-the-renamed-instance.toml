@@ -1,0 +1,9 @@
+id = "text-realizes-the-renamed-instance"
+description = "Contract test binding the spec scenario to its cargo test"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "text_realizes_instance"

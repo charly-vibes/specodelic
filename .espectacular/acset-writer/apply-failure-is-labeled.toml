@@ -1,0 +1,9 @@
+id = "apply-failure-is-labeled"
+description = "Contract test binding the spec scenario to its cargo test"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "apply_failure_label_asserted"

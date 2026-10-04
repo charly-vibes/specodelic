@@ -92,10 +92,10 @@ Tidying commits are separate from feature commits.
 
 ## 7. Gates
 
-- [ ] 7.1 Corpus gates green: `just ci` (now including
+- [x] 7.1 Corpus gates green: `just ci` (now including
       `model-check-specs`), `openspec validate --all --strict`,
       `spk lint openspec` 0/0, `spk lint specs` at baseline, ah check
       contract tests for the deployed scenarios authored at archive
       time.
-- [ ] 7.2 Archive via `just archive-change add-acset-writer` (dual-format
+- [x] 7.2 Archive via `just archive-change add-acset-writer` (dual-format
       recipe); docs SUMMARY entry; capability spec deployed verbatim.
