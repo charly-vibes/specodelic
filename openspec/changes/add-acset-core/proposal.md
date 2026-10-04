@@ -62,3 +62,10 @@ day one.
   current corpus; the builder additionally surfaces a collision report
   for duplicate-id corpora, resolving them exactly as the old path did
   (first-wins).
+
+## Approval
+
+Maintainer approval 2026-10-03: the user directed full implementation of
+the acset refactoring pipeline (this change plus its deferred slices,
+tracked under beads specodelic-84i) across orchestrated pi sessions.
+The openspec approval gate for implementation is cleared.
