@@ -64,13 +64,13 @@ Tidying commits are separate from feature commits.
 
 ## 4. Query primitive + walk migration
 
-- [ ] 4.1 **RED**: unit tests — `unknown_seed_rejected`,
+- [x] 4.1 **RED**: unit tests — `unknown_seed_rejected`,
       `dangling_not_followed_in_traversal`, `closure_terminates` on a
       cyclic M, `closure_laws` (contains / idempotence / monotonicity,
       proptest), `results_ordered`.
-- [ ] 4.2 **GREEN**: implement `src/acset/query.rs` — forward/backward
+- [x] 4.2 **GREEN**: implement `src/acset/query.rs` — forward/backward
       closure over (seed set, morphism set M).
-- [ ] 4.3 **RED→GREEN**: parity property (`parity_with_existing`,
+- [x] 4.3 **RED→GREEN**: parity property (`parity_with_existing`,
       `blast_radius_parity`) — closure results equal `graph.rs` fan-in /
       fan-out / supersedes cycles and `merge.rs`'s `dependents`/`reaches`
       blast radii over fixture branches.

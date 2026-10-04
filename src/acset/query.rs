@@ -118,8 +118,7 @@ pub fn run(query: &Query, instance: &Instance) -> Result<BTreeSet<String>, Vec<Q
         .collect())
 }
 
-/// Forward closure — what the seeds reach. The spelling the consumers use
-/// (`blast_radius_defined`: backward closure union forward reach).
+/// Forward closure — what the seeds reach.
 pub fn forward_closure(
     instance: &Instance,
     seeds: &[&str],
@@ -150,4 +149,102 @@ pub fn backward_closure(
         },
         instance,
     )
+}
+
+/// Closure over an already-validated seed set — the internal step the
+/// mixed blast radius iterates (`seeds_exist` is pre-checked, so the
+/// seeds are all instance ids).
+fn closure(
+    direction: Direction,
+    seeds: &BTreeSet<String>,
+    morphisms: &[&str],
+    instance: &Instance,
+) -> Result<BTreeSet<String>, Vec<QueryError>> {
+    run(
+        &Query {
+            direction,
+            seeds: seeds.clone(),
+            morphisms: morphisms.iter().map(|m| (*m).to_string()).collect(),
+        },
+        instance,
+    )
+}
+
+/// The blast radius of touching `touched` (`blast_radius_defined`, tracing
+/// to [[spec.blast_radius_defined]]): the mixed transitive closure — from
+/// every reached node, BOTH directions are followed, so a dependent's own
+/// forward reach joins the radius. Expressed through the two primitives
+/// alone (`single_traversal_primitive`): the fixpoint of
+/// `X ↦ backward_closure(forward_closure(X))`, which is closed under both
+/// directions and contains the seeds — hence exactly the mixed closure.
+/// The parity property against `merge`'s pre-migration walk pinned this
+/// definition: the naive reading (backward of touched union forward of
+/// touched) misses the forward reach of backward-reached dependents.
+pub fn blast_radius(
+    instance: &Instance,
+    touched: &[&str],
+    morphisms: &[&str],
+) -> Result<BTreeSet<String>, Vec<QueryError>> {
+    let seeds: BTreeSet<String> = touched.iter().map(|t| (*t).to_string()).collect();
+    let mut current = closure(Direction::Backward, &seeds, morphisms, instance)?;
+    loop {
+        let reached = closure(Direction::Forward, &current, morphisms, instance)?;
+        let closed = closure(Direction::Backward, &reached, morphisms, instance)?;
+        if closed == current {
+            return Ok(current);
+        }
+        current = closed;
+    }
+}
+
+/// The nodes on at least one cycle through the morphism set M (`
+/// closure_terminates`'s counterpart for cycle membership, and the
+/// closure-based reading of specs/specodelic.md's supersedes_acyclic): a
+/// node is on a cycle through M iff some morphism value `s → t` exists
+/// with `s` reachable forward from `t` — including the trivial `s == t`
+/// self-edge. Unresolved references are never followed
+/// (`dangling_not_followed`).
+pub fn cyclic_nodes(
+    instance: &Instance,
+    morphisms: &[&str],
+) -> Result<BTreeSet<String>, Vec<QueryError>> {
+    let mut cyclic = BTreeSet::new();
+    for name in morphisms {
+        for (from, to) in instance.morphism_values(name) {
+            let Some(to) = to else { continue };
+            let seed = BTreeSet::from([instance.id_of(to).to_string()]);
+            let reached = run(
+                &Query {
+                    direction: Direction::Forward,
+                    seeds: seed,
+                    morphisms: morphisms.iter().map(|m| (*m).to_string()).collect(),
+                },
+                instance,
+            )?;
+            if reached.contains(instance.id_of(from)) {
+                cyclic.insert(instance.id_of(from).to_string());
+            }
+        }
+    }
+    Ok(cyclic)
+}
+
+/// `fan_in` — the number of pairs (source, morphism) whose defined value
+/// is the node (`fan_in_is_preimage_size`), keyed by file-qualified id.
+pub fn fan_in(instance: &Instance) -> BTreeMap<String, usize> {
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for edge in instance.edges() {
+        *counts.entry(edge.to.clone()).or_default() += 1;
+    }
+    counts
+}
+
+/// `fan_out` — the number of defined morphism values whose source is the
+/// node, keyed by file-qualified id.
+pub fn fan_out(instance: &Instance) -> BTreeMap<String, usize> {
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for edge in instance.edges() {
+        *counts.entry(edge.from.clone()).or_default() += 1;
+    }
+    counts
 }

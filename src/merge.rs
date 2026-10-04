@@ -395,3 +395,84 @@ pub fn run(
         incoming_files: tip_b.specs.len(),
     }
 }
+
+#[cfg(test)]
+mod blast_radius_parity {
+    //! Parity for the closure migration (tasks 4.3–4.5): the pre-migration
+    //! walk here is the authority `acset::query::blast_radius` must match —
+    //! the property decides the DEFINITION of blast radius before the walk
+    //! is retired (design.md decision 2).
+
+    use std::collections::BTreeMap;
+
+    use crate::acset::instance::Instance;
+    use crate::acset::query;
+    use crate::spec::parse_str;
+
+    use super::Tip;
+
+    /// Build a tip the way `load_tip` does, without touching the disk.
+    fn tip_of(files: &[(&str, &str)]) -> Tip {
+        let mut tip = Tip {
+            specs: vec![],
+            ids: BTreeMap::new(),
+            texts: BTreeMap::new(),
+            broken: vec![],
+        };
+        for (rel, raw) in files {
+            match parse_str(raw) {
+                Ok(mut s) => {
+                    s.path = Some(std::path::PathBuf::from(rel));
+                    for id in s.defined_ids() {
+                        let qualified = if id == s.intent.id {
+                            id
+                        } else {
+                            format!("{}.{}", s.intent.id, id)
+                        };
+                        tip.ids
+                            .insert(qualified, (rel.to_string(), raw.to_string()));
+                    }
+                    tip.specs.push(s);
+                }
+                Err(e) => tip.broken.push(((*rel).to_string(), e.to_string())),
+            }
+            tip.texts.insert((*rel).to_string(), (*raw).to_string());
+        }
+        tip
+    }
+
+    /// A dependent's own forward reach joins the blast radius: touching
+    /// the observed effect row `a.x` pulls in `a.r1` (its dependent) AND
+    /// `a.r1`'s own traces_to target `b` — reachable only by following a
+    /// forward edge FROM a node first reached BACKWARD.
+    const OBSERVER_A: &str = r#"---
+id: a
+kind: intent
+statement: "observes the shared effect and traces to b"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to | observes |
+|----|------|------|-----------|----------|
+| r1 | invariant | `true` | [[b]] | [[a.x]] |
+| x | effect | `true` |  |  |
+"#;
+
+    #[test]
+    fn dependents_forward_reach_joins_the_radius() {
+        let tip = tip_of(&[
+            ("a.md", OBSERVER_A),
+            ("b.md", "---\nid: b\nkind: intent\nstatement: \"target\"\n"),
+        ]);
+        let touched = vec!["a.x".to_string()];
+        let expected = super::blast_radius(&tip, &touched);
+        let instance = Instance::from_specs(&tip.specs);
+        let all = instance.morphism_names();
+        let queried = query::blast_radius(&instance, &["a.x"], &all).expect("seed exists");
+        assert_eq!(
+            queried, expected,
+            "the query-derived blast radius must reproduce the pre-migration walk"
+        );
+    }
+}

@@ -548,6 +548,25 @@ impl Instance {
             .flat_map(|(_, values)| values.iter().map(|v| (v.from, v.to)))
             .collect()
     }
+
+    /// The interned node ids, in canonical sorted order — the seed space
+    /// every query ranges over (`seeds_exist`).
+    pub fn ids(&self) -> &[String] {
+        &self.intern.ids
+    }
+
+    /// The distinct schema morphism names this instance carries values
+    /// under — the full morphism set M (the default scope when a consumer
+    /// means "every reference field", as `merge`'s blast radius does).
+    pub fn morphism_names(&self) -> Vec<&'static str> {
+        self.schema
+            .morphisms
+            .iter()
+            .map(|m| m.name)
+            .collect::<BTreeSet<&'static str>>()
+            .into_iter()
+            .collect()
+    }
 }
 
 /// Record one row definition: node membership (already collected), the
