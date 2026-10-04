@@ -6,7 +6,7 @@ Tidying commits are separate from feature commits.
 
 ## 1. Baseline snapshots (parity harness)
 
-- [ ] 1.1 **BASELINE** (pinning, exempt from the red step): `spk rename
+- [x] 1.1 **BASELINE** (pinning, exempt from the red step): `spk rename
       --json` snapshots over a fixture corpus covering every rewrite
       family (id cell in every table kind, wiki-link in prose, state
       bullet, file's-own-intent-id rename with removal), plus CRLF
