@@ -16,6 +16,7 @@ pub mod doc;
 pub mod instance;
 pub mod query;
 pub mod schema;
+pub mod writer;
 
 use self::instance::Instance;
 use crate::graph::Edge;
