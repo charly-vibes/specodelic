@@ -397,34 +397,7 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
             TableKind::None | TableKind::Model => {
                 // Model prose and States bullets handled below.
                 if in_states && t.starts_with("- ") {
-                    let bullet = t.trim_start_matches("- ").trim();
-                    let (id, emits) = parse_state_bullet(bullet);
-                    let mut cells = BTreeMap::new();
-                    cells.insert("id".into(), id.clone());
-                    let (id_span, emits_at) = state_bullet_spans(line, line_starts[n]);
-                    if let Some(e) = emits {
-                        cells.insert("emits".into(), e.clone());
-                        // emits is a typed reference to a Constraint — extract
-                        // the [[link]] rather than treating the raw cell as
-                        // the target.
-                        let base = emits_at.and_then(|at| {
-                            line.get(at - line_starts[n]..)
-                                .and_then(|rest| rest.find(e.as_str()))
-                                .map(|rel| at + rel)
-                        });
-                        if let Some(b) = base {
-                            spec.links
-                                .extend(collect_links_spanned(&e, b, "states", "emits", &id));
-                        } else {
-                            spec.links.extend(collect_links(&e, "states", "emits", &id));
-                        }
-                    }
-                    spec.states.push(Row {
-                        id,
-                        kind: None,
-                        cells,
-                        id_span,
-                    });
+                    push_state_row(&mut spec, line, line_starts[n]);
                 }
             }
             TableKind::Constraints | TableKind::Properties | TableKind::Transitions => {
@@ -434,88 +407,14 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
                             .map_err(|m| ParseError::Cell("<table>".into(), lineno, m))?;
                         continue;
                     }
-                    let cells_spanned = parse_row_spans(line, line_starts[n])
-                        .map_err(|m| ParseError::Cell("<table>".into(), lineno, m))?;
-                    let cells_raw: Vec<String> =
-                        cells_spanned.iter().map(|(c, _)| c.clone()).collect();
-                    let cell_span = |name: &str| -> Option<Span> {
-                        headers
-                            .iter()
-                            .position(|h| h == name)
-                            .and_then(|i| cells_spanned.get(i))
-                            .map(|(_, s)| *s)
-                    };
-                    let get_col = |name: &str| -> Option<String> {
-                        headers
-                            .iter()
-                            .position(|h| h == name)
-                            .and_then(|i| cells_raw.get(i).cloned())
-                    };
-                    let id = get_col("id").unwrap_or_default();
-                    if id.is_empty() {
-                        return Err(ParseError::Cell(
-                            "<table>".into(),
-                            lineno,
-                            "row has no `id` cell".into(),
-                        ));
-                    }
-                    let kind = get_col("kind");
-                    let mut cells = BTreeMap::new();
-                    for (i, h) in headers.iter().enumerate() {
-                        if let Some(v) = cells_raw.get(i) {
-                            cells.insert(h.clone(), v.clone());
-                        }
-                    }
-                    // collect links from every cell
-                    for (h, v) in &cells {
-                        if h == "id" || h == "kind" {
-                            continue;
-                        }
-                        // Spanned when the cell's bytes can be located in
-                        // the raw line; unspanned fallback otherwise (the
-                        // writer reports span_failure when it needs one).
-                        if let Some(i) = headers.iter().position(|x| x == h)
-                            && let Some((_, s)) = cells_spanned.get(i)
-                        {
-                            spec.links.extend(collect_links_spanned(
-                                v,
-                                s.start,
-                                table_field(current_table),
-                                h,
-                                &id,
-                            ));
-                        } else {
-                            spec.links
-                                .extend(collect_links(v, table_field(current_table), h, &id));
-                        }
-                    }
-                    let id_span = cell_span("id");
-                    match current_table {
-                        TableKind::Constraints => spec.constraints.push(Row {
-                            id,
-                            kind,
-                            cells,
-                            id_span,
-                        }),
-                        TableKind::Properties => spec.properties.push(Row {
-                            id,
-                            kind,
-                            cells,
-                            id_span,
-                        }),
-                        TableKind::Transitions => {
-                            spec.transitions.push(Transition {
-                                id_span,
-                                from: get_col("from").unwrap_or_default(),
-                                to: get_col("to").unwrap_or_default(),
-                                guard: get_col("guard").filter(|g| !g.trim().is_empty()),
-                                from_span: cell_span("from"),
-                                to_span: cell_span("to"),
-                                id,
-                            });
-                        }
-                        _ => unreachable!(),
-                    }
+                    push_table_row(
+                        &mut spec,
+                        line,
+                        line_starts[n],
+                        current_table,
+                        &headers,
+                        lineno,
+                    )?;
                 } else if t.is_empty() {
                     continue;
                 } else if headers.is_empty() && !t.starts_with('|') {
@@ -526,6 +425,136 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
         }
     }
     Ok(spec)
+}
+
+/// Parse one `### States` bullet line into a `Row` and push it (with
+/// its recorded id span and spanned emits links) onto the spec
+/// (add-acset-writer task 2.2; extracted from parse_str for the
+/// pretender cyclomatic ratchet).
+fn push_state_row(spec: &mut Spec, line: &str, line_start: usize) {
+    let t = line.trim();
+    let bullet = t.trim_start_matches("- ").trim();
+    let (id, emits) = parse_state_bullet(bullet);
+    let mut cells = BTreeMap::new();
+    cells.insert("id".into(), id.clone());
+    let (id_span, emits_at) = state_bullet_spans(line, line_start);
+    if let Some(e) = emits {
+        cells.insert("emits".into(), e.clone());
+        // emits is a typed reference to a Constraint — extract
+        // the [[link]] rather than treating the raw cell as
+        // the target.
+        let base = emits_at.and_then(|at| {
+            line.get(at - line_start..)
+                .and_then(|rest| rest.find(e.as_str()))
+                .map(|rel| at + rel)
+        });
+        if let Some(b) = base {
+            spec.links
+                .extend(collect_links_spanned(&e, b, "states", "emits", &id));
+        } else {
+            spec.links.extend(collect_links(&e, "states", "emits", &id));
+        }
+    }
+    spec.states.push(Row {
+        id,
+        kind: None,
+        cells,
+        id_span,
+    });
+}
+
+/// Parse one data row of a structured table into its `Row`/`Transition`
+/// and push it (with recorded id/from/to spans and spanned cell links)
+/// onto the spec (add-acset-writer task 2.2; extracted from parse_str
+/// for the pretender cyclomatic ratchet).
+fn push_table_row(
+    spec: &mut Spec,
+    line: &str,
+    line_start: usize,
+    current_table: TableKind,
+    headers: &[String],
+    lineno: usize,
+) -> Result<(), ParseError> {
+    let cells_spanned = parse_row_spans(line, line_start)
+        .map_err(|m| ParseError::Cell("<table>".into(), lineno, m))?;
+    let cells_raw: Vec<String> = cells_spanned.iter().map(|(c, _)| c.clone()).collect();
+    let cell_span = |name: &str| -> Option<Span> {
+        headers
+            .iter()
+            .position(|h| h == name)
+            .and_then(|i| cells_spanned.get(i))
+            .map(|(_, s)| *s)
+    };
+    let get_col = |name: &str| -> Option<String> {
+        headers
+            .iter()
+            .position(|h| h == name)
+            .and_then(|i| cells_raw.get(i).cloned())
+    };
+    let id = get_col("id").unwrap_or_default();
+    if id.is_empty() {
+        return Err(ParseError::Cell(
+            "<table>".into(),
+            lineno,
+            "row has no `id` cell".into(),
+        ));
+    }
+    let kind = get_col("kind");
+    let mut cells = BTreeMap::new();
+    for (i, h) in headers.iter().enumerate() {
+        if let Some(v) = cells_raw.get(i) {
+            cells.insert(h.clone(), v.clone());
+        }
+    }
+    // collect links from every cell
+    for (h, v) in &cells {
+        if h == "id" || h == "kind" {
+            continue;
+        }
+        // Spanned when the cell's bytes can be located in the raw line;
+        // unspanned fallback otherwise (the writer reports span_failure
+        // when it needs one).
+        if let Some(i) = headers.iter().position(|x| x == h)
+            && let Some((_, s)) = cells_spanned.get(i)
+        {
+            spec.links.extend(collect_links_spanned(
+                v,
+                s.start,
+                table_field(current_table),
+                h,
+                &id,
+            ));
+        } else {
+            spec.links
+                .extend(collect_links(v, table_field(current_table), h, &id));
+        }
+    }
+    let id_span = cell_span("id");
+    match current_table {
+        TableKind::Constraints => spec.constraints.push(Row {
+            id,
+            kind,
+            cells,
+            id_span,
+        }),
+        TableKind::Properties => spec.properties.push(Row {
+            id,
+            kind,
+            cells,
+            id_span,
+        }),
+        TableKind::Transitions => spec.transitions.push(Transition {
+            id,
+            from: get_col("from").unwrap_or_default(),
+            to: get_col("to").unwrap_or_default(),
+            guard: get_col("guard").filter(|g| !g.trim().is_empty()),
+            id_span,
+            from_span: cell_span("from"),
+            to_span: cell_span("to"),
+        }),
+        _ => unreachable!(),
+    }
+    Ok(())
 }
 
 fn v_to_string(v: &serde_yaml_ng::Value) -> String {

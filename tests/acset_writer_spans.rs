@@ -64,10 +64,8 @@ fn every_id_cell_and_link_and_bullet_carries_a_span() {
     }
 
     // Multiple links to the same target get DISTINCT spans.
-    let raw2 = format!(
-        "---\nid: dup.l\nkind: intent\nstatement: \"THE dup.l SHALL link twice\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `holds` | [[dup.l]] and [[dup.l]] |\n"
-    );
-    let spec2 = parse_str(&raw2).expect("parses");
+    let raw2 = "---\nid: dup.l\nkind: intent\nstatement: \"THE dup.l SHALL link twice\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `holds` | [[dup.l]] and [[dup.l]] |\n";
+    let spec2 = parse_str(raw2).expect("parses");
     let spans: Vec<_> = spec2.links.iter().map(|l| l.span.unwrap()).collect();
     assert_eq!(spans.len(), 2, "both link occurrences recorded");
     assert_ne!(spans[0], spans[1], "distinct occurrences, distinct spans");

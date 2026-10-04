@@ -48,7 +48,11 @@ fn oracle_bytes(out: &rename::RenameOutcome) -> String {
 fn assert_crlf_preserved(fixture: &str, out: &rename::RenameOutcome) {
     let crlf_in = fixture.matches("\r\n").count();
     assert!(crlf_in > 0, "fixture must actually contain CRLF");
-    let crlf_out: usize = out.writes.iter().map(|(_, t)| t.matches("\r\n").count()).sum();
+    let crlf_out: usize = out
+        .writes
+        .iter()
+        .map(|(_, t)| t.matches("\r\n").count())
+        .sum();
     assert_eq!(
         crlf_in, crlf_out,
         "CRLF terminators must survive the rename byte-exactly"
@@ -72,12 +76,10 @@ fn baseline_write_set_snapshots() {
     // Family 1+2+4: row rename in the definition file (c1 cell, state
     // bullet, transition from/to), links follow in a second file.
     let def = full_family_spec("fam.a");
-    let other = format!(
-        "---\nid: fam.b\nkind: intent\nstatement: \"THE fam.b SHALL reference fam.a\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `holds` | [[fam.a.c1]] and [[fam.a]] |\n"
-    );
+    let other = "---\nid: fam.b\nkind: intent\nstatement: \"THE fam.b SHALL reference fam.a\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `holds` | [[fam.a.c1]] and [[fam.a]] |\n";
     let files = vec![
         (PathBuf::from("fam-a.md"), def.clone()),
-        (PathBuf::from("fam-b.md"), other),
+        (PathBuf::from("fam-b.md"), other.to_string()),
     ];
     let out = rename::run(&files, "fam.a.c1", "fam.a.c2").expect("row rename succeeds");
     oracle_snapshot(CRATE, "rename_row_family", &oracle_bytes(&out));
