@@ -60,6 +60,15 @@ openspec-validate:
 lint-deltas:
     cargo run -q -- lint openspec
 
+# Corpus-wide model-check gate (specodelic-12e): the model checker must be
+# exercised on the corpus the tool ships with — its artifacts were once
+# re-keyed by hand without a re-run, and just ci stayed green because no
+# stage ran model-check at all. cargo run (not PATH spk) so the gate can
+# never hit a stale installed binary. Fails the gate on any non-clean
+# outcome (nonzero exit).
+model-check-specs:
+    cargo run -q -- model-check specs
+
 # Section-sync check: in every dual-format file the ADDED Requirements
 # and Requirements sections must carry identical requirement text
 sync-sections:
@@ -120,7 +129,7 @@ docs-build:
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas sync-sections sync-sections-test summary-completeness lint-doc-examples lint-baseline pretender-check guard-siblings guard-espectacular
+ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs sync-sections sync-sections-test summary-completeness lint-doc-examples lint-baseline pretender-check guard-siblings guard-espectacular
 
 # Structural-quality hard gate (pretender, gate mode — pretender.toml
 # thresholds are a ratchet: entries only move DOWN; never touch .git/hooks,
