@@ -222,51 +222,14 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
         .chain(text.match_indices('\n').map(|(i, _)| i + 1))
         .collect();
     let mut lines = text.lines().enumerate().peekable();
-
-    // --- Frontmatter: leading `---` fenced block ---
-    let mut fm_raw = String::new();
-    let mut in_fm = false;
-    let mut saw_any = false;
-    loop {
-        match lines.peek() {
-            None => break,
-            Some((_, l)) => {
-                let t = l.trim_end();
-                if !in_fm && t == "---" {
-                    in_fm = true;
-                    saw_any = true;
-                    lines.next();
-                    continue;
-                }
-                if in_fm && t == "---" {
-                    lines.next();
-                    break;
-                }
-                if in_fm {
-                    fm_raw.push_str(t);
-                    fm_raw.push('\n');
-                    lines.next();
-                    continue;
-                }
-                // blank lines before frontmatter are fine
-                if t.trim().is_empty() {
-                    lines.next();
-                    continue;
-                }
-                break;
-            }
-        }
+    // Frontmatter: parsed from the raw text (the byte offsets the spans
+    // need live there, not in the reconstructed `fm_raw`); the body loop
+    // then resumes after the closing `---`.
+    let fm = parse_frontmatter(text)?;
+    for _ in 0..fm.consumed {
+        lines.next();
     }
-    if !saw_any {
-        return Err(ParseError::File(
-            "<input>".into(),
-            "no YAML frontmatter found — every spec file starts with a `---` fenced Intent block"
-                .into(),
-        ));
-    }
-    let fm: BTreeMap<String, serde_yaml_ng::Value> = serde_yaml_ng::from_str(&fm_raw)
-        .map_err(|e| ParseError::File("<frontmatter>".into(), e.to_string()))?;
-    let get = |k: &str| -> Option<String> { fm.get(k).map(v_to_string) };
+    let get = |k: &str| -> Option<String> { fm.fields.get(k).map(v_to_string) };
     let intent = Intent {
         id_span: None,
         id: get("id")
@@ -278,6 +241,7 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
             ParseError::File("<frontmatter>".into(), "missing `statement` field".into())
         })?,
         extra: fm
+            .fields
             .into_iter()
             .filter(|(k, _)| !matches!(k.as_str(), "id" | "kind" | "statement"))
             .collect(),
@@ -303,15 +267,8 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
     spec.intent.id_span = frontmatter_id_span(text, &spec.intent.id);
 
     // --- Body sections ---
-    let mut current_table: TableKind = TableKind::None;
+    let mut ctx = SectionCtx::default();
     let mut headers: Vec<String> = vec![];
-    let mut in_states = false;
-    // Inside `### Reference Typing` — capture the section verbatim for the
-    // schema drift gate (add-acset-core task 2.4).
-    let mut in_reference_typing = false;
-    // Which dual-format requirement section (if any) we are inside —
-    // bodies are captured verbatim (line-rstripped) for the drift check.
-    let mut dual_section = 0u8; // 0 none · 1 ADDED Requirements · 2 Requirements · 3 MODIFIED Requirements
 
     for (n, line) in lines {
         let lineno = n + 1;
@@ -319,84 +276,31 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
 
         // Capture the requirement-section bodies (every line except the
         // `## ` headings themselves; `### Requirement:` lines included).
-        if !t.starts_with("## ") {
-            match dual_section {
-                1 => {
-                    spec.added_requirements_body.push_str(line.trim_end());
-                    spec.added_requirements_body.push('\n');
-                }
-                2 => {
-                    spec.requirements_body.push_str(line.trim_end());
-                    spec.requirements_body.push('\n');
-                }
-                3 => {
-                    spec.modified_requirements_body.push_str(line.trim_end());
-                    spec.modified_requirements_body.push('\n');
-                }
-                _ => {}
-            }
-        }
+        ctx.capture_dual_body(&mut spec, t, line);
 
         if let Some(heading) = t.strip_prefix("## ") {
-            let h = heading.trim();
-            dual_section = match h {
-                "ADDED Requirements" => 1,
-                "Requirements" => 2,
-                "MODIFIED Requirements" => 3,
-                _ => 0,
-            };
-            current_table = match h {
-                "Constraints" => TableKind::Constraints,
-                "Properties" => TableKind::Properties,
-                "Model" => TableKind::Model,
-                _ => TableKind::None,
-            };
-            // Dual-format markers (spec-integration protocol): the
-            // openspec delta half and the capability-spec half.
-            if h == "ADDED Requirements" {
-                spec.has_added_requirements = true;
-            }
-            if h == "MODIFIED Requirements" {
-                spec.has_modified_requirements = true;
-            }
-            if h == "Requirements" {
-                spec.has_requirements_section = true;
-            }
-            in_states = false;
-            in_reference_typing = false;
+            ctx.on_h2(heading.trim(), &mut spec);
             headers = vec![];
             continue;
         }
         if let Some(heading) = t.strip_prefix("### ") {
-            let h = heading.trim();
-            in_states = h == "States";
-            in_reference_typing = h == "Reference Typing";
+            ctx.on_h3(heading.trim());
             headers = vec![];
-            current_table = match (current_table, h) {
-                (TableKind::Model, "Transitions") => TableKind::Transitions,
-                (TableKind::Model, "States") | (TableKind::Transitions, "States") => {
-                    TableKind::Model
-                }
-                // Any other `###` subsection (e.g. Reference Typing,
-                // Checker Ownership) is not one of the three structured
-                // tables — leave table context.
-                _ => TableKind::None,
-            };
             continue;
         }
 
         // Reference Typing capture: headings above already `continue`d, so
         // every line reaching here is section body — kept verbatim (the
         // same rstripped discipline as the dual-section bodies).
-        if in_reference_typing {
+        if ctx.in_reference_typing {
             spec.reference_typing_body.push_str(line.trim_end());
             spec.reference_typing_body.push('\n');
         }
 
-        match current_table {
+        match ctx.current_table {
             TableKind::None | TableKind::Model => {
                 // Model prose and States bullets handled below.
-                if in_states && t.starts_with("- ") {
+                if ctx.in_states && t.starts_with("- ") {
                     push_state_row(&mut spec, line, line_starts[n]);
                 }
             }
@@ -411,7 +315,7 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
                         &mut spec,
                         line,
                         line_starts[n],
-                        current_table,
+                        ctx.current_table,
                         &headers,
                         lineno,
                     )?;
@@ -557,6 +461,128 @@ fn push_table_row(
     Ok(())
 }
 
+/// The parsed frontmatter block: the YAML fields plus how many raw lines
+/// the block consumed (through the closing `---`), so the body parse can
+/// resume after it. Extracted from parse_str (pretender cyclomatic
+/// ratchet); semantics identical to the original inline loop.
+struct Frontmatter {
+    fields: BTreeMap<String, serde_yaml_ng::Value>,
+    consumed: usize,
+}
+
+fn parse_frontmatter(text: &str) -> Result<Frontmatter, ParseError> {
+    let mut fm_raw = String::new();
+    let mut in_fm = false;
+    let mut saw_any = false;
+    let mut consumed = 0usize;
+    for seg in text.split_inclusive('\n') {
+        let line = seg.strip_suffix('\n').unwrap_or(seg);
+        let t = line.trim_end();
+        consumed += 1;
+        if !in_fm && t == "---" {
+            in_fm = true;
+            saw_any = true;
+            continue;
+        }
+        if in_fm && t == "---" {
+            break;
+        }
+        if in_fm {
+            fm_raw.push_str(t);
+            fm_raw.push('\n');
+            continue;
+        }
+        // blank lines before frontmatter are fine
+        if t.trim().is_empty() {
+            continue;
+        }
+        break;
+    }
+    if !saw_any {
+        return Err(ParseError::File(
+            "<input>".into(),
+            "no YAML frontmatter found — every spec file starts with a `---` fenced Intent block"
+                .into(),
+        ));
+    }
+    let fields: BTreeMap<String, serde_yaml_ng::Value> = serde_yaml_ng::from_str(&fm_raw)
+        .map_err(|e| ParseError::File("<frontmatter>".into(), e.to_string()))?;
+    Ok(Frontmatter { fields, consumed })
+}
+
+/// The body loop's section context: which `##`/`###` section we are in,
+/// which structured table (if any) rows belong to, and the verbatim
+/// capture flags. Extracted from parse_str (pretender cognitive-complexity
+/// ratchet); the dispatch semantics are exactly the original inline code.
+#[derive(Default)]
+struct SectionCtx {
+    current_table: TableKind,
+    in_states: bool,
+    in_reference_typing: bool,
+    dual_section: u8, // 0 none · 1 ADDED Requirements · 2 Requirements · 3 MODIFIED Requirements
+}
+
+impl SectionCtx {
+    /// Capture the requirement-section bodies (every line except the
+    /// `## ` headings themselves; `### Requirement:` lines included).
+    fn capture_dual_body(&self, spec: &mut Spec, t: &str, line: &str) {
+        if t.starts_with("## ") {
+            return;
+        }
+        let target = match self.dual_section {
+            1 => Some(&mut spec.added_requirements_body),
+            2 => Some(&mut spec.requirements_body),
+            3 => Some(&mut spec.modified_requirements_body),
+            _ => None,
+        };
+        if let Some(body) = target {
+            body.push_str(line.trim_end());
+            body.push('\n');
+        }
+    }
+
+    fn on_h2(&mut self, h: &str, spec: &mut Spec) {
+        self.dual_section = match h {
+            "ADDED Requirements" => 1,
+            "Requirements" => 2,
+            "MODIFIED Requirements" => 3,
+            _ => 0,
+        };
+        self.current_table = match h {
+            "Constraints" => TableKind::Constraints,
+            "Properties" => TableKind::Properties,
+            "Model" => TableKind::Model,
+            _ => TableKind::None,
+        };
+        // Dual-format markers (spec-integration protocol): the
+        // openspec delta half and the capability-spec half.
+        if h == "ADDED Requirements" {
+            spec.has_added_requirements = true;
+        }
+        if h == "MODIFIED Requirements" {
+            spec.has_modified_requirements = true;
+        }
+        if h == "Requirements" {
+            spec.has_requirements_section = true;
+        }
+        self.in_states = false;
+        self.in_reference_typing = false;
+    }
+
+    fn on_h3(&mut self, h: &str) {
+        self.in_states = h == "States";
+        self.in_reference_typing = h == "Reference Typing";
+        self.current_table = match (self.current_table, h) {
+            (TableKind::Model, "Transitions") => TableKind::Transitions,
+            (TableKind::Model, "States") | (TableKind::Transitions, "States") => TableKind::Model,
+            // Any other `###` subsection (e.g. Reference Typing,
+            // Checker Ownership) is not one of the three structured
+            // tables — leave table context.
+            _ => TableKind::None,
+        };
+    }
+}
+
 fn v_to_string(v: &serde_yaml_ng::Value) -> String {
     match v {
         serde_yaml_ng::Value::String(s) => s.clone(),
@@ -569,8 +595,9 @@ fn v_to_string(v: &serde_yaml_ng::Value) -> String {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 enum TableKind {
+    #[default]
     None,
     Constraints,
     Properties,

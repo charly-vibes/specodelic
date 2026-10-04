@@ -16,15 +16,15 @@ Tidying commits are separate from feature commits.
 
 ## 2. Parser span recording
 
-- [ ] 2.1 **RED**: a failing identity-shaped test is impossible before
+- [x] 2.1 **RED**: a failing identity-shaped test is impossible before
       spans exist, so phase 2's red step is the span-presence test:
       parsing a fixture spec reports the byte span of every id cell,
       every `[[link]]` occurrence, and every state bullet (fails: no
       span fields exist).
-- [ ] 2.2 **GREEN**: additive span fields in `src/spec.rs` filled by
+- [x] 2.2 **GREEN**: additive span fields in `src/spec.rs` filled by
       `src/parse.rs`; the full-corpus `spk graph --json` snapshot and
       all other snapshots stay byte-identical (design decision D3).
-- [ ] 2.3 **TIDY**: dead-flag and clippy sweep; `just ci` green.
+- [x] 2.3 **TIDY**: dead-flag and clippy sweep; `just ci` green.
 
 ## 3. Writer core — identity emission
 
