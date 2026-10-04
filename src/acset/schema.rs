@@ -525,4 +525,164 @@ mod tests {
             "the closed five, canonically sorted"
         );
     }
+
+    // ---------------------------------------------------------------------------
+    // Typing read from the Schema (task 2.3 — RED first). The generic
+    // checker evaluates the schema's rows; the per-column match arms in
+    // graph.rs's typing_violation are retired.
+    // ---------------------------------------------------------------------------
+
+    fn endpoint(object: &str, kind: &str, describe: &str) -> Endpoint {
+        Endpoint {
+            object: object.to_string(),
+            kind: kind.to_string(),
+            describe: describe.to_string(),
+        }
+    }
+
+    /// `typing_read_from_schema`: a new reference field added as one schema
+    /// row decides typing for that field with no change to checker code —
+    /// and a column with no rows is not a typed reference field.
+    #[test]
+    fn typing_read_from_schema() {
+        let mut s = canonical();
+        s.morphisms.push(Morphism {
+            column: "backs",
+            name: "backs",
+            source: ObjectId::new("State"),
+            target: ObjectId::new("Intent"),
+            refinements: vec![],
+            endo_acyclic: None,
+            source_rule: SourceRule::Unchecked,
+            target_violation: "backs must resolve to an Intent (Reference Typing); target is {tk}",
+            source_violation: None,
+        });
+        let source_state = Some(endpoint("State", "", "a State"));
+        assert_eq!(
+            typing_violation(&s, "backs", source_state, endpoint("Intent", "", "an Intent")),
+            None,
+            "the added row admits State→Intent with no checker change"
+        );
+        assert_eq!(
+            typing_violation(&s, "backs", None, endpoint("State", "", "a State")),
+            Some("backs must resolve to an Intent (Reference Typing); target is a State".to_string()),
+            "the added row's own template composes the reason"
+        );
+        assert_eq!(
+            typing_violation(&s, "no_such_column", None, endpoint("State", "", "a State")),
+            None,
+            "a column with no rows is not a typed reference field"
+        );
+    }
+
+    /// `emits_refinement_enforced`: the effect-only rule comes from the
+    /// declared refinement on the emits row — an emits edge to an invariant
+    /// Constraint fails, to an effect Constraint passes.
+    #[test]
+    fn emits_refinement_enforced() {
+        let s = canonical();
+        let source_state = Some(endpoint("State", "", "a State"));
+        assert_eq!(
+            typing_violation(
+                &s,
+                "emits",
+                source_state.clone(),
+                endpoint("Constraint", "invariant", "a Constraint (kind `invariant`)"),
+            ),
+            Some(
+                "emits must resolve to an effect Constraint (Reference Typing); target is a Constraint (kind `invariant`)"
+                    .to_string()
+            ),
+        );
+        assert_eq!(
+            typing_violation(
+                &s,
+                "emits",
+                source_state,
+                endpoint("Constraint", "effect", "a Constraint (kind `effect`)"),
+            ),
+            None,
+        );
+    }
+
+    /// Byte-parity pins: the generic checker composes the exact reasons the
+    /// graph fixtures pin (tests/snapshots/typing_violations.txt), including
+    /// the huf order (derives_from's appears-on rule fires before the
+    /// target is considered) and the supersedes same-kind rule.
+    #[test]
+    fn typing_reasons_match_pinned_prose() {
+        let s = canonical();
+        let constraint = endpoint("Constraint", "", "a Constraint");
+        let property = endpoint("Property", "", "a Property");
+        let law = endpoint("Property", "law", "a Property (kind `law`)");
+        // traces_to: the source side is not consulted (a properties row
+        // carrying traces_to is typed on the target alone).
+        assert_eq!(
+            typing_violation(&s, "traces_to", Some(property.clone()), constraint.clone()),
+            Some("traces_to must resolve to an Intent (Reference Typing); target is a Constraint".to_string()),
+        );
+        assert_eq!(
+            typing_violation(&s, "traces_to", Some(property), endpoint("Intent", "", "an Intent")),
+            None,
+        );
+        // derives_from: appears-on fires first, even over a matching target.
+        assert_eq!(
+            typing_violation(&s, "derives_from", Some(constraint.clone()), constraint.clone()),
+            Some("derives_from appears on Property rows only (Reference Typing); source is a Constraint".to_string()),
+        );
+        assert_eq!(
+            typing_violation(&s, "derives_from", None, constraint),
+            Some("derives_from appears on Property rows only (Reference Typing); source is an untyped row".to_string()),
+        );
+        // The law case: law→law allowed, law→non-law Property rejected.
+        assert_eq!(
+            typing_violation(&s, "derives_from", Some(law.clone()), law),
+            None,
+            "a law derives from a law"
+        );
+        let unit_law = endpoint("Property", "unit", "a Property (kind `unit`)");
+        assert_eq!(
+            typing_violation(&s, "derives_from", Some(law), unit_law),
+            Some("derives_from must resolve to a Constraint, or to a Property when the source is a law (Reference Typing); target is a Property (kind `unit`)".to_string()),
+        );
+        // guard: the split column admits a State (Revision 12).
+        let source_transition = Some(endpoint("Transition", "", "a Transition"));
+        assert_eq!(
+            typing_violation(&s, "guard", source_transition.clone(), endpoint("State", "", "a State")),
+            None,
+        );
+        assert_eq!(
+            typing_violation(
+                &s,
+                "guard",
+                source_transition,
+                endpoint("Constraint", "advisory", "a Constraint (kind `advisory`)"),
+            ),
+            Some("guard must resolve to an invariant Constraint or a State (Reference Typing); target is a Constraint (kind `advisory`)".to_string()),
+        );
+        // supersedes: the same-kind rule, with the exact combined reason.
+        assert_eq!(
+            typing_violation(&s, "supersedes", Some(endpoint("Constraint", "", "a Constraint")), endpoint("Constraint", "", "a Constraint")),
+            None,
+        );
+        assert_eq!(
+            typing_violation(&s, "supersedes", Some(endpoint("Constraint", "", "a Constraint")), endpoint("Property", "", "a Property")),
+            Some("supersedes must target the same kind as the row it appears on (Reference Typing); source is a Constraint, target is a Property".to_string()),
+        );
+        // An untyped source row is not policed by the same-kind rule
+        // (frontmatter supersedes links stay allowed — current behaviour).
+        assert_eq!(
+            typing_violation(&s, "supersedes", None, endpoint("Constraint", "", "a Constraint")),
+            None,
+        );
+        // satisfies/observes: extension_point-only / effect-only.
+        assert_eq!(
+            typing_violation(&s, "satisfies", Some(endpoint("Constraint", "", "a Constraint")), endpoint("Constraint", "effect", "a Constraint (kind `effect`)")),
+            Some("satisfies must resolve to an extension_point Constraint (Reference Typing); target is a Constraint (kind `effect`)".to_string()),
+        );
+        assert_eq!(
+            typing_violation(&s, "observes", Some(endpoint("Constraint", "", "a Constraint")), endpoint("Constraint", "", "a Constraint")),
+            Some("observes must resolve to an effect Constraint (Reference Typing); target is a Constraint".to_string()),
+        );
+    }
 }
