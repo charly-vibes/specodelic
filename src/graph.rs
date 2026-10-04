@@ -188,6 +188,17 @@ fn typing_violation(
     schema::typing_violation(schema, column, source_kind.map(&endpoint), endpoint(target))
 }
 
+/// Record one resolved edge and its fan counts — the single place an edge
+/// enters the report (task 2.5 TIDY: both derivation sites — the
+/// transitions' from/to cells and the typed reference links — carried the
+/// same three-line fan/edge dance; now they share one entry point, so a
+/// future change to edge accounting cannot miss one site).
+fn record_edge(report: &mut GraphReport, edge: Edge) {
+    *report.fan_out.entry(edge.from.clone()).or_default() += 1;
+    *report.fan_in.entry(edge.to.clone()).or_default() += 1;
+    report.edges.push(edge);
+}
+
 /// Cycles in the `supersedes` edge set (`supersedes_dag`,
 /// `specs/linter-graph_shape.md`). Deterministic: BTreeMap iteration plus
 /// rotation-normalized cycle paths (a cycle found from any of its nodes
@@ -285,14 +296,14 @@ pub fn build(specs: &[Spec]) -> GraphReport {
                     continue;
                 }
                 if spec.states.iter().any(|s| s.id == state) {
-                    let edge = Edge {
-                        from: from_node.clone(),
-                        to: format!("{file_id}.{state}"),
-                        kind: edge_kind.into(),
-                    };
-                    *report.fan_out.entry(edge.from.clone()).or_default() += 1;
-                    *report.fan_in.entry(edge.to.clone()).or_default() += 1;
-                    report.edges.push(edge);
+                    record_edge(
+                        &mut report,
+                        Edge {
+                            from: from_node.clone(),
+                            to: format!("{file_id}.{state}"),
+                            kind: edge_kind.into(),
+                        },
+                    );
                 } else {
                     report.dangling.push(format!(
                         "{from_node} ({edge_kind}) → state `{state}` is not defined in {file_id}"
@@ -383,9 +394,7 @@ pub fn build(specs: &[Spec]) -> GraphReport {
                         to: target,
                         kind,
                     };
-                    *report.fan_out.entry(edge.from.clone()).or_default() += 1;
-                    *report.fan_in.entry(edge.to.clone()).or_default() += 1;
-                    report.edges.push(edge);
+                    record_edge(&mut report, edge);
                 }
                 None => {
                     // specodelic-2q8: consumption edges get an

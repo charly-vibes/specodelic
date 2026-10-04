@@ -39,7 +39,7 @@ Tidying commits are separate from feature commits.
       (`schema_matches_typing_table`) — fixture: a Schema missing one row
       of specs/specodelic.md's Reference Typing table reports at lint
       time.
-- [ ] 2.5 **TIDY**: collapse the duplicated edge loops in `src/graph.rs`
+- [x] 2.5 **TIDY**: collapse the duplicated edge loops in `src/graph.rs`
       (`:345`/`:438`) behind one edge derivation; dead-flag and clippy
       sweep (`just ci`).
 
