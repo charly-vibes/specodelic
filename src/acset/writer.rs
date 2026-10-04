@@ -362,7 +362,7 @@ pub fn apply(edit: &Edit, path: &Path, source: &str, spec: &Spec) -> Result<Writ
     // Roundtrip gate: the emitted text must reparse to an instance that
     // realizes exactly the edit (`edit_application_faithful`); anything
     // else is a labeled `spec.roundtrip_failure`, never a silent emit.
-    verify_roundtrip(edit, spec, &out)?;
+    verify_roundtrip(edit, source, spec, &out)?;
 
     // The write-set: only files that actually change are written; an
     // intent rename always writes the new path and removes the old one.
@@ -461,7 +461,12 @@ fn roundtrip_failure(detail: String) -> WriterError {
 /// denotes realized exactly the edit — the renamed ids are the new ones,
 /// no stale reference survives. A parse failure or a stale id is a
 /// labeled refusal, never a silently corrupted emit.
-fn verify_roundtrip(edit: &Edit, before: &Spec, emitted: &str) -> Result<(), WriterError> {
+fn verify_roundtrip(
+    edit: &Edit,
+    source: &str,
+    before: &Spec,
+    emitted: &str,
+) -> Result<(), WriterError> {
     let Edit::Rename { old, new, local } = edit;
     let after = crate::spec::parse_str(emitted)
         .map_err(|e| roundtrip_failure(format!("emitted text does not reparse: {e}")))?;
@@ -545,37 +550,39 @@ fn verify_roundtrip(edit: &Edit, before: &Spec, emitted: &str) -> Result<(), Wri
     }
 
     // Every link that followed the rename carries the new target; links
-    // that did not match keep their original target. Match links across
-    // the reparse by their recorded spans (the bytes around them are
-    // untouched, so spans are stable). The same exact-raw-match law as
-    // the rewrite above: a padded link (`[[ target ]]`) never follows.
-    for l in &after.links {
-        let raw_exact = l
-            .span
-            .is_some_and(|s| emitted[s.start..s.end] == format!("[[{}]]", l.target));
-        if !raw_exact {
-            continue;
-        }
-        let followed = if l.target == *old {
-            true
-        } else {
-            l.target
-                .strip_prefix(old.as_str())
-                .is_some_and(|suffix| suffix.starts_with('.'))
-        };
-        if followed {
-            let expected = if l.target == *old {
-                new.clone()
-            } else {
-                format!("{new}{}", &l.target[old.len()..])
-            };
-            if l.target != expected {
-                return Err(roundtrip_failure(format!(
-                    "link target `{}` did not realize the rename (expected `{expected}`)",
-                    l.target
-                )));
+    // that did not match keep their original target. Compared as a
+    // target MULTISET over the before-links — span matching misfires
+    // when `new_id` itself has the `old_id.<child>` shape (`alpha` →
+    // `alpha.prime`: the rewritten `[[alpha.prime]]` matches the
+    // child-of-old pattern and looks unrewritten). The exact-raw-match
+    // law applies: a padded link (`[[ target ]]`) never follows.
+    let mut expected: Vec<String> = before
+        .links
+        .iter()
+        .map(|l| match l.span {
+            Some(s) if source[s.start..s.end] == format!("[[{}]]", l.target) => {
+                let followed = l.target == *old
+                    || l.target
+                        .strip_prefix(old.as_str())
+                        .is_some_and(|suffix| suffix.starts_with('.'));
+                if followed && l.target == *old {
+                    new.clone()
+                } else if followed {
+                    format!("{new}{}", &l.target[old.len()..])
+                } else {
+                    l.target.clone()
+                }
             }
-        }
+            _ => l.target.clone(),
+        })
+        .collect();
+    expected.sort();
+    let mut actual: Vec<String> = after.links.iter().map(|l| l.target.clone()).collect();
+    actual.sort();
+    if expected != actual {
+        return Err(roundtrip_failure(
+            "the emitted text's link targets do not match the rename's expected set".into(),
+        ));
     }
 
     Ok(())

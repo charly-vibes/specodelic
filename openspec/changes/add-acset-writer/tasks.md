@@ -61,15 +61,15 @@ Tidying commits are separate from feature commits.
 
 ## 5. rename.rs migration (parity-gated)
 
-- [ ] 5.1 **RED**: rename parity property — for every fixture and
+- [x] 5.1 **RED**: rename parity property — for every fixture and
       arbitrary corpus/rename case, writer-driven rename output equals
       the pre-migration `rename.rs` write-set byte for byte (fails:
       rename does not call the writer yet).
-- [ ] 5.2 **GREEN**: migrate one rewrite family at a time (id cells →
+- [x] 5.2 **GREEN**: migrate one rewrite family at a time (id cells →
       wiki-links → state bullets) behind the snapshots from 1.1; any
       intentional output difference is an explicit reviewed snapshot
       update (design decision D6).
-- [ ] 5.3 **TIDY**: delete the now-dead hand-wired rewriting paths in
+- [x] 5.3 **TIDY**: delete the now-dead hand-wired rewriting paths in
       `src/rename.rs`; `spk rename --json` snapshots byte-identical;
       `just ci` green.
 

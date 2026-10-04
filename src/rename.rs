@@ -53,84 +53,21 @@ pub enum RenameError {
 
 /// Apply the rename purely in memory: read-only over the input files,
 /// output a write set that leaves the repo fully renamed and lint-clean.
+///
+/// The per-file text realization rides the span-preserving writer
+/// (`add-acset-writer` task 5.2): the rename↔writer parity property
+/// (`tests/rename_writer_parity.rs`) proved the writer-driven write-set
+/// equals the hand-wired one byte for byte over every fixture and
+/// arbitrary corpus/rename case, so `run` delegates wholesale. The
+/// hand-wired path survives only where no spans exist — files the
+/// parser rejects get the same link-only line-wise rewrite it always
+/// gave them.
 pub fn run(
     files: &[(PathBuf, String)],
     old_id: &str,
     new_id: &str,
 ) -> Result<RenameOutcome, RenameError> {
-    validate_shape(new_id)?;
-    if old_id == new_id {
-        // rename_naturality's identity law: rename(I, a, a) == I.
-        return Ok(RenameOutcome {
-            old_id: old_id.into(),
-            new_id: new_id.into(),
-            writes: vec![],
-            remove: None,
-        });
-    }
-    let plan = plan_rename(files, old_id, new_id)?;
-    let owner_path = plan.specs[plan.owner_index]
-        .path
-        .clone()
-        .expect("definition file must have a path");
-
-    // Rewrite every file; collect the ones that actually change. Only
-    // the definition file gets local-id (cell/bullet) rewrites; every
-    // file gets wiki-link rewrites. Checklists are not specs — their
-    // mapped_ids cells follow the rename instead (mapping_naturality:
-    // mapped(rename(I)) == rename(mapped(I))).
-    let mut writes = vec![];
-    for (path, raw) in files {
-        let in_owner = owner_path == *path;
-        let new_text = if checklist::is_checklist_path(path) {
-            checklist::rewrite_text(raw, old_id, new_id)
-        } else {
-            rewrite_text(
-                raw,
-                old_id,
-                new_id,
-                if in_owner {
-                    plan.local.as_ref().map(|(a, b)| (a.as_str(), b.as_str()))
-                } else {
-                    None
-                },
-            )
-        };
-        if new_text != *raw {
-            writes.push((path.clone(), new_text));
-        }
-    }
-
-    // Intent renames move the file per the naming law (`-` ⇔ `.`).
-    let mut remove = None;
-    if plan.is_intent_rename {
-        let old_path = owner_path.clone();
-        let new_name = format!("{}.md", new_id.replace('.', "-"));
-        let new_path = old_path
-            .parent()
-            .unwrap_or_else(|| std::path::Path::new("."))
-            .join(new_name);
-        // The rewritten definition file becomes the new file; the old
-        // path dies. Its rewrite is carried by the new path.
-        let owner_text = files
-            .iter()
-            .find(|(p, _)| *p == old_path)
-            .expect("owner in files")
-            .1
-            .clone();
-        writes.retain(|(p, _)| *p != old_path);
-        writes.push((new_path, rewrite_text(&owner_text, old_id, new_id, None)));
-        remove = Some(old_path);
-    }
-
-    verify_would_be_repo(files, &writes, &remove)?;
-
-    Ok(RenameOutcome {
-        old_id: old_id.into(),
-        new_id: new_id.into(),
-        writes,
-        remove,
-    })
+    run_via_writer(files, old_id, new_id)
 }
 
 /// Apply the rename through the span-preserving writer
@@ -208,7 +145,7 @@ pub fn run_via_writer(
                 // No recorded spans exist: the hand-wired link-only
                 // rewrite is the only realization possible (identical
                 // to `run`'s per-line behavior for this file).
-                let new_text = rewrite_text(raw, old_id, new_id, None);
+                let new_text = rewrite_text(raw, old_id, new_id);
                 if new_text != *raw {
                     writes.push((path.clone(), new_text));
                 }
@@ -423,13 +360,17 @@ fn validate_shape(new_id: &str) -> Result<(), RenameError> {
     Ok(())
 }
 
-/// Rewrite one file's text: wiki-link targets (`[[old_id]]` and
-/// `[[old_id.child…]]`), plus — only in the definition file — the
-/// frontmatter `id:` line, exact-id table cells, and exact-id state
-/// bullets (row renames rewrite the LOCAL id in cells; links carry the
-/// qualified one). Everything else — prose, expressions, predicates —
-/// passes through byte-identical.
-fn rewrite_text(raw: &str, old_id: &str, new_id: &str, local: Option<(&str, &str)>) -> String {
+/// Line-wise link-only rewrite for files the parser rejects (no spans
+/// exist to drive the writer): `[[old_id]]` and `[[old_id.x]]` wiki-link
+/// targets follow the rename; an exact frontmatter `id: {old_id}` line
+/// follows too (a file can carry the id line yet fail to parse for an
+/// unrelated reason — it must not keep a stale id). Everything else —
+/// prose, expressions, predicates — passes through byte-identical.
+/// (The hand-wired spec-file rewriting — exact-id table cells and state
+/// bullets — is gone: the writer realizes those through recorded spans,
+/// and this fallback only ever saw the link behavior of those branches,
+/// which with no local pair is exactly `rewrite_links`.)
+fn rewrite_text(raw: &str, old_id: &str, new_id: &str) -> String {
     let mut out = String::with_capacity(raw.len());
     for line in raw.split_inclusive('\n') {
         // Split off the terminator so the line matchers see bare content,
@@ -444,18 +385,14 @@ fn rewrite_text(raw: &str, old_id: &str, new_id: &str, local: Option<(&str, &str
             },
         };
         let trimmed = content.trim_start();
-        let rewritten: String = if local.is_none() && trimmed == format!("id: {old_id}") {
-            // Frontmatter Intent id (the definition file's own). Anchor
-            // the replacement on the `id: ` prefix — a bare replacen of
-            // `old_id` hits its first occurrence ANYWHERE in the line,
-            // so a single-character id (`id: i`) corrupted the key
-            // itself (`irenamed: i`); found by the rename↔writer parity
-            // property (add-acset-writer task 5.1).
+        let rewritten: String = if trimmed == format!("id: {old_id}") {
+            // Frontmatter Intent id. Anchor the replacement on the
+            // `id: ` prefix — a bare replacen of `old_id` hits its first
+            // occurrence ANYWHERE in the line, so a single-character id
+            // (`id: i`) corrupted the key itself (`irenamed: i`); found
+            // by the rename↔writer parity property (add-acset-writer
+            // task 5.1).
             content.replacen(&format!("id: {old_id}"), &format!("id: {new_id}"), 1)
-        } else if trimmed.starts_with('|') {
-            rewrite_table_row(content, old_id, new_id, local)
-        } else if trimmed.starts_with("- ") {
-            rewrite_state_bullet(content, old_id, new_id, local)
         } else {
             rewrite_links(content, old_id, new_id)
         };
@@ -499,65 +436,6 @@ fn rewrite_links(line: &str, old_id: &str, new_id: &str) -> String {
     }
     out.push_str(rest);
     out
-}
-
-/// Exact-match id cells only (`| local |`) in the definition file: the
-/// defining row's id cell, plain-id derives_from cells, and transition
-/// from/to cells (state renames). Prose cells, expressions, and cells
-/// that merely mention the id pass through untouched. Every cell still
-/// gets wiki-link rewrites.
-fn rewrite_table_row(
-    line: &str,
-    old_id: &str,
-    new_id: &str,
-    local: Option<(&str, &str)>,
-) -> String {
-    let targets = local.map(|(lo, _)| lo).into_iter().collect::<Vec<_>>();
-    if !line.split('|').any(|c| targets.contains(&c.trim())) {
-        return rewrite_links(line, old_id, new_id);
-    }
-    let mut out = String::with_capacity(line.len());
-    for (i, cell) in line.split('|').enumerate() {
-        if i > 0 {
-            out.push('|');
-        }
-        let t = cell.trim();
-        if local.is_some_and(|(lo, _ln)| t == lo && !t.is_empty()) {
-            // Preserve the cell's padding exactly.
-            let start = cell.len() - cell.trim_start().len();
-            let end = cell.len() - cell.trim_end().len();
-            out.push_str(&" ".repeat(start));
-            out.push_str(local.map(|(_, ln)| ln).unwrap_or(new_id));
-            out.push_str(&" ".repeat(end));
-        } else {
-            out.push_str(&rewrite_links(cell, old_id, new_id));
-        }
-    }
-    out
-}
-
-/// A States bullet whose leading id token is exactly `old_id`
-/// (`- old_id` / `- old_id (emits: …)`).
-fn rewrite_state_bullet(
-    line: &str,
-    old_id: &str,
-    new_id: &str,
-    local: Option<(&str, &str)>,
-) -> String {
-    let Some((lo, ln)) = local else {
-        return rewrite_links(line, old_id, new_id);
-    };
-    let trimmed = line.trim_start();
-    let token = trimmed
-        .trim_start_matches("- ")
-        .split([' ', '('])
-        .next()
-        .unwrap_or("");
-    if token != lo {
-        return rewrite_links(line, old_id, new_id);
-    }
-    let prefix_len = line.len() - trimmed.len();
-    line[prefix_len..].replacen(lo, ln, 1)
 }
 
 #[cfg(test)]
