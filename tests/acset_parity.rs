@@ -317,3 +317,112 @@ fn parity_property_edges_from_specs_matches_graph_build() {
     let graph_edges = graph::build(&specs).edges.clone();
     assert_eq!(acset_edges, graph_edges);
 }
+
+// ---------------------------------------------------------------------------
+// Task 2.4: the lint-time drift gate (`schema_matches_typing_table`) —
+// the format doc's Reference Typing table vs the canonical Schema, row for
+// row. RED first: the gate API does not exist yet (compile-fail red, the
+// 1.2 convention).
+// ---------------------------------------------------------------------------
+
+/// The real format doc, parsed.
+fn format_doc() -> Spec {
+    Spec::from_file(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("specs/specodelic.md"),
+    )
+    .expect("the format doc parses")
+}
+
+/// GREEN state: the real doc's Reference Typing table equals `canonical()`
+/// row for row — the gate the lint pass runs.
+#[test]
+fn real_doc_typing_table_matches_canonical_schema() {
+    let doc = format_doc();
+    let rows = specodelic::acset::doc::parse_typing_table(&doc.reference_typing_body)
+        .expect("the format doc's Reference Typing table parses");
+    specodelic::acset::doc::matches_typing_table(&specodelic::acset::schema::canonical(), &rows)
+        .expect("the format doc and the canonical Schema must agree row for row");
+}
+
+/// The unit scenario (`schema_missing_one_row_of_the_typing_table`): a
+/// Schema missing one row of the doc's table fails the comparison, naming
+/// the missing row.
+#[test]
+fn schema_missing_one_row_of_the_typing_table() {
+    let doc = format_doc();
+    let rows = specodelic::acset::doc::parse_typing_table(&doc.reference_typing_body)
+        .expect("the format doc's Reference Typing table parses");
+    let mut schema = specodelic::acset::schema::canonical();
+    schema.morphisms.retain(|m| m.column != "traces_to");
+    let drift =
+        specodelic::acset::doc::matches_typing_table(&schema, &rows)
+            .expect_err("a schema missing a doc row must fail the comparison");
+    assert!(
+        drift.iter().any(|d| d.contains("traces_to")),
+        "the drift report must name the missing row: {drift:?}"
+    );
+}
+
+/// Lint integration: a corpus carrying the format doc with one typing row
+/// removed reports exactly one `linter.schema_matches_typing_table` issue
+/// naming the vanished field.
+#[test]
+fn lint_reports_drift_when_the_doc_loses_a_row() {
+    let text = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("specs/specodelic.md"),
+    )
+    .expect("the format doc reads");
+    let doctored: String = text
+        .lines()
+        .filter(|l| !l.starts_with("| `traces_to`"))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    let spec = specodelic::spec::parse_str(&doctored).expect("doctored doc parses");
+    let report = specodelic::lint::lint_corpus(&[spec]);
+    let findings: Vec<_> = report
+        .issues
+        .iter()
+        .filter(|i| i.rule_id == "linter.schema_matches_typing_table")
+        .collect();
+    assert_eq!(
+        findings.len(),
+        1,
+        "exactly one drift finding: {:#?}",
+        report.issues
+    );
+    assert!(
+        findings[0].message.contains("traces_to"),
+        "the finding must name the vanished field: {}",
+        findings[0].message
+    );
+}
+
+/// Scope: a corpus that does not carry the format doc is out of the gate's
+/// scope — no-op, never fabricated expected rows.
+#[test]
+fn lint_without_the_format_doc_is_a_no_op() {
+    let spec = specodelic::spec::parse_str(
+        "---\nid: other.thing\nkind: intent\nstatement: \"THE thing SHALL hold\"\n---\n\
+         \n## Constraints\n\
+         \n| id | kind | expr | traces_to |\n\
+         |----|------|------|-----------|\n\
+         | c1 | invariant | `x` | [[other.thing]] |\n\
+         \n## Model\n\
+         \n### States\n\
+         \n- `s1`\n\
+         \n### Transitions\n\
+         \n| id | from | to | guard |\n\
+         |----|------|----|-------|\n\
+         | t | s1 | s1 | [[other.thing.c1]] |\n",
+    )
+    .expect("fixture parses");
+    let report = specodelic::lint::lint_corpus(&[spec]);
+    assert!(
+        report
+            .issues
+            .iter()
+            .all(|i| i.rule_id != "linter.schema_matches_typing_table"),
+        "the gate must not fire without the format doc: {:#?}",
+        report.issues
+    );
+}
