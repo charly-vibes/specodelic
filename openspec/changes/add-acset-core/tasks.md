@@ -24,11 +24,11 @@ Tidying commits are separate from feature commits.
 
 ## 2. Schema value + generic typing check
 
-- [ ] 2.1 **RED**: unit tests for `src/acset/schema.rs` —
+- [x] 2.1 **RED**: unit tests for `src/acset/schema.rs` —
       `sixth_object_rejected`, `duplicate_morphism_rejected`,
       `endo_cycle_detected` vs `unflagged_endo_cycle_tolerated` (flagged
       vs unflagged endo-morphism fixtures).
-- [ ] 2.2 **GREEN**: implement the `Schema` value (objects, typed
+- [x] 2.2 **GREEN**: implement the `Schema` value (objects, typed
       morphisms, allowed-targets incl. the three refinement rules as
       declared predicates, endo-acyclicity flags, canonical sorted
       order).

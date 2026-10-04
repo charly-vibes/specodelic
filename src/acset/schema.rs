@@ -38,7 +38,7 @@
 //!   `None` — not an endo morphism (source != target); `check` rejects a
 //!   missing flag on an endo row and a flag on a non-endo row.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// One object of the schema — the closed five of
 /// `specs/specodelic.md` (`objects_closed`). The id is open data: `check`
@@ -136,15 +136,220 @@ pub struct Cycle {
 /// `specs/specodelic.md` as data. The value `check` accepts and the
 /// `schema_matches_typing_table` lint gate compares against the document.
 pub fn canonical() -> Schema {
-    todo!("canonical schema rows (task 2.2 GREEN)")
+    let objects: BTreeSet<ObjectId> = ["Constraint", "Intent", "Property", "State", "Transition"]
+        .iter()
+        .map(|s| ObjectId::new(s))
+        .collect();
+    let o = ObjectId::new;
+    // One row per (source object, target object) a column admits — the
+    // Reference Typing table read as data. Authored in table order; the
+    // canonical (source, name) sort below makes declaration order
+    // irrelevant (`order_is_canonical`).
+    let mut morphisms = vec![
+        // traces_to | Constraint | Intent
+        Morphism {
+            column: "traces_to",
+            name: "traces_to",
+            source: o("Constraint"),
+            target: o("Intent"),
+            refinements: vec![],
+            endo_acyclic: None,
+        },
+        // derives_from | Property | Constraint
+        Morphism {
+            column: "derives_from",
+            name: "derives_from",
+            source: o("Property"),
+            target: o("Constraint"),
+            refinements: vec![],
+            endo_acyclic: None,
+        },
+        // derives_from | Property | the same Property when the deriving
+        // row is itself a law — the endo case; cycle policing stays with
+        // the linter's acyclic_traces (flag false).
+        Morphism {
+            column: "derives_from",
+            name: "derives_from_law",
+            source: o("Property"),
+            target: o("Property"),
+            refinements: vec![
+                Refinement {
+                    side: Side::Source,
+                    kind: "law",
+                },
+                Refinement {
+                    side: Side::Target,
+                    kind: "law",
+                },
+            ],
+            endo_acyclic: Some(false),
+        },
+        // guard | Transition | an invariant Constraint
+        Morphism {
+            column: "guard",
+            name: "guard",
+            source: o("Transition"),
+            target: o("Constraint"),
+            refinements: vec![Refinement {
+                side: Side::Target,
+                kind: "invariant",
+            }],
+            endo_acyclic: None,
+        },
+        // guard | Transition | a State — the "has reached state X"
+        // pattern (Revision 12)
+        Morphism {
+            column: "guard",
+            name: "guard_state",
+            source: o("Transition"),
+            target: o("State"),
+            refinements: vec![],
+            endo_acyclic: None,
+        },
+        // supersedes | Constraint | Constraint — flagged: cycles forbidden
+        // (supersedes_acyclic)
+        Morphism {
+            column: "supersedes",
+            name: "supersedes",
+            source: o("Constraint"),
+            target: o("Constraint"),
+            refinements: vec![],
+            endo_acyclic: Some(true),
+        },
+        // supersedes | Property | Property — flagged the same way
+        Morphism {
+            column: "supersedes",
+            name: "supersedes",
+            source: o("Property"),
+            target: o("Property"),
+            refinements: vec![],
+            endo_acyclic: Some(true),
+        },
+        // emits | State | Constraint, kind == effect only
+        Morphism {
+            column: "emits",
+            name: "emits",
+            source: o("State"),
+            target: o("Constraint"),
+            refinements: vec![Refinement {
+                side: Side::Target,
+                kind: "effect",
+            }],
+            endo_acyclic: None,
+        },
+        // satisfies | Constraint | Constraint, kind == extension_point
+        // only — structurally endo; mutual cross-file claims are
+        // well-formed, no acyclicity check at this layer.
+        Morphism {
+            column: "satisfies",
+            name: "satisfies",
+            source: o("Constraint"),
+            target: o("Constraint"),
+            refinements: vec![Refinement {
+                side: Side::Target,
+                kind: "extension_point",
+            }],
+            endo_acyclic: Some(false),
+        },
+        // observes | Constraint | Constraint, kind == effect only —
+        // structurally endo; mutual cross-file observation is
+        // well-formed (the table says so of record).
+        Morphism {
+            column: "observes",
+            name: "observes",
+            source: o("Constraint"),
+            target: o("Constraint"),
+            refinements: vec![Refinement {
+                side: Side::Target,
+                kind: "effect",
+            }],
+            endo_acyclic: Some(false),
+        },
+        // uses | Constraint | Intent of a kind: profile file (Revision 14)
+        Morphism {
+            column: "uses",
+            name: "uses",
+            source: o("Constraint"),
+            target: o("Intent"),
+            refinements: vec![Refinement {
+                side: Side::Target,
+                kind: "profile",
+            }],
+            endo_acyclic: None,
+        },
+        // from / to | Transition | State — the transitions walk owns these
+        // fields (graph.rs does not read them as links; the rows exist for
+        // table equality and the instance builder's from/to edges).
+        Morphism {
+            column: "from",
+            name: "from",
+            source: o("Transition"),
+            target: o("State"),
+            refinements: vec![],
+            endo_acyclic: None,
+        },
+        Morphism {
+            column: "to",
+            name: "to",
+            source: o("Transition"),
+            target: o("State"),
+            refinements: vec![],
+            endo_acyclic: None,
+        },
+    ];
+    morphisms.sort_by(|a, b| (&a.source, a.name).cmp(&(&b.source, b.name)));
+    Schema { objects, morphisms }
 }
 
 /// The schema-level check: objects closed to the exact five, every morphism
 /// named and pointing at declared objects, (source, name) unique, endo
 /// flags consistent with structure. `Ok(())` for the canonical schema.
 pub fn check(schema: &Schema) -> Result<(), Vec<SchemaError>> {
-    let _ = schema;
-    todo!("schema check (task 2.2 GREEN)")
+    let mut errs = Vec::new();
+    // objects_closed: the objects are exactly the closed five.
+    const CLOSED: [&str; 5] = ["Constraint", "Intent", "Property", "State", "Transition"];
+    for id in CLOSED {
+        if !schema.objects.contains(&ObjectId::new(id)) {
+            errs.push(SchemaError::MissingClosedObject(ObjectId::new(id)));
+        }
+    }
+    for o in &schema.objects {
+        if !CLOSED.contains(&o.0.as_str()) {
+            errs.push(SchemaError::ObjectOutsideClosedSet(o.clone()));
+        }
+    }
+    // morphisms_typed: named, pointing at declared objects, (source, name)
+    // unique; endo_acyclicity_flagged: the flag matches the structure.
+    let mut seen: BTreeSet<(&ObjectId, &str)> = BTreeSet::new();
+    for m in &schema.morphisms {
+        if m.name.is_empty() {
+            errs.push(SchemaError::MalformedMorphism {
+                name: m.name.to_string(),
+                reason: "empty name".to_string(),
+            });
+        }
+        for (role, obj) in [("source", &m.source), ("target", &m.target)] {
+            if !schema.objects.contains(obj) {
+                errs.push(SchemaError::MalformedMorphism {
+                    name: m.name.to_string(),
+                    reason: format!("{} object {} is not a declared object", role, obj.0),
+                });
+            }
+        }
+        if !seen.insert((&m.source, m.name)) {
+            errs.push(SchemaError::DuplicateMorphism {
+                source: m.source.clone(),
+                name: m.name.to_string(),
+            });
+        }
+        let is_endo = m.source == m.target;
+        if is_endo != m.endo_acyclic.is_some() {
+            errs.push(SchemaError::InconsistentEndoFlag {
+                name: m.name.to_string(),
+            });
+        }
+    }
+    if errs.is_empty() { Ok(()) } else { Err(errs) }
 }
 
 /// Generic acyclicity over a flagged endo morphism: `Err` only when the
@@ -156,8 +361,87 @@ pub fn check_endo_acyclicity(
     morphism_name: &str,
     edges: &[(ObjectId, ObjectId)],
 ) -> Result<(), Vec<Cycle>> {
-    let _ = (schema, morphism_name, edges);
-    todo!("generic endo-acyclicity check (task 2.2 GREEN)")
+    // Only flagged morphisms are cycle-checked — an unflagged endo case
+    // (or a name matching no row) is never a cycle report.
+    let flagged = schema
+        .morphisms
+        .iter()
+        .any(|m| m.name == morphism_name && m.endo_acyclic == Some(true));
+    if !flagged {
+        return Ok(());
+    }
+    // Adjacency over the morphism's defined values, deterministic.
+    let mut adj: BTreeMap<&ObjectId, BTreeSet<&ObjectId>> = BTreeMap::new();
+    for (from, to) in edges {
+        adj.entry(from).or_default().insert(to);
+    }
+    // Depth-first search with Gray/Black marking: an edge back into the
+    // current path (Gray) closes a cycle — extracted from the path,
+    // rotation-normalized smallest-node-first, deduplicated. Visits each
+    // node at most once per start, so termination is guaranteed.
+    #[derive(PartialEq)]
+    enum Color {
+        White,
+        Gray,
+        Black,
+    }
+    let mut color: BTreeMap<&ObjectId, Color> = adj.keys().map(|k| (*k, Color::White)).collect();
+    let mut found: BTreeSet<Vec<String>> = BTreeSet::new();
+    fn dfs<'a>(
+        node: &'a ObjectId,
+        path: &mut Vec<&'a ObjectId>,
+        color: &mut BTreeMap<&'a ObjectId, Color>,
+        adj: &BTreeMap<&'a ObjectId, BTreeSet<&'a ObjectId>>,
+        found: &mut BTreeSet<Vec<String>>,
+    ) {
+        color.insert(node, Color::Gray);
+        path.push(node);
+        if let Some(nexts) = adj.get(node) {
+            for next in nexts {
+                match color.get(*next) {
+                    None | Some(Color::Black) => {}
+                    Some(Color::White) => dfs(next, path, color, adj, found),
+                    Some(Color::Gray) => {
+                        // Cycle: the path segment from `next` to the
+                        // current node.
+                        let idx = path
+                            .iter()
+                            .position(|n| *n == *next)
+                            .expect("gray is on path");
+                        let cyc: Vec<String> = path[idx..].iter().map(|n| n.0.clone()).collect();
+                        // Rotation-normalize: smallest node first.
+                        let min = cyc
+                            .iter()
+                            .enumerate()
+                            .min_by(|(_, a), (_, b)| a.cmp(b))
+                            .map(|(i, _)| i)
+                            .expect("cycle is non-empty");
+                        found.insert(
+                            cyc.iter()
+                                .cycle()
+                                .skip(min)
+                                .take(cyc.len())
+                                .cloned()
+                                .collect(),
+                        );
+                    }
+                }
+            }
+        }
+        path.pop();
+        color.insert(node, Color::Black);
+    }
+    for start in adj.keys().copied().collect::<Vec<_>>() {
+        if color.get(start) == Some(&Color::White) {
+            let mut path = Vec::new();
+            dfs(start, &mut path, &mut color, &adj, &mut found);
+        }
+    }
+    if found.is_empty() {
+        Ok(())
+    } else {
+        Err(found.into_iter().map(|nodes| Cycle { nodes }).collect())
+    }
 }
 
 #[cfg(test)]

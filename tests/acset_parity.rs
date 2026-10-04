@@ -99,12 +99,21 @@ fn assert_oracle(dir: &str, expected: &str) {
 /// that triggers a shape — the graph over an empty corpus must be empty.
 #[test]
 fn zero_file_and_single_intent_corpora_are_clean() {
-    assert!(collect_fixture(ZERO_FILE).is_empty(), "zero-file corpus must have no .md files");
+    assert!(
+        collect_fixture(ZERO_FILE).is_empty(),
+        "zero-file corpus must have no .md files"
+    );
     let single = collect_fixture(SINGLE_INTENT);
     assert_eq!(single.len(), 1);
     let r = graph::build(&single);
-    assert!(r.violations.is_empty(), "single-intent corpus must trigger no violation");
-    assert!(r.dangling.is_empty(), "single-intent corpus must have no dangling links");
+    assert!(
+        r.violations.is_empty(),
+        "single-intent corpus must trigger no violation"
+    );
+    assert!(
+        r.dangling.is_empty(),
+        "single-intent corpus must have no dangling links"
+    );
     assert!(r.supersedes_cycles.is_empty());
     assert!(r.external_boundaries.is_empty());
 }
@@ -116,10 +125,22 @@ fn small_clean_corpus_is_clean() {
     let specs = collect_fixture(SMALL);
     assert_eq!(specs.len(), 1);
     let r = graph::build(&specs);
-    assert!(r.violations.is_empty(), "small corpus must trigger no violation");
-    assert!(r.dangling.is_empty(), "small corpus must have no dangling links");
-    assert!(r.supersedes_cycles.is_empty(), "small corpus must have no supersedes cycle");
-    assert!(r.external_boundaries.is_empty(), "small corpus must be no external boundary");
+    assert!(
+        r.violations.is_empty(),
+        "small corpus must trigger no violation"
+    );
+    assert!(
+        r.dangling.is_empty(),
+        "small corpus must have no dangling links"
+    );
+    assert!(
+        r.supersedes_cycles.is_empty(),
+        "small corpus must have no supersedes cycle"
+    );
+    assert!(
+        r.external_boundaries.is_empty(),
+        "small corpus must be no external boundary"
+    );
 }
 
 /// Today's typing-allowed edges (from a typing-allowed fixture), pinned by
@@ -134,7 +155,10 @@ fn typing_allowed_edges_match_oracle() {
 /// specodelic.md names is represented.
 #[test]
 fn typing_violations_match_oracle() {
-    assert_oracle(TYPING_VIOLATIONS, include_str!("snapshots/typing_violations.txt"));
+    assert_oracle(
+        TYPING_VIOLATIONS,
+        include_str!("snapshots/typing_violations.txt"),
+    );
 }
 
 /// Today's dangling shapes (from a dangling fixture), pinned by byte
@@ -155,22 +179,57 @@ fn typing_violations_fixture_covers_named_shapes() {
     let r = graph::build(&specs);
     let reasons: Vec<&str> = r.violations.iter().map(|v| v.reason.as_str()).collect();
     // Every violation class, named.
-    assert!(reasons.iter().any(|x| x.contains("traces_to must resolve to an Intent")));
-    assert!(reasons.iter().any(|x| x.contains("derives_from must resolve to a Constraint")));
-    assert!(reasons.iter().any(|x| x.contains("guard must resolve to an invariant Constraint")));
-    assert!(reasons.iter().any(|x| x.contains("emits must resolve to an effect Constraint")));
-    assert!(reasons.iter().any(|x| x.contains("satisfies must resolve to an extension_point")));
-    assert!(reasons.iter().any(|x| x.contains("observes must resolve to an effect Constraint")));
-    assert!(reasons.iter().any(|x| x.contains("supersedes must target the same kind")));
+    assert!(
+        reasons
+            .iter()
+            .any(|x| x.contains("traces_to must resolve to an Intent"))
+    );
+    assert!(
+        reasons
+            .iter()
+            .any(|x| x.contains("derives_from must resolve to a Constraint"))
+    );
+    assert!(
+        reasons
+            .iter()
+            .any(|x| x.contains("guard must resolve to an invariant Constraint"))
+    );
+    assert!(
+        reasons
+            .iter()
+            .any(|x| x.contains("emits must resolve to an effect Constraint"))
+    );
+    assert!(
+        reasons
+            .iter()
+            .any(|x| x.contains("satisfies must resolve to an extension_point"))
+    );
+    assert!(
+        reasons
+            .iter()
+            .any(|x| x.contains("observes must resolve to an effect Constraint"))
+    );
+    assert!(
+        reasons
+            .iter()
+            .any(|x| x.contains("supersedes must target the same kind"))
+    );
     // The supersedes cycle is represented.
-    assert!(!r.supersedes_cycles.is_empty(), "supersedes cycle must be represented");
+    assert!(
+        !r.supersedes_cycles.is_empty(),
+        "supersedes cycle must be represented"
+    );
     // And the violations are anchored to their named from-shapes: the
     // real builder carries the typed-reference column in the edge KIND
     // (the `-[constraints.traces_to]->` slot), never in the from anchor
     // (which is the bare row id) — assert the kind slot instead.
     let vkinds: Vec<&str> = r.violations.iter().map(|v| v.edge_kind.as_str()).collect();
     assert!(vkinds.iter().any(|x| x.ends_with("constraints.traces_to")));
-    assert!(vkinds.iter().any(|x| x.ends_with("properties.derives_from")));
+    assert!(
+        vkinds
+            .iter()
+            .any(|x| x.ends_with("properties.derives_from"))
+    );
     assert!(vkinds.iter().any(|x| x.ends_with("transitions.guard")));
     assert!(vkinds.iter().any(|x| x.ends_with("states.emits")));
 }
@@ -189,10 +248,11 @@ fn dangling_fixture_covers_named_shapes() {
     assert!(r.dangling.iter().any(|d| d.contains("satisfies")));
     // Interface-shaped consumption message (specodelic-2q8): names BOTH
     // remediations — publish or fix.
-    assert!(r
-        .dangling
-        .iter()
-        .any(|d| d.contains("publish it in the producer's file or fix the id")));
+    assert!(
+        r.dangling
+            .iter()
+            .any(|d| d.contains("publish it in the producer's file or fix the id"))
+    );
     // Transitions from/to dangling shapes.
     assert!(r.dangling.iter().any(|d| d.contains("transitions.from")));
     assert!(r.dangling.iter().any(|d| d.contains("transitions.to")));
@@ -205,8 +265,14 @@ fn dangling_fixture_covers_named_shapes() {
 fn typing_allowed_fixture_covers_named_edges() {
     let specs = collect_fixture(TYPING_ALLOWED);
     let r = graph::build(&specs);
-    assert!(r.violations.is_empty(), "typing-allowed corpus must trigger no violation");
-    assert!(r.dangling.is_empty(), "typing-allowed corpus must have no dangling links");
+    assert!(
+        r.violations.is_empty(),
+        "typing-allowed corpus must trigger no violation"
+    );
+    assert!(
+        r.dangling.is_empty(),
+        "typing-allowed corpus must have no dangling links"
+    );
     let kinds: Vec<&str> = r.edges.iter().map(|e| e.kind.as_str()).collect();
     assert!(kinds.iter().any(|x| x.ends_with("traces_to")));
     assert!(kinds.iter().any(|x| x.ends_with("derives_from")));
