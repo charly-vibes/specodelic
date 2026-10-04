@@ -339,8 +339,8 @@ impl Instance {
                         let morph = match classify(
                             &schema,
                             &column,
-                            source_kind.as_ref().map(&endpoint),
-                            kinds.get(&target).map(&endpoint),
+                            source_kind.as_ref().map(endpoint),
+                            kinds.get(&target).map(endpoint),
                         ) {
                             Typing::Allowed(Some(row)) => morph_index(&schema, row),
                             // No row consulted (unresolvable target kind) —

@@ -185,7 +185,7 @@ fn typing_violation(
         kind: k.kind_cell().to_string(),
         describe: k.describe(),
     };
-    schema::typing_violation(schema, column, source_kind.map(&endpoint), endpoint(target))
+    schema::typing_violation(schema, column, source_kind.map(endpoint), endpoint(target))
 }
 
 /// Record one resolved edge — the single place an edge enters the report
