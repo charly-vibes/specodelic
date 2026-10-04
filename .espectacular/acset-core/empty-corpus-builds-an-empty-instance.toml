@@ -1,0 +1,9 @@
+id = "empty-corpus-builds-an-empty-instance"
+description = "Contract test binding the spec scenario to its cargo test"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "zero_file_and_single_intent_corpora_are_clean"

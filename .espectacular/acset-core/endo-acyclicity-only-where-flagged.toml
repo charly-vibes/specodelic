@@ -1,0 +1,9 @@
+id = "endo-acyclicity-only-where-flagged"
+description = "Contract test binding the spec scenario to its cargo test"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "endo_cycle_detected"

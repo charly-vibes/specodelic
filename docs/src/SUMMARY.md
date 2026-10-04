@@ -47,6 +47,7 @@
 
 # Engineering Specs (openspec)
 
+- [acset-core — capability](openspec/acset-core/spec.md)
 - [compile — capability](openspec/compile/spec.md)
 - [doctor — capability](openspec/doctor/spec.md)
 - [embedded-guide — capability](openspec/embedded-guide/spec.md)

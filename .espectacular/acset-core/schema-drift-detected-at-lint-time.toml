@@ -1,0 +1,9 @@
+id = "schema-drift-detected-at-lint-time"
+description = "Contract test binding the spec scenario to its cargo test"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "lint_reports_drift_when_the_doc_loses_a_row"
