@@ -45,21 +45,21 @@ Tidying commits are separate from feature commits.
 
 ## 3. Typed instance builder
 
-- [ ] 3.1 **RED**: unit tests — `dangling_is_a_value`,
+- [x] 3.1 **RED**: unit tests — `dangling_is_a_value`,
       `no_link_dropped` (stored + dangling + violations == links),
       `forbidden_edge_not_stored`, `rebuild_is_byte_stable` (shuffled
       file order), `duplicate_id_first_wins_parity` (builder on a
       duplicate-id corpus matches the existing `kind_index` or_insert
       result and names the collision — the old path never fails, so the
       builder must not either).
-- [ ] 3.2 **GREEN**: implement `src/acset/instance.rs` — interning
+- [x] 3.2 **GREEN**: implement `src/acset/instance.rs` — interning
       (dense, bidirectional, sorted-order assignment), partial morphism
       vectors, attribute cells carried untouched (`cells_carried`).
-- [ ] 3.3 **GREEN**: satisfy the parity property from 1.2
+- [x] 3.3 **GREEN**: satisfy the parity property from 1.2
       (`adapter_graph_equivalent`) over the snapshot fixtures + proptest
       cases; the old path stays authoritative until this is green on the
       whole corpus.
-- [ ] 3.4 **TIDY**: extract shared edge-derivation types between
+- [x] 3.4 **TIDY**: extract shared edge-derivation types between
       builder and `graph.rs`; `just ci`.
 
 ## 4. Query primitive + walk migration
