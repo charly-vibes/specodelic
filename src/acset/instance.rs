@@ -521,6 +521,33 @@ impl Instance {
     pub fn cells(&self, id: &str) -> Option<&BTreeMap<String, String>> {
         self.cells.get(id)
     }
+
+    /// The interned index for a file-qualified id — the query module's
+    /// seed-existence check (`seeds_exist`); `None` when the id addresses
+    /// no node this build saw.
+    pub(crate) fn index_of(&self, id: &str) -> Option<usize> {
+        self.intern.index.get(id).copied()
+    }
+
+    /// The interned id for a node index — the inverse of `index_of`.
+    pub(crate) fn id_of(&self, i: usize) -> &str {
+        self.intern.id(i)
+    }
+
+    /// The stored morphism values under one schema morphism name, across
+    /// every row carrying it — `(source index, resolved target index)`;
+    /// a `None` target is the dangling value, which traversal never
+    /// follows (`dangling_not_followed`). Walk order is irrelevant to the
+    /// closure (set semantics), so the raw vector order is fine.
+    pub(crate) fn morphism_values(&self, name: &str) -> Vec<(usize, Option<usize>)> {
+        self.schema
+            .morphisms
+            .iter()
+            .zip(&self.vectors)
+            .filter(|(m, _)| m.name == name)
+            .flat_map(|(_, values)| values.iter().map(|v| (v.from, v.to)))
+            .collect()
+    }
 }
 
 /// Record one row definition: node membership (already collected), the

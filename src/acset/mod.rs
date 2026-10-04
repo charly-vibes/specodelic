@@ -14,6 +14,7 @@
 
 pub mod doc;
 pub mod instance;
+pub mod query;
 pub mod schema;
 
 use self::instance::Instance;

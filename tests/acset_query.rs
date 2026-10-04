@@ -107,7 +107,8 @@ fn supersedes_scope_exact() {
         BTreeSet::from(["c1.r1".to_string(), "c1.r2".to_string()]),
         "the supersedes cycle is the whole result — no traces edge followed"
     );
-    let traces = query::forward_closure(&instance, &["c1.r1"], &["traces_to"]).expect("seeds exist");
+    let traces =
+        query::forward_closure(&instance, &["c1.r1"], &["traces_to"]).expect("seeds exist");
     assert_eq!(
         traces,
         BTreeSet::from(["c1.r1".to_string(), "c2".to_string()]),
@@ -167,24 +168,28 @@ proptest! {
         forward in any::<bool>(),
     ) {
         let instance = Instance::from_specs(&corpus());
-        let ids: Vec<&str> = IDS.iter().copied().collect();
         let morphs: Vec<&str> = MORPHS
             .iter()
             .zip(&morphs)
-            .filter(|(_, &on)| on)
+            .filter(|(_, on)| **on)
             .map(|(m, _)| *m)
             .collect();
-        let t: Vec<&str> = IDS.iter().zip(&seeds_t).filter(|(_, &on)| on).map(|(id, _)| *id).collect();
+        let t: Vec<&str> = IDS
+            .iter()
+            .zip(&seeds_t)
+            .filter(|(_, on)| **on)
+            .map(|(id, _)| *id)
+            .collect();
         // S ⊆ T: S is the mask restricted to T's members.
         let s: Vec<&str> = t
             .iter()
             .zip(&seeds_s)
-            .filter(|(_, &on)| on)
+            .filter(|(_, on)| **on)
             .map(|(id, _)| *id)
             .collect();
         let direction = if forward { Direction::Forward } else { Direction::Backward };
         let q = |seeds: &[&str]| Query {
-            direction: direction.clone(),
+            direction,
             seeds: seeds.iter().map(|s| s.to_string()).collect(),
             morphisms: morphs.iter().map(|m| m.to_string()).collect(),
         };
@@ -195,7 +200,7 @@ proptest! {
         prop_assert!(s.iter().all(|seed| closure_s.contains(*seed)));
         // idempotence: closure(closure(S)) == closure(S)
         let again: Vec<&str> = closure_s.iter().map(|s| s.as_str()).collect();
-        prop_assert_eq!(run(&again), closure_s);
+        prop_assert_eq!(run(&again), closure_s.clone());
         // monotonicity: S ⊆ T implies closure(S) ⊆ closure(T)
         let closure_t = run(&t);
         prop_assert!(closure_s.is_subset(&closure_t));
