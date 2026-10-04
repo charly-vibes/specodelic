@@ -85,10 +85,10 @@ Tidying commits are separate from feature commits.
 
 ## 5. Corpus + gates
 
-- [ ] 5.1 **RED→GREEN**: `spk lint` over `specs/` stays at zero findings
+- [x] 5.1 **RED→GREEN**: `spk lint` over `specs/` stays at zero findings
       with the new lint gate active (dogfooding).
-- [ ] 5.2 Full gates: `just ci`, snapshot parity confirmed, openspec
+- [x] 5.2 Full gates: `just ci`, snapshot parity confirmed, openspec
       validate --strict.
-- [ ] 5.3 Record the decision trail: design.md's Rule-of-5 table links
+- [x] 5.3 Record the decision trail: design.md's Rule-of-5 table links
       into the two follow-up tickets (writer, pushout) — verify the
       ticket bodies carry their fixes.
