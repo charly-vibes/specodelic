@@ -153,6 +153,256 @@ fn morph_index(schema: &Schema, row: &Morphism) -> usize {
         .expect("the matched row is a schema row")
 }
 
+/// Node set, attribute cells, and duplicate-row collisions in one
+/// pass over the corpus (see `from_specs` for the collision law).
+fn collect_nodes_and_cells(
+    specs: &[Spec],
+) -> (
+    BTreeSet<String>,
+    BTreeMap<String, BTreeMap<String, String>>,
+    BTreeSet<String>,
+) {
+    let mut nodes: BTreeSet<String> = BTreeSet::new();
+    let mut cells: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+    let mut seen: BTreeSet<(String, String)> = BTreeSet::new();
+    let mut collisions: BTreeSet<String> = BTreeSet::new();
+    for spec in specs {
+        let file_id = &spec.intent.id;
+        nodes.insert(file_id.clone());
+        // Qualified row nodes — the edge endpoints address rows as
+        // `file.row`, never the bare id.
+        for r in &spec.constraints {
+            nodes.insert(format!("{file_id}.{}", r.id));
+        }
+        for r in &spec.properties {
+            nodes.insert(format!("{file_id}.{}", r.id));
+        }
+        for r in &spec.states {
+            nodes.insert(format!("{file_id}.{}", r.id));
+        }
+        for t in &spec.transitions {
+            nodes.insert(format!("{file_id}.{}", t.id));
+        }
+        for r in &spec.constraints {
+            note_row(
+                file_id,
+                &r.id,
+                &r.cells,
+                &mut seen,
+                &mut collisions,
+                &mut cells,
+            );
+        }
+        for r in &spec.properties {
+            note_row(
+                file_id,
+                &r.id,
+                &r.cells,
+                &mut seen,
+                &mut collisions,
+                &mut cells,
+            );
+        }
+        for r in &spec.states {
+            note_row(
+                file_id,
+                &r.id,
+                &r.cells,
+                &mut seen,
+                &mut collisions,
+                &mut cells,
+            );
+        }
+        for t in &spec.transitions {
+            let mut row_cells = BTreeMap::new();
+            row_cells.insert("from".to_string(), t.from.clone());
+            row_cells.insert("to".to_string(), t.to.clone());
+            if let Some(g) = &t.guard {
+                row_cells.insert("guard".into(), g.clone());
+            }
+            note_row(
+                file_id,
+                &t.id,
+                &row_cells,
+                &mut seen,
+                &mut collisions,
+                &mut cells,
+            );
+        }
+    }
+    (nodes, cells, collisions)
+}
+
+/// The walk state: read-only context (schema, intern, kinds, resolution
+/// index) plus the three output buckets (stored values, dangling,
+/// typing violations) accumulated in walk order.
+struct Walk<'a> {
+    schema: &'a Schema,
+    intern: &'a Intern,
+    kinds: &'a BTreeMap<String, NodeKind>,
+    file_rows: &'a BTreeMap<String, Vec<String>>,
+    from_morph: usize,
+    stored: Vec<Value>,
+    dangling: Vec<Dangling>,
+    violations: Vec<Violation>,
+}
+
+impl Walk<'_> {
+    /// A Transition's from/to cells are typed reference fields (→
+    /// State, same file): one morphism value each, per
+    /// specs/graph.md's total_extraction. An unknown state dangles
+    /// — never dropped. A null from/to cell is a Model-shape
+    /// problem (linter-graph_shape), not a graph edge.
+    fn transitions(&mut self, spec: &Spec, file_id: &str, to_morph: usize) {
+        for t in &spec.transitions {
+            let anchor = format!("{file_id}.{}", t.id);
+            for (col, cell, morph) in [("from", &t.from, self.from_morph), ("to", &t.to, to_morph)]
+            {
+                let state = cell.trim().trim_matches('`').trim();
+                if state.is_empty() {
+                    continue;
+                }
+                let from_idx = intern_of(self.intern, &anchor);
+                if spec.states.iter().any(|s| s.id == state) {
+                    self.stored.push(Value {
+                        morph,
+                        from: from_idx,
+                        to: Some(intern_of(self.intern, &format!("{file_id}.{state}"))),
+                        kind: format!("transitions.{col}"),
+                        raw: String::new(),
+                    });
+                } else {
+                    self.stored.push(Value {
+                        morph,
+                        from: from_idx,
+                        to: None,
+                        kind: format!("transitions.{col}"),
+                        raw: state.to_string(),
+                    });
+                    self.dangling.push(Dangling {
+                        from: anchor.clone(),
+                        kind: format!("transitions.{col}"),
+                        target: state.to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    /// The typed reference links, in link order: `id: spec` files
+    /// resolve file-scoped (self-contained deltas); others against the
+    /// corpus-wide map.
+    fn links(&mut self, spec: &Spec, file_id: &str) {
+        let scoped_rows: BTreeMap<String, Vec<String>> = if file_id == "spec" {
+            BTreeMap::from([(
+                file_id.to_string(),
+                spec.defined_ids().into_iter().collect::<Vec<_>>(),
+            )])
+        } else {
+            self.file_rows.clone()
+        };
+        for link in &spec.links {
+            // The shared edge derivation (task 3.4 TIDY): the
+            // typed-column filter, resolution, bare-local and
+            // metasyntactic skips, anchoring, and source-kind lookup
+            // are graph.rs's `resolve_link` — one walk, two consumers.
+            let Some(outcome) = graph::resolve_link(link, file_id, &scoped_rows, self.kinds) else {
+                continue;
+            };
+            match outcome {
+                graph::ResolvedLink::Stored {
+                    anchor,
+                    source_node,
+                    column,
+                    kind,
+                    target,
+                    source_kind,
+                } => self.stored_link(anchor, source_node, column, kind, target, source_kind),
+                graph::ResolvedLink::Dangling {
+                    file_id: _,
+                    anchor,
+                    source_node,
+                    column,
+                    target,
+                } => self.dangling_link(anchor, source_node, column, target),
+            }
+        }
+    }
+
+    /// Reference Typing: a typed reference column whose target kind is
+    /// forbidden is reported as a labeled violation, never stored as a
+    /// value (`edge_kind_matches_typing`, specs/graph.md).
+    #[allow(clippy::too_many_arguments)]
+    fn stored_link(
+        &mut self,
+        anchor: String,
+        source_node: String,
+        column: String,
+        kind: String,
+        target: String,
+        source_kind: Option<NodeKind>,
+    ) {
+        let endpoint = |k: &NodeKind| Endpoint {
+            object: k.object().to_string(),
+            kind: k.kind_cell().to_string(),
+            describe: k.describe(),
+        };
+        let morph = match classify(
+            self.schema,
+            &column,
+            source_kind.as_ref().map(endpoint),
+            self.kinds.get(&target).map(endpoint),
+        ) {
+            Typing::Allowed(Some(row)) => morph_index(self.schema, row),
+            // No row consulted (unresolvable target kind) —
+            // the column's first row, as the reason
+            // composition does.
+            Typing::Allowed(None) => {
+                morph_by_column(self.schema, &column).unwrap_or(self.from_morph)
+            }
+            Typing::Forbidden(reason) => {
+                self.violations.push(Violation {
+                    from: anchor,
+                    to: target,
+                    edge_kind: kind,
+                    reason,
+                });
+                return;
+            }
+        };
+        self.stored.push(Value {
+            morph,
+            from: intern_of(self.intern, &source_node),
+            to: Some(intern_of(self.intern, &target)),
+            kind,
+            raw: String::new(),
+        });
+    }
+
+    /// Dangling is a value — stored, never dropped.
+    fn dangling_link(
+        &mut self,
+        anchor: String,
+        source_node: String,
+        column: String,
+        target: String,
+    ) {
+        let morph = morph_by_column(self.schema, &column).unwrap_or(self.from_morph);
+        self.stored.push(Value {
+            morph,
+            from: intern_of(self.intern, &source_node),
+            to: None,
+            kind: column.clone(),
+            raw: target.clone(),
+        });
+        self.dangling.push(Dangling {
+            from: anchor,
+            kind: column,
+            target,
+        });
+    }
+}
+
 impl Instance {
     /// Build the typed instance for a parsed corpus. Infallible: every
     /// shape the old path accepts — dangling links, duplicate ids — is a
@@ -181,222 +431,43 @@ impl Instance {
         // path silently keeps the first (`or_insert`); the builder
         // resolves identically and names the collision instead. The
         // intent-id aggregation itself is by design (#37), not a collision.
-        let mut nodes: BTreeSet<String> = BTreeSet::new();
-        let mut cells: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
-        let mut seen: BTreeSet<(String, String)> = BTreeSet::new();
-        let mut collisions: BTreeSet<String> = BTreeSet::new();
-        for spec in specs {
-            let file_id = &spec.intent.id;
-            nodes.insert(file_id.clone());
-            // Qualified row nodes — the edge endpoints address rows as
-            // `file.row`, never the bare id.
-            for r in &spec.constraints {
-                nodes.insert(format!("{file_id}.{}", r.id));
-            }
-            for r in &spec.properties {
-                nodes.insert(format!("{file_id}.{}", r.id));
-            }
-            for r in &spec.states {
-                nodes.insert(format!("{file_id}.{}", r.id));
-            }
-            for t in &spec.transitions {
-                nodes.insert(format!("{file_id}.{}", t.id));
-            }
-            for r in &spec.constraints {
-                note_row(
-                    file_id,
-                    &r.id,
-                    &r.cells,
-                    &mut seen,
-                    &mut collisions,
-                    &mut cells,
-                );
-            }
-            for r in &spec.properties {
-                note_row(
-                    file_id,
-                    &r.id,
-                    &r.cells,
-                    &mut seen,
-                    &mut collisions,
-                    &mut cells,
-                );
-            }
-            for r in &spec.states {
-                note_row(
-                    file_id,
-                    &r.id,
-                    &r.cells,
-                    &mut seen,
-                    &mut collisions,
-                    &mut cells,
-                );
-            }
-            for t in &spec.transitions {
-                let mut row_cells = BTreeMap::new();
-                row_cells.insert("from".to_string(), t.from.clone());
-                row_cells.insert("to".to_string(), t.to.clone());
-                if let Some(g) = &t.guard {
-                    row_cells.insert("guard".into(), g.clone());
-                }
-                note_row(
-                    file_id,
-                    &t.id,
-                    &row_cells,
-                    &mut seen,
-                    &mut collisions,
-                    &mut cells,
-                );
-            }
-        }
+        let (nodes, cells, collisions) = collect_nodes_and_cells(specs);
         let intern = Intern::build(&nodes);
 
         // The walk — the same shape graph::build walks: per spec, the
         // transitions' from/to cells first, then the typed reference
         // links in link order. Walk order is what `edges()` returns, so
         // the parity comparison is edge for edge, in the builder's order.
-        let mut stored: Vec<Value> = Vec::new();
-        let mut dangling: Vec<Dangling> = Vec::new();
-        let mut violations: Vec<Violation> = Vec::new();
         let from_morph = morph_by(&schema, "from", "Transition");
         let to_morph = morph_by(&schema, "to", "Transition");
-
+        let mut walk = Walk {
+            schema: &schema,
+            intern: &intern,
+            kinds: &kinds,
+            file_rows: &file_rows,
+            from_morph,
+            stored: Vec::new(),
+            dangling: Vec::new(),
+            violations: Vec::new(),
+        };
         for spec in specs {
-            let file_id = &spec.intent.id;
-            // A Transition's from/to cells are typed reference fields (→
-            // State, same file): one morphism value each, per
-            // specs/graph.md's total_extraction. An unknown state dangles
-            // — never dropped. A null from/to cell is a Model-shape
-            // problem (linter-graph_shape), not a graph edge.
-            for t in &spec.transitions {
-                let anchor = format!("{file_id}.{}", t.id);
-                for (col, cell, morph) in [("from", &t.from, from_morph), ("to", &t.to, to_morph)] {
-                    let state = cell.trim().trim_matches('`').trim();
-                    if state.is_empty() {
-                        continue;
-                    }
-                    let from_idx = intern_of(&intern, &anchor);
-                    if spec.states.iter().any(|s| s.id == state) {
-                        stored.push(Value {
-                            morph,
-                            from: from_idx,
-                            to: Some(intern_of(&intern, &format!("{file_id}.{state}"))),
-                            kind: format!("transitions.{col}"),
-                            raw: String::new(),
-                        });
-                    } else {
-                        stored.push(Value {
-                            morph,
-                            from: from_idx,
-                            to: None,
-                            kind: format!("transitions.{col}"),
-                            raw: state.to_string(),
-                        });
-                        dangling.push(Dangling {
-                            from: anchor.clone(),
-                            kind: format!("transitions.{col}"),
-                            target: state.to_string(),
-                        });
-                    }
-                }
-            }
-            // `id: spec` files resolve file-scoped (self-contained deltas);
-            // others against the corpus-wide map.
-            let scoped_rows: BTreeMap<String, Vec<String>> = if file_id == "spec" {
-                BTreeMap::from([(
-                    file_id.clone(),
-                    spec.defined_ids().into_iter().collect::<Vec<_>>(),
-                )])
-            } else {
-                file_rows.clone()
-            };
-            for link in &spec.links {
-                // The shared edge derivation (task 3.4 TIDY): the
-                // typed-column filter, resolution, bare-local and
-                // metasyntactic skips, anchoring, and source-kind lookup
-                // are graph.rs's `resolve_link` — one walk, two consumers.
-                let Some(outcome) = graph::resolve_link(link, file_id, &scoped_rows, &kinds) else {
-                    continue;
-                };
-                let endpoint = |k: &NodeKind| Endpoint {
-                    object: k.object().to_string(),
-                    kind: k.kind_cell().to_string(),
-                    describe: k.describe(),
-                };
-                match outcome {
-                    graph::ResolvedLink::Stored {
-                        anchor,
-                        source_node,
-                        column,
-                        kind,
-                        target,
-                        source_kind,
-                    } => {
-                        // Reference Typing: a typed reference column whose
-                        // target kind is forbidden is reported as a labeled
-                        // violation, never stored as a value
-                        // (`edge_kind_matches_typing`, specs/graph.md).
-                        let morph = match classify(
-                            &schema,
-                            &column,
-                            source_kind.as_ref().map(endpoint),
-                            kinds.get(&target).map(endpoint),
-                        ) {
-                            Typing::Allowed(Some(row)) => morph_index(&schema, row),
-                            // No row consulted (unresolvable target kind) —
-                            // the column's first row, as the reason
-                            // composition does.
-                            Typing::Allowed(None) => {
-                                morph_by_column(&schema, &column).unwrap_or(from_morph)
-                            }
-                            Typing::Forbidden(reason) => {
-                                violations.push(Violation {
-                                    from: anchor,
-                                    to: target,
-                                    edge_kind: kind,
-                                    reason,
-                                });
-                                continue;
-                            }
-                        };
-                        stored.push(Value {
-                            morph,
-                            from: intern_of(&intern, &source_node),
-                            to: Some(intern_of(&intern, &target)),
-                            kind,
-                            raw: String::new(),
-                        });
-                    }
-                    graph::ResolvedLink::Dangling {
-                        file_id: _,
-                        anchor,
-                        source_node,
-                        column,
-                        target,
-                    } => {
-                        // Dangling is a value — stored, never dropped.
-                        let morph = morph_by_column(&schema, &column).unwrap_or(from_morph);
-                        stored.push(Value {
-                            morph,
-                            from: intern_of(&intern, &source_node),
-                            to: None,
-                            kind: column.clone(),
-                            raw: target.clone(),
-                        });
-                        dangling.push(Dangling {
-                            from: anchor,
-                            kind: column,
-                            target,
-                        });
-                    }
-                }
-            }
+            let file_id = spec.intent.id.as_str();
+            walk.transitions(spec, file_id, to_morph);
+            walk.links(spec, file_id);
         }
+
+        // Destructure the walk (ends its borrows) before building the instance.
+        let Walk {
+            stored,
+            dangling,
+            violations,
+            ..
+        } = walk;
 
         // The edges, in walk order — the parity property's byte (the same
         // recording order graph::build pushes: per spec, the transitions
         // walk, then the links loop).
-        let walk = stored
+        let walk_edges = stored
             .iter()
             .filter(|v| v.to.is_some())
             .map(|v| Edge {
@@ -418,7 +489,7 @@ impl Instance {
             intern,
             vectors,
             cells,
-            walk,
+            walk: walk_edges,
             dangling,
             violations,
             collisions: collisions.into_iter().collect(),
