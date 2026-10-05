@@ -6,6 +6,35 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #113 — v0.5.2: executable release tarballs land post-tag; binary re-syncs to corpus Revision 16 (specodelic-6sb, mvl, PR #11)
+
+The v0.5.1 tag shipped before three fixes landed the same day, so its
+published artifacts lagged main. This patch releases them together:
+
+- **Executable release tarballs + curl install docs + LLM summaries on
+  Pages** (PR #11, `aee950f`): the v0.5.1 tarball assets lost the
+  exec bit (upload-artifact v4) and the README curl snippet referenced a
+  wrong asset name. Users who downloaded 0.5.1 assets got
+  non-executable archives — this is the primary reason for the patch.
+- **FORMAT_REVISION 15→16** (specodelic-6sb, `c5d2b39`): the
+  property-binding corpus bump (`1ec6b90`) outran the released binary —
+  the v0.5.1 binary embeds Revision 15 while docs deployed from main
+  describe Revision 16. The binary now embeds 16, with the two new
+  deriving Properties (`one_tag_extracts_per_cell`,
+  `missing_emitter_labeled`) keeping `linter.coverage` unblocked.
+- **`llm.txt` at repo root** (specodelic-mvl, `0158614`): required by
+  the ddl sibling-repo conformance rule `s2_llms_txt_at_root`; the cke
+  guard is reversed to REQUIRE it (`llms.txt` stays the deploy target,
+  not deployed).
+- **Gate-drill advisory lock** (specodelic-do8, `5f4335b`): drills hold
+  `.beads/gate-drill.lock`; the pre-commit hook refuses commit/push
+  while a drill is live — closes the dz4 concurrent-session race's
+  hook-side interlock. Also shipped: the commit-hygiene standing
+  instruction (specodelic-2g1) and the g17 file-splits/ratchet
+  (internal, no behavior change).
+
+No format Revision change (16 already on main); no spec corpus change.
+
 ## #112 — graph-views schema view re-pointed at the acset Schema value; docs/governance sweep around the acset landing (specodelic-hya, F7, F9)
 
 The pending `add-graph-views` change's schema view was pinned (design D4,
