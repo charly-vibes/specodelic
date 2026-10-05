@@ -22,8 +22,11 @@ mode = "gate"
 languages = ["auto"]
 exclude = [
   "target/**",
+  "./target/**",
   "book/**",
+  "./book/**",
   "docs/**",
+  "./docs/**",
   "vendor/**",
   "node_modules/**",
   "**/*_generated.*",
