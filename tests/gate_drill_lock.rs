@@ -158,7 +158,13 @@ fn live_same_host_lock_fails_check_with_hint() {
 #[test]
 fn dead_pid_lock_is_stale_and_passes_check() {
     let (_dir, repo) = fixture_repo("dead-pid");
-    write_lock(&repo, &hostname(), dead_pid(), epoch_now(), "crashed session");
+    write_lock(
+        &repo,
+        &hostname(),
+        dead_pid(),
+        epoch_now(),
+        "crashed session",
+    );
     let (ok, out) = run_lock(&["check"], &repo, &[]);
     assert!(
         ok,
@@ -184,12 +190,21 @@ fn unparsable_lock_is_stale_and_passes_check() {
 #[test]
 fn cross_host_lock_is_live_within_ttl_and_stale_beyond() {
     let (_dir, repo) = fixture_repo("cross-host");
-    write_lock(&repo, "some-other-host.invalid", dead_pid(), epoch_now(), "remote session");
+    write_lock(
+        &repo,
+        "some-other-host.invalid",
+        dead_pid(),
+        epoch_now(),
+        "remote session",
+    );
 
     // Within TTL (default): live — even though the pid is meaningless on
     // this host (it belongs to another machine).
     let (ok, out) = run_lock(&["check"], &repo, &[]);
-    assert!(!ok, "cross-host lock within TTL must count live, got: {out}");
+    assert!(
+        !ok,
+        "cross-host lock within TTL must count live, got: {out}"
+    );
 
     // TTL 0: anything cross-host is stale.
     let (ok, out) = run_lock(&["check"], &repo, &[("GATE_DRILL_TTL", "0")]);
@@ -203,7 +218,11 @@ fn cross_host_lock_is_live_within_ttl_and_stale_beyond() {
 fn drill_in_tree_without_lock_runs_and_releases() {
     let (_dir, repo) = fixture_repo("drill-run");
     let (code, out) = run_drill(&repo, &["touch", "marker"], &[]);
-    assert_eq!(code, Some(0), "drill should run after acquiring lock, got: {out}");
+    assert_eq!(
+        code,
+        Some(0),
+        "drill should run after acquiring lock, got: {out}"
+    );
     assert!(repo.join("marker").exists(), "drill cmd must actually run");
     assert!(
         !repo.join(".beads/gate-drill.lock").exists(),
@@ -255,7 +274,14 @@ fn drill_runs_bare_in_linked_worktree() {
     write_lock(&repo, &hostname(), pid, epoch_now(), "other session");
 
     let wt = _dir.path().join("drill-wt");
-    git(&["worktree", "add", "-q", wt.to_str().unwrap(), "-b", "drill-wt"]);
+    git(&[
+        "worktree",
+        "add",
+        "-q",
+        wt.to_str().unwrap(),
+        "-b",
+        "drill-wt",
+    ]);
 
     let (code, out) = run_drill(&wt, &["touch", "wt-marker"], &[]);
     assert_eq!(
