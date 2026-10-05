@@ -17,7 +17,7 @@ pre-commit:
     # <!-- SPK:END -->
     # <!-- PRETENDER:START --> gate mode; pretender.toml ratchets only DOWN
     pretender-gate:
-      run: pretender check --staged
+      run: pretender check --staged --mode gate
     # <!-- PRETENDER:END -->
     sibling-blockers:
       run: scripts/guards/sibling-blockers.sh .

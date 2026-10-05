@@ -83,6 +83,18 @@ typoed the path":
   files matched, unreadable input); argument-parse failures exit 2 too.
   The JSON envelope's `envelope_kind` agrees (`"error"`).
 
+## Install
+
+```bash
+V=$(basename "$(curl -fsSLI -o /dev/null -w '%{url_effective}' \
+  https://github.com/charly-vibes/specodelic/releases/latest)" | sed 's/^v//')
+TGT="$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/^x86_64$/amd64/; s/^aarch64$/arm64/')"
+curl -fsSL "https://github.com/charly-vibes/specodelic/releases/download/v${V}/specodelic_${V}_${TGT}.tar.gz" | tar xz
+chmod +x specodelic spk && sudo mv specodelic spk /usr/local/bin/
+```
+
+Or via Cargo: `cargo install specodelic` (installs `specodelic` and `spk`).
+
 ## Development
 
 ```console
