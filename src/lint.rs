@@ -639,14 +639,32 @@ pub fn lint_checklists(specs: &[Spec], checklists: &[Checklist], report: &mut Re
 /// `total_refs`'s job, not ours — the two checks compose without
 /// double-reporting the same row.
 fn lint_graph_shape(specs: &[Spec], report: &mut Report) {
+    let g = graph_edges(specs);
+    self_ref_findings(&g.edges, report);
+    cycle_findings(&g.edges, report);
+    reachability_findings(specs, &g, report);
+}
+
+/// The resolved edge material for the graph-shape checks: typed links
+/// (source, target, field, column), structural transition→state edges
+/// (connectivity only), and the intent-node set.
+struct GraphEdges {
+    edges: Vec<(String, String, String, String)>,
+    conn_edges: Vec<(String, String)>,
+    intent_nodes: BTreeSet<String>,
+}
+
+/// Resolve every spec's links against the corpus index into graph edges.
+/// Skips metasyntactic targets and dangling refs (total_refs's beat), and
+/// resolves bare-local rows in id:spec files (specodelic-15g Option A).
+fn graph_edges(specs: &[Spec]) -> GraphEdges {
     let full = Index::build(specs);
     // (source node, target node, field, column) per resolved link.
-    let mut edges: Vec<(String, String, &str, &str)> = vec![];
+    let mut edges: Vec<(String, String, String, String)> = vec![];
     // transition → state edges (structural: from/to are plain row ids,
     // not [[wiki-links]]) for the connectivity graph only.
     let mut conn_edges: Vec<(String, String)> = vec![];
     let mut intent_nodes: BTreeSet<String> = BTreeSet::new();
-    let mut all_rows: BTreeSet<String> = BTreeSet::new();
     for spec in specs {
         let scoped;
         let index = if spec.intent.id == "spec" {
@@ -657,12 +675,8 @@ fn lint_graph_shape(specs: &[Spec], report: &mut Report) {
         };
         let file_id = spec.intent.id.clone();
         intent_nodes.insert(file_id.clone());
-        for r in rows(spec) {
-            all_rows.insert(format!("{file_id}.{}", r.1.id));
-        }
         for t in &spec.transitions {
             let t_node = format!("{file_id}.{}", t.id);
-            all_rows.insert(t_node.clone());
             // from/to resolve within the file's own states (validated
             // separately by every_transition_valid — a ghost endpoint
             // creates no edge here).
@@ -695,14 +709,26 @@ fn lint_graph_shape(specs: &[Spec], report: &mut Report) {
             } else {
                 format!("{file_id}.{}", link.source)
             };
-            edges.push((source, target, link.field.as_str(), link.column.as_str()));
+            edges.push((
+                source,
+                target,
+                link.field.to_string(),
+                link.column.to_string(),
+            ));
         }
     }
+    GraphEdges {
+        edges,
+        conn_edges,
+        intent_nodes,
+    }
+}
 
-    // no_self_ref — a row referencing itself via traces_to or
-    // derives_from traces to nothing that owns it
-    // (specs/linter-graph_shape.md no_self_ref).
-    for (source, target, field, column) in &edges {
+/// no_self_ref — a row referencing itself via traces_to or
+/// derives_from traces to nothing that owns it
+/// (specs/linter-graph_shape.md no_self_ref).
+fn self_ref_findings(edges: &[(String, String, String, String)], report: &mut Report) {
+    for (source, target, field, column) in edges {
         if ((*field == "constraints" && *column == "traces_to")
             || (*field == "properties" && *column == "derives_from"))
             && source == target
@@ -716,14 +742,16 @@ fn lint_graph_shape(specs: &[Spec], report: &mut Report) {
             ));
         }
     }
+}
 
-    // acyclic — the directed graph formed by traces_to ∪ derives_from ∪
-    // guard-as-edge has no cycle (specs/linter-graph_shape.md). Self-loops
-    // are `no_self_ref`'s beat and excluded here.
+/// acyclic — the directed graph formed by traces_to ∪ derives_from ∪
+/// guard-as-edge has no cycle (specs/linter-graph_shape.md). Self-loops
+/// are `no_self_ref`'s beat and excluded here.
+fn cycle_findings(edges: &[(String, String, String, String)], report: &mut Report) {
     let mut ref_edges: BTreeSet<(String, String)> = BTreeSet::new();
-    for (source, target, field, column) in &edges {
+    for (source, target, field, column) in edges {
         let is_ref_edge = matches!(
-            (*field, *column),
+            (field.as_str(), column.as_str()),
             ("constraints", "traces_to")
                 | ("properties", "derives_from")
                 | ("transitions", "guard")
@@ -747,35 +775,27 @@ fn lint_graph_shape(specs: &[Spec], report: &mut Report) {
             ),
         ));
     }
+}
 
-    // single_root_reachable — tiered own-file reachability
-    // (specodelic.md Revision 10, HITL mp1 row 8): every row reaches the
-    // file's OWN intent through own-file primary linkage — the edge set
-    // is the file's own-file resolved references (traces_to,
-    // derives_from, guard, satisfies, observes, emits, frontmatter) plus
-    // the model's from/to edges, connectivity not outbound-only (an
-    // outbound-only reading would flag every non-emitting state, which
-    // no corpus satisfies). Cross-file typed edges (guard citations of
-    // foreign constraints, satisfies, observes) are outbound leaves,
-    // NEVER reachability paths — they cannot carry a row to an intent.
-    // Tiered enforcement: a row with no own-file path whose component in
-    // the FULL graph still contains some intent row is advisory (warnings
-    // channel, exit 0 — its only ties are cross-file, possibly a
-    // cross-feature reference filed under the wrong id); a row with no
-    // path to ANY intent at all is an orphaned island and hard-fails.
+/// single_root_reachable — tiered own-file reachability
+/// (specodelic.md Revision 10, HITL mp1 row 8): every row reaches the
+/// file's OWN intent through own-file primary linkage — the edge set
+/// is the file's own-file resolved references (traces_to,
+/// derives_from, guard, satisfies, observes, emits, frontmatter) plus
+/// the model's from/to edges, connectivity not outbound-only (an
+/// outbound-only reading would flag every non-emitting state, which
+/// no corpus satisfies). Cross-file typed edges (guard citations of
+/// foreign constraints, satisfies, observes) are outbound leaves,
+/// NEVER reachability paths — they cannot carry a row to an intent.
+/// Tiered enforcement: a row with no own-file path whose component in
+/// the FULL graph still contains some intent row is advisory (warnings
+/// channel, exit 0 — its only ties are cross-file, possibly a
+/// cross-feature reference filed under the wrong id); a row with no
+/// path to ANY intent at all is an orphaned island and hard-fails.
+fn reachability_findings(specs: &[Spec], g: &GraphEdges, report: &mut Report) {
     // node → owning file id, so own-file vs cross-file edges split
     // without re-parsing node names (intent nodes are bare file ids).
-    let mut node_file: BTreeMap<String, String> = BTreeMap::new();
-    for spec in specs {
-        let file_id = spec.intent.id.clone();
-        node_file.insert(file_id.clone(), file_id.clone());
-        for r in rows(spec) {
-            node_file.insert(format!("{file_id}.{}", r.1.id), file_id.clone());
-        }
-        for t in &spec.transitions {
-            node_file.insert(format!("{file_id}.{}", t.id), file_id.clone());
-        }
-    }
+    let node_file = node_ownership(specs);
     let file_of = |node: &str| -> Option<String> { node_file.get(node).cloned() };
     // Own-file adjacency: both endpoints in the same file. The full
     // adjacency (any file) is kept for the advisory tier's "still
@@ -793,11 +813,11 @@ fn lint_graph_shape(specs: &[Spec], report: &mut Report) {
             own_adj.entry(b.clone()).or_default().insert(a.clone());
         }
     };
-    for (source, target, _, _) in &edges {
+    for (source, target, _, _) in &g.edges {
         let own = file_of(source) == file_of(target) && file_of(source).is_some();
         link(own, source.clone(), target.clone());
     }
-    for (a, b) in &conn_edges {
+    for (a, b) in &g.conn_edges {
         // from/to are structural and always own-file by construction.
         link(true, a.clone(), b.clone());
     }
@@ -806,7 +826,7 @@ fn lint_graph_shape(specs: &[Spec], report: &mut Report) {
         let mut stack = vec![start.to_string()];
         seen.insert(start.to_string());
         while let Some(n) = stack.pop() {
-            if intent_nodes.contains(&n) {
+            if g.intent_nodes.contains(&n) {
                 return true;
             }
             for m in adj.get(&n).into_iter().flatten() {
@@ -862,41 +882,70 @@ fn lint_graph_shape(specs: &[Spec], report: &mut Report) {
             islands.push((file_id, hard));
         }
     }
-    // Advisory tier — cross-file-only rows: warned, never gating.
+    emit_reachability(advisory, islands, report);
+}
+
+/// node → owning file id for every node in the reachability graph
+/// (intent nodes are bare file ids; rows and transitions are
+/// `file.row`-qualified).
+fn node_ownership(specs: &[Spec]) -> BTreeMap<String, String> {
+    let mut node_file: BTreeMap<String, String> = BTreeMap::new();
+    for spec in specs {
+        let file_id = spec.intent.id.clone();
+        node_file.insert(file_id.clone(), file_id.clone());
+        for r in rows(spec) {
+            node_file.insert(format!("{file_id}.{}", r.1.id), file_id.clone());
+        }
+        for t in &spec.transitions {
+            node_file.insert(format!("{file_id}.{}", t.id), file_id.clone());
+        }
+    }
+    node_file
+}
+
+/// Emit the reachability tiers: cross-file-only rows are advisory
+/// (warnings channel, never gating); rows with no path to ANY intent
+/// hard-fail as orphaned islands.
+fn emit_reachability(
+    advisory: Vec<(String, Vec<String>)>,
+    islands: Vec<(String, Vec<String>)>,
+    report: &mut Report,
+) {
     for (file, rows) in advisory {
-        let shown: Vec<String> = rows.iter().take(5).cloned().collect();
-        let more = if rows.len() > shown.len() {
-            format!(" (and {} more)", rows.len() - shown.len())
-        } else {
-            String::new()
-        };
-        let shown = shown.join(", ");
+        let shown = shown_rows(&rows);
         report.warnings.push(Issue::new(
             "single_root_reachable",
             file,
             format!(
-                "{} row(s) have no own-file path to this file's intent row — their only ties are cross-file references (guard/satisfies/observes are outbound leaves, never reachability paths): {shown}{more} — advisory: anchor them to this file's intent, or they may be filed under the wrong id",
+                "{} row(s) have no own-file path to this file's intent row — their only ties are cross-file references (guard/satisfies/observes are outbound leaves, never reachability paths): {shown} — advisory: anchor them to this file's intent, or they may be filed under the wrong id",
                 rows.len()
             ),
         ));
     }
     for (file, rows) in islands {
-        let shown: Vec<String> = rows.iter().take(5).cloned().collect();
-        let more = if rows.len() > shown.len() {
-            format!(" (and {} more)", rows.len() - shown.len())
-        } else {
-            String::new()
-        };
-        let shown = shown.join(", ");
+        let shown = shown_rows(&rows);
         report.issues.push(Issue::new(
             "single_root_reachable",
             file,
             format!(
-                "{} row(s) unreachable from any intent row — an orphaned island (traces_to/derives_from/guard/from-to/emits): {shown}{more}",
+                "{} row(s) unreachable from any intent row — an orphaned island (traces_to/derives_from/guard/from-to/emits): {shown}",
                 rows.len()
             ),
         ));
     }
+}
+
+/// The first five rows of a reachability finding's row list, with an
+/// "(and N more)" suffix when truncated.
+fn shown_rows(rows: &[String]) -> String {
+    let shown: Vec<String> = rows.iter().take(5).cloned().collect();
+    let more = if rows.len() > shown.len() {
+        format!(" (and {} more)", rows.len() - shown.len())
+    } else {
+        String::new()
+    };
+    let shown = shown.join(", ");
+    format!("{shown}{more}")
 }
 
 /// Observability pass (specs/linter-observability.md): every effect
