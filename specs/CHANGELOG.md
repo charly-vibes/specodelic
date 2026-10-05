@@ -6,6 +6,86 @@ requires of spec files themselves. Displayed newest first; numbered
 chronologically ascending (`#1` = oldest) so a new entry always gets the
 next integer regardless of where it's inserted in the display order.
 
+## #112 — graph-views schema view re-pointed at the acset Schema value; docs/governance sweep around the acset landing (specodelic-hya, F7, F9)
+
+The pending `add-graph-views` change's schema view was pinned (design D4,
+2026-09-29) to `guide`'s closed value sets — written before the acset
+Schema value existed. With add-acset-core landed, following the original
+D4 would have created two sources for one table: the lint-gated Schema
+and `guide`'s ungated `REFERENCE_TYPING` const.
+
+- **D4 revised** (specodelic-hya, closed 2026-10-04): the schema view
+  derives from `acset::schema::canonical()` — the Reference Typing table
+  as data, already lint-gated against `specs/specodelic.md` row-for-row
+  by `schema_matches_typing_table` — plus the format revision marker.
+  The alternative (keep both sources + a build-time cross-check) was
+  rejected as redundant: the Schema is already doc-gated at lint time.
+- `guide::REFERENCE_TYPING` is demoted to a render-only surface (the
+  embedded guide's prose); `spk guide --json` stays in scope for
+  value-set-only consumers, and the schema view no longer consumes it.
+- **Stale evidence refreshed** throughout the change docs: the corpus's
+  38 typing violations (the drafting-era number) are gone — the acset
+  landing typed them away, `spk graph` reports 0 as of 2026-10-04 — so
+  violation rendering is now proven via fixture corpora, not the live
+  corpus.
+- README pipeline/status claims re-verified against code (finding F7:
+  "not implemented yet" claims for verbs that all ship, and the missing
+  Rev 15 executable-fragment mention) — fixed 2026-10-04.
+- Finding F9 filed as specodelic-814: the corpus's guard-typing row
+  doesn't mention the `**rust:**` executable-fragment escape hatch
+  (Rev 15 transition residue); recorded in the external-architecture
+  reviews register.
+
+## #111 — acset writer: span-preserving writer over recorded parse spans; rename realized through it (specodelic-p5b, acset slice S3)
+
+`spk rename`'s rewriting was a second, hand-wired edit path beside the
+parser — the exact duplication the acset adoption targets. The writer
+makes every file rewrite happen through spans the parser recorded.
+
+- The parser now records **byte spans** for id cells, links, and state
+  bullets; the writer emits by those recorded spans — identity emission
+  is verified corpus-wide (emitting without edits reproduces the input
+  byte-for-byte), and edit laws pin identity, composition, and a
+  roundtrip gate.
+- `spk rename` runs through the writer path (`run_via_writer`); the dead
+  hand-wired rewriting was deleted, so there is one edit path.
+- The rename parity property (writer-driven rename must equal the
+  hand-wired run byte-for-byte, 64-case proptest plus fixtures) caught
+  **two real bugs** before the flip: the hand-wired frontmatter rewrite
+  corrupted single-char intent ids (`id: i` → `irenamed: i`, an
+  unanchored replace — now anchored on the `id: ` prefix), and the
+  roundtrip link check misclassified rewritten links when the new id
+  has the old id's `old_id.<child>` shape (now a target multiset over
+  before-links).
+
+## #110 — acset core: the Reference Typing schema and typed instances as data (specodelic-84i.1, acset slices S1+S2)
+
+The format's Reference Typing table existed twice in code: as a
+documented table (`specs/specodelic.md`) and as hand-written enforcement
+(a match in graph.rs whose agreement with the table nothing checked).
+The acset-core landing makes the schema a **value** and enforcement read
+from it.
+
+- `acset::schema::canonical()` — the schema as data: objects, typed
+  morphisms (with refinements, source rules, violation prose,
+  endo-acyclicity flags) in canonical order. The doc and the code
+  cannot drift silently: the lint-time gate `schema_matches_typing_table`
+  compares the Schema row-for-row against the corpus doc's Reference
+  Typing section (parsed via `Spec.reference_typing_body`), firing in
+  either direction; the gate no-ops for corpora without the section.
+- Typing enforcement delegates to the Schema (`schema::typing_violation`)
+  — the hand-written match is retired, and graph/merge/refactor outputs
+  stay byte-identical (parity gates held throughout the landing).
+- A **typed instance builder** (`acset::instance`): dangling references
+  are values (labeled), no link is dropped, forbidden edges are stored
+  as violations and never recorded as edges, duplicate ids resolve
+  first-wins parity, rebuild is byte-stable.
+- Closure/query primitives (one traversal primitive) replace
+  per-command edge walks where adopted.
+- The corpus's 38 typing violations (the drafting-era figure cited in
+  several openspec change docs) are resolved — `spk graph` reports 0 as
+  of 2026-10-04.
+
 ## #109 — `**rust:**` mentions are not opt-ins (specodelic-sd1)
 
 The extractor treated ANY occurrence of the marker as an opt-in — including
