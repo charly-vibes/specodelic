@@ -48,3 +48,6 @@ docs/src/release.md
 # Python bytecode (scripts/ tooling) — covered globally on some machines only
 __pycache__/
 *.pyc
+
+# Whisper knowledge workspace — per-machine session state, never project state
+.whisper/
