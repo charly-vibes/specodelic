@@ -156,10 +156,39 @@ pub fn run(
         }
     }
 
-    // --- no_new_id_collision: an id defined on both tips is a collision
-    // unless the common ancestor defined it and at most one branch
-    // changed its definition (both-changed-differently is the same
-    // independent-mint hazard at the content level).
+    collision_findings(&tip_base, &tip_a, &tip_b, &mut findings);
+    textual_conflict_findings(&tip_base, &tip_a, &tip_b, &mut findings);
+    blast_radius_findings(&tip_a, &tip_b, &tip_base, &mut findings);
+    rename_replay_findings(&tip_base, &tip_a, &tip_b, &mut findings);
+    let merged = union_tree(a, b, &tip_base, &mut findings);
+    relint_findings(&merged, &mut findings);
+
+    let verdict = if findings.iter().any(|f| {
+        matches!(
+            f.kind.as_str(),
+            "id_collision" | "relint_failure" | "unparsable" | "textual_conflict"
+        )
+    }) {
+        "failed"
+    } else if findings.is_empty() {
+        "merged"
+    } else {
+        "needs_review"
+    };
+
+    MergeReport {
+        verdict: verdict.to_string(),
+        findings,
+        branch_files: tip_a.specs.len(),
+        incoming_files: tip_b.specs.len(),
+    }
+}
+
+/// no_new_id_collision: an id defined on both tips is a collision
+/// unless the common ancestor defined it and at most one branch
+/// changed its definition (both-changed-differently is the same
+/// independent-mint hazard at the content level).
+fn collision_findings(tip_base: &Tip, tip_a: &Tip, tip_b: &Tip, findings: &mut Vec<Finding>) {
     for (id, (a_path, a_text)) in &tip_a.ids {
         let Some((b_path, b_text)) = tip_b.ids.get(id) else {
             continue;
@@ -188,8 +217,15 @@ pub fn run(
             });
         }
     }
+}
 
-    // --- textual conflicts: git marks these; surfaced for completeness.
+/// Textual conflicts: git marks these; surfaced for completeness.
+fn textual_conflict_findings(
+    tip_base: &Tip,
+    tip_a: &Tip,
+    tip_b: &Tip,
+    findings: &mut Vec<Finding>,
+) {
     for (path, a_text) in &tip_a.texts {
         if let (Some(b_text), Some(base_text)) = (
             tip_b.texts.get(path.as_str()),
@@ -207,12 +243,14 @@ pub fn run(
             });
         }
     }
+}
 
-    // --- blast_radii_recorded_pre_merge + intersection → needs_review --
-    let touched_a = touched_ids(&tip_a, &tip_base);
-    let touched_b = touched_ids(&tip_b, &tip_base);
-    let radius_a = blast_radius(&tip_a, &touched_a);
-    let radius_b = blast_radius(&tip_b, &touched_b);
+/// blast_radii_recorded_pre_merge + intersection → needs_review.
+fn blast_radius_findings(tip_a: &Tip, tip_b: &Tip, tip_base: &Tip, findings: &mut Vec<Finding>) {
+    let touched_a = touched_ids(tip_a, tip_base);
+    let touched_b = touched_ids(tip_b, tip_base);
+    let radius_a = blast_radius(tip_a, &touched_a);
+    let radius_b = blast_radius(tip_b, &touched_b);
     let intersect: Vec<String> = radius_a.intersection(&radius_b).cloned().collect();
     if !intersect.is_empty() {
         findings.push(Finding {
@@ -224,10 +262,12 @@ pub fn run(
             ),
         });
     }
+}
 
-    // --- rename_replayed_onto_foreign_edits (flag only; the replay
-    // mechanism is rename.md's own `spk rename`, never a fresh rewrite) -
-    for (renamed, other, label) in [(&tip_a, &tip_b, "A"), (&tip_b, &tip_a, "B")] {
+/// rename_replayed_onto_foreign_edits (flag only; the replay
+/// mechanism is rename.md's own `spk rename`, never a fresh rewrite).
+fn rename_replay_findings(tip_base: &Tip, tip_a: &Tip, tip_b: &Tip, findings: &mut Vec<Finding>) {
+    for (renamed, other, label) in [(tip_a, tip_b, "A"), (tip_b, tip_a, "B")] {
         // Ids the ancestor defined that this branch renamed away.
         let renamed_away: Vec<&String> = tip_base
             .ids
@@ -259,15 +299,20 @@ pub fn run(
             }
         }
     }
+}
 
-    // --- post_merge_relint_required: the union tree must re-lint clean
-    // (linter.referential_integrity via zero dangling + full corpus lint)
-    // before merge is reported passed. Union rule: a branch's deletion
-    // wins when the other branch left the file untouched; an edit beats
-    // an untouched counterpart; edited-on-one-side + deleted-on-the-other
-    // is a modify/delete conflict (git marks it too) — the edited version
-    // stays in the merged tree for the relint and the conflict is flagged
-    // so the verdict can never be a false clean `merged`.
+/// post_merge_relint_required's union tree: a branch's deletion wins
+/// when the other branch left the file untouched; an edit beats an
+/// untouched counterpart; edited-on-one-side + deleted-on-the-other is
+/// a modify/delete conflict (git marks it too) — the edited version
+/// stays in the merged tree for the relint and the conflict is flagged
+/// so the verdict can never be a false clean `merged`.
+fn union_tree(
+    a: &[(String, String)],
+    b: &[(String, String)],
+    tip_base: &Tip,
+    findings: &mut Vec<Finding>,
+) -> BTreeMap<String, String> {
     let mut merged: BTreeMap<String, String> = BTreeMap::new();
     for (rel, text) in a {
         merged.insert(rel.clone(), text.clone());
@@ -312,10 +357,9 @@ pub fn run(
                 .map(|(_, t)| t.as_str())
                 .is_some_and(|t| tip_base.texts.get(rel).map(String::as_str) != Some(t))
         } else {
-            tip_b
-                .texts
-                .get(rel)
-                .is_some_and(|t| tip_base.texts.get(rel).map(String::as_str) != Some(t.as_str()))
+            b.iter().find(|(p, _)| p == rel).is_some_and(|(_, t)| {
+                tip_base.texts.get(rel).map(String::as_str) != Some(t.as_str())
+            })
         };
         if edited {
             findings.push(Finding {
@@ -330,9 +374,15 @@ pub fn run(
             merged.remove(rel);
         }
     }
+    merged
+}
+
+/// The merged tree must re-lint clean (linter.referential_integrity via
+/// zero dangling + full corpus lint) before merge is reported passed.
+fn relint_findings(merged: &BTreeMap<String, String>, findings: &mut Vec<Finding>) {
     let mut details: Vec<String> = vec![];
     let mut merged_specs: Vec<Spec> = vec![];
-    for (rel, text) in &merged {
+    for (rel, text) in merged {
         match parse_str(text) {
             Ok(mut s) => {
                 s.path = Some(PathBuf::from(rel));
@@ -359,26 +409,6 @@ pub fn run(
             kind: "relint_failure".into(),
             message: d.clone(),
         });
-    }
-
-    let verdict = if findings.iter().any(|f| {
-        matches!(
-            f.kind.as_str(),
-            "id_collision" | "relint_failure" | "unparsable" | "textual_conflict"
-        )
-    }) {
-        "failed"
-    } else if findings.is_empty() {
-        "merged"
-    } else {
-        "needs_review"
-    };
-
-    MergeReport {
-        verdict: verdict.to_string(),
-        findings,
-        branch_files: tip_a.specs.len(),
-        incoming_files: tip_b.specs.len(),
     }
 }
 
