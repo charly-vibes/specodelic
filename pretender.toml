@@ -3,12 +3,7 @@
 # writes .git/hooks; the gate runs via lefthook.yml pre-commit (the beads
 # shim chain) and `just ci` / `just pretender-check`).
 #
-# Mode "gate" promotes every threshold breach to a CI/pre-commit failure.
-# Thresholds are a RATCHET set at the current observed maxima (2026-10-01:
-# worst fn cyclomatic 66, cognitive 65, abc 163, function_lines 308; largest
-# file tests/cli.rs 5909 lines) — existing code passes, nothing worse than
-# today's worst does. Tightening = editing this file; entries only move DOWN.
-# Follow-up tightening is tracked as a beads refactor ticket.
+
 
 # Grandfathered hotspots (known offenders AT the ratchet ceiling — refactor
 # targets, tracked in beads; do NOT raise thresholds to add new headroom):
@@ -33,41 +28,52 @@ exclude = [
 ]
 
 [thresholds]
-cyclomatic_max = 70
-cognitive_max = 70
-abc_max = 170
-function_lines_max = 320
-nesting_max = 8
+# Ratchet positions after the specodelic-g17 refactor pass (2026-10-05):
+# measured maxima with working excludes — app worst fn cyclomatic 20
+# (acset/doc parse_typing_table), cognitive 48 (lint_coverage), abc 89
+# (lint_failure_shape_family), function_lines 209 (acset/schema canonical),
+# nesting 6 (lint_checklists); largest file src/model_check.rs 2202.
+cyclomatic_max = 20
+cognitive_max = 48
+abc_max = 90
+function_lines_max = 209
+nesting_max = 6
 params_max = 8
-file_lines_max = 6000
-exported_cyclomatic_max = 70
+file_lines_max = 2300
+exported_cyclomatic_max = 20
 exported_params_max = 8
 exported_lines_max = 320
 
-# Test role (tests/**): ratchet at current test-suite maxima.
+# Test role (tests/**): ratchet at current test-suite maxima (2026-10-05:
+# worst test fn cyclomatic 19, cognitive 33, abc 72, function_lines 235
+# (failure_terminals_emit_labeled_errors, tests/cli/lint.rs); largest test
+# file tests/cli/parse_misc.rs 1452).
 [thresholds.test]
 cyclomatic_max = 20
-cognitive_max = 35
-function_lines_max = 320
-nesting_max = 5
+cognitive_max = 33
+function_lines_max = 235
+nesting_max = 4
 params_max = 8
 min_assertions = 0
+file_lines_max = 1500
 
-# Script role (scripts/**): ratchet at current script maxima.
+# Script role (scripts/**): ratchet at current script maxima (2026-10-05:
+# worst script fn cyclomatic 15, cognitive 31, function_lines 59).
 [thresholds.script]
-cyclomatic_max = 16
-cognitive_max = 35
-function_lines_max = 80
-nesting_max = 5
-params_max = 4
+cyclomatic_max = 15
+cognitive_max = 31
+function_lines_max = 59
+nesting_max = 4
+params_max = 3
 min_assertions = 0
 
-# Library-exported role: ratchet (worst exported fn cyclomatic 66).
+# Library-exported role: ratchet (2026-10-05: worst exported fn at the
+# app maxima; largest lib file src/model_check.rs 2202).
 [thresholds.library]
-exported_cyclomatic_max = 70
+exported_cyclomatic_max = 20
 exported_params_max = 8
 exported_lines_max = 320
-file_lines_max = 6000
+file_lines_max = 2300
 
 [roles.test]
 paths = ["tests/**", "tests/**/**", "**/tests/**"]
