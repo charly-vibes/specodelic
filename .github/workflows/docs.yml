@@ -59,6 +59,11 @@ jobs:
           path: book
 
   deploy:
+    # Tags trigger this workflow too (push filter is a branch/tag OR),
+    # but the github-pages environment only accepts main — a tag-ref
+    # deployment dies job-level in seconds (v0.5.1 run 37313667167).
+    # The site is always deployed from main; a tag build is redundant.
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     environment:
