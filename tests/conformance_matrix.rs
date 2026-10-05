@@ -544,6 +544,16 @@ fn clean_as(id: &str) -> String {
 /// `lint::RULE_TABLE` plus the three graph-only surfaces gets at least
 /// one violation case; the clean baselines pin the vacuous pass.
 fn cases() -> Vec<Case> {
+    let mut all = cases_core_shapes();
+    all.extend(cases_syntax_and_integrity());
+    all.extend(cases_failure_and_completeness());
+    all.extend(cases_graph_surfaces());
+    all
+}
+
+/// Conformance cases: the `cases_core_shapes` slice of the data table
+/// (split from the 308-line `cases()` table — specodelic-g17 function_lines ratchet).
+fn cases_core_shapes() -> Vec<Case> {
     let f = |id: &'static str, files: Vec<(&str, String)>, expect: &'static [&'static str]| Case {
         id,
         files: files.into_iter().map(|(p, t)| (p.to_string(), t)).collect(),
@@ -559,13 +569,24 @@ fn cases() -> Vec<Case> {
 
     vec![
         // -- clean baselines ------------------------------------------------
-        f("clean_single_file", vec![("clean.md", CLEAN.to_string())], &["clean"]),
-        f("clean_dual_format", vec![("spec.md", DUAL_CLEAN.to_string())], &["clean"]),
+        f(
+            "clean_single_file",
+            vec![("clean.md", CLEAN.to_string())],
+            &["clean"],
+        ),
+        f(
+            "clean_dual_format",
+            vec![("spec.md", DUAL_CLEAN.to_string())],
+            &["clean"],
+        ),
         with_checklist("clean_checklist_consistent", CHECKLIST_OK, &["clean"]),
         // -- linter-frontmatter family ---------------------------------------
         f(
             "fm_kind_not_intent",
-            vec![("clean.md", CLEAN.replace("kind: intent", "kind: capability"))],
+            vec![(
+                "clean.md",
+                CLEAN.replace("kind: intent", "kind: capability"),
+            )],
             &["find:linter.frontmatter_valid"],
         ),
         f(
@@ -584,7 +605,10 @@ fn cases() -> Vec<Case> {
         ),
         f(
             "id_universal",
-            vec![("order.always_validate.md", clean_as("order.always_validate"))],
+            vec![(
+                "order.always_validate.md",
+                clean_as("order.always_validate"),
+            )],
             &["find:linter.no_universal_in_id"],
         ),
         // -- linter-schema_shape (unique ids) ------------------------------------
@@ -648,6 +672,26 @@ fn cases() -> Vec<Case> {
                 "graph.dangling",
             ],
         ),
+    ]
+}
+
+/// Conformance cases: the `cases_syntax_and_integrity` slice of the data table
+/// (split from the 308-line `cases()` table — specodelic-g17 function_lines ratchet).
+fn cases_syntax_and_integrity() -> Vec<Case> {
+    let f = |id: &'static str, files: Vec<(&str, String)>, expect: &'static [&'static str]| Case {
+        id,
+        files: files.into_iter().map(|(p, t)| (p.to_string(), t)).collect(),
+        checklists: vec![],
+        expect,
+    };
+    let with_checklist = |id: &'static str, cl: &str, expect: &'static [&'static str]| Case {
+        id,
+        files: vec![("clean.md".to_string(), CLEAN.to_string())],
+        checklists: vec![("clean.checklist.md".to_string(), cl.to_string())],
+        expect,
+    };
+
+    vec![
         // -- linter-ears_syntax ---------------------------------------------------------
         f(
             "ears_no_shall",
@@ -754,6 +798,26 @@ fn cases() -> Vec<Case> {
             )],
             &["find:linter.no_orphan_property", "graph.typing"],
         ),
+    ]
+}
+
+/// Conformance cases: the `cases_failure_and_completeness` slice of the data table
+/// (split from the 308-line `cases()` table — specodelic-g17 function_lines ratchet).
+fn cases_failure_and_completeness() -> Vec<Case> {
+    let f = |id: &'static str, files: Vec<(&str, String)>, expect: &'static [&'static str]| Case {
+        id,
+        files: files.into_iter().map(|(p, t)| (p.to_string(), t)).collect(),
+        checklists: vec![],
+        expect,
+    };
+    let with_checklist = |id: &'static str, cl: &str, expect: &'static [&'static str]| Case {
+        id,
+        files: vec![("clean.md".to_string(), CLEAN.to_string())],
+        checklists: vec![("clean.checklist.md".to_string(), cl.to_string())],
+        expect,
+    };
+
+    vec![
         // -- dual-format file rules -----------------------------------------------------------------
         f(
             "dual_format_invalid",
@@ -820,6 +884,26 @@ fn cases() -> Vec<Case> {
             CHECKLIST_DUP_CLAIM,
             &["find:linter.no_duplicate_claim"],
         ),
+    ]
+}
+
+/// Conformance cases: the `cases_graph_surfaces` slice of the data table
+/// (split from the 308-line `cases()` table — specodelic-g17 function_lines ratchet).
+fn cases_graph_surfaces() -> Vec<Case> {
+    let f = |id: &'static str, files: Vec<(&str, String)>, expect: &'static [&'static str]| Case {
+        id,
+        files: files.into_iter().map(|(p, t)| (p.to_string(), t)).collect(),
+        checklists: vec![],
+        expect,
+    };
+    let with_checklist = |id: &'static str, cl: &str, expect: &'static [&'static str]| Case {
+        id,
+        files: vec![("clean.md".to_string(), CLEAN.to_string())],
+        checklists: vec![("clean.checklist.md".to_string(), cl.to_string())],
+        expect,
+    };
+
+    vec![
         // -- graph-only surfaces (Reference Typing, supersedes DAG) ------------------------------------------------
         f(
             "graph_typing_traces_to_constraint",
