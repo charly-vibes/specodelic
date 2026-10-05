@@ -6,9 +6,12 @@ version + build ref, and links the Release Status page — an agent writing
 specs from the deployed site must be able to tell which format revision it
 is reading before writing against an installed spk.
 
-specodelic-cke: the repo-root llm.txt variant (install + Links sections)
-was deployed nowhere and referenced by no build recipe — guard: it must
-stay gone, and llms.txt must carry the merged Install & Links content.
+specodelic-cke: llm.txt vs llms.txt — llms.txt is the deploy target and
+carries the merged Install & Links content. Originally the guard asserted
+the undeployed repo-root llm.txt variant must stay gone; reversed per
+specodelic-mvl (2026-10-05, espectacular family rule): llm.txt is a
+repo-root narrative summary alongside llms.txt, and whether it deploys is
+repo policy — it must exist at root and llms.txt keeps the merged content.
 
 Run: python3 -m unittest discover -s scripts -p 'test_*.py'
 """
@@ -87,8 +90,11 @@ class StampCliTest(unittest.TestCase):
 class DriftGuardTest(unittest.TestCase):
     """specodelic-cke: the undeployed llm.txt variant must stay gone."""
 
-    def test_repo_root_has_no_undeployed_llm_txt(self) -> None:
-        self.assertFalse((REPO / "llm.txt").exists())
+    def test_repo_root_has_llm_txt_narrative_summary(self) -> None:
+        text = (REPO / "llm.txt").read_text()
+        self.assertTrue(text.startswith("# specodelic"))
+        self.assertIn("## Install", text)
+        self.assertIn("cargo install specodelic", text)
 
     def test_llms_txt_carries_merged_install_content(self) -> None:
         text = (REPO / "llms.txt").read_text()
