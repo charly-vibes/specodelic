@@ -72,7 +72,12 @@ Before saying "done", run this checklist:
 [ ] openspec tasks.md — mark completed tasks [x]
 [ ] openspec list — archive any ✓ Complete changes (`openspec archive <id> --yes`)
 [ ] wai reflect                    # update CLAUDE.md with project patterns (every ~5 sessions)
-[ ] git add <files> && git commit  # commit code + handoff
+[ ] git status --short             # commit hygiene (specodelic-2g1): verify every
+                                   # entry was authored by THIS session; unstage
+                                   # foreign files (`git restore --staged <path>`);
+                                   # stage only your own paths — never bare `git add`
+[ ] git add <files> && git commit  # commit code + handoff; message describes only
+                                   # what the diff contains
 ```
 
 If beads needs any extra follow-up beyond `bd close`, run `bd` and use the
@@ -86,7 +91,8 @@ One task per session. The resume loop:
 1. `wai prime` — orient (shows ⚡ RESUMING if mid-task)
 2. Work on the single task
 3. `wai close` — capture state (run this before every `/clear`)
-4. `git add <files> && git commit`
+4. `git add <files> && git commit` — commit hygiene per the session-end
+   checklist above (specodelic-2g1: only files this session authored)
 5. `/clear` — fresh context
 
 → Next session: `wai prime` shows RESUMING with exact next steps.

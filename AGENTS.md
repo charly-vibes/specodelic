@@ -163,6 +163,18 @@ every file there is a markdown spec written in the format it describes.
   it. Don't reintroduce `spec-format` references.
 - **Issue tracking**: `bd` (beads) in no-db mode — `.beads/issues.jsonl`
   is the source of truth, tracked in git. No Dolt database.
+- **Commit hygiene** (specodelic-2g1, dz4 remediation-c — standing
+  instruction, every commit): before ANY `git commit`, run
+  `git status --short` and check every entry against what *this session*
+  actually authored; stage only your own files (`git add <paths>`, never
+  bare `git add` / `git add .`), and if a foreign file is already staged,
+  unstage it (`git restore --staged <path>`) rather than committing it.
+  Attribute the commit message only to what the diff actually contains —
+  a message claiming "gate-authored rewrite" on a diff that introduces a
+  nonexistent test binding is how incident e7bb19e poisoned the corpus.
+  Gate drills must go through `scripts/guards/gate-drill.sh` (worktree or
+  advisory lock — specodelic-do8); see
+  `openspec/decisions/2026-10-05-precommit-sweep-policy.md`.
 - **Quality gates**: `just ci` (fmt-check, clippy `-D warnings`, tests,
   release build) must pass before pushing.
 - **Dogfooding**: `just lint-specs` lints the corpus with the tool
