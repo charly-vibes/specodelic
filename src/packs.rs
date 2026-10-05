@@ -417,29 +417,12 @@ pub fn pack_pass(specs: &[Spec], report: &mut Report) {
         if spec.intent.kind == "profile" {
             shape_findings(spec, report);
         } else {
-            let raw_text = raw(spec);
-            let lines: Vec<&str> = raw_text.lines().collect();
-            for heading in MANIFEST_TABLES {
-                if lines.iter().any(|l| l.trim() == *heading) {
-                    report.issues.push(Issue::new(
-                        "pack_shape",
-                        spec.intent.id.clone(),
-                        format!(
-                            "manifest table `{heading}` present but frontmatter kind is `{}` not `profile` — a manifest declares a pack, and only pack files may declare one; make the file `kind: profile` or remove the manifest tables",
-                            spec.intent.kind
-                        ),
-                    ));
-                }
-            }
+            nonprofile_manifest_findings(spec, report);
         }
     }
 
     // 2. discovery — inert unless at least one pack exists
     let packs = discover(specs);
-    if packs.is_empty() {
-        // even with zero packs, a declared `uses` edge is the typed orphan
-        // signal — check it below (the discovery result is still empty).
-    }
     if !packs.is_empty() {
         report.packs = packs.clone();
     }
@@ -468,160 +451,220 @@ pub fn pack_pass(specs: &[Spec], report: &mut Report) {
             if link.column != "uses" {
                 continue;
             }
-            match by_id.get(&link.target) {
-                Some(pack) => {
-                    // declared mode: skew advisory (warnings channel, exit 0)
-                    if let Some(pin) = pack.base_pin {
-                        let corpus = corpus_revision(specs);
-                        if pin < corpus {
-                            report.warnings.push(Issue::new(
-                                "skew_advisory",
-                                spec.intent.id.clone(),
-                                format!(
-                                    "pack `{}` pins base Revision {pin}, workspace corpus is at Revision {corpus} — revision skew is advisory (never failing); consider updating the pack's `## Requires` base pin",
-                                    pack.id
-                                ),
-                            ));
-                        }
-                    }
-                    // lifecycle naming: draft status / deprecation named
-                    if pack.lifecycle == "draft" {
-                        report.warnings.push(Issue::new(
-                            "observability",
-                            spec.intent.id.clone(),
-                            format!(
-                                "pack `{}` activated for `{}` (declared uses edge) — draft status: this pack is not yet published, its findings are advisory-first",
-                                pack.id, spec.intent.id
-                            ),
-                        ));
-                    } else if pack.lifecycle == "deprecated" {
-                        report.warnings.push(Issue::new(
-                            "observability",
-                            spec.intent.id.clone(),
-                            format!(
-                                "pack `{}` activated for `{}` (declared uses edge) — deprecated: this pack is deprecated, its vocabulary still checks and findings name the deprecation",
-                                pack.id, spec.intent.id
-                            ),
-                        ));
-                    } else {
-                        report.warnings.push(Issue::new(
-                            "observability",
-                            spec.intent.id.clone(),
-                            format!(
-                                "pack `{}` activated for `{}` (declared uses edge) — declared rules: {}; empty checked-set (no violations to report)",
-                                pack.id,
-                                spec.intent.id,
-                                if pack.vocabulary.is_empty() {
-                                    "none declared".to_string()
-                                } else {
-                                    format!("{}", pack.vocabulary.len())
-                                }
-                            ),
-                        ));
-                    }
-                }
-                None => {
-                    if let Some(ns) = namespace_of(&link.target) {
-                        orphan_namespaces.insert(ns);
-                    }
-                    report.issues.push(Issue::new(
-                        "orphan_vocabulary",
+            uses_edge_findings(spec, link, &by_id, specs, &mut orphan_namespaces, report);
+        }
+        // vocabulary-triggered orphan (specodelic-erd): the "no pack
+        // discovered" half of `orphan_vocabulary_labeled` — see
+        // vocab_orphan_tokens for the prose-stays-unscanned rule.
+        let vocab_orphans = vocab_orphan_tokens(spec, &pack_namespaces);
+        emit_vocab_orphan_findings(spec, vocab_orphans, &orphan_namespaces, report);
+        // implicit activation: vocabulary use (per-pack attribution,
+        // overlapping vocabulary activates every declaring pack)
+        implicit_activation_warnings(spec, &packs, report);
+    }
+}
+
+/// Non-profile files must not declare manifest tables — a manifest
+/// declares a pack, and only pack files may declare one.
+fn nonprofile_manifest_findings(spec: &Spec, report: &mut Report) {
+    let raw_text = raw(spec);
+    let lines: Vec<&str> = raw_text.lines().collect();
+    for heading in MANIFEST_TABLES {
+        if lines.iter().any(|l| l.trim() == *heading) {
+            report.issues.push(Issue::new(
+                "pack_shape",
+                spec.intent.id.clone(),
+                format!(
+                    "manifest table `{heading}` present but frontmatter kind is `{}` not `profile` — a manifest declares a pack, and only pack files may declare one; make the file `kind: profile` or remove the manifest tables",
+                    spec.intent.kind
+                ),
+            ));
+        }
+    }
+}
+
+/// One declared `uses`-column link: activation advisory (with skew and
+/// lifecycle naming), or the typed uses-edge orphan finding.
+fn uses_edge_findings(
+    spec: &Spec,
+    link: &crate::spec::Link,
+    by_id: &BTreeMap<String, PackInfo>,
+    specs: &[Spec],
+    orphan_namespaces: &mut std::collections::BTreeSet<String>,
+    report: &mut Report,
+) {
+    match by_id.get(&link.target) {
+        Some(pack) => {
+            // declared mode: skew advisory (warnings channel, exit 0)
+            if let Some(pin) = pack.base_pin {
+                let corpus = corpus_revision(specs);
+                if pin < corpus {
+                    report.warnings.push(Issue::new(
+                        "skew_advisory",
                         spec.intent.id.clone(),
                         format!(
-                            "orphan vocabulary: `uses` edge targets `{}`, but no `kind: profile` pack with that id is discovered — candidate pack `{}`; remediations: add/enable a `kind: profile` pack file declaring it, or fix the vocabulary (remove or retype the `uses` edge)",
-                            link.target, link.target
+                            "pack `{}` pins base Revision {pin}, workspace corpus is at Revision {corpus} — revision skew is advisory (never failing); consider updating the pack's `## Requires` base pin",
+                            pack.id
                         ),
                     ));
                 }
             }
+            // lifecycle naming: draft status / deprecation named
+            if pack.lifecycle == "draft" {
+                report.warnings.push(Issue::new(
+                    "observability",
+                    spec.intent.id.clone(),
+                    format!(
+                        "pack `{}` activated for `{}` (declared uses edge) — draft status: this pack is not yet published, its findings are advisory-first",
+                        pack.id, spec.intent.id
+                    ),
+                ));
+            } else if pack.lifecycle == "deprecated" {
+                report.warnings.push(Issue::new(
+                    "observability",
+                    spec.intent.id.clone(),
+                    format!(
+                        "pack `{}` activated for `{}` (declared uses edge) — deprecated: this pack is deprecated, its vocabulary still checks and findings name the deprecation",
+                        pack.id, spec.intent.id
+                    ),
+                ));
+            } else {
+                report.warnings.push(Issue::new(
+                    "observability",
+                    spec.intent.id.clone(),
+                    format!(
+                        "pack `{}` activated for `{}` (declared uses edge) — declared rules: {}; empty checked-set (no violations to report)",
+                        pack.id,
+                        spec.intent.id,
+                        if pack.vocabulary.is_empty() {
+                            "none declared".to_string()
+                        } else {
+                            format!("{}", pack.vocabulary.len())
+                        }
+                    ),
+                ));
+            }
         }
-        // vocabulary-triggered orphan (specodelic-erd): the "no pack
-        // discovered" half of `orphan_vocabulary_labeled` — a
-        // pack-qualified (dotted) token in a structured kind/field
-        // position whose namespace matches no discovered pack. Prose
-        // stays unscanned (a dotted token in prose —
-        // `compile.extraction_failure` — is not vocabulary), so the
-        // signal stays false-positive-free and files using no pack
-        // vocabulary lint byte-identically (no_pack_no_change).
-        let mut vocab_orphans: BTreeMap<String, Vec<String>> = BTreeMap::new();
-        let scan = |tok: &str, out: &mut BTreeMap<String, Vec<String>>| {
-            if let Some(ns) = namespace_of(tok)
-                && !pack_namespaces.contains(ns.as_str())
-            {
-                out.entry(ns).or_default().push(tok.to_string());
+        None => {
+            if let Some(ns) = namespace_of(&link.target) {
+                orphan_namespaces.insert(ns);
             }
-        };
-        scan(&spec.intent.kind, &mut vocab_orphans);
-        for c in &spec.constraints {
-            if let Some(k) = c.kind.as_deref() {
-                scan(k, &mut vocab_orphans);
-            }
-            for h in c.cells.keys() {
-                scan(h, &mut vocab_orphans);
-            }
-        }
-        for p in &spec.properties {
-            if let Some(k) = p.kind.as_deref() {
-                scan(k, &mut vocab_orphans);
-            }
-            for h in p.cells.keys() {
-                scan(h, &mut vocab_orphans);
-            }
-        }
-        for (ns, mut tokens) in vocab_orphans {
-            if orphan_namespaces.contains(&ns) {
-                continue; // the concrete uses-edge finding already names the pack
-            }
-            tokens.sort();
-            tokens.dedup();
-            let shown = tokens
-                .iter()
-                .map(|t| format!("`{t}`"))
-                .collect::<Vec<_>>()
-                .join(", ");
             report.issues.push(Issue::new(
                 "orphan_vocabulary",
                 spec.intent.id.clone(),
                 format!(
-                    "orphan vocabulary: pack-qualified token(s) {shown} used by `{}`, but no `kind: profile` pack in namespace `{ns}` is discovered — candidate pack `{ns}.*` (prefix-derived: only the namespace is known); remediations: add/enable a `kind: profile` pack file declaring the vocabulary, or fix the vocabulary (un-qualify or retype the token)",
-                    spec.intent.id
+                    "orphan vocabulary: `uses` edge targets `{}`, but no `kind: profile` pack with that id is discovered — candidate pack `{}`; remediations: add/enable a `kind: profile` pack file declaring it, or fix the vocabulary (remove or retype the `uses` edge)",
+                    link.target, link.target
                 ),
             ));
         }
-        // implicit activation: vocabulary use (per-pack attribution,
-        // overlapping vocabulary activates every declaring pack)
-        for pack in &packs {
-            if spec.intent.id == pack.id {
-                continue; // self-exemption
-            }
-            let raw_text = raw(spec);
-            let hits: Vec<&String> = pack
-                .vocabulary
-                .iter()
-                .filter(|tok| contains_word(&raw_text, tok))
-                .collect();
-            if hits.is_empty() {
-                continue;
-            }
-            let shown = hits
-                .iter()
-                .map(|t| t.as_str())
-                .collect::<Vec<_>>()
-                .join(", ");
-            let status_note = match pack.lifecycle.as_str() {
-                "draft" => " — draft status: findings are advisory-first and name it",
-                "deprecated" => " — deprecated: findings name the deprecation",
-                _ => "",
-            };
-            report.warnings.push(Issue::new(
-                "observability",
-                spec.intent.id.clone(),
-                format!(
-                    "pack `{}` activated for `{}` (vocabulary match: {shown}) — empty checked-set (no violations to report){status_note}",
-                    pack.id, spec.intent.id
-                ),
-            ));
+    }
+}
+
+/// Vocabulary-triggered orphan collection (specodelic-erd): the "no pack
+/// discovered" half of `orphan_vocabulary_labeled` — a
+/// pack-qualified (dotted) token in a structured kind/field
+/// position whose namespace matches no discovered pack. Prose
+/// stays unscanned (a dotted token in prose —
+/// `compile.extraction_failure` — is not vocabulary), so the
+/// signal stays false-positive-free and files using no pack
+/// vocabulary lint byte-identically (no_pack_no_change).
+fn vocab_orphan_tokens(
+    spec: &Spec,
+    pack_namespaces: &std::collections::BTreeSet<String>,
+) -> BTreeMap<String, Vec<String>> {
+    let mut vocab_orphans: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let mut scan = |tok: &str, out: &mut BTreeMap<String, Vec<String>>| {
+        if let Some(ns) = namespace_of(tok)
+            && !pack_namespaces.contains(ns.as_str())
+        {
+            out.entry(ns).or_default().push(tok.to_string());
         }
+    };
+    scan(&spec.intent.kind, &mut vocab_orphans);
+    for c in &spec.constraints {
+        if let Some(k) = c.kind.as_deref() {
+            scan(k, &mut vocab_orphans);
+        }
+        for h in c.cells.keys() {
+            scan(h, &mut vocab_orphans);
+        }
+    }
+    for p in &spec.properties {
+        if let Some(k) = p.kind.as_deref() {
+            scan(k, &mut vocab_orphans);
+        }
+        for h in p.cells.keys() {
+            scan(h, &mut vocab_orphans);
+        }
+    }
+    vocab_orphans
+}
+
+/// Emit the collected vocabulary-orphan findings; namespaces whose
+/// concrete uses-edge orphan already fired are skipped (no duplicates).
+fn emit_vocab_orphan_findings(
+    spec: &Spec,
+    mut vocab_orphans: BTreeMap<String, Vec<String>>,
+    orphan_namespaces: &std::collections::BTreeSet<String>,
+    report: &mut Report,
+) {
+    for (ns, mut tokens) in vocab_orphans {
+        if orphan_namespaces.contains(&ns) {
+            continue; // the concrete uses-edge finding already names the pack
+        }
+        tokens.sort();
+        tokens.dedup();
+        let shown = tokens
+            .iter()
+            .map(|t| format!("`{t}`"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        report.issues.push(Issue::new(
+            "orphan_vocabulary",
+            spec.intent.id.clone(),
+            format!(
+                "orphan vocabulary: pack-qualified token(s) {shown} used by `{}`, but no `kind: profile` pack in namespace `{ns}` is discovered — candidate pack `{ns}.*` (prefix-derived: only the namespace is known); remediations: add/enable a `kind: profile` pack file declaring the vocabulary, or fix the vocabulary (un-qualify or retype the token)",
+                spec.intent.id
+            ),
+        ));
+    }
+}
+
+/// Implicit activation: vocabulary use (per-pack attribution,
+/// overlapping vocabulary activates every declaring pack).
+fn implicit_activation_warnings(spec: &Spec, packs: &[PackInfo], report: &mut Report) {
+    for pack in packs {
+        if spec.intent.id == pack.id {
+            continue; // self-exemption
+        }
+        let raw_text = raw(spec);
+        let hits: Vec<&String> = pack
+            .vocabulary
+            .iter()
+            .filter(|tok| contains_word(&raw_text, tok))
+            .collect();
+        if hits.is_empty() {
+            continue;
+        }
+        let shown = hits
+            .iter()
+            .map(|t| t.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let status_note = match pack.lifecycle.as_str() {
+            "draft" => " — draft status: findings are advisory-first and name it",
+            "deprecated" => " — deprecated: findings name the deprecation",
+            _ => "",
+        };
+        report.warnings.push(Issue::new(
+            "observability",
+            spec.intent.id.clone(),
+            format!(
+                "pack `{}` activated for `{}` (vocabulary match: {shown}) — empty checked-set (no violations to report){status_note}",
+                pack.id, spec.intent.id
+            ),
+        ));
     }
 }
 
