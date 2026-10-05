@@ -21,8 +21,17 @@ pre-commit:
     # <!-- PRETENDER:END -->
     sibling-blockers:
       run: scripts/guards/sibling-blockers.sh .
+    # gate-drill interlock (specodelic-do8, dz4 remediation-b): refuse
+    # commit/push while a live gate-drill advisory lock is held — a
+    # concurrent session must not sweep a drill's seeded-violation state
+    # into a commit. Stale locks warn only. See
+    # openspec/decisions/2026-10-05-precommit-sweep-policy.md
+    gate-drill-lock:
+      run: scripts/guards/gate-drill-lock.sh check .
 
 pre-push:
   commands:
     sibling-blockers:
       run: scripts/guards/sibling-blockers.sh .
+    gate-drill-lock:
+      run: scripts/guards/gate-drill-lock.sh check .

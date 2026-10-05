@@ -129,7 +129,7 @@ docs-build:
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs sync-sections sync-sections-test summary-completeness lint-doc-examples lint-baseline pretender-check guard-siblings guard-espectacular
+ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs sync-sections sync-sections-test summary-completeness lint-doc-examples lint-baseline pretender-check guard-siblings guard-drill-lock guard-espectacular
 
 # Structural-quality hard gate (pretender, gate mode — pretender.toml
 # thresholds are a ratchet: entries only move DOWN; never touch .git/hooks,
@@ -141,6 +141,14 @@ pretender-check:
 # pre-commit/pre-push via lefthook.yml and the .beads/hooks shim chain
 guard-siblings:
     scripts/guards/sibling-blockers.sh .
+
+# Gate-drill advisory lock guard (specodelic-do8, dz4 remediation-b): fails
+# (exit 1) if a LIVE gate-drill lock is held — a drill's seeded-violation
+# state must never be swept into a concurrent session's commit. Stale locks
+# warn only. Wired into pre-commit AND pre-push via lefthook.yml; drills
+# should be run through scripts/guards/gate-drill.sh (worktree or lock).
+guard-drill-lock:
+    scripts/guards/gate-drill-lock.sh check .
 
 # Espectacular scenario-conformance gate (specodelic-c0o): every deployed
 # openspec #### Scenario: block must resolve to a contract TOML in
