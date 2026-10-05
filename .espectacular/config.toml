@@ -6,3 +6,7 @@ changes = "openspec/changes"
 
 [runners]
 cargo = ["cargo", "test"]
+pytest = ["pytest"]
+
+[capabilities.property]
+enabled = true

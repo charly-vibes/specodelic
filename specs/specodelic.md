@@ -764,3 +764,50 @@ lives entirely in `compile.md`, `model_check.md`, and `verify.md`
 reworded rows sit in those files; nothing valid at Revision 14 is
 invalidated, and the proptest scaffolding's element type simplifies from
 the `GenVal` wrapper to plain `String` in the same stroke.
+
+## Revision 16 — 2026-10-04
+
+**Closed language-tag fragments** (`specodelic-lf3`, 2026-10-04 — design
+of record in `openspec/changes/add-language-neutral-property-binding`).
+Revision 15's opt-in made predicate cells executable but Rust-bound: the
+`**rust:**` marker names the one supported language, and a cell wanting
+executable Python or TypeScript fragments has no honest form. This
+Revision widens the marker to a *closed tag set* — the format grammar
+grows once, per-language emission machinery stays out (it lives with
+espectacular's contract binding and per-language emitters, none built
+here):
+
+- **The tag set is closed** — `{rust, py, ts}`, the same closed-set
+  discipline as `property_kind_closed` (the grammar owns the enumeration,
+  a cell cannot carry a tag it doesn't declare). The fragment-position
+  rule and the non-empty-fragment requirement carry over verbatim per
+  tag (`compile.md`'s `fragment_language_closed`, widening
+  `predicate_fragment_opt_in`/`invariant_fragment_opt_in`'s grammar);
+  `**rust:**` remains the fully specified case, byte-identical semantics.
+- **Unknown tags fail labeled, never silent** — `**go:**` in fragment
+  position is a labeled extraction failure naming the unknown tag and the
+  closed set (sd1's discipline: no silently ignored markers anywhere in
+  the grammar; `compile.md`'s `unknown_tag_rejected`).
+- **Rust widening is pure** — every cell that extracted under Revision
+  15's grammar extracts byte-identical after it (`compile.md`'s
+  `rust_back_compat`); a cell without any marker compiles exactly as
+  before. Nothing valid at Revision 15 is invalidated.
+- **No emitter, no artifact** — a `**py:**` or `**ts:**` fragment fails
+  compile labeled, with a remediation hint naming the per-language
+  emitter follow-up (`compile.md`'s `no_emitter_labeled_failure`).
+  Executable emission for those languages is deferred of record to the
+  per-language follow-ups (`add-py-fragment-emission`,
+  `add-ts-fragment-emission`) — an accepted-tag-without-emitter would
+  silently fall through to Rust, which is the vacuous outcome this
+  Revision exists to prevent.
+- **Mention is not extraction** — a `**rust:**`/`**py:**`/`**ts:**`
+  occurrence anywhere other than fragment position (mid-span, in the
+  defining rows of `compile.md`'s own table, or in prose between spans)
+  is a mention of the mechanism and never extracts
+  (`compile.md`'s `mention_not_extraction`, carrying sd1's rule into the
+  widened grammar).
+
+No row of this file's own tables changes in this Revision — the growth
+lives entirely in `compile.md`, mirroring Revision 15's shape. Nothing
+valid at Revision 15 is invalidated, and the proptest/verify machinery
+is untouched.

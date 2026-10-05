@@ -28,6 +28,11 @@ happen to run at the same pipeline stage.
 | invariant_fragment_opt_in    | invariant | `a Constraint's expr cell may carry the same **rust:** fragment when the row's kind is invariant, under the same fragment-position rule as [[compile.predicate_fragment_opt_in]] — the fragment becomes an executable invariant model_check's native backend executes (model_check.md Revision 15); a fragment on a Constraint of any other kind (effect, advisory, a pack fiber kind) is a labeled extraction failure, never a silently ignored marker` | [[compile]] |           |
 | fragment_law_rejected        | invariant | `a law-kind Property row's predicate cell must not carry a **rust:** fragment — each required case needs its own assertion body and one fragment cannot honestly serve several named cases; violation is a labeled extraction failure` | [[compile]] |           |
 | fragment_guard_rejected      | invariant | `a Transition's guard cell must not carry a **rust:** fragment in this Revision — the program-counter model has no data binding a guard could constrain, so executable guards have no defined semantics; violation is a labeled extraction failure, never a silently ignored marker (decision of record: deferred to a future Revision alongside a data-carrying state space)` | [[compile]] |           |
+| fragment_language_closed     | invariant | `the executable-fragment tag set is closed: a cell in fragment position may carry exactly one **rust:**, **py:**, or **ts:** marker per the grammar below — the same closed-set discipline as [[specodelic.property_kind_closed]] and [[specodelic.constraint_kind_closed]]; the fragment-position rule and the non-empty-fragment requirement carry over verbatim per tag, and **rust:** remains the fully specified case with byte-identical semantics (widening [[compile.predicate_fragment_opt_in]]/[[compile.invariant_fragment_opt_in]]'s grammar; [[specodelic-lf3]] Revision 16)` | [[compile]] |           |
+| unknown_tag_rejected         | invariant | `a marker in fragment position whose tag is not in the closed set — **go:**, **java:**, any non-member — is a labeled extraction failure naming the unknown tag and the closed set, never a silently ignored marker (sd1's no-silent-markers discipline carried into the widened grammar; [[specodelic-lf3]] Revision 16)` | [[compile]] |           |
+| rust_back_compat             | invariant | `every cell that extracted a **rust:** fragment under Revision 15's grammar extracts a byte-identical fragment under the widened grammar, and a cell without any marker compiles exactly as before — pure widening, nothing valid at Revision 15 is invalidated ([[specodelic-lf3]] Revision 16)` | [[compile]] |           |
+| no_emitter_labeled_failure   | invariant | `a **py:** or **ts:** fragment in fragment position fails compile labeled, with a remediation hint naming the per-language emitter follow-up — executable emission for those languages is deferred of record ([[specodelic-lf3]] Revision 16, follow-ups add-py-fragment-emission/add-ts-fragment-emission); an accepted tag without an emitter would silently fall through to Rust, the vacuous outcome the closed set exists to prevent` | [[compile]] |           |
+| mention_not_extraction       | invariant | `a **rust:**/**py:**/**ts:** occurrence anywhere other than fragment position — mid-span, as in the defining rows of this very table, or in prose between spans — is a mention of the mechanism and never extracts (sd1's rule carried into the widened grammar; [[specodelic-lf3]] Revision 16)` | [[compile]] |           |
 | fragment_hygiene             | invariant | `a fragment's text must not contain unsafe, extern, include!, include_str!, include_bytes!, std::fs, std::process, std::net, std::env, asm!, or Command — defense-in-depth against a fragment escaping its artifact's role (fragments run on the invoking user's machine with the invoking user's privileges, exactly like every other compiled artifact; the Rust compiler is not a sandbox); violation is a labeled extraction failure naming the token` | [[compile]] |           |
 | compile_is_total             | invariant | `∀ file that has passed lint and coverage: Compile either produces all three artifacts or reports, for exactly one of them, which stage failed and why — it never returns a silent partial result` | [[compile]] |           |
 | compile_preserves_ids        | invariant | `every id present in the source file appears, unchanged, in at least one compiled artifact — no id is silently dropped in translation` | [[compile]] |           |
@@ -73,6 +78,9 @@ happen to run at the same pipeline stage.
 | fragment_body_emitted_verbatim      | unit | [[compile.predicate_fragment_opt_in]]    | `property_row_with_rust_fragment()`                              | `the emitted block body contains the fragment verbatim`  |
 | prose_predicate_stays_placeholder   | unit | [[compile.predicate_fragment_opt_in]]    | `property_row_without_fragment()`                                | `compile(row).body contains todo_predicate!` — no widening of pre-Revision behavior |
 | fragment_values_bind_generators     | unit | [[compile.predicate_fragment_opt_in]]    | `property_row_with_two_generators()`                             | `the emitted block's args are v0, v1 — one per named generator, each a String` |
+| rust_fragment_semantics_unchanged    | unit | [[compile.rust_back_compat]]         | `revision_15_rust_fragment_cell()`                               | `extract(cell) == revision_15_extract(cell)` — byte-identical, pure widening |
+| unknown_tag_labeled                  | unit | [[compile.unknown_tag_rejected]]      | `property_row_with_marker_tag("**go:")`                          | `error_stage == fragment_extraction ∧ message names the tag and the closed set` |
+| non_fragment_tag_is_mention          | unit | [[compile.mention_not_extraction]]    | `property_row_with_mid_span_marker_tag("**py:")`                 | `compile(row) == compile(row_without_marker)` — mid-span occurrence never extracts |
 | law_fragment_labeled                | unit | [[compile.fragment_law_rejected]]        | `law_row_with_fragment()`                                        | `error_stage == fragment_extraction` |
 | hygiene_violation_labeled           | unit | [[compile.fragment_hygiene]]             | `fragment_with(banned_token: "std::fs")`                         | `error_stage == fragment_extraction ∧ message names the token` |
 | guard_fragment_labeled              | unit | [[compile.fragment_guard_rejected]]      | `transition_row_with_fragment_guard()`                           | `error_stage == fragment_extraction` |
@@ -149,3 +157,22 @@ legitimately need. The scaffolding's element type is now `String` (the
 `GenVal` tuple-struct wrapper retired in the same Revision) so fragments
 bind plain generator values — the wrapper existed only to carry the
 placeholder story, and fragments make that story optional.
+
+**Two binding layers, one per tool, never merged** (decision of record
+2026-10-04, `specodelic-lf3` — corrected review finding CORR-001, design
+`openspec/changes/add-language-neutral-property-binding` D3): the
+artifact's `// id:` / `// case:` metadata comments and contract-TOML
+`flags` are *not* two spellings of one neutral ABI. The comments key
+per-block verdicts **inside a specodelic artifact** — properties_to_proptest
+emits them, properties_to_proptest's own metadata comments key them, and
+nothing outside this file's emission consumes them. Contract-TOML `flags`
+bind **existing tests** — pytest node ids, shell escape hatches — to
+scenarios, which is espectacular's layer and stays there. Ownership:
+**compile.md owns fragment extraction and artifact emission** (the
+closed-tag grammar above); **espectacular owns contract binding of
+existing tests** (its `[runners]` config, already shipped — no parallel
+registry is built here, CORR-002); **specodelic.md owns the format
+grammar** (Revision 16's closed set). Nothing in this file consumes or
+produces espectacular contract binding — merging the layers would couple
+scaffold execution policy to contract-binding policy with different
+wall-clock, caching, and toolchain stories.
