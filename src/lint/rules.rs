@@ -52,7 +52,6 @@ pub(crate) fn lint_schema_shape_family(spec: &Spec, corpus: &[Spec], report: &mu
 /// every constraint needs a deriving property. NOT one of the six
 /// Checker Ownership checkers — the orchestrator runs it as compile's
 /// gate, never as part of the lint gate.
-
 pub(crate) fn file_label(spec: &Spec) -> String {
     spec.path
         .as_ref()
@@ -65,7 +64,6 @@ pub(crate) fn file_label(spec: &Spec) -> String {
 /// Attribution note: `dual_format_valid`/`requirement_drift` postdate
 /// the ownership table and ride this family — they are file-structure
 /// rules (frontmatter id + section shape) enforced with the first gate.
-
 pub(crate) fn lint_frontmatter_family(spec: &Spec, report: &mut Report) {
     let file = file_label(spec);
 

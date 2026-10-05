@@ -574,7 +574,7 @@ fn vocab_orphan_tokens(
     pack_namespaces: &std::collections::BTreeSet<String>,
 ) -> BTreeMap<String, Vec<String>> {
     let mut vocab_orphans: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    let mut scan = |tok: &str, out: &mut BTreeMap<String, Vec<String>>| {
+    let scan = |tok: &str, out: &mut BTreeMap<String, Vec<String>>| {
         if let Some(ns) = namespace_of(tok)
             && !pack_namespaces.contains(ns.as_str())
         {
@@ -605,7 +605,7 @@ fn vocab_orphan_tokens(
 /// concrete uses-edge orphan already fired are skipped (no duplicates).
 fn emit_vocab_orphan_findings(
     spec: &Spec,
-    mut vocab_orphans: BTreeMap<String, Vec<String>>,
+    vocab_orphans: BTreeMap<String, Vec<String>>,
     orphan_namespaces: &std::collections::BTreeSet<String>,
     report: &mut Report,
 ) {

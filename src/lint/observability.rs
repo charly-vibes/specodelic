@@ -1,7 +1,7 @@
 //! Observability and coverage beats of the linter (split from mod.rs —
 //! specodelic-g17 file_lines ratchet).
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use super::super::spec::{Link, Spec};
 use super::graph::RowKind;
@@ -59,7 +59,6 @@ pub(crate) fn lint_observability(specs: &[Spec], report: &mut Report) {
 /// Resolve a link target to its canonical graph node: the file id for an
 /// intent target, `file_id.row_id` for a row (a `file.row.member` anchor
 /// resolves to the row). Mirrors [`Index::resolves`]'s arms; keep in sync.
-
 pub(crate) fn lint_coverage(specs: &[Spec], report: &mut Report) {
     // Target-kind resolution (specodelic-rk3): linter-coverage.md's
     // no_orphan_property invariant reads "p.derives_from resolves to a

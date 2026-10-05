@@ -155,13 +155,7 @@ fn morph_index(schema: &Schema, row: &Morphism) -> usize {
 
 /// Node set, attribute cells, and duplicate-row collisions in one
 /// pass over the corpus (see `from_specs` for the collision law).
-fn collect_nodes_and_cells(
-    specs: &[Spec],
-) -> (
-    BTreeSet<String>,
-    BTreeMap<String, BTreeMap<String, String>>,
-    BTreeSet<String>,
-) {
+fn collect_nodes_and_cells(specs: &[Spec]) -> CorpusCells {
     let mut nodes: BTreeSet<String> = BTreeSet::new();
     let mut cells: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
     let mut seen: BTreeSet<(String, String)> = BTreeSet::new();
@@ -402,6 +396,14 @@ impl Walk<'_> {
         });
     }
 }
+
+/// The collected node/cell state from one corpus pass: node set,
+/// attribute cells per row, and duplicate-row collisions.
+type CorpusCells = (
+    BTreeSet<String>,
+    BTreeMap<String, BTreeMap<String, String>>,
+    BTreeSet<String>,
+);
 
 impl Instance {
     /// Build the typed instance for a parsed corpus. Infallible: every

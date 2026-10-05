@@ -37,7 +37,6 @@ pub(crate) fn resolves_row(index: &Index, target: &str) -> bool {
 /// lifecycle stage (an orchestrator may choose to require the pass, a
 /// policy layered on top, not a lifecycle fact). Findings are issues:
 /// the checker's model ends in `failed`, not a warning.
-
 pub(crate) fn lint_graph_shape(specs: &[Spec], report: &mut Report) {
     let g = graph_edges(specs);
     self_ref_findings(&g.edges, report);
@@ -359,7 +358,6 @@ pub(crate) fn shown_rows(rows: &[String]) -> String {
 /// forbids. Dangling `observes` targets resolve to no effect row and
 /// stay `total_refs`' beat, so the two checks compose without
 /// double-reporting the same row.
-
 pub(crate) fn resolve_node(index: &Index, source_file: &str, target: &str) -> Option<String> {
     // Section anchors name no row — no edge.
     if target == "model.state" || target == "model.transition" {

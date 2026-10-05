@@ -9,7 +9,7 @@
 //! inspected — `prose_untouched` is itself one of the invariants.
 
 use serde::Serialize;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use crate::checklist::{self, Checklist};
 use crate::spec::Spec;
@@ -20,13 +20,11 @@ mod rules;
 
 // Moved to submodules (specodelic-g17 file_lines split) — re-imported so
 // existing call sites (lint_one, lint_all, advisory_findings, tests) stay put.
-pub(crate) use graph::{
-    Index, is_metasyntactic, lint_graph_shape, lint_references, resolve_node, resolves_row, rows,
-};
+pub(crate) use graph::{Index, lint_graph_shape, lint_references, resolves_row};
 pub(crate) use observability::{lint_coverage, lint_observability};
 pub(crate) use rules::{
-    lint_ears_family, lint_failure_shape_family, lint_frontmatter_family,
-    lint_model_family, lint_referential_family, lint_schema_shape_family,
+    lint_ears_family, lint_failure_shape_family, lint_frontmatter_family, lint_model_family,
+    lint_referential_family, lint_schema_shape_family,
 };
 
 /// One lint finding.
@@ -579,7 +577,6 @@ pub fn lint_checklists(specs: &[Spec], checklists: &[Checklist], report: &mut Re
 /// metasyntactic skip as [`lint_references`]; dangling targets are
 /// `total_refs`'s job, not ours — the two checks compose without
 /// double-reporting the same row.
-
 /// Per-file invariants.
 /// The file label every lint finding carries: the path when on disk,
 /// else `<id>`.
@@ -594,7 +591,9 @@ fn lint_one(spec: &Spec, corpus: &[Spec], report: &mut Report) {
 
 #[cfg(test)]
 mod tests {
+    use super::graph::{is_metasyntactic, resolve_node, rows};
     use super::*;
+    use std::collections::BTreeSet;
 
     fn spec_at(text: &str, path: &str) -> Spec {
         let mut spec = crate::spec::parse_str(text).expect("fixture parses");
@@ -2054,6 +2053,8 @@ mod checker_tests {
     //! specodelic-8kk: the orchestrator invokes checkers individually —
     //! pin each checker family's rule attribution so a rule can never
     //! silently migrate between checkers.
+
+    use super::graph::{is_metasyntactic, resolve_node};
 
     use super::*;
 

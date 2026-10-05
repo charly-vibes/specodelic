@@ -684,7 +684,7 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
         checklists: vec![],
         expect,
     };
-    let with_checklist = |id: &'static str, cl: &str, expect: &'static [&'static str]| Case {
+    let _with_checklist = |id: &'static str, cl: &str, expect: &'static [&'static str]| Case {
         id,
         files: vec![("clean.md".to_string(), CLEAN.to_string())],
         checklists: vec![("clean.checklist.md".to_string(), cl.to_string())],
@@ -896,7 +896,7 @@ fn cases_graph_surfaces() -> Vec<Case> {
         checklists: vec![],
         expect,
     };
-    let with_checklist = |id: &'static str, cl: &str, expect: &'static [&'static str]| Case {
+    let _with_checklist = |id: &'static str, cl: &str, expect: &'static [&'static str]| Case {
         id,
         files: vec![("clean.md".to_string(), CLEAN.to_string())],
         checklists: vec![("clean.checklist.md".to_string(), cl.to_string())],
