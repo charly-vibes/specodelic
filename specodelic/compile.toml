@@ -49,6 +49,36 @@ expr = "`a Transition's guard cell must not carry a **rust:** fragment in this R
 traces_to = "[[compile]]"
 
 [[constraints]]
+id = "fragment_language_closed"
+kind = "invariant"
+expr = "`the executable-fragment tag set is closed: a cell in fragment position may carry exactly one **rust:**, **py:**, or **ts:** marker per the grammar below — the same closed-set discipline as [[specodelic.property_kind_closed]] and [[specodelic.constraint_kind_closed]]; the fragment-position rule and the non-empty-fragment requirement carry over verbatim per tag, and **rust:** remains the fully specified case with byte-identical semantics (widening [[compile.predicate_fragment_opt_in]]/[[compile.invariant_fragment_opt_in]]'s grammar; [[specodelic-lf3]] Revision 16)`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "unknown_tag_rejected"
+kind = "invariant"
+expr = "`a marker in fragment position whose tag is not in the closed set — **go:**, **java:**, any non-member — is a labeled extraction failure naming the unknown tag and the closed set, never a silently ignored marker (sd1's no-silent-markers discipline carried into the widened grammar; [[specodelic-lf3]] Revision 16)`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "rust_back_compat"
+kind = "invariant"
+expr = "`every cell that extracted a **rust:** fragment under Revision 15's grammar extracts a byte-identical fragment under the widened grammar, and a cell without any marker compiles exactly as before — pure widening, nothing valid at Revision 15 is invalidated ([[specodelic-lf3]] Revision 16)`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "no_emitter_labeled_failure"
+kind = "invariant"
+expr = "`a **py:** or **ts:** fragment in fragment position fails compile labeled, with a remediation hint naming the per-language emitter follow-up — executable emission for those languages is deferred of record ([[specodelic-lf3]] Revision 16, follow-ups add-py-fragment-emission/add-ts-fragment-emission); an accepted tag without an emitter would silently fall through to Rust, the vacuous outcome the closed set exists to prevent`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "mention_not_extraction"
+kind = "invariant"
+expr = "`a **rust:**/**py:**/**ts:** occurrence anywhere other than fragment position — mid-span, as in the defining rows of this very table, or in prose between spans — is a mention of the mechanism and never extracts (sd1's rule carried into the widened grammar; [[specodelic-lf3]] Revision 16)`"
+traces_to = "[[compile]]"
+
+[[constraints]]
 id = "fragment_hygiene"
 kind = "invariant"
 expr = "`a fragment's text must not contain unsafe, extern, include!, include_str!, include_bytes!, std::fs, std::process, std::net, std::env, asm!, or Command — defense-in-depth against a fragment escaping its artifact's role (fragments run on the invoking user's machine with the invoking user's privileges, exactly like every other compiled artifact; the Rust compiler is not a sandbox); violation is a labeled extraction failure naming the token`"

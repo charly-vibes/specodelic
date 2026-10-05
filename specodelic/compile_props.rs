@@ -66,6 +66,18 @@ pub mod spec_gen {
         Just("property_row_with_two_generators".into())
     }
 
+    pub fn revision_15_rust_fragment_cell() -> impl Strategy<Value = String> {
+        Just("revision_15_rust_fragment_cell".into())
+    }
+
+    pub fn property_row_with_marker_tag() -> impl Strategy<Value = String> {
+        Just("property_row_with_marker_tag".into())
+    }
+
+    pub fn property_row_with_mid_span_marker_tag() -> impl Strategy<Value = String> {
+        Just("property_row_with_mid_span_marker_tag".into())
+    }
+
     pub fn law_row_with_fragment() -> impl Strategy<Value = String> {
         Just("law_row_with_fragment".into())
     }
@@ -182,6 +194,41 @@ proptest! {
     #[test]
     fn fragment_values_bind_generators(v0 in spec_gen::property_row_with_two_generators()) {
         todo_predicate!("`the emitted block's args are v0, v1 — one per named generator, each a String`");
+    }
+    // id: rust_fragment_semantics_unchanged
+    // generator: `revision_15_rust_fragment_cell()`
+    // predicate: `extract(cell) == revision_15_extract(cell)` — byte-identical, pure widening
+    #[test]
+    fn rust_fragment_semantics_unchanged(v0 in spec_gen::revision_15_rust_fragment_cell()) {
+        todo_predicate!("`extract(cell) == revision_15_extract(cell)` — byte-identical, pure widening");
+    }
+    // id: unknown_tag_labeled
+    // generator: `property_row_with_marker_tag("**go:")`
+    // predicate: `error_stage == fragment_extraction ∧ message names the tag and the closed set`
+    #[test]
+    fn unknown_tag_labeled(v0 in spec_gen::property_row_with_marker_tag()) {
+        todo_predicate!("`error_stage == fragment_extraction ∧ message names the tag and the closed set`");
+    }
+    // id: non_fragment_tag_is_mention
+    // generator: `property_row_with_mid_span_marker_tag("**py:")`
+    // predicate: `compile(row) == compile(row_without_marker)` — mid-span occurrence never extracts
+    #[test]
+    fn non_fragment_tag_is_mention(v0 in spec_gen::property_row_with_mid_span_marker_tag()) {
+        todo_predicate!("`compile(row) == compile(row_without_marker)` — mid-span occurrence never extracts");
+    }
+    // id: one_tag_extracts_per_cell
+    // generator: `property_row_with_marker_tag("**py:")`
+    // predicate: `extract(cell) == Some(fragment_under("py"))` — a fragment-position cell extracts under exactly one tag from the closed set {rust, py, ts}; acceptance is grammar-level and emitter-independent
+    #[test]
+    fn one_tag_extracts_per_cell(v0 in spec_gen::property_row_with_marker_tag()) {
+        todo_predicate!("`extract(cell) == Some(fragment_under(\"py\"))` — a fragment-position cell extracts under exactly one tag from the closed set {rust, py, ts}; acceptance is grammar-level and emitter-independent");
+    }
+    // id: missing_emitter_labeled
+    // generator: `property_row_with_marker_tag("**py:")`
+    // predicate: `error_label == "compile.emission_failure" ∧ the remediation hint names the per-language emitter follow-up` — never a silent fall-through to Rust emission
+    #[test]
+    fn missing_emitter_labeled(v0 in spec_gen::property_row_with_marker_tag()) {
+        todo_predicate!("`error_label == \"compile.emission_failure\" ∧ the remediation hint names the per-language emitter follow-up` — never a silent fall-through to Rust emission");
     }
     // id: law_fragment_labeled
     // generator: `law_row_with_fragment()`
