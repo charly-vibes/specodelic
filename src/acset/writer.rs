@@ -261,26 +261,7 @@ pub fn apply(edit: &Edit, path: &Path, source: &str, spec: &Spec) -> Result<Writ
     // through its trimmed target corpus-wide, but a rename that would
     // strand it refuses at rename's verify gate, exactly as before the
     // writer existed).
-    for l in &spec.links {
-        let Some(s) = l.span else { continue };
-        if source[s.start..s.end] != format!("[[{}]]", l.target) {
-            continue;
-        }
-        let follows = if l.target == *old {
-            Some(new.clone())
-        } else if l
-            .target
-            .strip_prefix(old.as_str())
-            .is_some_and(|suffix| suffix.starts_with('.'))
-        {
-            Some(format!("{new}{}", &l.target[old.len()..]))
-        } else {
-            None
-        };
-        if let Some(nt) = follows {
-            repls.push((s, format!("[[{nt}]]")));
-        }
-    }
+    wiki_link_repls(spec, source, old, new, &mut repls);
 
     // The file's own Intent id: rewritten through its span, and the file
     // moves. A quoted id has no recordable span — the edit cannot be
@@ -301,35 +282,7 @@ pub fn apply(edit: &Edit, path: &Path, source: &str, spec: &Spec) -> Result<Writ
     // Definition-file cells and bullets carrying the local id — rename's
     // any-cell rule, realized through per-column spans.
     if let Some((lo, ln)) = local {
-        for r in &spec.constraints {
-            collect_cell_repls(&r.cells, &r.cell_spans, lo, ln, &mut repls)?;
-        }
-        for r in &spec.properties {
-            collect_cell_repls(&r.cells, &r.cell_spans, lo, ln, &mut repls)?;
-        }
-        // State bullets: the head id is the only editable surface.
-        for s in &spec.states {
-            if s.id == *lo {
-                match s.id_span {
-                    Some(sp) => repls.push((sp, ln.clone())),
-                    None => {
-                        return Err(apply_failure(format!(
-                            "state bullet `{lo}` is recorded without a rewritable \
-                             span (unrecognized bullet shape)"
-                        )));
-                    }
-                }
-            }
-        }
-        for t in &spec.transitions {
-            for (col, value) in [("id", &t.id), ("from", &t.from), ("to", &t.to)] {
-                if value == lo
-                    && let Some(sp) = t.cell_spans.get(col)
-                {
-                    repls.push((*sp, ln.clone()));
-                }
-            }
-        }
+        local_id_repls(spec, lo, ln, &mut repls)?;
     }
 
     // Overlap guard: spans from different families must be disjoint —
@@ -350,14 +303,7 @@ pub fn apply(edit: &Edit, path: &Path, source: &str, spec: &Spec) -> Result<Writ
     // Realize: splice the replacements into the source bytes — every
     // byte outside a replaced span, padding and terminators included,
     // passes through untouched (`untouched_bytes_preserved`).
-    let mut out = String::with_capacity(source.len());
-    let mut cursor = 0usize;
-    for (s, text) in &repls {
-        out.push_str(&source[cursor..s.start]);
-        out.push_str(text);
-        cursor = s.end;
-    }
-    out.push_str(&source[cursor..]);
+    let out = splice_replacements(source, &repls);
 
     // Roundtrip gate: the emitted text must reparse to an instance that
     // realizes exactly the edit (`edit_application_faithful`); anything
@@ -385,6 +331,102 @@ pub fn apply(edit: &Edit, path: &Path, source: &str, spec: &Spec) -> Result<Writ
         vec![]
     };
     Ok(WriteSet { writes, removals })
+}
+
+/// Wiki-link replacements: qualified targets follow the rename
+/// everywhere. The emitted link is rebuilt from the trimmed target (the
+/// parser's value). rename's exact-match law realized mechanically: only
+/// a link whose raw bytes are exactly `[[target]]` follows — raw inner
+/// padding (`[[ target ]]`) never matches rename's exact comparison, so
+/// the writer leaves it untouched too (the link still RESOLVES through
+/// its trimmed target corpus-wide, but a rename that would strand it
+/// refuses at rename's verify gate, exactly as before the writer
+/// existed).
+fn wiki_link_repls(
+    spec: &Spec,
+    source: &str,
+    old: &str,
+    new: &str,
+    repls: &mut Vec<(crate::spec::Span, String)>,
+) {
+    for l in &spec.links {
+        let Some(s) = l.span else { continue };
+        if source[s.start..s.end] != format!("[[{}]]", l.target) {
+            continue;
+        }
+        let follows = if l.target == old {
+            Some(new.to_string())
+        } else if l
+            .target
+            .strip_prefix(old)
+            .is_some_and(|suffix| suffix.starts_with('.'))
+        {
+            Some(format!("{new}{}", &l.target[old.len()..]))
+        } else {
+            None
+        };
+        if let Some(nt) = follows {
+            repls.push((s, format!("[[{nt}]]")));
+        }
+    }
+}
+
+/// Local-id replacements across the file: definition-table cells and
+/// bullets carrying the local id, plus state bullets and
+/// id/from/to transition cells — rename's any-cell rule through
+/// per-column spans.
+fn local_id_repls(
+    spec: &Spec,
+    lo: &str,
+    ln: &str,
+    repls: &mut Vec<(crate::spec::Span, String)>,
+) -> Result<(), WriterError> {
+    for r in &spec.constraints {
+        collect_cell_repls(&r.cells, &r.cell_spans, lo, ln, repls)?;
+    }
+    for r in &spec.properties {
+        collect_cell_repls(&r.cells, &r.cell_spans, lo, ln, repls)?;
+    }
+    // State bullets: the head id is the only editable surface.
+    for s in &spec.states {
+        if s.id == lo {
+            match s.id_span {
+                Some(sp) => repls.push((sp, ln.to_string())),
+                None => {
+                    return Err(apply_failure(format!(
+                        "state bullet `{lo}` is recorded without a rewritable \
+                         span (unrecognized bullet shape)"
+                    )));
+                }
+            }
+        }
+    }
+    for t in &spec.transitions {
+        for (col, value) in [("id", &t.id), ("from", &t.from), ("to", &t.to)] {
+            if value == lo
+                && let Some(sp) = t.cell_spans.get(col)
+            {
+                repls.push((*sp, ln.to_string()));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Splice the (non-overlapping, start-sorted) replacements into the
+/// source bytes — every byte outside a replaced span, padding and
+/// terminators included, passes through untouched
+/// (`untouched_bytes_preserved`).
+fn splice_replacements(source: &str, repls: &[(crate::spec::Span, String)]) -> String {
+    let mut out = String::with_capacity(source.len());
+    let mut cursor = 0usize;
+    for (s, text) in repls {
+        out.push_str(&source[cursor..s.start]);
+        out.push_str(text);
+        cursor = s.end;
+    }
+    out.push_str(&source[cursor..]);
+    out
 }
 
 /// Cell replacements for one table row: every column whose parsed value

@@ -246,48 +246,70 @@ pub fn orchestrate(payload: &serde_json::Value) -> String {
             }
             // First-line findings for failed stages — the detail a
             // human needs before reaching for --json.
-            if status == "failed" && s.get("detail").is_some() {
-                let detail = &s["detail"];
-                if let Some(checkers) = detail["checkers"].as_array() {
-                    for c in checkers {
-                        if c["status"] == "failed"
-                            && let Some(issues) = c["issues"].as_array()
-                        {
-                            for i in issues.iter().take(3) {
-                                out.push_str(&format!(
-                                    "\n    {} [{}] {}",
-                                    i["file"].as_str().unwrap_or("?"),
-                                    i["rule_id"].as_str().unwrap_or("?"),
-                                    i["message"].as_str().unwrap_or("?")
-                                ));
-                            }
-                        }
-                    }
-                }
-                if let Some(failed) = detail["failed"].as_array() {
-                    for f in failed.iter().take(3) {
-                        out.push_str(&format!(
-                            "\n    {} [{}]: {}",
-                            f["file"].as_str().unwrap_or("?"),
-                            f["stage"].as_str().unwrap_or("?"),
-                            f["message"].as_str().unwrap_or("?")
-                        ));
-                    }
-                }
-                if let Some(issues) = detail["issues"].as_array() {
-                    for i in issues.iter().take(3) {
-                        out.push_str(&format!(
-                            "\n    {} [{}] {}",
-                            i["file"].as_str().unwrap_or("?"),
-                            i["rule_id"].as_str().unwrap_or("?"),
-                            i["message"].as_str().unwrap_or("?")
-                        ));
-                    }
-                }
+            if status == "failed" {
+                out.push_str(&failed_stage_detail(s));
             }
         }
     }
     out
+}
+
+/// First-line findings for a failed stage: up to three issues/failures
+/// per checker bucket, rendered as indented lines.
+fn failed_stage_detail(stage: &serde_json::Value) -> String {
+    let Some(detail) = stage.get("detail") else {
+        return String::new();
+    };
+    let mut out = String::new();
+    if let Some(checkers) = detail["checkers"].as_array() {
+        for c in checkers {
+            if c["status"] == "failed"
+                && let Some(issues) = c["issues"].as_array()
+            {
+                out.push_str(&findings_lines(issues, |i| {
+                    format!(
+                        "{} [{}] {}",
+                        i["file"].as_str().unwrap_or("?"),
+                        i["rule_id"].as_str().unwrap_or("?"),
+                        i["message"].as_str().unwrap_or("?")
+                    )
+                }));
+            }
+        }
+    }
+    if let Some(failed) = detail["failed"].as_array() {
+        out.push_str(&findings_lines(failed, |f| {
+            format!(
+                "{} [{}]: {}",
+                f["file"].as_str().unwrap_or("?"),
+                f["stage"].as_str().unwrap_or("?"),
+                f["message"].as_str().unwrap_or("?")
+            )
+        }));
+    }
+    if let Some(issues) = detail["issues"].as_array() {
+        out.push_str(&findings_lines(issues, |i| {
+            format!(
+                "{} [{}] {}",
+                i["file"].as_str().unwrap_or("?"),
+                i["rule_id"].as_str().unwrap_or("?"),
+                i["message"].as_str().unwrap_or("?")
+            )
+        }));
+    }
+    out
+}
+
+/// Up to three findings as indented detail lines, via a per-item renderer.
+fn findings_lines(
+    items: &[serde_json::Value],
+    render: impl Fn(&serde_json::Value) -> String,
+) -> String {
+    items
+        .iter()
+        .take(3)
+        .map(|i| format!("\n    {}", render(i)))
+        .collect()
 }
 
 /// `spk doctor` — checks rendered as `name: detail` lines.
