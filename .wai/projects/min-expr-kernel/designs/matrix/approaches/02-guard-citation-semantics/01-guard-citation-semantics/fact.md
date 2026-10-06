@@ -1,0 +1,1 @@
+The whole point: `[[a]] ∧ [[b]]` becomes a meet in Sub(S) of the compiled Moore machine; `¬` a complement; a transition enabled at s iff s ∈ ⟦guard⟧. Compiling guards into the TLA+ module replaces the annotation comment (`src/model_check.rs:165,1188,1236`). The `fragment_guard_rejected` blocker is fragment-scoped (`specs/compile.md:30`) and does not apply.

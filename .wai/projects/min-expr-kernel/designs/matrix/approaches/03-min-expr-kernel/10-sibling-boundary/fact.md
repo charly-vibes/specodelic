@@ -1,0 +1,1 @@
+Green: Tier C keeps `**tag:**` opaque; the per-constraint `binding` column lets external checkers claim constraints through contract-TOML `flags` (`[[tests.pytest]]` node ids, `-k`, `[[tests.shell]]`) without specodelic learning their language; no registry (rescinded stance stands); espectacular stays read-only over `openspec/`.

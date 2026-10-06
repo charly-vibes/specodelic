@@ -1,0 +1,1 @@
+Yellow: adoption is zero-migration (files without kernel cells lint byte-identically — Tier A cells stay prose by design), but *realizing* the verification value requires corpus cells migrating prose→kernel file-by-file, gated on a new lint rule firing zero findings (the `specodelic-lf3` migration pattern). That is opt-in, sequenced cost — real, but not forced.

@@ -1,0 +1,1 @@
+Holds: Revision 16 is recorded as pure widening — "nothing valid at Revision 15 is invalidated" (`specs/specodelic.md:794`); `fragment_language_closed` keeps the tag set closed (`src/compile.rs:416,451`).

@@ -1,0 +1,1 @@
+No middle tier: an author's only executable form is a verbatim `**rust:**` blob (invariant-kind Constraints only, `specs/specodelic.md:731`) — 100% coupling to one runtime's syntax — or prose with 0% checking. The ~204 equational cells stay permanently unverified unless rewritten as Rust.

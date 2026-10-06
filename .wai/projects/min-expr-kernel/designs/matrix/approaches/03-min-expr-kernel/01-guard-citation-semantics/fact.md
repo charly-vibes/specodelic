@@ -1,0 +1,1 @@
+Green: guard citation semantics ships as kernel slice 1 — the meet-in-Sub(S) interpretation of approach 02 is exactly the citation-algebra fragment of the kernel (`𝒯ₖ`-typed, bound via pullback along I(Transition)), so the smallest verified thing is the first milestone of the larger design.

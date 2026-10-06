@@ -1,0 +1,1 @@
+Yellow: the substrate exists and is deployed (`src/acset`, `src/lib.rs:13`; capabilities `openspec/specs/acset-core`, `acset-writer`) but the expression layer uses none of it — row-typing, references, and traversal for expressions would be built from scratch whenever interpretation arrives. Existing machinery idles.

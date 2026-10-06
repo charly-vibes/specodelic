@@ -1,0 +1,1 @@
+Holds: packs keep opaque `binding`/`unit`/`domain` columns bridging UCUM/OME without absorbing them; `**tag:**` remains the verbatim escape hatch; files using none of a pack's vocabulary lint byte-identically.

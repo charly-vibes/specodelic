@@ -1,0 +1,1 @@
+Green: honest failure is the Kleisli framing — extraction and emission are error-monad arrows with no implicit Err→Rust recovery; labeled extraction failures with remediation (`src/compile.rs:389`) and `todo_predicate!` panic-at-execution (`src/verify.rs:15`) carry over verbatim; prose cells stay outside every functor's domain.

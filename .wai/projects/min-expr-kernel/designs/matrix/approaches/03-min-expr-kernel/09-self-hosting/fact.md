@@ -1,0 +1,1 @@
+Green: kernel semantics stated as corpus rows (candidate `add-min-expr-kernel`), new theory as `specs/theory.md` plain/rigorous entries (doc 04 §8 supplies the mapping table), kernel laws (associativity/identity of ∧) carrying named cases per `law_requires_cases` — the format already mandates the case-label shape.

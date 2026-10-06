@@ -1,0 +1,1 @@
+Yellow: guards are typed against the pc-model's state space, not against an acset Schema value. The approach leaves `src/acset` idle (`src/lib.rs:13`) — fine for a slice, but it does not move the substrate-reuse ball forward.

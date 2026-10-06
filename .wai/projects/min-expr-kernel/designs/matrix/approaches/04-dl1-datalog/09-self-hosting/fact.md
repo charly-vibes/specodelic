@@ -1,0 +1,1 @@
+Yellow: the bundle claims dl/1 could be expressed in-format but supplies no plain/rigorous mapping for `specs/theory.md` and no corpus-row shape for the grammar — self-hosting is aspirational, not demonstrated.

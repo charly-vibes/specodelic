@@ -1,0 +1,1 @@
+Green: kernel grammar growth is a fully faithful embedding `𝒯ₖ_rN ↪ 𝒯ₖ_rN+1` — free categories on larger signatures contain the old ones, which is the categorical reason pure widening cannot invalidate anything (`specs/specodelic.md:794` precedent from Revision 16).

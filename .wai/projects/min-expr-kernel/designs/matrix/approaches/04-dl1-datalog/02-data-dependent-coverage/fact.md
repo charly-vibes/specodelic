@@ -1,0 +1,1 @@
+Yellow: least-fixpoint recursion covers the equational tier easily — but that power is unused by the measured corpus (the ~204 cells are simple relations, no recursion anywhere in the survey's examples). Expressivity far exceeds demonstrated need; unused expressivity is where accidental undecidability hides.

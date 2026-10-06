@@ -1,0 +1,1 @@
+All 30 guard cells remain machine-uninterpreted: guards travel into the TLA+ module as annotations "never a verdict" (`src/model_check.rs:165,1188`); a prose-only guard yields `invariants_checked: []`. The closed typed algebra exists in the corpus but has no semantics anywhere in the toolchain.

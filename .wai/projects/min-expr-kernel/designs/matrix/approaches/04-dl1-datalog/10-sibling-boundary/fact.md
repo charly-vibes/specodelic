@@ -1,0 +1,1 @@
+Yellow: the external-validator emphasis is right-hearted, but the proposal has no binding story through byte-stable artifacts + contract-TOML `flags`, and its stance on a runner registry (rescinded of record in specodelic) is unstated — risk of re-proposing what the ecosystem already rejected.

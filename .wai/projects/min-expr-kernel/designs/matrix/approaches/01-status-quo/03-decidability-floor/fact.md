@@ -1,0 +1,1 @@
+Vacuously green — nothing is interpreted, so no undecidable fragment can be introduced. The floor costs nothing because the coverage problem is simply not addressed; this green is bought with the reds above.

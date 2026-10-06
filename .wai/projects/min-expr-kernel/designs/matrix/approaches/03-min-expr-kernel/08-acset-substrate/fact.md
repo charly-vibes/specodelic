@@ -1,0 +1,1 @@
+Green: kernel row-typing and reference atomics implement over the deployed acset layer (`src/acset`, `src/lib.rs:13`; capabilities `openspec/specs/acset-core`/`acset-writer`) — Schema-as-data supplies the 𝒦-typed instances and traversal the kernel quantifies over. The survey missed this substrate entirely; grounding the design on it is the correction this matrix records.

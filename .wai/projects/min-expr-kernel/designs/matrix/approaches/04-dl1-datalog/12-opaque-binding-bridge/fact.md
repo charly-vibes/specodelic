@@ -1,0 +1,1 @@
+Yellow: opaque escape hatches are acknowledged but not integrated with the packs' `binding`-column pattern or the profunctor boundary — the bridge-never-absorb discipline exists in specodelic of record (`packs/data-lineage.md`) and dl/1 neither cites nor preserves it.

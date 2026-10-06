@@ -1,0 +1,1 @@
+Yellow: dl/1 proposes its own opt-in mechanism without anchoring to the fragment-position rule (`mention_not_extraction`) or the tag-at-cell-start discipline; the proposal's parsing claims are unverified against the actual parser (`src/compile.rs:307–451`).

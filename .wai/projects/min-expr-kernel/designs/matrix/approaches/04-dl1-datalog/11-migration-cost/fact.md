@@ -1,0 +1,1 @@
+Red: realizing any value requires re-expressing tier-B cells in a new language up front — authoring cost on every migrated cell, with no opt-in-gated incremental path like the kernel's lint-gated file-by-file plan.

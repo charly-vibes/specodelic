@@ -1,0 +1,1 @@
+Worse than neutral: Revision 16 ships the closed tag set {rust, py, ts} (`src/compile.rs:145`) so a corpus can declare executable intent with no emitter — py/ts tags fail labeled (`no_emitter_labeled_failure`, `src/compile.rs:371–451`) but nothing asserts that ⟦−⟧py and ⟦−⟧rust will agree once emitters land (`specodelic-l8l`/`aby`). Backend agreement is structurally unasserted.

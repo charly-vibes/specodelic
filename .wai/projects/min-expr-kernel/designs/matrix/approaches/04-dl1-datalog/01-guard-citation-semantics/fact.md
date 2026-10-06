@@ -1,0 +1,1 @@
+Green nominally — the citation algebra is expressible as a dl/1 fragment — but the design offers no incremental path; guards would wait for the full language rather than shipping as the smallest verified thing.

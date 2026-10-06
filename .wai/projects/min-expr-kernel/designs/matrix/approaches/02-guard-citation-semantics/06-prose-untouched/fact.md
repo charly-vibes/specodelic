@@ -1,0 +1,1 @@
+Green: guard citation syntax is already parsed and referentially checked (citations must resolve; cross-file guard citations are typed outbound edges, `specs/specodelic.md:36`). Giving the existing structure semantics branches on structure, not prose; pure-prose guards stay untouched.

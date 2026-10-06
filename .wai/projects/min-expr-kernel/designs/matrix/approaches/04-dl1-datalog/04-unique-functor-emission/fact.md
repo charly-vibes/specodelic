@@ -1,0 +1,1 @@
+Yellow: per-backend emitters exist in the proposal's staged-checking plan, but fixpoint semantics diverge per evaluation engine (TLA+ fixed points vs proptest sampling vs Datalog solvers) — backend agreement (⟦−⟧py ≅ ⟦−⟧rust) is harder to assert for recursive semantics than for a free-category kernel, and the proposal offers no agreement mechanism.

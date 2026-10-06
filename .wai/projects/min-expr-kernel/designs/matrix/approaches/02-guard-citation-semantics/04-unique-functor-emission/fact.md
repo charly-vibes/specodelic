@@ -1,0 +1,1 @@
+Yellow: this is a hand-written emitter branch into TLA+, not a generator-determined unique functor. Defensible at this scope (one closed algebra, one backend) but it does not establish the pattern that makes backend agreement assertable for py/ts (`src/compile.rs:145`).

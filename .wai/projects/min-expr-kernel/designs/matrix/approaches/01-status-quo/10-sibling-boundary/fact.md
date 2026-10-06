@@ -1,0 +1,1 @@
+Holds: espectacular is read-only over `openspec/` (repo `AGENTS.md`); the language-runner registry was rescinded of record in the landed change; contract-TOML `flags` (`[[tests.cargo]]`/`[[tests.shell]]`) remains the external binding ABI.

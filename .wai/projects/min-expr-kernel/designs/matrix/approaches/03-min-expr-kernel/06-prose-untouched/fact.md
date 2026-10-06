@@ -1,0 +1,1 @@
+Green: the kernel extends the fragment-position rule carried over verbatim from `predicate_fragment_opt_in` + `mention_not_extraction` — interpretation is defined by cases on the tag, prose is never branched on (`specs/errors.md:33` discipline).

@@ -1,0 +1,1 @@
+Holds: prose cells are parsed positionally, never interpreted (`specs/errors.md:33` discipline; `prose_untouched` corpus invariant). Fragment interpretation is defined by cases on the tag position only (`mention_not_extraction`).

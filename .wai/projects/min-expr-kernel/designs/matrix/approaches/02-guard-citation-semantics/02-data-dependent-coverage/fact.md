@@ -1,0 +1,1 @@
+Untouched by design — this is a slice, not the tier-B language. The ~204 equational cells remain prose-or-Rust-blob. Green here would require the kernel; this approach deliberately buys one green cell and defers the rest.

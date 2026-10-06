@@ -1,0 +1,1 @@
+Green: guards join the honest reporting path — model-check results enumerate the invariants actually checked; an unresolved citation remains a lint error (`ref_kind_compatible`), never a silent pass. `invariants_checked: []` semantics preserved for prose-only guards (`src/model_check.rs:21,116,204`).

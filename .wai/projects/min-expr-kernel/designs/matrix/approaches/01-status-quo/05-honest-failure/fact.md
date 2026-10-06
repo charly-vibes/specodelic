@@ -1,0 +1,1 @@
+Fully green: `todo_predicate!` compiles as a `todo!` placeholder that panics only at execution (`src/verify.rs:15`, `src/compile.rs:675,771`); no-emitter tags fail labeled with remediation (`src/compile.rs:389`); prose guards report `invariants_checked: []`, never a fabricated counterexample (`src/model_check.rs:21,116,204`). This is the design's best property.

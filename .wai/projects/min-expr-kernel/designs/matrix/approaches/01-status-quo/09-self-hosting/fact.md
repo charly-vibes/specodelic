@@ -1,0 +1,1 @@
+Holds: the corpus self-hosts (every file in `specs/` is a spec in the format); fragment grammar is defined by corpus rows in `specs/compile.md`; `theory.md` already carries 𝒦/copresheaf/Grothendieck in plain/rigorous pairs.

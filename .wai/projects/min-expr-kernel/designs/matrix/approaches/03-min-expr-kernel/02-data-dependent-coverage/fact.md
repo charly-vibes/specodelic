@@ -1,0 +1,1 @@
+Green: Tier B targets exactly the equational + bounded-quantified cells — a closed kernel grammar (bounded ∀/∃ over I(k), ==, comparisons, ∧/¬, reference-typed atomics `resolves`/`unique`/`acyclic`/`reachable`) with per-backend emission. No single-runtime coupling.

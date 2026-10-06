@@ -1,0 +1,1 @@
+Green: the citation algebra is finite — meets and complements over the finitely many cited invariant-kind Constraints (already typed and resolution-checked). No quantifiers, no runtime domains, fully decidable by construction.

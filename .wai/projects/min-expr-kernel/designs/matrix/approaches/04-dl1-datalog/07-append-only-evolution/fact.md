@@ -1,0 +1,1 @@
+Yellow: introducing a whole new language in one step is not the pure-widening pattern; whether anything valid at Revision 15/16 survives unchanged is unvalidated against the corpus. The proposal has no revision-delta story.
