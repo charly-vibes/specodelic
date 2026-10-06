@@ -124,6 +124,116 @@ pub struct ModelIr {
     /// never fires on a compiled artifact's input.
     #[serde(default)]
     pub invariants: Vec<InvariantIr>,
+    /// Guard citation expressions from invariant-kind Constraints whose
+    /// expr cell is a citation expression (`[[a]] ∧ [[b]]`, `¬[[a]]`,
+    /// bare `[[a]]`) — carried verbatim, keyed by Constraint id
+    /// (slice 1, specodelic-txo). Prose expr cells stay out: citations
+    /// upgrade from inert annotations only when the cell IS a citation
+    /// expression.
+    #[serde(default)]
+    pub guard_citations: BTreeMap<String, String>,
+}
+
+// ---------------------------------------------------------------------------
+// Guard citation algebra (slice 1, specodelic-txo — approach-02 increment)
+// ---------------------------------------------------------------------------
+
+/// The three-valued status of a citation evaluation: `verified`,
+/// `counterexample`, or `unknown`. `unknown` is honest — it never
+/// coerces to pass (dl/1 Kleene absorb).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ThreeValued {
+    Verified,
+    Counterexample,
+    Unknown,
+}
+
+/// A parsed guard citation expression over the closed slice-1 grammar:
+/// citations `[[id]]`, conjunction `∧`, negation `¬`. Prose is never a
+/// citation expression (pure widening, prose untouched).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CitationExpr {
+    Cite(String),
+    Not(Box<CitationExpr>),
+    And(Box<CitationExpr>, Box<CitationExpr>),
+}
+
+/// Parse a Constraints `expr` cell as a citation expression over the
+/// closed grammar — `Some` only when the whole cell (backticks and
+/// whitespace stripped) is a citation expression; `None` for prose, so
+/// prose cells stay inert exactly as before. A malformed cell that is
+/// not a citation expression also returns `None` — it stays prose, not
+/// a silent upgrade.
+pub fn parse_citation_expr(cell: &str) -> Option<CitationExpr> {
+    let s = cell.trim().trim_matches('`').trim();
+    if s.is_empty() {
+        return None;
+    }
+    let mut terms: Vec<CitationExpr> = Vec::new();
+    let mut rest = s;
+    loop {
+        rest = rest.trim_start();
+        let negated = match rest.strip_prefix('¬') {
+            Some(r) => {
+                rest = r;
+                true
+            }
+            None => false,
+        };
+        rest = rest.trim_start();
+        let inner = rest.strip_prefix("[[")?;
+        let close = inner.find("]]")?;
+        let id = inner[..close].trim();
+        if id.is_empty() || id.contains('[') {
+            return None;
+        }
+        rest = &inner[close + 2..];
+        let mut term = CitationExpr::Cite(id.to_string());
+        if negated {
+            term = CitationExpr::Not(Box::new(term));
+        }
+        terms.push(term);
+        rest = rest.trim_start();
+        if rest.is_empty() {
+            break;
+        }
+        rest = rest.strip_prefix('∧')?;
+    }
+    let mut terms = terms.into_iter();
+    let first = terms.next()?;
+    Some(terms.fold(first, |acc, t| {
+        CitationExpr::And(Box::new(acc), Box::new(t))
+    }))
+}
+
+/// Evaluate a citation expression against the known per-id outcomes —
+/// Kleene three-valued composition: ∧ is counterexample-dominant and
+/// absorbs unknown (verified ∧ unknown = unknown, never pass); ¬ flips
+/// verified/counterexample and keeps unknown. A cited id with no known
+/// outcome (prose property, nonexistent id) is undischargable →
+/// `unknown`, never pass.
+pub fn evaluate_citation(
+    expr: &CitationExpr,
+    outcomes: &BTreeMap<String, ThreeValued>,
+) -> ThreeValued {
+    match expr {
+        CitationExpr::Cite(id) => outcomes.get(id).copied().unwrap_or(ThreeValued::Unknown),
+        CitationExpr::Not(inner) => match evaluate_citation(inner, outcomes) {
+            ThreeValued::Verified => ThreeValued::Counterexample,
+            ThreeValued::Counterexample => ThreeValued::Verified,
+            ThreeValued::Unknown => ThreeValued::Unknown,
+        },
+        CitationExpr::And(a, b) => {
+            match (evaluate_citation(a, outcomes), evaluate_citation(b, outcomes)) {
+                (ThreeValued::Counterexample, _) | (_, ThreeValued::Counterexample) => {
+                    ThreeValued::Counterexample
+                }
+                (ThreeValued::Verified, ThreeValued::Verified) => ThreeValued::Verified,
+                _ => ThreeValued::Unknown,
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -583,12 +693,32 @@ pub fn extract_model_ir(spec: &Spec) -> ModelIr {
             })
         })
         .collect();
+    // Guard citations (slice 1, specodelic-txo): invariant rows whose
+    // expr cell IS a citation expression (no fragment marker) carry
+    // verbatim; prose cells stay out — inert as before.
+    let guard_citations = spec
+        .constraints
+        .iter()
+        .filter(|c| c.cells.get("kind").map(String::as_str) == Some("invariant"))
+        .filter_map(|c| {
+            let expr = c.cells.get("expr").map(String::as_str).unwrap_or("");
+            if fragment_of(expr).is_none()
+                && let Some(parsed) = parse_citation_expr(expr)
+            {
+                let _ = parsed; // verbatim text is carried, parse proves the shape
+                Some((c.id.clone(), expr.trim().trim_matches('`').trim().to_string()))
+            } else {
+                None
+            }
+        })
+        .collect();
     ModelIr {
         states,
         transitions,
         emits,
         emits_values,
         invariants,
+        guard_citations,
     }
 }
 
@@ -1216,6 +1346,45 @@ fn ir_contains_id(ir: &ModelIr, id: &str) -> bool {
 mod tests {
     use super::*;
     use crate::spec::parse_str;
+
+    #[test]
+    fn guard_rust_marker_still_rejected_labeled() {
+        // Scenario: Executable guard fragments stay rejected (delta
+        // spec, fragment_guard_rejected_stands) — a **rust:** guard
+        // fails labeled at fragment_extraction, never silently ignored.
+        let text = FRAGMENT_SAMPLE
+            .replace(
+                "| t1 | s1 | s2 | [[demo.frags.a]] |",
+                "| t1 | s1 | s2 | `**rust:** v0.len() >= 1` |",
+            )
+            .replace("`word()`", "`word(), num()`");
+        let spec = parse_str(&text).expect("parses");
+        let e = compile_spec(&spec).expect_err("rust guard fragment must fail");
+        assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
+        assert!(e.message.contains("guard"), "{}", e.message);
+    }
+
+    #[test]
+    fn guard_citations_extracted_from_invariant_rows_prose_excluded() {
+        // Slice 1 (specodelic-txo): an invariant-kind Constraint whose
+        // expr cell is a citation expression lands in the IR's
+        // guard_citations; prose expr cells stay out (inert as before).
+        let text = SAMPLE
+            .replace("| a | invariant | `x holds` |", "| a | invariant | `[[p1]] ∧ [[p2]]` |")
+            .replace("| b | effect | `y fires` |", "| b | invariant | `x holds` |");
+        let spec = parse_str(&text).expect("parses");
+        let ir = extract_model_ir(&spec);
+        assert_eq!(
+            ir.guard_citations.get("a").map(String::as_str),
+            Some("[[p1]] ∧ [[p2]]"),
+            "citation expr is carried verbatim"
+        );
+        assert!(
+            !ir.guard_citations.contains_key("b"),
+            "prose expr cells are not citations"
+        );
+        assert!(ir.invariants.is_empty(), "no fragments in this spec");
+    }
 
     #[test]
     fn sanitize_ident_leading_digit_and_unicode_are_valid_rust_idents() {

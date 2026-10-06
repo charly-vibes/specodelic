@@ -33,6 +33,23 @@ use stateright::{Checker, Model, Property};
 
 use crate::compile::ModelIr;
 
+// Guard citation algebra (slice 1, specodelic-txo): the grammar and the
+// three-valued evaluator live beside the spec language (compile), the
+// evaluation callers live here — re-exported so the citation API is
+// reachable from the model_check surface.
+pub use crate::compile::{
+    CitationExpr, ThreeValued, evaluate_citation, parse_citation_expr,
+};
+
+/// One invariant's evaluated status in a run report — the id is the
+/// Constraints-table id, the status is the three-valued citation/exec
+/// outcome (`unknown` persisted honestly, never coerced).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InvariantStatus {
+    pub id: String,
+    pub status: ThreeValued,
+}
+
 /// The native default backend's engine name (`backend_identified`).
 pub const BACKEND_ENGINE: &str = "stateright";
 
@@ -114,6 +131,13 @@ pub struct RunReport {
     /// native v0 backend executes none (prose predicates — Decision 3,
     /// Option A), so this is empty rather than implying a semantic check.
     pub invariants_checked: Vec<String>,
+    /// Per-invariant evaluated status (slice 1, specodelic-txo):
+    /// executable invariants get their exec outcome; guard citations
+    /// evaluate under the citation algebra. Absent from old reports and
+    /// empty when nothing was evaluated — `unknown` persists verbatim,
+    /// never coerced.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub invariant_statuses: Vec<InvariantStatus>,
     /// Set iff `outcome == counterexample_found` — names exactly one
     /// violated invariant by its Constraints-table id.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -337,6 +361,10 @@ pub fn run(ir: &ModelIr, tla_artifact: &[u8], bound: &Bound) -> Result<RunReport
         bound: bound.clone(),
         outcome,
         invariants_checked: vec![],
+        // Guard citations evaluate under the citation algebra; with no
+        // executed outcome in the native backend every cited id is
+        // undischargable → unknown, never pass (slice 1, specodelic-txo).
+        invariant_statuses: citation_statuses(ir, &BTreeMap::new()),
         // Native backend truth: no predicate executed, so this report is
         // never a clean verdict — `no_counterexample` is reserved for
         // backends that actually execute invariant predicates.
@@ -566,6 +594,7 @@ pub fn run_tlc(
         bound: bound.clone(),
         outcome,
         invariants_checked: vec![],
+        invariant_statuses: citation_statuses(ir, &BTreeMap::new()),
         violated_invariant_id: None,
         trace: None,
         artifact_sha256: artifact_sha256(tla_artifact),
@@ -846,11 +875,29 @@ pub fn report_from_facts(
     } else {
         Outcome::NoCounterexample
     };
+    // Per-invariant exec status (slice 1, specodelic-txo): the violated
+    // id is a counterexample; the other executed ids are verified only
+    // when the exploration completed within the bound — a truncated run
+    // proves nothing about them (honest unknown).
+    let invariant_statuses = invariant_ids
+        .iter()
+        .map(|id| InvariantStatus {
+            id: id.clone(),
+            status: if facts.violated_invariant_id.as_deref() == Some(id.as_str()) {
+                ThreeValued::Counterexample
+            } else if outcome == Outcome::NoCounterexample {
+                ThreeValued::Verified
+            } else {
+                ThreeValued::Unknown
+            },
+        })
+        .collect();
     RunReport {
         backend: backend.clone(),
         bound: bound.clone(),
         outcome,
         invariants_checked: invariant_ids.to_vec(),
+        invariant_statuses,
         violated_invariant_id: facts.violated_invariant_id.clone(),
         trace: facts.trace.clone(),
         artifact_sha256,
@@ -945,13 +992,41 @@ pub fn run_executable(
         version: EXEC_VERSION.into(),
     };
     let ids: Vec<String> = ir.invariants.iter().map(|i| i.id.clone()).collect();
-    Ok(report_from_facts(
+    let mut report = report_from_facts(
         &facts,
         artifact_sha,
         &ids,
         &backend,
         bound,
-    ))
+    );
+    // Guard citations evaluate against the executable run's outcomes —
+    // a cited executable invariant discharges from its exec status; a
+    // cited prose property or unknown id stays unknown (slice 1).
+    let outcomes: BTreeMap<String, ThreeValued> = report
+        .invariant_statuses
+        .iter()
+        .map(|s| (s.id.clone(), s.status))
+        .collect();
+    report.invariant_statuses.extend(citation_statuses(ir, &outcomes));
+    Ok(report)
+}
+
+/// Per-invariant status for the IR's guard citations, evaluated under
+/// the citation algebra against the given outcomes map — a cited id
+/// with no known outcome is undischargable → unknown, never pass.
+fn citation_statuses(
+    ir: &ModelIr,
+    outcomes: &BTreeMap<String, ThreeValued>,
+) -> Vec<InvariantStatus> {
+    ir.guard_citations
+        .iter()
+        .filter_map(|(id, cell)| {
+            parse_citation_expr(cell).map(|expr| InvariantStatus {
+                id: id.clone(),
+                status: evaluate_citation(&expr, outcomes),
+            })
+        })
+        .collect()
 }
 
 /// Spawn `cargo run` on the scratch crate and wait under a wall-clock
@@ -1594,6 +1669,7 @@ mod tests {
             bound: Bound::default(),
             outcome: Outcome::NoCounterexample,
             invariants_checked: vec![],
+            invariant_statuses: vec![],
             violated_invariant_id: None,
             trace: None,
             artifact_sha256: "abc".into(),
@@ -1661,6 +1737,7 @@ mod tests {
             bound: Bound::default(),
             outcome: Outcome::ExplorationOnly,
             invariants_checked: vec![],
+            invariant_statuses: vec![],
             violated_invariant_id: None,
             trace: None,
             artifact_sha256: "abc".into(),
@@ -2199,4 +2276,9 @@ mod tests {
         let e = run_tlc(&chain_ir(), &module, &artifact(), &bound, &paths).unwrap_err();
         assert_eq!(e.stage, "unsupported_bound");
     }
+
+    // --- slice 1 (specodelic-txo): guard citation semantics ---
+    // The citation-algebra and report-status tests live in
+    // tests/citation_algebra.rs (integration scope — the file_lines
+    // ratchet pins this module; pretender.toml is shrink-only).
 }

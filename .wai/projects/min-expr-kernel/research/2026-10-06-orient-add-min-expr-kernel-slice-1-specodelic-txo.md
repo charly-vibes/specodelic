@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-06-add-min-expr-kernel-slice-1-specodelic-txo-guard-citation-semantics, pipeline-step:orient]
+---
+
+ORIENT add-min-expr-kernel slice 1 (specodelic-txo, in_progress): D7 kernel-first countersigned 2026-10-06 (krb closed, pushed acc74cd); implementation phases open. Task: tasks.md §2 slice 1 — guard citation semantics (approach-02 increment). Delta: openspec/changes/add-min-expr-kernel/specs/model-check/spec.md (Requirement: Guard citation semantics evaluated). Today citations are inert: [[...]] only handled as stripped link spelling in checklist.rs; model_check.rs has no citation algebra. RED target 2.1: model-check tests — invariant Constraint citing [[a]] ∧ [[b]] evaluates three-valued; undischargable citation reports unknown, never pass. GREEN 2.2/2.3: citation-algebra evaluation in model-check path + per-invariant status persisted in run reports (unknown persisted, not coerced). TIDY 2.4: extract citation-resolution helpers. Gates: just test, uv run spk lint on the delta spec, ah check. ANTI-GOAL: fragment_guard_rejected stands — no Revision overclaim, no executable guard fragments.
