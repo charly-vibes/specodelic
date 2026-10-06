@@ -130,10 +130,90 @@ pub struct ModelIr {
 // Executable predicate fragments (specodelic.md Revision 15, specodelic-rjb)
 // ---------------------------------------------------------------------------
 
-/// The opt-in marker: in a Property `predicate` or invariant Constraint
-/// `expr` cell, the cell text after its first occurrence is the fragment —
-/// a Rust boolean expression, emitted/evaluated verbatim.
+/// The opt-in marker for the fully specified language: in a Property
+/// `predicate` or invariant Constraint `expr` cell, the cell text after
+/// `**rust:**`'s first fragment-position occurrence is the fragment — a
+/// Rust boolean expression, emitted/evaluated verbatim. The other two
+/// members of the closed tag set (`**py:**`, `**ts:**`) share the grammar
+/// but gate compile until their emitters land (`no_emitter_labeled_failure`).
 pub const FRAGMENT_MARKER: &str = "**rust:**";
+
+/// The closed fragment-tag set (fragment_language_closed, Revision 16):
+/// exactly the languages with a native-shrinking PBT library in the
+/// intended consumer set (design D4). Unknown tag-shaped markers fail
+/// labeled, never silence (unknown_tag_rejected).
+pub const FRAGMENT_LANGUAGES: &[&str] = &["rust", "py", "ts"];
+
+/// The language a fragment is tagged for — one of the closed set.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FragmentLang {
+    Rust,
+    Py,
+    Ts,
+}
+
+impl FragmentLang {
+    /// The marker tag as written in the cell ("rust", "py", "ts").
+    pub fn tag(self) -> &'static str {
+        match self {
+            FragmentLang::Rust => "rust",
+            FragmentLang::Py => "py",
+            FragmentLang::Ts => "ts",
+        }
+    }
+
+    fn parse(tag: &str) -> Option<Self> {
+        match tag {
+            "rust" => Some(FragmentLang::Rust),
+            "py" => Some(FragmentLang::Py),
+            "ts" => Some(FragmentLang::Ts),
+            _ => None,
+        }
+    }
+}
+
+/// A marker occurrence: a known closed-set tag, or an unknown tag-shaped
+/// one (the caller turns the latter into the labeled failure — the
+/// scanner itself only reports what it saw).
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum MarkerHit {
+    Known(FragmentLang),
+    Unknown(String),
+}
+
+/// A parsed fragment: its language tag and the verbatim cell text after
+/// the marker. Only the Rust tag has an emitter at this Revision — py/ts
+/// gate compile (validate_fragments), so the IR never carries them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Fragment {
+    pub lang: FragmentLang,
+    pub text: String,
+}
+
+/// A marker is `**` + a tag-shaped label + `:**` where the tag matches
+/// `[a-z][a-z0-9_-]*`. The lowercase-initial shape is what separates a
+/// marker from ordinary bold prose (`**Note:**` stays prose — it is not
+/// tag-shaped, so it never trips unknown_tag_rejected). Returns the
+/// parsed hit and the byte length of the full marker.
+fn tag_marker_at(cell: &str, i: usize) -> Option<(MarkerHit, usize)> {
+    let rest = cell[i..].strip_prefix("**")?;
+    let tag_end = rest
+        .char_indices()
+        .take_while(|(_, c)| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == '_' || *c == '-')
+        .last()
+        .map(|(j, c)| j + c.len_utf8())
+        .unwrap_or(0);
+    if tag_end == 0 {
+        return None;
+    }
+    let tag = &rest[..tag_end];
+    rest[tag_end..].strip_prefix(":**")?;
+    let hit = match FragmentLang::parse(tag) {
+        Some(lang) => MarkerHit::Known(lang),
+        None => MarkerHit::Unknown(tag.to_string()),
+    };
+    Some((hit, 2 + tag_end + 3))
+}
 
 /// `fragment_hygiene`'s banned tokens — defense-in-depth, not a sandbox:
 /// fragments run on the invoking user's machine with the invoking user's
@@ -164,34 +244,49 @@ pub const FRAGMENT_BANNED: &[&str] = &[
 /// fragment-position marker, or an empty fragment). Used by
 /// `validate_fragments` (labeled) and, leniently via `fragment_of`, by
 /// the IR/tla extraction — which only ever see compile-validated input.
-pub fn fragment_of_strict(cell: &str) -> Result<Option<String>, String> {
-    let positions = fragment_positions(cell);
+pub fn fragment_of_strict(cell: &str) -> Result<Option<Fragment>, String> {
+    // Only closed-set tags are markers at the grammar level; an unknown
+    // tag-shaped occurrence is reported separately (unknown_tag_markers)
+    // so the law-case grammar (`**identity:**` labels) and the fragment
+    // grammar can share the `**word:**` shape without criminalizing each
+    // other — the caller disambiguates by row kind.
+    let mut positions: Vec<(usize, MarkerHit, usize)> = fragment_positions(cell)
+        .into_iter()
+        .filter(|(_, h, _)| matches!(h, MarkerHit::Known(_)))
+        .collect();
     match positions.len() {
         0 => Ok(None),
         1 => {
+            let (i, hit, marker_len) = positions.remove(0);
+            let lang = match hit {
+                MarkerHit::Known(lang) => lang,
+                MarkerHit::Unknown(_) => unreachable!("filtered above"),
+            };
             // The fragment runs to the cell's end or the code span's
             // closing backtick — cells author fragments as
-            // `` `**rust:** <expr>` ``, so the closing backtick is part of
-            // the cell, never part of the fragment (Rust boolean
-            // expressions do not contain backticks).
-            let i = positions[0];
-            let after = &cell[i + FRAGMENT_MARKER.len()..];
+            // `` `**lang:** <expr>` ``, so the closing backtick is part of
+            // the cell, never part of the fragment (the expression
+            // languages do not contain backticks).
+            let after = &cell[i + marker_len..];
             let fragment = match after.find('`') {
                 Some(j) => &after[..j],
                 None => after,
             }
             .trim();
             if fragment.is_empty() {
-                Err(
-                    "empty **rust:** fragment — write the Rust boolean expression after the marker"
-                        .into(),
-                )
+                Err(format!(
+                    "empty **{}:** fragment — write the code expression after the marker",
+                    lang.tag()
+                ))
             } else {
-                Ok(Some(fragment.to_string()))
+                Ok(Some(Fragment {
+                    lang,
+                    text: fragment.to_string(),
+                }))
             }
         }
         _ => Err(
-            "more than one **rust:** marker in fragment position in one cell — at most one executable fragment per cell"
+            "more than one executable-fragment marker (**lang:**) in fragment position in one cell — at most one executable fragment per cell"
                 .into(),
         ),
     }
@@ -200,15 +295,30 @@ pub fn fragment_of_strict(cell: &str) -> Result<Option<String>, String> {
 /// Marker occurrences in FRAGMENT POSITION — the only occurrences that
 /// opt a cell into executable translation (specodelic-sd1): at the very
 /// start of the cell (after leading whitespace), or immediately after an
-/// opening code-span backtick (`` `**rust:** <expr>` `` — the Revision 15
+/// opening code-span backtick (`` `**lang:** <expr>` `` — the Revision 15
 /// form). An occurrence anywhere else — mid-span (the corpus rows that
-/// DEFINE the marker carry one, e.g. compile.md's
+/// DEFINE the markers carry one, e.g. compile.md's
 /// `predicate_fragment_opt_in`) or in prose between spans (verify.md's
 /// `fragments_reach_verified`) — is a mention of the mechanism and never
 /// extracts. Span scanning toggles on single backticks; the corpus does
 /// not use multi-backtick spans. A marker after a CLOSING backtick
 /// (`` `x` **rust:** y ``) is prose-position — a mention, not an opt-in.
-fn fragment_positions(cell: &str) -> Vec<usize> {
+/// Unknown tag-shaped markers in fragment position — the labeled-failure
+/// scan for `unknown_tag_rejected`. Kind-blind; the CALLER exempts
+/// law-kind predicate cells, where `**label:**` occurrences are the
+/// law-case grammar (`spec.rs::law_case_labels`), never fragment markers.
+/// Returns the unknown tag texts in cell order.
+fn unknown_tag_markers(cell: &str) -> Vec<String> {
+    fragment_positions(cell)
+        .into_iter()
+        .filter_map(|(_, h, _)| match h {
+            MarkerHit::Unknown(tag) => Some(tag),
+            MarkerHit::Known(_) => None,
+        })
+        .collect()
+}
+
+fn fragment_positions(cell: &str) -> Vec<(usize, MarkerHit, usize)> {
     let lead = cell.len() - cell.trim_start().len();
     let mut positions = vec![];
     let mut in_span = false;
@@ -217,13 +327,13 @@ fn fragment_positions(cell: &str) -> Vec<usize> {
         let prev_backtick = prev == Some('`');
         if c == '`' {
             in_span = !in_span;
-        } else if cell[i..].starts_with(FRAGMENT_MARKER) {
+        } else if let Some((hit, marker_len)) = tag_marker_at(cell, i) {
             let at_cell_start = i == lead;
             // The marker is span-opening when the backtick just before it
             // opened the span we are inside (`` `**rust:** … ``).
             let opens_span = in_span && prev_backtick;
             if at_cell_start || opens_span {
-                positions.push(i);
+                positions.push((i, hit, marker_len));
             }
         }
         prev = Some(c);
@@ -236,7 +346,15 @@ fn fragment_positions(cell: &str) -> Vec<usize> {
 /// malformed cell yields `None` — compile itself never emits such an
 /// artifact, so this cannot silently drop a real fragment.
 pub fn fragment_of(cell: &str) -> Option<String> {
-    fragment_of_strict(cell).ok().flatten()
+    fragment_of_strict(cell)
+        .ok()
+        .flatten()
+        // The lenient path serves the Rust emitter's extraction contexts
+        // (IR/tla) — py/ts are gated at validation, so they can never
+        // reach here; filtering again keeps the "never a silent
+        // fall-through to Rust" invariant robust against caller drift.
+        .filter(|f| f.lang == FragmentLang::Rust)
+        .map(|f| f.text)
 }
 
 fn hygiene_violation(fragment: &str) -> Option<&'static str> {
@@ -250,7 +368,27 @@ fn fragment_error(row_id: &str, reason: impl std::fmt::Display) -> CompileError 
     CompileError {
         stage: "fragment_extraction".into(),
         message: format!(
-            "row `{row_id}`: {reason} — fix or remove the **rust:** marker (executable predicate fragments, specodelic.md Revision 15)"
+            "row `{row_id}`: {reason} — fix or remove the **lang:** marker (executable predicate fragments, specodelic.md Revision 16)"
+        ),
+    }
+}
+
+/// The `no_emitter_labeled_failure` gate: a py/ts fragment is grammar-
+/// valid but has no emitter — compile fails labeled, with the remediation
+/// naming the per-language emitter follow-up, never a silent fall-through
+/// to Rust emission and never a vacuous artifact.
+fn emitter_gate_error(row_id: &str, lang: FragmentLang) -> CompileError {
+    let (follow_up, lang) = match lang {
+        FragmentLang::Py => ("add-py-fragment-emission", FragmentLang::Py),
+        FragmentLang::Ts => ("add-ts-fragment-emission", FragmentLang::Ts),
+        FragmentLang::Rust => unreachable!("rust has an emitter; the gate never fires for it"),
+    };
+    CompileError {
+        stage: "compile.emission_failure".into(),
+        message: format!(
+            "row `{row_id}`: no emitter for **{}:** fragments — executable emission for {} is deferred of record (follow-up change: {follow_up}); **rust:** is the only executable tag at this Revision (no_emitter_labeled_failure, specodelic.md Revision 16)",
+            lang.tag(),
+            lang.tag()
         ),
     }
 }
@@ -264,16 +402,34 @@ pub fn validate_fragments(spec: &Spec) -> Result<(), CompileError> {
     for p in &spec.properties {
         let predicate = p.cells.get("predicate").cloned().unwrap_or_default();
         let kind = p.cells.get("kind").cloned().unwrap_or_default();
+        // unknown_tag_rejected: a tag-shaped marker outside the closed
+        // set in fragment position fails labeled, naming the tag and the
+        // closed set — never silence. Law-kind predicates are exempt:
+        // their `**label:**` occurrences are the law-case grammar, not
+        // fragment markers.
+        if kind != "law"
+            && let Some(tag) = unknown_tag_markers(&predicate).first()
+        {
+            return Err(fragment_error(
+                &p.id,
+                format!(
+                    "unknown fragment language tag `{tag}` — the closed tag set is {{rust, py, ts}} (fragment_language_closed)"
+                ),
+            ));
+        }
         match fragment_of_strict(&predicate) {
             Err(reason) => return Err(fragment_error(&p.id, reason)),
             Ok(Some(fragment)) => {
+                if fragment.lang != FragmentLang::Rust {
+                    return Err(emitter_gate_error(&p.id, fragment.lang));
+                }
                 if kind == "law" {
                     return Err(fragment_error(
                         &p.id,
                         "law-kind properties cannot carry **rust:** fragments — each required case needs its own body, and one fragment cannot honestly serve several named cases",
                     ));
                 }
-                if let Some(token) = hygiene_violation(&fragment) {
+                if let Some(token) = hygiene_violation(&fragment.text) {
                     return Err(fragment_error(
                         &p.id,
                         format!(
@@ -288,9 +444,20 @@ pub fn validate_fragments(spec: &Spec) -> Result<(), CompileError> {
     for c in &spec.constraints {
         let expr = c.cells.get("expr").cloned().unwrap_or_default();
         let kind = c.cells.get("kind").cloned().unwrap_or_default();
+        if let Some(tag) = unknown_tag_markers(&expr).first() {
+            return Err(fragment_error(
+                &c.id,
+                format!(
+                    "unknown fragment language tag `{tag}` — the closed tag set is {{rust, py, ts}} (fragment_language_closed)"
+                ),
+            ));
+        }
         match fragment_of_strict(&expr) {
             Err(reason) => return Err(fragment_error(&c.id, reason)),
             Ok(Some(fragment)) => {
+                if fragment.lang != FragmentLang::Rust {
+                    return Err(emitter_gate_error(&c.id, fragment.lang));
+                }
                 if kind != "invariant" {
                     return Err(fragment_error(
                         &c.id,
@@ -300,7 +467,7 @@ pub fn validate_fragments(spec: &Spec) -> Result<(), CompileError> {
                         ),
                     ));
                 }
-                if let Some(token) = hygiene_violation(&fragment) {
+                if let Some(token) = hygiene_violation(&fragment.text) {
                     return Err(fragment_error(
                         &c.id,
                         format!(
@@ -316,8 +483,12 @@ pub fn validate_fragments(spec: &Spec) -> Result<(), CompileError> {
         if let Some(guard) = &t.guard
             // specodelic-sd1: only a marker in fragment position (a real
             // opt-in) rejects a guard — a mention of the marker in a
-            // guard cell is prose, never an executable fragment.
-            && matches!(fragment_of_strict(guard), Ok(Some(_)))
+            // guard cell is prose, never an executable fragment. Any
+            // fragment-position marker rejects, per tag: a known tag
+            // (no binding) and an unknown tag alike fail labeled, never
+            // silence.
+            && (!matches!(fragment_of_strict(guard), Ok(None))
+                || !unknown_tag_markers(guard).is_empty())
         {
             return Err(fragment_error(
                 &t.id,
@@ -1475,6 +1646,188 @@ mod tests {
         let spec = parse_str(&text).expect("parses");
         let e = compile_spec(&spec).expect_err("empty fragment must fail");
         assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
+    }
+
+    // --- specodelic-lf3: closed language-tag grammar (Revision 16) ---
+
+    #[test]
+    fn unknown_tag_rejected_labeled() {
+        // unknown_tag_rejected: `**go:**` in fragment position is a labeled
+        // extraction failure naming the tag AND the closed set — never
+        // prose, never silence, never a Rust fall-through.
+        let text = FRAGMENT_SAMPLE.replace("`**rust:** v0.len() >= 1`", "`**go:** len(v0) >= 1`");
+        let spec = parse_str(&text).expect("parses");
+        let e = compile_spec(&spec).expect_err("unknown tag must fail");
+        assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
+        assert!(e.message.contains("go"), "names the tag: {}", e.message);
+        assert!(
+            e.message.contains("rust") && e.message.contains("py") && e.message.contains("ts"),
+            "names the closed set: {}",
+            e.message
+        );
+    }
+
+    #[test]
+    fn py_tag_extracts_at_grammar_level() {
+        // one_tag_extracts_per_cell: acceptance is grammar-level and
+        // emitter-independent — extraction must succeed for `**py:**` even
+        // though compile later gates it (missing_emitter_labeled is the
+        // compile-stage failure, not the extraction).
+        let cell = "`**py:** len(v0) >= 1`";
+        let f = fragment_of_strict(cell)
+            .expect("py marker in fragment position extracts")
+            .expect("one fragment");
+        assert_eq!(f.lang.tag(), "py");
+        assert_eq!(f.text, "len(v0) >= 1");
+    }
+
+    #[test]
+    fn py_no_emitter_fails_labeled() {
+        // no_emitter_labeled_failure: a **py:** fragment reaching compile
+        // fails labeled with stage compile.emission_failure and a
+        // remediation naming the py-emitter follow-up — never a silent
+        // fall-through to Rust emission, never a vacuous artifact.
+        let text = FRAGMENT_SAMPLE.replace("`**rust:** v0.len() >= 1`", "`**py:** len(v0) >= 1`");
+        let spec = parse_str(&text).expect("parses");
+        let e = compile_spec(&spec).expect_err("py fragment must gate compile");
+        assert_eq!(e.stage, "compile.emission_failure", "{}", e.message);
+        assert!(
+            e.message.contains("add-py-fragment-emission"),
+            "remediation names the follow-up: {}",
+            e.message
+        );
+        assert!(
+            e.message.contains("rust"),
+            "names the one executable tag: {}",
+            e.message
+        );
+    }
+
+    #[test]
+    fn ts_no_emitter_fails_labeled() {
+        let text = FRAGMENT_SAMPLE.replace(
+            "`**rust:** v0.len() >= 1 && v1.len() >= 1`",
+            "`**ts:** v0.length >= 1 && v1.length >= 1`",
+        );
+        let spec = parse_str(&text).expect("parses");
+        let e = compile_spec(&spec).expect_err("ts fragment must gate compile");
+        assert_eq!(e.stage, "compile.emission_failure", "{}", e.message);
+        assert!(
+            e.message.contains("add-ts-fragment-emission"),
+            "remediation names the follow-up: {}",
+            e.message
+        );
+    }
+
+    #[test]
+    fn expr_cell_same_tag_grammar() {
+        // expr_tag_same_grammar: an invariant-kind Constraint expr cell
+        // accepts the same closed-set grammar — gated at compile by the
+        // emitter, not rejected as a non-invariant/unknown-shape row.
+        let text = FRAGMENT_SAMPLE.replace(
+            "`**rust:** state != \"blackhole\"`",
+            "`**py:** state != \"blackhole\"`",
+        );
+        let spec = parse_str(&text).expect("parses");
+        let e = compile_spec(&spec).expect_err("py expr fragment must gate compile");
+        assert_eq!(e.stage, "compile.emission_failure", "{}", e.message);
+    }
+
+    #[test]
+    fn guard_py_marker_still_rejected_labeled() {
+        // Guards reject ANY fragment-position marker, per tag — the
+        // program-counter model has no data binding, and an unknown tag
+        // there is likewise labeled, never silence.
+        let text = FRAGMENT_SAMPLE
+            .replace(
+                "| t1 | s1 | s2 | [[demo.frags.a]] |",
+                "| t1 | s1 | s2 | `**py:** v0.len() >= 1` |",
+            )
+            .replace("`word()`", "`word(), num()`");
+        let spec = parse_str(&text).expect("parses");
+        let e = compile_spec(&spec).expect_err("py guard marker must fail");
+        assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
+        assert!(e.message.contains("guard"), "{}", e.message);
+    }
+
+    #[test]
+    fn guard_unknown_tag_marker_rejected_labeled() {
+        let text = FRAGMENT_SAMPLE
+            .replace(
+                "| t1 | s1 | s2 | [[demo.frags.a]] |",
+                "| t1 | s1 | s2 | `**go:** v0.len() >= 1` |",
+            )
+            .replace("`word()`", "`word(), num()`");
+        let spec = parse_str(&text).expect("parses");
+        let e = compile_spec(&spec).expect_err("unknown-tag guard marker must fail");
+        assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
+    }
+
+    #[test]
+    fn midspan_py_marker_is_mention() {
+        // mention_not_extraction: a mid-span **py:** occurrence compiles
+        // byte-identically to the same cell without it (sd1 rule per tag).
+        let predicate_with =
+            "`a row mentioning **py:** mid-span, plus the placeholder v0.len() >= 1`";
+        let predicate_without =
+            "`a row mentioning py mid-span, plus the placeholder v0.len() >= 1`";
+        let text_with = FRAGMENT_SAMPLE
+            .replace("`**rust:** v0.len() >= 1`", predicate_with)
+            .replace(
+                "`**rust:** v0.len() >= 1 && v1.len() >= 1`",
+                "`v0.len() >= 1 && v1.len() >= 1`",
+            )
+            .replace(
+                "`**rust:** state != \"blackhole\"`",
+                "`state != \"blackhole\"`",
+            );
+        let text_without = text_with.replace(predicate_with, predicate_without);
+        let spec_with = parse_str(&text_with).expect("parses");
+        let spec_without = parse_str(&text_without).expect("parses");
+        assert!(
+            fragment_of_strict("a row mentioning **py:** mid-span").is_ok_and(|f| f.is_none()),
+            "mid-span occurrence never extracts"
+        );
+        compile_spec(&spec_with).expect("mid-span mention compiles");
+        let src_with = properties_to_proptest(&spec_with);
+        let src_without = properties_to_proptest(&spec_without);
+        assert_eq!(
+            src_with.replace("**py:**", "py"),
+            src_without,
+            "mid-span occurrence never extracts (artifact-identical modulo the mention text)"
+        );
+    }
+
+    #[test]
+    fn rust_back_compat_byte_identical() {
+        // rust_back_compat: the pre-change Rust extraction path is pure —
+        // the widened scanner must extract exactly the Revision 15
+        // fragment for the canonical fixtures, and every Revision 15 test
+        // above must pass unchanged (CI proves the rest).
+        let cell = "`**rust:** v0.len() >= 1`";
+        let f = fragment_of_strict(cell)
+            .expect("rust marker extracts")
+            .expect("one fragment");
+        assert_eq!(f.lang.tag(), "rust");
+        assert_eq!(f.text, "v0.len() >= 1");
+        let bare = "**rust:** v0.len() >= 1";
+        let f = fragment_of_strict(bare)
+            .expect("rust marker extracts at cell start")
+            .expect("one fragment");
+        assert_eq!(f.text, "v0.len() >= 1");
+    }
+
+    #[test]
+    fn bold_prose_label_is_not_a_marker() {
+        // The tag shape is [a-z][a-z0-9_-]* — an uppercase-initial bold
+        // label (`**Note:**`) in fragment position is prose, never an
+        // unknown-tag failure: the closed-set grammar must not criminalize
+        // ordinary bold prose.
+        let cell = "`**Note:** keep the placeholder honest`";
+        assert!(
+            fragment_of_strict(cell).is_ok_and(|f| f.is_none()),
+            "non-tag-shaped bold label is prose"
+        );
     }
 
     // --- specodelic-sd1: marker mentions are not opt-ins ---

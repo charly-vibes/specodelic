@@ -33,33 +33,33 @@ is docs and closure.
 
 ## 2. Closed language-tag fragment grammar
 
-- [ ] 2.1 **RED**: grammar tests in `src/spec.rs` / extraction tests —
+- [x] 2.1 **RED**: grammar tests in `src/spec.rs` / extraction tests —
       `**py:**` fragment extracts with the fragment-position rule;
       `**go:**` marker produces a labeled failure naming the tag and the
       closed set; mid-span `**py:**` is a mention (no extraction); an
       invariant expr cell accepts the same grammar. Run `just test` —
       new tests fail (tags unknown today).
-- [ ] 2.2 **GREEN**: widen the marker grammar to the closed tag set
+- [x] 2.2 **GREEN**: widen the marker grammar to the closed tag set
       `{rust, py, ts}` in the extraction path (`src/spec.rs`,
       `src/compile.rs` fragment handling) — tag recorded alongside the
       fragment; unknown tag → labeled failure (design D7). `**rust:**`
       path byte-identical (2.3 proves it).
-- [ ] 2.3 **RED→GREEN (back-compat proof)**: pin the existing rust
+- [x] 2.3 **RED→GREEN (back-compat proof)**: pin the existing rust
       extraction fixtures (`tests/spec_parse.rs` and compile tests) and
       assert post-change extraction is byte-identical
       (`rust_back_compat`). These must pass unchanged — if any fails,
       the widening is not pure and 2.2 is wrong.
-- [ ] 2.4 **RED→GREEN (emitter gate)**: compile a fixture corpus carrying
+- [x] 2.4 **RED→GREEN (emitter gate)**: compile a fixture corpus carrying
       a `**py:**` fragment — expect the labeled extraction failure with
       remediation naming the py-emitter follow-up (`no_emitter_labeled_failure`),
       never silent rust emission and never a vacuous artifact.
-- [ ] 2.5 **TIDY**: dead-code and clippy sweep (`just ci`); confirm
+- [x] 2.5 **TIDY**: dead-code and clippy sweep (`just ci`); confirm
       `just lint-specs` stays clean (this change's delta spec is the
       corpus candidate — the dual-format archive lands it).
 
 ## 3. Format revision + docs (after or concurrent with specodelic-lf3)
 
-- [ ] 3.1 **Corpus revision**: add the Revision heading to
+- [x] 3.1 **Corpus revision**: add the Revision heading to
       `specs/specodelic.md` and `specs/compile.md` —
       `fragment_language_closed`, `unknown_tag_rejected`,
       `no_emitter_labeled_failure` rows; the widening note (pure, per
