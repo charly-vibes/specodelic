@@ -7,14 +7,19 @@ gate (no code); implementation phases do not open until it lands.
 
 ## 1. HITL gate — D7 joint sign-off (no specodelic code)
 
-- [ ] 1.1 **GATE**: present the kernel-first sequencing to the sibling
+- [x] 1.1 **GATE**: present the kernel-first sequencing to the sibling
       project and obtain countersignature (design D7). Record the
       decision in both projects' decision records. If the sibling
       prefers pack-first, re-scope this change to slice 1 only and
       update proposal.md before any later phase opens.
-- [ ] 1.2 **GATE**: confirm the sequencing note with `add-graph-views`
+      → **DONE 2026-10-06**: kernel-first countersigned; recorded in
+      both `.wai/projects/*/designs/matrix/decision.md`; proposal D7 row
+      = decided.
+- [x] 1.2 **GATE**: confirm the sequencing note with `add-graph-views`
       (gre): kernel atomics ground in acset traversal, not the graph
       projection; record in both proposals (EDGE-004).
+      → **DONE 2026-10-06**: note present in this change's proposal
+      (§Sequencing) and added to `add-graph-views/proposal.md`.
 
 ## 2. Slice 1 — guard citation semantics (approach-02 increment)
 

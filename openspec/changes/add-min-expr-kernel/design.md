@@ -105,13 +105,14 @@ seam.
 
 ### D7 — Kernel-first, conditional on joint sign-off (CORR-003)
 
-The sibling project's thin-core decision (2026-10-02) and the design
-doc's HITL marking make this a joint decision, not a unilateral one.
-This change records kernel-first as its intended sequencing, scopes
-itself so pack-side numeric predicates (bioimage R2) remain pack-ridable
-under the widening law, and **does not open implementation phases until
-the sibling countersigns** (task 1.1). If the sibling prefers
-pack-first, the kernel change re-scopes to slice 1 only.
+**RESOLVED 2026-10-06: kernel-first, countersigned by the sibling project.**
+The sibling `domain-specific-extensions` decision record carries the
+joint sign-off: the kernel grammar is the thin-core "mechanism itself"
+its 2026-10-02 decision reserved core growth for — it imports no
+per-domain vocabulary. Pack-side numeric predicates (bioimage R2) stay
+pack-side and register under D8's decidability gate when the pack
+mechanism lands. Had the sibling preferred pack-first, the pre-agreed
+fallback was re-scoping this change to slice 1 only.
 
 ### D8 — Widening law with a decidability gate
 

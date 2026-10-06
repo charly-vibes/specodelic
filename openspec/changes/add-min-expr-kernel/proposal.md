@@ -97,7 +97,7 @@ citation cannot be discharged).
 | D4 | `kernel.binding` is Tier C mechanism vocabulary — opaque string, never interpreted, namespaced against pack binding columns | decided (CORR-004) |
 | D5 | Migration order: `specs/USAGE.md` examples, then `specs/specodelic.md` invariants; gated per-file | decided |
 | D6 | No type-vocabulary freeze in this change; atomics per D1; E1 (namespaced kinds) / CLAR-002 stay open | decided |
-| D7 | Kernel-first sequencing, conditional on sibling joint sign-off; pack numeric predicates stay pack-side | **PENDING-JOINT-SIGN-OFF** (CORR-003) |
+| D7 | Kernel-first sequencing, conditional on sibling joint sign-off; pack numeric predicates stay pack-side | **decided** — kernel-first countersigned by the sibling 2026-10-06 (CORR-003) |
 | D8 | Widening law: new atomics must be decidable over finite instances; pack predicates register under the same gate | decided |
 
 ## Deferred (follow-up changes, not tasked here)
@@ -109,8 +109,9 @@ citation cannot be discharged).
   not attempted here.
 - **Type vocabulary** for kernel expression typing (E1/CLAR-002) — the
   kernel v0 ships with reference-typed atomics only.
-- **D7's resolution** — tracked by task 1.1; the kernel change does not
-  open implementation phases until sign-off lands.
+- **D7's resolution** — countersigned 2026-10-06: kernel-first. Recorded
+  in both projects' decision records (`.wai/projects/*/designs/matrix/decision.md`).
+  Implementation phases are open.
 
 ## Sequencing
 

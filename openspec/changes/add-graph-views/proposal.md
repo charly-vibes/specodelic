@@ -27,6 +27,13 @@ string-diagram IR is explicitly deferred.
 
 ## What Changes
 
+> **Sequencing note (EDGE-004, 2026-10-06):** `add-min-expr-kernel`
+> (kernel-first, countersigned) grounds its `acyclic`/`reachable`
+> atomics in **acset traversal**, not this change's graph projection —
+> the two changes must not pull the same module concurrently. Kernel
+> slice 2 lands its traversal primitive over `src/acset`; this change's
+> projections stay consumers of `src/graph.rs` as approved.
+
 - **Tool — `spk guide --json`:** new subcommand exposing the format's closed
   value sets (kinds, constraint/property row shapes, reference fields with
   allowed targets) and the format revision as JSON — the derivation source
