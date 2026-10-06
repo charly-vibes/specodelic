@@ -132,6 +132,13 @@ pub struct ModelIr {
     /// expression.
     #[serde(default)]
     pub guard_citations: BTreeMap<String, String>,
+    /// Kernel expressions from invariant-kind Constraints whose expr
+    /// cell opts into kernel translation (add-min-expr-kernel, Tier B) —
+    /// carried verbatim, keyed by Constraint id. Prose expr cells stay
+    /// out (pure widening): only cells the kernel grammar accepts land
+    /// here; the labeled rejection happens in `validate_fragments`.
+    #[serde(default)]
+    pub guard_kernel: BTreeMap<String, String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -567,6 +574,28 @@ pub fn validate_fragments(spec: &Spec) -> Result<(), CompileError> {
     for c in &spec.constraints {
         let expr = c.cells.get("expr").cloned().unwrap_or_default();
         let kind = c.cells.get("kind").cloned().unwrap_or_default();
+        // Kernel expressions (add-min-expr-kernel, specodelic-7ga): the
+        // **kernel:** marker owns an invariant expr cell before the
+        // fragment scan sees a tag-shaped `kernel` — a cell that opts
+        // in and breaks the closed grammar fails labeled, naming the
+        // offending atomic and the closed set
+        // (kernel_grammar_violation_labeled); a cell that parses claims
+        // the kernel path and skips the executable-fragment checks.
+        if kind == "invariant" {
+            match crate::kernel::parse_kernel_expr(&expr) {
+                Err(e) => {
+                    return Err(CompileError {
+                        stage: "kernel_grammar".into(),
+                        message: format!(
+                            "row `{}`: {} (add-min-expr-kernel kernel_grammar_closed)",
+                            c.id, e
+                        ),
+                    });
+                }
+                Ok(Some(_)) => continue,
+                Ok(None) => {}
+            }
+        }
         if let Some(tag) = unknown_tag_markers(&expr).first() {
             return Err(fragment_error(
                 &c.id,
@@ -721,6 +750,33 @@ pub fn extract_model_ir(spec: &Spec) -> ModelIr {
                 .then(|| (c.id.clone(), strip_guard_cell(expr).to_string()))
         })
         .collect();
+    // Kernel expressions (add-min-expr-kernel, Tier B, specodelic-7ga):
+    // invariant rows whose expr cell opts into kernel translation carry
+    // verbatim, keyed by id; prose cells stay out — pure widening.
+    // Lenient parse: compile_spec's labeled validation has already
+    // rejected an opted-in cell that breaks the closed grammar before
+    // any artifact exists.
+    let guard_kernel = spec
+        .constraints
+        .iter()
+        .filter(|c| c.cells.get("kind").map(String::as_str) == Some("invariant"))
+        .filter_map(|c| {
+            let expr = c.cells.get("expr").map(String::as_str).unwrap_or("");
+            // The parse itself is discarded: it proves the cell opted
+            // in and is grammar-valid; the marker-stripped content is
+            // carried verbatim (the same shaping the citation path
+            // uses).
+            (fragment_of(expr).is_none()
+                && parse_citation_expr(expr).is_none()
+                && crate::kernel::parse_kernel_expr(expr)
+                    .ok()
+                    .flatten()
+                    .is_some())
+            .then(|| crate::kernel::kernel_cell_content(expr))
+            .flatten()
+            .map(|text| (c.id.clone(), text))
+        })
+        .collect();
     ModelIr {
         states,
         transitions,
@@ -728,6 +784,7 @@ pub fn extract_model_ir(spec: &Spec) -> ModelIr {
         emits_values,
         invariants,
         guard_citations,
+        guard_kernel,
     }
 }
 

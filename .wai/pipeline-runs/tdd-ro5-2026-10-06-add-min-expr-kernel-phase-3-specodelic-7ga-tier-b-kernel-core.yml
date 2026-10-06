@@ -1,0 +1,10 @@
+run_id: tdd-ro5-2026-10-06-add-min-expr-kernel-phase-3-specodelic-7ga-tier-b-kernel-core
+pipeline: tdd-ro5
+topic: 'add-min-expr-kernel phase 3 (specodelic-7ga): Tier B kernel core'
+created_at: '2026-10-06T19:41:23.095779823+00:00'
+current_step: 4
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
