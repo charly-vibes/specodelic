@@ -90,6 +90,28 @@ before.
 - **WHEN** an invariant-kind Constraint's expr cell carries a `**py:**` fragment
 - **THEN** the same tag grammar and failure modes apply as for predicate cells
 
+### Requirement: Properties table compiles to proptest blocks
+The system SHALL compile each Property row to at least one `proptest!`
+block — generator as input strategy, predicate as assertion body — and
+a law-kind property to exactly one block per case enumerated in the
+row's predicate in machine-findable `**name:**` label form. The
+identity and associativity floor (`law_requires_cases`) is mandatory
+and lint-enforced before compile (the compile precondition gate);
+extra named cases compile as first-class checkable blocks, never prose.
+
+#### Scenario: Law expands to enumerated cases
+- **WHEN** a law-kind property row's predicate carries `**identity:**`,
+  `**associativity:**`, and `**commutativity:**` labels
+- **THEN** exactly three blocks are emitted for that row, one per
+  enumerated case
+
+#### Scenario: Unlabeled floor fails the precondition
+- **WHEN** a law-kind property row's predicate states its cases in
+  prose only (no `**name:**` labels)
+- **THEN** the compile precondition gate reports the `linter.law_cases`
+  finding naming the missing floor cases
+- **AND** no artifact set is reported as compiled
+
 ## Requirements
 
 ### Requirement: Closed language-tag fragment opt-in
@@ -128,6 +150,7 @@ before.
 #### Scenario: Invariant expr cells share the grammar
 - **WHEN** an invariant-kind Constraint's expr cell carries a `**py:**` fragment
 - **THEN** the same tag grammar and failure modes apply as for predicate cells
+
 ### Requirement: Properties table compiles to proptest blocks
 The system SHALL compile each Property row to at least one `proptest!`
 block — generator as input strategy, predicate as assertion body — and
