@@ -159,6 +159,13 @@ pub enum CitationExpr {
     And(Box<CitationExpr>, Box<CitationExpr>),
 }
 
+/// Strip the surrounding whitespace/backticks from a Constraints
+/// `expr` cell — the shared normalization used both by the parser and
+/// by verbatim extraction (single source of truth for cell shaping).
+fn strip_guard_cell(cell: &str) -> &str {
+    cell.trim().trim_matches('`').trim()
+}
+
 /// Parse a Constraints `expr` cell as a citation expression over the
 /// closed grammar — `Some` only when the whole cell (backticks and
 /// whitespace stripped) is a citation expression; `None` for prose, so
@@ -166,7 +173,7 @@ pub enum CitationExpr {
 /// not a citation expression also returns `None` — it stays prose, not
 /// a silent upgrade.
 pub fn parse_citation_expr(cell: &str) -> Option<CitationExpr> {
-    let s = cell.trim().trim_matches('`').trim();
+    let s = strip_guard_cell(cell);
     if s.is_empty() {
         return None;
     }
@@ -225,7 +232,10 @@ pub fn evaluate_citation(
             ThreeValued::Unknown => ThreeValued::Unknown,
         },
         CitationExpr::And(a, b) => {
-            match (evaluate_citation(a, outcomes), evaluate_citation(b, outcomes)) {
+            match (
+                evaluate_citation(a, outcomes),
+                evaluate_citation(b, outcomes),
+            ) {
                 (ThreeValued::Counterexample, _) | (_, ThreeValued::Counterexample) => {
                     ThreeValued::Counterexample
                 }
@@ -702,14 +712,10 @@ pub fn extract_model_ir(spec: &Spec) -> ModelIr {
         .filter(|c| c.cells.get("kind").map(String::as_str) == Some("invariant"))
         .filter_map(|c| {
             let expr = c.cells.get("expr").map(String::as_str).unwrap_or("");
-            if fragment_of(expr).is_none()
-                && let Some(parsed) = parse_citation_expr(expr)
-            {
-                let _ = parsed; // verbatim text is carried, parse proves the shape
-                Some((c.id.clone(), expr.trim().trim_matches('`').trim().to_string()))
-            } else {
-                None
-            }
+            // The parse itself is discarded: it proves the cell IS a
+            // citation expression; the stripped text is carried verbatim.
+            (fragment_of(expr).is_none() && parse_citation_expr(expr).is_some())
+                .then(|| (c.id.clone(), strip_guard_cell(expr).to_string()))
         })
         .collect();
     ModelIr {
@@ -1370,8 +1376,14 @@ mod tests {
         // expr cell is a citation expression lands in the IR's
         // guard_citations; prose expr cells stay out (inert as before).
         let text = SAMPLE
-            .replace("| a | invariant | `x holds` |", "| a | invariant | `[[p1]] ∧ [[p2]]` |")
-            .replace("| b | effect | `y fires` |", "| b | invariant | `x holds` |");
+            .replace(
+                "| a | invariant | `x holds` |",
+                "| a | invariant | `[[p1]] ∧ [[p2]]` |",
+            )
+            .replace(
+                "| b | effect | `y fires` |",
+                "| b | invariant | `x holds` |",
+            );
         let spec = parse_str(&text).expect("parses");
         let ir = extract_model_ir(&spec);
         assert_eq!(
