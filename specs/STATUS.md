@@ -344,6 +344,21 @@ complete. Three `Needs Human Review` items opened; two resolved
   operator decision — mechanism-agnostic floor, no gate or role
   assumed. See `merge.md`'s decision-of-record Notes paragraph.
 
+### Deferred follow-ups of the language-neutral property binding (Rev 16)
+The tag-widening change landed the closed set `{rust, py, ts}` with
+`**rust:**` as the only executable tag; two follow-ups are deferred of
+record and must land as their own changes when picked up:
+- **`add-py-fragment-emission`** (and its `add-ts-fragment-emission`
+  sibling) — the per-language emitters behind `PropertiesRunner`. The
+  change that lands a first emitter MUST land the generator-vocabulary
+  decision (design D5: language-neutral core vocabulary + per-project
+  domain generators) in the same change, not before and not after.
+  Until then every compiled strategy stays `Just(const)` — vacuous
+  `properties_pass` once lf3 wires verify green (see
+  `openspec/research/2026-10-04-generator-coverage-gap/synthesis.md`).
+- **`specodelic-lf3`** — wire `spk verify specs` into `just ci` after
+  the corpus migrates `todo_predicate!` stubs to executable fragments.
+
 ### One acknowledged loose end inside an existing file — RESOLVED
 `linter-schema_shape.md`'s `no_prose_field_parsed` was flagged as not
 fitting the generator/predicate shape ("verified by code audit, not by a

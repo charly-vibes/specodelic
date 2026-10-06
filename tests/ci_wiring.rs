@@ -147,6 +147,26 @@ fn espectacular_gate_wired_structural_in_precommit_executed_in_ci() {
     );
 }
 
+/// The executed espectacular gate runs the pytest-bound contracts too
+/// (add-language-neutral-property-binding tasks 1.2-1.4): the pytest
+/// exemplar needs pytest + hypothesis on the runner, and runners don't
+/// ship either — ci.yml must install them pinned, or guard-espectacular
+/// fails with a no-tests-ran/module-missing in CI only (locally green).
+#[test]
+fn ci_installs_pinned_pytest_runner_deps() {
+    let ci_yml = read(".github/workflows/ci.yml");
+    assert!(
+        ci_yml.contains("pip install") && ci_yml.contains("pytest=="),
+        "ci.yml must pip-install pinned pytest — guard-espectacular executes \
+         the pytest-bound contract and runners don't ship pytest"
+    );
+    assert!(
+        ci_yml.contains("hypothesis=="),
+        "ci.yml must pip-install pinned hypothesis — the pytest exemplar is \
+         a hypothesis property test"
+    );
+}
+
 #[test]
 fn release_scratch_dirs_are_gitignored() {
     let gitignore = read(".gitignore");

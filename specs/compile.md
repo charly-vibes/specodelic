@@ -137,8 +137,8 @@ specified translation.
 `model_check.md` and `verify.md`) both consume this
 file's output directly: `model_check` runs a model-check backend against
 the TLA+ module `model_to_tla` produces, and `verify` runs the
-proptest! blocks `properties_to_proptest` produces. Neither has its own
-spec yet.
+proptest! blocks `properties_to_proptest` produces — each specified in
+its own checker file.
 
 **Executable predicate fragments (specodelic.md Revision 15, specodelic-rjb).**
 Every predicate and expr cell may now opt into executable translation with a
@@ -159,6 +159,23 @@ legitimately need. The scaffolding's element type is now `String` (the
 `GenVal` tuple-struct wrapper retired in the same Revision) so fragments
 bind plain generator values — the wrapper existed only to carry the
 placeholder story, and fragments make that story optional.
+
+**The closed language-tag grammar (specodelic.md Revision 16, `specodelic-lf3`).**
+The opt-in marker's tag is drawn from the closed set `{rust, py, ts}`;
+a marker is `**` + a tag-shaped label + `:**` where the tag matches
+`[a-z][a-z0-9_-]*` — the lowercase-initial shape is what separates a
+marker from ordinary bold prose (`**Note:**` stays prose). Acceptance
+is grammar-level and emitter-independent: `**py:**` and `**ts:**`
+extract like `**rust:**`, but gate compile labeled
+(`no_emitter_labeled_failure`) until their emitters land, since an
+accepted tag without an emitter would silently fall through to Rust —
+the vacuous outcome the closed set exists to prevent. A tag-shaped
+marker outside the closed set fails labeled, naming the tag and the
+closed set (`unknown_tag_rejected`). The one grammar collision is
+resolved by row kind: a law-kind predicate's `**label:**` occurrences
+are the law-case grammar (Revision 13), never fragment markers, so the
+fragment grammar exempts law rows; every other fragment-position
+occurrence is checked.
 
 **Two binding layers, one per tool, never merged** (decision of record
 2026-10-04, `specodelic-lf3` — corrected review finding CORR-001, design

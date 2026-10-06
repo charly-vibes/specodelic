@@ -1,5 +1,38 @@
 # Changelog
 
+## #114 — language-neutral property binding: the closed fragment-tag grammar lands (add-language-neutral-property-binding)
+
+Revision 16's corpus delta shipped with v0.5.2 (`1ec6b90`, `c5d2b39`);
+this entry records the implementation landing that activates it:
+
+- **Closed tag grammar `{rust, py, ts}`** in the extraction path — a
+  marker is `**` + a tag-shaped label (`[a-z][a-z0-9_-]*`) + `:**` in
+  fragment position; acceptance is grammar-level and
+  emitter-independent. Unknown tag-shaped markers fail labeled naming
+  the tag and the closed set (`unknown_tag_rejected`), never silence;
+  ordinary bold prose (`**Note:**`) stays prose — the lowercase-initial
+  tag shape separates them. One grammar collision resolved by row kind:
+  a law-kind predicate's `**label:**` occurrences are the law-case
+  grammar, never fragment markers.
+- **No-emitter gate** (`no_emitter_labeled_failure`): a `**py:**` or
+  `**ts:**` fragment gates compile with stage `compile.emission_failure`
+  and remediation naming its follow-up (`specodelic-l8l` py,
+  `specodelic-aby` ts) — never a silent fall-through to Rust emission.
+  `**rust:**` extraction is byte-identical to Revision 15
+  (`rust_back_compat`); the lenient IR path only ever extracts Rust.
+- **Pytest exemplar binding** (the espectacular seam, tasks 1.2–1.4):
+  parse's `export-full-ir` scenario now also binds a hypothesis
+  property test over generated corpus inputs
+  (`tests/python/test_exemplar_props.py`, node-id binding in the
+  contract TOML); ci.yml installs pinned pytest+hypothesis so the
+  executed gate passes on runners (ci_wiring drift guard pins it).
+- **Docs + corpus notes**: commands.md records the two-binding-layers
+  boundary (CORR-001) and the tracing-vs-semantics line (D6);
+  compile.md's notes gain the grammar section the Rev 16 rows
+  reference and drop the stale "neither has its own spec yet" prose
+  (task 3.5); STATUS.md §4 records the deferred emitter follow-ups and
+  the D5 generator-vocabulary coupling.
+
 Append-only. Past entries are never edited — a correction gets a new entry,
 the same discipline `specodelic.md`'s own `append_only_variants` rule
 requires of spec files themselves. Displayed newest first; numbered

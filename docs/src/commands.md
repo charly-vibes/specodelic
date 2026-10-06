@@ -105,6 +105,35 @@ Compiles a lint-clean spec into three artifacts: `<stem>.toml`
 (Constraints), `<stem>_props.rs` (proptest scaffolding), `<stem>.tla`
 (TLA+ module). Total or labeled failure — never a silent partial result.
 
+Property and invariant fragments opt in per cell with a `**lang:**`
+marker whose tag is drawn from the closed set `{rust, py, ts}`; a tag
+outside the set (e.g. `**go:**`) is a labeled extraction failure naming
+the tag and the closed set, never silence. `**rust:**` is the only
+executable tag — a `**py:**` or `**ts:**` fragment gates compile with a
+labeled failure naming its emitter follow-up
+(`add-py-fragment-emission` / `add-ts-fragment-emission`), never a
+silent fall-through to Rust emission.
+
+Two binding layers, never cross-wired:
+
+1. **Artifact scaffolds (specodelic).** compile emits the fragment
+   verbatim into the artifact and records it in metadata comments and
+   the `.check.json`/manifest staleness keys. Those comments are
+   staleness records, not contracts (CORR-001's correction).
+2. **Contract bindings (espectacular).** ah binds existing tests to
+   deployed scenarios via contract-TOML entries (`[[tests.cargo]]`,
+   `[[tests.pytest]]`, `[[tests.shell]]` flags). Binding is not
+   compilation — the layers have different wall-clock, caching, and
+   toolchain stories (design D3 of the language-neutral binding
+   change).
+
+The boundary between the tools is tracing vs semantics: espectacular's
+`property-untraced` finding is bookkeeping and may grow similar
+tracing findings, but ah must never grow semantic findings — a
+hypothetical `property-uncompiled` would enforce compile.md's
+semantics from ah, crossing the sibling-tool boundary (read-only over
+`openspec/`, never enforcing against the `specs/` corpus).
+
 - Spec: [compile](specs/compile.md)
 
 ## `spk model-check <files>`

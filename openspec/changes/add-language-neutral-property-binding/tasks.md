@@ -8,25 +8,25 @@ is docs and closure.
 
 ## 1. Espectacular pytest/property wiring (no specodelic code)
 
-- [ ] 1.1 **RED**: enable the capabilities — `ah doctor --enable pytest`
+- [x] 1.1 **RED**: enable the capabilities — `ah doctor --enable pytest`
       and `ah doctor --enable property`; verify `.espectacular/config.toml`
       gained the pytest runner entry. Confirm `hypothesis` is actually
       importable (`uv run python -c "import hypothesis"`); if absent,
       add it to the exemplar's pinned runner invocation (`[[tests.shell]]`
       with `uv run`) per design D-risk 3.
-- [ ] 1.2 **RED**: choose the exemplar scenario from a *deployed*
+- [x] 1.2 **RED**: choose the exemplar scenario from a *deployed*
       capability (espectacular contracts bind deployed scenarios, not
       change overlays). Prefer `parse`'s envelope well-formedness if its
       scenarios are contract-free. Write
       `tests/python/test_exemplar_props.py` — a hypothesis property test
       asserting the scenario's contract (e.g. envelope `ok: true` and
       `envelope_version` present over generated corpus inputs).
-- [ ] 1.3 **GREEN**: author the contract TOML
+- [x] 1.3 **GREEN**: author the contract TOML
       (`.espectacular/<capability>/<id>.toml`, archetype PF) binding the
       scenario to the pytest test — `[[tests.pytest]]` with a **node id**
       (not `-k`) per `ah explain scenario-scoped-tests`. Run
       `ah check --run-tests` — green.
-- [ ] 1.4 **TIDY**: extract any helper wiring into the test file's
+- [x] 1.4 **TIDY**: extract any helper wiring into the test file's
       conftest; re-run `ah check` and `just ci` (the pytest test must
       also pass under `just ci` or be explicitly scoped out with a
       recorded reason — decide against real output).
@@ -67,18 +67,18 @@ is docs and closure.
       the review's three-layer ownership table into
       `specs/compile.md`'s trailing notes (where proptest blocks' scope
       is already recorded). Dogfood: `just lint-specs` clean.
-- [ ] 3.2 **Docs**: add the boundary restatement (D6) and the two-binding
+- [x] 3.2 **Docs**: add the boundary restatement (D6) and the two-binding
       layers note (artifact metadata comments vs contract-TOML flags,
       CORR-001's correction) to `docs/src/commands.md`; note the deferred
       py emitter and generator-vocabulary follow-ups in
       `specs/STATUS.md`'s tracking section.
-- [ ] 3.3 **Validate**: `openspec validate add-language-neutral-property-binding --strict`;
+- [x] 3.3 **Validate**: `openspec validate add-language-neutral-property-binding --strict`;
       `ah check` green over deployed specs with the change overlay;
       `just ci` green.
-- [ ] 3.4 **File follow-ups** (bd): `add-py-fragment-emission` (py emitter
+- [x] 3.4 **File follow-ups** (bd): `add-py-fragment-emission` (py emitter
       + pytest adapter behind `PropertiesRunner`, carrying the generator
       vocabulary decision D5 in the same change) and `add-ts-fragment-emission`.
-- [ ] 3.5 **TIDY**: fix the stale notes prose in `specs/compile.md` —
+- [x] 3.5 **TIDY**: fix the stale notes prose in `specs/compile.md` —
       "Neither has its own spec yet" contradicts the parenthetical
       "(both now done — see `model_check.md` and `verify.md`)" two lines
       above it; reword to reference both spec files.
