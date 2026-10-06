@@ -13,7 +13,9 @@
 //! file_lines ratchet — shrink-only).
 
 use specodelic::compile::{ThreeValued, compile_spec, extract_model_ir};
-use specodelic::kernel::{KernelError, KernelExpr, parse_kernel_expr, parse_kernel_str};
+use specodelic::kernel::{
+    Atomic, KernelError, KernelExpr, Term, parse_kernel_expr, parse_kernel_str,
+};
 use specodelic::spec::parse_str;
 
 /// A prose fixture: one invariant row with a prose expr cell, one
@@ -106,6 +108,60 @@ fn malformed_kernel_shaped_cell_fails_labeled_not_prose() {
     assert!(parse_kernel_str("resolves(").is_err());
     // An empty marker is labeled too — never a silent no-op.
     assert!(parse_kernel_expr("`**kernel:**`").is_err());
+}
+
+// --- 3.1 RED: row-typing edge cases (RO5U stage-4 pins) ---
+
+#[test]
+fn row_typing_edge_cases_fail_labeled() {
+    // acyclic requires an endo morphism — traces_to is Constraint →
+    // Intent, not endo: labeled, never silent.
+    let err = parse_kernel_str("acyclic(traces_to)").expect_err("non-endo");
+    match err {
+        KernelError::Labeled { message } => {
+            assert!(message.contains("endo"), "{message}");
+        }
+    }
+    // An unknown morphism name is labeled, naming the Reference Typing
+    // rows.
+    let err = parse_kernel_str("resolves(bogus)").expect_err("unknown morphism");
+    match err {
+        KernelError::Labeled { message } => {
+            assert!(message.contains("bogus"), "{message}");
+        }
+    }
+    // An unknown quantifier object is labeled, naming the closed five.
+    let err = parse_kernel_str("∀ c ∈ Ghost: resolves(traces_to)").expect_err("unknown object");
+    match err {
+        KernelError::Labeled { message } => {
+            assert!(message.contains("Ghost"), "{message}");
+        }
+    }
+    // A projection of a morphism not sourced on the bounding object is
+    // labeled (Reference Typing row-typing).
+    let err = parse_kernel_str("∀ i ∈ Intent: i.supersedes == x").expect_err("ill-typed proj");
+    match err {
+        KernelError::Labeled { message } => {
+            assert!(message.contains("not sourced on Intent"), "{message}");
+        }
+    }
+    // Rule of record: a dot after an UNBOUND identifier is an id
+    // literal's file-qualification, not a projection — the binding
+    // decides. `c.supersedes == x` with no quantifier is the id
+    // comparison `"c.supersedes" == "x"`, refuted over any instance
+    // (distinct ids), never an unbound-variable crash.
+    assert_eq!(
+        parse_kernel_str("c.supersedes == x"),
+        Ok(Some(KernelExpr::Atomic(Atomic::Eq(
+            Term::Id("c.supersedes".into()),
+            Term::Id("x".into()),
+        ))))
+    );
+    // Nested shadowing binds innermost (the rev() lookup, pinned).
+    assert!(matches!(
+        parse_kernel_str("∀ c ∈ Constraint: ∀ c ∈ Intent: |Intent| >= 0"),
+        Ok(Some(KernelExpr::ForAll(_, _, _)))
+    ));
 }
 
 // --- 3.1 RED: pure widening — prose stays prose ---
