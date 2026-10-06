@@ -1014,11 +1014,15 @@ fn citation_statuses(
 ) -> Vec<InvariantStatus> {
     ir.guard_citations
         .iter()
-        .filter_map(|(id, cell)| {
-            parse_citation_expr(cell).map(|expr| InvariantStatus {
-                id: id.clone(),
-                status: evaluate_citation(&expr, outcomes),
-            })
+        .map(|(id, cell)| InvariantStatus {
+            id: id.clone(),
+            // Cells are proven parseable at extraction time; if a re-parse
+            // ever failed anyway, report honest unknown rather than
+            // silently dropping the invariant from the status list
+            // (RO5U F-2, specodelic-txo).
+            status: parse_citation_expr(cell).map_or(ThreeValued::Unknown, |expr| {
+                evaluate_citation(&expr, outcomes)
+            }),
         })
         .collect()
 }

@@ -98,6 +98,16 @@ fn undischargable_citation_reports_unknown_never_pass() {
 }
 
 #[test]
+fn malformed_bracket_in_citation_id_stays_prose() {
+    // RO5U F-1 (slice-1 review): a citation id containing a bracket can
+    // never match a real Constraints id (ids are filename stems) — the
+    // cell is a malformed citation expression and stays prose, never a
+    // silent citation upgrade that would evaluate unknown forever.
+    assert!(parse_citation_expr("[[a]b]]").is_none());
+    assert!(parse_citation_expr("[[a[b]]").is_none());
+}
+
+#[test]
 fn citation_negation_flips_verified_counterexample_keeps_unknown() {
     let expr = parse_citation_expr("¬[[a]]").expect("parses");
     let verified = BTreeMap::from([("a".to_string(), ThreeValued::Verified)]);

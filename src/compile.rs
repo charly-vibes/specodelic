@@ -192,7 +192,10 @@ pub fn parse_citation_expr(cell: &str) -> Option<CitationExpr> {
         let inner = rest.strip_prefix("[[")?;
         let close = inner.find("]]")?;
         let id = inner[..close].trim();
-        if id.is_empty() || id.contains('[') {
+        // A citation id containing a bracket can never match a real
+        // Constraints id (ids are filename stems) — the cell is malformed
+        // and stays prose (RO5U F-1, specodelic-txo).
+        if id.is_empty() || id.contains('[') || id.contains(']') {
             return None;
         }
         rest = &inner[close + 2..];
