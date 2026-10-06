@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-06-add-min-expr-kernel-slice-1-specodelic-txo-guard-citation-semantics, pipeline-step:green]
+---
+
+GREEN slice 1 (specodelic-txo, commit 1649fbf): citation algebra in src/compile.rs (CitationExpr/ThreeValued/parse_citation_expr/evaluate_citation — Kleene, counterexample-dominant ∧, unknown absorbs, ¬ flips verified/counterexample keeps unknown); ModelIr.guard_citations carries citation-expr invariant cells verbatim, prose stays prose; RunReport.invariant_statuses wired in all 3 backends (exec ids discharge from run facts — verified iff exploration completed within bound; citations resolve vs exec outcomes; undischargable → unknown). Narrow+full tests green: cargo test --lib 367+7 passed, just test green, delta spec lint 0 issues, ah check clean. GOTCHA ROUTED: ah binds contract TOMLs to DEPLOYED scenarios only — change-phase TOMLs are orphan-toml (gate red without overlay, no-toml with overlay); the 5 TOMLs are deferred to the archive commit (stashed at /tmp/txo-contracts). file_lines ratchet breach on model_check.rs fixed by moving 7 tests to tests/citation_algebra.rs (ratchet is shrink-only).

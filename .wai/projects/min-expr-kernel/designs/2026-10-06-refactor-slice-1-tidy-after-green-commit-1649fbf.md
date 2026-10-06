@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-06-add-min-expr-kernel-slice-1-specodelic-txo-guard-citation-semantics, pipeline-step:fix-review]
+---
+
+REFACTOR: slice-1 tidy after GREEN (commit 1649fbf). Two in-scope tidies in src/compile.rs, zero behavior change, src/model_check.rs untouched (file_lines ratchet 2284/2300 preserved): (1) extracted strip_guard_cell() helper — the backtick/whitespace cell normalization was duplicated between parse_citation_expr and extract_model_ir; now a single named fn used by both. (2) replaced the awkward 'let Some(parsed) = ... { let _ = parsed; }' binding in extract_model_ir's guard_citations filter_map with a boolean is_some() check + then(|| ...) — the parse result was never used, only its shape-proving. Verified: cargo test --test citation_algebra 7/7, lib compile tests 55/55, full just test 23/23 suites ok, cargo fmt --check clean, cargo clippy -- -D warnings clean (lib), pretender check all green. Note: clippy --all-targets has 8 PRE-EXISTING errors in tests/gate_drill_lock.rs, tests/cli/feedback_init.rs, tests/cli/parse_misc.rs — present at HEAD with changes stashed, files outside txo scope, not fixed here.

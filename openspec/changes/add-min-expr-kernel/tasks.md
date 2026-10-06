@@ -23,21 +23,33 @@ gate (no code); implementation phases do not open until it lands.
 
 ## 2. Slice 1 — guard citation semantics (approach-02 increment)
 
-- [ ] 2.1 **RED**: model-check tests — an artifact whose invariant
+- [x] 2.1 **RED**: model-check tests — an artifact whose invariant
       Constraint cites `[[a]] ∧ [[b]]` evaluates the citation under
       the kernel's citation algebra with a three-valued status;
       an undischargable citation reports `unknown`, never pass.
       Run `just test` — new tests fail (citations are inert today).
-- [ ] 2.2 **GREEN**: implement citation-algebra evaluation in the
+      ✅ 1649fbf — tests/citation_algebra.rs (9 tests incl. compile.rs
+      extraction + rust-guard pinning); RED evidence in
+      .wai/projects/min-expr-kernel/research/2026-10-06-red-slice-1-*.md
+- [x] 2.2 **GREEN**: implement citation-algebra evaluation in the
       model-check path (citation refs resolve against compiled
       properties; ∧/¬ composition; honest `unknown` propagation).
       Executable guard fragments still fail labeled
       (`fragment_guard_rejected` stands — design D3).
-- [ ] 2.3 **GREEN**: persist per-invariant status in run reports
+      ✅ 1649fbf (parse/evaluate + guard_citations, Kleene composition)
+      + c2bc2fc (RO5U F-1: bracket-in-id rejected, malformed stays prose);
+      fragment_guard_rejected pinned by guard_rust_marker_still_rejected_labeled
+- [x] 2.3 **GREEN**: persist per-invariant status in run reports
       (backend, bound, status per invariant; `unknown` persisted, not
       coerced).
-- [ ] 2.4 **TIDY**: extract citation-resolution helpers; re-run
+      ✅ 1649fbf (RunReport.invariant_statuses across native/TLC/exec;
+      exec ids discharge from run facts) + c2bc2fc (F-2: re-parse failure
+      → honest unknown, never silent drop); serde back-compat kept
+- [x] 2.4 **TIDY**: extract citation-resolution helpers; re-run
       `just test` and `just lint-specs`.
+      ✅ 444ad1c (strip_guard_cell helper, unused parse binding dropped)
+      + beff19d (fmt); just test 23/23 suites ok, just lint-specs 0
+      issues, model_check.rs 2282/2300 ratchet; RO5U PASS (0c/0h/1m/3l)
 
 ## 3. Tier B — kernel core over the acset substrate
 
