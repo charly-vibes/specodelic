@@ -324,32 +324,17 @@ impl<'a> Parser<'a> {
     }
 
     /// An unqualified identifier: `[A-Za-z_][A-Za-z0-9_-]*` — object
-    /// names, morphism names, variables, unqualified id literals.
+    /// names, morphism names, variables, unqualified id literals. A
+    /// dot is never part of an unqualified identifier (the projection
+    /// and file-qualification syntax owns it).
     fn ident(&mut self) -> Option<String> {
-        self.ident_shaped(|c| c.is_ascii_alphabetic() || c == '_', 0)
-    }
-
-    /// A file-qualified id: dot-chained unqualified identifiers
-    /// (`file.row`) — the shape reachability seeds address rows by.
-    fn qualified_ident(&mut self) -> Option<String> {
-        self.ident_shaped(|c| c.is_ascii_alphabetic() || c == '_', 1)
-    }
-
-    /// The identifier scanner: `first` shapes position 0, `dots`
-    /// allows `.` (and, after it, any identifier character) from
-    /// position `dots` on.
-    fn ident_shaped(&mut self, first: impl Fn(char) -> bool, dots: usize) -> Option<String> {
         self.skip_ws();
         let rest = &self.s[self.pos..];
         let mut end = 0;
         for (i, c) in rest.char_indices() {
-            let ok = if i == 0 {
-                first(c)
-            } else if i <= dots {
-                c == '.' || c.is_ascii_alphanumeric() || c == '_' || c == '-'
-            } else {
-                c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.'
-            };
+            let ok = c.is_ascii_alphabetic()
+                || c == '_'
+                || (i > 0 && (c.is_ascii_alphanumeric() || c == '_' || c == '-'));
             if ok {
                 end = i + c.len_utf8();
             } else {
@@ -361,6 +346,28 @@ impl<'a> Parser<'a> {
         }
         let id = rest[..end].to_string();
         self.pos += end;
+        Some(id)
+    }
+
+    /// A file-qualified id: dot-chained unqualified identifiers
+    /// (`file.row`) — the shape reachability seeds address rows by.
+    /// A malformed chain (`a..b`, a trailing dot) is not an id.
+    fn qualified_ident(&mut self) -> Option<String> {
+        let start = self.pos;
+        let Some(first) = self.ident() else {
+            return None;
+        };
+        let mut id = first;
+        while self.s[self.pos..].starts_with('.') {
+            self.pos += 1;
+            match self.ident() {
+                Some(part) => id = format!("{id}.{part}"),
+                None => {
+                    self.pos = start;
+                    return None;
+                }
+            }
+        }
         Some(id)
     }
 
@@ -609,11 +616,14 @@ impl<'a> Parser<'a> {
                 self.rest_head()
             )));
         };
-        // A projection `var.morphism` — row-typed: `var` must be a bound
-        // variable and the morphism must be sourced on its bounding
-        // object (Schema-as-data supplies the typing).
+        // A projection `var.morphism` — row-typed: `var` must be a
+        // bound variable and the morphism must be sourced on its
+        // bounding object (Schema-as-data supplies the typing). A dot
+        // after an UNBOUND identifier is an id literal's
+        // file-qualification, not a projection — the binding decides
+        // (rule of record).
         self.skip_ws();
-        if self.s[self.pos..].starts_with('.') {
+        if self.s[self.pos..].starts_with('.') && self.vars.iter().any(|(v, _)| v == &word) {
             self.pos += 1;
             let m = self.ident().ok_or_else(|| {
                 KernelError::labeled("projection expects a morphism name after `.`")
@@ -625,9 +635,7 @@ impl<'a> Parser<'a> {
                 .find(|(v, _)| v == &word)
                 .map(|(_, o)| o.clone());
             let Some(object) = bound_object else {
-                return Err(KernelError::labeled(format!(
-                    "projection `{word}.{m}` on an unbound variable — only quantifier-bound variables may project"
-                )));
+                unreachable!("the binding was just checked")
             };
             if !self
                 .schema
@@ -640,6 +648,19 @@ impl<'a> Parser<'a> {
                 )));
             }
             return Ok(Term::Proj(word, m));
+        }
+        // A dot after an unbound identifier: a file-qualified id
+        // literal — consume the dot-chained continuation.
+        if self.s[self.pos..].starts_with('.') {
+            let mut id = word;
+            while self.s[self.pos..].starts_with('.') {
+                self.pos += 1;
+                let part = self.ident().ok_or_else(|| {
+                    KernelError::labeled("a file-qualified id literal continues after every dot")
+                })?;
+                id = format!("{id}.{part}");
+            }
+            return Ok(Term::Id(id));
         }
         // A bare identifier: a bound variable, else an id literal.
         if self.vars.iter().any(|(v, _)| v == &word) {
