@@ -1091,7 +1091,7 @@ mod tests {
                 },
                 outcome,
                 invariants_checked: vec![],
-            invariant_statuses: vec![],
+                invariant_statuses: vec![],
                 violated_invariant_id: None,
                 trace: None,
                 artifact_sha256: sha.clone(),

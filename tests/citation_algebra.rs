@@ -14,8 +14,8 @@
 use std::collections::BTreeMap;
 
 use specodelic::model_check::{
-    Backend, Bound, CitationExpr, InvariantStatus, Outcome, RunReport, ThreeValued,
-    BACKEND_VERSION, evaluate_citation, parse_citation_expr,
+    BACKEND_VERSION, Backend, Bound, CitationExpr, InvariantStatus, Outcome, RunReport,
+    ThreeValued, evaluate_citation, parse_citation_expr,
 };
 
 #[test]

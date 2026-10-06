@@ -37,9 +37,7 @@ use crate::compile::ModelIr;
 // three-valued evaluator live beside the spec language (compile), the
 // evaluation callers live here — re-exported so the citation API is
 // reachable from the model_check surface.
-pub use crate::compile::{
-    CitationExpr, ThreeValued, evaluate_citation, parse_citation_expr,
-};
+pub use crate::compile::{CitationExpr, ThreeValued, evaluate_citation, parse_citation_expr};
 
 /// One invariant's evaluated status in a run report — the id is the
 /// Constraints-table id, the status is the three-valued citation/exec
@@ -992,13 +990,7 @@ pub fn run_executable(
         version: EXEC_VERSION.into(),
     };
     let ids: Vec<String> = ir.invariants.iter().map(|i| i.id.clone()).collect();
-    let mut report = report_from_facts(
-        &facts,
-        artifact_sha,
-        &ids,
-        &backend,
-        bound,
-    );
+    let mut report = report_from_facts(&facts, artifact_sha, &ids, &backend, bound);
     // Guard citations evaluate against the executable run's outcomes —
     // a cited executable invariant discharges from its exec status; a
     // cited prose property or unknown id stays unknown (slice 1).
@@ -1007,7 +999,9 @@ pub fn run_executable(
         .iter()
         .map(|s| (s.id.clone(), s.status))
         .collect();
-    report.invariant_statuses.extend(citation_statuses(ir, &outcomes));
+    report
+        .invariant_statuses
+        .extend(citation_statuses(ir, &outcomes));
     Ok(report)
 }
 
