@@ -53,24 +53,45 @@ gate (no code); implementation phases do not open until it lands.
 
 ## 3. Tier B — kernel core over the acset substrate
 
-- [ ] 3.1 **RED**: grammar tests — kernel expressions in expr cells
+- [x] 3.1 **RED**: grammar tests — kernel expressions in expr cells
       parse under the closed atomic set; an unknown atomic fails
       labeled naming the closed set (sd1 discipline); a prose expr
       cell compiles byte-identically (pure widening).
-- [ ] 3.2 **GREEN**: implement the kernel grammar and row-typing over
+      ✅ tests/kernel_grammar.rs (12 tests incl. corpus-quantifier-prose
+      and row-typing edge pins); RED evidence in
+      .wai/projects/min-expr-kernel/research/2026-10-06-red-3-1-*.md
+- [x] 3.2 **GREEN**: implement the kernel grammar and row-typing over
       `src/acset` (Schema-as-data supplies 𝒦-typed instances `I(k)`;
       traversal primitive supplies the quantifier domain).
-- [ ] 3.3 **GREEN**: implement the v0 atomics with per-atomic grounding
+      ✅ 1ca92e6 — NEW src/kernel.rs (closed v0 grammar, row-typed
+      against schema::canonical(), **kernel:** marker opt-in in
+      fragment position — marker-free opt-in broke pure widening
+      against the corpus's ∀-led prose cells, RO5U F-1);
+      ModelIr.guard_kernel extraction + labeled kernel_grammar stage
+- [x] 3.3 **GREEN**: implement the v0 atomics with per-atomic grounding
       (design D1 grounding table): `acyclic`/`reachable` on graph
       traversal, `unique`/`resolves` on acset traversal, `==`/
       comparisons/bounded ∀/∃ on model_check bounded evaluation.
       An atomic without a grounding entry cannot ship.
-- [ ] 3.4 **GREEN**: three-valued status chain end-to-end —
+      ✅ b47d876 — tests/kernel_grounding.rs (8 agreement tests vs
+      cyclic_nodes/forward_closure/dangling/injectivity/bounded eval);
+      D1 table pinned as PredicateRegistry::v0() data
+- [x] 3.4 **GREEN**: three-valued status chain end-to-end —
       `verified`/`counterexample`/`unknown` with propagation rules;
       `unknown` never coerces to pass (dl/1 Kleene absorb).
-- [ ] 3.5 **TIDY**: predicate-registry seam for later pack registration
+      ✅ b47d876 — tests/kernel_status.rs (7 tests: the full chain
+      **kernel:** cell → guard_kernel → KernelEnv.evaluate →
+      compile::ThreeValued; unknown absorbs, counterexample dominates,
+      ¬ swaps V/C keeps U, empty domains decide)
+- [x] 3.5 **TIDY**: predicate-registry seam for later pack registration
       (dl/1 absorb, gated by D8's decidability gate — registration
       code exists, no pack predicate registers here).
+      ✅ b22256a — tests/kernel_registry.rs (shipped registry = exactly
+      the v0 closed set; NoGrounding/Undecidable/Duplicate refused;
+      decidable registration widens purely without widening this
+      Revision's grammar) + 55f2d86 (RO5U edge pins); RO5U PASS,
+      review artifact .wai/projects/min-expr-kernel/reviews/
+      ro5u-phase3-7ga.md
 
 ## 4. Backend agreement (D2 interim)
 
