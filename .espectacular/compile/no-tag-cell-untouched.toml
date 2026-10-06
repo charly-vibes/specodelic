@@ -1,0 +1,9 @@
+id = "no-tag-cell-untouched"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "no_semantic_drift_roundtrip_is_byte_identical"

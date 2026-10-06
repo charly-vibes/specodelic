@@ -1,0 +1,9 @@
+id = "invariant-expr-cells-share-the-grammar"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "expr_cell_same_tag_grammar"

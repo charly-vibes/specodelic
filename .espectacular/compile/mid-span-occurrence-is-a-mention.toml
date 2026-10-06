@@ -1,0 +1,9 @@
+id = "mid-span-occurrence-is-a-mention"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "midspan_py_marker_is_mention"

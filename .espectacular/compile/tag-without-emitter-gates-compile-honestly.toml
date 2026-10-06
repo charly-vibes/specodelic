@@ -1,0 +1,9 @@
+id = "tag-without-emitter-gates-compile-honestly"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "py_no_emitter_fails_labeled"
