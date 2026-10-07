@@ -69,6 +69,11 @@ lint-deltas:
 model-check-specs:
     cargo run -q -- model-check specs
 
+# Epic status snapshot for autonomous orchestration (specodelic-k9v): pipeline
+# run states, in-progress tickets, unpushed commits, subagent session audit
+epic-status:
+    bash scripts/epic-status.sh
+
 # Section-sync check: in every dual-format file the ADDED Requirements
 # and Requirements sections must carry identical requirement text
 sync-sections:

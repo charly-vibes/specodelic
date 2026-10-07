@@ -1,0 +1,165 @@
+# Epic orchestrator pipeline — the session lead ORCHESTRATES ONLY.
+#
+# Each run drives exactly ONE bd ticket through delegation to a pi subagent:
+# claim → gates → brief → spawn → verify → ship → STOP.
+#
+# This pipeline exists because the 2026-10-06 session showed the orchestrator
+# role cannot be improvised mid-session: the agent drifted to inline execution,
+# spawned an ephemeral (--no-session) subagent losing usage records, chained
+# past the ticket boundary, and had no trusted status surface. All of that is
+# encoded in these step prompts instead of conversation memory.
+#
+# Usage: wai pipeline start epic-orchestrator --topic="<bd-ticket-id>: <one-line what>"
+#
+# The executor-side pipeline (run INSIDE the subagent) is `tdd-ro5`.
+
+[pipeline]
+name = "epic-orchestrator"
+description = "Orchestrate one bd ticket end-to-end via a pi subagent; lead never implements"
+
+[pipeline.metadata]
+when = "Autonomous epic execution: orchestrator delegates each ticket to a pi subagent, verifies gates, ships"
+skills = ["session"]
+
+[[steps]]
+id = "select-ticket"
+prompt = """
+{topic}: Orient on the epic and select exactly ONE ticket. You orchestrate only — do NOT implement anything yourself in this run.
+
+Run:
+- `wai prime` and `wai status`
+- `bd ready` (or the epic's open issues via `bd list`)
+- Read the openspec change's tasks.md to find the next incomplete section
+
+Select exactly one ticket. Prefer HITL gate tasks first (they unblock everything else).
+
+If selection is ambiguous, STOP and ask. Otherwise:
+- Claim it: `bd update <id> --claim`
+
+Record selection: `wai add research "TICKET: <id> — <why this one now>"`
+Advance: `wai pipeline next`
+"""
+
+[steps.gate.structural]
+min_artifacts = 1
+types = ["research"]
+
+[[steps]]
+id = "land-gates"
+prompt = """
+{topic}: Land any HITL gates that block this ticket BEFORE spawning anyone.
+
+Do:
+- Read the ticket's acceptance criteria and the openspec change's gate tasks.
+- If a gate needs the human (sign-off, decision record), surface it and stop
+  until countersigned. Never forge or assume a sign-off.
+- If no gates apply, record that explicitly.
+
+Record gates: `wai add research "GATES: <landed|none apply> — <detail>"`
+Advance: `wai pipeline next`
+"""
+
+[steps.gate.structural]
+min_artifacts = 1
+types = ["research"]
+
+[[steps]]
+id = "write-brief"
+prompt = """
+{topic}: Write the subagent brief from the shared template.
+
+Do:
+- Copy `.wai/resources/templates/subagent-brief.md` and fill in the
+  per-ticket sections ({{TICKET}}, {{TASK}}, {{SCOPE}}, {{WAI_PROJECT}}).
+- The shared boilerplate (repo facts, ratchets, commit hygiene, session
+  naming, no-push/no-close rules) is already in the template — do not
+  retype or omit it.
+- Scope guard must name exact allowed/forbidden paths for THIS ticket.
+- Save the filled brief to `.wai/projects/<project>/briefs/<ticket-id>.md`.
+
+Record brief: `wai add plan "BRIEF: <path of the filled brief>"`
+Advance: `wai pipeline next`
+"""
+
+[steps.gate.structural]
+min_artifacts = 1
+types = ["plan"]
+
+[[steps]]
+id = "spawn-subagent"
+prompt = """
+{topic}: Spawn the pi subagent with the brief. This is the ONLY execution path — the lead never edits code.
+
+Non-negotiable spawn contract:
+- `pi -p "$(cat <brief-path>)"` from the repo cwd, passing the whole brief.
+- NEVER use `--no-session` — usage/cost records would be lost.
+- Always pass `-n "subagent:<ticket-id>:<steps>"` so the session is discoverable.
+- Working tree must be clean and green before spawning (commit first if needed).
+
+Wait for the subagent to finish, then capture its final report verbatim.
+
+Record spawn: `wai add research "SPAWN: session=subagent:<ticket-id> report=<≤10-line summary>"`
+Advance: `wai pipeline next`
+"""
+
+[steps.gate.structural]
+min_artifacts = 1
+types = ["research"]
+
+[[steps]]
+id = "verify-subagent"
+prompt = """
+{topic}: Verify the subagent's landed work yourself. Trust only gates, not the report.
+
+Run:
+- `git log --oneline <pre-spawn-head>..HEAD` — commits match the report, message attribution honest (no claimed work absent from the diff)
+- `just test` — green
+- `ah check` — no NEW findings vs pre-spawn state
+- `openspec validate --all --strict` — clean
+- If the subagent ran a wai pipeline: its run file under `.wai/pipeline-runs/`
+  reached its final step, and step names in the run artifacts match what the
+  report claims (a hand-bumped YAML that skipped steps is a FAIL).
+
+If any check fails: fix forward with another bounded subagent spawn or stop
+and report — do NOT silently patch the subagent's work inline.
+
+Record verification: `wai add review "VERIFY: <each command> → <result>"`
+Advance: `wai pipeline next`
+"""
+
+[[steps.gate.oracles]]
+name = "tests-pass"
+description = "Full test suite green after subagent's work"
+timeout = 600
+
+[[steps]]
+id = "ship"
+prompt = """
+{topic}: Ship the verified ticket.
+
+Do:
+- Commit any remaining orchestrator-authored files (brief, artifacts, beads export) — staging ONLY files this run authored (`git add <paths>`, never bare `git add`)
+- `git pull --rebase && git push`; verify `git status` shows up to date
+- Close the ticket: `bd close <id>`
+- Mark the openspec tasks.md section complete if applicable
+
+Record ship: `wai add research "SHIP: <pushed range> — <ticket closed>"`
+Advance: `wai pipeline next`
+"""
+
+[steps.gate.structural]
+min_artifacts = 1
+types = ["research"]
+
+[[steps]]
+id = "stop"
+prompt = """
+{topic}: STOP. One ticket per run — do not chain to the next.
+
+Do:
+- Report the landed ticket, verification evidence, and pushed range.
+- Run `just epic-status` and include its output as the epic state snapshot.
+- Name the next candidate ticket for the NEXT run, but do not start it.
+
+Pipeline complete.
+"""
