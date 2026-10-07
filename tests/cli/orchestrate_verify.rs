@@ -296,28 +296,116 @@ fn verify_rejects_stale_model_run() {
         .stdout(contains("stale_model_run"));
 }
 
+/// A kernel-claim spec whose required claims all verify over the v0
+/// snapshot — the honest no_counterexample shape (no fabricated
+/// reports: claim-schema evidence is bound to the run, specodelic-68m.3).
+fn write_kernel_verified_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE {id} SHALL carry kernel-claim fixtures\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | ka | invariant | `**kernel:** acyclic(supersedes)` | [[{id}]] |\n\
+             | kb | invariant | `**kernel:** resolves(traces_to)` | [[{id}]] |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1\n\
+             - s2\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s2 | [[{id}.ka]] |\n\
+             \n## Properties\n\
+             \n| id | kind | derives_from | generator | predicate |\n\
+             |----|------|--------------|-----------|------------|\n\
+             | p_ka | unit | [[{id}.ka]] | `word()` | `**rust:** v0.len() >= 1` |\n\
+             | p_kb | unit | [[{id}.kb]] | `word()` | `**rust:** v0.len() >= 1` |\n"
+        ),
+    )
+    .unwrap();
+}
+
 #[test]
 fn verify_accepts_clean_report_with_current_artifacts() {
     let td = tempfile::tempdir().unwrap();
-    let (spec, out) = compile_fixture(&td, "vfix", "        let _ = v0;");
+    let spec = td.path().join("vfix.md");
+    write_kernel_verified_spec(&spec, "vfix");
+    let out = td.path().join("out");
     spk()
-        .args(["model-check", &spec, "--out-dir", &out])
+        .args([
+            "compile",
+            spec.to_str().unwrap(),
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
         .assert()
         .success();
-    // The native backend never reports no_counterexample — fabricate a
-    // clean run report for the gate test (keeping the real artifact
-    // sha so the staleness key stays current). This is the METER case:
-    // .data.status == "verified" exactly under the conjunction.
-    let report_path = td.path().join("out").join("vfix.check.json");
-    let mut report: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&report_path).unwrap()).unwrap();
-    report["outcome"] = serde_json::json!("no_counterexample");
-    std::fs::write(&report_path, serde_json::to_string(&report).unwrap()).unwrap();
     spk()
-        .args(["verify", &spec, "--out-dir", &out, "--json"])
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--out-dir",
+            &out.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    // Every required kernel claim verified over a completed bounded
+    // exploration — the METER case: .data.status == "verified" exactly
+    // under the conjunction, from real evidence (specodelic-68m.3: a
+    // syntactically valid forged report is not cryptographically
+    // trusted evidence, so this fixture no longer fabricates one).
+    spk()
+        .args([
+            "verify",
+            spec.to_str().unwrap(),
+            "--out-dir",
+            &out.to_str().unwrap(),
+            "--json",
+        ])
         .assert()
         .success()
         .stdout(contains("\"status\":\"verified\""));
+}
+
+#[test]
+fn orchestrate_refuses_combined_dual_format_scope_before_any_stage() {
+    // The D3 preflight rides orchestrate too: a dual-format id:spec
+    // file plus any other parsed input fails isolated_scope_required
+    // before lint, compile, model_check or verify write anything.
+    let td = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(td.path().join("d1")).unwrap();
+    std::fs::write(
+        td.path().join("d1/spec.md"),
+        "---\nid: spec\nkind: intent\nstatement: \"THE delta SHALL stay isolated\"\n---\n\
+         \n## Constraints\n\
+         \n| id | kind | expr | traces_to |\n\
+         |----|------|------|-----------|\n\
+         | c1 | invariant | `holds` | [[spec]] |\n",
+    )
+    .unwrap();
+    write_model_check_spec(&td.path().join("ord.md"), "ord");
+    let out = td.path().join("out");
+    let result = spk()
+        .args([
+            "orchestrate",
+            td.path().join("d1/spec.md").to_str().unwrap(),
+            td.path().join("ord.md").to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_ne!(result.status.code(), Some(0));
+    let stderr = String::from_utf8(result.stderr).unwrap();
+    assert!(stderr.contains("isolated_scope_required"), "{stderr}");
+    let stdout = String::from_utf8(result.stdout).unwrap();
+    assert!(stdout.contains("separately"), "{stdout}");
+    // Before ANY stage writes: no artifacts, no reports.
+    assert!(!out.join("spec.tla").exists());
+    assert!(!out.join("ord.tla").exists());
 }
 
 #[test]

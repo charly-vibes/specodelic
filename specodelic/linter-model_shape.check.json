@@ -1,4 +1,5 @@
 {
+  "artifact_sha256": "9c8847c38171b42c55aa285241c54c8a9ffc94d3a0a522a291da1d03a9eeba61",
   "backend": {
     "engine": "stateright",
     "version": "0.31.0"
@@ -6,8 +7,18 @@
   "bound": {
     "max_depth": 100
   },
-  "outcome": "exploration_only",
+  "claim_schema_version": 1,
+  "claims": [],
+  "expected_claim_ids": [],
   "invariants_checked": [],
-  "artifact_sha256": "9c8847c38171b42c55aa285241c54c8a9ffc94d3a0a522a291da1d03a9eeba61",
-  "states_explored": 6
+  "outcome": "exploration_only",
+  "scope_sha256": "b006925effaa6910a2f886f096dbc3cf42437c6097f4c45b392ff464dd2190fc",
+  "states_explored": 6,
+  "unchecked_claim_ids": [
+    "every_state_used",
+    "every_transition_valid",
+    "guard_present",
+    "model_sections_paired",
+    "no_bool_state_field"
+  ]
 }

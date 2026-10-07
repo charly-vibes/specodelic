@@ -1,4 +1,5 @@
 {
+  "artifact_sha256": "37df7ef6899ef9705d2dfcdc1e38dab7cdd0fe5088f801526317949da340b350",
   "backend": {
     "engine": "stateright",
     "version": "0.31.0"
@@ -6,8 +7,18 @@
   "bound": {
     "max_depth": 100
   },
-  "outcome": "exploration_only",
+  "claim_schema_version": 1,
+  "claims": [],
+  "expected_claim_ids": [],
   "invariants_checked": [],
-  "artifact_sha256": "37df7ef6899ef9705d2dfcdc1e38dab7cdd0fe5088f801526317949da340b350",
-  "states_explored": 7
+  "outcome": "exploration_only",
+  "scope_sha256": "b006925effaa6910a2f886f096dbc3cf42437c6097f4c45b392ff464dd2190fc",
+  "states_explored": 7,
+  "unchecked_claim_ids": [
+    "checklist_well_formed",
+    "covered_maps_resolve",
+    "every_item_accounted",
+    "no_duplicate_claim",
+    "waiver_has_rationale"
+  ]
 }

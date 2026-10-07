@@ -1,4 +1,5 @@
 {
+  "artifact_sha256": "e7ee2e9baff08b8157a4614e7aa827ab5fab8b1a15f50aa5901c870acd6db80f",
   "backend": {
     "engine": "stateright",
     "version": "0.31.0"
@@ -6,8 +7,26 @@
   "bound": {
     "max_depth": 100
   },
-  "outcome": "exploration_only",
+  "claim_schema_version": 1,
+  "claims": [],
+  "expected_claim_ids": [],
   "invariants_checked": [],
-  "artifact_sha256": "e7ee2e9baff08b8157a4614e7aa827ab5fab8b1a15f50aa5901c870acd6db80f",
-  "states_explored": 3
+  "outcome": "exploration_only",
+  "scope_sha256": "b006925effaa6910a2f886f096dbc3cf42437c6097f4c45b392ff464dd2190fc",
+  "states_explored": 3,
+  "unchecked_claim_ids": [
+    "advisory_first_opt_in",
+    "append_only_packs",
+    "base_closed_sets_frozen",
+    "discovery_corpus_scan",
+    "honest_empty",
+    "lifecycle_labeled",
+    "manifest_six_tables",
+    "namespaced_vocabulary",
+    "orphan_vocabulary_labeled",
+    "pack_is_profile_file",
+    "pack_self_exempt",
+    "skew_advisory",
+    "uses_is_outbound_leaf"
+  ]
 }

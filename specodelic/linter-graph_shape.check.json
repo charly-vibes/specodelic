@@ -1,4 +1,5 @@
 {
+  "artifact_sha256": "66bac5e16ac90efd1f6c0b1f26409e059806a45a45d7306063b324203341d03b",
   "backend": {
     "engine": "stateright",
     "version": "0.31.0"
@@ -6,8 +7,17 @@
   "bound": {
     "max_depth": 100
   },
-  "outcome": "exploration_only",
+  "claim_schema_version": 1,
+  "claims": [],
+  "expected_claim_ids": [],
   "invariants_checked": [],
-  "artifact_sha256": "66bac5e16ac90efd1f6c0b1f26409e059806a45a45d7306063b324203341d03b",
-  "states_explored": 5
+  "outcome": "exploration_only",
+  "scope_sha256": "b006925effaa6910a2f886f096dbc3cf42437c6097f4c45b392ff464dd2190fc",
+  "states_explored": 5,
+  "unchecked_claim_ids": [
+    "acyclic",
+    "no_self_ref",
+    "single_root_reachable",
+    "supersedes_dag"
+  ]
 }

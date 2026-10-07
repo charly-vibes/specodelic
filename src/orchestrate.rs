@@ -15,6 +15,7 @@
 //! *what* its outcome was.
 
 use serde::Serialize;
+use std::collections::BTreeMap;
 
 use crate::checklist::Checklist;
 use crate::citation_corpus;
@@ -401,6 +402,24 @@ pub fn run_claim_gated_model_check(
         specs,
         kernel::CorpusBackend::from_tlc_presence(tlc.is_some()),
     );
+    // Scope/freshness binding (design D3 — specodelic-68m.3): every
+    // file's report carries the SAME invocation digest — the structured
+    // content of ALL parsed inputs plus the compiled artifacts consumed
+    // for the invocation — plus that file's qualified claim records and
+    // canonical expected/unchecked sets. Verify recomputes every one of
+    // these from the live inputs; the stored values are never trusted.
+    let classifications: Vec<verify::ClaimClassification> =
+        specs.iter().map(verify::claim_classification).collect();
+    let artifact_hashes: std::collections::BTreeMap<String, String> = runs
+        .iter()
+        .filter_map(|r| {
+            r.result
+                .as_ref()
+                .ok()
+                .map(|rep| (r.id.clone(), rep.artifact_sha256.clone()))
+        })
+        .collect();
+    let scope_sha256 = verify::scope_digest(specs, &artifact_hashes);
     runs.into_iter()
         .enumerate()
         .map(|(idx, run)| {
@@ -421,10 +440,57 @@ pub fn run_claim_gated_model_check(
                     // merged required-claim statuses govern the verdict
                     // that is persisted and handed to verify.
                     kernel::aggregate_required_claims(&mut report);
+                    // Qualified claim records (D3): one per evaluated
+                    // invariant — the evaluator kind from the live
+                    // classification, the evaluated status, and the
+                    // labeled reason when the claim did not verify.
+                    let mut reasons: BTreeMap<&str, String> = BTreeMap::new();
+                    for r in &resolved_per_file[idx] {
+                        if let Some(reason) = &r.reason {
+                            reasons.insert(r.id.as_str(), reason.clone());
+                        }
+                    }
+                    for k in &kernel_claims[idx] {
+                        if let Some(reason) = &k.reason {
+                            reasons.insert(k.id.as_str(), reason.clone());
+                        }
+                    }
+                    let claims: Vec<verify::QualifiedClaim> = report
+                        .invariant_statuses
+                        .iter()
+                        .map(|s| verify::QualifiedClaim {
+                            id: s.id.clone(),
+                            evaluator: classifications[idx]
+                                .required
+                                .iter()
+                                .find(|req| req.id == s.id)
+                                .map(|req| req.evaluator.to_string())
+                                // A status outside the live
+                                // classification cannot exist (both
+                                // derive from the same IR); if it ever
+                                // did, the record says so and verify
+                                // fails closed on the evaluator match.
+                                .unwrap_or_else(|| "unknown".to_string()),
+                            status: s.status,
+                            reason: reasons.get(s.id.as_str()).cloned(),
+                        })
+                        .collect();
+                    let expected_claim_ids: Vec<String> = classifications[idx]
+                        .required
+                        .iter()
+                        .map(|req| req.id.clone())
+                        .collect();
+                    let report_value = verify::fresh_report_json(
+                        &report,
+                        &claims,
+                        &expected_claim_ids,
+                        &classifications[idx].unchecked,
+                        &scope_sha256,
+                    );
                     let report_path =
                         std::path::Path::new(out_dir).join(format!("{}.check.json", run.stem));
                     let report_json =
-                        serde_json::to_string_pretty(&report).expect("RunReport serializes");
+                        serde_json::to_string_pretty(&report_value).expect("run report serializes");
                     match std::fs::write(&report_path, &report_json) {
                         Ok(()) => Ok(CheckedFile {
                             file: file.clone(),

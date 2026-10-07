@@ -1,4 +1,5 @@
 {
+  "artifact_sha256": "013cb403a39358b1c2a364cda383e7a46d475cad6096388d1278c6f1d10f27ec",
   "backend": {
     "engine": "stateright",
     "version": "0.31.0"
@@ -6,8 +7,19 @@
   "bound": {
     "max_depth": 100
   },
-  "outcome": "exploration_only",
+  "claim_schema_version": 1,
+  "claims": [],
+  "expected_claim_ids": [],
   "invariants_checked": [],
-  "artifact_sha256": "013cb403a39358b1c2a364cda383e7a46d475cad6096388d1278c6f1d10f27ec",
-  "states_explored": 9
+  "outcome": "exploration_only",
+  "scope_sha256": "b006925effaa6910a2f886f096dbc3cf42437c6097f4c45b392ff464dd2190fc",
+  "states_explored": 9,
+  "unchecked_claim_ids": [
+    "atomic_operation",
+    "kind_unchanged",
+    "new_id_available",
+    "new_id_matches_filename",
+    "old_id_fully_replaced",
+    "prose_untouched_by_rename"
+  ]
 }

@@ -1,4 +1,5 @@
 {
+  "artifact_sha256": "d438d9241f48017d2fc3bfb489280c609633f9bf2c41b9788604fc58bd82f97d",
   "backend": {
     "engine": "stateright",
     "version": "0.31.0"
@@ -6,8 +7,20 @@
   "bound": {
     "max_depth": 100
   },
-  "outcome": "exploration_only",
+  "claim_schema_version": 1,
+  "claims": [],
+  "expected_claim_ids": [],
   "invariants_checked": [],
-  "artifact_sha256": "d438d9241f48017d2fc3bfb489280c609633f9bf2c41b9788604fc58bd82f97d",
-  "states_explored": 10
+  "outcome": "exploration_only",
+  "scope_sha256": "b006925effaa6910a2f886f096dbc3cf42437c6097f4c45b392ff464dd2190fc",
+  "states_explored": 10,
+  "unchecked_claim_ids": [
+    "compile_gate_matches_coverage",
+    "dependency_respecting_skip",
+    "deterministic_rerun",
+    "external_completeness_never_gating",
+    "independent_branches_run_regardless",
+    "lint_gate_matches_checker_ownership",
+    "stage_order_fixed"
+  ]
 }

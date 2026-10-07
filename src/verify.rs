@@ -16,6 +16,8 @@
 //! skips; a stale artifact is a failure, not a cached pass
 //! (`properties_pass_reflects_latest_run`, `rerun_on_model_change`).
 
+use serde::{Deserialize, Serialize};
+
 use crate::compile;
 use crate::model_check::{self, Outcome, RunReport};
 use std::fs;
@@ -190,9 +192,9 @@ pub fn verdict(properties: &PropsGateState, model: &ModelGateState) -> Verdict {
             ModelGateState::Stale { detail } => (
                 "stale_model_run",
                 format!(
-                    "the stored model-check run predates the current compiled artifact ({detail}) — a clean result on a stale artifact is not clean"
+                    "the stored model-check run is not current evidence ({detail}) — a clean result on stale or foreign evidence is not clean"
                 ),
-                "run: specodelic model-check against the current artifact".to_string(),
+                "run: specodelic model-check over the same file set and --out-dir as the original invocation, then verify again".to_string(),
             ),
             ModelGateState::Missing { detail } => (
                 "missing_model_run",
@@ -281,7 +283,7 @@ pub fn evaluate_file_verdicts(
                 .unwrap_or_else(|| format!("<{}>", spec.intent.id));
             let stem = artifact_stem(spec);
             let properties = evaluate_properties_gate(spec, out_dir, runner);
-            let model = evaluate_model_gate(out_dir, &stem);
+            let model = evaluate_model_gate(spec, specs, out_dir, &stem);
             let verdict = verdict(&properties.state, &model);
             FileVerdict {
                 file,
@@ -319,10 +321,19 @@ pub fn artifact_paths(out_dir: &Path, stem: &str) -> ArtifactPaths {
     }
 }
 
-/// The model gate: `<stem>.check.json` must parse, its `artifact_sha256`
-/// must match the current `<stem>.tla`, and its outcome must be
-/// `no_counterexample`. Fails closed on every deviation.
-pub fn evaluate_model_gate(out_dir: &Path, stem: &str) -> ModelGateState {
+/// The model gate: `<stem>.check.json` must parse, carry the current
+/// claim schema version, a scope fingerprint matching the live recomputed
+/// digest, claim records matching the live required set, an
+/// `artifact_sha256` matching the current `<stem>.tla`, and an outcome of
+/// `no_counterexample`. Fails closed on every deviation — old, stale or
+/// foreign evidence is a rerun, never an acceptance (design D3,
+/// specodelic-68m.3); the stored report is never rewritten.
+pub fn evaluate_model_gate(
+    spec: &crate::spec::Spec,
+    specs: &[crate::spec::Spec],
+    out_dir: &Path,
+    stem: &str,
+) -> ModelGateState {
     let paths = artifact_paths(out_dir, stem);
     let bytes = match fs::read(&paths.check_report) {
         Ok(b) => b,
@@ -335,7 +346,7 @@ pub fn evaluate_model_gate(out_dir: &Path, stem: &str) -> ModelGateState {
             };
         }
     };
-    let report: RunReport = match serde_json::from_slice(&bytes) {
+    let raw: serde_json::Value = match serde_json::from_slice(&bytes) {
         Ok(r) => r,
         Err(e) => {
             return ModelGateState::Missing {
@@ -346,26 +357,167 @@ pub fn evaluate_model_gate(out_dir: &Path, stem: &str) -> ModelGateState {
             };
         }
     };
-    // Staleness key: the report records the SHA-256 of the .tla it
-    // consumed; the on-disk module must still match. A missing module is
-    // un-confirmable — fail closed as stale, never clean.
-    let tla = match fs::read(&paths.tla) {
-        Ok(b) => b,
+    let report: RunReport = match serde_json::from_value(raw.clone()) {
+        Ok(r) => r,
         Err(e) => {
-            return ModelGateState::Stale {
+            return ModelGateState::Missing {
                 detail: format!(
-                    "compiled module unreadable/missing at {}: {e}",
-                    paths.tla.display()
+                    "unreadable run report at {}: {e}",
+                    paths.check_report.display()
                 ),
             };
         }
     };
-    let current_sha = model_check::artifact_sha256(&tla);
-    if model_check::is_stale(&report, &current_sha) {
+    // Claim schema freshness (D3): old or unrecognized report schema
+    // versions require a model-check rerun — they are never upgraded and
+    // no hashes are synthesized for them.
+    match raw.get("claim_schema_version").and_then(|v| v.as_u64()) {
+        Some(v) if v == CLAIM_SCHEMA_VERSION as u64 => {}
+        Some(other) => {
+            return ModelGateState::Stale {
+                detail: format!(
+                    "report claim schema version {other} is not supported (current {}) — stored reports are never upgraded or repaired",
+                    CLAIM_SCHEMA_VERSION
+                ),
+            };
+        }
+        None => {
+            return ModelGateState::Stale {
+                detail: "the stored report carries no claim schema version — old reports require a model-check rerun and are never upgraded".to_string(),
+            };
+        }
+    }
+    // Scope fingerprint (D3): recompute the digest from the live parsed
+    // inputs and the current compiled artifacts — the stored value is
+    // never trusted.
+    let Some(stored_scope) = raw.get("scope_sha256").and_then(|v| v.as_str()) else {
+        return ModelGateState::Stale {
+            detail: "the stored report carries no scope fingerprint — rerun model-check so the evidence binds the current inputs".to_string(),
+        };
+    };
+    let mut artifacts: std::collections::BTreeMap<String, String> =
+        std::collections::BTreeMap::new();
+    for s in specs {
+        let sstem = artifact_stem(s);
+        let tla_path = out_dir.join(format!("{sstem}.tla"));
+        let tla = match fs::read(&tla_path) {
+            Ok(b) => b,
+            Err(e) => {
+                return ModelGateState::Stale {
+                    detail: format!(
+                        "compiled module unreadable/missing at {}: {e} — the invocation scope cannot be recomputed",
+                        tla_path.display()
+                    ),
+                };
+            }
+        };
+        artifacts.insert(s.intent.id.clone(), model_check::artifact_sha256(&tla));
+    }
+    let current_scope = scope_digest(specs, &artifacts);
+    if stored_scope != current_scope {
         return ModelGateState::Stale {
             detail: format!(
-                "report sha {}, current {}",
-                report.artifact_sha256, current_sha
+                "scope mismatch: the stored evidence covers different structured inputs or artifacts (report {stored_scope}, current {current_scope}) — every contributing file of the original invocation must be re-checked together"
+            ),
+        };
+    }
+    // Qualified claim records (D3): the live required set is recomputed
+    // from the current inputs — duplicates are invalid evidence, missing
+    // records are incomplete evidence, extra records belong to a foreign
+    // scope, and an evaluator kind that no longer matches the live
+    // opt-in is stale.
+    let class = claim_classification(spec);
+    let Some(records) = raw.get("claims").and_then(|v| v.as_array()) else {
+        return ModelGateState::Stale {
+            detail: "the stored report carries no qualified claim records — rerun model-check"
+                .to_string(),
+        };
+    };
+    let mut seen: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+    for rec in records {
+        let id = rec.get("id").and_then(|v| v.as_str()).unwrap_or("");
+        if !seen.insert(id) {
+            return ModelGateState::Stale {
+                detail: format!(
+                    "duplicate claim record {id:?} — the stored evidence is internally inconsistent"
+                ),
+            };
+        }
+    }
+    for req in &class.required {
+        let Some(rec) = records
+            .iter()
+            .find(|r| r.get("id").and_then(|v| v.as_str()) == Some(req.id.as_str()))
+        else {
+            return ModelGateState::Stale {
+                detail: format!(
+                    "missing required claim record {:?} — the stored evidence is incomplete for the current inputs",
+                    req.id
+                ),
+            };
+        };
+        let stored_eval = rec.get("evaluator").and_then(|v| v.as_str()).unwrap_or("");
+        if stored_eval != req.evaluator {
+            return ModelGateState::Stale {
+                detail: format!(
+                    "claim record {:?} was evaluated by {:?} but the current inputs opt it into {:?}",
+                    req.id, stored_eval, req.evaluator
+                ),
+            };
+        }
+    }
+    for id in seen.iter() {
+        if !class.required.iter().any(|req| req.id == *id) {
+            return ModelGateState::Stale {
+                detail: format!(
+                    "claim record {id:?} is not required by the current inputs — the stored evidence belongs to a different scope"
+                ),
+            };
+        }
+    }
+    // The advisory expected/unchecked sets must agree with the live
+    // recompute — a disagreement means the report predates the inputs.
+    let live_expected: Vec<String> = class.required.iter().map(|r| r.id.clone()).collect();
+    let live_unchecked = &class.unchecked;
+    let stored_expected: Vec<String> = raw
+        .get("expected_claim_ids")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    if stored_expected != live_expected {
+        return ModelGateState::Stale {
+            detail: "the stored expected_claim_ids do not match the live required set — rerun model-check over the same file set".to_string(),
+        };
+    }
+    let stored_unchecked: Vec<String> = raw
+        .get("unchecked_claim_ids")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    if &stored_unchecked != live_unchecked {
+        return ModelGateState::Stale {
+            detail: "the stored unchecked_claim_ids do not match the live unchecked set — rerun model-check over the same file set".to_string(),
+        };
+    }
+    // Artifact staleness key: the report records the SHA-256 of the .tla
+    // it consumed; the on-disk module must still match (belt and braces —
+    // the scope digest binds the same module).
+    let current_sha = artifacts
+        .get(&spec.intent.id)
+        .expect("this spec is part of the invocation");
+    if model_check::is_stale(&report, current_sha) {
+        return ModelGateState::Stale {
+            detail: format!(
+                "report sha {}, current {current_sha}",
+                report.artifact_sha256
             ),
         };
     }
@@ -447,6 +599,165 @@ pub fn evaluate_properties_gate(
             blocks: vec![],
         },
     }
+}
+
+// ---------------------------------------------------------------------------
+// Claim classification and scope binding (define-verification-claim-gates,
+// design D3 — specodelic-68m.3): the report schema version, the live claim
+// partition, and the canonical scope digest shared by the model-check write
+// path (orchestrate) and verify's freshness gate.
+// ---------------------------------------------------------------------------
+
+/// The claim report schema version a persisted run report carries. Old or
+/// unrecognized versions are never upgraded — they require a model-check
+/// rerun (no hashes are synthesized for old reports).
+pub const CLAIM_SCHEMA_VERSION: u32 = 1;
+
+/// One required claim's live classification: the Constraints-table id and
+/// the evaluator kind that opted the row into command evaluation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequiredClaim {
+    pub id: String,
+    pub evaluator: &'static str,
+}
+
+/// One qualified claim record persisted in a run report (D3): the
+/// Constraints-table id, the evaluator kind, the evaluated status, and the
+/// labeled reason when (and only when) the status is not verified.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QualifiedClaim {
+    pub id: String,
+    pub evaluator: String,
+    pub status: compile::ThreeValued,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+/// The live claim partition of one spec (design D1): which invariant rows
+/// are required claims (opted into rust, citation, or kernel evaluation)
+/// and which stay explicitly unchecked prose — prose never becomes
+/// executable by implication.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ClaimClassification {
+    /// Required claims, sorted by id (the canonical order).
+    pub required: Vec<RequiredClaim>,
+    /// Unchecked invariant rows, sorted by id.
+    pub unchecked: Vec<String>,
+}
+
+/// Classify one spec's Constraints rows from its extracted IR: a row is a
+/// required claim exactly when its expr opts into one of the three
+/// evaluators (`**rust:**` fragment, whole-cell citation expression,
+/// kernel expression); every other invariant row is explicitly unchecked.
+pub fn claim_classification(spec: &crate::spec::Spec) -> ClaimClassification {
+    let ir = compile::extract_model_ir(spec);
+    let mut class = ClaimClassification::default();
+    for row in &spec.constraints {
+        if row.kind.as_deref() != Some("invariant") {
+            continue;
+        }
+        let evaluator = if ir.invariants.iter().any(|inv| inv.id == row.id) {
+            "rust"
+        } else if ir.guard_citations.contains_key(&row.id) {
+            "citation"
+        } else if ir.guard_kernel.contains_key(&row.id) {
+            "kernel"
+        } else {
+            class.unchecked.push(row.id.clone());
+            continue;
+        };
+        class.required.push(RequiredClaim {
+            id: row.id.clone(),
+            evaluator,
+        });
+    }
+    class.required.sort_by(|a, b| a.id.cmp(&b.id));
+    class.unchecked.sort();
+    class
+}
+
+/// The canonical scope digest (D3): SHA-256 over a deterministic
+/// serialization — its encoding version bound to CLAIM_SCHEMA_VERSION —
+/// of every parsed file's structured content plus the compiled artifact
+/// hashes consumed for the invocation. Files sort by canonical intent id,
+/// maps by key, meaningful row/state order is preserved; prose bodies,
+/// absolute paths, byte spans, timestamps and CLI file order are
+/// excluded. Identical structured inputs intentionally produce identical
+/// digests; files differing in invariant content never collide. Generator
+/// cells ride the structured content itself, so the consumed generator
+/// definitions are bound; the command path consumes no separate pack
+/// registry input.
+///
+/// `artifacts` maps intent id → SHA-256 of the compiled module the
+/// invocation consumed (an absent entry digests as `null`: a contributing
+/// file whose module was not consumed binds no artifact, and any later
+/// recomputation that reads one mismatches — failing closed).
+pub fn scope_digest(
+    specs: &[crate::spec::Spec],
+    artifacts: &std::collections::BTreeMap<String, String>,
+) -> String {
+    let mut files: Vec<(&str, serde_json::Value)> = specs
+        .iter()
+        .map(|spec| {
+            (
+                spec.intent.id.as_str(),
+                serde_json::json!({
+                    "intent": spec.intent,
+                    "constraints": spec.constraints,
+                    "states": spec.states,
+                    "transitions": spec.transitions,
+                    "properties": spec.properties,
+                    "links": spec.links,
+                    "artifact": artifacts.get(&spec.intent.id),
+                }),
+            )
+        })
+        .collect();
+    files.sort_by(|a, b| a.0.cmp(b.0));
+    let files: Vec<serde_json::Value> = files.into_iter().map(|(_, v)| v).collect();
+    let payload = serde_json::json!({
+        "claim_schema_version": CLAIM_SCHEMA_VERSION,
+        "files": files,
+    });
+    let canonical = serde_json::to_string(&payload).expect("scope payload serializes");
+    model_check::artifact_sha256(canonical.as_bytes())
+}
+
+/// The write-side report shape (D3): the run report's serialized JSON with
+/// the claim-freshness fields injected — `claim_schema_version`, qualified
+/// `claims`, `expected_claim_ids`, `unchecked_claim_ids`, and
+/// `scope_sha256`. The ONE place these fields are attached to a persisted
+/// report; verify recomputes all of them from the live inputs and never
+/// trusts the stored values.
+pub fn fresh_report_json(
+    report: &RunReport,
+    claims: &[QualifiedClaim],
+    expected_claim_ids: &[String],
+    unchecked_claim_ids: &[String],
+    scope_sha256: &str,
+) -> serde_json::Value {
+    let mut json = serde_json::to_value(report).expect("RunReport serializes");
+    let obj = json
+        .as_object_mut()
+        .expect("RunReport serializes to an object");
+    obj.insert(
+        "claim_schema_version".into(),
+        serde_json::json!(CLAIM_SCHEMA_VERSION),
+    );
+    obj.insert(
+        "claims".into(),
+        serde_json::to_value(claims).expect("claims serialize"),
+    );
+    obj.insert(
+        "expected_claim_ids".into(),
+        serde_json::json!(expected_claim_ids),
+    );
+    obj.insert(
+        "unchecked_claim_ids".into(),
+        serde_json::json!(unchecked_claim_ids),
+    );
+    obj.insert("scope_sha256".into(), serde_json::json!(scope_sha256));
+    json
 }
 
 // ---------------------------------------------------------------------------
@@ -814,6 +1125,54 @@ mod tests {
         crate::spec::parse_str(text).expect("fixture parses")
     }
 
+    /// A minimal spec with no Constraints rows — intent id `vfix` (no
+    /// path, so the artifact stem is `vfix`) and an empty claim
+    /// classification, matching the fabricated empty claim set.
+    fn vfix_spec() -> crate::spec::Spec {
+        spec_of(
+            "---\nid: vfix\nkind: intent\nstatement: \"THE vfix SHALL be a model-gate fixture\"\n---\n",
+        )
+    }
+
+    /// Write `report` as a fresh claim-schema report (design D3): the
+    /// freshness fields injected coherently for `spec` — the scope
+    /// digest computed over the on-disk `vfix.tla`, the live claim
+    /// classification, the evaluated statuses carried verbatim.
+    fn write_fresh_report(dir: &Path, spec: &crate::spec::Spec, report: &RunReport) {
+        let class = claim_classification(spec);
+        let tla = std::fs::read(dir.join("vfix.tla")).unwrap_or_default();
+        let mut artifacts = std::collections::BTreeMap::new();
+        artifacts.insert(spec.intent.id.clone(), model_check::artifact_sha256(&tla));
+        let expected: Vec<String> = class.required.iter().map(|r| r.id.clone()).collect();
+        let claims: Vec<QualifiedClaim> = report
+            .invariant_statuses
+            .iter()
+            .map(|s| QualifiedClaim {
+                id: s.id.clone(),
+                evaluator: class
+                    .required
+                    .iter()
+                    .find(|r| r.id == s.id)
+                    .map(|r| r.evaluator.to_string())
+                    .unwrap_or_else(|| "unknown".into()),
+                status: s.status,
+                reason: None,
+            })
+            .collect();
+        let json = fresh_report_json(
+            report,
+            &claims,
+            &expected,
+            &class.unchecked,
+            &scope_digest(std::slice::from_ref(spec), &artifacts),
+        );
+        std::fs::write(
+            dir.join("vfix.check.json"),
+            serde_json::to_string(&json).unwrap(),
+        )
+        .unwrap();
+    }
+
     // --- verdict (both_gates_required and the failure precedence) ---
 
     #[test]
@@ -1014,7 +1373,8 @@ mod tests {
     #[test]
     fn model_gate_missing_report() {
         let dir = tempfile::tempdir().unwrap();
-        let g = evaluate_model_gate(dir.path(), "vfix");
+        let spec = vfix_spec();
+        let g = evaluate_model_gate(&spec, std::slice::from_ref(&spec), dir.path(), "vfix");
         match g {
             ModelGateState::Missing { .. } => {}
             other => panic!("expected Missing, got {other:?}"),
@@ -1025,7 +1385,8 @@ mod tests {
     fn model_gate_unreadable_report_fails_closed() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("vfix.check.json"), "not json").unwrap();
-        let g = evaluate_model_gate(dir.path(), "vfix");
+        let spec = vfix_spec();
+        let g = evaluate_model_gate(&spec, std::slice::from_ref(&spec), dir.path(), "vfix");
         match g {
             ModelGateState::Missing { detail } => {
                 assert!(detail.contains("unreadable"), "detail: {detail}");
@@ -1037,6 +1398,7 @@ mod tests {
     #[test]
     fn model_gate_stale_when_artifact_changed() {
         let dir = tempfile::tempdir().unwrap();
+        let spec = vfix_spec();
         let report = RunReport {
             backend: crate::model_check::Backend {
                 engine: "test".into(),
@@ -1055,13 +1417,9 @@ mod tests {
             artifact_sha256: "0".repeat(64),
             states_explored: 1,
         };
-        std::fs::write(
-            dir.path().join("vfix.check.json"),
-            serde_json::to_string(&report).unwrap(),
-        )
-        .unwrap();
         std::fs::write(dir.path().join("vfix.tla"), "MODULE now — END").unwrap();
-        let g = evaluate_model_gate(dir.path(), "vfix");
+        write_fresh_report(dir.path(), &spec, &report);
+        let g = evaluate_model_gate(&spec, std::slice::from_ref(&spec), dir.path(), "vfix");
         match g {
             ModelGateState::Stale { .. } => {}
             other => panic!("expected Stale, got {other:?}"),
@@ -1071,6 +1429,7 @@ mod tests {
     #[test]
     fn model_gate_stale_when_module_gone() {
         let dir = tempfile::tempdir().unwrap();
+        let spec = vfix_spec();
         let report = RunReport {
             backend: crate::model_check::Backend {
                 engine: "test".into(),
@@ -1089,13 +1448,9 @@ mod tests {
             artifact_sha256: "0".repeat(64),
             states_explored: 1,
         };
-        std::fs::write(
-            dir.path().join("vfix.check.json"),
-            serde_json::to_string(&report).unwrap(),
-        )
-        .unwrap();
+        write_fresh_report(dir.path(), &spec, &report);
         // no .tla at all — the stored run cannot be confirmed current
-        let g = evaluate_model_gate(dir.path(), "vfix");
+        let g = evaluate_model_gate(&spec, std::slice::from_ref(&spec), dir.path(), "vfix");
         match g {
             ModelGateState::Stale { detail } => {
                 assert!(detail.contains("unreadable") || detail.contains("missing"));
@@ -1107,6 +1462,7 @@ mod tests {
     #[test]
     fn model_gate_clean_and_not_clean_outcomes() {
         let dir = tempfile::tempdir().unwrap();
+        let spec = vfix_spec();
         let tla = "MODULE vfix ---- END";
         std::fs::write(dir.path().join("vfix.tla"), tla).unwrap();
         let sha = model_check::artifact_sha256(tla.as_bytes());
@@ -1143,12 +1499,11 @@ mod tests {
                 artifact_sha256: sha.clone(),
                 states_explored: 1,
             };
-            std::fs::write(
-                dir.path().join("vfix.check.json"),
-                serde_json::to_string(&report).unwrap(),
-            )
-            .unwrap();
-            assert_eq!(evaluate_model_gate(dir.path(), "vfix"), want);
+            write_fresh_report(dir.path(), &spec, &report);
+            assert_eq!(
+                evaluate_model_gate(&spec, std::slice::from_ref(&spec), dir.path(), "vfix"),
+                want
+            );
         }
     }
 

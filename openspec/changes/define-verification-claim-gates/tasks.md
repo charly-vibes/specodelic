@@ -13,13 +13,13 @@ separate TIDY ticket is mapped below; keep refactoring commits separate. Preserv
       after the command fixtures pass unchanged.
 
 ## 2. Evidence belongs to the current scope
-- [ ] 2.1 RED: old report, missing/duplicate claim, reversed file order,
+- [x] 2.1 RED: old report, missing/duplicate claim, reversed file order,
       cross-file edit, missing input, and artifact mismatch fixtures. Two
       dual-format files with identical local claim IDs but opposite outcomes
       fail combined invocation as isolated_scope_required; separate runs
       preserve outcomes, differ in digest and reject swapped reports. Pin
       the same preflight in CLI/orchestrate and preserve multi-file lint.
-- [ ] 2.2 GREEN: versioned report, canonical input digest, live required-set
+- [x] 2.2 GREEN: versioned report, canonical input digest, live required-set
       comparison, and rerun hints. No hashes synthesized for old reports.
 - [ ] 2.3 TIDY: separate ticket/commit shares scope encoding across commands.
 

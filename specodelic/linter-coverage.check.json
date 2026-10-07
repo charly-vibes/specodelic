@@ -1,4 +1,5 @@
 {
+  "artifact_sha256": "f62466572dbfdae623cb1af3fac6ca6f2fc6fc68fe875f0d09eb745ea5868058",
   "backend": {
     "engine": "stateright",
     "version": "0.31.0"
@@ -6,8 +7,17 @@
   "bound": {
     "max_depth": 100
   },
-  "outcome": "exploration_only",
+  "claim_schema_version": 1,
+  "claims": [],
+  "expected_claim_ids": [],
   "invariants_checked": [],
-  "artifact_sha256": "f62466572dbfdae623cb1af3fac6ca6f2fc6fc68fe875f0d09eb745ea5868058",
-  "states_explored": 6
+  "outcome": "exploration_only",
+  "scope_sha256": "b006925effaa6910a2f886f096dbc3cf42437c6097f4c45b392ff464dd2190fc",
+  "states_explored": 6,
+  "unchecked_claim_ids": [
+    "coverage_is_computable",
+    "every_constraint_covered",
+    "every_law_has_cases",
+    "no_orphan_property"
+  ]
 }

@@ -1,4 +1,5 @@
 {
+  "artifact_sha256": "38516081a7ed6c1ba84387ebc4d1b3c640ce184c490a8d3107bfb3ceef59451e",
   "backend": {
     "engine": "stateright",
     "version": "0.31.0"
@@ -6,8 +7,36 @@
   "bound": {
     "max_depth": 100
   },
-  "outcome": "exploration_only",
+  "claim_schema_version": 1,
+  "claims": [],
+  "expected_claim_ids": [],
   "invariants_checked": [],
-  "artifact_sha256": "38516081a7ed6c1ba84387ebc4d1b3c640ce184c490a8d3107bfb3ceef59451e",
-  "states_explored": 6
+  "outcome": "exploration_only",
+  "scope_sha256": "b006925effaa6910a2f886f096dbc3cf42437c6097f4c45b392ff464dd2190fc",
+  "states_explored": 6,
+  "unchecked_claim_ids": [
+    "acyclic_traces",
+    "append_only_variants",
+    "constraint_kind_closed",
+    "coverage",
+    "ears_statement",
+    "every_state_used",
+    "every_transition_valid",
+    "frontmatter_valid",
+    "guard_required",
+    "id_matches_file",
+    "law_requires_cases",
+    "model_present",
+    "no_boolean_columns",
+    "no_counterexample",
+    "one_capability_per_row",
+    "properties_pass",
+    "property_kind_closed",
+    "prose_untouched",
+    "ref_kind_compatible",
+    "single_root_reachable",
+    "supersedes_acyclic",
+    "total_refs",
+    "unique_id"
+  ]
 }

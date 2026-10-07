@@ -1,4 +1,5 @@
 {
+  "artifact_sha256": "59f1e62e1fd93006a7b12b9b64dfa31fcf0044b11e8aeaecb68a6b5719ff37ef",
   "backend": {
     "engine": "stateright",
     "version": "0.31.0"
@@ -6,8 +7,17 @@
   "bound": {
     "max_depth": 100
   },
-  "outcome": "exploration_only",
+  "claim_schema_version": 1,
+  "claims": [],
+  "expected_claim_ids": [],
   "invariants_checked": [],
-  "artifact_sha256": "59f1e62e1fd93006a7b12b9b64dfa31fcf0044b11e8aeaecb68a6b5719ff37ef",
-  "states_explored": 4
+  "outcome": "exploration_only",
+  "scope_sha256": "b006925effaa6910a2f886f096dbc3cf42437c6097f4c45b392ff464dd2190fc",
+  "states_explored": 4,
+  "unchecked_claim_ids": [
+    "has_id",
+    "has_kind",
+    "has_statement",
+    "id_matches_file"
+  ]
 }

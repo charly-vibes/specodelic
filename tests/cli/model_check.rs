@@ -841,3 +841,494 @@ fn no_required_claims_stay_explicitly_unchecked() {
     // directly: the empty-required-set report is not clean.
     assert_eq!(vjson["data"]["blocked"][0]["model"]["state"], "not_clean");
 }
+
+// ---- specodelic-68m.3: evidence belongs to the current scope ----
+// (define-verification-claim-gates tasks 2.1; design D3). A stored
+// report binds claim_schema_version 1, its qualified claim records and
+// a scope digest of the structured inputs plus consumed artifacts;
+// verify recomputes both from the live invocation and rejects stale,
+// foreign or old evidence with a rerun hint — never rewriting a stored
+// report to manufacture evidence. Reordering CLI paths and prose-only
+// edits preserve the digest; separate dual-format runs bind their own
+// structured contents, so swapped reports are rejected.
+
+/// Kernel claims that all verify over the v0 snapshot — the freshness
+/// fixtures' clean-evidence shape, evaluated in-process (no cargo on the
+/// model-check leg, so the fixture is deterministic under parallel load).
+fn scope_verified_rows(id: &str) -> String {
+    format!(
+        "| ka | invariant | `**kernel:** acyclic(supersedes)` | [[{id}]] |\n\
+         | kb | invariant | `**kernel:** resolves(traces_to)` | [[{id}]] |\n"
+    )
+}
+
+fn scope_props(id: &str) -> String {
+    "| p_ka | unit | [[".to_string()
+        + id
+        + ".ka]] | `word()` | `**rust:** v0.len() >= 1` |\n"
+        + "| p_kb | unit | [["
+        + id
+        + ".kb]] | `word()` | `**rust:** v0.len() >= 1` |\n"
+}
+
+fn write_scope_spec(path: &std::path::Path, id: &str, rows: &str, props: &str) {
+    write_claim_spec(path, id, rows, props, "ka");
+}
+
+/// A two-file ordinary corpus, each file verified clean — the starting
+/// point for every scope-freshness fixture.
+fn write_scope_pair(dir: &std::path::Path) -> (String, String) {
+    let a = dir.join("scp_a.md");
+    let b = dir.join("scp_b.md");
+    write_scope_spec(
+        &a,
+        "scp_a",
+        &scope_verified_rows("scp_a"),
+        &scope_props("scp_a"),
+    );
+    write_scope_spec(
+        &b,
+        "scp_b",
+        &scope_verified_rows("scp_b"),
+        &scope_props("scp_b"),
+    );
+    (
+        a.to_str().unwrap().to_string(),
+        b.to_str().unwrap().to_string(),
+    )
+}
+
+/// Compile a batch into `out` (model-check consumes compile's output —
+/// it never re-compiles).
+fn scope_compile(specs: &[&str], out: &std::path::Path) {
+    let mut args = vec!["compile".to_string()];
+    args.extend(specs.iter().map(|s| s.to_string()));
+    args.push("--out-dir".to_string());
+    args.push(out.to_str().unwrap().to_string());
+    spk().args(&args).assert().success();
+}
+
+/// Model-check a batch, returning (exit code, parsed envelope).
+/// Remove the compiled props artifacts so verify's properties gate is
+/// deterministically `missing_artifact` (never a real cargo run) — the
+/// freshness fixtures pin the model gate, not the properties gate.
+fn drop_props(out: &std::path::Path, stems: &[&str]) {
+    for stem in stems {
+        let _ = std::fs::remove_file(out.join(format!("{stem}_props.rs")));
+    }
+}
+
+fn mc_batch(specs: &[&str], out: &std::path::Path) -> (Option<i32>, serde_json::Value) {
+    let mut args = vec!["model-check".to_string()];
+    args.extend(specs.iter().map(|s| s.to_string()));
+    args.extend([
+        "--json".to_string(),
+        "--out-dir".to_string(),
+        out.to_str().unwrap().to_string(),
+    ]);
+    let result = spk().args(&args).output().unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    let code = result.status.code();
+    assert_eq!(
+        code,
+        Some(0),
+        "model-check must produce the report the fixture manipulates: {json}"
+    );
+    (code, json)
+}
+
+/// Verify a batch, returning (exit code, parsed envelope).
+fn verify_batch(specs: &[&str], out: &std::path::Path) -> (Option<i32>, serde_json::Value) {
+    let mut args = vec!["verify".to_string()];
+    args.extend(specs.iter().map(|s| s.to_string()));
+    args.extend([
+        "--json".to_string(),
+        "--out-dir".to_string(),
+        out.to_str().unwrap().to_string(),
+    ]);
+    let result = spk().args(&args).output().unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    (result.status.code(), json)
+}
+
+/// The persisted run report for the given stem.
+fn read_check_report(out: &std::path::Path, stem: &str) -> serde_json::Value {
+    serde_json::from_str(&std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap())
+        .unwrap()
+}
+
+fn write_check_report(out: &std::path::Path, stem: &str, report: &serde_json::Value) {
+    std::fs::write(
+        out.join(format!("{stem}.check.json")),
+        serde_json::to_string_pretty(report).unwrap(),
+    )
+    .unwrap();
+}
+
+/// The scope digest a stored report carries — fails with the intended
+/// reason when the report has none (the RED signal for 68m.3 GREEN).
+fn scope_digest_of(report: &serde_json::Value) -> String {
+    report["scope_sha256"]
+        .as_str()
+        .unwrap_or_else(|| panic!("stored report carries no scope_sha256 fingerprint: {report}"))
+        .to_string()
+}
+
+/// A dual-format id:spec delta whose c1 exec invariant verifies or
+/// refutes — identical local claim ids (c1, c2) either way, opposite
+/// outcomes.
+fn write_dual68(dir: &std::path::Path, passing: bool) -> String {
+    std::fs::create_dir_all(dir).unwrap();
+    let fragment = if passing {
+        "state != \"blackhole\""
+    } else {
+        "state != \"s2\""
+    };
+    let path = dir.join("spec.md");
+    std::fs::write(
+        &path,
+        format!(
+            "---\nid: spec\nkind: intent\nstatement: \"THE delta SHALL be a scope-isolation fixture\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | c1 | invariant | `**rust:** {fragment}` | [[spec]] |\n\
+             | c2 | invariant | `[[spec.c1]]` | [[spec]] |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1\n\
+             - s2\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s2 | [[spec.c1]] |\n\
+             \n## Properties\n\
+             \n| id | kind | derives_from | generator | predicate |\n\
+             |----|------|--------------|-----------|------------|\n\
+             | p_c1 | unit | [[spec.c1]] | `word()` | `**rust:** v0.len() >= 1` |\n\
+             | p_c2 | unit | [[spec.c2]] | `word()` | `**rust:** v0.len() >= 1` |\n"
+        ),
+    )
+    .unwrap();
+    path.to_str().unwrap().to_string()
+}
+
+#[test]
+fn report_binds_schema_claims_and_scope_digest() {
+    let td = tempfile::tempdir().unwrap();
+    let (a, _b) = write_scope_pair(td.path());
+    let out = td.path().join("out");
+    scope_compile(&[a.as_str()], &out);
+    let (code, _json) = mc_batch(&[a.as_str()], &out);
+    assert_eq!(code, Some(0));
+    let report = read_check_report(&out, "scp_a");
+    assert_eq!(report["claim_schema_version"], 1);
+    let digest = scope_digest_of(&report);
+    assert_eq!(digest.len(), 64);
+    // Canonical qualified claim records: the required rust claim with
+    // its evaluator kind; expected ids match the live required set.
+    let claims = report["claims"].as_array().unwrap();
+    assert_eq!(claims.len(), 2);
+    assert_eq!(claims[0]["id"], "ka");
+    assert_eq!(claims[0]["evaluator"], "kernel");
+    assert_eq!(claims[0]["status"], "verified");
+    assert_eq!(claims[1]["id"], "kb");
+    assert_eq!(claims[1]["evaluator"], "kernel");
+    assert_eq!(
+        report["expected_claim_ids"],
+        serde_json::json!(["ka", "kb"])
+    );
+    assert_eq!(report["unchecked_claim_ids"], serde_json::json!([]));
+}
+
+#[test]
+fn old_report_requires_model_check_rerun() {
+    let td = tempfile::tempdir().unwrap();
+    let (a, _b) = write_scope_pair(td.path());
+    let out = td.path().join("out");
+    scope_compile(&[a.as_str()], &out);
+    mc_batch(&[a.as_str()], &out);
+    // Simulate a pre-claim-schema report: no version, no scope
+    // fingerprint, no claim records.
+    let mut old = read_check_report(&out, "scp_a");
+    for key in [
+        "claim_schema_version",
+        "scope_sha256",
+        "claims",
+        "expected_claim_ids",
+        "unchecked_claim_ids",
+    ] {
+        old.as_object_mut().unwrap().remove(key);
+    }
+    write_check_report(&out, "scp_a", &old);
+    let before = std::fs::read_to_string(out.join("scp_a.check.json")).unwrap();
+    drop_props(&out, &["scp_a"]);
+    let (vcode, vjson) = verify_batch(&[a.as_str()], &out);
+    assert_eq!(vcode, Some(1), "old reports never verify: {vjson}");
+    // The MODEL gate is what rejected the evidence — assert it directly
+    // (the top-level verdict names whichever gate blocked first).
+    let entry = &vjson["data"]["blocked"][0];
+    assert_eq!(entry["model"]["state"], "stale");
+    assert!(
+        entry["model"]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("claim schema"),
+        "names the schema gap: {entry}"
+    );
+    // No report rewriting to manufacture evidence: the stored file is
+    // byte-identical after the rejected verify.
+    let after = std::fs::read_to_string(out.join("scp_a.check.json")).unwrap();
+    assert_eq!(before, after);
+}
+
+#[test]
+fn unrecognized_claim_schema_version_requires_rerun() {
+    let td = tempfile::tempdir().unwrap();
+    let (a, _b) = write_scope_pair(td.path());
+    let out = td.path().join("out");
+    scope_compile(&[a.as_str()], &out);
+    mc_batch(&[a.as_str()], &out);
+    let mut future = read_check_report(&out, "scp_a");
+    future["claim_schema_version"] = serde_json::json!(99);
+    write_check_report(&out, "scp_a", &future);
+    drop_props(&out, &["scp_a"]);
+    let (vcode, vjson) = verify_batch(&[a.as_str()], &out);
+    assert_eq!(vcode, Some(1), "unrecognized schema versions never verify");
+    let entry = &vjson["data"]["blocked"][0];
+    assert_eq!(entry["model"]["state"], "stale");
+    assert!(
+        entry["model"]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("claim schema"),
+        "{entry}"
+    );
+}
+
+#[test]
+fn missing_claim_record_requires_rerun() {
+    let td = tempfile::tempdir().unwrap();
+    let (a, _b) = write_scope_pair(td.path());
+    let out = td.path().join("out");
+    scope_compile(&[a.as_str()], &out);
+    mc_batch(&[a.as_str()], &out);
+    // Drop one required claim's record from the stored evidence.
+    let mut report = read_check_report(&out, "scp_a");
+    for key in ["claims", "invariant_statuses", "expected_claim_ids"] {
+        if let Some(arr) = report[key].as_array_mut() {
+            arr.retain(|s| s["id"].as_str() != Some("ka"));
+        }
+    }
+    write_check_report(&out, "scp_a", &report);
+    drop_props(&out, &["scp_a"]);
+    let (vcode, vjson) = verify_batch(&[a.as_str()], &out);
+    assert_eq!(vcode, Some(1), "missing required claims never verify");
+    let entry = &vjson["data"]["blocked"][0];
+    assert_eq!(entry["model"]["state"], "stale");
+    assert!(
+        entry["model"]["detail"].as_str().unwrap().contains("ka"),
+        "names the missing claim: {entry}"
+    );
+}
+
+#[test]
+fn duplicate_claim_record_rejected() {
+    let td = tempfile::tempdir().unwrap();
+    let (a, _b) = write_scope_pair(td.path());
+    let out = td.path().join("out");
+    scope_compile(&[a.as_str()], &out);
+    mc_batch(&[a.as_str()], &out);
+    let mut report = read_check_report(&out, "scp_a");
+    for key in ["claims", "invariant_statuses"] {
+        let dup = report[key][0].clone();
+        report[key].as_array_mut().unwrap().push(dup);
+    }
+    write_check_report(&out, "scp_a", &report);
+    drop_props(&out, &["scp_a"]);
+    let (vcode, vjson) = verify_batch(&[a.as_str()], &out);
+    assert_eq!(
+        vcode,
+        Some(1),
+        "duplicate claim records are invalid evidence"
+    );
+    let entry = &vjson["data"]["blocked"][0];
+    assert_eq!(entry["model"]["state"], "stale");
+    assert!(
+        entry["model"]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("duplicate"),
+        "{entry}"
+    );
+}
+
+#[test]
+fn reversed_order_and_prose_edits_preserve_scope_digest() {
+    let td = tempfile::tempdir().unwrap();
+    let (a, b) = write_scope_pair(td.path());
+    let fwd = td.path().join("fwd");
+    let rev = td.path().join("rev");
+    scope_compile(&[a.as_str(), b.as_str()], &fwd);
+    mc_batch(&[a.as_str(), b.as_str()], &fwd);
+    scope_compile(&[b.as_str(), a.as_str()], &rev);
+    mc_batch(&[b.as_str(), a.as_str()], &rev);
+    // CLI file order is excluded: the digest binds structured content.
+    let digest_fwd = scope_digest_of(&read_check_report(&fwd, "scp_a"));
+    let digest_rev = scope_digest_of(&read_check_report(&rev, "scp_a"));
+    assert_eq!(digest_fwd, digest_rev);
+    // Prose-only edits never parse, so they preserve the digest too.
+    let prose = std::fs::read_to_string(&a).unwrap()
+        + "\n## Notes\n\nJust prose — never parsed, never part of the scope.\n";
+    std::fs::write(&a, prose).unwrap();
+    let prose_out = td.path().join("prose");
+    scope_compile(&[a.as_str(), b.as_str()], &prose_out);
+    mc_batch(&[a.as_str(), b.as_str()], &prose_out);
+    let digest_prose = scope_digest_of(&read_check_report(&prose_out, "scp_a"));
+    assert_eq!(digest_fwd, digest_prose);
+}
+
+#[test]
+fn cross_file_edit_invalidates_clean_report() {
+    let td = tempfile::tempdir().unwrap();
+    let (a, b) = write_scope_pair(td.path());
+    let out = td.path().join("out");
+    scope_compile(&[a.as_str(), b.as_str()], &out);
+    mc_batch(&[a.as_str(), b.as_str()], &out);
+    // b changes structurally after the reports were written.
+    let edited = std::fs::read_to_string(&b)
+        .unwrap()
+        .replace("resolves(traces_to)", "unique(traces_to)");
+    std::fs::write(&b, edited).unwrap();
+    spk()
+        .args(["compile", b.as_str(), "--out-dir", out.to_str().unwrap()])
+        .assert()
+        .success();
+    // a's stored evidence covered the old b: the whole invocation scope
+    // is stale, so a's clean report must not verify either.
+    drop_props(&out, &["scp_a", "scp_b"]);
+    let (vcode, vjson) = verify_batch(&[a.as_str(), b.as_str()], &out);
+    assert_eq!(vcode, Some(1));
+    let blocked = vjson["data"]["blocked"].as_array().unwrap();
+    let a_entry = blocked
+        .iter()
+        .find(|e| e["id"] == "scp_a")
+        .unwrap_or_else(|| panic!("scp_a must be blocked: {vjson}"));
+    assert_eq!(a_entry["model"]["state"], "stale");
+    assert!(
+        a_entry["model"]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("scope"),
+        "names the scope mismatch: {a_entry}"
+    );
+}
+
+#[test]
+fn dropped_input_invalidates_report() {
+    let td = tempfile::tempdir().unwrap();
+    let (a, b) = write_scope_pair(td.path());
+    let out = td.path().join("out");
+    scope_compile(&[a.as_str(), b.as_str()], &out);
+    mc_batch(&[a.as_str(), b.as_str()], &out);
+    // Verify with b dropped from the invocation: a's evidence covered a
+    // two-file scope, so a alone must not verify.
+    drop_props(&out, &["scp_a"]);
+    let (vcode, vjson) = verify_batch(&[a.as_str()], &out);
+    assert_eq!(vcode, Some(1), "dropping an input invalidates the report");
+    let entry = &vjson["data"]["blocked"][0];
+    assert_eq!(entry["model"]["state"], "stale");
+    assert!(
+        entry["model"]["detail"].as_str().unwrap().contains("scope"),
+        "{entry}"
+    );
+}
+
+#[test]
+fn artifact_edit_after_report_is_rejected() {
+    // Pin: the pre-existing artifact staleness key stays enforced
+    // alongside the scope digest — editing the compiled module after the
+    // run is an artifact mismatch, failed closed.
+    let td = tempfile::tempdir().unwrap();
+    let (a, _b) = write_scope_pair(td.path());
+    let out = td.path().join("out");
+    scope_compile(&[a.as_str()], &out);
+    mc_batch(&[a.as_str()], &out);
+    let tla = out.join("scp_a.tla");
+    std::fs::write(&tla, "MODULE scp_a edited").unwrap();
+    drop_props(&out, &["scp_a"]);
+    let (vcode, vjson) = verify_batch(&[a.as_str()], &out);
+    assert_eq!(vcode, Some(1));
+    assert_eq!(vjson["data"]["blocked"][0]["model"]["state"], "stale");
+}
+
+#[test]
+fn dual_format_opposite_outcomes_isolated_scope_and_swapped_reports() {
+    let td = tempfile::tempdir().unwrap();
+    let d1 = write_dual68(&td.path().join("d1"), true);
+    let d2 = write_dual68(&td.path().join("d2"), false); // opposite outcome
+    let out = td.path().join("out");
+    // Combined invocation: isolated_scope_required before any writes.
+    let combined = spk()
+        .args([
+            "model-check",
+            d1.as_str(),
+            d2.as_str(),
+            "--json",
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_ne!(combined.status.code(), Some(0));
+    let stderr = String::from_utf8(combined.stderr).unwrap();
+    assert!(stderr.contains("isolated_scope_required"), "{stderr}");
+    let stdout = String::from_utf8(combined.stdout).unwrap();
+    assert!(
+        stdout.contains("separately") && stdout.contains("--out-dir"),
+        "split-run hint: {stdout}"
+    );
+    assert!(!out.join("spec.check.json").exists());
+    // Separate runs in separate directories preserve each outcome.
+    let out1 = td.path().join("out1");
+    let out2 = td.path().join("out2");
+    scope_compile(&[d1.as_str()], &out1);
+    scope_compile(&[d2.as_str()], &out2);
+    let (c1, _) = mc_batch(&[d1.as_str()], &out1);
+    let (c2, _) = mc_batch(&[d2.as_str()], &out2);
+    assert_eq!(c1, Some(0));
+    assert_eq!(c2, Some(0));
+    assert_eq!(
+        read_check_report(&out1, "spec")["outcome"],
+        "no_counterexample"
+    );
+    assert_eq!(
+        read_check_report(&out2, "spec")["outcome"],
+        "counterexample_found"
+    );
+    // Identical claim names, different structured contents: the digests
+    // bind contents, not paths — so they differ.
+    let digest1 = scope_digest_of(&read_check_report(&out1, "spec"));
+    let digest2 = scope_digest_of(&read_check_report(&out2, "spec"));
+    assert_ne!(digest1, digest2);
+    // Swapped reports are rejected: d1's invocation must not accept
+    // d2's evidence, and the rejected report is never rewritten.
+    std::fs::copy(out2.join("spec.check.json"), out1.join("spec.check.json")).unwrap();
+    let before = std::fs::read_to_string(out1.join("spec.check.json")).unwrap();
+    drop_props(&out1, &["spec"]);
+    let (vcode, vjson) = verify_batch(&[d1.as_str()], &out1);
+    assert_eq!(vcode, Some(1), "swapped evidence never verifies: {vjson}");
+    let entry = &vjson["data"]["blocked"][0];
+    assert_eq!(entry["model"]["state"], "stale");
+    assert!(
+        entry["model"]["detail"].as_str().unwrap().contains("scope"),
+        "{entry}"
+    );
+    let after = std::fs::read_to_string(out1.join("spec.check.json")).unwrap();
+    assert_eq!(before, after);
+    // Multi-file dual-format lint remains valid (file-local identities).
+    spk()
+        .args(["lint", d1.as_str(), d2.as_str()])
+        .assert()
+        .success();
+}

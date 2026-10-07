@@ -1,4 +1,5 @@
 {
+  "artifact_sha256": "fab730181228ab493bacbd87e41cd94831298701d6d5cd5b368671c2b5aa4270",
   "backend": {
     "engine": "stateright",
     "version": "0.31.0"
@@ -6,8 +7,18 @@
   "bound": {
     "max_depth": 100
   },
-  "outcome": "exploration_only",
+  "claim_schema_version": 1,
+  "claims": [],
+  "expected_claim_ids": [],
   "invariants_checked": [],
-  "artifact_sha256": "fab730181228ab493bacbd87e41cd94831298701d6d5cd5b368671c2b5aa4270",
-  "states_explored": 3
+  "outcome": "exploration_only",
+  "scope_sha256": "b006925effaa6910a2f886f096dbc3cf42437c6097f4c45b392ff464dd2190fc",
+  "states_explored": 3,
+  "unchecked_claim_ids": [
+    "advisory_severity",
+    "dangling_observes_is_referential",
+    "no_waivers_in_v1",
+    "observation_universe",
+    "self_observation_not_counted"
+  ]
 }

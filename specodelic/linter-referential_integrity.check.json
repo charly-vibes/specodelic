@@ -1,4 +1,5 @@
 {
+  "artifact_sha256": "f0bda2dfc7b01820c5cd14f00e65da5f04472577f7c3b61577b83ef6309ebfbe",
   "backend": {
     "engine": "stateright",
     "version": "0.31.0"
@@ -6,8 +7,17 @@
   "bound": {
     "max_depth": 100
   },
-  "outcome": "exploration_only",
+  "claim_schema_version": 1,
+  "claims": [],
+  "expected_claim_ids": [],
   "invariants_checked": [],
-  "artifact_sha256": "f0bda2dfc7b01820c5cd14f00e65da5f04472577f7c3b61577b83ef6309ebfbe",
-  "states_explored": 7
+  "outcome": "exploration_only",
+  "scope_sha256": "b006925effaa6910a2f886f096dbc3cf42437c6097f4c45b392ff464dd2190fc",
+  "states_explored": 7,
+  "unchecked_claim_ids": [
+    "ref_kind_compatible",
+    "ref_resolves",
+    "unique_across_repo",
+    "unique_within_file"
+  ]
 }
