@@ -29,7 +29,7 @@ Tidying commits are separate from feature commits.
       known typing violations; assert one annotation row per violation and
       zero on a clean corpus (`violations_survive_projection`,
       `clean_corpus_no_annotations`).
-- [ ] 1.4 **TIDY**: extract projection formatting into a testable unit in
+- [x] 1.4 **TIDY**: extract projection formatting into a testable unit in
       `src/graph.rs`; dead-flag and clippy sweep (`just ci`).
 
 - [ ] 1.5 **RED→GREEN**: native dot/mermaid projections — `--format dot`

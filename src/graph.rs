@@ -373,7 +373,7 @@ fn dfs_supersedes<'a>(
 /// Strip a display qualifier — `id (intent)`, `file.row (member)` — down
 /// to the canonical node id (intent ids and qualified row ids only in
 /// projections; add-graph-views D2). Ids without a qualifier pass through.
-fn canonical_id(id: &str) -> &str {
+pub(crate) fn canonical_id(id: &str) -> &str {
     match id.strip_suffix(')').and_then(|s| s.rsplit_once(" (")) {
         Some((base, _)) => base,
         None => id,
@@ -383,54 +383,107 @@ fn canonical_id(id: &str) -> &str {
 /// Pin the violation annotation column tab-free so the six-column TSV
 /// contract holds regardless of reason prose (task 1.2: full reason text,
 /// escaped).
-fn escape_tab_free(text: &str) -> String {
+pub(crate) fn escape_tab_free(text: &str) -> String {
     text.replace('\t', "\\t")
         .replace('\r', "\\r")
         .replace('\n', "\\n")
 }
 
-/// The raw six-column TSV edge projection (`spk graph --format edges`,
-/// add-graph-views D2/D3). Columns: source_id, source_kind, field,
-/// target_id, target_kind, annotation. One row per recorded edge (empty
-/// annotation; multiplicity preserved — one row per reference instance,
-/// even where normalization collapses anchors onto identical triples), one
-/// annotation row per typing violation (empty source id/kind,
+/// One edge-projection row in structured form — the six TSV columns
+/// without their separators (add-graph-views task 1.4 TIDY). The pure
+/// projection core (`edge_projection`) produces these; the TSV renderer
+/// and the task 1.5/1.6 dot/mermaid renderers both consume the same rows,
+/// so normalization and column semantics cannot drift between formats.
+pub(crate) struct ProjectionRow {
+    /// Canonical source node id (D2: display labels normalized away);
+    /// empty on violation annotation rows.
+    pub from: String,
+    /// The source node's schema object label (`Intent`, `Constraint`, …);
+    /// empty when the id is not in the corpus's kind index.
+    pub from_kind: String,
+    /// The edge kind (`field.column`), or `violation:<edge_kind>` on an
+    /// annotation row.
+    pub field: String,
+    /// Canonical target node id.
+    pub to: String,
+    /// The target node's schema object label.
+    pub to_kind: String,
+    /// The finding text on annotation rows (tab-escaped, D3); empty on
+    /// recorded-edge rows.
+    pub annotation: String,
+}
+
+/// The row's byte-exact TSV rendering — six tab-separated columns. Every
+/// row carries the trailing separator of the empty annotation column, so
+/// the six-column contract holds line-wise.
+pub(crate) fn render_tsv_row(row: &ProjectionRow) -> String {
+    format!(
+        "{}\t{}\t{}\t{}\t{}\t{}",
+        row.from, row.from_kind, row.field, row.to, row.to_kind, row.annotation
+    )
+}
+
+/// The pure projection core (`spk graph --format edges`, add-graph-views
+/// D2/D3; task 1.4 TIDY): normalizes label-qualified endpoints to
+/// canonical node ids (`canonical_id`, D2), maps endpoints to their
+/// schema object labels through the corpus kind index, maps every typing
+/// violation to an annotation row (empty source id/kind,
 /// `violation:<edge_kind>` in the field column, the full reason text —
-/// tab-escaped — in the annotation column). Endpoints are canonical node
-/// ids only; rows are emitted sorted; an empty corpus yields an empty TSV.
-pub fn edges_tsv(specs: &[Spec]) -> String {
-    let report = build(specs);
-    let kinds = kind_index(specs);
+/// tab-escaped — in the annotation column, D3), preserves multiplicity
+/// (one row per reference instance), and emits the rows sorted by their
+/// TSV rendering. Pure: a function over the report and the kind index —
+/// no I/O, no CLI state, no parsing — so the format renderers (edges,
+/// dot, mermaid) reuse one normalization path.
+pub(crate) fn edge_projection(
+    report: &GraphReport,
+    kinds: &BTreeMap<String, NodeKind>,
+) -> Vec<ProjectionRow> {
     let kind_of = |id: &str| {
         kinds
             .get(id)
             .map(|k| k.object().to_string())
             .unwrap_or_default()
     };
-    let mut rows: Vec<String> = Vec::with_capacity(report.edges.len() + report.violations.len());
+    let mut rows: Vec<ProjectionRow> =
+        Vec::with_capacity(report.edges.len() + report.violations.len());
     for e in &report.edges {
         let from = canonical_id(&e.from);
         let to = canonical_id(&e.to);
-        rows.push(format!(
-            "{from}\t{}\t{}\t{to}\t{}\t",
-            kind_of(from),
-            e.kind,
-            kind_of(to),
-        ));
+        rows.push(ProjectionRow {
+            from: from.into(),
+            from_kind: kind_of(from),
+            field: e.kind.clone(),
+            to: to.into(),
+            to_kind: kind_of(to),
+            annotation: String::new(),
+        });
     }
     for v in &report.violations {
         let to = canonical_id(&v.to);
-        rows.push(format!(
-            "\t\tviolation:{}\t{to}\t{}\t{}",
-            v.edge_kind,
-            kind_of(to),
-            escape_tab_free(&v.reason),
-        ));
+        rows.push(ProjectionRow {
+            from: String::new(),
+            from_kind: String::new(),
+            field: format!("violation:{}", v.edge_kind),
+            to: to.into(),
+            to_kind: kind_of(to),
+            annotation: escape_tab_free(&v.reason),
+        });
     }
-    rows.sort();
+    rows.sort_by_cached_key(render_tsv_row);
+    rows
+}
+
+/// The raw six-column TSV edge projection (`spk graph --format edges`,
+/// add-graph-views D2/D3). Derives the report and kind index from the
+/// corpus, then delegates to the pure projection core and renders one TSV
+/// line per row: source_id, source_kind, field, target_id, target_kind,
+/// annotation. Sorted; an empty corpus yields an empty TSV.
+pub fn edges_tsv(specs: &[Spec]) -> String {
+    let report = build(specs);
+    let kinds = kind_index(specs);
     let mut tsv = String::new();
-    for row in rows {
-        tsv.push_str(&row);
+    for row in edge_projection(&report, &kinds) {
+        tsv.push_str(&render_tsv_row(&row));
         tsv.push('\n');
     }
     tsv
@@ -653,6 +706,73 @@ pub(crate) fn resolve(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Pinned (task 1.4): the pure projection core over a
+    /// hand-constructed report — no I/O, no CLI state. Label-qualified
+    /// endpoints normalize to canonical ids (D2), kinds resolve through
+    /// the kind index, multiplicity is preserved, rows come out sorted by
+    /// their TSV rendering.
+    #[test]
+    fn edge_projection_normalizes_sorts_and_preserves_multiplicity() {
+        let report = GraphReport {
+            edges: vec![
+                Edge {
+                    from: "b.c1 (intent)".into(),
+                    to: "a".into(),
+                    kind: "constraints.traces_to".into(),
+                },
+                Edge {
+                    from: "b.c1".into(),
+                    to: "a".into(),
+                    kind: "constraints.traces_to".into(),
+                },
+            ],
+            violations: vec![Violation {
+                from: "b.c1".into(),
+                to: "b.c2".into(),
+                edge_kind: "constraints.traces_to".into(),
+                reason: "must resolve\tto an Intent".into(),
+            }],
+            ..Default::default()
+        };
+        let kinds = BTreeMap::from([
+            ("a".to_string(), NodeKind::Intent),
+            ("b.c1".to_string(), NodeKind::Constraint("invariant".into())),
+            ("b.c2".to_string(), NodeKind::Constraint(String::new())),
+        ]);
+        let rows = edge_projection(&report, &kinds);
+        let rendered: Vec<String> = rows.iter().map(render_tsv_row).collect();
+        assert_eq!(
+            rendered,
+            vec![
+                "\t\tviolation:constraints.traces_to\tb.c2\tConstraint\tmust resolve\\tto an Intent".to_string(),
+                "b.c1\tConstraint\tconstraints.traces_to\ta\tIntent\t".to_string(),
+                "b.c1\tConstraint\tconstraints.traces_to\ta\tIntent\t".to_string(),
+            ],
+            "annotation row first (empty source sorts before ids), \"b.c1 (intent)\" \
+             normalized to the canonical id, duplicate instances preserved, reason tab-escaped"
+        );
+    }
+
+    /// Pinned (task 1.4): unknown ids project an empty kind column rather
+    /// than panicking or guessing — a violation may target a node the
+    /// kind index addresses only through its canonical id.
+    #[test]
+    fn edge_projection_unknown_ids_carry_empty_kind() {
+        let report = GraphReport {
+            edges: vec![Edge {
+                from: "x.t".into(),
+                to: "x.s1".into(),
+                kind: "transitions.from".into(),
+            }],
+            ..Default::default()
+        };
+        let rows = edge_projection(&report, &BTreeMap::new());
+        assert_eq!(
+            rows.iter().map(render_tsv_row).collect::<Vec<_>>(),
+            vec!["x.t\t\ttransitions.from\tx.s1\t\t"],
+        );
+    }
 
     /// Rows map fixture from (file id, row ids).
     fn rows_from(pairs: &[(&str, &[&str])]) -> BTreeMap<String, Vec<String>> {
