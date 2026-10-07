@@ -6,17 +6,17 @@ Tidying commits are separate from feature commits.
 
 ## 1. Edge-list projection (`--format edges`)
 
-- [ ] 1.1 **RED**: CLI tests in `tests/cli.rs` for the projection contract:
+- [x] 1.1 **RED**: CLI tests in `tests/cli.rs` for the projection contract:
       sorted TSV shape (six columns), byte-identical re-runs, endpoints are
       canonical node IDs (intent IDs and qualified row IDs) (assert no label-qualified endpoints using a
       fixture corpus that triggers them), zero-file directory exits 0 with
       empty output, single-intent corpus yields a well-formed row set.
       Run `just test` — all new tests must fail (flag does not exist).
-- [ ] 1.7 **RED→GREEN**: pin two states and one transition in one file:
+- [x] 1.7 **RED→GREEN**: pin two states and one transition in one file:
       raw TSV retains distinct qualified IDs and both from/to edges;
       state-machine rendering retains two states; only file-level views
       collapse to an owning intent. Retain duplicate edge instances.
-- [ ] 1.2 **GREEN**: canonical-id normalization (D2) — normalize
+- [x] 1.2 **GREEN**: canonical-id normalization (D2) — normalize
       label-qualified nodes at or before projection in `src/graph.rs`;
       add `--format edges` to the `Graph` command in `src/main.rs`
       emitting the TSV through the envelope conventions (raw TSV to
@@ -25,7 +25,7 @@ Tidying commits are separate from feature commits.
       class code (D3 open question) — against real output and document it
       in the flag's help. If full reason text is chosen, pin reason
       strings tab-free (or escaped) so the six-column TSV contract holds.
-- [ ] 1.3 **RED→GREEN**: violation annotation rows — fixture corpus with
+- [x] 1.3 **RED→GREEN**: violation annotation rows — fixture corpus with
       known typing violations; assert one annotation row per violation and
       zero on a clean corpus (`violations_survive_projection`,
       `clean_corpus_no_annotations`).

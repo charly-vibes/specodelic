@@ -8,7 +8,11 @@
 //! recorded — `edge_kind_matches_typing`), flag `supersedes` cycles, and
 //! report dangling references plus per-node fan-in/fan-out. Rationale: the
 //! graph is the substrate rename/merge/refactor all build on — deriving it
-//! once, deterministically, is what makes those tools safe.
+//! once, deterministically, is what makes those tools safe. The raw edge
+//! projection (`spk graph --format edges`, add-graph-views D2/D3) is the
+//! parseable view of that substrate: canonical node ids only, every
+//! violation riding along as an annotation row — a view is never cleaner
+//! than the artifact.
 
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -364,6 +368,72 @@ fn dfs_supersedes<'a>(
             path.pop();
         }
     }
+}
+
+/// Strip a display qualifier — `id (intent)`, `file.row (member)` — down
+/// to the canonical node id (intent ids and qualified row ids only in
+/// projections; add-graph-views D2). Ids without a qualifier pass through.
+fn canonical_id(id: &str) -> &str {
+    match id.strip_suffix(')').and_then(|s| s.rsplit_once(" (")) {
+        Some((base, _)) => base,
+        None => id,
+    }
+}
+
+/// Pin the violation annotation column tab-free so the six-column TSV
+/// contract holds regardless of reason prose (task 1.2: full reason text,
+/// escaped).
+fn escape_tab_free(text: &str) -> String {
+    text.replace('\t', "\\t")
+        .replace('\r', "\\r")
+        .replace('\n', "\\n")
+}
+
+/// The raw six-column TSV edge projection (`spk graph --format edges`,
+/// add-graph-views D2/D3). Columns: source_id, source_kind, field,
+/// target_id, target_kind, annotation. One row per recorded edge (empty
+/// annotation; multiplicity preserved — one row per reference instance,
+/// even where normalization collapses anchors onto identical triples), one
+/// annotation row per typing violation (empty source id/kind,
+/// `violation:<edge_kind>` in the field column, the full reason text —
+/// tab-escaped — in the annotation column). Endpoints are canonical node
+/// ids only; rows are emitted sorted; an empty corpus yields an empty TSV.
+pub fn edges_tsv(specs: &[Spec]) -> String {
+    let report = build(specs);
+    let kinds = kind_index(specs);
+    let kind_of = |id: &str| {
+        kinds
+            .get(id)
+            .map(|k| k.object().to_string())
+            .unwrap_or_default()
+    };
+    let mut rows: Vec<String> = Vec::with_capacity(report.edges.len() + report.violations.len());
+    for e in &report.edges {
+        let from = canonical_id(&e.from);
+        let to = canonical_id(&e.to);
+        rows.push(format!(
+            "{from}\t{}\t{}\t{to}\t{}\t",
+            kind_of(from),
+            e.kind,
+            kind_of(to),
+        ));
+    }
+    for v in &report.violations {
+        let to = canonical_id(&v.to);
+        rows.push(format!(
+            "\t\tviolation:{}\t{to}\t{}\t{}",
+            v.edge_kind,
+            kind_of(to),
+            escape_tab_free(&v.reason),
+        ));
+    }
+    rows.sort();
+    let mut tsv = String::new();
+    for row in rows {
+        tsv.push_str(&row);
+        tsv.push('\n');
+    }
+    tsv
 }
 
 /// Build the graph for a corpus of parsed specs.

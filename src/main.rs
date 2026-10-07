@@ -16,7 +16,7 @@ use genesis::envelope::{Envelope, EnvelopeKind};
 use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
-use specodelic::{checklist, guide, model_check, spec, verify};
+use specodelic::{checklist, graph, guide, model_check, spec, verify};
 
 mod commands;
 
@@ -72,6 +72,14 @@ pub(crate) enum ModelBackend {
     Tlc,
 }
 
+/// The graph output projection selection (`--format edges`; dot/mermaid
+/// are add-graph-views tasks 1.5, not wired yet).
+#[derive(clap::ValueEnum, Clone)]
+enum GraphFormat {
+    /// Raw six-column TSV edge list (add-graph-views D2/D3)
+    Edges,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Lint spec files against the Specodelic invariants
@@ -83,6 +91,22 @@ enum Commands {
     Graph {
         /// Files or directories (defaults to ./specs)
         paths: Vec<String>,
+        /// Output projection instead of the JSON envelope: `edges` writes
+        /// a sorted six-column TSV to stdout — columns: source_id,
+        /// source_kind, field, target_id, target_kind, annotation.
+        /// Endpoints are canonical node ids (intent ids, qualified row
+        /// ids); display labels are normalized away (add-graph-views D2).
+        /// Every recorded edge is one row (multiplicity preserved); every
+        /// typing violation is one annotation row (empty source id/kind,
+        /// `violation:<edge_kind>` in the field column, the full reason
+        /// text — tab-escaped — in the annotation column, per D3's open
+        /// question decided for full reasons). Overrides `--json`/
+        /// `--human`: the raw TSV goes straight to stdout — the one
+        /// documented exception to Output::emit, scoped to this flag so
+        /// awk/jq pipelines consume it without an envelope parser. Zero
+        /// spec files exit 0 with empty output.
+        #[arg(long)]
+        format: Option<GraphFormat>,
     },
     /// Translate a linted spec file into TOML / proptest / TLA+ artifacts
     Compile {
@@ -324,6 +348,21 @@ fn print_version_json() -> bool {
     true
 }
 
+/// `graph --format edges` (add-graph-views D2/D3): the raw six-column TSV
+/// straight to stdout — the one documented exception to Output::emit,
+/// scoped to this flag. The transform's scope gate (intentless corpora)
+/// is the Python layer's beat; the tool-level projection stays well-formed
+/// per specs/graph.md's parsed-not-linted note: zero spec files exit 0
+/// with empty output.
+fn cmd_graph_edges(paths: &[String], stdout: &mut impl std::io::Write) -> i32 {
+    let (specs, _checklists, _notes, _parse_errors) = parse_batch(paths, Verbosity::Quiet);
+    if specs.is_empty() {
+        return 0;
+    }
+    let _ = write!(stdout, "{}", graph::edges_tsv(&specs));
+    0
+}
+
 fn run(
     cli: &Cli,
     format: OutputFormat,
@@ -334,7 +373,11 @@ fn run(
     match &cli.command {
         Commands::Lint { paths } => cmd_lint(paths, format, verbosity, stdout, stderr),
         Commands::Parse { file } => cmd_parse(file, format, verbosity, stdout, stderr),
-        Commands::Graph { paths } => cmd_graph(paths, format, verbosity, stdout, stderr),
+        Commands::Graph {
+            paths,
+            format: Some(GraphFormat::Edges),
+        } => cmd_graph_edges(paths, stdout),
+        Commands::Graph { paths, .. } => cmd_graph(paths, format, verbosity, stdout, stderr),
         Commands::Compile { paths, out_dir } => {
             cmd_compile(paths, out_dir, format, verbosity, stdout, stderr)
         }

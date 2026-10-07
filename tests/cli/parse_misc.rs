@@ -1520,3 +1520,248 @@ fn compile_cli_surfaces_binding_in_the_toml_artifact() {
         "empty binding cell surfaces as the empty string: {toml}"
     );
 }
+
+// ---- graph --format edges (add-graph-views tasks 1.1/1.2/1.3/1.7) ----
+
+/// A spec whose Constraints row shares the intent id — the shape that
+/// anchors extraction on the display label `id (intent)`
+/// (add-graph-views D2's evidence shape).
+fn write_self_anchored_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL anchor on the intent\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | {id} | invariant | `row shares the intent id` | [[{id}]] |\n"
+        ),
+    )
+    .unwrap();
+}
+
+/// A lint-clean spec with two states, one transition, one intent link,
+/// and one duplicated reference instance — the raw-projection fixture
+/// (task 1.7: distinct qualified IDs, both transition edges, multiplicity).
+fn write_two_state_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL be a two-state machine\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | c1 | invariant | `holds` | [[{id}]] [[{id}]] |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1\n\
+             - s2\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s2 | [[{id}.c1]] |\n"
+        ),
+    )
+    .unwrap();
+}
+
+/// A spec with one typing violation: a Constraint tracing to another
+/// Constraint (traces_to must resolve to an Intent).
+fn write_violation_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL violate typing once\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | a | invariant | `fine` | [[{id}]] |\n\
+             | b | invariant | `bad target kind` | [[{id}.a]] |\n"
+        ),
+    )
+    .unwrap();
+}
+
+fn edges_rows(out: &[u8]) -> Vec<Vec<&str>> {
+    std::str::from_utf8(out)
+        .unwrap()
+        .lines()
+        .map(|l| l.split('\t').collect())
+        .collect()
+}
+
+#[test]
+fn edges_projection_emits_sorted_six_column_tsv() {
+    let dir = tempfile::tempdir().unwrap();
+    write_two_state_spec(&dir.path().join("two.md"), "two");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "edges projection exits 0");
+    let rows = edges_rows(&out.stdout);
+    assert!(!rows.is_empty(), "a two-state corpus yields rows");
+    for row in &rows {
+        assert_eq!(row.len(), 6, "every row has exactly six columns: {row:?}");
+    }
+    let mut sorted = rows.clone();
+    sorted.sort();
+    assert_eq!(rows, sorted, "rows are emitted in sorted order");
+}
+
+#[test]
+fn edges_projection_is_byte_identical_on_rerun() {
+    let dir = tempfile::tempdir().unwrap();
+    write_two_state_spec(&dir.path().join("two.md"), "two");
+    let mut cmd = spk();
+    cmd.args(["graph", dir.path().to_str().unwrap(), "--format", "edges"]);
+    let first = cmd.output().unwrap();
+    let second = cmd.output().unwrap();
+    assert_eq!(first.stdout, second.stdout, "re-runs are byte-identical");
+}
+
+#[test]
+fn edges_projection_emits_canonical_ids_only() {
+    // The self-anchored corpus makes extraction label the edge
+    // `id (intent)`; the projection must emit the bare intent id (D2).
+    let dir = tempfile::tempdir().unwrap();
+    write_self_anchored_spec(&dir.path().join("self.md"), "self");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let text = std::str::from_utf8(&out.stdout).unwrap();
+    assert!(
+        !text.contains(" ("),
+        "no label-qualified endpoints like `{0} (intent)`: {text}",
+        "self (intent)"
+    );
+    let rows = edges_rows(&out.stdout);
+    assert!(
+        rows.iter()
+            .any(|r| r[0] == "self" && r[3] == "self" && r[2] == "constraints.traces_to"),
+        "the intent-anchored edge carries canonical endpoints: {rows:?}"
+    );
+}
+
+#[test]
+fn edges_projection_zero_file_directory_exits_zero_with_empty_output() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "zero files exit 0");
+    assert!(
+        out.stdout.is_empty(),
+        "zero files emit an empty TSV: {:?}",
+        std::str::from_utf8(&out.stdout)
+    );
+}
+
+#[test]
+fn edges_projection_single_intent_corpus_well_formed_rows() {
+    let dir = tempfile::tempdir().unwrap();
+    write_self_anchored_spec(&dir.path().join("one.md"), "one");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let rows = edges_rows(&out.stdout);
+    assert_eq!(
+        rows,
+        vec![vec![
+            "one",
+            "Intent",
+            "constraints.traces_to",
+            "one",
+            "Intent",
+            ""
+        ]],
+        "single-intent corpus yields exactly its one well-formed edge row"
+    );
+}
+
+#[test]
+fn violations_survive_projection() {
+    let dir = tempfile::tempdir().unwrap();
+    write_violation_spec(&dir.path().join("viol.md"), "viol");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let rows = edges_rows(&out.stdout);
+    let annotations: Vec<&Vec<&str>> = rows
+        .iter()
+        .filter(|r| r[2].starts_with("violation:"))
+        .collect();
+    assert_eq!(
+        annotations.len(),
+        1,
+        "one annotation row per violation: {rows:?}"
+    );
+    let a = annotations[0];
+    assert_eq!(a[0], "", "annotation rows carry an empty source id");
+    assert_eq!(a[1], "", "annotation rows carry an empty source kind");
+    assert_eq!(
+        a[2], "violation:constraints.traces_to",
+        "field names the violated edge kind"
+    );
+    assert_eq!(
+        a[3], "viol.a",
+        "annotation rows keep the canonical target id"
+    );
+    assert!(
+        !a[5].is_empty(),
+        "the annotation column carries the finding"
+    );
+}
+
+#[test]
+fn clean_corpus_no_annotations() {
+    let dir = tempfile::tempdir().unwrap();
+    write_two_state_spec(&dir.path().join("clean.md"), "clean");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let text = std::str::from_utf8(&out.stdout).unwrap();
+    assert!(
+        !text.contains("violation:"),
+        "a clean corpus emits zero annotation rows: {text}"
+    );
+}
+
+#[test]
+fn edges_retain_state_transition_edges_and_multiplicity() {
+    let dir = tempfile::tempdir().unwrap();
+    write_two_state_spec(&dir.path().join("two.md"), "two");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let rows = edges_rows(&out.stdout);
+    assert!(
+        rows.iter()
+            .any(|r| r[0] == "two.t" && r[2] == "transitions.from" && r[3] == "two.s1"),
+        "the from edge keeps both distinct qualified ids: {rows:?}"
+    );
+    assert!(
+        rows.iter()
+            .any(|r| r[0] == "two.t" && r[2] == "transitions.to" && r[3] == "two.s2"),
+        "the to edge keeps both distinct qualified ids: {rows:?}"
+    );
+    let dup = rows
+        .iter()
+        .filter(|r| r[0] == "two.c1" && r[2] == "constraints.traces_to" && r[3] == "two")
+        .count();
+    assert_eq!(
+        dup, 2,
+        "duplicate edge instances survive (multiplicity, D2): {rows:?}"
+    );
+}
