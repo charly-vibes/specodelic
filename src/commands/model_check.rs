@@ -130,6 +130,10 @@ pub(crate) fn cmd_model_check(
                     &resolved_per_file[idx],
                     &kernel_claims[idx],
                 );
+                // The claim-gate aggregate (design D1/D2/D4): the merged
+                // required-claim statuses govern the verdict that is
+                // persisted and handed to verify.
+                kernel::aggregate_required_claims(&mut report);
                 let report_path =
                     std::path::Path::new(out_dir).join(format!("{}.check.json", run.stem));
                 let report_json =

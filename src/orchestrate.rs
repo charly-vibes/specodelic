@@ -391,6 +391,9 @@ fn run_model_check_stage(
                     &resolved_per_file[idx],
                     &kernel_claims[idx],
                 );
+                // The claim-gate aggregate (design D1/D2/D4): the merged
+                // required-claim statuses govern the persisted verdict.
+                kernel::aggregate_required_claims(&mut report);
                 let clean = matches!(report.outcome, model_check::Outcome::NoCounterexample);
                 if !clean {
                     all_clean = false;

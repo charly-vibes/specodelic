@@ -5,9 +5,9 @@ Integrate add-min-expr-kernel 3.6–3.8 first. Each RED→GREEN cycle and each
 separate TIDY ticket is mapped below; keep refactoring commits separate. Preserve current source-file intent headers.
 
 ## 1. Mixed claims govern the verdict
-- [ ] 1.1 RED: command fixtures for false/unknown/missing/all-true claims;
+- [x] 1.1 RED: command fixtures for false/unknown/missing/all-true claims;
       assert both report and exit behavior, including false negated citation.
-- [ ] 1.2 GREEN: implement required-claim classification and shared aggregate
+- [x] 1.2 GREEN: implement required-claim classification and shared aggregate
       rules; retain explicitly unchecked prose and bounded-run semantics.
 - [ ] 1.3 TIDY: separate ticket/commit consolidates aggregate rendering only
       after the command fixtures pass unchanged.

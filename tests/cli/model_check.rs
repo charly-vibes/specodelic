@@ -538,3 +538,306 @@ fn doctor_skips_currency_check_with_note_on_unreadable_corpus() {
     // and it must not claim currency: no lag warning, no fake-ok
     assert!(!warnings.iter().any(|w| w.contains("newer than")));
 }
+
+// ---- specodelic-68m.1: claim gates govern the aggregate verdict ----
+// (define-verification-claim-gates tasks 1.1; design D1/D2). The
+// required-claim statuses — executable fragments, resolved citations,
+// kernel claims — must govern the aggregate: a refuted required claim
+// is counterexample_found, an unknown or missing one is
+// exploration_only (never clean), a nonempty all-verified set over a
+// completed bounded exploration is no_counterexample, prose-only rows
+// stay explicitly unchecked, and an exhausted bound stays timed_out.
+// The verdict gate follows: verify rejects every non-clean aggregate.
+
+/// A lint-clean claim fixture: verbatim constraint rows plus one
+/// coverage property per row, the transition guard citing `guard_row`
+/// (the kernel_corpus.rs fixture shape).
+fn write_claim_spec(path: &std::path::Path, id: &str, rows: &str, props: &str, guard_row: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE {id} SHALL carry claim-gate fixtures\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             {rows}\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1\n\
+             - s2\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s2 | [[{id}.{guard_row}]] |\n\
+             \n## Properties\n\
+             \n| id | kind | derives_from | generator | predicate |\n\
+             |----|------|--------------|-----------|------------|\n\
+             {props}"
+        ),
+    )
+    .unwrap();
+}
+
+/// The coverage property rows for the named constraint rows.
+fn claim_props(id: &str, rows: &[&str]) -> String {
+    rows.iter()
+        .map(|r| {
+            format!("| p_{r} | unit | [[{id}.{r}]] | `word()` | `**rust:** v0.len() >= 1` |\n")
+        })
+        .collect()
+}
+
+fn claim_compile(spec: &str, out: &std::path::Path) {
+    spk()
+        .args(["compile", spec, "--out-dir", out.to_str().unwrap()])
+        .assert()
+        .success();
+}
+
+/// Run model-check over one spec and return (exit code, parsed envelope).
+fn claim_mc_json(spec: &str, out: &std::path::Path) -> (Option<i32>, serde_json::Value) {
+    let result = spk()
+        .args([
+            "model-check",
+            spec,
+            "--json",
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    (result.status.code(), json)
+}
+
+/// Run verify over one spec and return (exit code, parsed envelope).
+fn claim_verify_json(spec: &str, out: &std::path::Path) -> (Option<i32>, serde_json::Value) {
+    let result = spk()
+        .args(["verify", spec, "--json", "--out-dir", out.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    (result.status.code(), json)
+}
+
+/// The persisted run report for one stem.
+fn claim_report(out: &std::path::Path, stem: &str) -> serde_json::Value {
+    serde_json::from_str(&std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap())
+        .unwrap()
+}
+
+#[test]
+fn false_kernel_claim_forces_counterexample_found() {
+    // ka refutes (both rows trace to the same target — unique is
+    // refuted), kb verifies: the refuted required claim must govern.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("ckf.md");
+    let rows = "| ka | invariant | `**kernel:** unique(traces_to)` | [[ckf]] |\n\
+                | kb | invariant | `**kernel:** resolves(traces_to)` | [[ckf]] |\n";
+    write_claim_spec(&spec, "ckf", rows, &claim_props("ckf", &["ka", "kb"]), "ka");
+    let out = td.path().join("out");
+    claim_compile(spec.to_str().unwrap(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    // Completed runs keep model-check's CLI exit convention; the
+    // aggregate verdict lives in the report, not the exit code.
+    assert_eq!(code, Some(0));
+    assert_eq!(json["data"]["outcome"], "counterexample_found");
+    let checked = &json["data"]["checked"][0];
+    assert_eq!(checked["outcome"], "counterexample_found");
+    assert_eq!(checked["violated_invariant_id"], "ka");
+    let statuses: Vec<(String, String)> = checked["invariant_statuses"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| {
+            (
+                s["id"].as_str().unwrap().to_string(),
+                s["status"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    assert!(
+        statuses.contains(&("ka".into(), "counterexample".into())),
+        "{statuses:?}"
+    );
+    assert!(
+        statuses.contains(&("kb".into(), "verified".into())),
+        "{statuses:?}"
+    );
+    // The persisted report carries the same aggregate.
+    let report = claim_report(&out, "ckf");
+    assert_eq!(report["outcome"], "counterexample_found");
+    assert_eq!(report["violated_invariant_id"], "ka");
+    // The verify gate rejects the non-clean aggregate.
+    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
+    assert_eq!(vcode, Some(1));
+    assert_eq!(vjson["data"]["status"], "model_not_clean");
+}
+
+#[test]
+fn false_negated_citation_forces_counterexample_found() {
+    // c1 verifies (s2 reachable is fine — blackhole is not); the
+    // negated citation ¬[[c1]] therefore refutes.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("cnf.md");
+    let rows = "| c1 | invariant | `**rust:** state != \"blackhole\"` | [[cnf]] |\n\
+                | c2 | invariant | `¬[[cnf.c1]]` | [[cnf]] |\n";
+    write_claim_spec(&spec, "cnf", rows, &claim_props("cnf", &["c1", "c2"]), "c1");
+    let out = td.path().join("out");
+    claim_compile(spec.to_str().unwrap(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_eq!(code, Some(0));
+    assert_eq!(json["data"]["outcome"], "counterexample_found");
+    assert_eq!(json["data"]["checked"][0]["violated_invariant_id"], "c2");
+    let report = claim_report(&out, "cnf");
+    assert_eq!(report["outcome"], "counterexample_found");
+    // No invented state trace: the citation counterexample carries
+    // claim evidence, not a fabricated BFS path.
+    assert!(report.get("trace").is_none() || report["trace"].is_null());
+    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
+    assert_eq!(vcode, Some(1));
+    assert_eq!(vjson["data"]["status"], "model_not_clean");
+}
+
+#[test]
+fn unknown_kernel_claim_prevents_clean() {
+    // The ghost seed reaches an id outside the corpus — honest unknown.
+    // Unknown required claims prevent clean: exploration_only, and
+    // verify rejects it.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("cuk.md");
+    let rows = "| g1 | invariant | `**kernel:** reachable(demo.ghost.nowhere, cuk.g1, supersedes)` | [[cuk]] |\n";
+    write_claim_spec(&spec, "cuk", rows, &claim_props("cuk", &["g1"]), "g1");
+    let out = td.path().join("out");
+    claim_compile(spec.to_str().unwrap(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_eq!(code, Some(0));
+    assert_eq!(json["data"]["outcome"], "exploration_only");
+    let statuses = &json["data"]["checked"][0]["invariant_statuses"];
+    assert_eq!(statuses[0]["id"], "g1");
+    assert_eq!(statuses[0]["status"], "unknown");
+    assert_eq!(claim_report(&out, "cuk")["outcome"], "exploration_only");
+    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
+    assert_eq!(vcode, Some(1));
+    assert_eq!(vjson["data"]["status"], "model_not_clean");
+}
+
+#[test]
+fn missing_evidence_citation_prevents_clean_and_names_the_reason() {
+    // A property row has no same-run invariant evidence — the required
+    // claim is unknown with the labeled reason, so the aggregate is
+    // exploration_only even though the exec leg reported clean facts.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("cme.md");
+    let rows = "| c1 | invariant | `**rust:** state != \"blackhole\"` | [[cme]] |\n\
+                | c2 | invariant | `[[p_c1]]` | [[cme]] |\n";
+    write_claim_spec(&spec, "cme", rows, &claim_props("cme", &["c1", "c2"]), "c1");
+    let out = td.path().join("out");
+    claim_compile(spec.to_str().unwrap(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_eq!(code, Some(0));
+    assert_eq!(json["data"]["outcome"], "exploration_only");
+    let statuses = &json["data"]["checked"][0]["invariant_statuses"];
+    let c2 = statuses
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["id"] == "c2")
+        .unwrap();
+    assert_eq!(c2["status"], "unknown");
+    assert!(
+        c2["reason"]
+            .as_str()
+            .unwrap()
+            .contains("same-run invariant evidence"),
+        "labeled reason: {c2}"
+    );
+    assert_eq!(claim_report(&out, "cme")["outcome"], "exploration_only");
+    let (vcode, _) = claim_verify_json(spec.to_str().unwrap(), &out);
+    assert_eq!(vcode, Some(1));
+}
+
+#[test]
+fn all_true_claims_over_completed_exploration_verify() {
+    // THE acceptance-policy flip (BREAKING): an empty-supersedes corpus
+    // verifies acyclic and resolves over the v0 snapshot — every
+    // required claim discharged, exploration completed, so the
+    // aggregate is no_counterexample and BOTH gates verify end to end.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("cat.md");
+    let rows = "| ka | invariant | `**kernel:** acyclic(supersedes)` | [[cat]] |\n\
+                | kb | invariant | `**kernel:** resolves(traces_to)` | [[cat]] |\n";
+    write_claim_spec(&spec, "cat", rows, &claim_props("cat", &["ka", "kb"]), "ka");
+    let out = td.path().join("out");
+    claim_compile(spec.to_str().unwrap(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_eq!(code, Some(0));
+    assert_eq!(json["data"]["outcome"], "no_counterexample");
+    let statuses = &json["data"]["checked"][0]["invariant_statuses"];
+    for s in statuses.as_array().unwrap() {
+        assert_eq!(s["status"], "verified", "claim {}: {}", s["id"], s);
+    }
+    assert_eq!(claim_report(&out, "cat")["outcome"], "no_counterexample");
+    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
+    assert_eq!(vcode, Some(0));
+    assert_eq!(vjson["data"]["status"], "verified");
+}
+
+#[test]
+fn exhausted_bound_stays_timed_out_despite_verified_claims() {
+    // D2 ordering: an exhausted budget outranks the all-verified leg —
+    // a truncated exploration proves nothing about the claims.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("cex.md");
+    let rows = "| ka | invariant | `**kernel:** acyclic(supersedes)` | [[cex]] |\n\
+                | kb | invariant | `**kernel:** resolves(traces_to)` | [[cex]] |\n";
+    write_claim_spec(&spec, "cex", rows, &claim_props("cex", &["ka", "kb"]), "ka");
+    let out = td.path().join("out");
+    claim_compile(spec.to_str().unwrap(), &out);
+    let result = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out.to_str().unwrap(),
+            "--max-depth",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(result.status.code(), Some(0));
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(json["data"]["outcome"], "timed_out");
+    assert_eq!(claim_report(&out, "cex")["outcome"], "timed_out");
+    let (vcode, _) = claim_verify_json(spec.to_str().unwrap(), &out);
+    assert_eq!(vcode, Some(1));
+}
+
+#[test]
+fn no_required_claims_stay_explicitly_unchecked() {
+    // D1: prose invariant rows are never required claims — no evaluator
+    // opted in, no status fabricated. The empty required set reports
+    // exploration_only and verify rejects it (D2 rule 5).
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("cpr.md");
+    write_model_check_spec(&spec, "cpr");
+    let out = td.path().join("out");
+    claim_compile(spec.to_str().unwrap(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_eq!(code, Some(0));
+    assert_eq!(json["data"]["outcome"], "exploration_only");
+    assert!(
+        json["data"]["checked"][0]["invariant_statuses"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(claim_report(&out, "cpr")["outcome"], "exploration_only");
+    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
+    assert_eq!(vcode, Some(1));
+    // Both gates are always evaluated; this fixture's parameterless
+    // property blocker is named first, so the model-gate leg is asserted
+    // directly: the empty-required-set report is not clean.
+    assert_eq!(vjson["data"]["blocked"][0]["model"]["state"], "not_clean");
+}

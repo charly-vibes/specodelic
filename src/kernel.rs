@@ -1164,6 +1164,73 @@ pub fn merge_corpus_statuses(
         .collect()
 }
 
+/// The shared claim-gate aggregate (define-verification-claim-gates
+/// design D1/D2/D4 — the ONE implementation, called by both command
+/// paths right after the corpus-status merge): the merged required-claim
+/// statuses — executable fragments, resolved citations, kernel claims —
+/// govern the aggregate verdict. Prose-only invariant rows never appear
+/// in `invariant_statuses`, so they stay explicitly unchecked (D1);
+/// merely having a deriving Property never implies verification.
+///
+/// D2 rules, in order:
+///
+/// 1. the backend's own counterexample verdict is kept with its trace
+///    and violated id (claim evidence, never rewritten);
+/// 2. a refuted required claim yields `counterexample_found`, naming
+///    the claim id with NO invented state trace;
+/// 3. an exhausted budget stays `timed_out` — a truncated exploration
+///    proves nothing about the claims;
+/// 4. any unknown or unsupported required claim prevents clean and
+///    reports `exploration_only` (the labeled reasons surface in
+///    command output via `merge_corpus_statuses`);
+/// 5. an empty required set also reports `exploration_only`;
+/// 6. a nonempty complete all-verified set over a completed bounded
+///    exploration yields `no_counterexample` — the BREAKING acceptance
+///    flip: discharging every opted-in claim is the clean verdict.
+///
+/// `verify` consumes the persisted outcome, so both command paths and
+/// the verify gate cannot drift apart (D4).
+pub fn aggregate_required_claims(report: &mut crate::model_check::RunReport) {
+    use crate::model_check::Outcome;
+    // Rule 1: the backend's own counterexample verdict stands.
+    if report.outcome == Outcome::CounterexampleFound {
+        return;
+    }
+    // Rule 2: a refuted required claim governs — claim evidence, no
+    // invented state trace.
+    if let Some(refuted) = report
+        .invariant_statuses
+        .iter()
+        .find(|s| s.status == ThreeValued::Counterexample)
+    {
+        report.outcome = Outcome::CounterexampleFound;
+        report.violated_invariant_id = Some(refuted.id.clone());
+        report.trace = None;
+        return;
+    }
+    // Rule 3: an exhausted budget outranks the remaining legs.
+    if report.outcome == Outcome::TimedOut {
+        return;
+    }
+    // Rule 4: any unknown/unsupported required claim prevents clean.
+    if report
+        .invariant_statuses
+        .iter()
+        .any(|s| s.status == ThreeValued::Unknown)
+    {
+        report.outcome = Outcome::ExplorationOnly;
+        return;
+    }
+    // Rule 5: an empty required set is explicitly unchecked.
+    if report.invariant_statuses.is_empty() {
+        report.outcome = Outcome::ExplorationOnly;
+        return;
+    }
+    // Rule 6: nonempty, complete, all-verified over a completed bounded
+    // exploration — the clean verdict.
+    report.outcome = Outcome::NoCounterexample;
+}
+
 // ---------------------------------------------------------------------------
 // The predicate registry seam (3.5 TIDY) — widened in a later phase
 // ---------------------------------------------------------------------------

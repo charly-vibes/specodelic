@@ -166,10 +166,14 @@ fn mixed_claims_cli_and_orchestrate_parity() {
     assert_exactly_once(cli_entries, "cx", "unknown");
 
     // Orchestrate's model_check stage: identical entries — statuses,
-    // reasons, order — from the shared command path.
+    // reasons, order — from the shared command path. The refuted
+    // kernel claim governs the aggregate (specodelic-68m.1), so the
+    // stage is FAILED — the old policy let a refuted claim coexist
+    // with a clean stage, the exact gap define-verification-claim-gates
+    // closes.
     assert_eq!(orch_code, Some(1));
     let orch_stage = model_check_stage(&orch_json);
-    assert_eq!(orch_stage["status"], "passed", "model_check stage clean");
+    assert_eq!(orch_stage["status"], "failed", "model_check stage clean");
     let orch_entries = &orch_stage["detail"]["checked"][0]["invariant_statuses"];
     assert_eq!(cli_entries, orch_entries, "CLI and orchestrate entries");
 
