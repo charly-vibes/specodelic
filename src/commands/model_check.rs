@@ -113,20 +113,23 @@ pub(crate) fn cmd_model_check(
     // or labeled unsupported on the incapable backend — appended to the
     // same statuses the citations resolved into, so no claim is ever
     // omitted from command output or the persisted report.
-    let kernel_backend = if tlc_paths.is_some() {
-        kernel::CorpusBackend::Tlc
-    } else {
-        kernel::CorpusBackend::Native
-    };
-    let kernel_claims = kernel::evaluate_corpus_claims(&specs, kernel_backend);
+    let kernel_claims = kernel::evaluate_corpus_claims(
+        &specs,
+        kernel::CorpusBackend::from_tlc_presence(tlc_paths.is_some()),
+    );
     for (idx, run) in runs.into_iter().enumerate() {
         match run.result {
             Ok(mut report) => {
-                // Kernel claims ride the same persisted statuses as the
-                // resolved citations — exactly once, status only.
-                for k in &kernel_claims[idx] {
-                    report.invariant_statuses.push(k.invariant_status());
-                }
+                // One shared merge (§3.8 TIDY): the persisted statuses
+                // and the command-output entries come from the single
+                // identity helper — kernel claims ride the same
+                // statuses as the resolved citations, exactly once,
+                // with unknown reasons labeled.
+                let statuses_json = kernel::merge_corpus_statuses(
+                    &mut report,
+                    &resolved_per_file[idx],
+                    &kernel_claims[idx],
+                );
                 let report_path =
                     std::path::Path::new(out_dir).join(format!("{}.check.json", run.stem));
                 let report_json =
@@ -144,29 +147,10 @@ pub(crate) fn cmd_model_check(
                     continue;
                 }
                 // CLI output and persisted report carry identical
-                // statuses (design D9): every merged entry — exec
-                // outcomes, resolved citations, kernel claims — with
-                // the labeled reason attached for unknown statuses.
-                let reasons: std::collections::BTreeMap<&str, &String> = resolved_per_file[idx]
-                    .iter()
-                    .filter_map(|r| r.reason.as_ref().map(|s| (r.id.as_str(), s)))
-                    .chain(
-                        kernel_claims[idx]
-                            .iter()
-                            .filter_map(|k| k.reason.as_ref().map(|s| (k.id.as_str(), s))),
-                    )
-                    .collect();
-                let statuses_json: Vec<serde_json::Value> = report
-                    .invariant_statuses
-                    .iter()
-                    .map(|s| {
-                        let mut entry = serde_json::json!({ "id": s.id, "status": s.status });
-                        if let Some(reason) = reasons.get(s.id.as_str()) {
-                            entry["reason"] = serde_json::json!(reason);
-                        }
-                        entry
-                    })
-                    .collect();
+                // statuses (design D9) — via the shared merge helper
+                // (§3.8 TIDY): every merged entry — exec outcomes,
+                // resolved citations, kernel claims — with the labeled
+                // reason attached for unknown statuses.
                 checked.push(serde_json::json!({
                     "file": run.file,
                     "id": run.id,

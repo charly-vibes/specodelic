@@ -11,7 +11,10 @@
 //! grounding table mapping each atomic to its proven machinery (D1 —
 //! an atomic without a grounding entry cannot ship), evaluation over a
 //! `KernelEnv` yielding the slice-1 `ThreeValued` status (reused from
-//! the citation algebra — never re-invented), and the predicate
+//! the citation algebra — never re-invented), the corpus claim pass
+//! (§3.7: complete-corpus kernel evaluation plus `merge_corpus_statuses`,
+//! the ONE shared command-path identity/merge helper both command paths
+//! call — §3.8 TIDY), and the predicate
 //! registry seam for later pack registration (D8's decidability gate —
 //! nothing outside the v0 set registers here). Rationale: kernel
 //! semantics never outruns proven machinery — every atomic names its
@@ -1006,12 +1009,21 @@ pub enum CorpusBackend {
     Tlc,
 }
 
+impl CorpusBackend {
+    /// The shared backend selection (§3.8 TIDY — specodelic-k3h): one
+    /// constructor both command paths use — the corpus backend is TLC
+    /// exactly when the invocation carries a TLC configuration.
+    pub fn from_tlc_presence(has_tlc: bool) -> Self {
+        if has_tlc { Self::Tlc } else { Self::Native }
+    }
+}
+
 /// One kernel claim's command-path status: the Constraints-table row id
 /// (within the file that declares it), its three-valued status, and the
 /// labeled reason when (and only when) the status is unknown for a
 /// namable cause. Mirrors the citation path's `ResolvedStatus` shape —
-/// the same command-output and persisted-report duality (§3.8's TIDY
-/// extracts the shared identity helper).
+/// the same command-output and persisted-report duality, merged through
+/// the one shared identity helper (`merge_corpus_statuses`, §3.8 TIDY).
 #[derive(Debug, Clone, PartialEq)]
 pub struct CorpusClaimStatus {
     pub id: String,
@@ -1102,6 +1114,54 @@ pub fn evaluate_corpus_claims(
                 .collect()
         }
     }
+}
+
+/// The shared command-path corpus-status merge (§3.8 TIDY —
+/// specodelic-k3h): the ONE place the corpus identity rules live —
+/// which ids appear, which status each carries, which reason labels an
+/// unknown, and the exact command-output entry shape. Both command
+/// paths call this (the native CLI's `commands/model_check.rs` and
+/// orchestrate's `model_check` stage); the per-call-site merge blocks
+/// they duplicated are gone, so CLI output, orchestrate stage detail
+/// and the persisted reports cannot drift apart.
+///
+/// Appends the kernel claims to the report's persisted statuses (status
+/// only — the `RunReport` schema keeps its deployed shape) and returns
+/// the command-output entries: every merged invariant with its status,
+/// the unknown reason attached when (and only when) present. A claim
+/// reason wins over a citation reason for the same id — claims are
+/// inserted after the resolved citations, matching the historical
+/// per-call-site chain order.
+pub fn merge_corpus_statuses(
+    report: &mut crate::model_check::RunReport,
+    resolved: &[crate::citation_corpus::ResolvedStatus],
+    claims: &[CorpusClaimStatus],
+) -> Vec<serde_json::Value> {
+    for k in claims {
+        report.invariant_statuses.push(k.invariant_status());
+    }
+    let mut reasons: BTreeMap<&str, &String> = BTreeMap::new();
+    for r in resolved {
+        if let Some(reason) = &r.reason {
+            reasons.insert(r.id.as_str(), reason);
+        }
+    }
+    for k in claims {
+        if let Some(reason) = &k.reason {
+            reasons.insert(k.id.as_str(), reason);
+        }
+    }
+    report
+        .invariant_statuses
+        .iter()
+        .map(|s| {
+            let mut entry = serde_json::json!({ "id": s.id, "status": s.status });
+            if let Some(reason) = reasons.get(s.id.as_str()) {
+                entry["reason"] = serde_json::json!(reason);
+            }
+            entry
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------

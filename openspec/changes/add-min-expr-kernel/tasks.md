@@ -112,7 +112,7 @@ gate (no code); implementation phases do not open until it lands.
       empty input is an invocation error. Thread scope through CLI and
       orchestrate; incapable backends return labeled unsupported results.
       Test actual command output, not a direct KernelEnv-only harness.
-- [ ] 3.8 **TIDY**: after the above pass, extract shared identity/evaluation
+- [x] 3.8 **TIDY**: after the above pass, extract shared identity/evaluation
       helpers in a separate refactoring work item and commit. Pin command
       parity. Finish before phases 4/5/6; proposed claim gates govern
       aggregate acceptance and migration readiness.
