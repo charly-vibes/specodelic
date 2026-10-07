@@ -1620,6 +1620,35 @@ fn edges_projection_is_byte_identical_on_rerun() {
     assert_eq!(first.stdout, second.stdout, "re-runs are byte-identical");
 }
 
+/// Characterization (add-graph-views task 1.4): pins the projection's
+/// exact bytes for the two-state fixture — sort order (kind column sorts
+/// `Constraint` rows before `Transition` rows, and `two\t` before
+/// `two.t\t` since TAB < '.'), the six-column shape, and the empty
+/// trailing annotation on every edge row. Guards the task 1.4 extraction
+/// of the formatting machinery into a reusable unit: any drift in the
+/// bytes fails here, not downstream in dot/mermaid consumers.
+#[test]
+fn edges_projection_pins_exact_tsv_bytes() {
+    let dir = tempfile::tempdir().unwrap();
+    write_two_state_spec(&dir.path().join("two.md"), "two");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let expected = "\
+two.c1\tConstraint\tconstraints.traces_to\ttwo\tIntent\t\n\
+two.c1\tConstraint\tconstraints.traces_to\ttwo\tIntent\t\n\
+two.t\tTransition\ttransitions.from\ttwo.s1\tState\t\n\
+two.t\tTransition\ttransitions.guard\ttwo.c1\tConstraint\t\n\
+two.t\tTransition\ttransitions.to\ttwo.s2\tState\t\n";
+    assert_eq!(
+        std::str::from_utf8(&out.stdout).unwrap(),
+        expected,
+        "edge projection bytes are pinned"
+    );
+}
+
 #[test]
 fn edges_projection_emits_canonical_ids_only() {
     // The self-anchored corpus makes extraction label the edge
