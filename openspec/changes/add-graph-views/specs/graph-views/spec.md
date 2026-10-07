@@ -19,10 +19,10 @@ the artifact they came from.
 
 | id                       | kind      | expr                                                                                                                                                                                                                                                                  | traces_to |
 |--------------------------|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| canonical_ids            | invariant | `every edge-list endpoint is a frontmatter id value; display labels (e.g. `refactor (intent)`-style label-qualified nodes) never appear in the projection — normalization happens at or before projection`                                                                 | [[spec]]  |
+| canonical_ids            | invariant | `every edge-list endpoint is a canonical node ID (intent ID or qualified row ID) value; display labels (e.g. `refactor (intent)`-style label-qualified nodes) never appear in the projection — normalization happens at or before projection`                                                                 | [[spec]]  |
 | deterministic_projection | invariant | `re-running the projection over an unchanged corpus produces a byte-identical edge list — rows sorted, no timestamps, no iteration-order leakage`                                                                                                                        | [[spec]]  |
 | violations_annotated     | invariant | `every violation in the graph artifact appears as an annotation row in the edge list; a view rendered from a corpus with violations is never silently clean — dashed/annotated rendering is mandatory, omission forbidden`                                                | [[spec]]  |
-| derived_views_only       | invariant | `each view consumes only the edge-list artifact plus the lint-gated acset Schema value and the format revision marker; no view parses prose, re-walks markdown, or embeds hand-authored structure`                                                                                            | [[spec]]  |
+| derived_views_only       | invariant | `corpus views consume only graph artifacts; the schema view consumes only a versioned export of the lint-gated acset Schema value and format revision; no view parses prose, re-walks markdown, or embeds hand-authored structure`                                                                                            | [[spec]]  |
 | build_time_generation    | invariant | `rendered views are generated into the docs build at build time and never committed; no hand-edit path exists, so graph_is_derived_not_authored holds by construction and no staleness check is needed`                                                                    | [[spec]]  |
 | empty_corpus_valid       | invariant | `spk graph --format edges over any parseable corpus — including a directory with zero spec files, or a single intent with no cross-file edges — exits 0 and emits a well-formed (possibly empty) row set: graph extraction requires parsed, not linted (specs/graph.md's scope note); rendered views are transform-level and additionally gated by corpus_scope_operational — an intentless corpus is refused there with a remediation hint, never silently rendered`                                                        | [[spec]]  |
 | corpus_scope_operational | invariant | `a corpus is in scope iff spk lint over it reports no invariant-rule findings and ≥1 intent file parses; corpora failing this (e.g. openspec-layout repositories) are out of scope until a parse-boundary adapter change lands — no view special-cases them`                                | [[spec]]  |
@@ -64,14 +64,13 @@ the artifact they came from.
 The system SHALL provide `spk graph --format edges` emitting a sorted TSV
 edge list (source id, source kind, typed reference field, target kind,
 target id, annotation) with exactly one row per recorded edge — plus
-annotation rows per the violations requirement below — using frontmatter
-ids only, byte-identical across re-runs on an unchanged corpus. When
+annotation rows per the violations requirement below — using canonical node IDs (intent IDs and qualified row IDs), byte-identical across re-runs on an unchanged corpus. When
 `--format edges` is given, raw TSV goes to stdout, overriding envelope
 formatting.
 
 #### Scenario: Projection over a compliant corpus
 - **WHEN** `spk graph --format edges` runs over a corpus with ≥1 lint-clean intent
-- **THEN** the output is a sorted TSV whose every endpoint is a frontmatter id
+- **THEN** the output is a sorted TSV whose every endpoint is a canonical node ID (intent ID or qualified row ID)
 
 #### Scenario: Re-run determinism
 - **WHEN** the projection runs twice over an unchanged corpus
@@ -126,11 +125,33 @@ fields as typed edges with allowed targets) from the acset `Schema`
 value (`acset::schema::canonical()` — the Reference Typing table as
 data, lint-gated against `specs/specodelic.md` by
 `schema_matches_typing_table`) and the format revision marker, labeled
-with the revision it was derived from.
+with the revision it was derived from. `spk guide --schema --json` SHALL
+provide this value through a genesis envelope whose data contains
+schema_version 1, format_revision, sorted object names, and morphisms sorted
+by source/name. Each morphism SHALL carry name, column, source, target,
+refinements (side/kind pairs sorted by side/kind), source_rule
+(unchecked, appears_on or same_kind), and endo_acyclic (boolean or null).
+The export SHALL derive directly from canonical Schema; guide typing
+constants SHALL NOT supply its rows. Ordinary guide --json SHALL expose
+kinds, row shapes and revision independently.
+
+The schema renderer SHALL consume the serialized export, display refinement
+labels and reject unsuccessful envelopes, missing fields, unknown versions,
+duplicate identities and absent endpoints with schema_export_invalid and a
+regeneration hint before writing output. It SHALL neither parse Rust source
+nor reconstruct schema structure from corpus edges.
 
 #### Scenario: Schema from the Schema value
 - **WHEN** the schema view is rendered
 - **THEN** its nodes and typed edges match the `Schema` value's objects and morphisms, and the format revision is named in the output
+
+#### Scenario: Schema export connects producer and renderer
+- **WHEN** the production exporter serializes canonical Schema and two valid constructed schemas differing in one morphism
+- **THEN** its canonical payload matches the source rows and rendering the two constructed exports changes the corresponding edge without a renderer edit
+
+#### Scenario: Invalid schema export is refused
+- **WHEN** the renderer receives an unsuccessful envelope or schema data with a missing field, unknown version, duplicate identity or absent endpoint
+- **THEN** it fails as schema_export_invalid with a regeneration hint before writing a diagram
 
 #### Scenario: Revision bump changes the view
 - **WHEN** a new Revision adds a Reference Typing field (Schema + corpus doc updated together under the lint gate)
@@ -148,6 +169,16 @@ no hand-edit path exists.
 #### Scenario: Empty corpus is refused at the transform, clean at the projection
 - **WHEN** views are generated over a directory with zero spec files
 - **THEN** the scope gate exits non-zero with a remediation hint (`out_of_scope_refused`), while the tool-level projection itself exits 0 with empty output (`empty_corpus_valid`)
+
+### Requirement: Row identity survives raw projection
+Raw edge projection SHALL retain canonical intent IDs and qualified row
+IDs without collapsing rows to their file. File-level traceability and
+wiring views MAY collapse rows to their owning intent; state-machine
+views SHALL retain distinct state and transition identities.
+
+#### Scenario: Two states in one file remain distinct
+- **WHEN** one file defines transition order.t from order.s1 to order.s2
+- **THEN** raw projection retains both distinct state IDs and both edges, and the state-machine view renders two states
 
 ## Requirements
 
@@ -155,14 +186,13 @@ no hand-edit path exists.
 The system SHALL provide `spk graph --format edges` emitting a sorted TSV
 edge list (source id, source kind, typed reference field, target kind,
 target id, annotation) with exactly one row per recorded edge — plus
-annotation rows per the violations requirement below — using frontmatter
-ids only, byte-identical across re-runs on an unchanged corpus. When
+annotation rows per the violations requirement below — using canonical node IDs (intent IDs and qualified row IDs), byte-identical across re-runs on an unchanged corpus. When
 `--format edges` is given, raw TSV goes to stdout, overriding envelope
 formatting.
 
 #### Scenario: Projection over a compliant corpus
 - **WHEN** `spk graph --format edges` runs over a corpus with ≥1 lint-clean intent
-- **THEN** the output is a sorted TSV whose every endpoint is a frontmatter id
+- **THEN** the output is a sorted TSV whose every endpoint is a canonical node ID (intent ID or qualified row ID)
 
 #### Scenario: Re-run determinism
 - **WHEN** the projection runs twice over an unchanged corpus
@@ -217,11 +247,33 @@ fields as typed edges with allowed targets) from the acset `Schema`
 value (`acset::schema::canonical()` — the Reference Typing table as
 data, lint-gated against `specs/specodelic.md` by
 `schema_matches_typing_table`) and the format revision marker, labeled
-with the revision it was derived from.
+with the revision it was derived from. `spk guide --schema --json` SHALL
+provide this value through a genesis envelope whose data contains
+schema_version 1, format_revision, sorted object names, and morphisms sorted
+by source/name. Each morphism SHALL carry name, column, source, target,
+refinements (side/kind pairs sorted by side/kind), source_rule
+(unchecked, appears_on or same_kind), and endo_acyclic (boolean or null).
+The export SHALL derive directly from canonical Schema; guide typing
+constants SHALL NOT supply its rows. Ordinary guide --json SHALL expose
+kinds, row shapes and revision independently.
+
+The schema renderer SHALL consume the serialized export, display refinement
+labels and reject unsuccessful envelopes, missing fields, unknown versions,
+duplicate identities and absent endpoints with schema_export_invalid and a
+regeneration hint before writing output. It SHALL neither parse Rust source
+nor reconstruct schema structure from corpus edges.
 
 #### Scenario: Schema from the Schema value
 - **WHEN** the schema view is rendered
 - **THEN** its nodes and typed edges match the `Schema` value's objects and morphisms, and the format revision is named in the output
+
+#### Scenario: Schema export connects producer and renderer
+- **WHEN** the production exporter serializes canonical Schema and two valid constructed schemas differing in one morphism
+- **THEN** its canonical payload matches the source rows and rendering the two constructed exports changes the corresponding edge without a renderer edit
+
+#### Scenario: Invalid schema export is refused
+- **WHEN** the renderer receives an unsuccessful envelope or schema data with a missing field, unknown version, duplicate identity or absent endpoint
+- **THEN** it fails as schema_export_invalid with a regeneration hint before writing a diagram
 
 #### Scenario: Revision bump changes the view
 - **WHEN** a new Revision adds a Reference Typing field (Schema + corpus doc updated together under the lint gate)
@@ -239,3 +291,13 @@ no hand-edit path exists.
 #### Scenario: Empty corpus is refused at the transform, clean at the projection
 - **WHEN** views are generated over a directory with zero spec files
 - **THEN** the scope gate exits non-zero with a remediation hint (`out_of_scope_refused`), while the tool-level projection itself exits 0 with empty output (`empty_corpus_valid`)
+
+### Requirement: Row identity survives raw projection
+Raw edge projection SHALL retain canonical intent IDs and qualified row
+IDs without collapsing rows to their file. File-level traceability and
+wiring views MAY collapse rows to their owning intent; state-machine
+views SHALL retain distinct state and transition identities.
+
+#### Scenario: Two states in one file remain distinct
+- **WHEN** one file defines transition order.t from order.s1 to order.s2
+- **THEN** raw projection retains both distinct state IDs and both edges, and the state-machine view renders two states

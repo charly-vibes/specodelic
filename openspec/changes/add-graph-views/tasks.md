@@ -8,10 +8,14 @@ Tidying commits are separate from feature commits.
 
 - [ ] 1.1 **RED**: CLI tests in `tests/cli.rs` for the projection contract:
       sorted TSV shape (six columns), byte-identical re-runs, endpoints are
-      frontmatter ids only (assert no label-qualified endpoints using a
+      canonical node IDs (intent IDs and qualified row IDs) (assert no label-qualified endpoints using a
       fixture corpus that triggers them), zero-file directory exits 0 with
       empty output, single-intent corpus yields a well-formed row set.
       Run `just test` — all new tests must fail (flag does not exist).
+- [ ] 1.7 **RED→GREEN**: pin two states and one transition in one file:
+      raw TSV retains distinct qualified IDs and both from/to edges;
+      state-machine rendering retains two states; only file-level views
+      collapse to an owning intent. Retain duplicate edge instances.
 - [ ] 1.2 **GREEN**: canonical-id normalization (D2) — normalize
       label-qualified nodes at or before projection in `src/graph.rs`;
       add `--format edges` to the `Graph` command in `src/main.rs`
@@ -42,35 +46,37 @@ Tidying commits are separate from feature commits.
 
 ## 2. Guide JSON and transform prototype (`scripts/graph_views.py`)
 
-- [ ] 2.1 **RED**: CLI test asserting `spk guide --json` serves the
-      closed value sets (kinds, row shapes, reference fields with allowed
-      targets) plus `format_revision` as a JSON envelope. Run — must fail
-      (no such command).
-- [ ] 2.2 **GREEN**: implement the `guide --json` subcommand in
-      `src/main.rs` serializing `src/guide.rs`'s constants (kinds, row
-      shapes, format_revision — for value-set-only consumers; the schema
-      view does NOT consume this, per D4's 2026-10-04 revision).
+- [ ] 2.1 **RED**: CLI fixtures pin guide --json to kinds, row shapes and
+      format_revision, and guide --schema --json to D4's versioned schema
+      payload. Assert canonical objects/morphisms, refinements, source rules,
+      endo flags and sorted deterministic data; no guide typing constants.
+      Both commands currently absent: run and observe failure first.
+- [ ] 2.2 **GREEN**: implement the guide JSON command and schema selector,
+      emitting through genesis Output::emit. Share a Schema-to-data exporter
+      between canonical() production input and constructed test values;
+      leave reference typing out of the ordinary guide value-set payload.
 - [ ] 2.3 **RED**: script tests against three checked-in fixture corpora —
       empty (zero spec files = intentless: asserts `out_of_scope_refused`,
       exits non-zero with a remediation hint), single-intent
       (`single_intent_sane`), violation-bearing — plus a lint-dirty
       fixture for the other `out_of_scope_refused` leg. Assert: parse of
       the TSV contract, valid Mermaid output, violations rendered as
-      annotated elements.
+      annotated elements. For the schema view, feed serialized output from
+      two valid constructed schemas differing in one morphism; assert the
+      corresponding diagram change and revision label. Missing fields,
+      unknown version, unsuccessful envelope, duplicate identities and
+      dangling endpoints fail schema_export_invalid before output writes.
 - [ ] 2.4 **GREEN**: implement per-file state-machine view (transition
       edges grouped by owning file; guards annotated; files without
       transitions skipped cleanly; fan-in counts distinct targets per
       D2's multiplicity rule).
 - [ ] 2.5 **GREEN**: implement file-level traceability view (collapse to
       intents, fan-in annotation).
-- [ ] 2.6 **GREEN**: implement schema view from the acset `Schema`
-      value (`acset::schema::canonical()` — lint-gated against
-      `specs/specodelic.md` by `schema_matches_typing_table`), labeled
-      with `guide::FORMAT_REVISION` (D4 as revised 2026-10-04).
-      Derivation proof: render two constructed `Schema` values differing
-      in one morphism — the views differ, no renderer edit (the shipped
-      `canonical()` is compile-time, so the perturbation test uses
-      constructed values, not a fixture doc).
+- [ ] 2.6 **GREEN**: implement the schema view consuming only the schema
+      export from 2.2, including format revision and refinement labels.
+      Validate its envelope/schema before rendering; make 2.3's perturbation
+      and malformed-input fixtures pass. No Rust-source parsing or second
+      reference-typing table in Python.
 - [ ] 2.7 **TIDY**: shared rendering helpers; prose-independence test
       (`views_from_artifact_only`: perturb prose blocks of a fixture, view
       output byte-identical).
@@ -80,6 +86,8 @@ Tidying commits are separate from feature commits.
 - [ ] 3.1 `just docs-graphs` recipe: regenerate all views into
       `docs/src/views/` (gitignore it first — D6); assert `git status`
       clean after a full build (RED first: fails while recipe absent).
+      Produce graph and schema envelopes with the same binary, pass the
+      schema export to the script, and keep intermediate exports untracked.
 - [ ] 3.2 Docs page under `docs/src/` consuming the generated includes:
       the views for this repo's own corpus plus the revision-labeled
       schema view; one sentence of philosophy — views are never more
@@ -109,3 +117,27 @@ Tidying commits are separate from feature commits.
       implementer only verifies it's still open and cross-references it**.
 - [ ] 4.4 Verify `tasks.md` all checked; `just ci` and
       `openspec validate add-graph-views --strict` pass.
+
+## Implementation ticket map
+
+Created at the user’s request after the proposal review fixes. Checkboxes
+remain unchecked until the linked behavior is implemented and verified.
+Dependencies are recorded in beads; this table maps scope, not completion.
+
+| Tasks | Ticket | Outcome |
+|-------|--------|---------|
+| 1.1, 1.2, 1.3, 1.7 | `specodelic-gre.1` | Raw graph edges preserve every node and violation |
+| 1.4 | `specodelic-gre.2` | Keep edge projections byte-stable after formatting cleanup |
+| 1.5 | `specodelic-gre.3` | Users can pipe graph projections into DOT and Mermaid renderers |
+| 1.6 | `specodelic-gre.4` | Wiring diagrams expose declared producer-consumer connections |
+| 2.1, 2.2, 2.3, 2.6 | `specodelic-gre.5` | Schema diagrams render the canonical typing rules without duplication |
+| 1.7, 2.3, 2.4 | `specodelic-gre.6` | State diagrams preserve distinct states and show guarded transitions |
+| 2.5 | `specodelic-gre.7` | Traceability diagrams show file dependencies and distinct-source fan-in |
+| 2.7 | `specodelic-gre.8` | Keep derived diagrams unchanged when prose or renderer structure changes |
+| 3.1, 3.2, 3.3, 3.4 | `specodelic-gre.9` | Readers can rebuild diagrams and follow embedded render recipes |
+| 4.1, 4.2, 4.3, 4.4 | `specodelic-gre.10` | Graph views demonstrate faithful output on real corpora |
+
+Task 1.7: raw identity fixtures belong to specodelic-gre.1; state rendering
+belongs to specodelic-gre.6. Task 2.3: schema-export fixtures belong
+to specodelic-gre.5; corpus/scope/rendering fixtures belong to
+specodelic-gre.6. Neither task is complete until both owners finish.

@@ -21,8 +21,8 @@ labels like `refactor (intent)`), typing violations are never silently
 hidden by a rendered view (the specodelic corpus carried 38 when this
 was drafted — the acset-core landing typed them away; 0 as of
 2026-10-04, verified via `spk graph -j`),
-the schema view is derived from `guide`'s closed value sets and labeled
-with the format revision (not hardcoded), and the categorical
+the schema view derives from exported canonical acset Schema data and is
+labeled with the format revision (D4 as amended), and the categorical
 string-diagram IR is explicitly deferred.
 
 ## What Changes
@@ -34,12 +34,13 @@ string-diagram IR is explicitly deferred.
 > slice 2 lands its traversal primitive over `src/acset`; this change's
 > projections stay consumers of `src/graph.rs` as approved.
 
-- **Tool — `spk guide --json`:** new subcommand exposing the format's closed
-  value sets (kinds, constraint/property row shapes, reference fields with
-  allowed targets) and the format revision as JSON — the derivation source
-  the schema view requires, which today exists only as the internal
-  `guide` module (nothing serves it: `spk explain` serves prose topics
-  only).
+- **Tool — `spk guide --json`:** expose kinds, constraint/property row
+  shapes and format revision for value-set consumers.
+- **Tool — `spk guide --schema --json`:** a separate versioned envelope
+  projecting canonical acset Schema objects/morphisms, refinements, source
+  rules and endo flags directly from the lint-gated value, with the format
+  revision. This is the Python schema renderer's transport interface;
+  guide reference-typing constants are not a derivation source.
 - **Tool — `spk graph --format edges`:** new output projection emitting a
   sorted, deterministic TSV edge list (canonical ids, one row per recorded
   edge plus annotation rows for violations). Purely additive to the
@@ -56,13 +57,13 @@ string-diagram IR is explicitly deferred.
   specodelic-5qj), alongside the states/traceability/schema views.
 - **Tool — transform prototype:** `scripts/graph_views.py` consuming the
   edge list plus `spk graph --json` (for violation reasons and fan-in) and
-  `spk guide --json` (for closed value sets + format revision), emitting
+  the dedicated `spk guide --schema --json` export for schema diagrams, emitting
   Mermaid. Lives in `scripts/` as a prototype — promotion out of `scripts/`
   is out of scope until a renderer proves the views' value.
 - **Views (v1):** (a) per-file state-machine diagrams derived from
   `transitions.from/to/guard` edges; (b) file-level traceability map
   (edges collapsed to intents, fan-in annotated); (c) schema view derived
-  from the format's Reference Typing value sets, labeled with the format
+  from the exported canonical Schema value, labeled with the format
   revision; (d) the wiring view above. Violations render as annotated
   (dashed) rows — a view is never
   silently cleaner than the graph artifact (the corpus carried 38 typing
@@ -99,7 +100,7 @@ change touches only tool output, not the format corpus.
 - Affected code: `src/graph.rs` (canonical-id normalization in edge
   extraction or projection; native dot/mermaid emission; wiring
   projection), `src/main.rs` (`--format edges|dot|mermaid` and `--view`
-  flags on the `Graph` command; new `guide --json` subcommand),
+  flags on the `Graph` command; new `guide --json` and `--schema` selector),
   `src/guide.rs` (JSON serialization of the closed value sets; explain
   topic), `src/acset/schema.rs` (the Schema value the schema view
   derives from — see D4), new `scripts/graph_views.py`, `justfile`
@@ -107,3 +108,13 @@ change touches only tool output, not the format corpus.
   `docs/src/` (one view page consuming generated includes),
   `tests/cli.rs` (projection fixtures: empty corpus, single-intent
   corpus, violation-bearing corpus).
+
+
+## Review amendment — preserve row identity (2026-10-06, proposed)
+
+The raw TSV endpoints are canonical node IDs, including qualified state,
+transition, constraint, and property IDs. For `order.t → order.s1` and
+`order.t → order.s2`, preserve all three IDs and both edges. Only the
+file-level traceability/wiring projections collapse rows to their owning
+intent; the raw graph and state-machine view do not. This clarification
+requires review and does not approve implementation of the amendment.

@@ -52,7 +52,8 @@ itself verified the referenced CLI surfaces, catching that `spk guide
 ### D1 — The transform lives in `scripts/` as a prototype
 
 `scripts/graph_views.py` (Python 3 stdlib only, no new dependency) consumes
-the edge TSV plus the JSON envelope and emits Mermaid. Promotion into a
+the edge TSV plus the graph JSON envelope for corpus views, and a separate
+`spk guide --schema --json` envelope for the schema view, and emits Mermaid. Promotion into a
 crate or an `spk` subcommand is deliberately deferred until the v1 views
 demonstrate value — avoids building a beautiful IR nothing renders.
 
@@ -62,9 +63,9 @@ couples extraction to one rendering and grows main.rs); a new crate
 
 ### D2 — Canonical node ids only in projections
 
-The raw graph output mixes frontmatter ids with display labels
+The raw graph output mixes canonical node IDs (intent IDs and qualified row IDs) with display labels
 (`refactor (intent)`, frontmatter-derived pseudo-nodes). The edge
-projection emits frontmatter `id` values exclusively; display labels never
+projection emits canonical node IDs (intent IDs and qualified row IDs); display labels never
 appear in the TSV. Where extraction currently attaches label-qualified
 nodes, normalization happens at projection (or extraction, if cleaner —
 implementation detail, but the TSV contract is ids-only).
@@ -124,8 +125,33 @@ value-set consumer.
 The revision label comes from `guide::FORMAT_REVISION` (the binary's
 implemented-revision marker) — a version label, not a duplicate of the
 typing table. `spk guide --json` still ships (kinds, row shapes,
-format_revision) for value-set-only consumers, but the schema view no
-longer consumes it.
+format_revision) for value-set-only consumers. The schema view instead
+consumes the new `spk guide --schema --json` export; the flag selects a
+separate payload sourced directly from canonical Schema, not the guide
+constants. Both commands emit through genesis Output::emit.
+
+The schema envelope's data contains schema_version: 1, format_revision,
+objects (sorted object-name strings), and morphisms (sorted by source,
+name). Each morphism carries name, column, source, target, refinements
+(sorted by side then kind, each with side: source|target and kind: string),
+source_rule (unchecked|appears_on|same_kind), and endo_acyclic (boolean or
+null). These fields project the Schema value directly; no prose parsing,
+new reference-typing constant, or graph-node inference. Error-message
+prose is not part of this export. Determinism applies to data, not envelope
+request IDs or timings. The exporter accepts a Schema value internally so
+constructed perturbation fixtures exercise the production serialization.
+
+The Python schema view accepts that serialized envelope as its sole
+structural input, displays the revision, and draws each object and morphism
+including refinement labels. It rejects unsuccessful envelopes, missing
+fields, unknown schema versions, duplicate object/morphism identities, and
+references to absent objects with schema_export_invalid and an instruction
+to regenerate the export with a matching tool version. It does not read
+Rust source or reconstruct the schema from corpus edges. The build recipe
+exports and renders using the same binary. Producer tests compare exported
+rows to canonical(); consumer tests render two serialized, valid constructed
+schemas differing by one morphism and assert the matching diagram change.
+Malformed-export tests fail before output is written.
 
 *Alternatives considered:* keep both sources plus a cross-check failing
 the build on divergence (rejected: redundant machinery — the Schema is
