@@ -2,6 +2,14 @@
 
 Established 2026-10-06 during specodelic-txo (slice 1 of add-min-expr-kernel).
 
+**Tooling-enforced since 2026-10-07** (specodelic-k9v): the loop below is the
+`epic-orchestrator` pipeline (`.wai/resources/pipelines/epic-orchestrator.toml`)
+with the shared brief at `.wai/resources/templates/subagent-brief.md` and
+`just epic-status` for state. Start orchestration with
+`wai pipeline start epic-orchestrator --topic="<ticket-id>: <what>"` and
+follow the step prompts — the loop text below is the rationale, the pipeline
+is the control.
+
 ## Loop
 
 The session lead **orchestrates only**: tracks bd/openspec/wai state, verifies
