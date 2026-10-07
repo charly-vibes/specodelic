@@ -354,9 +354,7 @@ impl<'a> Parser<'a> {
     /// A malformed chain (`a..b`, a trailing dot) is not an id.
     fn qualified_ident(&mut self) -> Option<String> {
         let start = self.pos;
-        let Some(first) = self.ident() else {
-            return None;
-        };
+        let first = self.ident()?;
         let mut id = first;
         while self.s[self.pos..].starts_with('.') {
             self.pos += 1;
