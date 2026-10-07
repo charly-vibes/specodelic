@@ -21,6 +21,11 @@ use specodelic::kernel::{
 };
 use specodelic::spec::{Spec, parse_str};
 
+#[path = "common/mod.rs"]
+mod common;
+
+use common::kernel_corpora::{CHAIN, CYCLIC, DANGLING, DUPLICATES};
+
 /// Parse a per-file fixture list into a corpus (each chunk is one
 /// complete spec file, parsed through the real parser).
 fn corpus(files: &[&str]) -> Vec<Spec> {
@@ -29,32 +34,6 @@ fn corpus(files: &[&str]) -> Vec<Spec> {
         .map(|f| parse_str(f).expect("fixture file parses"))
         .collect()
 }
-
-/// A two-file corpus with a supersedes cycle between its constraints.
-const CYCLIC: &[&str] = &[
-    "---\nid: demo.cyc.a\nkind: intent\nstatement: \"THE a SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | supersedes |\n|----|------|------|-----------|------------|\n| ca | invariant | `holds a` | [[demo.cyc.a]] | [[demo.cyc.b.cb]] |\n",
-    "---\nid: demo.cyc.b\nkind: intent\nstatement: \"THE b SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | supersedes |\n|----|------|------|-----------|------------|\n| cb | invariant | `holds b` | [[demo.cyc.b]] | [[demo.cyc.a.ca]] |\n",
-];
-
-/// A two-file corpus, acyclic supersedes, with one dangling traces_to.
-const DANGLING: &[&str] = &[
-    "---\nid: demo.dng.a\nkind: intent\nstatement: \"THE a SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | supersedes |\n|----|------|------|-----------|------------|\n| da | invariant | `holds a` | [[demo.dng.a]] | [[demo.dng.b.db]] |\n",
-    "---\nid: demo.dng.b\nkind: intent\nstatement: \"THE b SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | supersedes |\n|----|------|------|-----------|------------|\n| db | invariant | `holds b` | [[demo.ghost.missing]] |  |\n",
-];
-
-/// A corpus where two constraints resolve to the SAME intent — the
-/// duplicate-target shape `unique` refutes (injectivity).
-const DUPLICATES: &[&str] = &[
-    "---\nid: demo.dup\nkind: intent\nstatement: \"THE dup SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| d1 | invariant | `holds d1` | [[demo.dup]] |\n| d2 | invariant | `holds d2` | [[demo.dup]] |\n",
-];
-
-/// A corpus with a clean chain na → nb → nc through supersedes — the
-/// reachability shape.
-const CHAIN: &[&str] = &[
-    "---\nid: demo.chn.a\nkind: intent\nstatement: \"THE a SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | supersedes |\n|----|------|------|-----------|------------|\n| na | invariant | `holds na` | [[demo.chn.a]] | [[demo.chn.b.nb]] |\n",
-    "---\nid: demo.chn.b\nkind: intent\nstatement: \"THE b SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | supersedes |\n|----|------|------|-----------|------------|\n| nb | invariant | `holds nb` | [[demo.chn.b]] | [[demo.chn.c.nc]] |\n",
-    "---\nid: demo.chn.c\nkind: intent\nstatement: \"THE c SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| nc | invariant | `holds nc` | [[demo.chn.c]] |\n",
-];
 
 // --- acyclic: graph traversal agreement ---
 

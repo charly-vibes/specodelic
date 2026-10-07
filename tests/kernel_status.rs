@@ -18,21 +18,10 @@ use specodelic::compile::{ThreeValued, extract_model_ir};
 use specodelic::kernel::{KernelEnv, parse_kernel_str};
 use specodelic::spec::parse_str;
 
-/// An acyclic corpus whose supersedes references all resolve — the
-/// `verified` shape.
-const CLEAN: &str = "---\nid: demo.st.clean\nkind: intent\nstatement: \"THE clean SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | supersedes |\n|----|------|------|-----------|------------|\n| a1 | invariant | `**kernel:** acyclic(supersedes)` | [[demo.st.clean]] |  |\n| a2 | invariant | `**kernel:** resolves(traces_to)` | [[demo.st.clean]] |  |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p1 | unit | [[demo.st.clean.a1]] | `arb()` | `true` |\n";
+#[path = "common/mod.rs"]
+mod common;
 
-/// A corpus with a dangling traces_to — the `counterexample` shape.
-const BROKEN: &str = "---\nid: demo.st.broken\nkind: intent\nstatement: \"THE broken SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| b1 | invariant | `**kernel:** resolves(traces_to)` | [[demo.ghost.missing]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p1 | unit | [[demo.st.broken.b1]] | `arb()` | `true` |\n";
-
-/// A corpus whose claim cites a row that does not exist — the honest
-/// `unknown` shape (reachability from a seed that is not an instance
-/// id cannot be discharged).
-const UNKNOWABLE: &str = "---\nid: demo.st.unk\nkind: intent\nstatement: \"THE unk SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| u1 | invariant | `**kernel:** reachable(demo.ghost.nowhere, demo.st.unk.u1, supersedes)` | [[demo.st.unk]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p1 | unit | [[demo.st.unk.u1]] | `arb()` | `true` |\n";
-
-/// The unknown-absorption shape: a composite of a verifiable claim and
-/// an undischargable one — the composite is unknown, NEVER pass.
-const ABSORBING: &str = "---\nid: demo.st.abs\nkind: intent\nstatement: \"THE abs SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a1 | invariant | `**kernel:** acyclic(supersedes) ∧ reachable(demo.ghost.nowhere, demo.st.abs.a1, supersedes)` | [[demo.st.abs]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p1 | unit | [[demo.st.abs.a1]] | `arb()` | `true` |\n";
+use common::kernel_corpora::{ABSORBING, BROKEN, CLEAN, UNKNOWABLE};
 
 /// The end-to-end chain under test: parse → compile extraction →
 /// evaluate each extracted claim over the acset instance. Returns

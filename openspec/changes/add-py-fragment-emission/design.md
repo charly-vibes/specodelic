@@ -119,6 +119,32 @@ translator. Activate the CI agreement path when this change lands; an absent
 Python dependency in that CI job fails setup rather than skips the property.
 Keep this work a separately testable feature slice inside the same change.
 
+#### Promotion contract: shared fixtures → `law_requires_cases` (deferred of record — add-min-expr-kernel D2, tasks.md §4.3)
+
+The fixture corpus is the promotion's frozen input; this is the contract
+the l8l change picks up:
+
+- **Single home**: the corpus lives in `tests/common/kernel_fixtures.rs`
+  (agreement fixtures + backend registry, specodelic-36n) and
+  `tests/common/kernel_corpora.rs` (grounding/status corpora,
+  specodelic-36t). No per-test copies: tests import, never restate.
+- **Trigger**: when this change's py reference adapter (D5) activates the
+  agreement path, the l8l change promotes the agreement property from a
+  CI test to a `law_requires_cases`-shaped Property row — the law
+  requires its cases: every fixture cell (each v0 atomic, Kleene
+  composition, bounds, empty domains, missing references, cycles) stays
+  an explicit named case.
+- **Shrink-only**: promotion adds or refines cases; it never drops,
+  skips, or comments out an existing one. The `expected` statuses
+  migrate verbatim into the row's case table; py expectations are added
+  to the same fixture table when the emitter activates, and the
+  cross-backend assertion covers them with no edits (the assertion is
+  live, never commented out).
+- **Mechanism**: promotion goes through the normal openspec change flow
+  (l8l delta spec, dual-format archive recipe); espectacular stays
+  read-only over `openspec/`, and per-scenario contract TOMLs are
+  authored in the archive commit, never mid-change.
+
 ## D6 — Concrete user example
 
 Use a small resumable-job fixture: lint its references, run declared model
