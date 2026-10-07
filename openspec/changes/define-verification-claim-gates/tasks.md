@@ -9,7 +9,7 @@ separate TIDY ticket is mapped below; keep refactoring commits separate. Preserv
       assert both report and exit behavior, including false negated citation.
 - [x] 1.2 GREEN: implement required-claim classification and shared aggregate
       rules; retain explicitly unchecked prose and bounded-run semantics.
-- [ ] 1.3 TIDY: separate ticket/commit consolidates aggregate rendering only
+- [x] 1.3 TIDY: separate ticket/commit consolidates aggregate rendering only
       after the command fixtures pass unchanged.
 
 ## 2. Evidence belongs to the current scope

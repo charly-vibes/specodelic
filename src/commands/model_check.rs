@@ -2,7 +2,7 @@
 use crate::{ModelBackend, emit_report, parse_batch};
 
 use genesis::guide::{Output, OutputFormat, Verbosity};
-use specodelic::{citation_corpus, compile, human, kernel, lint, model_check, orchestrate, verify};
+use specodelic::{citation_corpus, human, lint, model_check, orchestrate, verify};
 
 /// The scope law's labeled failure as one envelope: the label names the
 /// violation kind in the message (stderr channel), the remediation hint
@@ -100,82 +100,41 @@ pub(crate) fn cmd_model_check(
     let mut failed: Vec<serde_json::Value> = vec![];
     let warnings: Vec<String> = notes;
 
-    // Pass 1 — per-file backend runs; pass 2 — corpus-wide citation
-    // resolution applied to every report before persistence (design D9):
-    // bare names stay file-local, qualified names are exact keys,
-    // dependency-ordered, cycles and missing targets unknown with a
-    // reason. CLI output and persisted reports agree.
-    let mut runs =
-        citation_corpus::run_backend_pass(&specs, out_dir, &target.bound, tlc_paths.as_ref());
-    let resolved_per_file = citation_corpus::apply_corpus_resolution(&specs, &mut runs);
-    // The kernel corpus pass (§3.7, design D9): every opted-in kernel
-    // claim, evaluated over the complete explicit invocation corpus —
-    // or labeled unsupported on the incapable backend — appended to the
-    // same statuses the citations resolved into, so no claim is ever
-    // omitted from command output or the persisted report.
-    let kernel_claims = kernel::evaluate_corpus_claims(
-        &specs,
-        kernel::CorpusBackend::from_tlc_presence(tlc_paths.is_some()),
-    );
-    for (idx, run) in runs.into_iter().enumerate() {
-        match run.result {
-            Ok(mut report) => {
-                // One shared merge (§3.8 TIDY): the persisted statuses
-                // and the command-output entries come from the single
-                // identity helper — kernel claims ride the same
-                // statuses as the resolved citations, exactly once,
-                // with unknown reasons labeled.
-                let statuses_json = kernel::merge_corpus_statuses(
-                    &mut report,
-                    &resolved_per_file[idx],
-                    &kernel_claims[idx],
-                );
-                // The claim-gate aggregate (design D1/D2/D4): the merged
-                // required-claim statuses govern the verdict that is
-                // persisted and handed to verify.
-                kernel::aggregate_required_claims(&mut report);
-                let report_path =
-                    std::path::Path::new(out_dir).join(format!("{}.check.json", run.stem));
-                let report_json =
-                    serde_json::to_string_pretty(&report).expect("RunReport serializes");
-                if let Err(e) = std::fs::write(&report_path, &report_json) {
-                    failed.push(serde_json::json!({
-                        "file": run.file,
-                        "id": run.id,
-                        "stage": "write_report",
-                        "message": format!(
-                            "could not write {}: {e}",
-                            report_path.display()
-                        ),
-                    }));
-                    continue;
-                }
+    // The ONE claim-gated pipeline (design D4): the native CLI and the
+    // orchestrate stage share this exact path — backend pass, corpus
+    // resolution, kernel claims, one merge, one aggregate — so the
+    // aggregate verdict cannot drift between report views. Only the
+    // CLI's rich checked-entry rendering differs.
+    for run in
+        orchestrate::run_claim_gated_model_check(&specs, out_dir, &target.bound, tlc_paths.as_ref())
+    {
+        match run.outcome {
+            Ok(c) => {
                 // CLI output and persisted report carry identical
-                // statuses (design D9) — via the shared merge helper
-                // (§3.8 TIDY): every merged entry — exec outcomes,
-                // resolved citations, kernel claims — with the labeled
-                // reason attached for unknown statuses.
+                // statuses (design D9): every merged entry — exec
+                // outcomes, resolved citations, kernel claims — with
+                // the labeled reason attached for unknown statuses.
                 checked.push(serde_json::json!({
-                    "file": run.file,
-                    "id": run.id,
-                    "outcome": report.outcome,
-                    "backend": report.backend,
-                    "bound": report.bound,
-                    "invariants_checked": report.invariants_checked,
-                    "invariant_statuses": statuses_json,
-                    "violated_invariant_id": report.violated_invariant_id,
-                    "trace": report.trace,
-                    "states_explored": report.states_explored,
-                    "artifact_sha256": report.artifact_sha256,
-                    "written": report_path.display().to_string(),
+                    "file": c.file,
+                    "id": c.id,
+                    "outcome": c.report.outcome,
+                    "backend": c.report.backend,
+                    "bound": c.report.bound,
+                    "invariants_checked": c.report.invariants_checked,
+                    "invariant_statuses": c.statuses_json,
+                    "violated_invariant_id": c.report.violated_invariant_id,
+                    "trace": c.report.trace,
+                    "states_explored": c.report.states_explored,
+                    "artifact_sha256": c.report.artifact_sha256,
+                    "written": c.written,
                 }));
             }
-            Err(e) => {
+            Err((stage, message)) => {
                 failed.push(serde_json::json!({
                     "file": run.file,
                     "id": run.id,
-                    "stage": e.stage,
-                    "message": e.message,
+                    "stage": stage,
+                    "message": message,
                 }));
             }
         }
@@ -388,24 +347,21 @@ pub(crate) fn cmd_verify(
     };
     let mut verified: Vec<serde_json::Value> = vec![];
     let mut blocked: Vec<serde_json::Value> = vec![];
-    for spec in &specs {
-        let file = spec
-            .path
-            .as_ref()
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|| format!("<{}>", spec.intent.id));
-        let stem = compile::artifact_stem(spec);
-        let properties = verify::evaluate_properties_gate(spec, dir, &runner);
-        let model = verify::evaluate_model_gate(dir, &stem);
-        let v = verify::verdict(&properties.state, &model);
+    // The ONE both-gates evaluation loop (design D4): the native CLI and
+    // the orchestrate stage share this exact path — same gate evaluation,
+    // same verdict — so the aggregate verdict cannot drift between report
+    // views. Only the CLI's rich entry rendering (hint + gate states)
+    // differs.
+    for fv in verify::evaluate_file_verdicts(&specs, dir, &runner) {
+        let v = fv.verdict;
         let entry = serde_json::json!({
-            "file": file,
-            "id": spec.intent.id,
+            "file": fv.file,
+            "id": fv.id,
             "status": v.status,
             "message": v.message,
             "hint": v.hint,
-            "properties": props_gate_json(&properties),
-            "model": model_gate_json(&model),
+            "properties": props_gate_json(&fv.properties),
+            "model": model_gate_json(&fv.model),
         });
         if v.status == "verified" {
             verified.push(entry);

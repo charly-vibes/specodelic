@@ -248,6 +248,52 @@ pub fn verdict(properties: &PropsGateState, model: &ModelGateState) -> Verdict {
 // Gate evaluation against an out_dir
 // ---------------------------------------------------------------------------
 
+/// One spec's both-gates evaluation result (design D4): the verdict
+/// plus the gate states behind it — what every report view renders
+/// from.
+pub struct FileVerdict {
+    pub file: String,
+    pub id: String,
+    pub verdict: Verdict,
+    pub properties: PropertiesGate,
+    pub model: ModelGateState,
+}
+
+/// The ONE both-gates evaluation loop (define-verification-claim-gates
+/// design D4): for each spec, evaluate the properties gate and the
+/// model gate and take `verdict`'s conjunction — `cmd_verify` and
+/// orchestrate's verify stage consume this exact path, so the aggregate
+/// verdict cannot drift between report views. Per-view entry rendering
+/// stays with each view (the CLI's rich entry vs the orchestrate
+/// stage's compact detail).
+pub fn evaluate_file_verdicts(
+    specs: &[crate::spec::Spec],
+    out_dir: &Path,
+    runner: &dyn PropertiesRunner,
+) -> Vec<FileVerdict> {
+    specs
+        .iter()
+        .map(|spec| {
+            let file = spec
+                .path
+                .as_ref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| format!("<{}>", spec.intent.id));
+            let stem = artifact_stem(spec);
+            let properties = evaluate_properties_gate(spec, out_dir, runner);
+            let model = evaluate_model_gate(out_dir, &stem);
+            let verdict = verdict(&properties.state, &model);
+            FileVerdict {
+                file,
+                id: spec.intent.id.clone(),
+                verdict,
+                properties,
+                model,
+            }
+        })
+        .collect()
+}
+
 /// The three artifact paths verify consumes for one spec.
 pub struct ArtifactPaths {
     pub props: PathBuf,
