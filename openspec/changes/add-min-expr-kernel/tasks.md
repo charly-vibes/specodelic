@@ -133,12 +133,12 @@ gate (no code); implementation phases do not open until it lands.
 
 ## 5. Tier C — opaque binding bridge
 
-- [ ] 5.1 **RED**: extraction tests — an invariant-kind Constraint with
+- [x] 5.1 **RED**: extraction tests — an invariant-kind Constraint with
       a `kernel.binding` cell extracts the claim as an opaque string;
       specodelic never interprets its contents; a constraint claimed
       by an external checker surfaces in contract-TOML `flags` binding
       (node id / `-k` / `[[tests.shell]]`).
-- [ ] 5.2 **GREEN**: implement `kernel.binding` extraction and the
+- [x] 5.2 **GREEN**: implement `kernel.binding` extraction and the
       claim-carrier surface (no registry — design D4).
 - [ ] 5.3 **TIDY**: document the claim path next to the existing
       espectacular binding docs (language-tag change precedent).

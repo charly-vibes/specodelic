@@ -1450,3 +1450,73 @@ fn doctor_surfaces_discovered_packs() {
     assert_eq!(packs.len(), 1);
     assert_eq!(packs[0]["id"], "bioimage");
 }
+
+// ---- kernel.binding claim carrier (add-min-expr-kernel §5.2, specodelic-bf5) ----
+
+#[test]
+fn compile_cli_surfaces_binding_in_the_toml_artifact() {
+    // The claim-carrier surface end-to-end: an invariant-kind
+    // Constraint's kernel.binding cell surfaces verbatim in the
+    // `{stem}.toml` artifact the CLI writes (the material contract-TOML
+    // `flags` authors bind against — node id / `-k` / [[tests.shell]]).
+    // No registry is built and the contents are never interpreted.
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("bind_demo.md");
+    // The pack-path enablement for the `kernel.binding` vocabulary
+    // (specs/packs.md): the dotted column header is a pack-qualified
+    // token in namespace `kernel`, and orphan_vocabulary's own
+    // remediation is a discovered `kind: profile` pack in that
+    // namespace. The fixture ships the minimal such pack so the compile
+    // precondition passes exactly the way an enabled workspace would.
+    write_pack_file(&dir.path().join("kernel.md"), "kernel", 16);
+    std::fs::write(
+        &spec,
+        "---\nid: bind_demo\nkind: intent\nstatement: \"THE demo SHALL carry a binding claim\"\n---\n\
+         \n## Constraints\n\
+         \n| id | kind | expr | traces_to | kernel.binding |\n\
+         |----|------|------|-----------|----------------|\n\
+         | c1 | invariant | `holds` | [[bind_demo]] |  |\n\
+         | b1 | invariant | `**kernel:** |State| == 2` | [[bind_demo]] | `-k kernel_binding and not slow` |\n\
+         | b2 | invariant | `**kernel:** |Intent| == 1` | [[bind_demo]] | `printf '%s' 'a|b{c}\\\\' && exit 1 # {drop}` |\n\
+         \n## Model\n\
+         \n### States\n\
+         \n- s1\n\
+         - s2\n\
+         \n### Transitions\n\
+         \n| id | from | to | guard |\n\
+         |----|------|----|-------|\n\
+         | t | s1 | s2 | [[bind_demo.c1]] |\n\
+         \n## Properties\n\
+         \n| id | kind | derives_from | generator | predicate |\n\
+         |----|------|--------------|-----------|------------|\n\
+         | p_c1 | unit | [[bind_demo.c1]] | `g()` | `x` |\n\
+         | p_b1 | unit | [[bind_demo.b1]] | `g()` | `x` |\n\
+         | p_b2 | unit | [[bind_demo.b2]] | `g()` | `x` |\n",
+    )
+    .unwrap();
+    let out = dir.path().join("out");
+    spk()
+        .args([
+            "compile",
+            dir.path().to_str().unwrap(),
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    let toml = std::fs::read_to_string(out.join("bind_demo.toml")).unwrap();
+    assert!(
+        toml.contains("binding = \"-k kernel_binding and not slow\""),
+        "ordinary binding surfaces verbatim in the CLI artifact: {toml}"
+    );
+    assert!(
+        toml.contains("printf '%s' 'a|b{c}\\\\' && exit 1 # {drop}"),
+        "arbitrary binding surfaces verbatim in the CLI artifact: {toml}"
+    );
+    // The row without binding text carries an empty carrier, not absence
+    // (present column ⇒ every invariant row carries the cell).
+    assert!(
+        toml.contains("binding = \"\""),
+        "empty binding cell surfaces as the empty string: {toml}"
+    );
+}

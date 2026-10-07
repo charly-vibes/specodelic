@@ -33,6 +33,14 @@ pub struct ConstraintToml {
     pub kind: String,
     pub expr: String,
     pub traces_to: String,
+    /// The opaque `kernel.binding` claim-carrier text (add-min-expr-kernel,
+    /// design D4): invariant-kind rows only, surfaced verbatim and never
+    /// interpreted by the toolchain. `None` when the column is absent so
+    /// pre-Revision artifacts stay byte-identical (pure widening); the
+    /// claim path for external checkers is contract-TOML `flags`, not a
+    /// toolchain registry (kernel_binding_extracted).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub binding: Option<String>,
 }
 
 /// The TOML document shape: which spec it came from + one entry per row.
@@ -52,6 +60,19 @@ pub fn constraints_to_toml(spec: &Spec) -> String {
     toml::to_string(&doc).expect("ConstraintsDoc serializes to TOML")
 }
 
+/// The opaque `kernel.binding` claim-carrier extraction (add-min-expr-kernel,
+/// design D4, tasks.md §5.2): invariant-kind rows only; the cell's text is
+/// carried verbatim — no parse, no validation, no interpretation of its
+/// internals — with the backtick fence stripped exactly as the kernel expr
+/// path shapes cells (`kernel_cell_content` precedent). An absent column
+/// stays `None` so artifacts for pre-Revision specs are byte-identical
+/// (pure widening).
+fn kernel_binding_of_row(kind: Option<&str>, cell: Option<&String>) -> Option<String> {
+    (kind == Some("invariant"))
+        .then(|| cell.map(|c| c.trim().trim_matches('`').trim().to_string()))
+        .flatten()
+}
+
 fn constraints_doc(spec: &Spec) -> ConstraintsDoc {
     ConstraintsDoc {
         source: spec.intent.id.clone(),
@@ -63,6 +84,10 @@ fn constraints_doc(spec: &Spec) -> ConstraintsDoc {
                 kind: r.cells.get("kind").cloned().unwrap_or_default(),
                 expr: r.cells.get("expr").cloned().unwrap_or_default(),
                 traces_to: r.cells.get("traces_to").cloned().unwrap_or_default(),
+                binding: kernel_binding_of_row(
+                    r.cells.get("kind").map(String::as_str),
+                    r.cells.get("kernel.binding"),
+                ),
             })
             .collect(),
     }
