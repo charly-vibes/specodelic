@@ -21,7 +21,7 @@ separate TIDY ticket is mapped below; keep refactoring commits separate. Preserv
       the same preflight in CLI/orchestrate and preserve multi-file lint.
 - [x] 2.2 GREEN: versioned report, canonical input digest, live required-set
       comparison, and rerun hints. No hashes synthesized for old reports.
-- [ ] 2.3 TIDY: separate ticket/commit shares scope encoding across commands.
+- [x] 2.3 TIDY: separate ticket/commit shares scope encoding across commands.
 
 ## 3. Users can interpret results
 - [ ] 3.1 RED: assert JSON/persisted/human claim counts agree; fail the docs

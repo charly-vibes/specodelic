@@ -723,12 +723,53 @@ pub fn scope_digest(
     model_check::artifact_sha256(canonical.as_bytes())
 }
 
+/// The ONE derivation of the D3 report's claim fields (design D4): the
+/// qualified claim records (evaluator kind from the live classification,
+/// the evaluated status, the labeled reason when the claim did not
+/// verify), the expected required-claim ids, and the unchecked invariant
+/// ids. Both the model-check pipeline (orchestrate) and the test
+/// fixtures build these fields through this exact path, so the write
+/// side cannot drift from the read side — [`evaluate_model_gate`]
+/// recomputes all of them from the live inputs and never trusts the
+/// stored values.
+///
+/// `statuses` are the merged invariant statuses (citations and kernel
+/// claims ride the same list, §3.8 TIDY); `reasons` maps claim id → the
+/// labeled reason for any status that did not verify.
+pub fn report_claim_fields(
+    class: &ClaimClassification,
+    statuses: &[model_check::InvariantStatus],
+    reasons: &std::collections::BTreeMap<String, String>,
+) -> (Vec<QualifiedClaim>, Vec<String>, Vec<String>) {
+    let claims: Vec<QualifiedClaim> = statuses
+        .iter()
+        .map(|s| QualifiedClaim {
+            id: s.id.clone(),
+            evaluator: class
+                .required
+                .iter()
+                .find(|req| req.id == s.id)
+                .map(|req| req.evaluator.to_string())
+                // A status outside the live classification cannot exist
+                // (both derive from the same IR); if it ever did, the
+                // record says so and verify fails closed on the
+                // evaluator match.
+                .unwrap_or_else(|| "unknown".to_string()),
+            status: s.status,
+            reason: reasons.get(&s.id).cloned(),
+        })
+        .collect();
+    let expected = class.required.iter().map(|req| req.id.clone()).collect();
+    (claims, expected, class.unchecked.clone())
+}
+
 /// The write-side report shape (D3): the run report's serialized JSON with
 /// the claim-freshness fields injected — `claim_schema_version`, qualified
 /// `claims`, `expected_claim_ids`, `unchecked_claim_ids`, and
 /// `scope_sha256`. The ONE place these fields are attached to a persisted
-/// report; verify recomputes all of them from the live inputs and never
-/// trusts the stored values.
+/// report (the field values themselves come from [`report_claim_fields`]);
+/// verify recomputes all of them from the live inputs and never trusts
+/// the stored values.
 pub fn fresh_report_json(
     report: &RunReport,
     claims: &[QualifiedClaim],
@@ -1143,27 +1184,16 @@ mod tests {
         let tla = std::fs::read(dir.join("vfix.tla")).unwrap_or_default();
         let mut artifacts = std::collections::BTreeMap::new();
         artifacts.insert(spec.intent.id.clone(), model_check::artifact_sha256(&tla));
-        let expected: Vec<String> = class.required.iter().map(|r| r.id.clone()).collect();
-        let claims: Vec<QualifiedClaim> = report
-            .invariant_statuses
-            .iter()
-            .map(|s| QualifiedClaim {
-                id: s.id.clone(),
-                evaluator: class
-                    .required
-                    .iter()
-                    .find(|r| r.id == s.id)
-                    .map(|r| r.evaluator.to_string())
-                    .unwrap_or_else(|| "unknown".into()),
-                status: s.status,
-                reason: None,
-            })
-            .collect();
+        let (claims, expected, unchecked) = report_claim_fields(
+            &class,
+            &report.invariant_statuses,
+            &std::collections::BTreeMap::new(),
+        );
         let json = fresh_report_json(
             report,
             &claims,
             &expected,
-            &class.unchecked,
+            &unchecked,
             &scope_digest(std::slice::from_ref(spec), &artifacts),
         );
         std::fs::write(
@@ -1261,6 +1291,39 @@ mod tests {
         assert_eq!(v.status, "properties_failed");
         // the failing block's shrunk detail is carried for the report
         assert!(!blocks[1].passed && blocks[1].detail.is_some());
+    }
+
+    #[test]
+    fn report_claim_fields_derives_records_and_sets() {
+        // The ONE D3 field derivation (68m.4): evaluator kind from the
+        // classification, the evaluated status, the labeled reason when
+        // the claim did not verify; expected = required ids, unchecked
+        // = prose ids.
+        let class = ClaimClassification {
+            required: vec![RequiredClaim {
+                id: "c1".into(),
+                evaluator: "kernel",
+            }],
+            unchecked: vec!["p1".into()],
+        };
+        let statuses = vec![model_check::InvariantStatus {
+            id: "c1".into(),
+            status: model_check::ThreeValued::Verified,
+        }];
+        let mut reasons = std::collections::BTreeMap::new();
+        reasons.insert("c1".to_string(), "no".to_string());
+        let (claims, expected, unchecked) = report_claim_fields(&class, &statuses, &reasons);
+        assert_eq!(claims.len(), 1);
+        assert_eq!(claims[0].id, "c1");
+        assert_eq!(claims[0].evaluator, "kernel");
+        assert_eq!(claims[0].status, model_check::ThreeValued::Verified);
+        assert_eq!(claims[0].reason.as_deref(), Some("no"));
+        assert_eq!(expected, vec!["c1".to_string()]);
+        assert_eq!(unchecked, vec!["p1".to_string()]);
+        // A status with no reason carries no reason field.
+        let reasons = std::collections::BTreeMap::new();
+        let (claims, _, _) = report_claim_fields(&class, &statuses, &reasons);
+        assert_eq!(claims[0].reason, None);
     }
 
     #[test]
