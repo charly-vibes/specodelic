@@ -347,7 +347,7 @@ fn verify_accepts_clean_report_with_current_artifacts() {
             "model-check",
             spec.to_str().unwrap(),
             "--out-dir",
-            &out.to_str().unwrap(),
+            out.to_str().unwrap(),
         ])
         .assert()
         .success();
@@ -361,7 +361,7 @@ fn verify_accepts_clean_report_with_current_artifacts() {
             "verify",
             spec.to_str().unwrap(),
             "--out-dir",
-            &out.to_str().unwrap(),
+            out.to_str().unwrap(),
             "--json",
         ])
         .assert()
