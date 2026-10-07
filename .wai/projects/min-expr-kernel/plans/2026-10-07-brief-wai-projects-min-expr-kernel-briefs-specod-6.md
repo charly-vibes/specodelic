@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-07-specodelic-ats-add-min-expr-kernel-ss5-3-external-claim-guidance-binding-path-coverage-lint-turn-ons-no-contract-tomls, pipeline-step:green]
+---
+
+BRIEF: .wai/projects/min-expr-kernel/briefs/specodelic-ats.md
