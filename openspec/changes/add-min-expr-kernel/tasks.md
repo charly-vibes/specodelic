@@ -105,7 +105,7 @@ gate (no code); implementation phases do not open until it lands.
       independent runs in separate output directories keep their outcomes.
       Pin rejection of mixed dual-format/ordinary inputs, ordinary duplicate
       intent rejection, and continued acceptance by multi-file lint.
-- [ ] 3.7 **RED→GREEN**: run compile → model-check on kernel-only and
+- [x] 3.7 **RED→GREEN**: run compile → model-check on kernel-only and
       mixed Rust/kernel fixtures (two states versus cardinality 999).
       Every opted-in claim appears exactly once; evaluate over the complete
       explicit corpus. Reversed file order yields identical statuses;

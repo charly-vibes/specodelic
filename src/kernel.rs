@@ -49,7 +49,7 @@ use std::collections::BTreeMap;
 use crate::acset::instance::Instance;
 use crate::acset::query;
 use crate::acset::schema::{self, Schema};
-use crate::compile::ThreeValued;
+use crate::compile::{self, ThreeValued};
 use crate::graph::kind_index;
 use crate::spec::Spec;
 
@@ -984,6 +984,124 @@ enum TermVal {
     /// The value could not be determined — honest unknown, never a
     /// fabricated verdict.
     Unknown,
+}
+
+// ---------------------------------------------------------------------------
+// The command-path corpus pass (§3.7, design D9) — every opted-in claim
+// published exactly once, evaluated over the complete invocation corpus
+// ---------------------------------------------------------------------------
+
+/// Which backend the invocation selected. The kernel evaluation itself
+/// is backend-independent (acset traversal over the corpus instance),
+/// but an incapable backend must not imply it supplied the verdict:
+/// design D9 — TLC either supplies same-scope kernel evaluation or
+/// returns a labeled unsupported result; it cannot omit the claims and
+/// imply success.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CorpusBackend {
+    /// The native backends — kernel claims evaluate over the corpus.
+    Native,
+    /// The TLC reference engine — kernel claims come back labeled
+    /// unsupported (`kernel_backend_unsupported`).
+    Tlc,
+}
+
+/// One kernel claim's command-path status: the Constraints-table row id
+/// (within the file that declares it), its three-valued status, and the
+/// labeled reason when (and only when) the status is unknown for a
+/// namable cause. Mirrors the citation path's `ResolvedStatus` shape —
+/// the same command-output and persisted-report duality (§3.8's TIDY
+/// extracts the shared identity helper).
+#[derive(Debug, Clone, PartialEq)]
+pub struct CorpusClaimStatus {
+    pub id: String,
+    pub status: ThreeValued,
+    pub reason: Option<String>,
+}
+
+impl CorpusClaimStatus {
+    /// The report shape — status only, no reason (RunReport keeps its
+    /// deployed schema; reasons surface in command output).
+    pub fn invariant_status(&self) -> crate::model_check::InvariantStatus {
+        crate::model_check::InvariantStatus {
+            id: self.id.clone(),
+            status: self.status,
+        }
+    }
+
+    /// The command-output shape: id, status, and the reason when present.
+    pub fn output_json(&self) -> serde_json::Value {
+        let mut entry = serde_json::json!({
+            "id": self.id,
+            "status": self.status,
+        });
+        if let Some(reason) = &self.reason {
+            entry["reason"] = serde_json::json!(reason);
+        }
+        entry
+    }
+}
+
+/// Evaluate every opted-in kernel claim of every spec over the complete
+/// explicit invocation corpus (§3.7, design D9): one `KernelEnv` over
+/// ALL specs in the invocation — never per-file — so cardinality and
+/// quantifier claims see the whole corpus. Claims stay attached to the
+/// file that declares them and appear exactly once. The backend tag
+/// decides the incapable-backend leg: TLC claims come back unknown with
+/// the labeled unsupported reason. No filesystem discovery — only the
+/// explicit inputs contribute.
+pub fn evaluate_corpus_claims(
+    specs: &[Spec],
+    backend: CorpusBackend,
+) -> Vec<Vec<CorpusClaimStatus>> {
+    match backend {
+        CorpusBackend::Tlc => specs
+            .iter()
+            .map(|spec| {
+                compile::extract_model_ir(spec)
+                    .guard_kernel
+                    .keys()
+                    .map(|id| CorpusClaimStatus {
+                        id: id.clone(),
+                        status: ThreeValued::Unknown,
+                        reason: Some(
+                            "the tlc backend cannot evaluate kernel claims — labeled unsupported result, never omitted or implied pass (kernel_backend_unsupported)"
+                                .to_string(),
+                        ),
+                    })
+                    .collect()
+            })
+            .collect(),
+        CorpusBackend::Native => {
+            let env = KernelEnv::from_specs(specs);
+            specs
+                .iter()
+                .map(|spec| {
+                    compile::extract_model_ir(spec)
+                        .guard_kernel
+                        .iter()
+                        .map(|(id, cell)| match parse_kernel_str(cell) {
+                            Ok(Some(expr)) => CorpusClaimStatus {
+                                id: id.clone(),
+                                status: env.evaluate(&expr),
+                                reason: None,
+                            },
+                            // Proven parseable at extraction time; a failed
+                            // re-parse is honest unknown, never a silent drop.
+                            _ => CorpusClaimStatus {
+                                id: id.clone(),
+                                status: ThreeValued::Unknown,
+                                reason: Some(
+                                    "kernel cell no longer parses — honest unknown, never a silent drop"
+                                        .to_string(),
+                                ),
+                            },
+                        })
+                        .collect()
+                })
+                .collect()
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

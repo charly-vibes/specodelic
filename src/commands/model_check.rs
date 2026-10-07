@@ -2,7 +2,7 @@
 use crate::{ModelBackend, emit_report, parse_batch};
 
 use genesis::guide::{Output, OutputFormat, Verbosity};
-use specodelic::{citation_corpus, compile, human, lint, model_check, orchestrate, verify};
+use specodelic::{citation_corpus, compile, human, kernel, lint, model_check, orchestrate, verify};
 
 /// The scope law's labeled failure as one envelope: the label names the
 /// violation kind in the message (stderr channel), the remediation hint
@@ -108,9 +108,25 @@ pub(crate) fn cmd_model_check(
     let mut runs =
         citation_corpus::run_backend_pass(&specs, out_dir, &target.bound, tlc_paths.as_ref());
     let resolved_per_file = citation_corpus::apply_corpus_resolution(&specs, &mut runs);
+    // The kernel corpus pass (§3.7, design D9): every opted-in kernel
+    // claim, evaluated over the complete explicit invocation corpus —
+    // or labeled unsupported on the incapable backend — appended to the
+    // same statuses the citations resolved into, so no claim is ever
+    // omitted from command output or the persisted report.
+    let kernel_backend = if tlc_paths.is_some() {
+        kernel::CorpusBackend::Tlc
+    } else {
+        kernel::CorpusBackend::Native
+    };
+    let kernel_claims = kernel::evaluate_corpus_claims(&specs, kernel_backend);
     for (idx, run) in runs.into_iter().enumerate() {
         match run.result {
-            Ok(report) => {
+            Ok(mut report) => {
+                // Kernel claims ride the same persisted statuses as the
+                // resolved citations — exactly once, status only.
+                for k in &kernel_claims[idx] {
+                    report.invariant_statuses.push(k.invariant_status());
+                }
                 let report_path =
                     std::path::Path::new(out_dir).join(format!("{}.check.json", run.stem));
                 let report_json =
@@ -127,9 +143,29 @@ pub(crate) fn cmd_model_check(
                     }));
                     continue;
                 }
-                let statuses_json: Vec<serde_json::Value> = resolved_per_file[idx]
+                // CLI output and persisted report carry identical
+                // statuses (design D9): every merged entry — exec
+                // outcomes, resolved citations, kernel claims — with
+                // the labeled reason attached for unknown statuses.
+                let reasons: std::collections::BTreeMap<&str, &String> = resolved_per_file[idx]
                     .iter()
-                    .map(|r| r.output_json())
+                    .filter_map(|r| r.reason.as_ref().map(|s| (r.id.as_str(), s)))
+                    .chain(
+                        kernel_claims[idx]
+                            .iter()
+                            .filter_map(|k| k.reason.as_ref().map(|s| (k.id.as_str(), s))),
+                    )
+                    .collect();
+                let statuses_json: Vec<serde_json::Value> = report
+                    .invariant_statuses
+                    .iter()
+                    .map(|s| {
+                        let mut entry = serde_json::json!({ "id": s.id, "status": s.status });
+                        if let Some(reason) = reasons.get(s.id.as_str()) {
+                            entry["reason"] = serde_json::json!(reason);
+                        }
+                        entry
+                    })
                     .collect();
                 checked.push(serde_json::json!({
                     "file": run.file,

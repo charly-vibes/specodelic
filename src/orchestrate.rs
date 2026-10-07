@@ -19,6 +19,7 @@ use serde::Serialize;
 use crate::checklist::Checklist;
 use crate::citation_corpus;
 use crate::compile;
+use crate::kernel;
 use crate::lint::{self, Issue};
 use crate::model_check;
 use crate::spec::Spec;
@@ -368,9 +369,25 @@ fn run_model_check_stage(
     // the native CLI and orchestrate share this exact path.
     let mut runs = citation_corpus::run_backend_pass(specs, out_dir, bound, backends.tlc.as_ref());
     let resolved_per_file = citation_corpus::apply_corpus_resolution(specs, &mut runs);
+    // The kernel corpus pass (§3.7, design D9): orchestrate shares the
+    // native CLI's exact command path — every opted-in kernel claim
+    // evaluated over the complete invocation corpus, or labeled
+    // unsupported on the incapable backend, appended to the same
+    // statuses the citations resolved into.
+    let kernel_backend = if backends.tlc.is_some() {
+        kernel::CorpusBackend::Tlc
+    } else {
+        kernel::CorpusBackend::Native
+    };
+    let kernel_claims = kernel::evaluate_corpus_claims(specs, kernel_backend);
     for (idx, run) in runs.into_iter().enumerate() {
         match run.result {
-            Ok(report) => {
+            Ok(mut report) => {
+                // Kernel claims ride the same persisted statuses as the
+                // resolved citations — exactly once, status only.
+                for k in &kernel_claims[idx] {
+                    report.invariant_statuses.push(k.invariant_status());
+                }
                 let clean = matches!(report.outcome, model_check::Outcome::NoCounterexample);
                 if !clean {
                     all_clean = false;
@@ -389,9 +406,29 @@ fn run_model_check_stage(
                     }));
                     continue;
                 }
-                let statuses_json: Vec<serde_json::Value> = resolved_per_file[idx]
+                // Stage detail and persisted report carry identical
+                // statuses (design D9): every merged entry — exec
+                // outcomes, resolved citations, kernel claims — with
+                // the labeled reason attached for unknown statuses.
+                let reasons: std::collections::BTreeMap<&str, &String> = resolved_per_file[idx]
                     .iter()
-                    .map(|r| r.output_json())
+                    .filter_map(|r| r.reason.as_ref().map(|s| (r.id.as_str(), s)))
+                    .chain(
+                        kernel_claims[idx]
+                            .iter()
+                            .filter_map(|k| k.reason.as_ref().map(|s| (k.id.as_str(), s))),
+                    )
+                    .collect();
+                let statuses_json: Vec<serde_json::Value> = report
+                    .invariant_statuses
+                    .iter()
+                    .map(|s| {
+                        let mut entry = serde_json::json!({ "id": s.id, "status": s.status });
+                        if let Some(reason) = reasons.get(s.id.as_str()) {
+                            entry["reason"] = serde_json::json!(reason);
+                        }
+                        entry
+                    })
                     .collect();
                 checked.push(serde_json::json!({
                     "file": run.file,
