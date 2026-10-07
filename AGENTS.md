@@ -177,6 +177,14 @@ every file there is a markdown spec written in the format it describes.
   `openspec/decisions/2026-10-05-precommit-sweep-policy.md`.
 - **Quality gates**: `just ci` (fmt-check, clippy `-D warnings`, tests,
   release build) must pass before pushing.
+- **Test runner**: during iterative work, agents run `just test-smart`
+  (testaruda select --safe) instead of `cargo test` directly — it selects
+  the affected test set from the working diff, runs only those tests, and
+  ingests results for future selection. Falls back to plain `cargo test`
+  when the store/config is missing or confidence is low. `just test-blast`
+  previews affected tests without running anything. The full `cargo test`
+  via `just ci` remains the gate before push — testaruda selection is for
+  fast feedback, never a substitute for the gate.
 - **Dogfooding**: `just lint-specs` lints the corpus with the tool
   itself. Known coverage gaps are tracked as beads issues, not ignored.
 

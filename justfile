@@ -28,6 +28,26 @@ test:
 test-name name:
     cargo test {{name}} -- --nocapture
 
+# Smart test run (default for agents / iterative red→green loops):
+# testaruda computes the affected test set from the working diff via
+# provenance analysis, runs only those tests, and ingests the results.
+# Falls back to a plain `cargo test` if the store/config is missing or
+# confidence is low (--safe). The full `cargo test` remains the CI gate
+# (`just ci`); this recipe is for fast feedback, not the gate.
+test-smart:
+    testaruda select --safe --human
+
+# Blast-radius preview: list the tests a change WOULD affect without
+# running anything. Useful before a refactor; pass an explicit file
+# list: just test-blast src/foo.rs,tests/foo.rs
+test-blast *files:
+    #!/usr/bin/env bash
+    if [ -z "{{files}}" ]; then
+        testaruda select --pre-edit --human
+    else
+        testaruda select --pre-edit --human --files "{{files}}"
+    fi
+
 # === Lint Commands ===
 
 fmt:

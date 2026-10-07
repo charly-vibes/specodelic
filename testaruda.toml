@@ -1,0 +1,22 @@
+# testaruda configuration
+
+[adapters]
+# Default adapter when no extension matches
+default = "testaruda-adapter-rust"
+
+[adapters.extensions]
+# Map file extensions to adapter binaries.
+# Adapters must be installed on PATH or specified as absolute paths.
+#
+# Rust-only: this is a Rust CLI. Python test scripts (scripts/test_*.py)
+# have their own runner (`just sync-sections-test`); other language
+# adapters are omitted so the runner never invokes them.
+".rs" = "testaruda-adapter-rust"
+
+[discover]
+# Directory/file names to exclude from discover walks.
+# Matches the end of the directory name (e.g., ".venv" matches any path
+# ending in ".venv"). The default list covers common tool/build artifacts.
+exclude = ["target", ".git", "node_modules", ".venv", "venv",
+          "__pycache__", ".mypy_cache", ".pytest_cache",
+          "build", "dist", ".tox"]
