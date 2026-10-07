@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-07-specodelic-mui-ss3-7-kernel-claims-across-the-complete-invocation-corpus, pipeline-step:quality-ledger]
+---
+
+QUALITY LEDGER: RO5U PASS — 0 critical, 0 high, 0 medium; 3 low findings recorded, 2 deferred to §3.8 specodelic-k3h (shared identity/evaluation helper extraction is that ticket's own scope), 1 tracked inline (unsupported label string until a spec pins it). Evidence: RED observed (5/6 kernel_corpus failures with empty statuses, intended reason: claims omitted from command output), GREEN observed (same command 6/6), just test green exit 0, cargo test --test cli 193 pass ×3 consecutive (pipeline-run single-failure episodes were parallel-load scratch-build flakes in unrelated orchestrate_verify/citation_resolution tests, reproduced zero times in direct runs). Remaining risks: none known for §3.7 scope; outcome/aggregation semantics remain claim-gate-proposal territory by design. Next: pretender check, fmt/clippy, tasks.md §3.7 checkbox, commit.

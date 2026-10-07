@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-07-specodelic-mui-ss3-7-kernel-claims-across-the-complete-invocation-corpus, pipeline-step:green]
+---
+
+GREEN: kernel claims now publish on the command path. Minimal change: (1) src/kernel.rs gains CorpusBackend{Native,Tlc} + CorpusClaimStatus{id,status,reason} with the two output shapes (invariant_status for the report, output_json with reason for CLI) and evaluate_corpus_claims(specs, backend) — one KernelEnv::from_specs over the complete explicit invocation corpus (never per-file), claims stay attached to their declaring file, TLC backend yields labeled unknown 'kernel_backend_unsupported' reasons instead of omission. (2) cmd_model_check and orchestrate run_model_check_stage call it after citation apply_corpus_resolution and push the statuses into report.invariant_statuses before persistence; CLI/stage statuses_json now derives from the fully merged report with reasons re-attached — implementing design D9's 'JSON output and persisted report contain identical statuses'. No changes to pinned per-run backend semantics in src/model_check.rs.
