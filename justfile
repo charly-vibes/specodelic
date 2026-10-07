@@ -48,6 +48,34 @@ test-blast *files:
         testaruda select --pre-edit --human --files "{{files}}"
     fi
 
+# === Testaruda observability ===
+
+# Usage counters: tests tracked, runs ingested, quarantined (flaky) tests
+test-metrics:
+    testaruda metrics --human
+
+# Cross-tool health summary (also covers other .genesis/tools.toml tools)
+test-status:
+    testaruda status --human
+
+# Calibration gate: does the predictive ranking actually recall failures?
+# NOTE: reports NOT CALIBRATED while ingested runs contain zero failures
+# (recall 0/0 degenerates to 0.0) — that is a no-signal state, not a
+# regression. It becomes meaningful once a real failure has been ingested.
+test-calibrate:
+    testaruda calibrate --human
+
+# Cross-validate selection semantics against the Soufflé Datalog oracle
+test-oracle:
+    testaruda oracle --human
+
+# Why did (or didn't) a test get selected? Pass a test node_id or numeric
+# ID — node_ids are store-relative, e.g. src::lint::anchors_resolve_but_name_no_row(Test)
+# (not the full crate path cargo prints). List IDs: sqlite3 .testaruda/store.db \
+#   "select id, node_id from test_items;"
+test-why test_id:
+    testaruda explain --human "{{test_id}}"
+
 # === Lint Commands ===
 
 fmt:
