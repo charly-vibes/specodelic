@@ -452,7 +452,8 @@ fn fake_spk(dir: &std::path::Path, behavior: &str) -> std::path::PathBuf {
 
 /// A minimal repo fixture: `.git` marker, optional lefthook config,
 /// optional openspec/ tree (the install pre-check target).
-
+// (comment, not a doc: this describes the fixture module's helpers, not
+// the `with_path` item that follows)
 fn with_path(bin: &std::path::Path) -> String {
     format!(
         "{}:{}",

@@ -48,7 +48,9 @@ fn dead_pid() -> u32 {
 }
 
 /// A child that stays alive (and unreaped, hence kill -0-visible) as long as
-/// the returned guard value is held.
+/// the returned guard value is held. The `Child` field exists for its
+/// Drop side effect (reaping) — it is never read.
+#[allow(dead_code)]
 struct LiveChild(std::process::Child);
 fn live_pid() -> (u32, LiveChild) {
     let child = Command::new("sleep")

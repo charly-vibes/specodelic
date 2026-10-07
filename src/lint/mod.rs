@@ -591,7 +591,7 @@ fn lint_one(spec: &Spec, corpus: &[Spec], report: &mut Report) {
 
 #[cfg(test)]
 mod tests {
-    use super::graph::{is_metasyntactic, resolve_node, rows};
+    use super::graph::{is_metasyntactic, resolve_node};
     use super::*;
     use std::collections::BTreeSet;
 
@@ -2053,8 +2053,6 @@ mod checker_tests {
     //! specodelic-8kk: the orchestrator invokes checkers individually —
     //! pin each checker family's rule attribution so a rule can never
     //! silently migrate between checkers.
-
-    use super::graph::{is_metasyntactic, resolve_node};
 
     use super::*;
 

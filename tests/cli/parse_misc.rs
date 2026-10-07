@@ -591,11 +591,11 @@ fn archive_companion_unknown_change_is_labeled_error() {
 
 // ---- specodelic-9rv: spk parse — structured Spec IR export ----
 
-/// A well-formed four-layer spec with three Properties rows and links —
-/// the parse IR fixture.
-
-/// C-parse-ir + C-parse-envelope (tasks 1.1): a well-formed file parses
-/// into the full Spec IR under data, with a hint suggesting spk lint.
+// A well-formed four-layer spec with three Properties rows and links —
+// the parse IR fixture.
+//
+// C-parse-ir + C-parse-envelope (tasks 1.1): a well-formed file parses
+// into the full Spec IR under data, with a hint suggesting spk lint.
 #[test]
 fn parse_exports_full_spec_ir() {
     let dir = tempfile::tempdir().unwrap();
