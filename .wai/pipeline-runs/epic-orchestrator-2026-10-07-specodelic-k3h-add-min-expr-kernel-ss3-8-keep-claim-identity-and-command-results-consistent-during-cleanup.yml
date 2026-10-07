@@ -2,7 +2,7 @@ run_id: epic-orchestrator-2026-10-07-specodelic-k3h-add-min-expr-kernel-ss3-8-ke
 pipeline: epic-orchestrator
 topic: 'specodelic-k3h: add-min-expr-kernel §3.8 — keep claim identity and command results consistent during cleanup'
 created_at: '2026-10-07T18:43:39.718165648+00:00'
-current_step: 5
+current_step: 6
 approvals: {}
 epic: null
 child_issues: []
