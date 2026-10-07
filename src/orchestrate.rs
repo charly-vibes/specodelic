@@ -17,6 +17,7 @@
 use serde::Serialize;
 
 use crate::checklist::Checklist;
+use crate::citation_corpus;
 use crate::compile;
 use crate::lint::{self, Issue};
 use crate::model_check;
@@ -361,63 +362,44 @@ fn run_model_check_stage(
     let mut checked: Vec<serde_json::Value> = vec![];
     let mut failed: Vec<serde_json::Value> = vec![];
     let mut all_clean = true;
-    for spec in specs {
-        let file = spec
-            .path
-            .as_ref()
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|| format!("<{}>", spec.intent.id));
-        let stem = compile::artifact_stem(spec);
-        let tla_path = std::path::Path::new(out_dir).join(format!("{stem}.tla"));
-        let tla_artifact = match std::fs::read(&tla_path) {
-            Ok(bytes) => bytes,
-            Err(e) => {
-                all_clean = false;
-                failed.push(serde_json::json!({
-                    "file": file,
-                    "id": spec.intent.id,
-                    "stage": "missing_artifact",
-                    "message": format!(
-                        "no compiled module at {}: {e} — model-check consumes compile's output, it never re-compiles",
-                        tla_path.display()
-                    ),
-                }));
-                continue;
-            }
-        };
-        let ir = compile::extract_model_ir(spec);
-        let result = match &backends.tlc {
-            Some(tlc) => model_check::run_tlc(&ir, &tla_path, &tla_artifact, bound, tlc),
-            // Executable invariants (Revision 15): fragment-bearing IR goes
-            // through the scratch-crate run, like cmd_model_check.
-            None if ir.invariants.is_empty() => model_check::run(&ir, &tla_artifact, bound),
-            None => model_check::run_executable(&ir, &tla_artifact, bound),
-        };
-        match result {
+
+    // Pass 1 — per-file backend runs; pass 2 — corpus-wide citation
+    // resolution applied to every report before persistence (design D9):
+    // the native CLI and orchestrate share this exact path.
+    let mut runs = citation_corpus::run_backend_pass(specs, out_dir, bound, backends.tlc.as_ref());
+    let resolved_per_file = citation_corpus::apply_corpus_resolution(specs, &mut runs);
+    for (idx, run) in runs.into_iter().enumerate() {
+        match run.result {
             Ok(report) => {
                 let clean = matches!(report.outcome, model_check::Outcome::NoCounterexample);
                 if !clean {
                     all_clean = false;
                 }
-                let report_path = std::path::Path::new(out_dir).join(format!("{stem}.check.json"));
+                let report_path =
+                    std::path::Path::new(out_dir).join(format!("{}.check.json", run.stem));
                 let report_json =
                     serde_json::to_string_pretty(&report).expect("RunReport serializes");
                 if let Err(e) = std::fs::write(&report_path, &report_json) {
                     all_clean = false;
                     failed.push(serde_json::json!({
-                        "file": file,
-                        "id": spec.intent.id,
+                        "file": run.file,
+                        "id": run.id,
                         "stage": "write_report",
                         "message": format!("could not write {}: {e}", report_path.display()),
                     }));
                     continue;
                 }
+                let statuses_json: Vec<serde_json::Value> = resolved_per_file[idx]
+                    .iter()
+                    .map(|r| r.output_json())
+                    .collect();
                 checked.push(serde_json::json!({
-                    "file": file,
-                    "id": spec.intent.id,
+                    "file": run.file,
+                    "id": run.id,
                     "outcome": report.outcome,
                     "clean": clean,
                     "backend": report.backend,
+                    "invariant_statuses": statuses_json,
                     "states_explored": report.states_explored,
                     "written": report_path.display().to_string(),
                 }));
@@ -425,8 +407,8 @@ fn run_model_check_stage(
             Err(e) => {
                 all_clean = false;
                 failed.push(serde_json::json!({
-                    "file": file,
-                    "id": spec.intent.id,
+                    "file": run.file,
+                    "id": run.id,
                     "stage": e.stage,
                     "message": e.message,
                 }));

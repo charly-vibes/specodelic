@@ -2,7 +2,14 @@
 use crate::{ModelBackend, emit_report, parse_batch};
 
 use genesis::guide::{Output, OutputFormat, Verbosity};
-use specodelic::{compile, human, lint, model_check, orchestrate, verify};
+use specodelic::{citation_corpus, compile, human, lint, model_check, orchestrate, verify};
+
+/// The scope law's labeled failure as one envelope: the label names the
+/// violation kind in the message (stderr channel), the remediation hint
+/// rides the next-step channel (design D9).
+fn scope_violation_output(v: &citation_corpus::ScopeViolation) -> Output<serde_json::Value> {
+    Output::failure(format!("{}: {}", v.label, v.message)).with_next_step(v.hint.clone())
+}
 
 /// The artifact filename stem for a spec: the file stem when on disk,
 /// else the intent id with `.` → `-`.
@@ -75,52 +82,43 @@ pub(crate) fn cmd_model_check(
         return 2;
     }
 
+    // Scope law (design D9): the labeled failure fires before any write —
+    // no evaluation and no report may precede it.
+    if let Err(v) = citation_corpus::check_corpus_scope(&specs) {
+        emit_report(
+            scope_violation_output(&v),
+            None,
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        );
+        return 2;
+    }
+
     let mut checked: Vec<serde_json::Value> = vec![];
     let mut failed: Vec<serde_json::Value> = vec![];
     let warnings: Vec<String> = notes;
-    for spec in &specs {
-        let file = spec
-            .path
-            .as_ref()
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|| format!("<{}>", spec.intent.id));
-        let stem = compile::artifact_stem(spec);
-        let tla_path = std::path::Path::new(out_dir).join(format!("{stem}.tla"));
-        // The compiled module is the run's input — a missing artifact is
-        // a labeled error with a remediation hint, never a run.
-        let tla_artifact = match std::fs::read(&tla_path) {
-            Ok(bytes) => bytes,
-            Err(e) => {
-                failed.push(serde_json::json!({
-                    "file": file,
-                    "id": spec.intent.id,
-                    "stage": "missing_artifact",
-                    "message": format!(
-                        "no compiled module at {}: {e} — model-check consumes compile's output, it never re-compiles (run: specodelic compile <files>)",
-                        tla_path.display()
-                    ),
-                }));
-                continue;
-            }
-        };
-        let ir = compile::extract_model_ir(spec);
-        let result = match &tlc_paths {
-            Some(tlc) => model_check::run_tlc(&ir, &tla_path, &tla_artifact, &target.bound, tlc),
-            // Executable invariants (Revision 15): fragment-bearing IR goes
-            // through the scratch-crate run — no_counterexample becomes
-            // producible; fragment-less IR keeps the in-process run.
-            None if ir.invariants.is_empty() => model_check::run(&ir, &tla_artifact, &target.bound),
-            None => model_check::run_executable(&ir, &tla_artifact, &target.bound),
-        };
-        match result {
+
+    // Pass 1 — per-file backend runs; pass 2 — corpus-wide citation
+    // resolution applied to every report before persistence (design D9):
+    // bare names stay file-local, qualified names are exact keys,
+    // dependency-ordered, cycles and missing targets unknown with a
+    // reason. CLI output and persisted reports agree.
+    let mut runs =
+        citation_corpus::run_backend_pass(&specs, out_dir, &target.bound, tlc_paths.as_ref());
+    let resolved_per_file = citation_corpus::apply_corpus_resolution(&specs, &mut runs);
+    for (idx, run) in runs.into_iter().enumerate() {
+        match run.result {
             Ok(report) => {
-                let report_path = std::path::Path::new(out_dir).join(format!("{stem}.check.json"));
+                let report_path =
+                    std::path::Path::new(out_dir).join(format!("{}.check.json", run.stem));
                 let report_json =
                     serde_json::to_string_pretty(&report).expect("RunReport serializes");
                 if let Err(e) = std::fs::write(&report_path, &report_json) {
                     failed.push(serde_json::json!({
-                        "file": file,
-                        "id": spec.intent.id,
+                        "file": run.file,
+                        "id": run.id,
                         "stage": "write_report",
                         "message": format!(
                             "could not write {}: {e}",
@@ -129,13 +127,18 @@ pub(crate) fn cmd_model_check(
                     }));
                     continue;
                 }
+                let statuses_json: Vec<serde_json::Value> = resolved_per_file[idx]
+                    .iter()
+                    .map(|r| r.output_json())
+                    .collect();
                 checked.push(serde_json::json!({
-                    "file": file,
-                    "id": spec.intent.id,
+                    "file": run.file,
+                    "id": run.id,
                     "outcome": report.outcome,
                     "backend": report.backend,
                     "bound": report.bound,
                     "invariants_checked": report.invariants_checked,
+                    "invariant_statuses": statuses_json,
                     "violated_invariant_id": report.violated_invariant_id,
                     "trace": report.trace,
                     "states_explored": report.states_explored,
@@ -145,8 +148,8 @@ pub(crate) fn cmd_model_check(
             }
             Err(e) => {
                 failed.push(serde_json::json!({
-                    "file": file,
-                    "id": spec.intent.id,
+                    "file": run.file,
+                    "id": run.id,
                     "stage": e.stage,
                     "message": e.message,
                 }));
@@ -262,6 +265,19 @@ pub(crate) fn cmd_orchestrate(
         // Invocation error (specodelic-7rr item 2): nothing was processed.
         return 2;
     }
+    // Scope law (design D9): the labeled failure fires before any write —
+    // no compile/model-check/verify stage may precede it.
+    if let Err(v) = citation_corpus::check_corpus_scope(&specs) {
+        emit_report(
+            scope_violation_output(&v),
+            None,
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        );
+        return 2;
+    }
     let orchestration = orchestrate::orchestrate(
         &specs,
         &checklists,
@@ -324,6 +340,20 @@ pub(crate) fn cmd_verify(
         }
         emit_report(out, None, format, verbosity, stdout, stderr);
         // Invocation error: nothing to verify (specodelic-7rr item 2).
+        return 2;
+    }
+
+    // Scope law (design D9): the labeled failure fires before any write —
+    // no property execution may precede it.
+    if let Err(v) = citation_corpus::check_corpus_scope(&specs) {
+        emit_report(
+            scope_violation_output(&v),
+            None,
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        );
         return 2;
     }
 

@@ -95,7 +95,7 @@ gate (no code); implementation phases do not open until it lands.
 
 ### Corrective integration amendment (reviewed and ticketed; completed tasks stay closed)
 
-- [ ] 3.6 **RED→GREEN**: CLI fixtures with bare and qualified same-file
+- [x] 3.6 **RED→GREEN**: CLI fixtures with bare and qualified same-file
       citations, two files sharing local IDs, chains, cycles, a missing
       target, and a property-row citation. Resolve canonical qualified
       invariant IDs from same-run evidence; no property execution during

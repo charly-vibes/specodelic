@@ -42,6 +42,7 @@ fn write_model_check_spec(path: &std::path::Path, id: &str) {
     )
     .unwrap();
 }
+mod citation_resolution;
 mod feedback_init;
 mod hooks_hostile_output;
 mod lint;

@@ -14,6 +14,7 @@ pub mod acset;
 pub mod archive_companion;
 pub mod blocks;
 pub mod checklist;
+pub mod citation_corpus;
 pub mod compile;
 pub mod doctor;
 pub mod ears;
