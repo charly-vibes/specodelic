@@ -93,6 +93,30 @@ gate (no code); implementation phases do not open until it lands.
       review artifact .wai/projects/min-expr-kernel/reviews/
       ro5u-phase3-7ga.md
 
+### Corrective integration amendment (reviewed and ticketed; completed tasks stay closed)
+
+- [ ] 3.6 **RED→GREEN**: CLI fixtures with bare and qualified same-file
+      citations, two files sharing local IDs, chains, cycles, a missing
+      target, and a property-row citation. Resolve canonical qualified
+      invariant IDs from same-run evidence; no property execution during
+      model-check. Assert exact statuses in JSON and persisted reports.
+      Add two id: spec files sharing a local claim ID with opposite outcomes:
+      combined command scope fails isolated_scope_required before writes;
+      independent runs in separate output directories keep their outcomes.
+      Pin rejection of mixed dual-format/ordinary inputs, ordinary duplicate
+      intent rejection, and continued acceptance by multi-file lint.
+- [ ] 3.7 **RED→GREEN**: run compile → model-check on kernel-only and
+      mixed Rust/kernel fixtures (two states versus cardinality 999).
+      Every opted-in claim appears exactly once; evaluate over the complete
+      explicit corpus. Reversed file order yields identical statuses;
+      empty input is an invocation error. Thread scope through CLI and
+      orchestrate; incapable backends return labeled unsupported results.
+      Test actual command output, not a direct KernelEnv-only harness.
+- [ ] 3.8 **TIDY**: after the above pass, extract shared identity/evaluation
+      helpers in a separate refactoring work item and commit. Pin command
+      parity. Finish before phases 4/5/6; proposed claim gates govern
+      aggregate acceptance and migration readiness.
+
 ## 4. Backend agreement (D2 interim)
 
 - [ ] 4.1 **RED**: shared-fixture harness — the same fixture corpus
@@ -121,6 +145,10 @@ gate (no code); implementation phases do not open until it lands.
 
 ## 6. Corpus migration (specodelic-corpus edits, gated per-file)
 
+Prerequisites: 3.6–3.8 and `define-verification-claim-gates` are approved
+and implemented. A lint-only migration gate is insufficient; every migrated
+claim must be present in a fresh command report with the expected status.
+
 - [ ] 6.1 **RED→GREEN**: migrate `specs/USAGE.md` examples to kernel
       expressions where they assert data-dependent facts; each file
       stays lint-clean before the next migrates (`just lint-specs`
@@ -146,3 +174,23 @@ gate (no code); implementation phases do not open until it lands.
       contracts, no scenarios without contracts (14b7a75 discipline).
 - [ ] 7.4 **TIDY**: `openspec validate --strict` green; `just ci` green;
       archive via `just archive-change id=add-min-expr-kernel`.
+
+## Implementation ticket map
+
+Created at the user’s request after the proposal review fixes. Checkboxes
+remain unchecked until the linked behavior is implemented and verified.
+Dependencies are recorded in beads; this table maps scope, not completion.
+
+| Tasks | Ticket | Outcome |
+|-------|--------|---------|
+| 3.6 | `specodelic-hb4` | Citations resolve the intended invariant in every command |
+| 3.7 | `specodelic-mui` | Every opted-in kernel claim appears in command results |
+| 3.8 | `specodelic-k3h` | Keep claim identity and command results consistent during cleanup |
+| 4.1, 4.2 | `specodelic-36n` | Kernel fixture outcomes are checked on every CI run |
+| 4.3 | `specodelic-36t` | Keep shared kernel fixtures stable for the Python follow-up |
+| 5.1, 5.2 | `specodelic-bf5` | External checker claims preserve opaque binding text |
+| 5.3 | `specodelic-ats` | Keep external claim guidance on the established binding path |
+| 6.1 | `specodelic-gch` | Quick-start kernel examples produce expected claim evidence |
+| 6.2 | `specodelic-7yk` | Core format invariants execute as declared kernel claims |
+| 6.3 | `specodelic-5c4` | Keep migrated corpus claims lint-clean without new exemptions |
+| 7.1, 7.2, 7.3, 7.4 | `specodelic-bxk` | Kernel capabilities retain complete contracts when archived |

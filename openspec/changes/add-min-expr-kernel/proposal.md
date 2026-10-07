@@ -125,3 +125,39 @@ citation cannot be discharged).
   two active changes pulling the same module (EDGE-004).
 - **specodelic-lf3 pattern** governs the corpus migration: per-file
   gating, no corpus-wide runner dependency.
+
+
+## Review amendment — runtime integration (2026-10-06, proposed)
+
+This amendment requires review before implementation. Completed phases 2/3
+remain historical records; new tasks 3.6–3.8 own the corrective work.
+At 29f81ef, a two-state model carrying a false kernel cardinality claim
+and a passing Rust invariant reports only the Rust claim. A qualified
+citation returns unknown while its bare equivalent resolves. Library
+status tests do not exercise the command/report path.
+
+Add canonical citation resolution and evaluation of every opted-in kernel
+claim over the complete explicit input corpus, with the same per-claim
+results in persisted reports and CLI output. Resolve citation chains after
+base evaluation; cycles and unavailable evidence remain unknown. Do not
+invoke generated property runners from model-check to supply evidence.
+The current implementation discharges executable invariant claims; the
+older phrase “compiled properties” is corrected to same-run invariant
+outcomes. Property results require a future explicit evidence bridge.
+
+Sequencing: tasks 3.6–3.8 precede backend agreement (36n), opaque binding
+(bf5), and corpus migration (gch). The separate proposed
+`define-verification-claim-gates` change owns aggregation, old-report
+migration, and source/scope provenance. Runtime integration alone does not
+assert a newly strict verify policy. Do not deploy the migrated kernel
+corpus before both integration and claim-gate acceptance pass.
+
+### File-local command scope (review resolution, 2026-10-06)
+
+Ordinary invocation corpora keep globally unique intent IDs and may repeat
+local row IDs. Dual-format id: spec files retain the repository's file-local
+identity convention and run individually in model-check, verify and
+orchestrate, with separate artifact/report directories. A combined invocation
+fails before writes with isolated_scope_required and a split-run hint;
+multi-file lint remains supported. Tasks 3.6 and claim-gate phase 2 pin this
+boundary and report freshness. Combined dual-format execution is deferred.

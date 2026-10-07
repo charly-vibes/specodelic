@@ -4,14 +4,19 @@ kind: intent
 statement: "WHEN an expr cell opts into kernel translation, THE toolchain SHALL extract the expression under the closed kernel grammar per cell, SHALL fail labeled on grammar violations, SHALL compile prose expr cells byte-identically to before, and SHALL extract the kernel.binding cell as an opaque claim carrier the toolchain never interprets."
 ---
 
-# compile Specification
+# Compile specification after Python emitter
 
 ## Purpose
+This full snapshot applies only after add-min-expr-kernel is deployed.
+Python support is limited to unit Property predicates; invariant and law
+fragment restrictions remain. See python-properties and property-generators.
+
 Extend the compile leg's expr-cell handling with kernel opt-in: an
 expr cell may carry a kernel expression under the closed grammar,
 grammar violations fail labeled (sd1 discipline), prose expr cells
-compile byte-identically (pure widening — nothing valid before this
-Revision is invalidated), and the `kernel.binding` cell extracts as an
+retain their extraction and legacy artifacts remain byte-identical when
+generators are unmarked. Explicit generator opt-ins use the new typed
+semantics. The `kernel.binding` cell extracts as an
 opaque claim carrier so external checkers can claim constraints through
 contract-TOML `flags` without specodelic learning their language.
 
@@ -21,7 +26,7 @@ contract-TOML `flags` without specodelic learning their language.
 |--------------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
 | kernel_opt_in_extracted  | invariant | `an expr cell may carry a kernel expression in fragment position per cell — the fragment-position rule (specodelic-sd1) carries over: an occurrence outside fragment position is a mention and never extracts`                                                          | [[spec]]  |
 | kernel_grammar_violation_labeled | invariant | `an expr cell whose kernel expression uses a non-member atomic is a labeled extraction failure naming the atomic and the closed set — never treated as prose, never extracted, never silently ignored`                                                               | [[spec]]  |
-| prose_back_compat        | invariant | `every expr cell that compiled before this Revision compiles to the identical artifact after it — the widening is pure: nothing valid before this Revision is invalidated, and a cell without kernel content compiles exactly as before`                               | [[spec]]  |
+| prose_back_compat        | invariant | `unmarked legacy generator cells retain emitted bytes; unchanged Rust and prose cells retain extraction; explicit generator opt-ins use typed semantics and are excluded from artifact byte preservation`                               | [[spec]]  |
 | kernel_binding_extracted | invariant | `an invariant-kind Constraint's kernel.binding cell extracts as an opaque string, surfaced verbatim and never interpreted; the claim path for external checkers is contract-TOML flags, not a toolchain registry`                                                     | [[spec]]  |
 
 ## Model
@@ -45,11 +50,11 @@ contract-TOML `flags` without specodelic learning their language.
 |---------------------------|------|------------------------------------------|----------------------------------------|----------------------------------------------------------------------------|
 | kernel_expr_extracts      | unit | [[spec.kernel_opt_in_extracted]]         | `expr_cell_with_kernel_expression()`   | `expression extracted under the closed grammar with position rule intact`   |
 | nonmember_atomic_rejects  | unit | [[spec.kernel_grammar_violation_labeled]] | `expr_cell_with_nonmember_atomic()`   | `extraction fails labeled, naming the atomic and the closed set`            |
-| prose_unchanged           | unit | [[spec.prose_back_compat]]               | `pre_revision_prose_fixtures()`        | `compiled artifact identical to the pre-Revision artifact, byte-for-byte`   |
+| prose_unchanged           | unit | [[spec.prose_back_compat]]               | `pre_revision_unmarked_generator_fixtures()` | `legacy artifact byte-identical; marked generator migration tested separately`   |
 | midspan_mention_ignored   | unit | [[spec.kernel_opt_in_extracted]]         | `cell_with_midspan_kernel_marker()`    | `no expression extracted; cell compiles exactly as before`                  |
 | binding_extracts_verbatim | unit | [[spec.kernel_binding_extracted]]        | `constraint_with_arbitrary_binding_text()` | `binding cell contents extracted and surfaced verbatim, never interpreted` |
 
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Kernel expr opt-in
 An expr cell SHALL accept a kernel expression in fragment position per
@@ -71,31 +76,33 @@ labeled, naming the atomic and the closed set.
 - **THEN** nothing extracts and the cell compiles exactly as before
 
 ### Requirement: Pure widening
-The compile change SHALL invalidate nothing that was valid before it:
-every expr cell that compiled before this Revision compiles to the
-identical artifact after it, and cells without kernel content compile
-exactly as before.
+Legacy artifact preservation SHALL apply to unchanged inputs whose generator
+cells are unmarked. Unchanged Rust fragments and prose cells SHALL retain
+extraction behavior. Explicit **gen:** cells SHALL use the typed generator
+contract, even if an older compiler accepted those cells as placeholders;
+they are excluded from artifact byte preservation. Malformed or ill-typed
+marked generators SHALL fail labeled. Legacy verification acceptance is
+governed separately by property-generators.
 
 #### Scenario: Prose expr cell untouched
-- **WHEN** an expr cell carries no kernel content (the pre-Revision path)
-- **THEN** its compiled artifact is byte-identical to the pre-Revision artifact
+- **WHEN** an unchanged input has prose expr cells and unmarked legacy generators
+- **THEN** its compiled legacy artifacts are byte-identical to their pre-change artifacts
 
 #### Scenario: Nothing valid is invalidated
-- **WHEN** any pre-Revision artifact is recompiled under the widened grammar
-- **THEN** the artifact is identical to its pre-Revision compilation
+- **WHEN** a pre-change legacy input with unmarked generators is recompiled without source changes
+- **THEN** its legacy artifacts remain byte-identical; this guarantee excludes explicit generator opt-ins
 
-The grammar change SHALL invalidate nothing that was valid before it:
-every cell that extracted under the pre-change `**rust:**` grammar
-extracts identically after, and cells without tags compile exactly as
-before.
+#### Scenario: Marked generator replaces the former placeholder
+- **WHEN** a previously accepted generator cell carries **gen:** int(0,1)
+- **THEN** compile emits integer strategy values 0 or 1 rather than the former constant name string, and migration guidance requires predicates to use integers and evidence to be regenerated
 
 #### Scenario: No-tag cell untouched
-- **WHEN** a Property row's predicate carries no tag (the `todo_predicate!` placeholder path)
+- **WHEN** a Property row's predicate carries no tag and its generator is unmarked (the legacy placeholder path)
 - **THEN** its compiled artifact is byte-identical to the pre-change artifact
 
 #### Scenario: Invariant expr cells share the grammar
 - **WHEN** an invariant-kind Constraint's expr cell carries a `**py:**` fragment
-- **THEN** the same tag grammar and failure modes apply as for predicate cells
+- **THEN** the same closed tag grammar applies, but compile rejects invariant Python execution as an unsupported position
 
 ### Requirement: Binding column extraction
 An invariant-kind Constraint's `kernel.binding` cell SHALL extract as
@@ -115,8 +122,10 @@ toolchain; the claim path for external checkers is contract-TOML
 The fragment opt-in grammar SHALL accept exactly one tag from the closed
 set `{rust, py, ts}` in fragment position, SHALL reject an unknown tag
 with a labeled extraction failure naming the tag and the closed set, and
-SHALL fail labeled — with a remediation hint naming the missing emitter
-and its follow-up change — when a `py` or `ts` fragment reaches compile.
+SHALL emit supported Python unit Property predicates through the Python
+emitter while preserving Rust fragment extraction; Rust artifact byte
+preservation follows the Pure widening requirement. A TypeScript fragment or a Python
+fragment in an unsupported position SHALL fail labeled with remediation.
 
 #### Scenario: Rust opt-in unchanged
 - **WHEN** a predicate cell carries a `**rust:**` fragment under the pre-change grammar
@@ -127,16 +136,17 @@ and its follow-up change — when a `py` or `ts` fragment reaches compile.
 - **THEN** extraction fails labeled, naming the tag and the closed set — the cell is never prose and never silently ignored
 
 #### Scenario: Tag without emitter gates compile honestly
-- **WHEN** a fragment tagged `**py:**` reaches compile before the py emitter lands
-- **THEN** compile fails labeled and the remediation hint names the py-emitter follow-up
+- **WHEN** a fragment tagged `**ts:**` reaches compile before the ts emitter lands
+- **THEN** compile fails labeled and the remediation hint names the ts-emitter follow-up
 
 #### Scenario: Mid-span occurrence is a mention
 - **WHEN** a cell mentions `**py:**` mid-span (as the defining rows of this very table do)
 - **THEN** nothing extracts and the cell compiles exactly as before
 
 ### Requirement: Properties table compiles to proptest blocks
-The system SHALL compile each Property row to at least one `proptest!`
-block — generator as input strategy, predicate as assertion body — and
+The system SHALL compile each supported Property row to at least one
+language-appropriate test block (Rust proptest or Python Hypothesis/pytest)
+with its declared generator and predicate, and
 a law-kind property to exactly one block per case enumerated in the
 row's predicate in machine-findable `**name:**` label form. The
 identity and associativity floor (`law_requires_cases`) is mandatory
@@ -178,31 +188,33 @@ labeled, naming the atomic and the closed set.
 - **THEN** nothing extracts and the cell compiles exactly as before
 
 ### Requirement: Pure widening
-The compile change SHALL invalidate nothing that was valid before it:
-every expr cell that compiled before this Revision compiles to the
-identical artifact after it, and cells without kernel content compile
-exactly as before.
+Legacy artifact preservation SHALL apply to unchanged inputs whose generator
+cells are unmarked. Unchanged Rust fragments and prose cells SHALL retain
+extraction behavior. Explicit **gen:** cells SHALL use the typed generator
+contract, even if an older compiler accepted those cells as placeholders;
+they are excluded from artifact byte preservation. Malformed or ill-typed
+marked generators SHALL fail labeled. Legacy verification acceptance is
+governed separately by property-generators.
 
 #### Scenario: Prose expr cell untouched
-- **WHEN** an expr cell carries no kernel content (the pre-Revision path)
-- **THEN** its compiled artifact is byte-identical to the pre-Revision artifact
+- **WHEN** an unchanged input has prose expr cells and unmarked legacy generators
+- **THEN** its compiled legacy artifacts are byte-identical to their pre-change artifacts
 
 #### Scenario: Nothing valid is invalidated
-- **WHEN** any pre-Revision artifact is recompiled under the widened grammar
-- **THEN** the artifact is identical to its pre-Revision compilation
+- **WHEN** a pre-change legacy input with unmarked generators is recompiled without source changes
+- **THEN** its legacy artifacts remain byte-identical; this guarantee excludes explicit generator opt-ins
 
-The grammar change SHALL invalidate nothing that was valid before it:
-every cell that extracted under the pre-change `**rust:**` grammar
-extracts identically after, and cells without tags compile exactly as
-before.
+#### Scenario: Marked generator replaces the former placeholder
+- **WHEN** a previously accepted generator cell carries **gen:** int(0,1)
+- **THEN** compile emits integer strategy values 0 or 1 rather than the former constant name string, and migration guidance requires predicates to use integers and evidence to be regenerated
 
 #### Scenario: No-tag cell untouched
-- **WHEN** a Property row's predicate carries no tag (the `todo_predicate!` placeholder path)
+- **WHEN** a Property row's predicate carries no tag and its generator is unmarked (the legacy placeholder path)
 - **THEN** its compiled artifact is byte-identical to the pre-change artifact
 
 #### Scenario: Invariant expr cells share the grammar
 - **WHEN** an invariant-kind Constraint's expr cell carries a `**py:**` fragment
-- **THEN** the same tag grammar and failure modes apply as for predicate cells
+- **THEN** the same closed tag grammar applies, but compile rejects invariant Python execution as an unsupported position
 
 ### Requirement: Binding column extraction
 An invariant-kind Constraint's `kernel.binding` cell SHALL extract as
@@ -222,8 +234,10 @@ toolchain; the claim path for external checkers is contract-TOML
 The fragment opt-in grammar SHALL accept exactly one tag from the closed
 set `{rust, py, ts}` in fragment position, SHALL reject an unknown tag
 with a labeled extraction failure naming the tag and the closed set, and
-SHALL fail labeled — with a remediation hint naming the missing emitter
-and its follow-up change — when a `py` or `ts` fragment reaches compile.
+SHALL emit supported Python unit Property predicates through the Python
+emitter while preserving Rust fragment extraction; Rust artifact byte
+preservation follows the Pure widening requirement. A TypeScript fragment or a Python
+fragment in an unsupported position SHALL fail labeled with remediation.
 
 #### Scenario: Rust opt-in unchanged
 - **WHEN** a predicate cell carries a `**rust:**` fragment under the pre-change grammar
@@ -234,16 +248,17 @@ and its follow-up change — when a `py` or `ts` fragment reaches compile.
 - **THEN** extraction fails labeled, naming the tag and the closed set — the cell is never prose and never silently ignored
 
 #### Scenario: Tag without emitter gates compile honestly
-- **WHEN** a fragment tagged `**py:**` reaches compile before the py emitter lands
-- **THEN** compile fails labeled and the remediation hint names the py-emitter follow-up
+- **WHEN** a fragment tagged `**ts:**` reaches compile before the ts emitter lands
+- **THEN** compile fails labeled and the remediation hint names the ts-emitter follow-up
 
 #### Scenario: Mid-span occurrence is a mention
 - **WHEN** a cell mentions `**py:**` mid-span (as the defining rows of this very table do)
 - **THEN** nothing extracts and the cell compiles exactly as before
 
 ### Requirement: Properties table compiles to proptest blocks
-The system SHALL compile each Property row to at least one `proptest!`
-block — generator as input strategy, predicate as assertion body — and
+The system SHALL compile each supported Property row to at least one
+language-appropriate test block (Rust proptest or Python Hypothesis/pytest)
+with its declared generator and predicate, and
 a law-kind property to exactly one block per case enumerated in the
 row's predicate in machine-findable `**name:**` label form. The
 identity and associativity floor (`law_requires_cases`) is mandatory

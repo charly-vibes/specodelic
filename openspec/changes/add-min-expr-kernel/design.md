@@ -133,3 +133,46 @@ not by the kernel).
 | Revision-literal drift aborts commits (turu specodelic-6sb) | Bump FORMAT_REVISION + all `specodelic.md Revision N` literals + regenerate compiled artifacts as one chore commit inside the change |
 | Backend divergence (py vs rust semantics) | Shared fixtures + the CI agreement property runs on every push from slice 2 onward |
 | Corpus migration breaks dogfood | Per-file gating; `just lint-specs` gate on every migration commit |
+
+
+### D9 — Complete command-path evaluation (proposed amendment)
+
+Model-check evaluates each invariant Rust fragment and kernel claim, then
+resolves citation expressions using qualified constraint IDs. Bare names
+are local to the citing file; qualified names are exact. Never resolve by
+suffix across files. Cross-file claims use only the explicit invocation
+corpus, never implicit filesystem discovery. Ordinary corpus intent IDs
+must be unique; duplicate_corpus_identity labels invalid input, while
+repeated local row IDs across distinct ordinary intents are valid.
+Dual-format id: spec files retain file-local identity: model-check, verify
+and orchestrate accept one only as the sole parsed input. An invocation
+containing it and any other file fails as isolated_scope_required before
+compilation/evaluation/report writes, with a hint to run each separately
+using separate artifact/report directories. Multi-file dual-format lint
+remains valid. A single such file resolves spec.row and bare references
+locally only; no cross-file references or implicit discovery. Claim-gate
+D3 binds each isolated report to its content without path-based IDs.
+Missing or non-invariant targets have unknown evidence, not a pass.
+
+Evaluate acyclic citation dependencies in deterministic dependency order.
+Strongly connected citation components are unknown (with a cycle reason);
+evaluate dependents with the existing Kleene algebra. This is not a new
+recursive theorem prover. Kernel evaluation uses KernelEnv over the whole
+input corpus. JSON output and persisted report contain identical statuses
+and canonical claim identity. Existing local-id fields can remain for
+compatibility but never serve as cross-file map keys.
+
+Native CLI and orchestrate must share this path. TLC must either supply
+same-scope kernel/citation evaluation or return a labeled unsupported
+result for those claims; it cannot omit them and imply success. Capturing
+a kernel witness must not fabricate a program-counter execution trace.
+Aggregation and report compatibility are owned by the dependent claim-gate
+proposal, including dependencies across files and artifact freshness.
+
+### D10 — Preserve deployed contracts at archive (proposed amendment)
+
+The compile and model-check deltas include their deployed Requirements
+alongside the kernel additions. Full snapshots are necessary because the
+sanctioned archive copies these files verbatim. Retain existing requirement
+identities and scenarios; correct the stale model-check prose-only clean
+claim to exploration_only, matching the existing domain spec and runtime.
