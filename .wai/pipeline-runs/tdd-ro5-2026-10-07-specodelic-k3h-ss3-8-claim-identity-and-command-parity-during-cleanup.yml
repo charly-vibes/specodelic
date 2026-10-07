@@ -1,0 +1,10 @@
+run_id: tdd-ro5-2026-10-07-specodelic-k3h-ss3-8-claim-identity-and-command-parity-during-cleanup
+pipeline: tdd-ro5
+topic: 'specodelic-k3h: §3.8 — claim identity and command parity during cleanup'
+created_at: '2026-10-07T18:44:06.924502962+00:00'
+current_step: 8
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
