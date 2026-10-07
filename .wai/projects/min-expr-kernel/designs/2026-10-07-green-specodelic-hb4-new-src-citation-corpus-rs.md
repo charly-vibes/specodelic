@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-07-specodelic-hb4-add-min-expr-kernel-ss3-6-citation-resolution-in-commands, pipeline-step:green]
+---
+
+GREEN specodelic-hb4: new src/citation_corpus.rs — check_corpus_scope (dual-format id:spec sole-input law → isolated_scope_required; ordinary intent-id uniqueness → duplicate_corpus_identity; id:spec exempt from the duplicate law) and resolve_corpus_citations (bare=citing-file local incl. local citation chains; qualified=exact intent-id match, never suffix, never filesystem discovery; dependency-ordered resolution via memo+visiting; cycle/missing/property reasons; Kleene ∧/¬ reuse). Command path: run_backend_pass + apply_corpus_resolution shared by cmd_model_check AND orchestrate run_model_check_stage (identical statuses in CLI JSON + persisted reports; invariant_statuses+reason surfaced in checked entries). Scope guard fires in cmd_model_check, cmd_verify, cmd_orchestrate before any write. src/model_check.rs untouched (ratchet). Evidence: 13/13 cli citation_resolution tests green after RED; full suite 28/28 ok.
