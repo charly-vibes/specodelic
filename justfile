@@ -134,13 +134,21 @@ docs-build:
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs sync-sections sync-sections-test summary-completeness lint-doc-examples lint-baseline pretender-check guard-siblings guard-drill-lock guard-espectacular
+ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs sync-sections sync-sections-test summary-completeness lint-doc-examples lint-baseline pretender-check guard-kernel-agreement guard-siblings guard-drill-lock guard-espectacular
 
 # Structural-quality hard gate (pretender, gate mode — pretender.toml
 # thresholds are a ratchet: entries only move DOWN; never touch .git/hooks,
 # the gate runs here and via lefthook pre-commit instead)
 pretender-check:
     pretender check
+
+# Backend-agreement property (add-min-expr-kernel D2, specodelic-36n): the
+# kernel fixture corpus's per-cell three-valued statuses are checked on
+# every CI run. Rust-only until l8l — the py backend seat in the harness
+# reports labeled Unsupported; the cross-backend assertion activates when
+# l8l's emitter lands and is never commented out.
+guard-kernel-agreement:
+    cargo test --test kernel_agreement
 
 # Sibling-tool constraint guard (AGENTS.md hard blockers) — also wired into
 # pre-commit/pre-push via lefthook.yml and the .beads/hooks shim chain

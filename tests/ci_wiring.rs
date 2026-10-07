@@ -96,6 +96,35 @@ fn ci_lints_fenced_spec_examples() {
     );
 }
 
+/// Backend-agreement property (add-min-expr-kernel D2, specodelic-36n):
+/// the kernel's per-cell three-valued statuses are checked on every CI
+/// run — the agreement harness is its own integration test
+/// (tests/kernel_agreement.rs) and `just ci` must run it explicitly
+/// (guard-kernel-agreement), not ride on `cargo test`'s unbounded
+/// surface. The py seat activates with specodelic-l8l; the property
+/// itself is never commented out — that is what the harness's own
+/// seat test pins.
+#[test]
+fn ci_runs_kernel_agreement_property() {
+    let justfile = read("justfile");
+    let ci_line = justfile
+        .lines()
+        .find(|l| l.starts_with("ci:"))
+        .expect("justfile must define a ci: recipe");
+    assert!(
+        ci_line.contains("guard-kernel-agreement"),
+        "justfile ci: must run the backend-agreement property (guard-kernel-agreement)"
+    );
+    let recipe = justfile
+        .lines()
+        .filter(|l| l.trim_start() == "cargo test --test kernel_agreement")
+        .count();
+    assert!(
+        recipe >= 1,
+        "guard-kernel-agreement must execute tests/kernel_agreement.rs"
+    );
+}
+
 /// Release scratch rot (v0.2.0 shakedown): the release workflow's Publish
 /// Release job stages the downloaded binaries at the repo root (`bins/`)
 /// and the archives in `dist/` BEFORE `cargo publish --allow-dirty` runs.

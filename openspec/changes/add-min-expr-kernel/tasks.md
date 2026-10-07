@@ -119,15 +119,15 @@ gate (no code); implementation phases do not open until it lands.
 
 ## 4. Backend agreement (D2 interim)
 
-- [ ] 4.1 **RED**: shared-fixture harness — the same fixture corpus
+- [x] 4.1 **RED**: shared-fixture harness — the same fixture corpus
       evaluates through both backends with identical three-valued
       status for every cell.
-- [ ] 4.2 **GREEN**: wire the agreement property into `just ci`
+- [x] 4.2 **GREEN**: wire the agreement property into `just ci`
       (rust-only until l8l lands: the property asserts rust status
       equals the fixture's expected status; the cross-backend
       assertion activates with the py emitter and must not be
       commented out).
-- [ ] 4.3 **TIDY**: fixture corpus under a shared module; document the
+- [x] 4.3 **TIDY**: fixture corpus under a shared module; document the
       promotion path to a `law_requires_cases`-shaped Property row in
       the l8l change (deferred of record — proposal Deferred).
 
