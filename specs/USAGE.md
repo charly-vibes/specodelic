@@ -307,6 +307,20 @@ one (§`AGENTS.md` #3a). And don't
 reach for `single_root_reachable`'s carve-out machinery either — there
 isn't one, because there's nothing to carve out.
 
+When the consumer is an **external checker** (an outside test suite
+claiming one of your invariants), the same open/closed shape applies
+one level out, through the `kernel.binding` claim path: your Constraint
+row may carry a `kernel.binding` column, and compile extracts the cell
+as an opaque string into the compiled Constraints artifact — verbatim,
+never parsed, validated, or interpreted. The checker claims the
+constraint on its own side, by binding its tests through its
+contract-TOML `flags` (`[[tests.cargo]]`/`[[tests.pytest]]`/
+`[[tests.shell]]`); specodelic never learns the checker's language —
+the bridge carries the claim, it never absorbs the checker (design D4
+of `add-min-expr-kernel`; the name is namespaced against pack binding
+columns). Don't invent a registry of checker languages or a parser for
+binding contents — an opaque carried string is the whole contract.
+
 ### 2.7 An append-only event log with current state as a derived projection (event sourcing)
 
 The format already does this to itself — `append_only_variants` plus

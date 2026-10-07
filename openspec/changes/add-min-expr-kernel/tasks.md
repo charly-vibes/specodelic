@@ -140,7 +140,7 @@ gate (no code); implementation phases do not open until it lands.
       (node id / `-k` / `[[tests.shell]]`).
 - [x] 5.2 **GREEN**: implement `kernel.binding` extraction and the
       claim-carrier surface (no registry — design D4).
-- [ ] 5.3 **TIDY**: document the claim path next to the existing
+- [x] 5.3 **TIDY**: document the claim path next to the existing
       espectacular binding docs (language-tag change precedent).
 
 ## 6. Corpus migration (specodelic-corpus edits, gated per-file)

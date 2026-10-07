@@ -127,6 +127,16 @@ Two binding layers, never cross-wired:
    toolchain stories (design D3 of the language-neutral binding
    change).
 
+The claim path between them is `kernel.binding`: an invariant-kind
+Constraint may carry a `kernel.binding` column, and compile extracts
+the cell as an opaque string into the Constraints TOML artifact —
+verbatim, never parsed, validated, or interpreted (design D4 of
+add-min-expr-kernel: no registry; the name is namespaced against pack
+binding columns). An external checker claims a constraint through
+contract-TOML `flags` — binding its own tests to the deployed
+scenarios — while specodelic never learns the checker's language: the
+bridge carries the claim, it never absorbs the checker.
+
 The boundary between the tools is tracing vs semantics: espectacular's
 `property-untraced` finding is bookkeeping and may grow similar
 tracing findings, but ah must never grow semantic findings — a
