@@ -18,12 +18,12 @@ the project/format/tool/subject terminology).
 |--------------------------|-----------|----------------------------------------------------------------------------|-------------------|
 | frontmatter_valid        | invariant | `frontmatter has id, kind, statement; kind ∈ {intent, profile}` — `profile` marks a domain pack (see [[packs]], Revision 14) | [[specodelic]]  |
 | unique_id                | invariant | `∀ row ∈ file: unique(row.id)`                                             | [[specodelic]]  |
-| total_refs               | invariant | `∀ ref ∈ file: resolves(ref)` — no dangling `[[...]]`                      | [[specodelic]]  |
+| total_refs               | invariant | `**kernel:** resolves(traces_to) ∧ resolves(derives_from) ∧ resolves(guard) ∧ resolves(supersedes) ∧ resolves(emits) ∧ resolves(satisfies) ∧ resolves(observes) ∧ resolves(uses) ∧ resolves(from) ∧ resolves(to)` — no dangling `[[...]]` | [[specodelic]]  |
 | acyclic_traces           | invariant | `the traces_to/derives_from graph is a DAG`                                | [[specodelic]]  |
 | guard_required           | invariant | `∀ transition: guard != null`                                              | [[specodelic]]  |
 | ears_statement           | invariant | `intent.statement matches one of the 5 EARS patterns`                      | [[specodelic]]  |
 | one_capability_per_row   | invariant | `no row.id joins two intents via "and"/"or"`                               | [[specodelic]]  |
-| coverage                 | invariant | `∀ constraint: ∃ property. property.derives_from == constraint.id`         | [[specodelic]]  |
+| coverage                 | invariant | `**kernel:** ∀ c ∈ Constraint: ∃ p ∈ Property: p.derives_from == c`        | [[specodelic]]  |
 | law_requires_cases       | invariant | `∀ property where kind == "law": the property's predicate enumerates its required cases in machine-findable **name:** case-label form, and the label set includes identity and associativity` — a floor, not a ceiling: a given law may require further named cases (e.g. unit, counit, naturality, triangle identity) in addition, as extra case labels in the same form; a prose mention of a case name is not an enumeration | [[specodelic]]  |
 | no_boolean_columns       | invariant | `schema defines no bool column type; states are named variants only`       | [[specodelic]]  |
 | append_only_variants     | invariant | `∀ id-set S governed by 𝒦 — a variant-table's ids (chiefly States), a Constraint/Property row's own `kind` value-set, or the Reference Typing table's field set — across revisions r < r': S(r) ⊆ S(r'), grown only under a new Revision heading, never silently; an existing member's typing may narrow only in the same Revision that introduces the kind-split it depends on, and only if the narrowing invalidates nothing valid at r` | [[specodelic]]  |
@@ -35,10 +35,10 @@ the project/format/tool/subject terminology).
 | ref_kind_compatible      | invariant | `∀ ref: target.kind ∈ allowed_targets(field)` — see Reference Typing below | [[specodelic]]  |
 | single_root_reachable    | invariant | `∀ constraint/property/state/transition row in file: the row reaches the file's own intent row through own-file primary linkage (traces_to/derives_from chains resolved within the file)` — cross-file typed edges (`guard` citations of foreign constraints, `satisfies`, `observes`) are outbound leaves, never reachability paths | [[specodelic]]  |
 | every_state_used         | invariant | `∀ state: state appears as from or to in ≥ 1 transition`                   | [[specodelic]]  |
-| every_transition_valid   | invariant | `∀ transition: from ∈ states and to ∈ states`                              | [[specodelic]]  |
+| every_transition_valid   | invariant | `**kernel:** ∀ t ∈ Transition: ¬(t.from == ⊥) ∧ ¬(t.to == ⊥)`              | [[specodelic]]  |
 | constraint_kind_closed   | invariant | `∀ Constraint row: row.kind ∈ {invariant, advisory, effect, extension_point}` — see [[kinds.constraint_row_shape]] | [[specodelic]]  |
 | property_kind_closed     | invariant | `∀ Property row: row.kind ∈ {unit, law}` — see [[kinds.property_row_shape]] | [[specodelic]]  |
-| supersedes_acyclic       | invariant | `the directed graph formed by supersedes edges alone (Constraint→Constraint, Property→Property) contains no cycle` | [[specodelic]]  |
+| supersedes_acyclic       | invariant | `**kernel:** acyclic(supersedes)` — the supersedes graph alone (Constraint→Constraint, Property→Property) contains no cycle | [[specodelic]]  |
 
 ### Reference Typing
 

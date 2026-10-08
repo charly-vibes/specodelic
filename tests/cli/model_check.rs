@@ -1617,7 +1617,8 @@ fn usage_example(id: &str) -> String {
                 body.clear();
             } else {
                 in_fence = false;
-                let non_blank: Vec<&String> = body.iter().filter(|l| !l.trim().is_empty()).collect();
+                let non_blank: Vec<&String> =
+                    body.iter().filter(|l| !l.trim().is_empty()).collect();
                 if non_blank.first().is_some_and(|l| l.trim() == "---") {
                     blocks.push(body.join("\n"));
                 }
@@ -1724,5 +1725,61 @@ fn usage_micro_example_kernel_claims_verify() {
     }
     // The persisted report carries the identical statuses.
     let report = claim_report(&out, "api-rate_limit");
+    assert_eq!(report["outcome"], "no_counterexample");
+}
+
+// ---- specodelic-7yk: specodelic.md core format invariants produce
+// expected kernel claim evidence ----
+// (add-min-expr-kernel task 6.2; design D5 per-file gating). The
+// format's own file is the fixture, read live from the repo — doc drift
+// breaks this gate instead of silently passing. The four migrated
+// invariants (total_refs, coverage, every_transition_valid,
+// supersedes_acyclic) must surface as verified kernel claims in the
+// fresh JSON envelope and the persisted report; the ineligible cells
+// stay informal by recorded decision (research artifact 2026-10-08).
+
+#[test]
+fn specodelic_md_kernel_invariants_verify() {
+    let td = tempfile::tempdir().unwrap();
+    let out = td.path().join("out");
+    let repo_spec = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("specs/specodelic.md");
+    let spec = repo_spec.to_str().unwrap();
+    // The format's own file lints clean — the migration gate (corpus
+    // lint, as `just lint-specs` runs it: its cross-file refs resolve
+    // corpus-wide, so a single-file lint would false-fail).
+    let specs_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("specs");
+    spk()
+        .args(["lint", specs_dir.to_str().unwrap()])
+        .assert()
+        .success();
+    // compile is corpus-wide for the same reason (compile's
+    // precondition_satisfied remediation names it), then model-check
+    // runs on specodelic.md as the sole invocation corpus.
+    spk()
+        .args([
+            "compile",
+            specs_dir.to_str().unwrap(),
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    let (code, json) = claim_mc_json(spec, &out);
+    assert_eq!(code, Some(0));
+    assert_eq!(json["data"]["outcome"], "no_counterexample");
+    let statuses = checked_statuses(&json);
+    for (id, status) in [
+        ("total_refs", "verified"),
+        ("coverage", "verified"),
+        ("every_transition_valid", "verified"),
+        ("supersedes_acyclic", "verified"),
+    ] {
+        assert!(
+            statuses.contains(&(id.to_string(), status.to_string())),
+            "missing claim evidence {id}:{status} in {statuses:?}"
+        );
+    }
+    // The persisted report carries the identical statuses.
+    let report = claim_report(&out, "specodelic");
     assert_eq!(report["outcome"], "no_counterexample");
 }

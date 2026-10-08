@@ -15,7 +15,7 @@ traces_to = "[[specodelic]]"
 [[constraints]]
 id = "total_refs"
 kind = "invariant"
-expr = "`∀ ref ∈ file: resolves(ref)` — no dangling `[[...]]`"
+expr = "`**kernel:** resolves(traces_to) ∧ resolves(derives_from) ∧ resolves(guard) ∧ resolves(supersedes) ∧ resolves(emits) ∧ resolves(satisfies) ∧ resolves(observes) ∧ resolves(uses) ∧ resolves(from) ∧ resolves(to)` — no dangling `[[...]]`"
 traces_to = "[[specodelic]]"
 
 [[constraints]]
@@ -45,7 +45,7 @@ traces_to = "[[specodelic]]"
 [[constraints]]
 id = "coverage"
 kind = "invariant"
-expr = "`∀ constraint: ∃ property. property.derives_from == constraint.id`"
+expr = "`**kernel:** ∀ c ∈ Constraint: ∃ p ∈ Property: p.derives_from == c`"
 traces_to = "[[specodelic]]"
 
 [[constraints]]
@@ -117,7 +117,7 @@ traces_to = "[[specodelic]]"
 [[constraints]]
 id = "every_transition_valid"
 kind = "invariant"
-expr = "`∀ transition: from ∈ states and to ∈ states`"
+expr = "`**kernel:** ∀ t ∈ Transition: ¬(t.from == ⊥) ∧ ¬(t.to == ⊥)`"
 traces_to = "[[specodelic]]"
 
 [[constraints]]
@@ -135,5 +135,5 @@ traces_to = "[[specodelic]]"
 [[constraints]]
 id = "supersedes_acyclic"
 kind = "invariant"
-expr = "`the directed graph formed by supersedes edges alone (Constraint→Constraint, Property→Property) contains no cycle`"
+expr = "`**kernel:** acyclic(supersedes)` — the supersedes graph alone (Constraint→Constraint, Property→Property) contains no cycle"
 traces_to = "[[specodelic]]"

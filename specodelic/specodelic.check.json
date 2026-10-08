@@ -8,20 +8,62 @@
     "max_depth": 100
   },
   "claim_schema_version": 1,
-  "claims": [],
-  "expected_claim_ids": [],
+  "claims": [
+    {
+      "evaluator": "kernel",
+      "id": "coverage",
+      "status": "verified"
+    },
+    {
+      "evaluator": "kernel",
+      "id": "every_transition_valid",
+      "status": "verified"
+    },
+    {
+      "evaluator": "kernel",
+      "id": "supersedes_acyclic",
+      "status": "verified"
+    },
+    {
+      "evaluator": "kernel",
+      "id": "total_refs",
+      "status": "verified"
+    }
+  ],
+  "expected_claim_ids": [
+    "coverage",
+    "every_transition_valid",
+    "supersedes_acyclic",
+    "total_refs"
+  ],
+  "invariant_statuses": [
+    {
+      "id": "coverage",
+      "status": "verified"
+    },
+    {
+      "id": "every_transition_valid",
+      "status": "verified"
+    },
+    {
+      "id": "supersedes_acyclic",
+      "status": "verified"
+    },
+    {
+      "id": "total_refs",
+      "status": "verified"
+    }
+  ],
   "invariants_checked": [],
-  "outcome": "exploration_only",
-  "scope_sha256": "b006925effaa6910a2f886f096dbc3cf42437c6097f4c45b392ff464dd2190fc",
+  "outcome": "no_counterexample",
+  "scope_sha256": "ff837d5d55306c509a2981063a5ded54b0ee991ef5741bfba0e286aba0e9b4eb",
   "states_explored": 6,
   "unchecked_claim_ids": [
     "acyclic_traces",
     "append_only_variants",
     "constraint_kind_closed",
-    "coverage",
     "ears_statement",
     "every_state_used",
-    "every_transition_valid",
     "frontmatter_valid",
     "guard_required",
     "id_matches_file",
@@ -35,8 +77,6 @@
     "prose_untouched",
     "ref_kind_compatible",
     "single_root_reachable",
-    "supersedes_acyclic",
-    "total_refs",
     "unique_id"
   ]
 }
