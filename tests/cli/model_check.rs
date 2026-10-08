@@ -1590,3 +1590,107 @@ fn dual_format_opposite_outcomes_isolated_scope_and_swapped_reports() {
         .assert()
         .success();
 }
+
+// ---- specodelic-gch: USAGE.md quick-start examples produce expected
+// claim evidence ----
+// (add-min-expr-kernel task 6.1; design D5 per-file gating). The fenced
+// full-file examples in specs/USAGE.md are extracted live from the doc
+// and pushed through the real compile → model-check path; every
+// migrated kernel claim must surface in the fresh report with the
+// expected three-valued status.
+
+/// The fenced example with frontmatter id `id`, extracted live from
+/// `specs/USAGE.md` — the doc itself is the fixture source, so doc
+/// drift breaks this gate instead of silently passing. The scan
+/// mirrors `scripts/check_doc_examples.py`: markdown fences whose
+/// first non-blank line is `---` are runnable format artifacts.
+fn usage_example(id: &str) -> String {
+    let doc_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("specs/USAGE.md");
+    let doc = std::fs::read_to_string(&doc_path).unwrap();
+    let mut blocks: Vec<String> = Vec::new();
+    let mut in_fence = false;
+    let mut body: Vec<String> = Vec::new();
+    for line in doc.lines() {
+        if line.trim_start().starts_with("```") {
+            if !in_fence {
+                in_fence = true;
+                body.clear();
+            } else {
+                in_fence = false;
+                let non_blank: Vec<&String> = body.iter().filter(|l| !l.trim().is_empty()).collect();
+                if non_blank.first().is_some_and(|l| l.trim() == "---") {
+                    blocks.push(body.join("\n"));
+                }
+            }
+            continue;
+        }
+        if in_fence {
+            body.push(line.to_string());
+        }
+    }
+    assert!(!blocks.is_empty(), "USAGE.md must carry fenced examples");
+    blocks
+        .into_iter()
+        .find(|b| {
+            let mut lines = b.lines().skip(1); // past the opening ---
+            while let Some(line) = lines.next() {
+                if line.trim() == "---" {
+                    break;
+                }
+                if let Some(fid) = line.trim().strip_prefix("id:") {
+                    return fid.trim().trim_matches(['\'', '"']) == id;
+                }
+            }
+            false
+        })
+        .unwrap_or_else(|| panic!("no fenced example with id {id} in specs/USAGE.md"))
+}
+
+/// The per-invariant (id, status) pairs of the first checked run.
+fn checked_statuses(json: &serde_json::Value) -> Vec<(String, String)> {
+    json["data"]["checked"][0]["invariant_statuses"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| {
+            (
+                s["id"].as_str().unwrap().to_string(),
+                s["status"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn usage_quick_start_kernel_claims_verify() {
+    // Task 6.1 (design D5): the quick-start example's data-dependent
+    // structural facts are kernel claims — the migrated example must
+    // lint clean and produce fresh expected statuses through the real
+    // compile → model-check path.
+    let td = tempfile::tempdir().unwrap();
+    let out = td.path().join("out");
+    let spec = td.path().join("order-cancel.md");
+    std::fs::write(&spec, usage_example("order.cancel")).unwrap();
+    // The doc example lints clean — zero exemptions.
+    spk()
+        .args(["lint", spec.to_str().unwrap()])
+        .assert()
+        .success();
+    claim_compile(spec.to_str().unwrap(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_eq!(code, Some(0));
+    assert_eq!(json["data"]["outcome"], "no_counterexample");
+    let statuses = checked_statuses(&json);
+    for (id, status) in [
+        ("refund_traces_resolve", "verified"),
+        ("refund_guard_reaches", "verified"),
+    ] {
+        assert!(
+            statuses.contains(&(id.to_string(), status.to_string())),
+            "missing claim evidence {id}:{status} in {statuses:?}"
+        );
+    }
+    // The persisted report carries the identical statuses.
+    let report = claim_report(&out, "order-cancel");
+    assert_eq!(report["outcome"], "no_counterexample");
+}

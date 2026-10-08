@@ -71,6 +71,8 @@ reads this paragraph — see `prose_untouched` in `specodelic.md`).
 |------------------|-----------|--------------------------------------------------|-------------------|
 | refund_bounded    | invariant | `refund_amount == paid_amount`                    | [[order.cancel]] |
 | refund_timely     | invariant | `refund_issued_at - cancelled_at <= 5 business days` | [[order.cancel]] |
+| refund_traces_resolve | invariant | `**kernel:** resolves(traces_to)`          | [[order.cancel]] |
+| refund_guard_reaches | invariant | `**kernel:** reachable(order.cancel.refund, order.cancel.refund_bounded, guard)` | [[order.cancel]] |
 
 ## Model
 
@@ -92,7 +94,21 @@ reads this paragraph — see `prose_untouched` in `specodelic.md`).
 |------------------|------|----------------------------------|-------------------------------|--------------------------------------|
 | full_refund_only | unit | [[order.cancel.refund_bounded]] | `arbitrary_paid_order()`      | `refund(cancel(order)) == order.paid_amount` |
 | refund_within_term | unit | [[order.cancel.refund_timely]] | `arbitrary_paid_order()`    | `days_between(cancelled_at, refund_issued_at) <= 5` |
+| traces_resolve_prop | unit | [[order.cancel.refund_traces_resolve]] | `arbitrary_paid_order()` | `every constraint trace resolves` |
+| guard_reaches_prop | unit | [[order.cancel.refund_guard_reaches]] | `arbitrary_paid_order()` | `the refund transition's guard reaches the bounded invariant` |
 ```
+
+The two `**kernel:**` rows are the example's executable slice — the
+min-expr kernel's closed atomic grammar (`add-min-expr-kernel`):
+`resolves(traces_to)`
+asserts every `traces_to` reference in the file resolves, and
+`reachable(…, guard)` asserts the `refund` transition's guard actually
+cites the bounded invariant. The kernel evaluates these over the
+file's own rows and references — the domain-data cells above them
+(`refund_amount == paid_amount`, the days-between bound) stay informal
+strings, exactly as §4 below says: kernel semantics never outruns the
+instances the format itself stores, and `spk model-check` reports each
+kernel claim's status (`verified` here) in its run report.
 
 That's the whole shape. The rest of this guide is about the parts that
 don't obviously fit — a closed set of node types, a machine that produces
