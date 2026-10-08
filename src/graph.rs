@@ -17,7 +17,11 @@
 //! plain-text graph templates — zero crates, byte-stable re-runs, the D8
 //! visual grammar (solid = state machine, dashed = guards, bold = `emits`,
 //! dotted = traceability, red dashed = dangling/violations), rendering
-//! always external.
+//! always external. The wiring projection (`--view wiring`, task 1.6,
+//! specodelic-5qj) collapses `constraints.satisfies` edges to the file
+//! level — owning intents, self-loops dropped, the remaining pairs
+//! aggregated with instance counts — exposing the corpus's declared
+//! inter-file producer/consumer wiring, labeled `no_wiring` when none.
 
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -773,6 +777,194 @@ pub fn mermaid_projection(specs: &[Spec]) -> String {
     render_mermaid(&edge_projection(&report, &kinds), &report.dangling)
 }
 
+/// The wiring view's empty-state label — the annotated element an
+/// otherwise empty view must carry instead of rendering silently clean
+/// (task 1.6, specodelic-5qj's exploration_only ≠ clean principle).
+pub(crate) const NO_WIRING_NOTE: &str =
+    "no constraints.satisfies edges — this corpus declares no inter-file wiring";
+
+/// One file-level wiring row (add-graph-views task 1.6, specodelic-5qj):
+/// a distinct consumer-file → producer-file pair and how many
+/// `constraints.satisfies` instances collapsed onto it. The drawn arrow
+/// follows the satisfies edge direction — consumer file → the producer's
+/// published contract — matching the decision record's sample outputs.
+pub(crate) struct WiringRow {
+    /// The file whose constraint declares the satisfies edge.
+    pub consumer: String,
+    /// The file publishing the extension_point contract row the edge
+    /// points at.
+    pub producer: String,
+    /// Collapsed satisfies instances (view-layer aggregation; multiplicity
+    /// is the raw TSV's contract, not the drawing's — task 1.7).
+    pub instances: usize,
+}
+
+/// Map a canonical node id to its owning file: intent ids are their own
+/// file; qualified row ids split at the last dot (the resolution
+/// convention of record, specodelic-njh — row ids are single-segment so
+/// the file prefix is everything before it). An id attributable to no
+/// known file falls back to itself — the wiring view never silently drops
+/// an edge it cannot attribute (D3).
+fn owning_file(id: &str, kinds: &BTreeMap<String, NodeKind>) -> String {
+    if kinds.get(id) == Some(&NodeKind::Intent) {
+        return id.to_string();
+    }
+    match id.rsplit_once('.') {
+        Some((file, _)) if kinds.get(file) == Some(&NodeKind::Intent) => file.to_string(),
+        _ => id.to_string(),
+    }
+}
+
+/// The pure wiring core (`spk graph --view wiring`, task 1.6): filter the
+/// report's edges to `constraints.satisfies`, collapse each endpoint to
+/// its owning file (`owning_file`), drop self-loops (a file satisfying
+/// its own contract carries no inter-file wiring), and aggregate the
+/// remaining instances per distinct consumer→producer pair, sorted by the
+/// pair. Pure over the report and kind index — no I/O, no CLI state — so
+/// the three format renderers reuse one collapse path.
+pub(crate) fn wiring_projection(
+    report: &GraphReport,
+    kinds: &BTreeMap<String, NodeKind>,
+) -> Vec<WiringRow> {
+    let mut pairs: BTreeMap<(String, String), usize> = BTreeMap::new();
+    for e in &report.edges {
+        if e.kind != "constraints.satisfies" {
+            continue;
+        }
+        let consumer = owning_file(&e.from, kinds);
+        let producer = owning_file(&e.to, kinds);
+        if consumer == producer {
+            continue;
+        }
+        *pairs.entry((consumer, producer)).or_insert(0) += 1;
+    }
+    pairs
+        .into_iter()
+        .map(|((consumer, producer), instances)| WiringRow {
+            consumer,
+            producer,
+            instances,
+        })
+        .collect()
+}
+
+/// The wiring TSV (`--view wiring --format edges`): one row per distinct
+/// pair — consumer_id, consumer_kind, `constraints.satisfies`,
+/// producer_id, producer_kind, collapsed instance count — same six-column
+/// shape as the raw projection, with the owning-intent ids in the id
+/// columns and the aggregation count in the annotation column. An empty
+/// view emits the labeled `no_wiring` row (marker in the field column,
+/// the explanation in the annotation column — the violation-row
+/// convention), never a silently clean empty TSV.
+fn render_wiring_tsv(rows: &[WiringRow], kinds: &BTreeMap<String, NodeKind>) -> String {
+    let kind_of = |id: &str| {
+        kinds
+            .get(id)
+            .map(|k| k.object().to_string())
+            .unwrap_or_default()
+    };
+    if rows.is_empty() {
+        return format!("\t\tno_wiring\t\t\t{NO_WIRING_NOTE}\n");
+    }
+    let mut out = String::new();
+    for row in rows {
+        out.push_str(&format!(
+            "{}\t{}\tconstraints.satisfies\t{}\t{}\t{}\n",
+            row.consumer,
+            kind_of(&row.consumer),
+            row.producer,
+            kind_of(&row.producer),
+            row.instances
+        ));
+    }
+    out
+}
+
+/// The wiring DOT projection (`--view wiring --format dot`): shape parity
+/// with the specodelic-5qj exploration sample — `digraph wiring {` header,
+/// `rankdir=LR`, box/rounded nodes, gray thin edge defaults, and one
+/// `"<consumer>" -> "<producer>" [label="<n> satisfies"];` line per pair.
+/// An empty view renders the red dashed `no_wiring` note node (D3: never
+/// silently clean).
+fn render_wiring_dot(rows: &[WiringRow]) -> String {
+    let mut out = String::from(
+        "digraph wiring {\n  rankdir=LR;\n  node [shape=box, style=rounded, fontsize=11];\n  edge [color=gray30, arrowsize=0.7];\n",
+    );
+    if rows.is_empty() {
+        out.push_str(&format!(
+            "  \"no_wiring\" [shape=box, color=red, style=dashed, label=\"no_wiring: {}\"];\n",
+            dot_escape(NO_WIRING_NOTE)
+        ));
+    }
+    for row in rows {
+        out.push_str(&format!(
+            "  \"{}\" -> \"{}\" [label=\"{} satisfies\"];\n",
+            dot_escape(&row.consumer),
+            dot_escape(&row.producer),
+            row.instances
+        ));
+    }
+    out.push_str("}\n");
+    out
+}
+
+/// The wiring mermaid projection (`--view wiring --format mermaid`): file
+/// nodes declared first (sorted, quoted labels), then the aggregated
+/// `-->` links labeled `<n> satisfies`. An empty view renders the red
+/// `no_wiring` node with the violation classDef (D3: never silently
+/// clean).
+fn render_wiring_mermaid(rows: &[WiringRow]) -> String {
+    let mut out = String::from("flowchart LR\n");
+    if rows.is_empty() {
+        out.push_str(&format!(
+            "  no_wiring[\"no_wiring: {}\"]:::violation\n",
+            mermaid_escape(NO_WIRING_NOTE)
+        ));
+        out.push_str("  classDef violation stroke:red,stroke-dasharray:5 5\n");
+        return out;
+    }
+    let ids: BTreeSet<String> = rows
+        .iter()
+        .flat_map(|r| [r.consumer.clone(), r.producer.clone()])
+        .collect();
+    let names = mermaid_node_ids(&ids, &BTreeSet::new());
+    for (id, name) in &names {
+        out.push_str(&format!("  {name}[\"{}\"]\n", mermaid_escape(id)));
+    }
+    for row in rows {
+        out.push_str(&format!(
+            "  {} -->|\"{} satisfies\"| {}\n",
+            names[&row.consumer], row.instances, names[&row.producer]
+        ));
+    }
+    out
+}
+
+/// The wiring TSV of a corpus (`spk graph --view wiring --format edges`,
+/// task 1.6): derive the report and kind index, delegate to the pure
+/// wiring core, render.
+pub fn wiring_tsv(specs: &[Spec]) -> String {
+    let report = build(specs);
+    let kinds = kind_index(specs);
+    render_wiring_tsv(&wiring_projection(&report, &kinds), &kinds)
+}
+
+/// The wiring DOT projection of a corpus (`spk graph --view wiring
+/// --format dot`, task 1.6).
+pub fn wiring_dot(specs: &[Spec]) -> String {
+    let report = build(specs);
+    let kinds = kind_index(specs);
+    render_wiring_dot(&wiring_projection(&report, &kinds))
+}
+
+/// The wiring mermaid projection of a corpus (`spk graph --view wiring
+/// --format mermaid`, task 1.6).
+pub fn wiring_mermaid(specs: &[Spec]) -> String {
+    let report = build(specs);
+    let kinds = kind_index(specs);
+    render_wiring_mermaid(&wiring_projection(&report, &kinds))
+}
+
 /// Build the graph for a corpus of parsed specs.
 pub fn build(specs: &[Spec]) -> GraphReport {
     // The Reference Typing table as data — the schema the typing check
@@ -1115,5 +1307,131 @@ mod tests {
         );
         assert_eq!(resolve(&rows, "a", "r"), Some("a.r".to_string()));
         assert_eq!(resolve(&rows, "a", "missing"), None);
+    }
+
+    /// Pinned (task 1.6): the pure wiring core over a hand-built report —
+    /// satisfies edges collapse to owning files (dotted file ids split at
+    /// the last dot), self-loops drop, cross-file instances aggregate per
+    /// distinct pair sorted by the pair, and non-satisfies edges never
+    /// leak into the view.
+    #[test]
+    fn wiring_projection_collapses_drops_and_aggregates() {
+        let report = GraphReport {
+            edges: vec![
+                Edge {
+                    from: "cons.c1".into(),
+                    to: "prod.contract".into(),
+                    kind: "constraints.satisfies".into(),
+                },
+                Edge {
+                    from: "cons.c2".into(),
+                    to: "prod.contract".into(),
+                    kind: "constraints.satisfies".into(),
+                },
+                Edge {
+                    from: "cons.c2".into(),
+                    to: "cons.contract".into(),
+                    kind: "constraints.satisfies".into(),
+                },
+                Edge {
+                    from: "cons.c1".into(),
+                    to: "cons".into(),
+                    kind: "constraints.traces_to".into(),
+                },
+                Edge {
+                    from: "extraction.claims.span".into(),
+                    to: "prod.contract".into(),
+                    kind: "constraints.satisfies".into(),
+                },
+            ],
+            ..Default::default()
+        };
+        let kinds = BTreeMap::from([
+            ("cons".to_string(), NodeKind::Intent),
+            ("prod".to_string(), NodeKind::Intent),
+            ("extraction.claims".to_string(), NodeKind::Intent),
+        ]);
+        let rows = wiring_projection(&report, &kinds);
+        assert_eq!(
+            rows.iter()
+                .map(|r| (r.consumer.as_str(), r.producer.as_str(), r.instances))
+                .collect::<Vec<_>>(),
+            vec![("cons", "prod", 2), ("extraction.claims", "prod", 1),],
+            "self-loop dropped, instances aggregated per distinct pair, dotted file id \
+             owns its row (last-dot split), non-satisfies edges filtered"
+        );
+    }
+
+    /// Pinned (task 1.6): an endpoint attributable to no known file falls
+    /// back to itself rather than vanishing — the view never silently
+    /// drops an edge it cannot file (D3).
+    #[test]
+    fn wiring_projection_unattributable_endpoint_falls_back_to_itself() {
+        let report = GraphReport {
+            edges: vec![Edge {
+                from: "ghost.row".into(),
+                to: "prod.contract".into(),
+                kind: "constraints.satisfies".into(),
+            }],
+            ..Default::default()
+        };
+        let kinds = BTreeMap::from([("prod".to_string(), NodeKind::Intent)]);
+        let rows = wiring_projection(&report, &kinds);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].consumer, "ghost.row");
+        assert_eq!(rows[0].producer, "prod");
+    }
+
+    fn wiring_row(consumer: &str, producer: &str, instances: usize) -> WiringRow {
+        WiringRow {
+            consumer: consumer.into(),
+            producer: producer.into(),
+            instances,
+        }
+    }
+
+    /// Pinned (task 1.6): the wiring dot renderer emits the specodelic-5qj
+    /// exploration sample shape — `digraph wiring {`, box/rounded nodes,
+    /// gray thin edge defaults, one `"consumer" -> "producer"
+    /// [label="n satisfies"];` line per pair.
+    #[test]
+    fn render_wiring_dot_pins_sample_shape() {
+        let rows = vec![wiring_row("cons", "prod", 2)];
+        assert_eq!(
+            render_wiring_dot(&rows),
+            "digraph wiring {\n  rankdir=LR;\n  node [shape=box, style=rounded, fontsize=11];\n  edge [color=gray30, arrowsize=0.7];\n  \"cons\" -> \"prod\" [label=\"2 satisfies\"];\n}\n"
+        );
+    }
+
+    /// Pinned (task 1.6): the wiring mermaid renderer — file nodes first
+    /// (sorted, quoted labels), then the aggregated `<n> satisfies` links.
+    #[test]
+    fn render_wiring_mermaid_pins_exact_bytes() {
+        let rows = vec![wiring_row("cons", "prod", 2)];
+        assert_eq!(
+            render_wiring_mermaid(&rows),
+            "flowchart LR\n  cons[\"cons\"]\n  prod[\"prod\"]\n  cons -->|\"2 satisfies\"| prod\n"
+        );
+    }
+
+    /// Pinned (task 1.6): an empty wiring view is labeled in every format
+    /// — marker row in the TSV (violation-row convention), red dashed
+    /// note node in dot, red violation node + classDef in mermaid — never
+    /// silently clean.
+    #[test]
+    fn render_wiring_labels_empty_views() {
+        let note = NO_WIRING_NOTE;
+        assert_eq!(
+            render_wiring_tsv(&[], &BTreeMap::new()),
+            format!("\t\tno_wiring\t\t\t{note}\n")
+        );
+        let dot = render_wiring_dot(&[]);
+        assert!(dot.contains(
+            "\"no_wiring\" [shape=box, color=red, style=dashed, label=\"no_wiring: no constraints.satisfies edges — this corpus declares no inter-file wiring\"];"
+        ));
+        let mermaid = render_wiring_mermaid(&[]);
+        assert!(mermaid
+            .contains("no_wiring[\"no_wiring: no constraints.satisfies edges — this corpus declares no inter-file wiring\"]:::violation"));
+        assert!(mermaid.contains("classDef violation stroke:red,stroke-dasharray:5 5"));
     }
 }

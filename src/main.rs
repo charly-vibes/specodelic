@@ -87,6 +87,16 @@ enum GraphFormat {
     Mermaid,
 }
 
+/// The graph view selection (`--view wiring`, add-graph-views task 1.6,
+/// specodelic-5qj). A view selector over the shipped text projections;
+/// v1 ships only the wiring view.
+#[derive(clap::ValueEnum, Clone)]
+enum GraphView {
+    /// File-level producer→consumer projection of `constraints.satisfies`
+    /// edges (specodelic-5qj)
+    Wiring,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Lint spec files against the Specodelic invariants
@@ -115,13 +125,32 @@ enum Commands {
         /// annotated elements, never silently cleaned, D3). Rendering
         /// stays external (D8): pipe into `dot -Tsvg`, `graph-easy`, or
         /// paste the mermaid into an `mmdc`/viz-js target — no `--render`.
-        /// Overrides `--json`/
+        /// `--view wiring` selects the wiring view over the chosen format
+        /// (add-graph-views task 1.6, specodelic-5qj): the corpus's
+        /// `constraints.satisfies` edges project to FILE level — each
+        /// endpoint collapses to its owning intent/file, the drawn arrow
+        /// follows the satisfies edge direction (consumer file → the
+        /// producer's published contract, per the decision record's sample
+        /// outputs), self-loops (a file satisfying its own contract) are
+        /// dropped, and the remaining cross-file instances aggregate per
+        /// distinct pair (the count rides as the edge label in
+        /// dot/mermaid, the annotation column in the TSV). A corpus with
+        /// files but zero remaining satisfies edges — including one whose
+        /// satisfies edges are all self-loops — emits a labeled `no_wiring`
+        /// element, never a silently clean diagram. Requires `--format`;
+        /// composes with `edges`, `dot`, and `mermaid`. Overrides
+        /// `--json`/
         /// `--human`: the raw text goes straight to stdout — the one
         /// documented exception to Output::emit, scoped to this flag so
         /// awk/jq pipelines consume it without an envelope parser. Zero
         /// spec files exit 0 with empty output.
         #[arg(long)]
         format: Option<GraphFormat>,
+        /// View selection over the text projections (see the format
+        /// flag's help for the wiring semantics). Requires `--format` —
+        /// there is no JSON wiring envelope in v1 to fall back to.
+        #[arg(long, requires = "format")]
+        view: Option<GraphView>,
     },
     /// Translate a linted spec file into TOML / proptest / TLA+ artifacts
     Compile {
@@ -372,16 +401,20 @@ fn print_version_json() -> bool {
 fn cmd_graph_projection(
     paths: &[String],
     format: &GraphFormat,
+    view: Option<&GraphView>,
     stdout: &mut impl std::io::Write,
 ) -> i32 {
     let (specs, _checklists, _notes, _parse_errors) = parse_batch(paths, Verbosity::Quiet);
     if specs.is_empty() {
         return 0;
     }
-    let text = match format {
-        GraphFormat::Edges => graph::edges_tsv(&specs),
-        GraphFormat::Dot => graph::dot_projection(&specs),
-        GraphFormat::Mermaid => graph::mermaid_projection(&specs),
+    let text = match (format, view) {
+        (GraphFormat::Edges, None) => graph::edges_tsv(&specs),
+        (GraphFormat::Dot, None) => graph::dot_projection(&specs),
+        (GraphFormat::Mermaid, None) => graph::mermaid_projection(&specs),
+        (GraphFormat::Edges, Some(GraphView::Wiring)) => graph::wiring_tsv(&specs),
+        (GraphFormat::Dot, Some(GraphView::Wiring)) => graph::wiring_dot(&specs),
+        (GraphFormat::Mermaid, Some(GraphView::Wiring)) => graph::wiring_mermaid(&specs),
     };
     let _ = write!(stdout, "{text}");
     0
@@ -400,7 +433,8 @@ fn run(
         Commands::Graph {
             paths,
             format: Some(format),
-        } => cmd_graph_projection(paths, format, stdout),
+            view,
+        } => cmd_graph_projection(paths, format, view.as_ref(), stdout),
         Commands::Graph { paths, .. } => cmd_graph(paths, format, verbosity, stdout, stderr),
         Commands::Compile { paths, out_dir } => {
             cmd_compile(paths, out_dir, format, verbosity, stdout, stderr)

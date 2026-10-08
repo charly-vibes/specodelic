@@ -2124,3 +2124,160 @@ fn mermaid_projection_overrides_json_envelope() {
         "no JSON envelope leaks into the raw projection: {text}"
     );
 }
+
+// ---- graph --view wiring (add-graph-views task 1.6, specodelic-5qj) ----
+
+/// The wiring fixture: producer `pid` publishes one extension_point
+/// contract row; consumer `cid` satisfies it twice across two rows plus
+/// once at its own contract row (instances to aggregate, self-loop to
+/// drop).
+fn write_wiring_pair(dir: &tempfile::TempDir, pid: &str, cid: &str) {
+    let spec = |rows: &str, id: &str| {
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"SHALL wire\"\n---\n\n\
+             ## Constraints\n\n\
+             | id | kind | expr | traces_to | satisfies |\n\
+             |----|------|------|-----------|-----------|\n{rows}"
+        )
+    };
+    std::fs::write(
+        dir.path().join(format!("{pid}.md")),
+        spec(
+            &format!("| contract | extension_point | `published` | [[{pid}]] | |\n"),
+            pid,
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join(format!("{cid}.md")),
+        spec(
+            &format!(
+                "| contract | extension_point | `own` | [[{cid}]] | |\n\
+                 | c1 | invariant | `use` | [[{cid}]] | [[{pid}.contract]] |\n\
+                 | c2 | invariant | `both` | [[{cid}]] | [[{pid}.contract]] [[{cid}.contract]] |\n"
+            ),
+            cid,
+        ),
+    )
+    .unwrap();
+}
+
+/// A corpus whose only satisfies edge is a self-loop — after the drop the
+/// view is empty and must be labeled.
+fn write_self_loop_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"SHALL self-satisfy\"\n---\n\n\
+             ## Constraints\n\n\
+             | id | kind | expr | traces_to | satisfies |\n\
+             |----|------|------|-----------|-----------|\n\
+             | contract | extension_point | `own` | [[{id}]] | |\n\
+             | c1 | invariant | `self` | [[{id}]] | [[{id}.contract]] |\n"
+        ),
+    )
+    .unwrap();
+}
+
+fn wiring_out(dir: &tempfile::TempDir, format: &str) -> String {
+    let mut cmd = spk();
+    cmd.args([
+        "graph",
+        dir.path().to_str().unwrap(),
+        "--format",
+        format,
+        "--view",
+        "wiring",
+    ]);
+    String::from_utf8(cmd.output().unwrap().stdout).unwrap()
+}
+
+/// Pinned TSV shape (task 1.6): the two cross-file instances collapse
+/// onto one owning-intent row (count in the annotation column), the
+/// self-loop drops, nothing but satisfies edges appears, and re-runs are
+/// byte-identical. Dot/mermaid bytes are pinned at unit level in
+/// src/graph.rs over the pure renderers.
+#[test]
+fn wiring_tsv_pins_exact_bytes() {
+    let dir = tempfile::tempdir().unwrap();
+    write_wiring_pair(&dir, "prod", "cons");
+    let first = wiring_out(&dir, "edges");
+    assert_eq!(
+        first,
+        "cons\tIntent\tconstraints.satisfies\tprod\tIntent\t2\n"
+    );
+    assert_eq!(
+        wiring_out(&dir, "edges"),
+        first,
+        "re-runs are byte-identical"
+    );
+}
+
+/// A wiring-empty corpus is labeled `no_wiring` in every format — never a
+/// silently clean diagram — including the self-loop-only corpus, whose
+/// satisfies edges all drop (specodelic-5qj: exploration_only ≠ clean);
+/// the exact labels are pinned at unit level in src/graph.rs.
+#[test]
+fn wiring_view_labels_empty_views_across_formats() {
+    let none = tempfile::tempdir().unwrap();
+    write_two_state_spec(&none.path().join("two.md"), "two");
+    assert!(wiring_out(&none, "edges").contains("no_wiring"));
+    let lone = tempfile::tempdir().unwrap();
+    write_self_loop_spec(&lone.path().join("l.md"), "lone");
+    assert!(wiring_out(&lone, "dot").contains("no_wiring"));
+    assert!(wiring_out(&lone, "mermaid").contains("no_wiring"));
+}
+
+#[test]
+fn wiring_zero_file_directory_exits_zero_with_empty_output() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = spk()
+        .args([
+            "graph",
+            dir.path().to_str().unwrap(),
+            "--format",
+            "edges",
+            "--view",
+            "wiring",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "zero files exit 0");
+    assert!(out.stdout.is_empty(), "zero files emit an empty projection");
+}
+
+/// Same flag-precedence rule as every raw projection: `--view wiring`
+/// overrides `--json` — no envelope, straight to stdout.
+#[test]
+fn wiring_overrides_json_envelope() {
+    let dir = tempfile::tempdir().unwrap();
+    write_wiring_pair(&dir, "prod", "cons");
+    let out = spk()
+        .args([
+            "graph",
+            dir.path().to_str().unwrap(),
+            "--format",
+            "edges",
+            "--view",
+            "wiring",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    let text = std::str::from_utf8(&out.stdout).unwrap();
+    assert!(out.status.code() == Some(0) && text.starts_with("cons\t"));
+    assert!(!text.contains("\"ok\""), "no envelope leaks: {text}");
+}
+
+/// `--view wiring` composes with `--format` and cannot stand alone — no
+/// JSON wiring envelope exists in v1.
+#[test]
+fn wiring_view_requires_a_format() {
+    let dir = tempfile::tempdir().unwrap();
+    write_wiring_pair(&dir, "prod", "cons");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--view", "wiring"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2), "usage error without --format");
+}

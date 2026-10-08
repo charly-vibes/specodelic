@@ -38,7 +38,7 @@ Tidying commits are separate from feature commits.
       dashed = guards, bold = `emits`, dotted = traceability, red dashed =
       dangling/violations). Parity fixture: the retired
       `scripts/graph_to_dot.jq` output pinned as the expected dot shape.
-- [ ] 1.6 **RED→GREEN**: `--view wiring` — file-level producer→consumer
+- [x] 1.6 **RED→GREEN**: `--view wiring` — file-level producer→consumer
       projection of `constraints.satisfies` edges (specodelic-5qj
       decision, `openspec/research/2026-10-01-wiring-view-decision/`);
       self-loops dropped; corpora with zero satisfies edges emit a labeled
