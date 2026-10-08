@@ -42,6 +42,14 @@ content through the **dual-format protocol**:
   or table-less capability spec — plain openspec regeneration output
   cannot land there, because `spk lint` parse-skips files without
   frontmatter and would never see it.
+- **Verification claims**: verification is bounded model checking of the
+  invariant claims a spec explicitly opts into (`**rust:**` fragments,
+  kernel expressions, whole-cell citations) — every opted-in invariant
+  claim must verify before a file verifies, prose-only invariants stay
+  explicitly unchecked, and the JSON, human, and persisted report views
+  name the same blockers and counts. Verification is not a substitute
+  for the application's own test suite; no proof of application
+  correctness is inferred.
 - **Archive recipe**: `openspec archive <id> --skip-specs` (the
   archiver's own regeneration drops the specodelic layer), then copy
   each dual-format file verbatim from the archive directory to

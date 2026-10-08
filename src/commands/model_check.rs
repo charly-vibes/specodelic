@@ -122,6 +122,9 @@ pub(crate) fn cmd_model_check(
                     "bound": c.report.bound,
                     "invariants_checked": c.report.invariants_checked,
                     "invariant_statuses": c.statuses_json,
+                    "claims": c.claims,
+                    "expected_claim_ids": c.expected_claim_ids,
+                    "unchecked_claim_ids": c.unchecked_claim_ids,
                     "violated_invariant_id": c.report.violated_invariant_id,
                     "trace": c.report.trace,
                     "states_explored": c.report.states_explored,
@@ -442,13 +445,21 @@ pub(crate) fn props_gate_json(gate: &verify::PropertiesGate) -> serde_json::Valu
 }
 
 /// The model gate as envelope JSON: state name, the outcome when the
-/// report was readable, and the staleness detail.
+/// report was readable, and the staleness detail. A not-clean gate also
+/// names the blocking claims and the unchecked set — the same claim view
+/// every other report view states (design D5 visible_scope).
 pub(crate) fn model_gate_json(gate: &verify::ModelGateState) -> serde_json::Value {
     match gate {
         verify::ModelGateState::Clean => serde_json::json!({"state": "clean"}),
-        verify::ModelGateState::NotClean { outcome } => serde_json::json!({
+        verify::ModelGateState::NotClean {
+            outcome,
+            blocking_claims,
+            unchecked_claim_ids,
+        } => serde_json::json!({
             "state": "not_clean",
             "outcome": outcome,
+            "blocking_claims": blocking_claims,
+            "unchecked_claim_ids": unchecked_claim_ids,
         }),
         verify::ModelGateState::Stale { detail } => {
             serde_json::json!({"state": "stale", "detail": detail})

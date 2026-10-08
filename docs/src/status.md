@@ -1,6 +1,6 @@
 # Status
 
-**experimental** — early-stage; surface may be renamed or sunset. Version 0.4.0.
+**experimental** — early-stage; surface may be renamed or sunset. Version 0.5.2.
 
 ## Implemented
 
@@ -8,6 +8,7 @@
 |---|---|---|
 | `spk` (specodelic) | beta | lints, compiles, verifies, refactors markdown specs (alias `spk`) |
 | spec format | beta | frontmatter, Constraints, state Model, Properties tables |
+| verification claims | beta | every opted-in invariant claim (Rust, kernel, citation) must verify before a file verifies; prose-only invariants stay unchecked; claim reports are versioned and scope-bound — JSON, human, and persisted views name the same blockers |
 
 ## In progress
 
@@ -17,6 +18,10 @@
 ## Mapped to specs
 
 - The format itself: every file in `specs/` is a spec in the format; `openspec` proposals for changes.
+
+**Verification is not application testing:** verification is bounded model
+checking of opted-in invariant claims plus compiled property execution — not
+a substitute for the application's own test suite.
 
 ## Dogfooding
 

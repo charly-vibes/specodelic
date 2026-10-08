@@ -267,6 +267,15 @@ so a file whose predicate and invariant fragments pass verifies for real;
 files without fragments behave exactly as before (honest
 exploration_only / properties_failed).
 
+Verification claims (2026-10, define-verification-claim-gates): every
+opted-in invariant claim — executable `**rust:**` fragments, kernel
+expressions, and whole-cell citations — must be verified before a file
+verifies; prose-only invariants stay explicitly unchecked, claim reports
+are versioned and bound to the structured corpus scope, and the JSON,
+human, and persisted report views name the same blockers and counts.
+Verification is bounded model checking of opted-in invariant claims —
+not a substitute for the application's own test suite.
+
 ### Done — the rename/refactor tool
 `rename_naturality` appeared as a property in three different files
 (`specodelic.md`, `linter-referential_integrity.md`,

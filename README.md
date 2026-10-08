@@ -8,7 +8,7 @@
 > that can't be checked — specodelic gives agent-facing specs checkable structure
 > (Constraints, state Model, Properties) plus a linter and verify pipeline, so a
 > spec can fail CI instead of silently underdetermining the build.
-> **Status:** [experimental](docs/src/status.md) · v0.5.0, self-hosting round in progress · [Motivation & design](docs/src/index.md) · [charly-vibes Tool Ecosystem](https://charly-vibes.github.io/dulce-de-leche/ecosystem-map.html)
+> **Status:** [experimental](docs/src/status.md) · v0.5.2, self-hosting round in progress · [Motivation & design](docs/src/index.md) · [charly-vibes Tool Ecosystem](https://charly-vibes.github.io/dulce-de-leche/ecosystem-map.html)
 Specodelic (formerly `spec-format`) is a self-hosting specification
 format: every file in [`specs/`](specs/) is a markdown spec describing
 either the format or one check its linter performs, written in the
@@ -137,10 +137,24 @@ CLI/envelope/self-healing infrastructure.
   lacking the layer, `--dry-run` previews the plan (GH#7)
 - ✅ `verify` — combined gate: compiled `proptest!` blocks executed and
   the current model run's outcome checked (`no_counterexample` only —
-  `exploration_only` is explicitly not clean); fails closed on every
+  `exploration_only` is explicitly not clean); every opted-in invariant
+  claim must be verified before a file can verify — prose-only
+  invariants stay explicitly unchecked, and the JSON, human, and
+  persisted report views name the same blockers — fails closed on every
   deviation
+- ✅ `verification claims` — opted-in invariant claims are classified,
+  evaluated with labeled unknown reasons, and aggregated by the
+  required-claim gate; claim reports are versioned and bound to the
+  structured corpus scope (stale or foreign evidence is a rerun, never
+  an acceptance)
 - ⏳ nothing — every specced command ships; see `spk --help` for the full
   verb list
+
+**Verification is not application testing.** Specodelic's verification
+is bounded model checking of the invariant claims a spec explicitly
+opts into, plus execution of the compiled property blocks — it is not
+a substitute for the application's own test suite, and no proof of
+application correctness is inferred from a `verified` verdict.
 
 Known corpus gaps (found by dogfooding `specodelic lint specs`) are tracked in
 beads: `bd list`.

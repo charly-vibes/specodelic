@@ -364,6 +364,14 @@ pub struct CheckedFile {
     pub id: String,
     pub report: model_check::RunReport,
     pub statuses_json: Vec<serde_json::Value>,
+    /// The qualified claim records (D3/D5): evaluator kind, status, and
+    /// reason — the same records the persisted report carries, so every
+    /// view states the same evaluated claims.
+    pub claims: Vec<verify::QualifiedClaim>,
+    /// The canonical required-claim ids.
+    pub expected_claim_ids: Vec<String>,
+    /// The explicitly unchecked invariant ids.
+    pub unchecked_claim_ids: Vec<String>,
     pub written: String,
 }
 
@@ -479,6 +487,9 @@ pub fn run_claim_gated_model_check(
                             id: id.clone(),
                             report,
                             statuses_json,
+                            claims,
+                            expected_claim_ids,
+                            unchecked_claim_ids,
                             written: report_path.display().to_string(),
                         }),
                         Err(e) => Err((
@@ -528,6 +539,9 @@ fn run_model_check_stage(
                     "clean": clean,
                     "backend": c.report.backend,
                     "invariant_statuses": c.statuses_json,
+                    "claims": c.claims,
+                    "expected_claim_ids": c.expected_claim_ids,
+                    "unchecked_claim_ids": c.unchecked_claim_ids,
                     "states_explored": c.report.states_explored,
                     "written": c.written,
                 }));

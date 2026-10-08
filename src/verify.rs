@@ -124,7 +124,10 @@ pub enum PropsGateState {
 }
 
 /// The model gate — `no_counterexample` evaluated against the current
-/// compiled artifact.
+/// compiled artifact. A not-clean gate carries the claim view from the
+/// stored report: the required claims whose status is not verified (the
+/// blockers) and the unchecked invariant ids — the same sets every other
+/// view states (design D5 visible_scope, specodelic-68m.5).
 #[derive(Debug, Clone, PartialEq)]
 pub enum ModelGateState {
     /// The current run report's outcome is `no_counterexample`.
@@ -132,7 +135,13 @@ pub enum ModelGateState {
     /// The current run report's outcome is anything else — including
     /// `exploration_only`, which is explicitly NOT clean (the native
     /// backend executes no invariant predicates).
-    NotClean { outcome: Outcome },
+    NotClean {
+        outcome: Outcome,
+        /// Required claim ids whose stored status is not verified.
+        blocking_claims: Vec<String>,
+        /// The stored (live-matched) unchecked invariant ids.
+        unchecked_claim_ids: Vec<String>,
+    },
     /// The stored run predates the current artifact (or the artifact is
     /// gone) — `rerun_on_model_change` fails the gate closed.
     Stale { detail: String },
@@ -182,10 +191,22 @@ pub fn verdict(properties: &PropsGateState, model: &ModelGateState) -> Verdict {
                 "all compiled proptest! blocks passed and the current model run reported no_counterexample".to_string(),
                 "re-verify after any edit to the spec or its compiled artifacts — verified is not cached".to_string(),
             ),
-            ModelGateState::NotClean { outcome } => (
+            ModelGateState::NotClean {
+                outcome,
+                blocking_claims,
+                ..
+            } => (
                 "model_not_clean",
                 format!(
-                    "the most recent model-check run against the current artifact reported {outcome:?} — only no_counterexample verifies, and exploration_only is explicitly not clean (no invariant predicates were executed; give the model executable invariant fragments — the **rust:** marker, specodelic.md Revision 15 — and re-run)"
+                    "the most recent model-check run against the current artifact reported {outcome:?} — only no_counterexample verifies, and exploration_only is explicitly not clean (no invariant predicates were executed; give the model executable invariant fragments — the **rust:** marker, specodelic.md Revision 15 — and re-run){}",
+                    if blocking_claims.is_empty() {
+                        String::new()
+                    } else {
+                        format!(
+                            "; blocking claims: {}",
+                            blocking_claims.join(", ")
+                        )
+                    }
                 ),
                 "run: specodelic model-check with a backend that executes invariants, or treat the model as unverified".to_string(),
             ),
@@ -521,10 +542,32 @@ pub fn evaluate_model_gate(
             ),
         };
     }
+    let (blocking_claims, unchecked_claim_ids) = stored_claim_view(records, &stored_unchecked);
     match report.outcome {
         Outcome::NoCounterexample => ModelGateState::Clean,
-        other => ModelGateState::NotClean { outcome: other },
+        other => ModelGateState::NotClean {
+            outcome: other,
+            blocking_claims,
+            unchecked_claim_ids,
+        },
     }
+}
+
+/// The stored report's claim view for a not-clean model gate (design D5
+/// visible_scope): the required claims whose status is not verified are
+/// the blockers, and the stored unchecked set (already validated against
+/// the live classification) rides along — the same sets every other view
+/// states.
+fn stored_claim_view(
+    records: &[serde_json::Value],
+    stored_unchecked: &[String],
+) -> (Vec<String>, Vec<String>) {
+    let blocking = records
+        .iter()
+        .filter(|r| r.get("status").and_then(|v| v.as_str()) != Some("verified"))
+        .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(String::from))
+        .collect();
+    (blocking, stored_unchecked.to_vec())
 }
 
 /// The properties gate: staleness by metadata comparison, then real
@@ -917,7 +960,14 @@ impl CargoRunner {
         command
             .args(["test", "--manifest-path"])
             .arg(base.join("Cargo.toml"))
-            .env("CARGO_TARGET_DIR", scratch_base().join("target"));
+            .env("CARGO_TARGET_DIR", scratch_base().join("target"))
+            // Concurrent scratch builds share the target dir; cargo's
+            // incremental GC can delete another concurrent session's
+            // active incremental working dirs (dep-graph/query-cache
+            // ENOENT races surface as spurious `properties_uncompilable`).
+            // The scratch crate is tiny and deps stay cached — incremental
+            // buys nothing here, so it is off (specodelic-68m.5).
+            .env("CARGO_INCREMENTAL", "0");
         let output = run_bounded(
             &mut command,
             self.timeout_secs.map(std::time::Duration::from_secs),
@@ -1055,6 +1105,14 @@ fn dir_size(path: &Path) -> u64 {
     total
 }
 
+/// A scratch crate dir younger than this means a peer verify invocation
+/// is (or was very recently) building — the size-cap whole-target drop
+/// defers to a later quiet invocation. Dropping the shared target while
+/// a peer's cargo is mid-build deletes dep rmeta/fingerprint files under
+/// it and surfaces as spurious `properties_uncompilable` races
+/// (specodelic-68m.5 flake fix); a quiet invocation completes the drop.
+const PRUNE_DEFER_WINDOW: std::time::Duration = std::time::Duration::from_secs(10 * 60);
+
 fn prune_scratch(
     base: &Path,
     now: std::time::SystemTime,
@@ -1068,32 +1126,42 @@ fn prune_scratch(
     let Ok(entries) = fs::read_dir(base) else {
         return stats;
     };
+    let mut peer_build_in_flight = false;
     for entry in entries.flatten() {
         let name = entry.file_name();
         let name = name.to_string_lossy();
         if name == "target" {
-            if dir_size(&entry.path()) > target_max_bytes
-                && fs::remove_dir_all(entry.path()).is_ok()
-            {
-                stats.target_reset = true;
-            }
             continue;
         }
         if name == "Cargo.lock" {
             continue;
         }
+        // Any fresh entry — a verify crate dir or the model-check
+        // fragment runner's scratch tree — is peer build activity:
+        // defer the whole-target drop.
+        let mtime = entry.metadata().ok().and_then(|m| m.modified().ok());
+        let age = mtime.and_then(|mtime| now.duration_since(mtime).ok());
+        if age.is_none_or(|a| a <= PRUNE_DEFER_WINDOW) {
+            peer_build_in_flight = true;
+        }
         if !is_scratch_crate_dir_name(&name) {
             continue;
         }
-        let stale = entry
-            .metadata()
-            .ok()
-            .and_then(|m| m.modified().ok())
-            .and_then(|mtime| now.duration_since(mtime).ok())
-            .map(|age| age > orphan_max_age)
-            .unwrap_or(false);
+        let stale = age.is_some_and(|a| a > orphan_max_age);
         if stale && fs::remove_dir_all(entry.path()).is_ok() {
             stats.removed_crate_dirs += 1;
+        }
+    }
+    // The size-cap reset runs only when no peer build is in flight —
+    // it deletes shared dep artifacts other cargo processes read.
+    if !peer_build_in_flight && let Ok(target) = fs::read_dir(base) {
+        for entry in target.flatten() {
+            if entry.file_name() == "target"
+                && dir_size(&entry.path()) > target_max_bytes
+                && fs::remove_dir_all(entry.path()).is_ok()
+            {
+                stats.target_reset = true;
+            }
         }
     }
     stats
@@ -1218,6 +1286,8 @@ mod tests {
             &PropsGateState::Pass,
             &ModelGateState::NotClean {
                 outcome: Outcome::ExplorationOnly,
+                blocking_claims: vec![],
+                unchecked_claim_ids: vec![],
             },
         );
         assert_eq!(v.status, "model_not_clean");
@@ -1346,6 +1416,8 @@ mod tests {
                 PropsGateState::Pass,
                 ModelGateState::NotClean {
                     outcome: Outcome::CounterexampleFound,
+                    blocking_claims: vec![],
+                    unchecked_claim_ids: vec![],
                 },
             ),
             (
@@ -1375,12 +1447,16 @@ mod tests {
             &PropsGateState::Failed("1 of 1".into()),
             &ModelGateState::NotClean {
                 outcome: Outcome::ExplorationOnly,
+                blocking_claims: vec![],
+                unchecked_claim_ids: vec![],
             },
         );
         let b = verdict(
             &PropsGateState::Failed("1 of 1".into()),
             &ModelGateState::NotClean {
                 outcome: Outcome::ExplorationOnly,
+                blocking_claims: vec![],
+                unchecked_claim_ids: vec![],
             },
         );
         assert_eq!(a, b);
@@ -1535,12 +1611,16 @@ mod tests {
                 Outcome::ExplorationOnly,
                 ModelGateState::NotClean {
                     outcome: Outcome::ExplorationOnly,
+                    blocking_claims: vec![],
+                    unchecked_claim_ids: vec![],
                 },
             ),
             (
                 Outcome::TimedOut,
                 ModelGateState::NotClean {
                     outcome: Outcome::TimedOut,
+                    blocking_claims: vec![],
+                    unchecked_claim_ids: vec![],
                 },
             ),
         ] {
@@ -1823,6 +1903,65 @@ mod tests {
 
         assert_eq!(stats.removed_crate_dirs, 0);
         assert!(other.exists());
+    }
+
+    #[test]
+    fn prune_defers_target_reset_while_peer_builds_are_in_flight() {
+        // specodelic-68m.5 flake fix: the size-cap whole-drop used to
+        // fire while sibling invocations' cargo builds were mid-run,
+        // deleting dep rmeta/fingerprint files under them (spurious
+        // `properties_uncompilable` races). A fresh scratch crate dir
+        // means a peer build is in flight — the drop defers to a later
+        // quiet invocation.
+        let base = tempfile::tempdir().expect("base");
+        let target = base.path().join("target");
+        std::fs::create_dir_all(target.join("debug")).unwrap();
+        std::fs::write(target.join("debug/blob"), vec![0u8; 64]).unwrap();
+        let fresh_peer = base.path().join("111-222-3");
+        std::fs::create_dir_all(&fresh_peer).unwrap();
+        let old_peer = base.path().join("111-222-4");
+        std::fs::create_dir_all(&old_peer).unwrap();
+        age_entry(&old_peer, std::time::Duration::from_secs(48 * 3600));
+
+        let stats = prune_scratch(
+            base.path(),
+            std::time::SystemTime::now(),
+            32,
+            std::time::Duration::from_secs(24 * 3600),
+        );
+
+        // Oversized, but the drop is deferred: the fresh peer build must
+        // not lose its in-flight build artifacts.
+        assert!(!stats.target_reset, "deferred while a peer is in flight");
+        assert!(target.exists());
+        assert!(fresh_peer.exists());
+        // The orphan rule is unaffected.
+        assert_eq!(stats.removed_crate_dirs, 1);
+    }
+
+    #[test]
+    fn prune_defers_target_reset_while_model_check_builds_are_in_flight() {
+        // The model-check fragment runner stages its scratch crates under
+        // base/model-check/<unique> — a fresh model-check tree is peer
+        // build activity too, and its in-flight cargo must not lose the
+        // shared target's dep artifacts (specodelic-68m.5 flake fix).
+        let base = tempfile::tempdir().expect("base");
+        let target = base.path().join("target");
+        std::fs::create_dir_all(target.join("debug")).unwrap();
+        std::fs::write(target.join("debug/blob"), vec![0u8; 64]).unwrap();
+        let mc = base.path().join("model-check");
+        std::fs::create_dir_all(mc.join("111-222")).unwrap();
+
+        let stats = prune_scratch(
+            base.path(),
+            std::time::SystemTime::now(),
+            32,
+            std::time::Duration::from_secs(24 * 3600),
+        );
+
+        assert!(!stats.target_reset, "deferred while model-check builds");
+        assert!(target.exists());
+        assert!(mc.exists());
     }
 
     #[test]

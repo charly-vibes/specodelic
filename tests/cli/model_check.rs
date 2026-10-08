@@ -842,6 +842,264 @@ fn no_required_claims_stay_explicitly_unchecked() {
     assert_eq!(vjson["data"]["blocked"][0]["model"]["state"], "not_clean");
 }
 
+// ---- specodelic-68m.5: users see the same claim blockers in every view ----
+// (define-verification-claim-gates tasks 3.1; design D5 visible_scope).
+// The CLI JSON envelope, the persisted `.check.json` report, the human
+// output, and verify's view must state the SAME evaluated, unchecked, and
+// blocking claim sets on mixed fixtures. The docs-consistency fixture
+// fails when a version literal or capability status in the release docs
+// conflicts with the Cargo metadata (D5: versions derive from Cargo
+// metadata, never independently maintained literals).
+
+/// Mixed fixture: one verified Rust claim, one unknown kernel claim, and
+/// one prose-only invariant (explicitly unchecked). The shared fixture
+/// shape of the parity tests below.
+fn write_view_parity_spec(path: &std::path::Path, id: &str, ka_expr: &str) {
+    let rows = format!(
+        "| ka | invariant | `{ka_expr}` | [[{id}]] |\n\
+          | kb | invariant | `**rust:** state != \"blackhole\"` | [[{id}]] |\n\
+          | kp | invariant | prose guard holds across states | [[{id}]] |\n"
+    );
+    write_claim_spec(path, id, &rows, &claim_props(id, &["ka", "kb", "kp"]), "ka");
+}
+
+#[test]
+fn mixed_fixture_views_agree_on_blockers_and_unchecked() {
+    // Verified Rust + unknown kernel + prose-only unchecked: every view
+    // names ka as the blocker, kp as unchecked, and the same counts.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("cmx.md");
+    write_view_parity_spec(
+        &spec,
+        "cmx",
+        "**kernel:** reachable(demo.ghost.nowhere, cmx.ka, supersedes)",
+    );
+    let out = td.path().join("out");
+    claim_compile(spec.to_str().unwrap(), &out);
+
+    // JSON envelope vs persisted report: identical claim fields.
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_eq!(code, Some(0));
+    assert_eq!(json["data"]["outcome"], "exploration_only");
+    let checked = &json["data"]["checked"][0];
+    let expected = checked["expected_claim_ids"]
+        .as_array()
+        .expect("JSON envelope carries the required set")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(expected, vec!["ka".to_string(), "kb".to_string()]);
+    let unchecked = checked["unchecked_claim_ids"]
+        .as_array()
+        .expect("JSON envelope carries the unchecked set")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(unchecked, vec!["kp".to_string()]);
+    let claims = checked["claims"]
+        .as_array()
+        .expect("JSON carries claim records");
+    assert_eq!(claims.len(), 2, "evaluated claims only: {claims:?}");
+    let ka = claims.iter().find(|c| c["id"] == "ka").unwrap();
+    assert_eq!(ka["evaluator"], "kernel");
+    assert_eq!(ka["status"], "unknown");
+    // Native kernel unknowns are honest unknowns without a synthetic
+    // reason label (labeled reasons exist for unsupported backends,
+    // parse failures and missing citation evidence — D2/D3 semantics
+    // are not this ticket's); a reason, when present, is a string.
+    if let Some(reason) = ka.get("reason") {
+        assert!(reason.is_string(), "reason is a string when present: {ka}");
+    }
+    let kb = claims.iter().find(|c| c["id"] == "kb").unwrap();
+    assert_eq!(kb["evaluator"], "rust");
+    assert_eq!(kb["status"], "verified");
+    let report = claim_report(&out, "cmx");
+    assert_eq!(report["expected_claim_ids"], checked["expected_claim_ids"]);
+    assert_eq!(
+        report["unchecked_claim_ids"],
+        checked["unchecked_claim_ids"]
+    );
+    assert_eq!(report["claims"], checked["claims"]);
+
+    // Human output: the same blocker and unchecked claim by id.
+    let human = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--human",
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(human.stdout).unwrap();
+    assert!(
+        stdout.contains("ka"),
+        "human names the blocking claim: {stdout}"
+    );
+    assert!(
+        stdout.contains("unknown"),
+        "human names the blocker status: {stdout}"
+    );
+    assert!(
+        stdout.contains("kp"),
+        "human names the unchecked claim: {stdout}"
+    );
+    assert!(
+        stdout.contains("2"),
+        "human states the evaluated count: {stdout}"
+    );
+
+    // Verify's view: the blocked entry names the same blocker and the
+    // same unchecked set.
+    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
+    assert_eq!(vcode, Some(1));
+    let model = &vjson["data"]["blocked"][0]["model"];
+    assert_eq!(model["state"], "not_clean");
+    let blocking: Vec<String> = model["blocking_claims"]
+        .as_array()
+        .expect("verify names the blocking claims")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(blocking, vec!["ka".to_string()]);
+    let v_unchecked: Vec<String> = model["unchecked_claim_ids"]
+        .as_array()
+        .expect("verify names the unchecked claims")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(v_unchecked, vec!["kp".to_string()]);
+    let v_human = spk()
+        .args([
+            "verify",
+            spec.to_str().unwrap(),
+            "--human",
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let v_stdout = String::from_utf8(v_human.stdout).unwrap();
+    assert!(
+        v_stdout.contains("ka"),
+        "verify human names the blocker: {v_stdout}"
+    );
+    assert!(
+        v_stdout.contains("kp"),
+        "verify human names the unchecked claim: {v_stdout}"
+    );
+}
+
+#[test]
+fn refuted_kernel_blocker_names_the_same_claim_in_every_view() {
+    // Verified resolves + refuted unique: ka is the blocker in JSON,
+    // the persisted report, human output, and verify's blocked entry.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("crf.md");
+    write_view_parity_spec(&spec, "crf", "**kernel:** unique(traces_to)");
+    let out = td.path().join("out");
+    claim_compile(spec.to_str().unwrap(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_eq!(code, Some(0));
+    assert_eq!(json["data"]["outcome"], "counterexample_found");
+    let checked = &json["data"]["checked"][0];
+    let claims = checked["claims"]
+        .as_array()
+        .expect("JSON carries claim records");
+    let ka = claims.iter().find(|c| c["id"] == "ka").unwrap();
+    assert_eq!(ka["status"], "counterexample");
+    let kb = claims.iter().find(|c| c["id"] == "kb").unwrap();
+    assert_eq!(kb["status"], "verified");
+    let report = claim_report(&out, "crf");
+    assert_eq!(report["claims"], checked["claims"]);
+    let human = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap(),
+            "--human",
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(human.stdout).unwrap();
+    assert!(
+        stdout.contains("ka"),
+        "human names the refuted claim: {stdout}"
+    );
+    assert!(
+        stdout.contains("counterexample"),
+        "human names the refuted status: {stdout}"
+    );
+    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
+    assert_eq!(vcode, Some(1));
+    let model = &vjson["data"]["blocked"][0]["model"];
+    let blocking: Vec<String> = model["blocking_claims"]
+        .as_array()
+        .expect("verify names the blocking claims")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(blocking, vec!["ka".to_string()]);
+}
+
+#[test]
+fn docs_carry_release_version_and_implemented_capability_status() {
+    // D5: versions derive from Cargo metadata, never independently
+    // maintained literals; the release docs state the implemented
+    // claim-gate capability and the application-test distinction.
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let version = env!("CARGO_PKG_VERSION");
+    let docs = [
+        "README.md",
+        "docs/src/status.md",
+        "openspec/project.md",
+        "specs/STATUS.md",
+    ];
+    // Release-version statements only: `v<semver>` or `Version <semver>`
+    // — a bare x.y.z elsewhere (e.g. "Invariant 3.2.5") is not a
+    // maintained version literal.
+    let literal = regex::Regex::new(r"(?:\bv|Version )(\d+\.\d+\.\d+)").unwrap();
+    for doc in docs {
+        let path = root.join(doc);
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("{doc} must be readable: {e}"));
+        for cap in literal.captures_iter(&text) {
+            let lit = cap.get(1).unwrap().as_str();
+            assert_eq!(
+                lit, version,
+                "{doc} carries version literal {lit} but the release is {version} — versions derive from Cargo metadata"
+            );
+        }
+    }
+    // Capability status: the implemented claim-gate behavior is stated
+    // where verify is described, and verification is distinguished from
+    // application-test execution. Phrase assertions are whitespace-
+    // normalized — markdown wrapping is not a capability change.
+    let norm = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
+    let readme = norm(&std::fs::read_to_string(root.join("README.md")).unwrap());
+    assert!(
+        readme.contains("every opted-in invariant claim"),
+        "README's verify status must state the implemented claim gate"
+    );
+    assert!(
+        readme.contains("not a substitute for"),
+        "README must distinguish verification from application-test execution"
+    );
+    for doc in [
+        "docs/src/status.md",
+        "openspec/project.md",
+        "specs/STATUS.md",
+    ] {
+        let text = norm(&std::fs::read_to_string(root.join(doc)).unwrap());
+        assert!(
+            text.contains("invariant claim"),
+            "{doc} must state the implemented claim-gate capability"
+        );
+    }
+}
+
 // ---- specodelic-68m.3: evidence belongs to the current scope ----
 // (define-verification-claim-gates tasks 2.1; design D3). A stored
 // report binds claim_schema_version 1, its qualified claim records and

@@ -151,8 +151,11 @@ and the transitions between them. The canonical pipeline lifecycle:
   owned checker to pass
 - `compile` requires `coverage` and `law_requires_cases`
 - `model_check` requires a complete Model section (`model_present`)
-- `verify` requires `no_counterexample` and `properties_pass`
-
+- `verify` requires `no_counterexample`, `properties_pass`, and
+  every opted-in invariant claim verified — prose-only invariants stay
+  explicitly unchecked and are never counted as verified. Verification
+  is bounded model checking of the claims the spec opts into; it is
+  not a substitute for the application's own test suite.
 Every transition's `guard` must be non-null (`guard_required`) and may
 cite an `invariant` Constraint or a State. Every state must appear as a `from`
 or `to` in at least one transition (`every_state_used`), and every

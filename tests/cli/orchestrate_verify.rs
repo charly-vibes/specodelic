@@ -299,6 +299,100 @@ fn verify_rejects_stale_model_run() {
 /// A kernel-claim spec whose required claims all verify over the v0
 /// snapshot — the honest no_counterexample shape (no fabricated
 /// reports: claim-schema evidence is bound to the run, specodelic-68m.3).
+// ---- specodelic-68m.5: the orchestrate model_check stage is the same
+// claim view as the native CLI (design D5 visible_scope) ----
+
+#[test]
+fn orchestrate_model_check_stage_carries_the_same_claim_view() {
+    // Unknown kernel claim + prose-only unchecked: the stage's compact
+    // entries carry the SAME required/unchecked/claim sets the native
+    // CLI envelope and the persisted report state.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("ovp.md");
+    std::fs::write(
+        &spec,
+        "---\nid: ovp\nkind: intent\nstatement: \"THE ovp SHALL carry stage claim-view fixtures\"\n---\n\
+         \n## Constraints\n\
+         \n| id | kind | expr | traces_to |\n\
+         |----|------|------|-----------|\n\
+         | ka | invariant | `**kernel:** reachable(demo.ghost.nowhere, ovp.ka, supersedes)` | [[ovp]] |\n\
+         | kb | invariant | `**rust:** state != \"blackhole\"` | [[ovp]] |\n\
+         | kp | invariant | prose guard holds across states | [[ovp]] |\n\
+         \n## Model\n\
+         \n### States\n\
+         \n- s1\n\
+         - s2\n\
+         \n### Transitions\n\
+         \n| id | from | to | guard |\n\
+         |----|------|----|-------|\n\
+         | t | s1 | s2 | [[ovp.ka]] |\n\
+         \n## Properties\n\
+         \n| id | kind | derives_from | generator | predicate |\n\
+         |----|------|--------------|-----------|------------|\n\
+         | p_ka | unit | [[ovp.ka]] | `word()` | `**rust:** v0.len() >= 1` |\n\
+         | p_kb | unit | [[ovp.kb]] | `word()` | `**rust:** v0.len() >= 1` |\n\
+         | p_kp | unit | [[ovp.kp]] | `word()` | `**rust:** v0.len() >= 1` |\n",
+    )
+    .unwrap();
+    let out = td.path().join("out");
+    let json: serde_json::Value = serde_json::from_slice(
+        &Command::cargo_bin("specodelic")
+            .unwrap()
+            .args([
+                "orchestrate",
+                spec.to_str().unwrap(),
+                "--json",
+                "--out-dir",
+                out.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+    let stage = json["data"]["stages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["stage"] == "model_check")
+        .unwrap()
+        .clone();
+    assert_eq!(
+        stage["status"], "failed",
+        "unknown claim is not clean: {stage}"
+    );
+    let checked = &stage["detail"]["checked"][0];
+    let expected: Vec<String> = checked["expected_claim_ids"]
+        .as_array()
+        .expect("stage carries the required set")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(expected, vec!["ka".to_string(), "kb".to_string()]);
+    let unchecked: Vec<String> = checked["unchecked_claim_ids"]
+        .as_array()
+        .expect("stage carries the unchecked set")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(unchecked, vec!["kp".to_string()]);
+    let claims = checked["claims"]
+        .as_array()
+        .expect("stage carries claim records");
+    let ka = claims.iter().find(|c| c["id"] == "ka").unwrap();
+    assert_eq!(ka["status"], "unknown");
+    // And the persisted report agrees with the stage view.
+    let report: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(out.join("ovp.check.json")).unwrap())
+            .unwrap();
+    assert_eq!(report["expected_claim_ids"], checked["expected_claim_ids"]);
+    assert_eq!(
+        report["unchecked_claim_ids"],
+        checked["unchecked_claim_ids"]
+    );
+    assert_eq!(report["claims"], checked["claims"]);
+}
+
 fn write_kernel_verified_spec(path: &std::path::Path, id: &str) {
     std::fs::write(
         path,

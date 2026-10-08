@@ -217,6 +217,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn lifecycle_topic_states_the_claim_gate_and_assurance_distinction() {
+        // specodelic-68m.5 (design D5): the embedded guide's lifecycle
+        // topic states the implemented claim gate — every opted-in
+        // invariant claim verified, prose stays unchecked — and
+        // distinguishes verification from application-test execution.
+        let lifecycle = topic_body("lifecycle").unwrap();
+        assert!(
+            lifecycle.contains("every opted-in invariant claim verified"),
+            "lifecycle topic must state the claim gate"
+        );
+        assert!(
+            lifecycle.contains("not a substitute for the application's own test suite"),
+            "lifecycle topic must distinguish verification from application tests"
+        );
+    }
+
+    #[test]
     fn topic_bodies_render_for_all_topics() {
         // every declared topic renders non-empty (design Decision 2's
         // prose-drift test) — the count bumps with each append-only topic

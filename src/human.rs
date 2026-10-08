@@ -173,6 +173,7 @@ pub fn model_check(payload: &serde_json::Value) -> String {
                 c["states_explored"],
                 c["written"].as_str().unwrap_or("?")
             ));
+            out.push_str(&claims_lines(c));
         }
     }
     if let Some(list) = payload["failed"].as_array() {
@@ -185,6 +186,64 @@ pub fn model_check(payload: &serde_json::Value) -> String {
                 f["message"].as_str().unwrap_or("?")
             ));
         }
+    }
+    out
+}
+
+/// `spk verify` — per-file verdict; blocked files carry the blocking
+/// stage message.
+/// The claim view lines for one checked entry (qualified records plus
+/// the unchecked set) or one verify model gate (blocking/unchecked ids)
+/// — D5 visible_scope: every human view names the same blockers and
+/// unchecked claims the JSON and persisted report do. Renders nothing
+/// when the entry carries no claim fields.
+fn claims_lines(entry: &serde_json::Value) -> String {
+    let claims = entry["claims"].as_array();
+    let blocking: Vec<&serde_json::Value> = if let Some(claims) = claims {
+        claims
+            .iter()
+            .filter(|c| c["status"].as_str() != Some("verified"))
+            .collect()
+    } else {
+        entry["blocking_claims"]
+            .as_array()
+            .map(|v| v.iter().collect())
+            .unwrap_or_default()
+    };
+    let unchecked = entry["unchecked_claim_ids"].as_array();
+    if claims.is_none() && blocking.is_empty() && unchecked.is_none_or(|u| u.is_empty()) {
+        return String::new();
+    }
+    let mut out = String::new();
+    if let Some(claims) = &claims {
+        out.push_str(&format!(
+            "\n    claims: {} evaluated, {} unchecked, {} blocking",
+            claims.len(),
+            unchecked.map_or(0, |u| u.len()),
+            blocking.len()
+        ));
+    }
+    for b in &blocking {
+        if let Some(id) = b["id"].as_str() {
+            out.push_str(&format!(
+                "\n      blocking: {} ({}, {}{})",
+                id,
+                b["evaluator"].as_str().unwrap_or("?"),
+                b["status"].as_str().unwrap_or("?"),
+                b["reason"]
+                    .as_str()
+                    .map(|r| format!(" — {r}"))
+                    .unwrap_or_default()
+            ));
+        } else if let Some(id) = b.as_str() {
+            out.push_str(&format!("\n      blocking: {id}"));
+        }
+    }
+    if let Some(ids) = unchecked
+        .map(|u| u.iter().filter_map(|v| v.as_str()).collect::<Vec<&str>>())
+        .filter(|ids| !ids.is_empty())
+    {
+        out.push_str(&format!("\n      unchecked: {}", ids.join(", ")));
     }
     out
 }
@@ -218,6 +277,11 @@ pub fn verify(payload: &serde_json::Value) -> String {
             out.push_str(&line);
             if blocked && let Some(m) = e["message"].as_str() {
                 out.push_str(&format!(" — {m}"));
+            }
+            if blocked {
+                // The model gate's claim view (D5 visible_scope): the
+                // same blocking/unchecked ids the model-check views name.
+                out.push_str(&claims_lines(&e["model"]));
             }
         }
     };
