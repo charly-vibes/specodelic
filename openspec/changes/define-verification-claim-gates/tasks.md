@@ -32,11 +32,36 @@ separate TIDY ticket is mapped below; keep refactoring commits separate. Preserv
 - [x] 3.3 TIDY: separate documentation cleanup commit removes stale restatements.
 
 ## 4. Release discipline
-- [ ] 4.1 Update domain specs under their Revision rules and regenerate affected
+- [x] 4.1 Update domain specs under their Revision rules and regenerate affected
       artifacts; preserve deployed requirements and scenario identities.
-- [ ] 4.2 Author genuine scenario contracts bound to the new tests; update
+      → 93fb322 — claim-gated verification lands in the two capability
+      files that already own the gates' precise meanings, per AGENTS.md
+      rule 3a (widen, don't restate): model_check.md gains
+      required_claims_classified, claim_aggregate_governs,
+      claim_report_schema, dual_format_isolated_scope (+ finish_clean
+      guard citing the aggregate; 9 deriving properties);
+      verify.md gains required_claims_govern_acceptance,
+      evidence_scope_bound, assurance_views_agree (accept/reject
+      transitions cite all three; 7 deriving properties). NO
+      specodelic.md edit → NO Revision 18: no governed id-set is
+      touched, `no_counterexample`'s expr is unchanged, and the
+      guide-drift guard stays green at Revision 17 (decision recorded
+      in both files' Notes). CHANGELOG #116, STATUS inventory rows;
+      artifacts regenerated (spk compile specs / model-check specs:
+      22 checked, 0 failed; lint specs: 0 issues).
+- [x] 4.2 Author genuine scenario contracts bound to the new tests; update
       docs SUMMARY for the new capability; run ah check --changes
       define-verification-claim-gates and executed checks when supported.
+      → c00e1ec — 10 scenario contracts staged change-scoped
+      (.espectacular/changes/define-verification-claim-gates/
+      verification-claims/), one per deployed scenario, 31 cargo test
+      bindings across tests/cli/{model_check,orchestrate_verify,
+      citation_resolution}.rs; ah check --changes
+      define-verification-claim-gates --run-tests: 243 passed,
+      0 findings (0 orphans, 0 missing bindings). SUMMARY entry lands
+      with the archive commit (bxk 91ae76b precedent —
+      summary-completeness requires openspec/specs/verification-claims/
+      spec.md to exist first).
 - [ ] 4.3 Run strict OpenSpec validation, section sync, corpus lint and just ci;
       archive only via the dual-format recipe after implementation approval.
 
