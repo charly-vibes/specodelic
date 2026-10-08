@@ -176,6 +176,141 @@ fn espectacular_gate_wired_structural_in_precommit_executed_in_ci() {
     );
 }
 
+/// Derived graph views are build-time artifacts, never committed
+/// (add-graph-views D6, tasks 3.1-3.3): `just docs-graphs` regenerates the
+/// Mermaid includes into docs/src/views/ — that directory must be
+/// gitignored so the generated files can never enter the tracked tree
+/// (graph_is_derived_not_authored holds by construction: no hand-edit
+/// path, no staleness check needed).
+#[test]
+fn docs_views_output_dir_is_gitignored() {
+    let gitignore = read(".gitignore");
+    assert!(
+        gitignore.lines().any(|l| l.trim() == "docs/src/views/"),
+        ".gitignore must ignore docs/src/views/ — generated Mermaid includes \
+         are build-time artifacts (D6), never committed"
+    );
+    // Belt and braces: ask git itself, so a stray negation rule cannot
+    // silently un-ignore the directory.
+    let out = std::process::Command::new("git")
+        .args(["check-ignore", "-q", "docs/src/views/states.md"])
+        .status()
+        .expect("git must be available in the test environment");
+    assert!(
+        out.success(),
+        "git check-ignore docs/src/views/states.md must succeed — the \
+         generated-views directory must actually be ignored, not merely listed"
+    );
+}
+
+/// `just docs-graphs` exists, writes the generated includes into
+/// docs/src/views/ (D6), and is deliberately NOT part of `just ci` —
+/// rendering is build-time only (task 3.3): the views are regenerated
+/// whenever the docs are built, so a CI graph gate would be redundant
+/// ceremony over an artifact that is never stored.
+#[test]
+fn docs_graphs_recipe_wired_build_time_only() {
+    let justfile = read("justfile");
+    let recipe = justfile
+        .lines()
+        .find(|l| l.starts_with("docs-graphs:"))
+        .expect("justfile must define a docs-graphs: recipe (tasks 3.1)");
+    assert!(
+        recipe.contains("docs-graphs"),
+        "recipe header must be the plain recipe name"
+    );
+    let body = justfile
+        .lines()
+        .skip_while(|l| !l.starts_with("docs-graphs:"))
+        .skip(1)
+        .take_while(|l| l.starts_with("    ") || l.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        body.contains("docs/src/views"),
+        "docs-graphs must regenerate the views into docs/src/views/ (D6)"
+    );
+    assert!(
+        body.contains("graph_views.py"),
+        "docs-graphs must drive the landed transform (scripts/graph_views.py)"
+    );
+    assert!(
+        body.contains("git status"),
+        "docs-graphs must assert git status stays clean after a full build \
+         (task 3.1) — generated output must never leak into the tracked tree"
+    );
+    let ci_line = justfile
+        .lines()
+        .find(|l| l.starts_with("ci:"))
+        .expect("justfile must define a ci: recipe");
+    assert!(
+        !ci_line.contains("docs-graphs"),
+        "just ci must NOT run docs-graphs in v1 — rendering is build-time \
+         only (task 3.3)"
+    );
+}
+
+/// The docs build path regenerates the views first (task 3.3):
+/// `just docs-build` depends on docs-graphs so the includes exist before
+/// mdbook resolves them. (docs.yml is the CI mirror — see the change
+/// notes; v1 wires the justfile path only.)
+#[test]
+fn docs_build_depends_on_docs_graphs() {
+    let justfile = read("justfile");
+    let header = justfile
+        .lines()
+        .find(|l| l.starts_with("docs-build:"))
+        .expect("justfile must define a docs-build: recipe");
+    assert!(
+        header
+            .split(':')
+            .nth(1)
+            .unwrap_or("")
+            .split_whitespace()
+            .any(|d| d == "docs-graphs"),
+        "docs-build must depend on docs-graphs — the generated includes \
+         must exist before mdbook builds (task 3.3)"
+    );
+}
+
+/// The docs page consumes the generated includes (task 3.2) and carries
+/// the one-sentence philosophy: views are never more current or more
+/// correct than the graph artifact they were derived from.
+#[test]
+fn graph_views_docs_page_consumes_generated_includes() {
+    let page = read("docs/src/graph-views.md");
+    assert!(
+        page.contains("{{#include views/"),
+        "docs/src/graph-views.md must consume the generated includes"
+    );
+    for include in ["wiring", "states", "trace", "schema"] {
+        assert!(
+            page.contains(&format!("{{{{#include views/{include}.md}}}}")),
+            "docs/src/graph-views.md must include views/{include}.md — the \
+             views for this repo's own corpus plus the revision-labeled schema view"
+        );
+    }
+    assert!(
+        page.contains("never more current"),
+        "the page must state the philosophy sentence: views are never more \
+         current or more correct than the graph artifact (task 3.2)"
+    );
+    assert!(
+        page.contains("format_revision"),
+        "the schema view is revision-labeled — the page must say so"
+    );
+}
+
+/// SUMMARY links the new page so it is reachable in the book.
+#[test]
+fn summary_links_graph_views_page() {
+    let summary = read("docs/src/SUMMARY.md");
+    assert!(
+        summary.contains("graph-views.md"),
+        "docs/src/SUMMARY.md must link the graph-views page"
+    );
+}
+
 /// The executed espectacular gate runs the pytest-bound contracts too
 /// (add-language-neutral-property-binding tasks 1.2-1.4): the pytest
 /// exemplar needs pytest + hypothesis on the runner, and runners don't

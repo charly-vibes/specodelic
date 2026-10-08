@@ -166,10 +166,54 @@ archive-change id:
     # installed binary lacking the subcommand.
     cargo run -q -- archive-companion "{{id}}"
 
+# Derived graph views (add-graph-views D6, tasks 3.1–3.3): regenerate the
+# Mermaid includes in docs/src/views/ from this repo's own corpus. The
+# views are build-time artifacts — gitignored, never committed — so
+# graph_is_derived_not_authored holds by construction (no hand-edit path,
+# no staleness machinery). All envelopes come from the same freshly built
+# binary (cargo run, never a PATH spk); the graph and schema envelopes
+# feed scripts/graph_views.py; intermediate exports stay in target/
+# (gitignored). Deliberately NOT in `just ci` (task 3.3): rendering is
+# build-time only, and an artifact that is never stored cannot go stale.
+docs-graphs:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SCRATCH=target/docs-graphs
+    OUT=docs/src/views
+    rm -rf "$SCRATCH"
+    mkdir -p "$SCRATCH" "$OUT"
+    # Same binary, one build: the graph and schema envelopes (task 3.1)
+    cargo run -q -- graph specs --format edges > "$SCRATCH/edges.tsv"
+    cargo run -q -- graph specs --json > "$SCRATCH/graph.json"
+    cargo run -q -- lint specs --json > "$SCRATCH/lint.json"
+    cargo run -q -- guide --schema --json > "$SCRATCH/schema.json"
+    # Derived views → docs/src/views/ (gitignored, D6)
+    python3 scripts/graph_views.py schema "$SCRATCH/schema.json" \
+        > "$OUT/schema.md"
+    python3 scripts/graph_views.py states "$SCRATCH/edges.tsv" \
+        --graph "$SCRATCH/graph.json" --lint "$SCRATCH/lint.json" \
+        > "$OUT/states.md"
+    python3 scripts/graph_views.py trace "$SCRATCH/edges.tsv" \
+        --graph "$SCRATCH/graph.json" --lint "$SCRATCH/lint.json" \
+        > "$OUT/trace.md"
+    cargo run -q -- graph specs --view wiring --format mermaid \
+        > "$OUT/wiring.md"
+    # Clean-tree assertion (task 3.1): after a full build, git status
+    # scoped to the output dir must stay empty — the views are gitignored
+    # (D6), so any entry here is a leak into the tracked tree.
+    if [ -n "$(git status --porcelain --untracked-files=all -- "$OUT")" ]; then
+        echo "docs-graphs: generated views leaked into git status:" >&2
+        git status --porcelain --untracked-files=all -- "$OUT" >&2
+        exit 1
+    fi
+    echo "graph views regenerated: $OUT/{schema,states,trace,wiring}.md"
+
 # Build the docs book locally, mirroring the docs.yml workflow steps
 # (specodelic-2m7: the shared scripts/stamp_llms.py keeps both paths in
-# lockstep — release page before the build, stamped llms.txt after)
-docs-build:
+# lockstep — release page before the build, stamped llms.txt after).
+# Depends on docs-graphs (add-graph-views task 3.3): the generated views
+# must exist before mdbook resolves the {{#include}} directives.
+docs-build: docs-graphs
     #!/usr/bin/env bash
     set -euo pipefail
     rm -rf docs/src/specs docs/src/openspec

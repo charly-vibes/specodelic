@@ -256,7 +256,7 @@ fn compile_round_trip_is_byte_stable() {
 }
 
 #[test]
-fn explain_bare_lists_exactly_the_seven_topics() {
+fn explain_bare_lists_topics_append_only() {
     let out = spk().args(["explain", "--json"]).output().unwrap();
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value =
@@ -267,6 +267,8 @@ fn explain_bare_lists_exactly_the_seven_topics() {
         .iter()
         .map(|t| t["id"].as_str().unwrap())
         .collect();
+    // append-only topic list: graph-views appended at the end
+    // (add-graph-views task 3.4) — existing topics keep their order
     assert_eq!(
         ids,
         [
@@ -277,7 +279,8 @@ fn explain_bare_lists_exactly_the_seven_topics() {
             "lifecycle",
             "lint-rules",
             "dual-format",
-            "packs"
+            "packs",
+            "graph-views"
         ]
     );
 }

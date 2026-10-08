@@ -28,6 +28,10 @@
 - [orchestrate](specs/orchestrate.md)
 - [errors](specs/errors.md)
 
+# Graph Views
+
+- [Graph views — derived diagrams of the corpus](graph-views.md)
+
 # Lint Rules
 
 - [linter.frontmatter](specs/linter-frontmatter.md)

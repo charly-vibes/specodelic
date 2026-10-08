@@ -91,18 +91,18 @@ Tidying commits are separate from feature commits.
 
 ## 3. Build wiring and docs
 
-- [ ] 3.1 `just docs-graphs` recipe: regenerate all views into
+- [x] 3.1 `just docs-graphs` recipe: regenerate all views into
       `docs/src/views/` (gitignore it first — D6); assert `git status`
       clean after a full build (RED first: fails while recipe absent).
       Produce graph and schema envelopes with the same binary, pass the
       schema export to the script, and keep intermediate exports untracked.
-- [ ] 3.2 Docs page under `docs/src/` consuming the generated includes:
+- [x] 3.2 Docs page under `docs/src/` consuming the generated includes:
       the views for this repo's own corpus plus the revision-labeled
       schema view; one sentence of philosophy — views are never more
       current or more correct than the graph artifact.
-- [ ] 3.3 Wire `docs-graphs` into the docs build path (`justfile`); do NOT
+- [x] 3.3 Wire `docs-graphs` into the docs build path (`justfile`); do NOT
       add it to `just ci` gates in v1 (rendering is build-time only).
-- [ ] 3.4 `spk explain graph-views` primer topic (appended at the end of
+- [x] 3.4 `spk explain graph-views` primer topic (appended at the end of
       the topic list, never renumbered): the view taxonomy, format flags,
       and one-pipe render recipes (`| dot -Tsvg`, `graph-easy` for ASCII
       terminal, mermaid paste targets); docs pages updated.

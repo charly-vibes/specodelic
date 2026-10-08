@@ -132,17 +132,94 @@ pub const TOPICS: &[(&str, &str)] = &[
         "packs",
         "Domain packs — first-class, opt-in vocabulary extension (Revision 14)",
     ),
+    (
+        "graph-views",
+        "Graph views — derived diagrams and one-pipe render recipes",
+    ),
 ];
+
+/// The graph-views primer body (add-graph-views task 3.4, D8) — appended
+/// after the `src/guide.md` topics and embedded in THIS module so the
+/// primer file's topic list stays byte-untouched (gre.9 scope guard: the
+/// edit to shared guide code must stay strictly additive; new topic data
+/// lives at the end of the module, never interleaved). Same marker
+/// convention as [`GUIDE_MD`] so one slicing helper serves both sources.
+/// Rendering stays 100 % external (D8): the recipes pipe the native text
+/// projections into user-chosen renderers (`dot`, `graph-easy`, any
+/// mermaid paste target) — the tool never shells out to a renderer.
+pub const GRAPH_VIEWS_BODY: &str = "\
+<!-- topic: graph-views -->
+Graph views are derived diagrams: they are never more current or more
+correct than the graph artifact they were rendered from. Regenerate
+after every corpus edit; never hand-edit a rendered view.
+
+The taxonomy, over one artifact set (`spk graph` edges TSV + JSON
+envelope, plus `spk guide --schema --json` for the typing diagram):
+
+- `--format edges` — the raw six-column TSV projection (the contract
+every view below consumes): source row, edge field, target row,
+kinds, annotation. Duplicate edge instances are retained.
+- `--format dot` / `--format mermaid` — whole-corpus text projections;
+visual grammar: solid = state-machine edges, dashed = guards,
+dotted = traceability, bold = `emits`, red dashed = dangling or
+typing violations.
+- `--view wiring` — the file-level producer→consumer view over
+`constraints.satisfies` edges; self-loops dropped; a corpus with zero
+satisfies edges renders a labeled `no_wiring` note, never a silently
+clean diagram.
+- `graph_views.py schema` — the revision-labeled Reference Typing
+diagram, rendered from the versioned acset Schema export alone.
+- `graph_views.py states` — per-file state machines (guards dashed,
+violations annotated red, fan-in over distinct sources).
+- `graph_views.py trace` — file-level traceability (edges collapsed to
+owning intents, cross-file dependencies deduped, fan-in annotated).
+
+One-pipe render recipes — rendering is external and user-chosen (D8);
+the tool never shells out to a renderer:
+
+    spk graph specs --format dot | dot -Tsvg > graph.svg
+    spk graph specs --format dot | graph-easy --from dot   # ASCII, in-terminal
+    spk graph specs --format mermaid > graph.mmd           # paste into mmdc,
+                                                           # mermaid.live, or a
+                                                           # GitHub mermaid fence
+
+Script views (the prototype lives in scripts/ — D1):
+
+    spk graph specs --format edges > edges.tsv
+    spk graph specs --json > graph.json
+    spk guide --schema --json > schema.json
+    python3 scripts/graph_views.py schema schema.json
+    python3 scripts/graph_views.py states edges.tsv --graph graph.json
+    python3 scripts/graph_views.py trace edges.tsv --graph graph.json
+
+A corpus is in scope iff it lints clean of invariant findings and has
+at least one intent file; out-of-scope corpora are refused with a
+remediation hint before any output is written. `just docs-graphs`
+regenerates all four views into docs/src/views/ at docs build time;
+the rendered views are never committed.
+";
 
 /// Render a topic's markdown body: slice [`GUIDE_MD`] at the
 /// `<!-- topic: id -->` markers and fill the `{{placeholder}}` slots from
-/// the constants above. `None` when the topic id is unknown.
+/// the constants above. Topics appended after `guide.md`'s set (the
+/// append-only TOPICS law) are served from their module-level bodies —
+/// currently only [`GRAPH_VIEWS_BODY`] — via the same slice-and-fill
+/// helper. `None` when the topic id is unknown.
 pub fn topic_body(topic: &str) -> Option<String> {
+    slice_topic(GUIDE_MD, topic)
+        .or_else(|| slice_topic(GRAPH_VIEWS_BODY, topic))
+        .map(|body| fill_placeholders(&body))
+}
+
+/// Slice one marked-up source at the `<!-- topic: id -->` markers:
+/// everything between this topic's marker and the next (or end of
+/// source), trimmed.
+fn slice_topic(source: &str, topic: &str) -> Option<String> {
     let marker = format!("<!-- topic: {topic} -->");
-    let start = GUIDE_MD.find(&marker)?;
-    let after = &GUIDE_MD[start + marker.len()..];
+    let start = source.find(&marker)?;
+    let after = &source[start + marker.len()..];
     let end = after.find("\n<!-- topic: ").unwrap_or(after.len());
-    Some(fill_placeholders(after[..end].trim()))
+    Some(after[..end].trim().to_string())
 }
 
 /// Fill the primer's placeholder slots. Every closed set renders from the
@@ -329,7 +406,8 @@ mod tests {
     fn topic_bodies_render_for_all_topics() {
         // every declared topic renders non-empty (design Decision 2's
         // prose-drift test) — the count bumps with each append-only topic
-        assert_eq!(TOPICS.len(), 8);
+        // (9th = graph-views, add-graph-views task 3.4)
+        assert_eq!(TOPICS.len(), 9);
         for (id, _title) in TOPICS {
             let body = topic_body(id).unwrap_or_else(|| panic!("topic `{id}` missing"));
             assert!(!body.trim().is_empty(), "topic `{id}` body is empty");
@@ -838,5 +916,48 @@ mod tests {
             corpus_rev, format_rev,
             "format knowledge drift: corpus is at `Revision {corpus_rev}` but the binary embeds `Revision {format_rev}` ({FORMAT_REVISION}) — bump FORMAT_REVISION in src/guide.rs",
         );
+    }
+
+    /// The graph-views primer topic (add-graph-views task 3.4) must be
+    /// APPENDED — the packs topic keeps its index, and the new topic is
+    /// last, never renumbered (the TOPICS append-only law).
+    #[test]
+    fn graph_views_topic_is_appended_last() {
+        assert_eq!(
+            TOPICS.last().unwrap().0,
+            "graph-views",
+            "graph-views must be the last topic — append-only, never renumbered"
+        );
+        assert_eq!(
+            TOPICS.iter().position(|(id, _)| *id == "graph-views"),
+            Some(TOPICS.len() - 1),
+            "graph-views must appear exactly once, at the end"
+        );
+    }
+
+    /// The topic body carries the view taxonomy, the format flags and the
+    /// one-pipe render recipes (task 3.4, D8): rendering stays external
+    /// and user-chosen — dot, graph-easy for the terminal, mermaid paste
+    /// targets.
+    #[test]
+    fn graph_views_topic_documents_taxonomy_flags_and_recipes() {
+        let body = topic_body("graph-views").expect("graph-views topic must render");
+        for fragment in [
+            "--format edges",
+            "--format dot",
+            "--format mermaid",
+            "--view wiring",
+            "guide --schema --json",
+            "| dot -Tsvg",
+            "graph-easy",
+        ] {
+            assert!(
+                body.contains(fragment),
+                "graph-views topic must document `{fragment}` — the primer is \
+                 the embedded render-recipe surface (D8)"
+            );
+        }
+        // No placeholder survives rendering (the same law as every topic).
+        assert!(!body.contains("{{"), "a placeholder survived rendering");
     }
 }
