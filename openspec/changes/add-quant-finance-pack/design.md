@@ -166,5 +166,26 @@ in `packs/` in phase 2 after approval; discovery is corpus scan.
 
 ## Review outcome
 
-Ro5 review pending — run at proposal time per the pack-change pattern
-(bioimage tasks 1.4); findings folded into D1–D7 before approval.
+Ro5 proposal-time review completed 2026-10-09 (rule-of-5-universal, TypeSafe-
+verified on the HIGH finding; converged at Stage 4, verdict NEEDS_REVISION →
+fixes applied):
+
+- CORR-003 (HIGH, REVIEW_REQUIRED): the Governance bullet cited "the demand
+  rule in `specs/packs.md` (≥2 independent domains)" — no such rule exists in
+  that file (or anywhere in `specs/`, `openspec/specs/`, or the matrix); the
+  phantom citation was inherited from the numeric-predicates proposal. Fix:
+  Governance re-grounded on the decision matrix's Demand column, with the
+  phantom-rule status named and a follow-up suggested (add the rule or strike
+  the citation from ancestor proposals).
+- CORR-001 (MEDIUM): the synthesis verdict-sentence quote dropped
+  "/science"; restored verbatim.
+- CORR-002 (MEDIUM): the risk floor was attributed to grok-quant's
+  {metric, abs, rel, unit} tolerance; `horizon`/`confidence` derive from the
+  R4 per-kind floor precedent (design D4), not grok's fields. Fix: proposal
+  wording now credits the derivation.
+- DRAFT-001 / EDGE-001 / CLAR-002 / EXCL-001 (MEDIUM/LOW): positive-case
+  sentence added to Why; Revision 18 pin rationale clause added; empirical
+  registry named as optional companion in Capabilities; FP&A claim softened.
+- CLAR-001 / EDGE-002 (LOW): source-gloss added to the temporal bullet;
+  `quant.pricing`-on-Limits motivation left to design D1 (reviewer judged it
+  coherent as stated; the delta's section-kind closure is unchanged).
