@@ -33,7 +33,7 @@ every phase.
 
 ## 2. Pack artifact (after approval)
 
-- [ ] 2.1 Create `packs/quant-finance.md` (id `quant.finance`,
+- [x] 2.1 Create `packs/quant-finance.md` (id `quant.finance`,
       `kind: profile`, state `published` via the full three-state
       Model) — six manifest tables per design.md D1: `## Sections`
       (Limits), `## Kinds` (quant.risk, quant.pricing), `## References`
@@ -41,7 +41,7 @@ every phase.
       quant.risk_labels), `## Floors` (quant.risk → horizon,
       confidence), `## Requires` (base Revision 18 +
       numeric.predicates + data.lineage).
-- [ ] 2.2 Gates: `openspec validate --all --strict`, `cargo run -- lint
+- [x] 2.2 Gates: `openspec validate --all --strict`, `cargo run -- lint
       openspec` (0 issues), `just sync-sections`, `just lint-specs`,
       `just ci`.
 
