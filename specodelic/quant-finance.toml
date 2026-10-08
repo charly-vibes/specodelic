@@ -1,0 +1,7 @@
+source = "quant.finance"
+
+[[constraints]]
+id = "vocab_declared"
+kind = "invariant"
+expr = "`the six manifest tables below declare exactly the pack's vocabulary — no undeclared facet, no base-set growth, floors purely additive`"
+traces_to = "[[quant.finance]]"
