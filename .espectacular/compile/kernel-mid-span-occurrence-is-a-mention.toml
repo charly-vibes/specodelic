@@ -1,0 +1,9 @@
+id = "kernel-mid-span-occurrence-is-a-mention"
+description = "A mid-span kernel-syntax occurrence is a mention and never extracts (add-min-expr-kernel; renamed from the shared mid-span slug at archive to keep scenario slugs unique)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "midspan_kernel_syntax_is_a_mention"

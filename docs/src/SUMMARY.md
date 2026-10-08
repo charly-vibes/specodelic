@@ -54,6 +54,7 @@
 - [embedded-guide — capability](openspec/embedded-guide/spec.md)
 - [docs-site — capability](openspec/docs-site/spec.md)
 - [hooks — capability](openspec/hooks/spec.md)
+- [kernel — capability](openspec/kernel/spec.md)
 - [lint-findings — capability](openspec/lint-findings/spec.md)
 - [model-check — capability](openspec/model-check/spec.md)
 - [spec-integration — capability](openspec/spec-integration/spec.md)

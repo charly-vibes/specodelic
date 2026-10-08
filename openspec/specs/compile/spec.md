@@ -1,57 +1,115 @@
 ---
 id: spec
 kind: intent
-statement: "WHEN a Property row or invariant-kind Constraint opts into executable translation, THE toolchain SHALL extract the fragment under exactly one tag from the closed language set {rust, py, ts}, SHALL reject an unknown tag with a labeled extraction failure, and SHALL fail labeled — never silently — when the tag's emitter does not exist."
+statement: "WHEN an expr cell opts into kernel translation, THE toolchain SHALL extract the expression under the closed kernel grammar per cell, SHALL fail labeled on grammar violations, SHALL compile prose expr cells byte-identically to before, and SHALL extract the kernel.binding cell as an opaque claim carrier the toolchain never interprets."
 ---
 
 # compile Specification
 
 ## Purpose
-Make the Properties leg's fragment grammar language-neutral so consumer
-corpora can declare a property's implementation language instead of
-being Rust-bound by the marker: the tag set is closed and lint-shaped
-(mirroring `property_kind_closed`), unknown tags fail labeled rather
-than silently, and tags without an emitter gate compile honestly while
-the emitters land in per-language follow-ups. Binding those declarations
-to real tests in each language is espectacular's existing seam and is
-out of scope here.
+Extend the compile leg's expr-cell handling with kernel opt-in: an
+expr cell may carry a kernel expression under the closed grammar,
+grammar violations fail labeled (sd1 discipline), prose expr cells
+compile byte-identically (pure widening — nothing valid before this
+Revision is invalidated), and the `kernel.binding` cell extracts as an
+opaque claim carrier so external checkers can claim constraints through
+contract-TOML `flags` without specodelic learning their language.
 
 ## Constraints
 
-| id                     | kind      | expr                                                                                                                                                                                                                                                                                     | traces_to |
-|------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| fragment_language_closed | invariant | `a Property's predicate cell (or an invariant-kind Constraint's expr cell) opts into executable translation with exactly one tag from the closed set {rust, py, ts} — the fragment-position rule (specodelic-sd1) and the non-empty-fragment requirement carry over verbatim per tag`      | [[spec]]  |
-| unknown_tag_rejected   | invariant | `a marker whose tag is not in the closed set (e.g. **go:**) is a labeled extraction failure naming the tag and the closed set — never treated as prose, never extracted, never silently ignored (sd1 discipline, design D7)`                                                              | [[spec]]  |
-| rust_back_compat       | invariant | `every predicate or expr cell that extracted under the pre-change **rust:** grammar extracts to the identical fragment post-change — the widening is pure: nothing valid before this Revision is invalidated`                                                                             | [[spec]]  |
-| no_emitter_labeled_failure | invariant | `a fragment tagged **py:** or **ts:** compiles to a labeled extraction failure whose remediation names the missing emitter and its follow-up change — never a silent fall-through to Rust emission, never prose, never a compilable-but-vacuous artifact`                                  | [[spec]]  |
-| mention_not_extraction | invariant | `a tag occurrence in any non-fragment position — mid-span, as in the defining rows of this very table, or in prose between spans — is a mention of the mechanism and never extracts, per tag, unchanged from the sd1 rule`                                                                | [[spec]]  |
+| id                       | kind      | expr                                                                                                                                                                                                                                                              | traces_to |
+|--------------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
+| kernel_opt_in_extracted  | invariant | `an expr cell may carry a kernel expression in fragment position per cell — the fragment-position rule (specodelic-sd1) carries over: an occurrence outside fragment position is a mention and never extracts`                                                          | [[spec]]  |
+| kernel_grammar_violation_labeled | invariant | `an expr cell whose kernel expression uses a non-member atomic is a labeled extraction failure naming the atomic and the closed set — never treated as prose, never extracted, never silently ignored`                                                               | [[spec]]  |
+| prose_back_compat        | invariant | `every expr cell that compiled before this Revision compiles to the identical artifact after it — the widening is pure: nothing valid before this Revision is invalidated, and a cell without kernel content compiles exactly as before`                               | [[spec]]  |
+| kernel_binding_extracted | invariant | `an invariant-kind Constraint's kernel.binding cell extracts as an opaque string, surfaced verbatim and never interpreted; the claim path for external checkers is contract-TOML flags, not a toolchain registry`                                                     | [[spec]]  |
 
 ## Model
 
 ### States
-- `rust_only`
-- `tagged`
-- `archived`
+- `prose_expr`
+- `kernel_expr`
+- `claimed`
 
 ### Transitions
 
-| id     | from      | to        | guard                                                                                  |
-|--------|-----------|-----------|----------------------------------------------------------------------------------------|
-| widen  | rust_only | tagged    | `Revision lands: tag set closed over {rust, py, ts}, rust extraction byte-identical`    |
-| approve | tagged   | archived  | `just archive-change id=add-language-neutral-property-binding (dual-format recipe)`     |
+| id        | from        | to         | guard                                                                           |
+|-----------|-------------|------------|---------------------------------------------------------------------------------|
+| opt_in    | prose_expr  | kernel_expr | `an expr cell carries a kernel expression per [[spec.kernel_opt_in_extracted]]`             |
+| reject    | prose_expr  | prose_expr | `a non-member atomic fails labeled per [[spec.kernel_grammar_violation_labeled]], cell unchanged`      |
+| claim     | kernel_expr | claimed    | `an external checker claims the constraint per [[spec.kernel_binding_extracted]]`          |
 
 ## Properties
 
-| id                  | kind | derives_from                     | generator                                  | predicate                                                              |
-|---------------------|------|-----------------------------------|---------------------------------------------|-------------------------------------------------------------------------|
-| py_tag_extracts     | unit | [[spec.fragment_language_closed]] | `predicate_cell_with_py_fragment()`         | `fragment extracted under the py tag with cell text after the marker`   |
-| go_tag_rejected     | unit | [[spec.unknown_tag_rejected]]     | `predicate_cell_with_go_marker()`           | `extraction fails labeled, naming the tag and the closed set`           |
-| rust_unchanged      | unit | [[spec.rust_back_compat]]         | `pre_change_rust_fixtures()`                | `extracted fragment identical to the pre-change extraction, byte-for-byte` |
-| py_no_emitter_fails | unit | [[spec.no_emitter_labeled_failure]] | `py_fragment_compiled()`                  | `compile fails labeled; remediation names the py emitter follow-up`     |
-| midspan_mention_ignored | unit | [[spec.mention_not_extraction]] | `cell_with_midspan_py_marker()`           | `no fragment extracted; cell compiles exactly as before`                |
-| expr_tag_same_grammar | unit | [[spec.fragment_language_closed]] | `invariant_expr_cell_with_py_fragment()`  | `expr cell accepts the same tag grammar as predicate cells`             |
+| id                        | kind | derives_from                             | generator                              | predicate                                                                  |
+|---------------------------|------|------------------------------------------|----------------------------------------|----------------------------------------------------------------------------|
+| kernel_expr_extracts      | unit | [[spec.kernel_opt_in_extracted]]         | `expr_cell_with_kernel_expression()`   | `expression extracted under the closed grammar with position rule intact`   |
+| nonmember_atomic_rejects  | unit | [[spec.kernel_grammar_violation_labeled]] | `expr_cell_with_nonmember_atomic()`   | `extraction fails labeled, naming the atomic and the closed set`            |
+| prose_unchanged           | unit | [[spec.prose_back_compat]]               | `pre_revision_prose_fixtures()`        | `compiled artifact identical to the pre-Revision artifact, byte-for-byte`   |
+| midspan_mention_ignored   | unit | [[spec.kernel_opt_in_extracted]]         | `cell_with_midspan_kernel_marker()`    | `no expression extracted; cell compiles exactly as before`                  |
+| binding_extracts_verbatim | unit | [[spec.kernel_binding_extracted]]        | `constraint_with_arbitrary_binding_text()` | `binding cell contents extracted and surfaced verbatim, never interpreted` |
 
 ## ADDED Requirements
+
+### Requirement: Kernel expr opt-in
+An expr cell SHALL accept a kernel expression in fragment position per
+cell under the closed kernel grammar; the fragment-position rule
+carries over (occurrences outside fragment position are mentions and
+never extract); an expression using a non-member atomic SHALL fail
+labeled, naming the atomic and the closed set.
+
+#### Scenario: Opt-in extracts under the closed grammar
+- **WHEN** an expr cell carries a kernel expression in fragment position
+- **THEN** the expression extracts under the closed grammar
+
+#### Scenario: Non-member atomic rejected labeled
+- **WHEN** an expr cell's expression uses an atomic outside the closed set
+- **THEN** extraction fails labeled, naming the atomic and the closed set — the cell is never prose and never silently ignored
+
+#### Scenario: Kernel mid-span occurrence is a mention
+- **WHEN** a cell mentions kernel syntax mid-span (as the defining rows of this very table do)
+- **THEN** nothing extracts and the cell compiles exactly as before
+
+### Requirement: Pure widening
+The compile change SHALL invalidate nothing that was valid before it:
+every expr cell that compiled before this Revision compiles to the
+identical artifact after it, and cells without kernel content compile
+exactly as before.
+
+#### Scenario: Prose expr cell untouched
+- **WHEN** an expr cell carries no kernel content (the pre-Revision path)
+- **THEN** its compiled artifact is byte-identical to the pre-Revision artifact
+
+#### Scenario: Nothing valid is invalidated
+- **WHEN** any pre-Revision artifact is recompiled under the widened grammar
+- **THEN** the artifact is identical to its pre-Revision compilation
+
+The grammar change SHALL invalidate nothing that was valid before it:
+every cell that extracted under the pre-change `**rust:**` grammar
+extracts identically after, and cells without tags compile exactly as
+before.
+
+#### Scenario: No-tag cell untouched
+- **WHEN** a Property row's predicate carries no tag (the `todo_predicate!` placeholder path)
+- **THEN** its compiled artifact is byte-identical to the pre-change artifact
+
+#### Scenario: Invariant expr cells share the grammar
+- **WHEN** an invariant-kind Constraint's expr cell carries a `**py:**` fragment
+- **THEN** the same tag grammar and failure modes apply as for predicate cells
+
+### Requirement: Binding column extraction
+An invariant-kind Constraint's `kernel.binding` cell SHALL extract as
+an opaque string surfaced verbatim and never interpreted by the
+toolchain; the claim path for external checkers is contract-TOML
+`flags`, not a toolchain registry.
+
+#### Scenario: Binding extracts verbatim
+- **WHEN** a constraint carries an arbitrary `kernel.binding` text
+- **THEN** the contents extract and surface verbatim; no interpretation, no validation of their internals
+
+#### Scenario: Claim path is contract flags
+- **WHEN** an external checker claims a claimed constraint
+- **THEN** the claim is carried by contract-TOML `flags` binding and the toolchain builds no registry
 
 ### Requirement: Closed language-tag fragment opt-in
 The fragment opt-in grammar SHALL accept exactly one tag from the closed
@@ -75,20 +133,6 @@ and its follow-up change — when a `py` or `ts` fragment reaches compile.
 #### Scenario: Mid-span occurrence is a mention
 - **WHEN** a cell mentions `**py:**` mid-span (as the defining rows of this very table do)
 - **THEN** nothing extracts and the cell compiles exactly as before
-
-### Requirement: Pure widening
-The grammar change SHALL invalidate nothing that was valid before it:
-every cell that extracted under the pre-change `**rust:**` grammar
-extracts identically after, and cells without tags compile exactly as
-before.
-
-#### Scenario: No-tag cell untouched
-- **WHEN** a Property row's predicate carries no tag (the `todo_predicate!` placeholder path)
-- **THEN** its compiled artifact is byte-identical to the pre-change artifact
-
-#### Scenario: Invariant expr cells share the grammar
-- **WHEN** an invariant-kind Constraint's expr cell carries a `**py:**` fragment
-- **THEN** the same tag grammar and failure modes apply as for predicate cells
 
 ### Requirement: Properties table compiles to proptest blocks
 The system SHALL compile each Property row to at least one `proptest!`
@@ -114,6 +158,66 @@ extra named cases compile as first-class checkable blocks, never prose.
 
 ## Requirements
 
+### Requirement: Kernel expr opt-in
+An expr cell SHALL accept a kernel expression in fragment position per
+cell under the closed kernel grammar; the fragment-position rule
+carries over (occurrences outside fragment position are mentions and
+never extract); an expression using a non-member atomic SHALL fail
+labeled, naming the atomic and the closed set.
+
+#### Scenario: Opt-in extracts under the closed grammar
+- **WHEN** an expr cell carries a kernel expression in fragment position
+- **THEN** the expression extracts under the closed grammar
+
+#### Scenario: Non-member atomic rejected labeled
+- **WHEN** an expr cell's expression uses an atomic outside the closed set
+- **THEN** extraction fails labeled, naming the atomic and the closed set — the cell is never prose and never silently ignored
+
+#### Scenario: Kernel mid-span occurrence is a mention
+- **WHEN** a cell mentions kernel syntax mid-span (as the defining rows of this very table do)
+- **THEN** nothing extracts and the cell compiles exactly as before
+
+### Requirement: Pure widening
+The compile change SHALL invalidate nothing that was valid before it:
+every expr cell that compiled before this Revision compiles to the
+identical artifact after it, and cells without kernel content compile
+exactly as before.
+
+#### Scenario: Prose expr cell untouched
+- **WHEN** an expr cell carries no kernel content (the pre-Revision path)
+- **THEN** its compiled artifact is byte-identical to the pre-Revision artifact
+
+#### Scenario: Nothing valid is invalidated
+- **WHEN** any pre-Revision artifact is recompiled under the widened grammar
+- **THEN** the artifact is identical to its pre-Revision compilation
+
+The grammar change SHALL invalidate nothing that was valid before it:
+every cell that extracted under the pre-change `**rust:**` grammar
+extracts identically after, and cells without tags compile exactly as
+before.
+
+#### Scenario: No-tag cell untouched
+- **WHEN** a Property row's predicate carries no tag (the `todo_predicate!` placeholder path)
+- **THEN** its compiled artifact is byte-identical to the pre-change artifact
+
+#### Scenario: Invariant expr cells share the grammar
+- **WHEN** an invariant-kind Constraint's expr cell carries a `**py:**` fragment
+- **THEN** the same tag grammar and failure modes apply as for predicate cells
+
+### Requirement: Binding column extraction
+An invariant-kind Constraint's `kernel.binding` cell SHALL extract as
+an opaque string surfaced verbatim and never interpreted by the
+toolchain; the claim path for external checkers is contract-TOML
+`flags`, not a toolchain registry.
+
+#### Scenario: Binding extracts verbatim
+- **WHEN** a constraint carries an arbitrary `kernel.binding` text
+- **THEN** the contents extract and surface verbatim; no interpretation, no validation of their internals
+
+#### Scenario: Claim path is contract flags
+- **WHEN** an external checker claims a claimed constraint
+- **THEN** the claim is carried by contract-TOML `flags` binding and the toolchain builds no registry
+
 ### Requirement: Closed language-tag fragment opt-in
 The fragment opt-in grammar SHALL accept exactly one tag from the closed
 set `{rust, py, ts}` in fragment position, SHALL reject an unknown tag
@@ -136,20 +240,6 @@ and its follow-up change — when a `py` or `ts` fragment reaches compile.
 #### Scenario: Mid-span occurrence is a mention
 - **WHEN** a cell mentions `**py:**` mid-span (as the defining rows of this very table do)
 - **THEN** nothing extracts and the cell compiles exactly as before
-
-### Requirement: Pure widening
-The grammar change SHALL invalidate nothing that was valid before it:
-every cell that extracted under the pre-change `**rust:**` grammar
-extracts identically after, and cells without tags compile exactly as
-before.
-
-#### Scenario: No-tag cell untouched
-- **WHEN** a Property row's predicate carries no tag (the `todo_predicate!` placeholder path)
-- **THEN** its compiled artifact is byte-identical to the pre-change artifact
-
-#### Scenario: Invariant expr cells share the grammar
-- **WHEN** an invariant-kind Constraint's expr cell carries a `**py:**` fragment
-- **THEN** the same tag grammar and failure modes apply as for predicate cells
 
 ### Requirement: Properties table compiles to proptest blocks
 The system SHALL compile each Property row to at least one `proptest!`

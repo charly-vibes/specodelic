@@ -66,7 +66,7 @@ labeled, naming the atomic and the closed set.
 - **WHEN** an expr cell's expression uses an atomic outside the closed set
 - **THEN** extraction fails labeled, naming the atomic and the closed set — the cell is never prose and never silently ignored
 
-#### Scenario: Mid-span occurrence is a mention
+#### Scenario: Kernel mid-span occurrence is a mention
 - **WHEN** a cell mentions kernel syntax mid-span (as the defining rows of this very table do)
 - **THEN** nothing extracts and the cell compiles exactly as before
 
@@ -173,7 +173,7 @@ labeled, naming the atomic and the closed set.
 - **WHEN** an expr cell's expression uses an atomic outside the closed set
 - **THEN** extraction fails labeled, naming the atomic and the closed set — the cell is never prose and never silently ignored
 
-#### Scenario: Mid-span occurrence is a mention
+#### Scenario: Kernel mid-span occurrence is a mention
 - **WHEN** a cell mentions kernel syntax mid-span (as the defining rows of this very table do)
 - **THEN** nothing extracts and the cell compiles exactly as before
 
