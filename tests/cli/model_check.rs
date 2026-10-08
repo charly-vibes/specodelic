@@ -1867,3 +1867,88 @@ fn specodelic_md_kernel_invariants_verify() {
     let report = claim_report(&out, "specodelic");
     assert_eq!(report["outcome"], "no_counterexample");
 }
+
+// ---- specodelic-m6k: stale compile must not demote a malformed kernel
+// claim to unchecked — silent clean (F2) ----
+// After a successful compile, editing a constraint cell so it breaks the
+// kernel grammar (a non-member atomic) and running standalone model-check
+// silently dropped the claim from the required set (claim_classification
+// saw no guard_kernel entry for the grammar-broken cell), landed it in
+// unchecked_claim_ids, and reported no_counterexample — exit 0. The
+// kernel-grammar rule is "never prose, never silence": a cell that opts
+// in via **kernel:** and breaks the closed grammar is a labeled
+// kernel_grammar failure wherever the tool reads it — model-check
+// included (kernel_nonmember_labeled, specs/compile.md).
+#[test]
+fn stale_compile_with_kernel_grammar_broken_cell_fails_labeled() {
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("m6k.md");
+    let rows = "| ka | invariant | `**kernel:** acyclic(supersedes)` | [[m6k]] |\n\
+                | kb | invariant | `**kernel:** resolves(traces_to)` | [[m6k]] |\n";
+    write_claim_spec(&spec, "m6k", rows, &claim_props("m6k", &["ka", "kb"]), "ka");
+    let out = td.path().join("out");
+    claim_compile(spec.to_str().unwrap(), &out);
+    // The stale-compile edit: break the kernel grammar in ka's cell —
+    // the exact body repro (acyclic → bogusfn, a non-member atomic).
+    let edited = std::fs::read_to_string(&spec)
+        .unwrap()
+        .replace("acyclic(supersedes)", "bogusfn(supersedes)");
+    assert_ne!(edited, std::fs::read_to_string(&spec).unwrap(), "sed no-op");
+    std::fs::write(&spec, edited).unwrap();
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    // Labeled failure: exit 1, error envelope, stage kernel_grammar.
+    assert_eq!(
+        code,
+        Some(1),
+        "a malformed kernel claim is a labeled failure, never a silent clean"
+    );
+    assert_eq!(json["ok"], serde_json::json!(false), "envelope: {json}");
+    assert_eq!(json["envelope_kind"], serde_json::json!("error"));
+    let failed = json["data"]["failed"].as_array().unwrap();
+    assert!(
+        failed.iter().any(|f| f["stage"] == "kernel_grammar"
+            && f["message"].as_str().is_some_and(|m| m.contains("bogusfn"))),
+        "expected a labeled kernel_grammar failure naming the atomic: {failed:?}"
+    );
+    // The demotion must not survive anywhere: no no_counterexample
+    // outcome and ka never lands in unchecked_claim_ids.
+    assert!(
+        json["data"]["outcome"].is_null() || json["data"]["outcome"] != "no_counterexample",
+        "the malformed claim must not launder into a clean aggregate"
+    );
+}
+
+// The anti-goal boundary: a claim that was NEVER required stays unchecked.
+// Editing a prose-only invariant cell (no **kernel:** marker) after a
+// clean run keeps prose prose — model-check must not start failing on it.
+#[test]
+fn prose_only_cell_edit_stays_unchecked_not_labeled() {
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("m6kp.md");
+    let rows = "| ka | invariant | `**kernel:** resolves(traces_to)` | [[m6kp]] |\n\
+                | kc | invariant | `the refund policy holds for all orders` | [[m6kp]] |\n";
+    write_claim_spec(
+        &spec,
+        "m6kp",
+        rows,
+        &claim_props("m6kp", &["ka", "kc"]),
+        "ka",
+    );
+    let out = td.path().join("out");
+    claim_compile(spec.to_str().unwrap(), &out);
+    let edited = std::fs::read_to_string(&spec).unwrap().replace(
+        "the refund policy holds for all orders",
+        "the refund policy holds for every order",
+    );
+    assert_ne!(edited, std::fs::read_to_string(&spec).unwrap(), "sed no-op");
+    std::fs::write(&spec, edited).unwrap();
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_eq!(code, Some(0), "prose stays prose: {json}");
+    assert_eq!(json["data"]["outcome"], "no_counterexample");
+    let checked = &json["data"]["checked"][0];
+    let unchecked = checked["unchecked_claim_ids"].as_array().unwrap();
+    assert!(
+        unchecked.iter().any(|u| u == "kc"),
+        "the edited prose cell stays explicitly unchecked: {unchecked:?}"
+    );
+}

@@ -1,5 +1,26 @@
 # Changelog
 
+## #118 — model-check never silently demotes a malformed kernel claim (specodelic-m6k, eval F2)
+
+After a successful `spk compile`, editing a `**kernel:**` constraint cell
+so it breaks the closed grammar (e.g. a non-member atomic) and running
+standalone `spk model-check` silently dropped the claim from the required
+set — `claim_classification` saw no `guard_kernel` entry for the
+grammar-broken cell, landed it in `unchecked_claim_ids`, and the run
+reported `no_counterexample` with exit 0 over a spec compile itself
+rejects:
+
+- **`spk model-check`** now runs the labeled kernel-grammar pre-check
+  (compile's `kernel_grammar_violation_labeled` validation, mirrored in
+  `kernel::grammar_failures`) before any backend run or report write:
+  an invariant row that opts in via `**kernel:**` and breaks the closed
+  grammar fails with stage `kernel_grammar`, naming the row and the
+  offending atomic — never prose, never silence.
+- No change to legitimately-stale detection (edited transitions still
+  fail via artifact consistency), to verify/orchestrate (scope digest +
+  recompile already cover them), or to never-required claims (prose-only
+  cells stay explicitly unchecked).
+
 ## #117 — failures never ride success-shaped envelopes (specodelic-4v1, eval F1)
 
 The 2026-10-08 external evaluation's sharpest finding, fixed in the code

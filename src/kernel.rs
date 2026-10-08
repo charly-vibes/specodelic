@@ -1054,6 +1054,37 @@ impl CorpusClaimStatus {
     }
 }
 
+/// The labeled kernel-grammar pre-check for the read paths that parse a
+/// spec after the fact (specodelic-m6k): every invariant-kind Constraint
+/// whose expr cell opts in via `**kernel:**` but breaks the closed
+/// grammar yields a labeled failure naming the row, the offending
+/// token/atomic and the closed set — the same labeled validation compile
+/// applies before emitting an artifact (kernel_grammar_closed, "never
+/// prose, never silence"). Rationale: a grammar-broken cell never
+/// reaches `extract_model_ir`'s `guard_kernel` map, so a reader that
+/// classifies claims from the IR alone silently demotes the claim to
+/// unchecked — model-check then reports a clean aggregate over a spec
+/// compile itself rejects. Returns `(row id, labeled message)` pairs.
+pub fn grammar_failures(spec: &Spec) -> Vec<(String, String)> {
+    spec.constraints
+        .iter()
+        .filter(|c| c.cells.get("kind").map(String::as_str) == Some("invariant"))
+        .filter_map(|c| {
+            let expr = c.cells.get("expr").map(String::as_str).unwrap_or("");
+            match parse_kernel_expr(expr) {
+                Err(e) => Some((
+                    c.id.clone(),
+                    format!(
+                        "row `{}`: {e} (add-min-expr-kernel kernel_grammar_closed)",
+                        c.id
+                    ),
+                )),
+                Ok(_) => None,
+            }
+        })
+        .collect()
+}
+
 /// Evaluate every opted-in kernel claim of every spec over the complete
 /// explicit invocation corpus (§3.7, design D9): one `KernelEnv` over
 /// ALL specs in the invocation — never per-file — so cardinality and

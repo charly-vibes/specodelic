@@ -169,7 +169,11 @@ as `<stem>.check.json` with the consumed module's SHA-256 and the
 backend engine + version, so backends' reports are attributable and
 comparable. A refuted kernel claim (`counterexample_found` — CHANGELOG
 #116's failing aggregate outcome) is findings: exit 1 with an error-kind
-envelope (`ok:false`), the payload intact. The honest non-failure
+envelope (`ok:false`), the payload intact. A `**kernel:**` constraint
+cell that breaks the closed grammar is a labeled `kernel_grammar`
+failure before any run — the same validation compile applies — so a
+stale compile can never silently demote a malformed kernel claim to
+unchecked and report clean. The honest non-failure
 outcomes keep exit 0 — `timed_out` (the bound expired) and
 `exploration_only` (a completed exploration over a corpus with no
 executable claims) are real terminal outcomes, not failures

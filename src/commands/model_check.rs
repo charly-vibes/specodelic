@@ -2,7 +2,7 @@
 use crate::{ModelBackend, commands::as_failure, emit_report, parse_batch};
 
 use genesis::guide::{Output, OutputFormat, Verbosity};
-use specodelic::{citation_corpus, human, lint, model_check, orchestrate, verify};
+use specodelic::{citation_corpus, human, kernel, lint, model_check, orchestrate, verify};
 
 /// The scope law's labeled failure as one envelope: the label names the
 /// violation kind in the message (stderr channel), the remediation hint
@@ -101,55 +101,84 @@ pub(crate) fn cmd_model_check(
     let mut refuted = false;
     let warnings: Vec<String> = notes;
 
-    // The ONE claim-gated pipeline (design D4): the native CLI and the
-    // orchestrate stage share this exact path — backend pass, corpus
-    // resolution, kernel claims, one merge, one aggregate — so the
-    // aggregate verdict cannot drift between report views. Only the
-    // CLI's rich checked-entry rendering differs.
-    for run in
-        orchestrate::run_claim_gated_model_check(&specs, out_dir, &target.bound, tlc_paths.as_ref())
-    {
-        match run.outcome {
-            Ok(c) => {
-                // specodelic-4v1 (F1): a refuted kernel claim is a
-                // failing aggregate (CHANGELOG #116) — findings ride
-                // exit 1 and an error-kind envelope, never ok:true.
-                // The honest non-failure outcomes (timed_out,
-                // exploration_only — model_check.md explicitly says they
-                // are not failures) keep exit 0; verify's model gate is
-                // what rejects them.
-                if matches!(c.report.outcome, model_check::Outcome::CounterexampleFound) {
-                    refuted = true;
+    // specodelic-m6k: the labeled kernel-grammar pre-check. A
+    // `**kernel:**` cell that breaks the closed grammar never reaches
+    // extract_model_ir's guard_kernel map, so classifying claims from
+    // the IR alone silently demotes the claim to unchecked and reports
+    // a clean aggregate over a spec compile itself rejects (the stale-
+    // compile repro). Fail labeled — stage kernel_grammar, naming the
+    // row and the offending atomic — before any run or report write,
+    // mirroring compile's kernel_grammar_violation_labeled exactly.
+    for spec in &specs {
+        for (row_id, message) in kernel::grammar_failures(spec) {
+            let file = spec
+                .path
+                .as_ref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| format!("<{}>", spec.intent.id));
+            failed.push(serde_json::json!({
+                "file": file,
+                "id": spec.intent.id,
+                "row": row_id,
+                "stage": "kernel_grammar",
+                "message": message,
+            }));
+        }
+    }
+    if failed.is_empty() {
+        // The ONE claim-gated pipeline (design D4): the native CLI and the
+        // orchestrate stage share this exact path — backend pass, corpus
+        // resolution, kernel claims, one merge, one aggregate — so the
+        // aggregate verdict cannot drift between report views. Only the
+        // CLI's rich checked-entry rendering differs.
+        for run in orchestrate::run_claim_gated_model_check(
+            &specs,
+            out_dir,
+            &target.bound,
+            tlc_paths.as_ref(),
+        ) {
+            match run.outcome {
+                Ok(c) => {
+                    // specodelic-4v1 (F1): a refuted kernel claim is a
+                    // failing aggregate (CHANGELOG #116) — findings ride
+                    // exit 1 and an error-kind envelope, never ok:true.
+                    // The honest non-failure outcomes (timed_out,
+                    // exploration_only — model_check.md explicitly says they
+                    // are not failures) keep exit 0; verify's model gate is
+                    // what rejects them.
+                    if matches!(c.report.outcome, model_check::Outcome::CounterexampleFound) {
+                        refuted = true;
+                    }
+                    // CLI output and persisted report carry identical
+                    // statuses (design D9): every merged entry — exec
+                    // outcomes, resolved citations, kernel claims — with
+                    // the labeled reason attached for unknown statuses.
+                    checked.push(serde_json::json!({
+                        "file": c.file,
+                        "id": c.id,
+                        "outcome": c.report.outcome,
+                        "backend": c.report.backend,
+                        "bound": c.report.bound,
+                        "invariants_checked": c.report.invariants_checked,
+                        "invariant_statuses": c.statuses_json,
+                        "claims": c.claims,
+                        "expected_claim_ids": c.expected_claim_ids,
+                        "unchecked_claim_ids": c.unchecked_claim_ids,
+                        "violated_invariant_id": c.report.violated_invariant_id,
+                        "trace": c.report.trace,
+                        "states_explored": c.report.states_explored,
+                        "artifact_sha256": c.report.artifact_sha256,
+                        "written": c.written,
+                    }));
                 }
-                // CLI output and persisted report carry identical
-                // statuses (design D9): every merged entry — exec
-                // outcomes, resolved citations, kernel claims — with
-                // the labeled reason attached for unknown statuses.
-                checked.push(serde_json::json!({
-                    "file": c.file,
-                    "id": c.id,
-                    "outcome": c.report.outcome,
-                    "backend": c.report.backend,
-                    "bound": c.report.bound,
-                    "invariants_checked": c.report.invariants_checked,
-                    "invariant_statuses": c.statuses_json,
-                    "claims": c.claims,
-                    "expected_claim_ids": c.expected_claim_ids,
-                    "unchecked_claim_ids": c.unchecked_claim_ids,
-                    "violated_invariant_id": c.report.violated_invariant_id,
-                    "trace": c.report.trace,
-                    "states_explored": c.report.states_explored,
-                    "artifact_sha256": c.report.artifact_sha256,
-                    "written": c.written,
-                }));
-            }
-            Err((stage, message)) => {
-                failed.push(serde_json::json!({
-                    "file": run.file,
-                    "id": run.id,
-                    "stage": stage,
-                    "message": message,
-                }));
+                Err((stage, message)) => {
+                    failed.push(serde_json::json!({
+                        "file": run.file,
+                        "id": run.id,
+                        "stage": stage,
+                        "message": message,
+                    }));
+                }
             }
         }
     }
