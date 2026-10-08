@@ -1794,3 +1794,333 @@ fn edges_retain_state_transition_edges_and_multiplicity() {
         "duplicate edge instances survive (multiplicity, D2): {rows:?}"
     );
 }
+
+// ---- graph --format dot / mermaid (add-graph-views task 1.5, D8) ----
+
+/// A spec with one dangling reference — a Constraints trace to a row id
+/// that resolves nowhere (the red-dashed dangling element, task 1.5).
+fn write_dangling_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL dangle once\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | a | invariant | `fine` | [[{id}]] |\n\
+             | b | invariant | `dangles` | [[{id}.missing]] |\n"
+        ),
+    )
+    .unwrap();
+}
+
+/// A spec whose State bullet carries an `emits` cell — the bold edge of
+/// the visual grammar (task 1.5).
+fn write_emitting_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL emit once\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | c1 | effect | `fires` | [[{id}]] |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1 emits [[{id}.c1]]\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s1 | |\n"
+        ),
+    )
+    .unwrap();
+}
+
+/// Dot shape parity (add-graph-views task 1.5): the retired
+/// `scripts/graph_to_dot.jq` output pinned as the expected shape —
+/// `digraph spec {` header, `rankdir=LR`, ellipse default node, two-space
+/// indentation, `"<from>" -> "<to>" [label="<kind>"<style>];` edge lines,
+/// jq `unique`-style sorted dedup of identical edge lines (the two-state
+/// fixture's duplicated reference instance renders once), and the visual
+/// grammar styles (guard dashed, traceability dotted). The jq bridge read
+/// raw envelope edges with display labels; the native projection keeps
+/// D2's canonical ids — parity is the shape, not the label text.
+#[test]
+fn dot_projection_pins_jq_parity_shape() {
+    let dir = tempfile::tempdir().unwrap();
+    write_two_state_spec(&dir.path().join("two.md"), "two");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "dot"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let expected = "\
+digraph spec {
+  rankdir=LR;
+  node [shape=ellipse, fontsize=10];
+  \"two.c1\" -> \"two\" [label=\"constraints.traces_to\", style=dotted];
+  \"two.t\" -> \"two.c1\" [label=\"transitions.guard\", style=dashed];
+  \"two.t\" -> \"two.s1\" [label=\"transitions.from\"];
+  \"two.t\" -> \"two.s2\" [label=\"transitions.to\"];
+}
+";
+    assert_eq!(
+        std::str::from_utf8(&out.stdout).unwrap(),
+        expected,
+        "dot projection bytes are pinned (jq parity shape)"
+    );
+}
+
+#[test]
+fn dot_projection_is_byte_identical_on_rerun() {
+    let dir = tempfile::tempdir().unwrap();
+    write_two_state_spec(&dir.path().join("two.md"), "two");
+    let mut cmd = spk();
+    cmd.args(["graph", dir.path().to_str().unwrap(), "--format", "dot"]);
+    let first = cmd.output().unwrap();
+    let second = cmd.output().unwrap();
+    assert_eq!(first.stdout, second.stdout, "re-runs are byte-identical");
+}
+
+/// Typing violations ride along (D3) as red dashed annotated edges — the
+/// forbidden edge is drawn from its source to its target with the full
+/// reason in the label, never silently cleaned.
+#[test]
+fn dot_projection_renders_violations_red_dashed() {
+    let dir = tempfile::tempdir().unwrap();
+    write_violation_spec(&dir.path().join("viol.md"), "viol");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "dot"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let text = std::str::from_utf8(&out.stdout).unwrap();
+    assert!(
+        text.contains(
+            "\"viol.b\" -> \"viol.a\" [label=\"violation:constraints.traces_to: traces_to must resolve to an Intent (Reference Typing); target is a Constraint (kind `invariant`)\", style=dashed, color=red];"
+        ),
+        "the forbidden edge renders red dashed with its reason: {text}"
+    );
+}
+
+/// Dangling references render as red dashed annotated note nodes — the
+/// view is never silently cleaner than the graph artifact (D3/task 1.5).
+#[test]
+fn dot_projection_renders_dangling_red_dashed() {
+    let dir = tempfile::tempdir().unwrap();
+    write_dangling_spec(&dir.path().join("dang.md"), "dang");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "dot"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let text = std::str::from_utf8(&out.stdout).unwrap();
+    assert!(
+        text.contains("\"dang → [[dang.missing]]\" [shape=box, color=red, style=dashed];"),
+        "the dangling reference renders as a red dashed note node: {text}"
+    );
+}
+
+#[test]
+fn dot_projection_zero_file_directory_exits_zero_with_empty_output() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "dot"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "zero files exit 0");
+    assert!(
+        out.stdout.is_empty(),
+        "zero files emit an empty projection: {:?}",
+        std::str::from_utf8(&out.stdout)
+    );
+}
+
+/// Same flag-precedence rule as `--format edges` (task 1.5): the raw
+/// projection overrides `--json`/`--human` — no envelope, straight to
+/// stdout.
+#[test]
+fn dot_projection_overrides_json_envelope() {
+    let dir = tempfile::tempdir().unwrap();
+    write_self_anchored_spec(&dir.path().join("self.md"), "self");
+    let out = spk()
+        .args([
+            "graph",
+            dir.path().to_str().unwrap(),
+            "--format",
+            "dot",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let text = std::str::from_utf8(&out.stdout).unwrap();
+    assert!(
+        text.starts_with("digraph spec {"),
+        "raw dot overrides --json: {text}"
+    );
+    assert!(
+        !text.contains("\"ok\""),
+        "no JSON envelope leaks into the raw projection: {text}"
+    );
+}
+
+/// Mermaid pins (task 1.5): nodes declared first (sorted, quoted labels —
+/// canonical ids carry dots mermaid ids cannot), links labeled with the
+/// edge kind, visual grammar via arrow types (`-.->` guards) and
+/// `linkStyle` dotted traceability.
+#[test]
+fn mermaid_projection_pins_exact_bytes() {
+    let dir = tempfile::tempdir().unwrap();
+    write_two_state_spec(&dir.path().join("two.md"), "two");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "mermaid"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let expected = "\
+flowchart LR
+  two[\"two\"]
+  two_c1[\"two.c1\"]
+  two_s1[\"two.s1\"]
+  two_s2[\"two.s2\"]
+  two_t[\"two.t\"]
+  two_c1 -->|\"constraints.traces_to\"| two
+  two_t -->|\"transitions.from\"| two_s1
+  two_t -->|\"transitions.to\"| two_s2
+  two_t -.->|\"transitions.guard\"| two_c1
+  linkStyle 0 stroke-dasharray:2 2
+";
+    assert_eq!(
+        std::str::from_utf8(&out.stdout).unwrap(),
+        expected,
+        "mermaid projection bytes are pinned"
+    );
+}
+
+/// Bold = `emits` in the visual grammar (task 1.5): the mermaid thick
+/// arrow `==>` and the dot `penwidth=2`.
+#[test]
+fn mermaid_projection_renders_emits_bold() {
+    let dir = tempfile::tempdir().unwrap();
+    write_emitting_spec(&dir.path().join("emit.md"), "emit");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "mermaid"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let text = std::str::from_utf8(&out.stdout).unwrap();
+    assert!(
+        text.contains(" ==>|\"states.emits\"| "),
+        "the emits edge renders with the thick arrow: {text}"
+    );
+    let dot = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "dot"])
+        .output()
+        .unwrap();
+    let dtext = std::str::from_utf8(&dot.stdout).unwrap();
+    assert!(
+        dtext.contains("[label=\"states.emits\", penwidth=2];"),
+        "the emits edge renders bold in dot: {dtext}"
+    );
+}
+
+/// Violations ride along (D3) as red dashed annotated elements — the
+/// forbidden edge as a link with a red dashed linkStyle.
+#[test]
+fn mermaid_projection_renders_violations_red_dashed() {
+    let dir = tempfile::tempdir().unwrap();
+    write_violation_spec(&dir.path().join("viol.md"), "viol");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "mermaid"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let text = std::str::from_utf8(&out.stdout).unwrap();
+    assert!(
+        text.contains("viol_b -->|\"violation:constraints.traces_to: traces_to must resolve to an Intent (Reference Typing); target is a Constraint (kind `invariant`)\"| viol_a"),
+        "the forbidden edge renders as an annotated link: {text}"
+    );
+    assert!(
+        text.contains("linkStyle 1 stroke:red,stroke-dasharray:5 5"),
+        "the forbidden link is styled red dashed: {text}"
+    );
+    assert!(
+        text.contains("classDef violation stroke:red,stroke-dasharray:5 5"),
+        "the violation classDef is declared: {text}"
+    );
+}
+
+/// Dangling references render as red dashed annotated note nodes.
+#[test]
+fn mermaid_projection_renders_dangling_red_dashed() {
+    let dir = tempfile::tempdir().unwrap();
+    write_dangling_spec(&dir.path().join("dang.md"), "dang");
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "mermaid"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let text = std::str::from_utf8(&out.stdout).unwrap();
+    assert!(
+        text.contains("dangling_1[\"dang → [[dang.missing]]\"]:::dangling"),
+        "the dangling reference renders as a red dashed note node: {text}"
+    );
+    assert!(
+        text.contains("classDef dangling stroke:red,stroke-dasharray:5 5"),
+        "the dangling classDef is declared: {text}"
+    );
+}
+
+#[test]
+fn mermaid_projection_is_byte_identical_on_rerun() {
+    let dir = tempfile::tempdir().unwrap();
+    write_two_state_spec(&dir.path().join("two.md"), "two");
+    let mut cmd = spk();
+    cmd.args(["graph", dir.path().to_str().unwrap(), "--format", "mermaid"]);
+    let first = cmd.output().unwrap();
+    let second = cmd.output().unwrap();
+    assert_eq!(first.stdout, second.stdout, "re-runs are byte-identical");
+}
+
+#[test]
+fn mermaid_projection_zero_file_directory_exits_zero_with_empty_output() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--format", "mermaid"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "zero files exit 0");
+    assert!(
+        out.stdout.is_empty(),
+        "zero files emit an empty projection: {:?}",
+        std::str::from_utf8(&out.stdout)
+    );
+}
+
+#[test]
+fn mermaid_projection_overrides_json_envelope() {
+    let dir = tempfile::tempdir().unwrap();
+    write_self_anchored_spec(&dir.path().join("self.md"), "self");
+    let out = spk()
+        .args([
+            "graph",
+            dir.path().to_str().unwrap(),
+            "--format",
+            "mermaid",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let text = std::str::from_utf8(&out.stdout).unwrap();
+    assert!(
+        text.starts_with("flowchart LR"),
+        "raw mermaid overrides --json: {text}"
+    );
+    assert!(
+        !text.contains("\"ok\""),
+        "no JSON envelope leaks into the raw projection: {text}"
+    );
+}

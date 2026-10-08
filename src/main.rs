@@ -72,12 +72,19 @@ pub(crate) enum ModelBackend {
     Tlc,
 }
 
-/// The graph output projection selection (`--format edges`; dot/mermaid
-/// are add-graph-views tasks 1.5, not wired yet).
+/// The graph output projection selection (`--format edges|dot|mermaid`,
+/// add-graph-views D8).
 #[derive(clap::ValueEnum, Clone)]
 enum GraphFormat {
     /// Raw six-column TSV edge list (add-graph-views D2/D3)
     Edges,
+    /// Graphviz DOT text projection — visual grammar: solid = state
+    /// machine, dashed = guards, bold = `emits`, dotted = traceability,
+    /// red dashed = dangling/violations (add-graph-views task 1.5, D8)
+    Dot,
+    /// Mermaid flowchart text projection — same visual grammar via arrow
+    /// types and `linkStyle` (add-graph-views task 1.5, D8)
+    Mermaid,
 }
 
 #[derive(Subcommand)]
@@ -100,8 +107,16 @@ enum Commands {
         /// typing violation is one annotation row (empty source id/kind,
         /// `violation:<edge_kind>` in the field column, the full reason
         /// text — tab-escaped — in the annotation column, per D3's open
-        /// question decided for full reasons). Overrides `--json`/
-        /// `--human`: the raw TSV goes straight to stdout — the one
+        /// question decided for full reasons). `dot`/`mermaid` write
+        /// plain-text graph projections (byte-stable re-runs; visual
+        /// grammar: solid = state machine, dashed = guards, bold =
+        /// `emits`, dotted = traceability, red dashed =
+        /// dangling/violations — violations and dangling references are
+        /// annotated elements, never silently cleaned, D3). Rendering
+        /// stays external (D8): pipe into `dot -Tsvg`, `graph-easy`, or
+        /// paste the mermaid into an `mmdc`/viz-js target — no `--render`.
+        /// Overrides `--json`/
+        /// `--human`: the raw text goes straight to stdout — the one
         /// documented exception to Output::emit, scoped to this flag so
         /// awk/jq pipelines consume it without an envelope parser. Zero
         /// spec files exit 0 with empty output.
@@ -348,18 +363,27 @@ fn print_version_json() -> bool {
     true
 }
 
-/// `graph --format edges` (add-graph-views D2/D3): the raw six-column TSV
-/// straight to stdout — the one documented exception to Output::emit,
-/// scoped to this flag. The transform's scope gate (intentless corpora)
-/// is the Python layer's beat; the tool-level projection stays well-formed
-/// per specs/graph.md's parsed-not-linted note: zero spec files exit 0
-/// with empty output.
-fn cmd_graph_edges(paths: &[String], stdout: &mut impl std::io::Write) -> i32 {
+/// `graph --format <projection>` (add-graph-views D2/D3/D8): the raw
+/// projection text straight to stdout — the one documented exception to
+/// Output::emit, scoped to this flag. The transform's scope gate
+/// (intentless corpora) is the Python layer's beat; the tool-level
+/// projection stays well-formed per specs/graph.md's parsed-not-linted
+/// note: zero spec files exit 0 with empty output.
+fn cmd_graph_projection(
+    paths: &[String],
+    format: &GraphFormat,
+    stdout: &mut impl std::io::Write,
+) -> i32 {
     let (specs, _checklists, _notes, _parse_errors) = parse_batch(paths, Verbosity::Quiet);
     if specs.is_empty() {
         return 0;
     }
-    let _ = write!(stdout, "{}", graph::edges_tsv(&specs));
+    let text = match format {
+        GraphFormat::Edges => graph::edges_tsv(&specs),
+        GraphFormat::Dot => graph::dot_projection(&specs),
+        GraphFormat::Mermaid => graph::mermaid_projection(&specs),
+    };
+    let _ = write!(stdout, "{text}");
     0
 }
 
@@ -375,8 +399,8 @@ fn run(
         Commands::Parse { file } => cmd_parse(file, format, verbosity, stdout, stderr),
         Commands::Graph {
             paths,
-            format: Some(GraphFormat::Edges),
-        } => cmd_graph_edges(paths, stdout),
+            format: Some(format),
+        } => cmd_graph_projection(paths, format, stdout),
         Commands::Graph { paths, .. } => cmd_graph(paths, format, verbosity, stdout, stderr),
         Commands::Compile { paths, out_dir } => {
             cmd_compile(paths, out_dir, format, verbosity, stdout, stderr)

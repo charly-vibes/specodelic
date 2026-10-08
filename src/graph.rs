@@ -12,7 +12,12 @@
 //! projection (`spk graph --format edges`, add-graph-views D2/D3) is the
 //! parseable view of that substrate: canonical node ids only, every
 //! violation riding along as an annotation row — a view is never cleaner
-//! than the artifact.
+//! than the artifact. The dot/mermaid projections (`--format dot|mermaid`,
+//! add-graph-views task 1.5/D8) render the same projection rows as
+//! plain-text graph templates — zero crates, byte-stable re-runs, the D8
+//! visual grammar (solid = state machine, dashed = guards, bold = `emits`,
+//! dotted = traceability, red dashed = dangling/violations), rendering
+//! always external.
 
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -411,6 +416,11 @@ pub(crate) struct ProjectionRow {
     /// The finding text on annotation rows (tab-escaped, D3); empty on
     /// recorded-edge rows.
     pub annotation: String,
+    /// The forbidden edge's source id (canonical, D2) on violation
+    /// annotation rows — the TSV contract drops it (empty source columns,
+    /// task 1.2) but the task 1.5 dot/mermaid renderers draw the forbidden
+    /// edge red dashed from it; empty on recorded-edge rows.
+    pub violation_from: String,
 }
 
 /// The row's byte-exact TSV rendering — six tab-separated columns. Every
@@ -456,6 +466,7 @@ pub(crate) fn edge_projection(
             to: to.into(),
             to_kind: kind_of(to),
             annotation: String::new(),
+            violation_from: String::new(),
         });
     }
     for v in &report.violations {
@@ -467,6 +478,7 @@ pub(crate) fn edge_projection(
             to: to.into(),
             to_kind: kind_of(to),
             annotation: escape_tab_free(&v.reason),
+            violation_from: canonical_id(&v.from).into(),
         });
     }
     rows.sort_by_cached_key(render_tsv_row);
@@ -487,6 +499,278 @@ pub fn edges_tsv(specs: &[Spec]) -> String {
         tsv.push('\n');
     }
     tsv
+}
+
+/// DOT string escaping — ids and labels are always double-quoted, so the
+/// only characters that can break out are backslash and quote.
+fn dot_escape(text: &str) -> String {
+    text.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+/// The D8 visual grammar as DOT edge attributes: dashed = guards, bold =
+/// `emits`, dotted = traceability, solid (no attributes) = the state
+/// machine. Unknown kinds default to solid (the retired jq bridge's
+/// `// ""` fallback).
+fn dot_edge_style(field: &str) -> &'static str {
+    match field.rsplit_once('.').map(|(_, kind)| kind) {
+        Some("guard") => ", style=dashed",
+        Some("emits") => ", penwidth=2",
+        Some("traces_to") => ", style=dotted",
+        Some("derives_from") => ", style=dotted, color=gray50",
+        _ => "",
+    }
+}
+
+/// The DOT projection (add-graph-views task 1.5, D8) — pure renderer over
+/// the projection rows plus the dangling messages. Shape parity with the
+/// retired `scripts/graph_to_dot.jq`: `digraph spec {` header,
+/// `rankdir=LR`, ellipse default node, two-space indentation,
+/// `"<from>" -> "<to>" [label="<kind>"<style>];` edge lines, and jq
+/// `unique`-style sorted dedup (a duplicated reference instance renders
+/// one line — multiplicity is the TSV's contract, not the drawing's).
+/// Typing violations render the forbidden edge red dashed with the full
+/// reason in the label (D3: never silently clean); dangling references
+/// render as red dashed note nodes carrying the message verbatim — no
+/// prose parsing, the message shapes differ per remediation.
+pub(crate) fn render_dot(rows: &[ProjectionRow], dangling: &[String]) -> String {
+    let mut lines: BTreeSet<String> = BTreeSet::new();
+    for row in rows {
+        if row.field.starts_with("violation:") {
+            let label = format!("{}: {}", row.field, row.annotation);
+            if row.violation_from.is_empty() {
+                lines.insert(format!(
+                    "  \"{}\" [shape=box, color=red, style=dashed, label=\"{}\"];",
+                    dot_escape(&row.to),
+                    dot_escape(&label)
+                ));
+            } else {
+                lines.insert(format!(
+                    "  \"{}\" -> \"{}\" [label=\"{}\", style=dashed, color=red];",
+                    dot_escape(&row.violation_from),
+                    dot_escape(&row.to),
+                    dot_escape(&label)
+                ));
+            }
+        } else {
+            lines.insert(format!(
+                "  \"{}\" -> \"{}\" [label=\"{}\"{}];",
+                dot_escape(&row.from),
+                dot_escape(&row.to),
+                dot_escape(&row.field),
+                dot_edge_style(&row.field)
+            ));
+        }
+    }
+    for message in dangling {
+        lines.insert(format!(
+            "  \"{}\" [shape=box, color=red, style=dashed];",
+            dot_escape(message)
+        ));
+    }
+    let mut out =
+        String::from("digraph spec {\n  rankdir=LR;\n  node [shape=ellipse, fontsize=10];\n");
+    for line in &lines {
+        out.push_str(line);
+        out.push('\n');
+    }
+    out.push_str("}\n");
+    out
+}
+
+/// The DOT projection of a corpus (`spk graph --format dot`, task 1.5):
+/// derive the report and kind index, delegate to the pure projection
+/// core, render. Rendering stays 100 % external (D8) — the tool never
+/// shells out to a renderer.
+pub fn dot_projection(specs: &[Spec]) -> String {
+    let report = build(specs);
+    let kinds = kind_index(specs);
+    render_dot(&edge_projection(&report, &kinds), &report.dangling)
+}
+
+/// Mermaid label/id escaping — quoted labels, so only the quote itself
+/// breaks out (HTML-escaped, mermaid's own convention).
+fn mermaid_escape(text: &str) -> String {
+    text.replace('"', "&quot;")
+}
+
+/// Mermaid ids reject the dots canonical ids carry (`two.c1`), so ids
+/// sanitize to `[A-Za-z0-9_]` and the original id rides as the quoted
+/// node label. Sanitization is made injective with `_2`, `_3` suffixes —
+/// `a.b` and `a_b` must not merge into one drawn node. `reserved` names
+/// (the dangling notes) are never assigned to regular nodes.
+fn mermaid_node_ids(
+    ids: &BTreeSet<String>,
+    reserved: &BTreeSet<String>,
+) -> BTreeMap<String, String> {
+    let mut names: BTreeMap<String, String> = BTreeMap::new();
+    let mut used: BTreeSet<String> = reserved.clone();
+    for id in ids {
+        let mut base: String = id
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect();
+        if base.is_empty() {
+            base = "n".into();
+        }
+        let mut name = base.clone();
+        let mut n = 2;
+        while used.contains(&name) {
+            name = format!("{base}_{n}");
+            n += 1;
+        }
+        used.insert(name.clone());
+        names.insert(id.clone(), name);
+    }
+    names
+}
+
+/// One projection row's mermaid rendering: a link (with the CSS its
+/// grammar role needs via `linkStyle`) or, for a from-less violation, an
+/// annotated node. Endpoints resolve through the node-name map; a
+/// degenerate row with an unmapped endpoint is skipped, never a panic —
+/// and a skipped violation still arrived through the rows, so a clean
+/// view can only mean the artifact was clean (D3).
+enum MermaidElement {
+    /// A link line plus the `linkStyle` CSS it needs (None = the arrow
+    /// type alone carries the grammar).
+    Link(String, Option<&'static str>),
+    /// A from-less violation's annotated node line.
+    ViolationNode(String),
+}
+
+fn mermaid_row_element(
+    row: &ProjectionRow,
+    names: &BTreeMap<String, String>,
+) -> Option<MermaidElement> {
+    let node_of = |id: &str| names.get(id);
+    if row.field.starts_with("violation:") {
+        // `to` is always resolved (typing_violation's `target_kind?`) but
+        // the renderer is pure — skip instead of panicking.
+        let to = node_of(&row.to)?;
+        let label = format!("{}: {}", row.field, row.annotation);
+        Some(match node_of(&row.violation_from) {
+            Some(from) => MermaidElement::Link(
+                format!("  {from} -->|\"{}\"| {to}", mermaid_escape(&label)),
+                Some("stroke:red,stroke-dasharray:5 5"),
+            ),
+            None => MermaidElement::ViolationNode(format!(
+                "  {to}[\"{}\"]:::violation",
+                mermaid_escape(&label)
+            )),
+        })
+    } else {
+        let from = node_of(&row.from)?;
+        let to = node_of(&row.to)?;
+        let (arrow, style): (&str, Option<&'static str>) =
+            match row.field.rsplit_once('.').map(|(_, kind)| kind) {
+                Some("guard") => ("-.->", None),
+                Some("emits") => ("==>", None),
+                Some("traces_to" | "derives_from") => ("-->", Some("stroke-dasharray:2 2")),
+                _ => ("-->", None),
+            };
+        Some(MermaidElement::Link(
+            format!("  {from} {arrow}|\"{}\"| {to}", mermaid_escape(&row.field)),
+            style,
+        ))
+    }
+}
+
+/// The mermaid projection (add-graph-views task 1.5, D8) — pure renderer
+/// over the projection rows plus the dangling messages. Structure: nodes
+/// declared first (sorted, quoted labels), then links (labeled with the
+/// edge kind, sorted + deduped like the dot renderer), then `linkStyle`
+/// lines in link order, then classDefs — emitted only when used — and
+/// the annotated red elements (from-less violations, dangling notes).
+/// Visual grammar: `-->` solid = state machine, `-.->` dashed = guards,
+/// `==>` bold = `emits`, `linkStyle … stroke-dasharray:2 2` dotted =
+/// traceability, `stroke:red,stroke-dasharray:5 5` red dashed =
+/// violations/dangling (D3: never silently clean).
+pub(crate) fn render_mermaid(rows: &[ProjectionRow], dangling: &[String]) -> String {
+    // The dangling notes reserve `dangling_<n>` names (sorted messages,
+    // 1-based) before regular ids are assigned, so a corpus node literally
+    // named `dangling_1` cannot swallow a note.
+    let mut sorted_dangling: BTreeSet<&str> = BTreeSet::new();
+    for message in dangling {
+        sorted_dangling.insert(message);
+    }
+    let reserved: BTreeSet<String> = (1..=dangling.len())
+        .map(|n| format!("dangling_{n}"))
+        .collect();
+    let mut ids: BTreeSet<String> = BTreeSet::new();
+    for row in rows {
+        for id in [&row.from, &row.to, &row.violation_from] {
+            if !id.is_empty() {
+                ids.insert(id.clone());
+            }
+        }
+    }
+    let names = mermaid_node_ids(&ids, &reserved);
+    let mut links: BTreeMap<String, Option<&'static str>> = BTreeMap::new();
+    let mut violation_nodes: BTreeSet<String> = BTreeSet::new();
+    for row in rows {
+        match mermaid_row_element(row, &names) {
+            Some(MermaidElement::Link(line, style)) => {
+                links.insert(line, style);
+            }
+            Some(MermaidElement::ViolationNode(line)) => {
+                violation_nodes.insert(line);
+            }
+            None => {}
+        }
+    }
+    let mut out = String::from("flowchart LR\n");
+    for (id, name) in &names {
+        out.push_str(&format!("  {name}[\"{}\"]\n", mermaid_escape(id)));
+    }
+    let mut styles: Vec<String> = Vec::new();
+    for (index, (line, style)) in links.iter().enumerate() {
+        out.push_str(line);
+        out.push('\n');
+        if let Some(css) = style {
+            styles.push(format!("  linkStyle {index} {css}"));
+        }
+    }
+    for line in styles {
+        out.push_str(&line);
+        out.push('\n');
+    }
+    if links
+        .values()
+        .any(|s| *s == Some("stroke:red,stroke-dasharray:5 5"))
+        || !violation_nodes.is_empty()
+    {
+        out.push_str("  classDef violation stroke:red,stroke-dasharray:5 5\n");
+    }
+    if !sorted_dangling.is_empty() {
+        out.push_str("  classDef dangling stroke:red,stroke-dasharray:5 5\n");
+    }
+    for line in &violation_nodes {
+        out.push_str(line);
+        out.push('\n');
+    }
+    for (index, message) in sorted_dangling.iter().enumerate() {
+        out.push_str(&format!(
+            "  dangling_{}[\"{}\"]:::dangling\n",
+            index + 1,
+            mermaid_escape(message)
+        ));
+    }
+    out
+}
+
+/// The mermaid projection of a corpus (`spk graph --format mermaid`,
+/// task 1.5): derive the report and kind index, delegate to the pure
+/// projection core, render. Rendering stays 100 % external (D8).
+pub fn mermaid_projection(specs: &[Spec]) -> String {
+    let report = build(specs);
+    let kinds = kind_index(specs);
+    render_mermaid(&edge_projection(&report, &kinds), &report.dangling)
 }
 
 /// Build the graph for a corpus of parsed specs.

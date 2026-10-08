@@ -32,7 +32,7 @@ Tidying commits are separate from feature commits.
 - [x] 1.4 **TIDY**: extract projection formatting into a testable unit in
       `src/graph.rs`; dead-flag and clippy sweep (`just ci`).
 
-- [ ] 1.5 **RED→GREEN**: native dot/mermaid projections — `--format dot`
+- [x] 1.5 **RED→GREEN**: native dot/mermaid projections — `--format dot`
       and `--format mermaid` emit plain-text graph output (zero external
       crates; byte-stable re-runs; visual grammar: solid = state machine,
       dashed = guards, bold = `emits`, dotted = traceability, red dashed =
