@@ -137,9 +137,14 @@ def artifact_cli(rest, render):
     ) as error:
         refused = isinstance(error, OutOfScopeRefused)
         failure = OUT_OF_SCOPE_REFUSED if refused else ARTIFACT_INVALID
-        hint = LINT_HINT if "lint" in str(error) else (
-            INTENTLESS_HINT if refused else ARTIFACT_HINT
-        )
+        # Hint rides the exception TYPE, not a substring: only corpus
+        # refusals can be lint-leg cases (specodelic-ils B1); an
+        # artifact-contract breach — including the lint envelope's own
+        # "carries no issues list" — always routes the artifact hint.
+        if refused:
+            hint = LINT_HINT if "lint" in str(error) else INTENTLESS_HINT
+        else:
+            hint = ARTIFACT_HINT
         print(f"{failure}: {error} — {hint}", file=sys.stderr)
         return 1
     sys.stdout.write(diagram)

@@ -598,10 +598,24 @@ pub fn dot_projection(specs: &[Spec]) -> String {
     render_dot(&edge_projection(&report, &kinds), &report.dangling)
 }
 
-/// Mermaid label/id escaping — quoted labels, so only the quote itself
-/// breaks out (HTML-escaped, mermaid's own convention).
+/// Mermaid label escaping — quoted labels, so the quote itself breaks
+/// out (HTML-escaped, mermaid's own convention). Labels embed arbitrary
+/// spec-cell text, so everything else that can break out of or alter the
+/// quoted-label context rides as an HTML entity too: `&` (entity
+/// smuggling), `<`/`>` (HTML tags and the arrow grammar), `#` (mermaid's
+/// `#nn;` entity codes), `%` (the `%%` comment syntax); newlines flatten
+/// to spaces so label text can never start a diagram line (a line
+/// starting `end` closes the enclosing subgraph). Already-safe text
+/// stays byte-identical (D8). Mirrors scripts/view_common.py's
+/// mermaid_escape (specodelic-ils B2).
 fn mermaid_escape(text: &str) -> String {
-    text.replace('"', "&quot;")
+    text.replace('&', "&amp;")
+        .replace('"', "&quot;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('#', "&num;")
+        .replace('%', "&percnt;")
+        .replace(['\r', '\n'], " ")
 }
 
 /// Mermaid ids reject the dots canonical ids carry (`two.c1`), so ids
@@ -1201,6 +1215,21 @@ pub(crate) fn resolve(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// specodelic-ils B2: the quoted-label context is closed against
+    /// arbitrary spec-cell text — every breaker rides as an HTML entity
+    /// and newlines flatten. The python mirror
+    /// (scripts/test_mermaid_escape.py) pins the same bytes.
+    #[test]
+    fn mermaid_escape_neutralizes_label_breakers() {
+        assert_eq!(mermaid_escape("a \"b\""), "a &quot;b&quot;");
+        assert_eq!(mermaid_escape("a --> b"), "a --&gt; b");
+        assert_eq!(mermaid_escape("a # b"), "a &num; b");
+        assert_eq!(mermaid_escape("a %% b"), "a &percnt;&percnt; b");
+        assert_eq!(mermaid_escape("a & b"), "a &amp; b");
+        assert_eq!(mermaid_escape("before\nend"), "before end");
+        assert_eq!(mermaid_escape("two.c1 (fan-in 2)"), "two.c1 (fan-in 2)");
+    }
 
     /// Pinned (task 1.4): the pure projection core over a
     /// hand-constructed report — no I/O, no CLI state. Label-qualified

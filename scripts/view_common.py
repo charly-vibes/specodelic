@@ -179,8 +179,24 @@ def partition_violations(rows):
 # --- Mermaid rendering primitives (D8: deterministic text output) ---
 
 def mermaid_escape(text):
-    """Label escaping — mirrors src/graph.rs's mermaid_escape."""
-    return text.replace('"', "&quot;")
+    """Label escaping — mirrors src/graph.rs's mermaid_escape: labels
+    embed arbitrary spec-cell text, so everything that can break out of
+    the quoted-label context rides as an HTML entity — the double quote
+    (string terminator), & (entity smuggling), < and > (HTML tags and
+    the -->/-.->/==> arrow grammar), # (mermaid's #nn; entity codes) and
+    % (the %% comment syntax) — and newlines flatten to spaces so label
+    text can never start a diagram line (a line starting `end` closes
+    the enclosing subgraph, `%%` opens a comment). Already-safe text
+    stays byte-identical (D8: deterministic text output)."""
+    escaped = (
+        text.replace("&", "&amp;")
+        .replace('"', "&quot;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("#", "&num;")
+        .replace("%", "&percnt;")
+    )
+    return escaped.replace("\r", " ").replace("\n", " ")
 
 
 def mermaid_names(ids, reserved=()):

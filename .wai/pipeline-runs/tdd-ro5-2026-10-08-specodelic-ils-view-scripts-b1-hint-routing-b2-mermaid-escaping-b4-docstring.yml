@@ -1,0 +1,10 @@
+run_id: tdd-ro5-2026-10-08-specodelic-ils-view-scripts-b1-hint-routing-b2-mermaid-escaping-b4-docstring
+pipeline: tdd-ro5
+topic: 'specodelic-ils: view scripts B1 hint routing, B2 mermaid escaping, B4 docstring'
+created_at: '2026-10-08T17:27:36.719014359+00:00'
+current_step: 5
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null

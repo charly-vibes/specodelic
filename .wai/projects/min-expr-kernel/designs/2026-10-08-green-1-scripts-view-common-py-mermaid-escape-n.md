@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-08-specodelic-ils-view-scripts-b1-hint-routing-b2-mermaid-escaping-b4-docstring, pipeline-step:green]
+---
+
+GREEN: (1) scripts/view_common.py mermaid_escape now HTML-entity-escapes & " < > # % and flattens CR/LF to spaces (arrow grammar, mermaid #nn; entity codes, %% comments, and line-start end all neutralized; already-safe text byte-identical). (2) scripts/graph_views.py artifact_cli routes the hint by exception type — refused legs keep LINT/INTENTLESS split, every ArtifactInvalid (incl. 'lint envelope carries no issues list') gets ARTIFACT_HINT. (3) src/graph.rs mermaid_escape mirrored byte-for-byte with python (test mermaid_escape_neutralizes_label_breakers in mod tests). (4) tests/kernel_grammar.rs docstring now states per-cell **kernel:** marker opt-in per kernel_expr_opt_in — note the meter's grep phrase 'marker-free whole-cell opt-in' spans a //! line break so single-line grep returned 0 even pre-fix; the fix removes the words entirely (grep -c 'marker-free' == 0 now). Narrow suites: 8/8 escape, 4/4 hint, rust 1/1 pass; full python discover 109 OK; cargo test --lib graph 17 OK.

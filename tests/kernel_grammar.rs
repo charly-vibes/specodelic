@@ -2,8 +2,9 @@
 //! (specodelic-7ga, tasks.md §3.1 RED; design D1/CORR-001).
 //!
 //! Grammar-scope tests for the closed kernel atomic set: kernel
-//! expressions in expr cells parse under the closed grammar (marker-free
-//! whole-cell opt-in, the citation precedent), a non-member atomic fails
+//! expressions in expr cells parse under the closed grammar (per-cell
+//! **kernel:** marker opt-in per kernel_expr_opt_in, specs/compile.md —
+//! the citation precedent that a marker decides), a non-member atomic fails
 //! labeled naming the atomic AND the closed set (sd1 discipline), prose
 //! expr cells stay prose and compile byte-identically (pure widening),
 //! and the slice-1 citation grammar is never stolen by the kernel.
