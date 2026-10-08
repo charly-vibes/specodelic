@@ -1,0 +1,10 @@
+run_id: tdd-ro5-2026-10-08-specodelic-91kt-packs-quant-finance-md-pack-artifact
+pipeline: tdd-ro5
+topic: 'specodelic-91kt: packs/quant-finance.md pack artifact'
+created_at: '2026-10-08T20:57:59.412273140+00:00'
+current_step: 8
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
