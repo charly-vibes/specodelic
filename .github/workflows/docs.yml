@@ -58,6 +58,18 @@ jobs:
       - name: Build docs
         run: mdbook build
 
+      - name: Assert no unresolved view includes
+        # mdbook only WARNS on a missing {{#include}} and emits the raw
+        # directive — a green build can still ship a page with unrendered
+        # views. Same assertion as the `docs-build` recipe (keep in
+        # lockstep).
+        run: |
+          if grep -rq '{{#include' book/; then
+            echo "unresolved {{#include}} leaked into the built book:" >&2
+            grep -rl '{{#include' book/ >&2
+            exit 1
+          fi
+
       - name: Stamp llms.txt into site root
         # scripts/stamp_llms.py — crate version + build ref + Release
         # Status link on the DEPLOYED copy; repo-source llms.txt is never
