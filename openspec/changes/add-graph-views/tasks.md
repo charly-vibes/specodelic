@@ -69,9 +69,12 @@ Tidying commits are separate from feature commits.
       unknown version, unsuccessful envelope, duplicate identities and
       dangling endpoints fail schema_export_invalid before output writes.
       (schema-export portion DONE in scripts/test_graph_views.py + the
-      Rust↔Python delta test in src/guide.rs — specodelic-gre.5; the
-      corpus/scope/rendering legs remain for gre.6/gre.7)
-- [ ] 2.4 **GREEN**: implement per-file state-machine view (transition
+      Rust↔Python delta test in src/guide.rs — specodelic-gre.5;
+      corpus/scope legs DONE over tests/fixtures/{graph/zero_file,
+      single_intent,typing_violations,lint_dirty} + the states-view
+      consumer tests — specodelic-gre.6; the traceability-rendering leg
+      remains for gre.7)
+- [x] 2.4 **GREEN**: implement per-file state-machine view (transition
       edges grouped by owning file; guards annotated; files without
       transitions skipped cleanly; fan-in counts distinct targets per
       D2's multiplicity rule).

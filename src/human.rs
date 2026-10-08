@@ -534,6 +534,7 @@ mod tests {
             fan_in: Default::default(),
             fan_out: Default::default(),
             external_boundaries: vec![],
+            intents: vec![],
         };
         let text = graph(&report);
         assert!(text.contains("1 dangling"), "{text}");
@@ -597,6 +598,7 @@ mod tests {
                 fan_in: Default::default(),
                 fan_out: Default::default(),
                 external_boundaries: vec![],
+                intents: vec![],
             }),
             compile(&json!({"files_compiled": 0, "files_failed": 0})),
             model_check(&json!({"files_checked": 0, "files_failed": 0})),
