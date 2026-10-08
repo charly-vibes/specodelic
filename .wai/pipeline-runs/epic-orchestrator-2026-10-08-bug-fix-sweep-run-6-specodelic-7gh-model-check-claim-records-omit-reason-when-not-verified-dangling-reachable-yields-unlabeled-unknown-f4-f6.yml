@@ -1,0 +1,10 @@
+run_id: epic-orchestrator-2026-10-08-bug-fix-sweep-run-6-specodelic-7gh-model-check-claim-records-omit-reason-when-not-verified-dangling-reachable-yields-unlabeled-unknown-f4-f6
+pipeline: epic-orchestrator
+topic: 'bug-fix sweep run 6: specodelic-7gh model-check claim records omit reason when not verified dangling reachable yields unlabeled unknown F4 F6'
+created_at: '2026-10-08T16:16:59.082236876+00:00'
+current_step: 3
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
