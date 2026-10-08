@@ -80,3 +80,10 @@ paths = ["tests/**", "tests/**/**", "**/tests/**"]
 
 [roles.script]
 paths = ["scripts/**", "examples/**"]
+# Vendored third-party assets (vendor/**): minified upstream libraries
+# (mermaid.min.js) are not project code — the exclude list filters them
+# from walk scans, but --staged still classifies them with role vendor,
+# so give that role its own loose limits. Ratchet note: new role block,
+# not headroom added to any existing entry.
+[thresholds.vendor]
+file_lines_max = 4000
