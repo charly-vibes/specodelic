@@ -33,7 +33,7 @@ contain.
 | required_claims_classified             | invariant | `a run partitions each parsed file's invariant-kind Constraints into a required set — those opted into executable (rust: fragment), kernel, or citation evaluation — and an unchecked set of prose-only invariants: prose wording, a constraint's name, or merely having a deriving Property never implies evaluation, and advisory/effect/extension-point rows are never required` | [[model_check]] |
 | claim_aggregate_governs                | invariant | `the run outcome is governed by the required claims' statuses with fixed priority: any refuted required claim yields counterexample_found naming it; absent refutation, an exhausted time/state/depth budget yields timed_out; otherwise any unknown, unsupported, or missing required claim yields exploration_only with reasons — and so does an empty required set; a nonempty required set all verified over a completed bounded exploration is the only clean` | [[model_check]] |
 | claim_report_schema                    | invariant | `the run's persisted report declares claim_schema_version 1, canonical qualified claim records (id, evaluator kind, status, reason where not verified), expected_claim_ids, unchecked_claim_ids, and a scope_sha256 digest of the parsed structured content and the consumed compiled artifacts — the digest binds structured content, not filesystem paths: reordering CLI paths or editing prose alone preserves it, while two inputs differing in invariant content never share one` | [[model_check]] |
-| dual_format_isolated_scope             | invariant | `a dual-format id: spec file is accepted as the sole parsed input of model-check, verify, or orchestrate evaluation: a combined invocation (any additional parsed file) fails isolated_scope_required with a separate-run hint before compilation, evaluation, or report writes; spec.<row> claim ids resolve only within their own file, and multi-file dual-format lint stays supported` | [[model_check]] |
+| corpus_identity_scope                  | invariant | `a model-check, verify, or orchestrate invocation refuses, before compilation, evaluation, or report writes, any input set in which two parsed files claim the same intent id — labeled duplicate_corpus_identity with a rename hint (Revision 18: the former isolated-scope rule retired with `id: spec` itself; dual-format files carry real intent ids and compose like any corpus, so identity uniqueness is the only scope law left)` | [[model_check]] |
 
 ## Model
 
@@ -79,8 +79,8 @@ contain.
 | report_binds_claims_and_scope_digest    | unit | [[model_check.claim_report_schema]]                         | `run_report_from_current_inputs()`                                         | `report.claim_schema_version == 1 ∧ expected/unchecked ids present ∧ scope_sha256 present` |
 | reordered_paths_and_prose_preserve_scope | unit | [[model_check.claim_report_schema]]                        | `same_structured_inputs_in_different_cli_order()`                          | `scope_sha256 unchanged` — the digest binds content, not paths |
 | swapped_reports_rejected_unrewritten    | unit | [[model_check.claim_report_schema]]                         | `two_files_same_claim_names_opposite_invariants()`                         | `digest(a) ≠ digest(b) ∧ each run rejects the other's report without rewriting it` |
-| combined_dual_format_scope_refused      | unit | [[model_check.dual_format_isolated_scope]]                  | `id_spec_file_plus_any_other_parsed_input()`                               | `check(invocation) == isolated_scope_required` before any artifact or report write |
-| multi_file_dual_format_lint_stays_valid | unit | [[model_check.dual_format_isolated_scope]]                  | `several_dual_format_files_linted_together()`                              | `check(lint) == valid` — the isolation is a command-evaluation rule, not a lint rule |
+| combined_same_identity_scope_refused    | unit | [[model_check.corpus_identity_scope]]                       | `two_parsed_files_claiming_the_same_intent_id()`                           | `check(invocation) == duplicate_corpus_identity` before any artifact or report write (Revision 18) |
+| distinct_ids_compose_and_lint_together  | unit | [[model_check.corpus_identity_scope]]                       | `several_dual_format_files_with_distinct_ids_linted_and_checked_together()` | `check(lint) == valid` — files with distinct real ids compose like any corpus (Revision 18) |
 
 ## Notes
 
@@ -184,13 +184,19 @@ report whose `scope_sha256` digest binds the parsed structured content
 and consumed artifacts — not filesystem paths — so reordering CLI inputs
 or editing prose alone reuses a report, while genuinely different
 invariant content never does.
-`dual_format_isolated_scope` is the corpus-identity side of the same
-policy: ordinary corpus intent ids must be unique, and a dual-format
-`id: spec` file's file-local identities never merge into a command
-evaluation — lint keeps accepting them together, commands refuse to.
+`corpus_identity_scope` (named `dual_format_isolated_scope` before
+Revision 18) is the corpus-identity side of the same policy: the intent
+ids of a command's parsed inputs must be unique. Before Revision 18
+this was two rules — the identity law plus a separate isolated-scope
+refusal for `id: spec` files — but `id: spec` itself retired in
+Revision 18 (`specodelic-mcy`): dual-format files now carry real ids
+and the identity law is the only scope law left, strictly stronger
+than the old pair (a same-id delta/deployed pair is now refused
+outright, where the old law's per-file exemption let them coexist).
 
 **Revision-discipline note.** These rows deliberately do NOT touch
-`specodelic.md` (no Revision 18): `no_counterexample`'s expr there stays
+`specodelic.md` (this file's scope-law revision rode specodelic.md
+Revision 18 without touching `no_counterexample`'s expr there):
 "the selected model-check backend finds no violated invariant", and this
 file — already the owner of that row's precise meaning via
 `no_counterexample_feeds_verify` — narrows the reachable clean leg

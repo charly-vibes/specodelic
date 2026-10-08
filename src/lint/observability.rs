@@ -16,14 +16,12 @@ pub(crate) fn lint_observability(specs: &[Spec], report: &mut Report) {
                 continue;
             }
             // Resolve the target to a row key within this invocation:
-            // dotted `file.row` as written; a dotless target is bare-local
-            // and only id:spec files resolve their own rows bare
-            // (specodelic-15g Option A) — anything else is metasyntactic
-            // here, exactly as in [`lint_graph_shape`].
+            // dotted `file.row` as written; a dotless target is
+            // metasyntactic here, exactly as in [`lint_graph_shape`]
+            // (Revision 18: the id:spec bare-local arm retired with
+            // `id: spec`).
             let key = if link.target.contains('.') {
                 link.target.clone()
-            } else if file_id == "spec" {
-                format!("{file_id}.{}", link.target)
             } else {
                 continue;
             };

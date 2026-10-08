@@ -311,12 +311,15 @@ fn doctor_reports_a_missing_corpus_with_the_discovery_rule() {
 /// from it BARE (`[[c1]]`); a second constraint tracing to it bare
 /// (traces_to must resolve to an Intent — this is a typing violation).
 fn dual_file_with_bare_refs() -> String {
+    // One file, both spellings: the bare [[c1]] (guard, derives_from) is
+    // metasyntactic in every file (Revision 18); the qualified
+    // [[spec.c1]] resolves - c2's traces_to then violates typing.
     "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n\
      ## Constraints\n\n\
      | id | kind | expr | traces_to |\n\
      |----|------|------|-----------|\n\
      | c1 | invariant | `x` | |\n\
-     | c2 | invariant | `y` | [[c1]] |\n\
+     | c2 | invariant | `y` | [[spec.c1]] |\n\
      \n## Model\n\n\
      ### States\n\n- `s1`\n\n\
      ### Transitions\n\n\
@@ -326,7 +329,7 @@ fn dual_file_with_bare_refs() -> String {
      ## Properties\n\n\
      | id | kind | derives_from | generator | predicate |\n\
      |----|------|--------------|-----------|------------|\n\
-     | p | unit | [[c1]] | `g()` | `x` |\n"
+     | p | unit | [[spec.c1]] | `g()` | `x` |\n"
         .to_string()
 }
 
@@ -337,7 +340,11 @@ fn write_dual(dir: &std::path::Path, body: &str) -> std::path::PathBuf {
 }
 
 #[test]
-fn bare_row_ref_in_a_dual_format_file_resolves_to_an_edge() {
+fn bare_row_ref_is_skipped_metasyntactic_in_every_file() {
+    // Revision 18 (specodelic-mcy): the id:spec bare-local arm retired
+    // with `id: spec` — a dotless [[c1]] is metasyntactic in EVERY file,
+    // so it produces no edge, no dangling, and no typing violation; the
+    // file-qualified spelling is the one that resolves.
     let dir = tempfile::tempdir().unwrap();
     let f = write_dual(dir.path(), &dual_file_with_bare_refs());
     let out = spk()
@@ -345,28 +352,29 @@ fn bare_row_ref_in_a_dual_format_file_resolves_to_an_edge() {
         .output()
         .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let edges: Vec<&serde_json::Value> = json["data"]["edges"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|e| e["kind"] == "properties.derives_from")
-        .collect();
+    let edges = json["data"]["edges"].as_array().unwrap();
     assert!(
-        edges
-            .iter()
-            .any(|e| e["to"] == "spec.c1" && e["from"] == "spec.p"),
-        "bare [[c1]] derives_from resolves to an edge: {}",
-        json["data"]["edges"]
+        !edges.iter().any(|e| e["kind"] == "transitions.guard"),
+        "the bare guard [[c1]] must mint no reference edge: {edges:?}",
+    );
+    assert!(
+        edges.iter().any(|e| e["kind"] == "properties.derives_from"
+            && e["to"] == "spec.c1"
+            && e["from"] == "spec.p"),
+        "the file-qualified [[spec.c1]] resolves to an edge: {edges:?}",
     );
     assert!(
         json["data"]["dangling"].as_array().unwrap().is_empty(),
-        "no dangling from the bare form: {}",
+        "the bare form skips silently (metasyntactic): {}",
         json["data"]["dangling"]
     );
 }
 
 #[test]
-fn bare_row_ref_typing_violation_is_reported_not_swallowed() {
+fn qualified_row_ref_typing_violation_is_reported_not_swallowed() {
+    // Revision 10 (specodelic-cxq) shape, now on the only spelling that
+    // resolves: a traces_to edge pointing at a Constraint (an invariant)
+    // resolves and then violates typing — never silently skipped.
     let dir = tempfile::tempdir().unwrap();
     let f = write_dual(dir.path(), &dual_file_with_bare_refs());
     let out = spk()
@@ -379,7 +387,7 @@ fn bare_row_ref_typing_violation_is_reported_not_swallowed() {
         violations
             .iter()
             .any(|v| v["edge_kind"] == "constraints.traces_to" && v["to"] == "spec.c1"),
-        "the bare traces_to ref resolves and then violates typing — never silently skipped: {:?}",
+        "the qualified traces_to ref resolves and then violates typing — never silently skipped: {:?}",
         violations
     );
 }
@@ -506,7 +514,9 @@ fn unknown_bare_targets_still_skip_as_metasyntactic() {
     // metasyntactic skip (template placeholders like [[...]] and docs
     // examples like [[x]] stay invisible).
     let dir = tempfile::tempdir().unwrap();
-    let body = dual_file_with_bare_refs().replace("[[c1]]", "[[nope]]");
+    let body = dual_file_with_bare_refs()
+        .replace("[[c1]]", "[[nope]]")
+        .replace("[[spec.c1]]", "[[nope]]");
     let f = write_dual(dir.path(), &body);
     let out = spk()
         .args(["graph", f.to_str().unwrap(), "--json"])

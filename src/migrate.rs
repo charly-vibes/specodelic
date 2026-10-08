@@ -83,7 +83,11 @@ pub const SCAFFOLD_PREFIX: &str = "scaffold_";
 /// (specodelic-54v): the `## ADDED Requirements` body byte-exact (D6),
 /// plus the `## MODIFIED Requirements` body in its modified form — the
 /// same per-requirement comparison `linter.requirement_drift` performs.
-pub fn migrate(text: &str) -> Result<MigrateOutcome, MigrateError> {
+pub fn migrate(text: &str, path: &std::path::Path) -> Result<MigrateOutcome, MigrateError> {
+    // Revision 18 (specodelic-mcy): generated frontmatter carries the
+    // REAL id derived by the naming law — spec.md from its parent
+    // directory, anything else from its stem. `id: spec` retired.
+    let generated_id = crate::lint::expected_id_from_path(path);
     let has_added = section_span(text, "## ADDED Requirements").is_some();
     let has_mirror = section_span(text, "## Requirements").is_some();
     let has_frontmatter = text.starts_with("---\n") || text.starts_with("---\r\n");
@@ -115,7 +119,7 @@ pub fn migrate(text: &str) -> Result<MigrateOutcome, MigrateError> {
         out.push_str(&text[..end]);
         end
     } else {
-        out.push_str(&generated_frontmatter(eol));
+        out.push_str(&generated_frontmatter(eol, &generated_id));
         0
     };
     let body = &text[body_start..];
@@ -135,7 +139,7 @@ pub fn migrate(text: &str) -> Result<MigrateOutcome, MigrateError> {
                 cursor = end;
             }
             None => {
-                out.push_str(&scaffold_layer(layer, eol));
+                out.push_str(&scaffold_layer(layer, eol, &generated_id));
                 inserted_layers.push(name);
             }
         }
@@ -228,12 +232,13 @@ fn section_span_from(text: &str, heading: &str, from: usize) -> Option<(usize, u
     Some((start, end))
 }
 
-/// Generated frontmatter: `id: spec` per the openspec naming law, EARS
-/// scaffold statement (D4) — the author replaces it.
-fn generated_frontmatter(eol: &str) -> String {
+/// Generated frontmatter: the real id derived by the naming law
+/// (Revision 18, specodelic-mcy), EARS scaffold statement (D4) — the
+/// author replaces it.
+fn generated_frontmatter(eol: &str, id: &str) -> String {
     format!(
         "---{eol}\
-         id: spec{eol}\
+         id: {id}{eol}\
          kind: intent{eol}\
          statement: \"WHEN the migrated delta is elaborated, THE author SHALL replace this scaffold statement with the real requirement.\"{eol}\
          ---{eol}{eol}"
@@ -242,15 +247,15 @@ fn generated_frontmatter(eol: &str) -> String {
 
 /// Wired scaffold for one missing layer (D4): rows reference each other
 /// so the file lints clean before the author writes anything real.
-fn scaffold_layer(layer: &str, eol: &str) -> String {
+fn scaffold_layer(layer: &str, eol: &str, id: &str) -> String {
     let p = SCAFFOLD_PREFIX;
-    let self_ref = format!("[[spec.{p}constraint]]");
+    let self_ref = format!("[[{id}.{p}constraint]]");
     match layer {
         "## Constraints" => format!(
             "## Constraints{eol}{eol}\
              | id | kind | expr | traces_to |{eol}\
              |----|------|------|-----------|{eol}\
-             | {p}constraint | invariant | `true` | [[spec]] |{eol}{eol}"
+             | {p}constraint | invariant | `true` | [[{id}]] |{eol}{eol}"
         ),
         "## Model" => format!(
             "## Model{eol}{eol}\
@@ -278,24 +283,33 @@ mod tests {
         "## ADDED Requirements\n\n### Requirement: Widget\nThe system SHALL wiget.\n".to_string()
     }
 
+    /// Fixture path: a spec.md under a capability directory — the id
+    /// derives from the parent dir (Revision 18).
+    fn spec_path() -> std::path::PathBuf {
+        std::path::PathBuf::from("demo-cap/spec.md")
+    }
+
     // --- D2 refusals ---
 
     #[test]
     fn already_migrated_is_refused() {
         let dual = "---\nid: spec\nkind: intent\nstatement: \"THE x SHALL x.\"\n---\n\n## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n\n## Requirements\n\n### Requirement: W\nThe system SHALL w.\n";
-        assert_eq!(migrate(dual), Err(MigrateError::AlreadyMigrated));
+        assert_eq!(
+            migrate(&dual, &spec_path()),
+            Err(MigrateError::AlreadyMigrated)
+        );
     }
 
     #[test]
     fn plain_spec_is_refused() {
         let plain = "# Title\n\n## Requirements\n\n### Requirement: R\nThe system SHALL r.\n";
-        assert_eq!(migrate(plain), Err(MigrateError::NotADelta));
+        assert_eq!(migrate(plain, &spec_path()), Err(MigrateError::NotADelta));
     }
 
     #[test]
     fn no_delta_section_is_refused() {
         assert_eq!(
-            migrate("# Just prose\n\nSome text.\n"),
+            migrate("# Just prose\n\nSome text.\n", &spec_path()),
             Err(MigrateError::NoDeltaSection)
         );
     }
@@ -305,11 +319,11 @@ mod tests {
     #[test]
     fn wraps_plain_delta_with_frontmatter_and_mirror() {
         let delta = plain_delta();
-        let out = migrate(&delta).expect("migrates");
+        let out = migrate(&delta, &spec_path()).expect("migrates");
         assert!(out.inserted_frontmatter);
         assert_eq!(out.inserted_layers.len(), 3, "all three layers inserted");
         assert!(out.inserted_mirror);
-        assert!(out.content.starts_with("---\nid: spec\nkind: intent\n"));
+        assert!(out.content.starts_with("---\nid: demo.cap\nkind: intent\n"));
         // Delta text preserved byte-for-byte.
         assert!(
             out.content.contains(
@@ -337,7 +351,7 @@ mod tests {
     #[test]
     fn merge_keeps_existing_frontmatter_verbatim() {
         let delta = "---\nid: spec\nkind: intent\nstatement: \"THE real SHALL hold.\"\n---\n\n## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n";
-        let out = migrate(delta).expect("migrates");
+        let out = migrate(delta, &spec_path()).expect("migrates");
         assert!(!out.inserted_frontmatter, "frontmatter kept, not generated");
         assert!(
             out.content.starts_with(
@@ -358,7 +372,7 @@ mod tests {
         let delta = format!(
             "{constraints}## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n"
         );
-        let out = migrate(&delta).expect("migrates");
+        let out = migrate(&delta, &spec_path()).expect("migrates");
         assert_eq!(out.inserted_layers, vec!["Model", "Properties"]);
         assert!(
             out.content.contains("| real | invariant | `x > 0` | |"),
@@ -378,7 +392,7 @@ mod tests {
     #[test]
     fn mirror_is_byte_exact_when_delta_is_last_section() {
         let delta = "## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n";
-        let out = migrate(delta).expect("migrates");
+        let out = migrate(delta, &spec_path()).expect("migrates");
         assert!(
             out.content
                 .ends_with("## Requirements\n\n### Requirement: W\nThe system SHALL w.\n")
@@ -388,7 +402,7 @@ mod tests {
     #[test]
     fn mirror_is_byte_exact_when_trailing_section_follows() {
         let delta = "## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n\n## Notes\n\nSome notes.\n";
-        let out = migrate(delta).expect("migrates");
+        let out = migrate(delta, &spec_path()).expect("migrates");
         let added = out
             .content
             .split("## ADDED Requirements\n")
@@ -407,7 +421,7 @@ mod tests {
     #[test]
     fn crlf_is_preserved() {
         let delta = "## ADDED Requirements\r\n\r\n### Requirement: W\r\nThe system SHALL w.\r\n";
-        let out = migrate(delta).expect("migrates");
+        let out = migrate(delta, &spec_path()).expect("migrates");
         assert!(out.content.contains("## Requirements\r\n"));
         assert!(
             out.content.contains("\r\n- `draft`\r\n"),
@@ -423,7 +437,7 @@ mod tests {
     #[test]
     fn missing_trailing_newline_is_normalized() {
         let delta = "## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.";
-        let out = migrate(delta).expect("migrates");
+        let out = migrate(delta, &spec_path()).expect("migrates");
         assert!(out.content.ends_with('\n'), "single trailing newline");
         assert!(!out.content.ends_with("\n\n"));
     }
@@ -434,7 +448,7 @@ mod tests {
     #[test]
     fn mixed_delta_mirror_holds_both_sections_requirements() {
         let delta = "## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n";
-        let out = migrate(delta).expect("migrates");
+        let out = migrate(delta, &spec_path()).expect("migrates");
         let mirror = out
             .content
             .split("## Requirements\n")
@@ -453,7 +467,7 @@ mod tests {
     #[test]
     fn mixed_delta_lints_clean_through_the_real_linter() {
         let delta = "## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n";
-        let out = migrate(delta).expect("migrates");
+        let out = migrate(delta, &spec_path()).expect("migrates");
         let spec = crate::spec::parse_str(&out.content).expect("migrated file parses");
         let report = crate::lint::lint_corpus(&[spec]);
         assert!(
@@ -466,7 +480,7 @@ mod tests {
     #[test]
     fn mixed_delta_crlf_uses_file_eol_in_mirror() {
         let delta = "## ADDED Requirements\r\n\r\n### Requirement: One\r\none holds\r\n\r\n## MODIFIED Requirements\r\n\r\n### Requirement: Two\r\ntwo holds\r\n";
-        let out = migrate(delta).expect("migrates");
+        let out = migrate(delta, &spec_path()).expect("migrates");
         assert!(out.content.contains("## Requirements\r\n"));
         assert!(
             out.content
@@ -478,7 +492,7 @@ mod tests {
     #[test]
     fn modified_section_between_layers_and_added_is_mirrored() {
         let delta = "## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n";
-        let out = migrate(delta).expect("migrates");
+        let out = migrate(delta, &spec_path()).expect("migrates");
         let mirror = out
             .content
             .split("## Requirements\n")
@@ -491,7 +505,7 @@ mod tests {
     #[test]
     fn duplicate_requirement_heading_across_sections_is_refused() {
         let delta = "## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: One\nmodified holds\n";
-        match migrate(delta) {
+        match migrate(delta, &spec_path()) {
             Err(MigrateError::ConflictingDelta { heading }) => {
                 assert_eq!(heading, "One");
             }
@@ -504,7 +518,7 @@ mod tests {
     #[test]
     fn scaffold_lints_clean_through_the_real_linter() {
         let delta = plain_delta();
-        let out = migrate(&delta).expect("migrates");
+        let out = migrate(&delta, &spec_path()).expect("migrates");
         let spec = crate::spec::parse_str(&out.content).expect("scaffold parses as a spec");
         let report = crate::lint::lint_corpus(&[spec]);
         assert!(

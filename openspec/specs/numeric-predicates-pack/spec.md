@@ -1,5 +1,5 @@
 ---
-id: spec
+id: numeric.predicates.pack
 kind: intent
 statement: "WHEN a workspace enables the numeric-predicates standard pack, THE format SHALL provide a namespaced ## Quantities section whose rows carry name, kind, unit, and domain; numeric.quantity, numeric.bound, and numeric.tolerance kinds; a measured_by reference field resolving to declared ## Quantities rows of the same file; and a tolerance case-label floor — while unit and domain columns stay opaque and files using none of this vocabulary lint byte-identically."
 ---
@@ -19,11 +19,12 @@ completes what the bioimage D6 pilot consumes.
 
 | id                     | kind      | expr                                                                                                                                                                                                                              | traces_to |
 |------------------------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| pack_file_declared     | invariant | `the numeric-predicates standard pack is a kind: profile spec file at packs/numeric-predicates.md (id numeric.predicates) whose six manifest tables declare the ## Quantities section, the numeric.quantity/numeric.bound/numeric.tolerance kinds, the measured_by reference field, the numeric.quantity_closed and numeric.tolerance_labels checkers, the tolerance case-label floor, and the Revision 14 base pin` | [[spec]]  |
-| quantity_section_shape | invariant | `## Quantities rows carry exactly \| name \| kind \| unit \| domain \| with kind closed to quantity, bound, tolerance — a per-pack closed set; no base closed set grows and no existing entry narrows`                                                                                              | [[spec]]  |
-| measured_by_outbound   | invariant | `measured_by is a pack-added reference field resolving to a ## Quantities row of the declaring file — an outbound leaf joining no reachability path and no acyclic edge set; a dangling reference is a labeled finding naming the row id and both remediations, never a generic dangling message` | [[spec]]  |
-| units_stay_opaque      | invariant | `the unit and domain columns carry typed prose pointers (unit systems, domains of validity) that the format never parses — no unit system, conversion rule, or domain vocabulary joins a base closed set, and lint behavior is identical regardless of the unit system named` | [[spec]]  |
-| vocabulary_prose_safe  | invariant | `no pack vocabulary token is a bare English word that appears in corpus prose — the within/bound/against/unit/domain audit excluded them from vocabulary-carrying facets; bound and against survive only as floor case labels, which the mechanism never scans` | [[spec]]  |
+| process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[numeric.predicates.pack]] |
+| pack_file_declared     | invariant | `the numeric-predicates standard pack is a kind: profile spec file at packs/numeric-predicates.md (id numeric.predicates) whose six manifest tables declare the ## Quantities section, the numeric.quantity/numeric.bound/numeric.tolerance kinds, the measured_by reference field, the numeric.quantity_closed and numeric.tolerance_labels checkers, the tolerance case-label floor, and the Revision 14 base pin` | [[numeric.predicates.pack]]  |
+| quantity_section_shape | invariant | `## Quantities rows carry exactly \| name \| kind \| unit \| domain \| with kind closed to quantity, bound, tolerance — a per-pack closed set; no base closed set grows and no existing entry narrows`                                                                                              | [[numeric.predicates.pack]]  |
+| measured_by_outbound   | invariant | `measured_by is a pack-added reference field resolving to a ## Quantities row of the declaring file — an outbound leaf joining no reachability path and no acyclic edge set; a dangling reference is a labeled finding naming the row id and both remediations, never a generic dangling message` | [[numeric.predicates.pack]]  |
+| units_stay_opaque      | invariant | `the unit and domain columns carry typed prose pointers (unit systems, domains of validity) that the format never parses — no unit system, conversion rule, or domain vocabulary joins a base closed set, and lint behavior is identical regardless of the unit system named` | [[numeric.predicates.pack]]  |
+| vocabulary_prose_safe  | invariant | `no pack vocabulary token is a bare English word that appears in corpus prose — the within/bound/against/unit/domain audit excluded them from vocabulary-carrying facets; bound and against survive only as floor case labels, which the mechanism never scans` | [[numeric.predicates.pack]]  |
 
 ## Model
 
@@ -36,23 +37,24 @@ completes what the bioimage D6 pilot consumes.
 
 | id        | from     | to         | guard                                                                                      |
 |-----------|----------|------------|--------------------------------------------------------------------------------------------|
-| publish   | draft    | published  | `[[spec.pack_file_declared]] ∧ [[spec.quantity_section_shape]] — pack_shape reports zero findings over the pack's declared vocabulary` |
-| deprecate | published| deprecated | `[[spec.pack_file_declared]] — maintainer marks the pack deprecated; findings name the deprecation, vocabulary still checks` |
+| publish   | draft    | published  | `[[numeric.predicates.pack.pack_file_declared]] ∧ [[numeric.predicates.pack.quantity_section_shape]] — pack_shape reports zero findings over the pack's declared vocabulary`  |
+| deprecate | published| deprecated | `[[numeric.predicates.pack.pack_file_declared]] — maintainer marks the pack deprecated; findings name the deprecation, vocabulary still checks`  |
 
 ## Properties
 
 | id                            | kind | derives_from                     | generator                                      | predicate                                                                     |
 |-------------------------------|------|----------------------------------|------------------------------------------------|-------------------------------------------------------------------------------|
-| discovery_finds_numeric_pack  | unit | [[spec.pack_file_declared]]      | `lint_workspace_with_numeric_pack_present()`   | `the pack is discovered by corpus scan alone, no config file, no registry`     |
-| pack_shape_clean_all_states   | unit | [[spec.pack_file_declared]]      | `pack_parsed_in_every_lifecycle_state()`       | `pack_shape reports zero findings over the declared vocabulary in draft, published, and deprecated` |
-| consumer_activates_advisory   | unit | [[spec.quantity_section_shape]]  | `corpus_spec_uses_numeric_quantity_vocabulary()` | `the pack's checkers activate advisory-first naming the pack; findings attributed per pack` |
-| orphan_names_numeric_pack     | unit | [[spec.quantity_section_shape]]  | `workspace_uses_numeric_vocabulary_without_pack()` | `the orphan finding names the candidate pack numeric.predicates and both remediations, exit non-zero` |
-| measured_by_resolves          | unit | [[spec.measured_by_outbound]]    | `constraint_row_measured_by_declared_quantity_row()` | `the measured_by reference resolves to the declared ## Quantities row; a dangling reference is a labeled finding naming the row id and both remediations` |
-| closure_honest_empty          | unit | [[spec.measured_by_outbound]]    | `pack_active_without_quantity_rows()`          | `the closure checkers report an empty checked-set; no fabricated findings`     |
-| no_base_set_absorption        | unit | [[spec.units_stay_opaque]]       | `guide_sets_compared_with_and_without_numeric_pack()` | `INTENT_KINDS and Reference Typing sets identical with the pack discovered or not` |
-| units_opaque_to_lint          | unit | [[spec.units_stay_opaque]]       | `quantity_row_names_ucum_vs_iso4217()`         | `lint findings byte-identical across different unit systems`                   |
-| no_bare_word_vocabulary       | unit | [[spec.vocabulary_prose_safe]]   | `corpus_linted_with_and_without_numeric_pack()` | `lint warnings byte-identical for every corpus file — no vocabulary-match activations from prose words` |
-| tolerance_floor_labels        | unit | [[spec.vocabulary_prose_safe]]   | `tolerance_law_missing_case_label()`           | `a numeric.tolerance law owes **bound:** and **against:** case labels per the floor declaration` |
+| process_lifecycle_checked | unit | [[numeric.predicates.pack.process_lifecycle]] | `lifecycle_model_present()` | `check(file) == passed` |
+| discovery_finds_numeric_pack  | unit | [[numeric.predicates.pack.pack_file_declared]]      | `lint_workspace_with_numeric_pack_present()`   | `the pack is discovered by corpus scan alone, no config file, no registry`     |
+| pack_shape_clean_all_states   | unit | [[numeric.predicates.pack.pack_file_declared]]      | `pack_parsed_in_every_lifecycle_state()`       | `pack_shape reports zero findings over the declared vocabulary in draft, published, and deprecated` |
+| consumer_activates_advisory   | unit | [[numeric.predicates.pack.quantity_section_shape]]  | `corpus_spec_uses_numeric_quantity_vocabulary()` | `the pack's checkers activate advisory-first naming the pack; findings attributed per pack` |
+| orphan_names_numeric_pack     | unit | [[numeric.predicates.pack.quantity_section_shape]]  | `workspace_uses_numeric_vocabulary_without_pack()` | `the orphan finding names the candidate pack numeric.predicates and both remediations, exit non-zero` |
+| measured_by_resolves          | unit | [[numeric.predicates.pack.measured_by_outbound]]    | `constraint_row_measured_by_declared_quantity_row()` | `the measured_by reference resolves to the declared ## Quantities row; a dangling reference is a labeled finding naming the row id and both remediations` |
+| closure_honest_empty          | unit | [[numeric.predicates.pack.measured_by_outbound]]    | `pack_active_without_quantity_rows()`          | `the closure checkers report an empty checked-set; no fabricated findings`     |
+| no_base_set_absorption        | unit | [[numeric.predicates.pack.units_stay_opaque]]       | `guide_sets_compared_with_and_without_numeric_pack()` | `INTENT_KINDS and Reference Typing sets identical with the pack discovered or not` |
+| units_opaque_to_lint          | unit | [[numeric.predicates.pack.units_stay_opaque]]       | `quantity_row_names_ucum_vs_iso4217()`         | `lint findings byte-identical across different unit systems`                   |
+| no_bare_word_vocabulary       | unit | [[numeric.predicates.pack.vocabulary_prose_safe]]   | `corpus_linted_with_and_without_numeric_pack()` | `lint warnings byte-identical for every corpus file — no vocabulary-match activations from prose words` |
+| tolerance_floor_labels        | unit | [[numeric.predicates.pack.vocabulary_prose_safe]]   | `tolerance_law_missing_case_label()`           | `a numeric.tolerance law owes **bound:** and **against:** case labels per the floor declaration` |
 
 ## ADDED Requirements
 

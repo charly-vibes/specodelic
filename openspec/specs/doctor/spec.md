@@ -1,5 +1,5 @@
 ---
-id: spec
+id: doctor
 kind: intent
 statement: "THE doctor command SHALL classify the workspace mode and warn — never fail — when the binary's embedded format knowledge lags the local corpus."
 ---
@@ -16,8 +16,9 @@ the standard envelope without failing on informational conditions.
 
 | id                | kind      | expr                                                                                                                                                          | traces_to |
 |-------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| mode_detection    | invariant | `workspace classifies as self_hosting when specs/specodelic.md exists and consumer otherwise, with the mode reported in envelope data`                          | [[spec]]  |
-| currency_warning  | invariant | `whenever a local corpus exists, the latest Revision N heading is compared numerically against FORMAT_REVISION; a lagging binary warns without failing; unreadable or revision-less corpora skip with an informational note` | [[spec]]  |
+| process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[doctor]] |
+| mode_detection    | invariant | `workspace classifies as self_hosting when specs/specodelic.md exists and consumer otherwise, with the mode reported in envelope data`                          | [[doctor]]  |
+| currency_warning  | invariant | `whenever a local corpus exists, the latest Revision N heading is compared numerically against FORMAT_REVISION; a lagging binary warns without failing; unreadable or revision-less corpora skip with an informational note` | [[doctor]]  |
 
 ## Model
 
@@ -30,15 +31,16 @@ the standard envelope without failing on informational conditions.
 
 | id       | from        | to               | guard                      |
 |----------|-------------|------------------|----------------------------|
-| classify | probed      | classified       | [[spec.mode_detection]]    |
-| currency | classified  | currency_checked | [[spec.currency_warning]]  |
+| classify | probed      | classified       | [[doctor.mode_detection]]  |
+| currency | classified  | currency_checked | [[doctor.currency_warning]]  |
 
 ## Properties
 
 | id          | kind | derives_from              | generator                  | predicate                                     |
 |-------------|------|---------------------------|----------------------------|-----------------------------------------------|
-| p_mode      | unit | [[spec.mode_detection]]   | `arbitrary_workspace()`    | `mode == expected(ws) ∧ mode ∈ envelope_data`  |
-| p_currency  | unit | [[spec.currency_warning]] | `arbitrary_corpus_state()` | `lag ⇒ warning ∧ ¬failure ∧ skip ⇒ note`       |
+| process_lifecycle_checked | unit | [[doctor.process_lifecycle]] | `lifecycle_model_present()` | `check(file) == passed` |
+| p_mode      | unit | [[doctor.mode_detection]]   | `arbitrary_workspace()`    | `mode == expected(ws) ∧ mode ∈ envelope_data`  |
+| p_currency  | unit | [[doctor.currency_warning]] | `arbitrary_corpus_state()` | `lag ⇒ warning ∧ ¬failure ∧ skip ⇒ note`       |
 
 ## Requirements
 ### Requirement: Workspace Mode Detection

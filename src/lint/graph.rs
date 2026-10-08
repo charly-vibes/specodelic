@@ -65,13 +65,10 @@ pub(crate) fn graph_edges(specs: &[Spec]) -> GraphEdges {
     let mut conn_edges: Vec<(String, String)> = vec![];
     let mut intent_nodes: BTreeSet<String> = BTreeSet::new();
     for spec in specs {
-        let scoped;
-        let index = if spec.intent.id == "spec" {
-            scoped = Index::build(std::slice::from_ref(spec));
-            &scoped
-        } else {
-            &full
-        };
+        // Revision 18 (specodelic-mcy): every file resolves corpus-wide —
+        // the former `id: spec` file-scoped index retired with `id: spec`
+        // itself.
+        let index = &full;
         let file_id = spec.intent.id.clone();
         intent_nodes.insert(file_id.clone());
         for t in &spec.transitions {
@@ -86,15 +83,10 @@ pub(crate) fn graph_edges(specs: &[Spec]) -> GraphEdges {
             }
         }
         for link in &spec.links {
-            // Same skip rules as total_refs (specodelic-15g Option A:
-            // bare-local rows in id:spec files resolve).
-            let bare_local = file_id == "spec"
-                && !link.target.contains('.')
-                && index
-                    .files
-                    .get(&file_id)
-                    .is_some_and(|rows| rows.contains(&link.target));
-            if !bare_local && is_metasyntactic(&link.target, index) {
+            // Same skip rules as total_refs (Revision 18: dotless
+            // targets are metasyntactic in every file — the id:spec
+            // bare-local arm retired with `id: spec`).
+            if is_metasyntactic(&link.target, index) {
                 continue;
             }
             let Some(target) = resolve_node(index, &file_id, &link.target) else {
@@ -536,39 +528,22 @@ pub(crate) fn is_metasyntactic(target: &str, index: &Index) -> bool {
 pub(crate) fn lint_references(specs: &[Spec], report: &mut Report) {
     let full = Index::build(specs);
     for spec in specs {
-        // Dual-format self-containment (spec-integration law): `id: spec`
-        // files resolve against their OWN rows only — the corpus-wide
-        // union would silently false-resolve any ref that collides with
-        // a row in another dual-format file. Other file ids keep
-        // corpus-wide resolution.
-        let scoped;
-        let index = if spec.intent.id == "spec" {
-            scoped = Index::build(std::slice::from_ref(spec));
-            &scoped
-        } else {
-            &full
-        };
+        // Revision 18 (specodelic-mcy): the dual-format self-containment
+        // law retired with `id: spec` — every file resolves corpus-wide
+        // against the same index. Real-id dual-format files name their
+        // own rows file-qualified, so a ref that collides with a row in
+        // another dual-format file is no longer silently false-resolved
+        // (the ids differ per capability directory).
+        let index = &full;
         let file = spec
             .path
             .as_ref()
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| format!("<{}>", spec.intent.id));
         for link in &spec.links {
-            // Bare-local rows (specodelic-15g, Option A): in an id:spec
-            // file a dotless target naming one of the file's own rows has
-            // exactly one possible meaning — the local row — so it
-            // resolves instead of vanishing into the metasyntactic skip.
-            // Dotful spellings keep the skip/hint (ambiguous with
-            // `file.row`); other files keep corpus-wide behavior.
-            let bare_local = spec.intent.id == "spec"
-                && !link.target.contains('.')
-                && index
-                    .files
-                    .get(&spec.intent.id)
-                    .is_some_and(|rows| rows.contains(&link.target));
             // Dotless unknown targets skip as metasyntactic (e.g. `[[id]]`
             // used as format documentation).
-            if !bare_local && is_metasyntactic(&link.target, index) {
+            if is_metasyntactic(&link.target, index) {
                 continue;
             }
             if !index.resolves(&spec.intent.id, &link.target) {

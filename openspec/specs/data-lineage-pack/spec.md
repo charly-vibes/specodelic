@@ -1,5 +1,5 @@
 ---
-id: spec
+id: data.lineage.pack
 kind: intent
 statement: "WHEN a workspace enables the data/lineage standard pack, THE format SHALL provide the pack as a declared kind: profile artifact — a namespaced ## Data section, data.dataset/data.artifact/data.environment kinds, produced_by/consumed_by/produces lineage reference fields resolving to declared ## Data rows, and a binding column that bridges external data standards without absorbing them into any base closed set — while files not using the pack's vocabulary lint byte-identically."
 ---
@@ -19,10 +19,11 @@ first real instance and the prerequisite for the bioimage D6 pilot.
 
 | id                       | kind      | expr                                                                                                                                                                                                                                       | traces_to |
 |--------------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| pack_file_declared       | invariant | `the data/lineage standard pack is a kind: profile spec file at packs/data-lineage.md (id data.lineage) whose six manifest tables declare the ## Data section, the data.dataset/data.artifact/data.environment kinds, the produces/produced_by/consumed_by reference fields, the data.lineage.closure checker, the artifact provenance floor, and the Revision 14 base pin` | [[spec]]  |
-| data_section_row_shape   | invariant | `## Data rows carry exactly \| name \| kind \| dtype \| units \| binding \| with kind closed to dataset, artifact, environment — a per-pack closed set; no base closed set grows and no existing entry narrows`                             | [[spec]]  |
-| lineage_edges_outbound   | invariant | `produces, produced_by, and consumed_by are pack-added reference fields resolving to a ## Data row of the declaring file — outbound leaves joining no reachability path and no acyclic edge set; a dangling lineage reference is a labeled finding naming the row id and both remediations, never a generic dangling message` | [[spec]]  |
-| binding_stays_external   | invariant | `the binding column carries a typed pointer to an external data standard and the format never parses it — no dtype enum, shape convention, or URI scheme joins a base closed set, and lint behavior is identical regardless of the binding target` | [[spec]]  |
+| process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[data.lineage.pack]] |
+| pack_file_declared       | invariant | `the data/lineage standard pack is a kind: profile spec file at packs/data-lineage.md (id data.lineage) whose six manifest tables declare the ## Data section, the data.dataset/data.artifact/data.environment kinds, the produces/produced_by/consumed_by reference fields, the data.lineage.closure checker, the artifact provenance floor, and the Revision 14 base pin` | [[data.lineage.pack]]  |
+| data_section_row_shape   | invariant | `## Data rows carry exactly \| name \| kind \| dtype \| units \| binding \| with kind closed to dataset, artifact, environment — a per-pack closed set; no base closed set grows and no existing entry narrows`                             | [[data.lineage.pack]]  |
+| lineage_edges_outbound   | invariant | `produces, produced_by, and consumed_by are pack-added reference fields resolving to a ## Data row of the declaring file — outbound leaves joining no reachability path and no acyclic edge set; a dangling lineage reference is a labeled finding naming the row id and both remediations, never a generic dangling message` | [[data.lineage.pack]]  |
+| binding_stays_external   | invariant | `the binding column carries a typed pointer to an external data standard and the format never parses it — no dtype enum, shape convention, or URI scheme joins a base closed set, and lint behavior is identical regardless of the binding target` | [[data.lineage.pack]]  |
 
 ## Model
 
@@ -35,21 +36,22 @@ first real instance and the prerequisite for the bioimage D6 pilot.
 
 | id        | from     | to         | guard                                                                                      |
 |-----------|----------|------------|--------------------------------------------------------------------------------------------|
-| publish   | draft    | published  | `[[spec.pack_file_declared]] ∧ [[spec.data_section_row_shape]] — pack_shape reports zero findings over the pack's declared vocabulary` |
-| deprecate | published| deprecated | `[[spec.pack_file_declared]] — maintainer marks the pack deprecated; findings name the deprecation, vocabulary still checks` |
+| publish   | draft    | published  | `[[data.lineage.pack.pack_file_declared]] ∧ [[data.lineage.pack.data_section_row_shape]] — pack_shape reports zero findings over the pack's declared vocabulary`  |
+| deprecate | published| deprecated | `[[data.lineage.pack.pack_file_declared]] — maintainer marks the pack deprecated; findings name the deprecation, vocabulary still checks`  |
 
 ## Properties
 
 | id                             | kind | derives_from                     | generator                                       | predicate                                                                    |
 |--------------------------------|------|----------------------------------|-------------------------------------------------|------------------------------------------------------------------------------|
-| discovery_finds_lineage_pack   | unit | [[spec.pack_file_declared]]      | `lint_workspace_with_pack_present()`            | `the pack is discovered by corpus scan alone, no config file, no registry`    |
-| pack_shape_clean_all_states    | unit | [[spec.pack_file_declared]]      | `pack_parsed_in_every_lifecycle_state()`        | `pack_shape reports zero findings over the declared vocabulary in draft, published, and deprecated` |
-| consumer_activates_advisory    | unit | [[spec.data_section_row_shape]]  | `corpus_spec_uses_data_dataset_vocabulary()`    | `the pack's checkers activate advisory-first naming the pack; findings attributed per pack` |
-| orphan_names_lineage_pack      | unit | [[spec.data_section_row_shape]]  | `workspace_uses_data_vocabulary_without_pack()` | `the orphan finding names the candidate pack data.lineage and both remediations, exit non-zero` |
-| lineage_reference_resolves     | unit | [[spec.lineage_edges_outbound]]  | `constraint_row_produced_by_declared_data_row()`| `the lineage reference resolves to the declared ## Data row; a dangling reference is a labeled finding naming the row id and both remediations` |
-| closure_honest_empty           | unit | [[spec.lineage_edges_outbound]]  | `pack_active_without_data_rows()`               | `the closure checker reports an empty checked-set; no fabricated findings`    |
-| no_base_set_absorption         | unit | [[spec.binding_stays_external]]  | `guide_sets_compared_with_and_without_data_pack()` | `INTENT_KINDS and Reference Typing sets identical with the pack discovered or not` |
-| binding_opaque_to_lint         | unit | [[spec.binding_stays_external]]  | `data_row_binds_to_ome_zarr_vs_parquet()`       | `lint findings byte-identical across different binding targets`               |
+| process_lifecycle_checked | unit | [[data.lineage.pack.process_lifecycle]] | `lifecycle_model_present()` | `check(file) == passed` |
+| discovery_finds_lineage_pack   | unit | [[data.lineage.pack.pack_file_declared]]      | `lint_workspace_with_pack_present()`            | `the pack is discovered by corpus scan alone, no config file, no registry`    |
+| pack_shape_clean_all_states    | unit | [[data.lineage.pack.pack_file_declared]]      | `pack_parsed_in_every_lifecycle_state()`        | `pack_shape reports zero findings over the declared vocabulary in draft, published, and deprecated` |
+| consumer_activates_advisory    | unit | [[data.lineage.pack.data_section_row_shape]]  | `corpus_spec_uses_data_dataset_vocabulary()`    | `the pack's checkers activate advisory-first naming the pack; findings attributed per pack` |
+| orphan_names_lineage_pack      | unit | [[data.lineage.pack.data_section_row_shape]]  | `workspace_uses_data_vocabulary_without_pack()` | `the orphan finding names the candidate pack data.lineage and both remediations, exit non-zero` |
+| lineage_reference_resolves     | unit | [[data.lineage.pack.lineage_edges_outbound]]  | `constraint_row_produced_by_declared_data_row()`| `the lineage reference resolves to the declared ## Data row; a dangling reference is a labeled finding naming the row id and both remediations` |
+| closure_honest_empty           | unit | [[data.lineage.pack.lineage_edges_outbound]]  | `pack_active_without_data_rows()`               | `the closure checker reports an empty checked-set; no fabricated findings`    |
+| no_base_set_absorption         | unit | [[data.lineage.pack.binding_stays_external]]  | `guide_sets_compared_with_and_without_data_pack()` | `INTENT_KINDS and Reference Typing sets identical with the pack discovered or not` |
+| binding_opaque_to_lint         | unit | [[data.lineage.pack.binding_stays_external]]  | `data_row_binds_to_ome_zarr_vs_parquet()`       | `lint findings byte-identical across different binding targets`               |
 
 ## ADDED Requirements
 

@@ -73,7 +73,7 @@ expr = "`the run's persisted report declares claim_schema_version 1, canonical q
 traces_to = "[[model_check]]"
 
 [[constraints]]
-id = "dual_format_isolated_scope"
+id = "corpus_identity_scope"
 kind = "invariant"
-expr = "`a dual-format id: spec file is accepted as the sole parsed input of model-check, verify, or orchestrate evaluation: a combined invocation (any additional parsed file) fails isolated_scope_required with a separate-run hint before compilation, evaluation, or report writes; spec.<row> claim ids resolve only within their own file, and multi-file dual-format lint stays supported`"
+expr = "`a model-check, verify, or orchestrate invocation refuses, before compilation, evaluation, or report writes, any input set in which two parsed files claim the same intent id — labeled duplicate_corpus_identity with a rename hint (Revision 18: the former isolated-scope rule retired with `id: spec` itself; dual-format files carry real intent ids and compose like any corpus, so identity uniqueness is the only scope law left)`"
 traces_to = "[[model_check]]"

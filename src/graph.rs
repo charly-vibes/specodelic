@@ -271,23 +271,14 @@ pub(crate) fn resolve_link(
         return None;
     }
     let resolved = resolve(scoped_rows, file_id, &link.target);
-    // Bare-local rows (specodelic-15g, Option A): in an id:spec file a
-    // dotless target naming one of the file's own rows has exactly one
-    // possible meaning — the local row — so it resolves instead of
-    // vanishing into the metasyntactic skip. Dotful spellings keep the
-    // skip (ambiguous with `file.row`); other files keep corpus-wide
-    // behavior.
-    let bare_local = file_id == "spec"
-        && !link.target.contains('.')
-        && scoped_rows
-            .get(file_id)
-            .is_some_and(|rows| rows.contains(&link.target));
     // Metasyntactic example links (`[[old_id]]`, `[[...]]`) are format
-    // documentation inside expr cells — not graph edges.
-    let metasyn = !bare_local
-        && (!link.target.contains('.') && !scoped_rows.contains_key(&link.target)
-            || link.target == "..."
-            || link.target == "\u{2026}");
+    // documentation inside expr cells — not graph edges. (Revision 18:
+    // the id:spec bare-local arm retired with `id: spec` — dotless
+    // targets are metasyntactic in every file, exactly as in the
+    // linter's total_refs.)
+    let metasyn = !link.target.contains('.') && !scoped_rows.contains_key(&link.target)
+        || link.target == "..."
+        || link.target == "\u{2026}";
     if metasyn {
         return None;
     }
@@ -994,11 +985,10 @@ pub fn build(specs: &[Spec]) -> GraphReport {
     // Node-kind index for the Reference Typing checks.
     let kinds = kind_index(specs);
     // Resolution index: file id -> defined ids (intent + rows).
-    // Same-id files (openspec `spec.md` → `id: spec`) aggregate their
-    // row sets so a file's OWN rows are never erased by a same-id file
-    // (#37) — but each `id: spec` file resolves against its own row set
-    // only (self-contained deltas, mirroring the linter's file-scoped
-    // total_refs semantics, #42); other file ids resolve corpus-wide.
+    // Same-id files aggregate their row sets so a file's OWN rows are
+    // never erased by a same-id file (#37). Revision 18
+    // (specodelic-mcy): every file resolves corpus-wide — the former
+    // `id: spec` file-scoped scoping retired with `id: spec` itself.
     let mut file_rows: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for spec in specs {
         file_rows
@@ -1055,16 +1045,8 @@ pub fn build(specs: &[Spec]) -> GraphReport {
                 }
             }
         }
-        // `id: spec` files resolve file-scoped (self-contained deltas);
-        // others against the corpus-wide map.
-        let scoped_rows: BTreeMap<String, Vec<String>> = if file_id == "spec" {
-            BTreeMap::from([(
-                file_id.clone(),
-                spec.defined_ids().into_iter().collect::<Vec<_>>(),
-            )])
-        } else {
-            file_rows.clone()
-        };
+        // Revision 18 (specodelic-mcy): every file resolves corpus-wide.
+        let scoped_rows = file_rows.clone();
         for link in &spec.links {
             // The shared edge derivation (task 3.4 TIDY): the typed-column
             // filter, resolution, bare-local and metasyntactic skips,

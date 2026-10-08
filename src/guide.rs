@@ -22,7 +22,7 @@
 /// hand when the corpus revision bumps; a corpus-lint style drift test
 /// (task 6.1) compares this numerically against the corpus so staleness
 /// fails CI, not consumers.
-pub const FORMAT_REVISION: &str = "specodelic.md Revision 17";
+pub const FORMAT_REVISION: &str = "specodelic.md Revision 18";
 
 /// The closed set of Intent `kind` values (frontmatter). Revision 14
 /// added `profile` — a domain pack file (see `specs/packs.md`); the set
@@ -427,8 +427,9 @@ mod tests {
     #[test]
     fn references_topic_documents_file_qualified_ref_syntax() {
         // gh#3: refs are file-qualified wiki-links `[[<file-id>.<row-id>]]`;
-        // bare ids and bare text do not resolve. A dual-format delta cites
-        // its own rows with the `spec.` self-file prefix.
+        // bare ids and bare text do not resolve. (Revision 18: the
+        // `spec.` self-file prefix retired with `id: spec` — dual-format
+        // files carry real ids.)
         let refs = topic_body("references").unwrap();
         assert!(
             refs.contains("file-qualified"),
@@ -439,8 +440,8 @@ mod tests {
             "references topic must show the general wiki-link shape"
         );
         assert!(
-            refs.contains("[[spec."),
-            "references topic must document the `spec.` self-file prefix for dual-format deltas"
+            refs.contains("[[ge.cli.c1]]"),
+            "references topic must document the real-id file-qualified form for spec.md files"
         );
         assert!(
             refs.to_lowercase().contains("bare"),
@@ -473,13 +474,17 @@ mod tests {
 
     #[test]
     fn dual_format_topic_documents_self_intent_trace_and_drift_rule() {
-        // gh#5.3: `[[spec]]` (the file's own frontmatter id) is the
-        // intended traces_to target for self-contained deltas.
+        // gh#5.3, revised Revision 18: `[[<file-id>]]` (the file's own
+        // real id) is the intended traces_to target.
         // gh#4: drift between the requirement sections is lint-enforced.
         let dual = topic_body("dual-format").unwrap();
         assert!(
-            dual.contains("[[spec]]"),
+            dual.contains("[[<file-id>]]"),
             "dual-format topic must document the self-intent traces_to target"
+        );
+        assert!(
+            dual.contains("id: ge.cli"),
+            "dual-format topic must document the parent-dir id derivation"
         );
         assert!(
             dual.contains("requirement_drift"),

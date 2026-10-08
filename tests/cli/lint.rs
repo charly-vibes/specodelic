@@ -172,23 +172,25 @@ fn graph_corpus_is_fully_resolved() {
 }
 
 #[test]
-fn graph_same_id_files_are_file_scoped() {
-    // Dual-format self-containment (Rule-of-5 CORR-001): two id:spec
-    // files share one file id, but a ref in one must NOT resolve against
-    // the other's rows — corpus-wide union false-resolves typos.
+fn graph_real_id_files_resolve_corpus_wide_and_typos_dangle() {
+    // Revision 18 (specodelic-mcy): the self-containment law retired
+    // with `id: spec` — distinct real-id files resolve corpus-wide (a
+    // cross-file ref between them produces an edge, no dangling), while
+    // a typo'd file segment still dangles (the CORR-001 protection now
+    // rests on real ids, not on a scoped index).
     let dir = tempfile::tempdir().unwrap();
-    let a = dir.path().join("a");
-    let b = dir.path().join("b");
+    let a = dir.path().join("demo-a");
+    let b = dir.path().join("demo-b");
     std::fs::create_dir_all(&a).unwrap();
     std::fs::create_dir_all(&b).unwrap();
     std::fs::write(
         a.join("spec.md"),
-        "---\nid: spec\nkind: intent\nstatement: \"THE a SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| local_a | invariant | `x` | [[spec.row_in_b]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[spec.local_a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pa | unit | [[spec.local_a]] | `g()` | `x` |\n",
+        "---\nid: demo.a\nkind: intent\nstatement: \"THE a SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| local_a | invariant | `x` | [[demo.a]] |\n| cross | invariant | `cites beta's row` | [[demo.a]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[demo.a.local_a]] ∧ [[demo.b.row_in_b]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pa | unit | [[demo.a.local_a]] | `g()` | `x` |\n| pc | unit | [[demo.a.cross]] | `g()` | `x` |\n",
     )
     .unwrap();
     std::fs::write(
         b.join("spec.md"),
-        "---\nid: spec\nkind: intent\nstatement: \"THE b SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| row_in_b | invariant | `z` | |\n\n## Model\n\n### States\n\n- `s2`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s2 | s2 | [[spec.row_in_b]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pb | unit | [[spec.row_in_b]] | `g()` | `z` |\n",
+        "---\nid: demo.b\nkind: intent\nstatement: \"THE b SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| row_in_b | invariant | `z` | [[demo.b]] |\n\n## Model\n\n### States\n\n- `s2`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s2 | s2 | [[demo.b.row_in_b]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pb | unit | [[demo.b.row_in_b]] | `g()` | `z` |\n",
     )
     .unwrap();
     let out = spk()
@@ -197,8 +199,25 @@ fn graph_same_id_files_are_file_scoped() {
         .unwrap();
     let stdout = String::from_utf8(out.stdout).unwrap();
     assert!(
-        stdout.contains("[[spec.row_in_b]]"),
-        "cross-file ref must dangle in the graph: {stdout}"
+        !stdout.contains("demo.b.row_in_b is not defined"),
+        "cross-file ref between real-id files must resolve: {stdout}"
+    );
+    // Typo'd file segment still dangles.
+    let c = dir.path().join("demo-c");
+    std::fs::create_dir_all(&c).unwrap();
+    std::fs::write(
+        c.join("spec.md"),
+        "---\nid: demo.c\nkind: intent\nstatement: \"THE c SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| cc | invariant | `x` | [[demo.c]] |\n\n## Model\n\n### States\n\n- `s3`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s3 | s3 | [[demo.ccc.cc]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pc | unit | [[demo.c.cc]] | `g()` | `x` |\n",
+    )
+    .unwrap();
+    let out = spk()
+        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(
+        stdout.contains("demo.ccc"),
+        "typo'd file segment must dangle in the graph: {stdout}"
     );
 }
 

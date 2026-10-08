@@ -283,18 +283,11 @@ impl Walk<'_> {
         }
     }
 
-    /// The typed reference links, in link order: `id: spec` files
-    /// resolve file-scoped (self-contained deltas); others against the
-    /// corpus-wide map.
+    /// The typed reference links, in link order, against the
+    /// corpus-wide map (Revision 18: the former `id: spec` file-scoped
+    /// resolution retired with `id: spec` itself).
     fn links(&mut self, spec: &Spec, file_id: &str) {
-        let scoped_rows: BTreeMap<String, Vec<String>> = if file_id == "spec" {
-            BTreeMap::from([(
-                file_id.to_string(),
-                spec.defined_ids().into_iter().collect::<Vec<_>>(),
-            )])
-        } else {
-            self.file_rows.clone()
-        };
+        let scoped_rows = self.file_rows.clone();
         for link in &spec.links {
             // The shared edge derivation (task 3.4 TIDY): the
             // typed-column filter, resolution, bare-local and
@@ -426,8 +419,8 @@ impl Instance {
 
         // Resolution index — the same aggregation graph::build runs (#37:
         // same-id files aggregate their row sets so a file's OWN rows are
-        // never erased; each `id: spec` file resolves against its own rows
-        // only, mirroring the linter's file-scoped total_refs semantics).
+        // never erased; Revision 18: resolution is corpus-wide, the
+        // former `id: spec` file-scoping retired with `id: spec` itself).
         let mut file_rows: BTreeMap<String, Vec<String>> = BTreeMap::new();
         for spec in specs {
             file_rows

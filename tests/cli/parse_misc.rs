@@ -204,7 +204,9 @@ mod tempfixture {
 #[test]
 fn migrate_wraps_delta_then_refuses_second_run() {
     let dir = tempdir();
-    let file = dir.path().join("spec.md");
+    let cap = dir.path().join("demo-cap");
+    std::fs::create_dir_all(&cap).unwrap();
+    let file = cap.join("spec.md");
     std::fs::write(
         &file,
         "## ADDED Requirements\n\n### Requirement: Widget\nThe system SHALL wiget.\n",
@@ -218,8 +220,9 @@ fn migrate_wraps_delta_then_refuses_second_run() {
         .stdout(contains("\"inserted_frontmatter\":true"))
         .stdout(contains("\"inserted_mirror\":true"));
     let migrated = std::fs::read_to_string(&file).unwrap();
-    // Generated id is always `spec` — the dual-format naming law.
-    assert!(migrated.starts_with("---\nid: spec\nkind: intent\n"));
+    // Revision 18: the generated id is the REAL id derived by the
+    // naming law — spec.md under demo-cap/ derives id `demo.cap`.
+    assert!(migrated.starts_with("---\nid: demo.cap\nkind: intent\n"));
     assert!(migrated.contains("## Requirements\n\n### Requirement: Widget"));
     // Idempotence: the second run is a refusal, file untouched.
     spk()
@@ -283,7 +286,7 @@ fn non_spec_md_filename_warns_naming_law() {
         .arg(&file)
         .assert()
         .success()
-        .stdout(contains("must be named spec.md"));
+        .stdout(contains("openspec requires the delta filename spec.md"));
 }
 
 // ---------- refactor advisor (specodelic-3l7, specs/refactor.md) ----------
@@ -1326,7 +1329,7 @@ fn revision_skew_is_a_warning_not_a_failure() {
     assert!(
         warnings.iter().any(|w| {
             let s = w["message"].as_str().unwrap_or("");
-            s.contains("bioimage") && s.contains("Revision 10") && s.contains("Revision 17")
+            s.contains("bioimage") && s.contains("Revision 10") && s.contains("Revision 18")
         }),
         "no skew advisory naming both revisions: {warnings:?}"
     );

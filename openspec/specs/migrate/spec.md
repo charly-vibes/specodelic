@@ -1,5 +1,5 @@
 ---
-id: spec
+id: migrate
 kind: intent
 statement: "WHEN an openspec delta file is migrated, THE migrate capability SHALL wrap it in place into the dual-format four-layer skeleton — preserving the delta text byte-for-byte, mirroring the ADDED Requirements section into a byte-identical Requirements mirror, and refusing any file that already carries the mirror."
 ---
@@ -18,12 +18,13 @@ author's job.
 
 | id                      | kind      | expr                                                                                                                                                                    | traces_to |
 |-------------------------|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| delta_text_preserved    | invariant | `∀ migrated file: the ADDED Requirements section body and any pre-existing frontmatter appear in the result byte-for-byte — no rewrite, no reflow, no dropped heading` | [[spec]]  |
-| mirror_byte_identical   | invariant | `the generated Requirements mirror section body == the ADDED Requirements section body (byte-exact slice)`                                                                | [[spec]]  |
-| refuse_already_migrated | invariant | `a file carrying both frontmatter and a Requirements mirror is refused (exit 2), never rewritten; a file with neither section, or with a mirror but no ADDED, is refused as not-a-delta` | [[spec]]  |
-| merge_adds_only_missing | invariant | `only missing pieces are inserted — generated frontmatter, missing layer skeletons, missing mirror; existing sections pass through untouched`                             | [[spec]]  |
-| scaffold_lints_clean    | invariant | `the generated scaffold (frontmatter + wired scaffold_* placeholder rows + one-state model) exits spk lint 0 with zero findings as written — the author starts from a green baseline` | [[spec]]  |
-| dry_run_writes_nothing  | invariant | `--dry-run emits the resulting content as data and never writes the file; the on-disk bytes are unchanged`                                                               | [[spec]]  |
+| process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[migrate]] |
+| delta_text_preserved    | invariant | `∀ migrated file: the ADDED Requirements section body and any pre-existing frontmatter appear in the result byte-for-byte — no rewrite, no reflow, no dropped heading` | [[migrate]]  |
+| mirror_byte_identical   | invariant | `the generated Requirements mirror section body == the ADDED Requirements section body (byte-exact slice)`                                                                | [[migrate]]  |
+| refuse_already_migrated | invariant | `a file carrying both frontmatter and a Requirements mirror is refused (exit 2), never rewritten; a file with neither section, or with a mirror but no ADDED, is refused as not-a-delta` | [[migrate]]  |
+| merge_adds_only_missing | invariant | `only missing pieces are inserted — generated frontmatter, missing layer skeletons, missing mirror; existing sections pass through untouched`                             | [[migrate]]  |
+| scaffold_lints_clean    | invariant | `the generated scaffold (frontmatter + wired scaffold_* placeholder rows + one-state model) exits spk lint 0 with zero findings as written — the author starts from a green baseline` | [[migrate]]  |
+| dry_run_writes_nothing  | invariant | `--dry-run emits the resulting content as data and never writes the file; the on-disk bytes are unchanged`                                                               | [[migrate]]  |
 
 ## Model
 
@@ -38,23 +39,24 @@ author's job.
 
 | id           | from       | to        | guard                                    |
 |--------------|------------|-----------|-------------------------------------------|
-| begin_wrap   | unwrapping | wrapping  | [[spec.delta_text_preserved]]            |
-| write_result | wrapping   | written   | [[spec.mirror_byte_identical]]           |
-| dry_run_pass | wrapping   | wrapping  | [[spec.dry_run_writes_nothing]]          |
-| refuse       | unwrapping | refused   | [[spec.refuse_already_migrated]]         |
-| merge_only   | wrapping   | written   | [[spec.merge_adds_only_missing]]         |
-| verify_green | written    | written   | [[spec.scaffold_lints_clean]]            |
+| begin_wrap   | unwrapping | wrapping  | [[migrate.delta_text_preserved]]  |
+| write_result | wrapping   | written   | [[migrate.mirror_byte_identical]]  |
+| dry_run_pass | wrapping   | wrapping  | [[migrate.dry_run_writes_nothing]]  |
+| refuse       | unwrapping | refused   | [[migrate.refuse_already_migrated]]  |
+| merge_only   | wrapping   | written   | [[migrate.merge_adds_only_missing]]  |
+| verify_green | written    | written   | [[migrate.scaffold_lints_clean]]  |
 
 ## Properties
 
 | id                        | kind | derives_from                     | generator                        | predicate                                        |
 |---------------------------|------|----------------------------------|----------------------------------|--------------------------------------------------|
-| p_delta_text_preserved    | unit | [[spec.delta_text_preserved]]    | `delta_with(frontmatter: any)`   | `migrate(file).added_body == original.added_body` |
-| p_mirror_byte_identical   | unit | [[spec.mirror_byte_identical]]   | `delta_with(sections: any)`      | `result.mirror_body == result.added_body`         |
-| p_refuse_already_migrated | unit | [[spec.refuse_already_migrated]] | `dual_format_file()`             | `migrate(file) == refused ∧ disk_unchanged`       |
-| p_merge_adds_only_missing | unit | [[spec.merge_adds_only_missing]] | `delta_with(partial_layers: any)`| `existing_sections(result) == existing_sections(original)` |
-| p_scaffold_lints_clean    | unit | [[spec.scaffold_lints_clean]]    | `any_plain_delta()`              | `lint(migrate(file)) == zero_findings`            |
-| p_dry_run_writes_nothing  | unit | [[spec.dry_run_writes_nothing]]  | `any_plain_delta()`              | `dry_run(file).disk_bytes == original.disk_bytes` |
+| process_lifecycle_checked | unit | [[migrate.process_lifecycle]] | `lifecycle_model_present()` | `check(file) == passed` |
+| p_delta_text_preserved    | unit | [[migrate.delta_text_preserved]]    | `delta_with(frontmatter: any)`   | `migrate(file).added_body == original.added_body` |
+| p_mirror_byte_identical   | unit | [[migrate.mirror_byte_identical]]   | `delta_with(sections: any)`      | `result.mirror_body == result.added_body`         |
+| p_refuse_already_migrated | unit | [[migrate.refuse_already_migrated]] | `dual_format_file()`             | `migrate(file) == refused ∧ disk_unchanged`       |
+| p_merge_adds_only_missing | unit | [[migrate.merge_adds_only_missing]] | `delta_with(partial_layers: any)`| `existing_sections(result) == existing_sections(original)` |
+| p_scaffold_lints_clean    | unit | [[migrate.scaffold_lints_clean]]    | `any_plain_delta()`              | `lint(migrate(file)) == zero_findings`            |
+| p_dry_run_writes_nothing  | unit | [[migrate.dry_run_writes_nothing]]  | `any_plain_delta()`              | `dry_run(file).disk_bytes == original.disk_bytes` |
 
 ## ADDED Requirements
 

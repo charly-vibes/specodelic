@@ -59,6 +59,28 @@ pub(crate) fn file_label(spec: &Spec) -> String {
         .unwrap_or_else(|| format!("<{}>", spec.intent.id))
 }
 
+/// The expected frontmatter id for a file path (Revision 18,
+/// specodelic-mcy): a file named `spec.md` derives its id from the
+/// PARENT DIRECTORY name (`-` maps to `.`, `_` literal) — single-tree
+/// spec authoring needs no `id: spec`; any other file derives from its
+/// own stem. A bare `spec.md` with no parent directory falls back to
+/// the stem (`spec`).
+pub(crate) fn expected_id_from_path(path: &std::path::Path) -> String {
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or_default();
+    if stem == "spec"
+        && let Some(dir) = path
+            .parent()
+            .and_then(|p| p.file_name())
+            .and_then(|s| s.to_str())
+    {
+        return dir.replace('-', ".");
+    }
+    stem.replace('-', ".")
+}
+
 /// Checker-family slice of [`lint_one`]: the file-structure gate
 /// (specs/specodelic.md Checker Ownership, `linter-frontmatter.md`).
 /// Attribution note: `dual_format_valid`/`requirement_drift` postdate
@@ -80,16 +102,14 @@ pub(crate) fn lint_frontmatter_family(spec: &Spec, report: &mut Report) {
         ));
     }
 
-    // id_matches_file — frontmatter.id == replace(stem(path), "-", ".").
+    // id_matches_file — frontmatter.id == expected_id_from_path(path):
+    // stem-derived for ordinary files, parent-dir-derived for spec.md
+    // (Revision 18, specodelic-mcy).
     if let Some(path) = &spec.path {
-        let stem = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or_default();
-        let expected = stem.replace('-', ".");
+        let expected = expected_id_from_path(path);
         if spec.intent.id != expected {
             report.issues.push(Issue::new("id_matches_file", file.clone(), format!(
-                    "frontmatter id `{}` does not match filename (expected `{}` — `-` in filename maps to `.` in id; `_` is literal)",
+                    "frontmatter id `{}` does not match filename (expected `{}` — `-` maps to `.` in id; `_` is literal; a `spec.md` file derives its id from its parent directory)",
                     spec.intent.id, expected
                 )));
         }
@@ -99,11 +119,13 @@ pub(crate) fn lint_frontmatter_family(spec: &Spec, report: &mut Report) {
     // `## MODIFIED Requirements` (the openspec delta halves;
     // update-law-named-cases widened the mirror rules to MODIFIED
     // additively — the repo's first MODIFIED delta must be gated
-    // exactly like an ADDED one) must be a dual-format file: declare
-    // `id: spec` (openspec hard-requires the spec.md filename) and pair
+    // exactly like an ADDED one) must be a dual-format file: pair
     // each delta section with a sibling `## Requirements` section (the
     // capability half that survives archiving). Plain corpus specs (no
-    // delta section) are exempt.
+    // delta section) are exempt. Revision 18 (specodelic-mcy): the id
+    // requirement retired — dual-format files carry REAL ids derived
+    // by the naming law (spec.md from parent dir), not `id: spec`;
+    // id_matches_file is the only id gate a dual-format file answers to.
     let delta_sections: Vec<(&str, &str)> = [
         (
             spec.has_added_requirements,
@@ -121,17 +143,6 @@ pub(crate) fn lint_frontmatter_family(spec: &Spec, report: &mut Report) {
     .map(|(_, name, body)| (name, body))
     .collect();
     if !delta_sections.is_empty() {
-        if spec.intent.id != "spec" {
-            report.issues.push(Issue::new(
-                "dual_format_valid",
-                file.clone(),
-                format!(
-                    "file carries {} but declares id `{}` — dual-format files must declare `id: spec` (openspec requires the spec.md filename)",
-                    delta_sections.iter().map(|(n, _)| *n).collect::<Vec<_>>().join(" and "),
-                    spec.intent.id
-                ),
-            ));
-        }
         if !spec.has_requirements_section {
             report.issues.push(Issue::new(
                 "dual_format_valid",

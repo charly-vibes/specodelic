@@ -116,16 +116,17 @@ rendered from the same constants the linter enforces.
 ## `spk migrate <file> [--dry-run]`
 
 Wraps an existing openspec delta file in place into the dual-format
-four-layer skeleton: generated frontmatter (`id: spec`, EARS scaffold
-statement), wired scaffold layers (`scaffold_*` placeholder rows —
+four-layer skeleton: generated frontmatter (the real id derived by the
+naming law — a `spec.md` file from its parent directory, Revision 18 —
+plus an EARS scaffold statement), wired scaffold layers (`scaffold_*` placeholder rows —
 constraint, one-state model, deriving property), and a byte-identical
 `## Requirements` mirror of `## ADDED Requirements`. Existing sections
 pass through verbatim; only missing pieces are inserted. A file that
 already carries the mirror is refused, never rewritten — re-running is
 safe. The scaffold lints clean as written; keep it green while you
 replace the placeholders. Files not named `spec.md` get a naming-law
-warning (deltas must be `spec.md` with `id: spec`). `--dry-run` prints
-the resulting content without writing.
+warning (openspec requires the delta filename `spec.md`). `--dry-run`
+prints the resulting content without writing.
 
 ## `spk compile <files> --out-dir <dir>`
 
@@ -228,11 +229,12 @@ invariant content never share one. Verify (and orchestrate's verify
 stage) recompute the digest and the required claim set from the current
 inputs and reject stale, foreign, or malformed reports with a rerun
 hint naming the model-check command — a stored report is never
-rewritten to manufacture evidence. A dual-format `id: spec` file is
-accepted only as the sole parsed input: any additional file fails
-`isolated_scope_required` with a separate-run hint before compilation,
-evaluation, or report writes (`spec.<row>` claim ids resolve only
-within their own file). A `**kernel:**` constraint
+rewritten to manufacture evidence. A command's parsed inputs must
+claim unique intent ids: two files with the same id fail
+`duplicate_corpus_identity` with a rename hint before compilation,
+evaluation, or report writes (Revision 18: dual-format files carry
+real ids and compose like any corpus — the former `id: spec`
+isolated-scope rule retired with `id: spec` itself). A `**kernel:**` constraint
 cell that breaks the closed grammar is a labeled `kernel_grammar`
 failure before any run — the same validation compile applies — so a
 stale compile can never silently demote a malformed kernel claim to

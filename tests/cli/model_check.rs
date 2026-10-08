@@ -398,7 +398,7 @@ fn explain_known_topic_works_offline_in_consumer_dir() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["ok"], true);
     assert_eq!(json["data"]["topic"], "format");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 17");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 18");
     let body = json["data"]["body"].as_str().unwrap();
     assert!(body.contains("## Constraints"));
     assert!(body.contains("## Properties"));
@@ -411,9 +411,10 @@ fn explain_known_topic_works_offline_in_consumer_dir() {
 
 #[test]
 fn explain_references_documents_file_qualified_refs() {
-    // gh#3: the references topic must teach the file-qualification law —
-    // [[<file-id>.<row-id>]], the `spec.` self-file prefix for dual-format
-    // deltas, and that bare ids / bare text do not resolve.
+    // gh#3, revised Revision 18: the references topic must teach the
+    // file-qualification law — [[<file-id>.<row-id>]], the real-id
+    // spelling for spec.md files, and that bare ids / bare text do not
+    // resolve.
     let out = spk()
         .args(["explain", "references", "--json"])
         .output()
@@ -423,7 +424,7 @@ fn explain_references_documents_file_qualified_refs() {
     let body = json["data"]["body"].as_str().unwrap();
     assert!(body.contains("file-qualified"));
     assert!(body.contains("[[<file-id>.<row-id>]]"));
-    assert!(body.contains("[[spec."));
+    assert!(body.contains("[[ge.cli.c1]]"));
     assert!(body.to_lowercase().contains("bare"));
 }
 
@@ -467,7 +468,7 @@ fn version_json_reports_format_revision() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["envelope_kind"], "version");
     assert_eq!(json["data"]["name"], "specodelic");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 17");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 18");
 }
 
 #[test]
@@ -501,7 +502,7 @@ fn doctor_consumer_with_corpus_reports_format_revision() {
     let json: serde_json::Value =
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["data"]["mode"], "consumer");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 17");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 18");
 }
 
 #[test]
@@ -1329,6 +1330,8 @@ fn scope_digest_of(report: &serde_json::Value) -> String {
 /// outcomes.
 fn write_dual68(dir: &std::path::Path, passing: bool) -> String {
     std::fs::create_dir_all(dir).unwrap();
+    // Revision 18: spec.md derives its id from the parent directory.
+    let fid = dir.file_name().and_then(|s| s.to_str()).unwrap_or("d1");
     let fragment = if passing {
         "state != \"blackhole\""
     } else {
@@ -1338,12 +1341,12 @@ fn write_dual68(dir: &std::path::Path, passing: bool) -> String {
     std::fs::write(
         &path,
         format!(
-            "---\nid: spec\nkind: intent\nstatement: \"THE delta SHALL be a scope-isolation fixture\"\n---\n\
+            "---\nid: {fid}\nkind: intent\nstatement: \"THE delta SHALL be a scope-isolation fixture\"\n---\n\
              \n## Constraints\n\
              \n| id | kind | expr | traces_to |\n\
              |----|------|------|-----------|\n\
-             | c1 | invariant | `**rust:** {fragment}` | [[spec]] |\n\
-             | c2 | invariant | `[[spec.c1]]` | [[spec]] |\n\
+             | c1 | invariant | `**rust:** {fragment}` | [[{fid}]] |\n\
+             | c2 | invariant | `[[{fid}.c1]]` | [[{fid}]] |\n\
              \n## Model\n\
              \n### States\n\
              \n- s1\n\
@@ -1351,12 +1354,12 @@ fn write_dual68(dir: &std::path::Path, passing: bool) -> String {
              \n### Transitions\n\
              \n| id | from | to | guard |\n\
              |----|------|----|-------|\n\
-             | t | s1 | s2 | [[spec.c1]] |\n\
+             | t | s1 | s2 | [[{fid}.c1]] |\n\
              \n## Properties\n\
              \n| id | kind | derives_from | generator | predicate |\n\
              |----|------|--------------|-----------|------------|\n\
-             | p_c1 | unit | [[spec.c1]] | `word()` | `**rust:** v0.len() >= 1` |\n\
-             | p_c2 | unit | [[spec.c2]] | `word()` | `**rust:** v0.len() >= 1` |\n"
+             | p_c1 | unit | [[{fid}.c1]] | `word()` | `**rust:** v0.len() >= 1` |\n\
+             | p_c2 | unit | [[{fid}.c2]] | `word()` | `**rust:** v0.len() >= 1` |\n"
         ),
     )
     .unwrap();
@@ -1613,17 +1616,28 @@ fn artifact_edit_after_report_is_rejected() {
 }
 
 #[test]
-fn dual_format_opposite_outcomes_isolated_scope_and_swapped_reports() {
+fn dual_format_opposite_outcomes_and_swapped_reports() {
     let td = tempfile::tempdir().unwrap();
     let d1 = write_dual68(&td.path().join("d1"), true);
     let d2 = write_dual68(&td.path().join("d2"), false); // opposite outcome
     let out = td.path().join("out");
-    // Combined invocation: isolated_scope_required before any writes.
+    // Revision 18 (specodelic-mcy): the retired `id: spec` isolated-scope
+    // rule is folded into the identity law — a combined invocation whose
+    // inputs claim the SAME intent id fails duplicate_corpus_identity
+    // before any writes. (Two dual-format files with distinct real ids
+    // compose like any other corpus.)
+    let d1x = {
+        let dir = td.path().join("d1x");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("spec.md");
+        std::fs::copy(&d1, &path).unwrap();
+        path.to_str().unwrap().to_string()
+    };
     let combined = spk()
         .args([
             "model-check",
             d1.as_str(),
-            d2.as_str(),
+            d1x.as_str(),
             "--json",
             "--out-dir",
             out.to_str().unwrap(),
@@ -1632,11 +1646,11 @@ fn dual_format_opposite_outcomes_isolated_scope_and_swapped_reports() {
         .unwrap();
     assert_ne!(combined.status.code(), Some(0));
     let stderr = String::from_utf8(combined.stderr).unwrap();
-    assert!(stderr.contains("isolated_scope_required"), "{stderr}");
+    assert!(stderr.contains("duplicate_corpus_identity"), "{stderr}");
     let stdout = String::from_utf8(combined.stdout).unwrap();
     assert!(
-        stdout.contains("separately") && stdout.contains("--out-dir"),
-        "split-run hint: {stdout}"
+        stdout.contains("rename"),
+        "hint to rename one file: {stdout}"
     );
     assert!(!out.join("spec.check.json").exists());
     // Separate runs in separate directories preserve each outcome.
@@ -1677,7 +1691,7 @@ fn dual_format_opposite_outcomes_isolated_scope_and_swapped_reports() {
     );
     let after = std::fs::read_to_string(out1.join("spec.check.json")).unwrap();
     assert_eq!(before, after);
-    // Multi-file dual-format lint remains valid (file-local identities).
+    // Distinct-real-id files lint together like any corpus.
     spk()
         .args(["lint", d1.as_str(), d2.as_str()])
         .assert()

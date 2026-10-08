@@ -82,12 +82,12 @@ pub mod spec_gen {
         Just("two_files_same_claim_names_opposite_invariants".into())
     }
 
-    pub fn id_spec_file_plus_any_other_parsed_input() -> impl Strategy<Value = String> {
-        Just("id_spec_file_plus_any_other_parsed_input".into())
+    pub fn two_parsed_files_claiming_the_same_intent_id() -> impl Strategy<Value = String> {
+        Just("two_parsed_files_claiming_the_same_intent_id".into())
     }
 
-    pub fn several_dual_format_files_linted_together() -> impl Strategy<Value = String> {
-        Just("several_dual_format_files_linted_together".into())
+    pub fn several_dual_format_files_with_distinct_ids_linted_and_checked_together() -> impl Strategy<Value = String> {
+        Just("several_dual_format_files_with_distinct_ids_linted_and_checked_together".into())
     }
 
 }
@@ -237,19 +237,19 @@ proptest! {
     fn swapped_reports_rejected_unrewritten(v0 in spec_gen::two_files_same_claim_names_opposite_invariants()) {
         todo_predicate!("`digest(a) ≠ digest(b) ∧ each run rejects the other's report without rewriting it`");
     }
-    // id: combined_dual_format_scope_refused
-    // generator: `id_spec_file_plus_any_other_parsed_input()`
-    // predicate: `check(invocation) == isolated_scope_required` before any artifact or report write
+    // id: combined_same_identity_scope_refused
+    // generator: `two_parsed_files_claiming_the_same_intent_id()`
+    // predicate: `check(invocation) == duplicate_corpus_identity` before any artifact or report write (Revision 18)
     #[test]
-    fn combined_dual_format_scope_refused(v0 in spec_gen::id_spec_file_plus_any_other_parsed_input()) {
-        todo_predicate!("`check(invocation) == isolated_scope_required` before any artifact or report write");
+    fn combined_same_identity_scope_refused(v0 in spec_gen::two_parsed_files_claiming_the_same_intent_id()) {
+        todo_predicate!("`check(invocation) == duplicate_corpus_identity` before any artifact or report write (Revision 18)");
     }
-    // id: multi_file_dual_format_lint_stays_valid
-    // generator: `several_dual_format_files_linted_together()`
-    // predicate: `check(lint) == valid` — the isolation is a command-evaluation rule, not a lint rule
+    // id: distinct_ids_compose_and_lint_together
+    // generator: `several_dual_format_files_with_distinct_ids_linted_and_checked_together()`
+    // predicate: `check(lint) == valid` — files with distinct real ids compose like any corpus (Revision 18)
     #[test]
-    fn multi_file_dual_format_lint_stays_valid(v0 in spec_gen::several_dual_format_files_linted_together()) {
-        todo_predicate!("`check(lint) == valid` — the isolation is a command-evaluation rule, not a lint rule");
+    fn distinct_ids_compose_and_lint_together(v0 in spec_gen::several_dual_format_files_with_distinct_ids_linted_and_checked_together()) {
+        todo_predicate!("`check(lint) == valid` — files with distinct real ids compose like any corpus (Revision 18)");
     }
 }
 

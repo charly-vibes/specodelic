@@ -1,5 +1,5 @@
 ---
-id: spec
+id: acset.writer
 kind: intent
 statement: "WHEN an instance edit is realized as text, THE acset-writer capability SHALL emit markdown that differs from the source only in the cells and links the edit touches, so that the typed core never costs the format its byte-stable round trip."
 ---
@@ -23,17 +23,18 @@ spans the edit names.
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| source_spans_recorded | invariant | `parsing records the byte span of every id cell, every [[link]] occurrence, and every state bullet; the writer edits only recorded spans and never re-serializes a table` | [[spec]] |
-| emit_identity | invariant | `emit(parse(x), no edit) == x byte for byte, for every spec file the parser accepts` | [[spec]] |
-| untouched_bytes_preserved | invariant | `bytes outside the rewritten spans of edited rows are identical to the source text — including prose, CRLF terminators, trailing whitespace, and table padding (the mechanical realization of rename.md's prose_untouched_by_rename)` | [[spec]] |
-| width_padding_policy | invariant | `when an id edit changes a cell's width the writer leaves surrounding padding unchanged, so a column may become unaligned; realignment is a separate explicit formatting operation and never a side effect of an edit` | [[spec]] |
-| filename_follows_intent_id | invariant | `an edit to a file's own Intent id also produces the file rename implied by specodelic.md's id_matches_file rule` | [[spec]] |
-| write_set_atomic | invariant | `the writer returns a write-set of (path, full new contents) plus optional removals and performs no I/O; applying it is the caller's single transaction (the shape of rename.md's atomic_operation write-set)` | [[spec]] |
-| edit_application_faithful | invariant | `for a morphism f : I → I' and source text x, from_specs(apply(f, x)) equals I' — the emitted text realizes exactly the instance the edit denotes` | [[spec]] |
-| edits_compose | invariant | `apply(g, apply(f, x)) == apply(compose(g, f), x)` | [[spec]] |
-| span_failure | effect | `spec.span_failure(detail) — the writer could not extract a recorded span because detail; the error envelope satisfies the fleet error contract (error-kind envelope, labeled, remediation hint present, non-zero exit)` | [[spec]] |
-| apply_failure | effect | `spec.apply_failure(detail) — an edit names an id no recorded span can realize because detail; the error envelope satisfies the fleet error contract (error-kind envelope, labeled, remediation hint present, non-zero exit)` | [[spec]] |
-| roundtrip_failure | effect | `spec.roundtrip_failure(detail) — the emitted text reparses to an instance other than the edit's target because detail; the error envelope satisfies the fleet error contract (error-kind envelope, labeled, remediation hint present, non-zero exit)` | [[spec]] |
+| process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[acset.writer]] |
+| source_spans_recorded | invariant | `parsing records the byte span of every id cell, every [[link]] occurrence, and every state bullet; the writer edits only recorded spans and never re-serializes a table` | [[acset.writer]] |
+| emit_identity | invariant | `emit(parse(x), no edit) == x byte for byte, for every spec file the parser accepts` | [[acset.writer]] |
+| untouched_bytes_preserved | invariant | `bytes outside the rewritten spans of edited rows are identical to the source text — including prose, CRLF terminators, trailing whitespace, and table padding (the mechanical realization of rename.md's prose_untouched_by_rename)` | [[acset.writer]] |
+| width_padding_policy | invariant | `when an id edit changes a cell's width the writer leaves surrounding padding unchanged, so a column may become unaligned; realignment is a separate explicit formatting operation and never a side effect of an edit` | [[acset.writer]] |
+| filename_follows_intent_id | invariant | `an edit to a file's own Intent id also produces the file rename implied by specodelic.md's id_matches_file rule` | [[acset.writer]] |
+| write_set_atomic | invariant | `the writer returns a write-set of (path, full new contents) plus optional removals and performs no I/O; applying it is the caller's single transaction (the shape of rename.md's atomic_operation write-set)` | [[acset.writer]] |
+| edit_application_faithful | invariant | `for a morphism f : I → I' and source text x, from_specs(apply(f, x)) equals I' — the emitted text realizes exactly the instance the edit denotes` | [[acset.writer]] |
+| edits_compose | invariant | `apply(g, apply(f, x)) == apply(compose(g, f), x)` | [[acset.writer]] |
+| span_failure | effect | `spec.span_failure(detail) — the writer could not extract a recorded span because detail; the error envelope satisfies the fleet error contract (error-kind envelope, labeled, remediation hint present, non-zero exit)` | [[acset.writer]] |
+| apply_failure | effect | `spec.apply_failure(detail) — an edit names an id no recorded span can realize because detail; the error envelope satisfies the fleet error contract (error-kind envelope, labeled, remediation hint present, non-zero exit)` | [[acset.writer]] |
+| roundtrip_failure | effect | `spec.roundtrip_failure(detail) — the emitted text reparses to an instance other than the edit's target because detail; the error envelope satisfies the fleet error contract (error-kind envelope, labeled, remediation hint present, non-zero exit)` | [[acset.writer]] |
 
 ## Model
 
@@ -42,37 +43,38 @@ spans the edit names.
 - `spanned`
 - `applied`
 - `verified`
-- `span_failed` (emits: `[[spec.span_failure]]`)
-- `apply_failed` (emits: `[[spec.apply_failure]]`)
-- `roundtrip_failed` (emits: `[[spec.roundtrip_failure]]`)
+- `span_failed` (emits: `[[acset.writer.span_failure]]`)
+- `apply_failed` (emits: `[[acset.writer.apply_failure]]`)
+- `roundtrip_failed` (emits: `[[acset.writer.roundtrip_failure]]`)
 
 ### Transitions
 
 | id | from | to | guard |
 |----|------|----|-------|
-| record | requested | spanned | [[spec.source_spans_recorded]] ∧ [[spec.emit_identity]] |
-| record_fail | requested | span_failed | `¬([[spec.source_spans_recorded]] ∧ [[spec.emit_identity]])` |
-| apply | spanned | applied | [[spec.untouched_bytes_preserved]] ∧ [[spec.width_padding_policy]] ∧ [[spec.filename_follows_intent_id]] ∧ [[spec.write_set_atomic]] |
-| apply_fail | spanned | apply_failed | `¬([[spec.untouched_bytes_preserved]] ∧ [[spec.width_padding_policy]] ∧ [[spec.filename_follows_intent_id]] ∧ [[spec.write_set_atomic]])` |
-| reparse | applied | verified | [[spec.edit_application_faithful]] ∧ [[spec.edits_compose]] |
-| reparse_fail | applied | roundtrip_failed | `¬([[spec.edit_application_faithful]] ∧ [[spec.edits_compose]])` |
+| record | requested | spanned | [[acset.writer.source_spans_recorded]] ∧ [[acset.writer.emit_identity]]  |
+| record_fail | requested | span_failed | `¬([[acset.writer.source_spans_recorded]] ∧ [[acset.writer.emit_identity]])`  |
+| apply | spanned | applied | [[acset.writer.untouched_bytes_preserved]] ∧ [[acset.writer.width_padding_policy]] ∧ [[acset.writer.filename_follows_intent_id]] ∧ [[acset.writer.write_set_atomic]]  |
+| apply_fail | spanned | apply_failed | `¬([[acset.writer.untouched_bytes_preserved]] ∧ [[acset.writer.width_padding_policy]] ∧ [[acset.writer.filename_follows_intent_id]] ∧ [[acset.writer.write_set_atomic]])`  |
+| reparse | applied | verified | [[acset.writer.edit_application_faithful]] ∧ [[acset.writer.edits_compose]]  |
+| reparse_fail | applied | roundtrip_failed | `¬([[acset.writer.edit_application_faithful]] ∧ [[acset.writer.edits_compose]])`  |
 
 ## Properties
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
-| span_covers_every_link | unit | [[spec.source_spans_recorded]] | `arbitrary_spec_file()` | `card(link_spans) == card(links(parse(x)))` |
-| identity_emission_exact | unit | [[spec.emit_identity]] | `arbitrary_accepted_spec_file()` | `emit(parse(x)) == x` |
-| crlf_survives_edit | unit | [[spec.untouched_bytes_preserved]] | `crlf_file_with_one_renamed_id()` | `line_terminators(apply(f,x)) == line_terminators(x)` |
-| prose_survives_edit | unit | [[spec.untouched_bytes_preserved]] | `row_whose_prose_mentions_the_old_id_as_a_word()` | `prose_bytes(apply(f,x)) == prose_bytes(x)` |
-| padding_not_realigned | unit | [[spec.width_padding_policy]] | `rename_that_lengthens_an_id_in_an_aligned_table()` | `padding_bytes(apply(f,x)) == padding_bytes(x)` |
-| intent_rename_moves_file | unit | [[spec.filename_follows_intent_id]] | `rename_of_a_files_own_intent_id()` | `path(apply(f,x)) == mapped_filename(new_id)` and one removal is returned |
-| writer_does_no_io | unit | [[spec.write_set_atomic]] | `apply_with_io_calls_instrumented()` | `io_calls == 0` |
-| text_realizes_instance | unit | [[spec.edit_application_faithful]] | `arbitrary_spec_file(), arbitrary_id_rename()` | `from_specs(apply(f,x)) == rename(from_specs(x),a,b)` |
-| writer_edit_law | law | [[spec.edits_compose]] | `arbitrary_spec_file(), arbitrary_morphism_pair()` | **identity:** `apply(id, x) == x`  **associativity:** `apply(g, apply(f, x)) == apply(compose(g, f), x)` |
-| span_failure_label_asserted | unit | [[spec.span_failure]] | `span_failure_raised()` | `error_label == "spec.span_failure"` |
-| apply_failure_label_asserted | unit | [[spec.apply_failure]] | `apply_failure_raised()` | `error_label == "spec.apply_failure"` |
-| roundtrip_failure_label_asserted | unit | [[spec.roundtrip_failure]] | `roundtrip_failure_raised()` | `error_label == "spec.roundtrip_failure"` |
+| process_lifecycle_checked | unit | [[acset.writer.process_lifecycle]] | `lifecycle_model_present()` | `check(file) == passed` |
+| span_covers_every_link | unit | [[acset.writer.source_spans_recorded]] | `arbitrary_spec_file()` | `card(link_spans) == card(links(parse(x)))` |
+| identity_emission_exact | unit | [[acset.writer.emit_identity]] | `arbitrary_accepted_spec_file()` | `emit(parse(x)) == x` |
+| crlf_survives_edit | unit | [[acset.writer.untouched_bytes_preserved]] | `crlf_file_with_one_renamed_id()` | `line_terminators(apply(f,x)) == line_terminators(x)` |
+| prose_survives_edit | unit | [[acset.writer.untouched_bytes_preserved]] | `row_whose_prose_mentions_the_old_id_as_a_word()` | `prose_bytes(apply(f,x)) == prose_bytes(x)` |
+| padding_not_realigned | unit | [[acset.writer.width_padding_policy]] | `rename_that_lengthens_an_id_in_an_aligned_table()` | `padding_bytes(apply(f,x)) == padding_bytes(x)` |
+| intent_rename_moves_file | unit | [[acset.writer.filename_follows_intent_id]] | `rename_of_a_files_own_intent_id()` | `path(apply(f,x)) == mapped_filename(new_id)` and one removal is returned |
+| writer_does_no_io | unit | [[acset.writer.write_set_atomic]] | `apply_with_io_calls_instrumented()` | `io_calls == 0` |
+| text_realizes_instance | unit | [[acset.writer.edit_application_faithful]] | `arbitrary_spec_file(), arbitrary_id_rename()` | `from_specs(apply(f,x)) == rename(from_specs(x),a,b)` |
+| writer_edit_law | law | [[acset.writer.edits_compose]] | `arbitrary_spec_file(), arbitrary_morphism_pair()` | **identity:** `apply(id, x) == x`  **associativity:** `apply(g, apply(f, x)) == apply(compose(g, f), x)` |
+| span_failure_label_asserted | unit | [[acset.writer.span_failure]] | `span_failure_raised()` | `error_label == "spec.span_failure"` |
+| apply_failure_label_asserted | unit | [[acset.writer.apply_failure]] | `apply_failure_raised()` | `error_label == "spec.apply_failure"` |
+| roundtrip_failure_label_asserted | unit | [[acset.writer.roundtrip_failure]] | `roundtrip_failure_raised()` | `error_label == "spec.roundtrip_failure"` |
 
 ## ADDED Requirements
 

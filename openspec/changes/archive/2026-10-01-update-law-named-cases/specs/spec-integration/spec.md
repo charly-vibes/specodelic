@@ -1,9 +1,3 @@
----
-id: spec
-kind: intent
-statement: "WHEN a dual-format delta file carries a MODIFIED Requirements section, THE mirror rules SHALL treat that section exactly as the ADDED section — declaring `id: spec`, pairing the sibling mirror, and failing CI on drift."
----
-
 # spec-integration Specification
 
 ## Purpose
@@ -16,9 +10,9 @@ changes.
 
 | id                        | kind      | expr                                                                                                                                             | traces_to |
 |---------------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| modified_declares_id_spec | invariant | `a file carrying ## MODIFIED Requirements declares id: spec and pairs it with a sibling ## Requirements mirror, exactly as the ADDED rule requires` | [[spec]]  |
-| modified_mirror_synced    | invariant | `the ## Requirements mirror holds the same requirement text as ## MODIFIED Requirements; divergence fails CI naming the divergent requirement`      | [[spec]]  |
-| added_rules_unchanged     | invariant | `every ADDED-section rule keeps firing with unchanged semantics — the widening is additive, never a replacement`                                   | [[spec]]  |
+| modified_declares_id_spec | invariant | `a file carrying ## MODIFIED Requirements declares id: spec and pairs it with a sibling ## Requirements mirror, exactly as the ADDED rule requires` | [[spec.integration]]  |
+| modified_mirror_synced    | invariant | `the ## Requirements mirror holds the same requirement text as ## MODIFIED Requirements; divergence fails CI naming the divergent requirement`      | [[spec.integration]]  |
+| added_rules_unchanged     | invariant | `every ADDED-section rule keeps firing with unchanged semantics — the widening is additive, never a replacement`                                   | [[spec.integration]]  |
 
 ## Model
 
@@ -32,16 +26,16 @@ changes.
 
 | id     | from       | to       | guard                                                            |
 |--------|------------|----------|------------------------------------------------------------------|
-| widen  | added_only | widened  | [[spec.modified_declares_id_spec]]                               |
-| gate   | widened    | gated    | [[spec.modified_mirror_synced]] ∧ [[spec.added_rules_unchanged]] |
+| widen  | added_only | widened  | [[spec.integration.modified_declares_id_spec]]                               |
+| gate   | widened    | gated    | [[spec.integration.modified_mirror_synced]] ∧ [[spec.integration.added_rules_unchanged]] |
 
 ## Properties
 
 | id                     | kind | derives_from                      | generator                                        | predicate                                                     |
 |------------------------|------|-----------------------------------|--------------------------------------------------|----------------------------------------------------------------|
-| modified_drift_fails   | unit | [[spec.modified_mirror_synced]]   | `modified_delta_with_drifted_mirror()`           | `ci_sync_check(f) == failed` (names the divergent requirement) |
-| modified_id_enforced   | unit | [[spec.modified_declares_id_spec]]| `modified_delta_with_non_spec_id()`              | `spk_lint(f) == failed` (dual_format_valid)                    |
-| added_tests_unchanged  | unit | [[spec.added_rules_unchanged]]    | `the pre-widening ADDED fixture suite`           | `every existing ADDED-rule test passes unchanged`              |
+| modified_drift_fails   | unit | [[spec.integration.modified_mirror_synced]]   | `modified_delta_with_drifted_mirror()`           | `ci_sync_check(f) == failed` (names the divergent requirement) |
+| modified_id_enforced   | unit | [[spec.integration.modified_declares_id_spec]]| `modified_delta_with_non_spec_id()`              | `spk_lint(f) == failed` (dual_format_valid)                    |
+| added_tests_unchanged  | unit | [[spec.integration.added_rules_unchanged]]    | `the pre-widening ADDED fixture suite`           | `every existing ADDED-rule test passes unchanged`              |
 
 ## MODIFIED Requirements
 

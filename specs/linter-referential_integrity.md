@@ -68,10 +68,13 @@ undocumented"):
 1. **Exact file id** — the whole target names a file; file id wins over
    any split interpretation.
 2. **Bare-local row** — a dotless target naming one of the SOURCE
-   file's own rows resolves to that row. Outside `id: spec` files this
-   arm is masked by the metasyntactic skip (a dotless target naming no
-   file id is format prose, not a reference), so in practice only
-   self-contained deltas use bare row spelling.
+   file's own rows resolves to that row. In practice this arm is masked
+   by the metasyntactic skip (a dotless target naming no file id is
+   format prose, not a reference) — it is the safety net that keeps a
+   dotless spelling meaningful when a file id shadows it. Revision 18
+   note: the old "only self-contained `id: spec` deltas reach this
+   arm" reading retired with `id: spec` itself; every file resolves
+   corpus-wide and authors spell rows file-qualified.
 3. **Every dot split, last to first** — `prefix` must be a known file
    id and the remainder must be one of: a row of that file, the
    `model.state`/`model.transition` section anchor, or `row.member`

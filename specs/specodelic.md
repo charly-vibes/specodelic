@@ -31,7 +31,7 @@ the project/format/tool/subject terminology).
 | model_present            | invariant | `[[model.state]] and [[model.transition]] sections both exist`             | [[specodelic]]  |
 | no_counterexample        | invariant | `the selected model-check backend (see [[model_check]]) finds no violated invariant`                    | [[specodelic]]  |
 | properties_pass          | invariant | `all compiled proptest! blocks pass`                                       | [[specodelic]]  |
-| id_matches_file          | invariant | `frontmatter.id == replace(stem(path), "-", ".")` — `-` maps only to the namespace dot; `_` is preserved literally within a segment. E.g. `linter-graph_shape.md` declares `id: linter.graph_shape` | [[specodelic]]  |
+| id_matches_file          | invariant | `frontmatter.id == expected_id_from_path(path)` — a file named `spec.md` derives its id from its PARENT DIRECTORY name; any other file from its own stem; `-` maps only to the namespace dot, `_` is preserved literally within a segment; a bare `spec.md` with no parent directory falls back to the stem. E.g. `linter-graph_shape.md` declares `id: linter.graph_shape`; `openspec/specs/ge-cli/spec.md` declares `id: ge.cli` (Revision 18) | [[specodelic]]  |
 | ref_kind_compatible      | invariant | `∀ ref: target.kind ∈ allowed_targets(field)` — see Reference Typing below | [[specodelic]]  |
 | single_root_reachable    | invariant | `∀ constraint/property/state/transition row in file: the row reaches the file's own intent row through own-file primary linkage (traces_to/derives_from chains resolved within the file)` — cross-file typed edges (`guard` citations of foreign constraints, `satisfies`, `observes`) are outbound leaves, never reachability paths | [[specodelic]]  |
 | every_state_used         | invariant | `∀ state: state appears as from or to in ≥ 1 transition`                   | [[specodelic]]  |
@@ -880,3 +880,49 @@ with the **kernel:** marker; their per-file migration (USAGE.md examples,
 then this file's invariants) was gated lint-clean and command-verified
 before this Revision's heading, and this Revision declares the grammar
 those cells use. Nothing valid at Revision 16 is invalidated.
+
+## Revision 18 — 2026-10-08
+
+**Single-tree spec authoring: the id law derives `spec.md` from its
+parent directory** (`update-id-derivation-spec-md`, specodelic-mcy,
+2026-10-08). The old law — `frontmatter.id == replace(stem(path), "-",
+".")` — forced every file named `spec.md` (the openspec-mandated
+filename, delta or deployed capability spec) to declare `id: spec`, and
+`id: spec` files resolved as self-contained (refs within the file only,
+`total_refs`/`total_refs`'s scoped index, and the command scope law's
+`isolated_scope_required` arm). That structurally locked a two-tree
+architecture: a real-id corpus for the typed graph plus a deployed
+dual-format tree produced by per-repo hand-rolled deploy transforms.
+This Revision retires the distinction with one rule:
+
+- **The id law** — `expected_id_from_path(path)`: a file named
+  `spec.md` derives its expected id from its PARENT DIRECTORY name
+  (`openspec/specs/ge-cli/spec.md` → `id: ge.cli`); any other file
+  derives from its own stem; `-` maps to the namespace dot, `_` is
+  literal; a bare `spec.md` with no parent directory falls back to the
+  stem. A real-id corpus file dropped as `openspec/specs/<cap>/spec.md`
+  yields exactly one finding — a mismatched `id_matches_file`.
+- **`id: spec` retires.** `dual_format_valid` no longer polices the id
+  (the naming law is the only id gate a dual-format file answers to),
+  `total_refs` resolves every file corpus-wide (the self-containment
+  scoping and its bare-local arm are gone — real-id files are
+  distinguished by their own ids, so the false-resolution CORR-001
+  guarded against needed the `id: spec` collision to exist), and the
+  command scope law reduces to `duplicate_corpus_identity`
+  (`model_check.md`'s isolated-scope rule retired with its subject).
+  Real-id dual-format files compose like any corpus; a same-id pair
+  (transitionally: an active change's delta and its deployed spec) is
+  refused by the identity law on command paths.
+- **Scaffolds teach the single tree.** `spk new` targets
+  `openspec/specs/<id>/spec.md` by default; `spk migrate` generates the
+  real derived id in the frontmatter it scaffolds. New users cannot
+  produce the two-tree distinction.
+
+Pure widening plus one narrowing of dead machinery: nothing valid at
+Revision 17 is invalidated — a file that satisfied the old law still
+satisfies the new one (stem files were already stem-derived; `spec.md`
+files under capability directories now satisfy the law with their real
+ids, which the old law rejected — but no corpus content at Revision 17
+depended on that rejection being the only legal reading). The
+`rename` tool's filename law (`rename.md`'s
+`new_id_matches_filename`) inherits `expected_id_from_path` verbatim.

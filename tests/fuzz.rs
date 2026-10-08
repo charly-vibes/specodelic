@@ -318,7 +318,7 @@ fn exercise_lib(corpus: &[(String, String)], other: &[(String, String)]) {
     // Whole-text consumers: parse, migrate, verify's block scanner.
     for (_, text) in corpus {
         let _ = parse_str(text);
-        let _ = migrate::migrate(text);
+        let _ = migrate::migrate(text, std::path::Path::new("spec.md"));
         let _ = verify::blocks_from_source(text);
     }
 

@@ -93,7 +93,7 @@ traces_to = "[[specodelic]]"
 [[constraints]]
 id = "id_matches_file"
 kind = "invariant"
-expr = '`frontmatter.id == replace(stem(path), "-", ".")` — `-` maps only to the namespace dot; `_` is preserved literally within a segment. E.g. `linter-graph_shape.md` declares `id: linter.graph_shape`'
+expr = "`frontmatter.id == expected_id_from_path(path)` — a file named `spec.md` derives its id from its PARENT DIRECTORY name; any other file from its own stem; `-` maps only to the namespace dot, `_` is preserved literally within a segment; a bare `spec.md` with no parent directory falls back to the stem. E.g. `linter-graph_shape.md` declares `id: linter.graph_shape`; `openspec/specs/ge-cli/spec.md` declares `id: ge.cli` (Revision 18)"
 traces_to = "[[specodelic]]"
 
 [[constraints]]

@@ -470,28 +470,30 @@ fn verify_accepts_clean_report_with_current_artifacts() {
 }
 
 #[test]
-fn orchestrate_refuses_combined_dual_format_scope_before_any_stage() {
-    // The D3 preflight rides orchestrate too: a dual-format id:spec
-    // file plus any other parsed input fails isolated_scope_required
+fn orchestrate_refuses_combined_same_identity_scope_before_any_stage() {
+    // H2 (RO5U), revised Revision 18 (specodelic-mcy): the scope law is
+    // the identity law — orchestrate's preflight refuses a same-id pair
     // before lint, compile, model_check or verify write anything.
     let td = tempfile::tempdir().unwrap();
-    std::fs::create_dir_all(td.path().join("d1")).unwrap();
-    std::fs::write(
-        td.path().join("d1/spec.md"),
-        "---\nid: spec\nkind: intent\nstatement: \"THE delta SHALL stay isolated\"\n---\n\
-         \n## Constraints\n\
-         \n| id | kind | expr | traces_to |\n\
-         |----|------|------|-----------|\n\
-         | c1 | invariant | `holds` | [[spec]] |\n",
-    )
-    .unwrap();
-    write_model_check_spec(&td.path().join("ord.md"), "ord");
+    let write_dup = |path: &std::path::Path| {
+        std::fs::write(
+            path,
+            "---\nid: dup_id\nkind: intent\nstatement: \"THE ord SHALL hold\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | c1 | invariant | `holds` | [[dup_id]] |\n",
+        )
+        .unwrap();
+    };
+    write_dup(&td.path().join("dup_one.md"));
+    write_dup(&td.path().join("dup_two.md"));
     let out = td.path().join("out");
     let result = spk()
         .args([
             "orchestrate",
-            td.path().join("d1/spec.md").to_str().unwrap(),
-            td.path().join("ord.md").to_str().unwrap(),
+            td.path().join("dup_one.md").to_str().unwrap(),
+            td.path().join("dup_two.md").to_str().unwrap(),
             "--json",
             "--out-dir",
             out.to_str().unwrap(),
@@ -500,14 +502,10 @@ fn orchestrate_refuses_combined_dual_format_scope_before_any_stage() {
         .unwrap();
     assert_ne!(result.status.code(), Some(0));
     let stderr = String::from_utf8(result.stderr).unwrap();
-    assert!(stderr.contains("isolated_scope_required"), "{stderr}");
-    let stdout = String::from_utf8(result.stdout).unwrap();
-    assert!(stdout.contains("separately"), "{stdout}");
+    assert!(stderr.contains("duplicate_corpus_identity"), "{stderr}");
     // Before ANY stage writes: no artifacts, no reports.
-    assert!(!out.join("spec.tla").exists());
-    assert!(!out.join("ord.tla").exists());
+    assert!(!out.exists());
 }
-
 #[test]
 fn verify_executes_failing_predicate_blocks() {
     // Cargo-backed honest-execution path: the translated predicate body

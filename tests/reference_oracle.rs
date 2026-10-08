@@ -471,14 +471,36 @@ mod oracle {
                 format!("{}: missing/empty statement", file.path),
             ));
         }
-        let stem = Path::new(&file.path)
+        // Revision 18 (specodelic-mcy): expected_id_from_path — a file
+        // named spec.md derives its expected id from its PARENT DIRECTORY
+        // name; any other file from its own stem; a bare spec.md falls
+        // back to the stem.
+        let path = Path::new(&file.path);
+        let stem = path
             .file_stem()
             .map(|s| s.to_string_lossy().replace('-', "."))
             .unwrap_or_default();
-        if *id != stem {
+        let expected = if stem == "spec"
+            && path
+                .parent()
+                .and_then(|p| p.file_name())
+                .and_then(|s| s.to_str())
+                .map(|d| d.replace('-', "."))
+                .filter(|d| !d.is_empty())
+                .is_some_and(|d| !d.is_empty())
+        {
+            path.parent()
+                .and_then(|p| p.file_name())
+                .and_then(|s| s.to_str())
+                .unwrap()
+                .replace('-', ".")
+        } else {
+            stem
+        };
+        if *id != expected {
             out.push(finding(
                 "oracle.frontmatter_id_matches_file",
-                format!("{}: id {id:?} != stem-derived {stem:?}", file.path),
+                format!("{}: id {id:?} != expected {expected:?}", file.path),
             ));
         }
     }

@@ -1,5 +1,22 @@
 # Changelog
 
+## #124 — Revision 18: id derivation — `spec.md` takes its id from its parent directory (update-id-derivation-spec-md, specodelic-mcy)
+
+The naming law no longer forces `id: spec` on openspec-housed files. A
+file named `spec.md` derives its expected id from its PARENT DIRECTORY
+name (`openspec/specs/ge-cli/spec.md` → `id: ge.cli`; `-` ⇔ `.`; `_`
+literal; a bare `spec.md` falls back to the stem), so single-tree spec
+authoring — one corpus, real ids, no deploy transforms — is now legal
+format. `id: spec` retires with its whole machinery: `dual_format_valid`
+no longer polices the id, `total_refs` resolves every file corpus-wide
+(the self-containment scoping and its bare-local arm are gone), the
+command scope law folds `isolated_scope_required` into
+`duplicate_corpus_identity`, `spk new` defaults to
+`openspec/specs/<id>/spec.md`, and `spk migrate` scaffolds the real
+derived id. FORMAT_REVISION 17 → 18; this repo's openspec tree migrated
+in the same change (archived deltas drop their frontmatter as frozen
+pre-protocol evidence).
+
 ## #123 — v0.6.0: kernel + verification-claims capabilities ship; the exit-code/envelope contract enforced end-to-end
 
 First release carrying the two new deployed openspec capabilities —

@@ -1,5 +1,5 @@
 ---
-id: spec
+id: embedded.guide
 kind: intent
 statement: "THE CLI SHALL serve an embedded, repository-free guide to the format through spk explain and keep that knowledge pinned to a corpus revision."
 ---
@@ -17,10 +17,11 @@ tables.
 
 | id               | kind      | expr                                                                                                                                              | traces_to |
 |------------------|-----------|----------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| explain_topics   | invariant | `spk explain serves exactly six topics — format, ears, kinds, references, lifecycle, lint-rules — over the standard envelope; unknown topics fail with a hint listing valid ones` | [[spec]]  |
-| revision_pinned  | invariant | `FORMAT_REVISION names the mirrored corpus revision and appears in spk --version --json and every explain payload`                                  | [[spec]]  |
-| drift_guard      | invariant | `the test suite fails when FORMAT_REVISION lags the corpus's latest Revision N heading, compared numerically`                                       | [[spec]]  |
-| scaffold_teaches | invariant | `spk new generates per-layer guidance comments that the linter ignores`                                                                             | [[spec]]  |
+| process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[embedded.guide]] |
+| explain_topics   | invariant | `spk explain serves exactly six topics — format, ears, kinds, references, lifecycle, lint-rules — over the standard envelope; unknown topics fail with a hint listing valid ones` | [[embedded.guide]]  |
+| revision_pinned  | invariant | `FORMAT_REVISION names the mirrored corpus revision and appears in spk --version --json and every explain payload`                                  | [[embedded.guide]]  |
+| drift_guard      | invariant | `the test suite fails when FORMAT_REVISION lags the corpus's latest Revision N heading, compared numerically`                                       | [[embedded.guide]]  |
+| scaffold_teaches | invariant | `spk new generates per-layer guidance comments that the linter ignores`                                                                             | [[embedded.guide]]  |
 
 ## Model
 
@@ -33,17 +34,18 @@ tables.
 
 | id       | from     | to       | guard                    |
 |----------|----------|----------|--------------------------|
-| resolve  | queried  | resolved | [[spec.explain_topics]]  |
-| render   | resolved | rendered | [[spec.revision_pinned]] |
+| resolve  | queried  | resolved | [[embedded.guide.explain_topics]]  |
+| render   | resolved | rendered | [[embedded.guide.revision_pinned]]  |
 
 ## Properties
 
 | id         | kind | derives_from             | generator             | predicate                                   |
 |------------|------|--------------------------|-----------------------|---------------------------------------------|
-| p_topics   | unit | [[spec.explain_topics]]  | `arbitrary_topic()`   | `known ⇒ body_nonempty ∧ unknown ⇒ hint`     |
-| p_revision | unit | [[spec.revision_pinned]] | `arbitrary_version()` | `payload.contains(format_revision)`          |
-| p_drift    | unit | [[spec.drift_guard]]     | `stale_constant()`    | `numeric(latest) > numeric(FORMAT_REVISION) ⇒ test_fails` |
-| p_scaffold | unit | [[spec.scaffold_teaches]] | `arbitrary_new_file()` | `guidance_present ∧ lint(f) == zero_issues` |
+| process_lifecycle_checked | unit | [[embedded.guide.process_lifecycle]] | `lifecycle_model_present()` | `check(file) == passed` |
+| p_topics   | unit | [[embedded.guide.explain_topics]]  | `arbitrary_topic()`   | `known ⇒ body_nonempty ∧ unknown ⇒ hint`     |
+| p_revision | unit | [[embedded.guide.revision_pinned]] | `arbitrary_version()` | `payload.contains(format_revision)`          |
+| p_drift    | unit | [[embedded.guide.drift_guard]]     | `stale_constant()`    | `numeric(latest) > numeric(FORMAT_REVISION) ⇒ test_fails` |
+| p_scaffold | unit | [[embedded.guide.scaffold_teaches]] | `arbitrary_new_file()` | `guidance_present ∧ lint(f) == zero_issues` |
 
 ## Requirements
 ### Requirement: Embedded Format Guide Command

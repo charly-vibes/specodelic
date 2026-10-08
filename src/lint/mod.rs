@@ -23,8 +23,8 @@ mod rules;
 pub(crate) use graph::{Index, lint_graph_shape, lint_references, resolves_row};
 pub(crate) use observability::{lint_coverage, lint_observability};
 pub(crate) use rules::{
-    lint_ears_family, lint_failure_shape_family, lint_frontmatter_family, lint_model_family,
-    lint_referential_family, lint_schema_shape_family,
+    expected_id_from_path, lint_ears_family, lint_failure_shape_family, lint_frontmatter_family,
+    lint_model_family, lint_referential_family, lint_schema_shape_family,
 };
 
 /// One lint finding.
@@ -73,7 +73,7 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
     ),
     (
         "id_matches_file",
-        "frontmatter `id` must equal the filename stem with `-` mapped to `.` (`_` is literal)",
+        "frontmatter `id` must equal the filename stem with `-` mapped to `.` (`_` is literal); a `spec.md` file derives its expected id from its parent directory (Revision 18)",
     ),
     (
         "unique_id",
@@ -101,7 +101,7 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
     ),
     (
         "total_refs",
-        "every structured-field [[link]] must resolve to a definition somewhere in the corpus — dual-format `id: spec` files are self-contained: their refs must resolve within the file itself",
+        "every structured-field [[link]] must resolve to a definition somewhere in the corpus (Revision 18: all files resolve corpus-wide — the former `id: spec` self-containment retired)",
     ),
     (
         "coverage",
@@ -121,7 +121,7 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
     ),
     (
         "dual_format_valid",
-        "a file carrying `## ADDED Requirements` must be a dual-format file — declare `id: spec` and pair it with a sibling `## Requirements` section",
+        "a file carrying `## ADDED Requirements` must be a dual-format file — pair it with a sibling `## Requirements` section (Revision 18: the id is the naming law's business, not this rule's)",
     ),
     (
         "terminal_states_emit",
@@ -1390,28 +1390,6 @@ mod tests {
     }
 
     #[test]
-    fn dual_format_file_with_wrong_id_fires() {
-        // id: spec is the naming law for openspec-housed dual-format
-        // files (openspec hard-requires the spec.md filename).
-        let spec = spec_at(
-            "---\nid: other.thing\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: Something\nThe system SHALL do the thing.\n\n## Requirements\n\n### Requirement: Something\nThe system SHALL do the thing.\n",
-            "other-thing.md",
-        );
-        let report = lint_corpus(&[spec]);
-        let issues: Vec<_> = report
-            .issues
-            .iter()
-            .filter(|i| i.rule_id == "linter.dual_format_valid")
-            .collect();
-        assert_eq!(issues.len(), 1, "wrong id: {:?}", issues);
-        assert!(
-            issues[0].message.contains("id: spec"),
-            "message names the required id: {}",
-            issues[0].message
-        );
-    }
-
-    #[test]
     fn plain_spec_without_added_section_is_exempt() {
         // Corpus files (no ## ADDED Requirements) must not be touched
         // by the dual-format rule.
@@ -1585,24 +1563,10 @@ mod tests {
         );
     }
 
-    #[test]
-    fn modified_delta_with_non_spec_id_fires_dual_format_valid() {
-        // update-law-named-cases 4.2: a MODIFIED-carrying file must
-        // declare id: spec, exactly like an ADDED-carrying one.
-        let spec = spec_at(
-            "---\nid: demo.thing\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## MODIFIED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds\n",
-            "spec.md",
-        );
-        let report = lint_all(&[spec], &checklist_fixtures());
-        assert!(
-            report
-                .issues
-                .iter()
-                .any(|i| i.rule_id == "linter.dual_format_valid"),
-            "MODIFIED-carrying file with a non-spec id must fire dual_format_valid: {:?}",
-            report.issues
-        );
-    }
+    /// Revision 18 (specodelic-mcy): the dual-format self-containment
+    /// law retires with `id: spec` — every file resolves corpus-wide,
+    /// so a ref to a row in ANOTHER real-id dual-format file resolves
+    /// instead of dangling.
 
     #[test]
     fn modified_delta_in_sync_lints_clean() {
@@ -1634,61 +1598,18 @@ mod tests {
         );
     }
 
-    /// Two files sharing the same id (openspec naming law forces every
-    /// dual-format delta/capability file to be `spec.md` → `id: spec`)
-    /// must not erase each other from the reference index: every file's
-    /// OWN rows stay resolvable (the #37 bug was an overwrite erasing
-    /// them). Since #42's self-containment law they must also NOT see
-    /// each other's rows — see the next test.
-    #[test]
-    fn same_id_files_do_not_collide_in_reference_resolution() {
-        let make = |c: &str, p: &str, path: &str| {
-            spec_at(
-                &format!(
-                    "---\nid: spec\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| {c} | invariant | `x` | [[spec]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[spec.{c}]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| {p} | unit | [[spec.{c}]] | `g()` | `x` |\n"
-                ),
-                path,
-            )
-        };
-        let a = make("ca", "pa", "a/spec.md");
-        let b = make("cb", "pb", "b/spec.md");
-        let report = lint_corpus(&[a, b]);
-        assert!(
-            report.issues.is_empty(),
-            "same-id files must not dangle each other's rows: {:?}",
-            report.issues
-        );
-    }
+    /// Two files sharing the same file id (the transitional Revision 18
+    /// state: an active change's delta and the deployed capability spec
+    /// both live at `<cap>/spec.md` and both derive id `<cap>`) must not
+    /// erase each other from the reference index: every file's OWN rows
+    /// stay resolvable (the #37 bug was an overwrite erasing them).
 
-    /// The dual-format self-containment law (spec-integration: "deltas
-    /// stay self-contained — wiki-refs resolve only within the file"):
-    /// for `id: spec` files a dotted ref must resolve against the file's
-    /// OWN rows only. The corpus-wide union false-resolves any typo that
-    /// collides with a row in another dual-format file (Rule-of-5
-    /// CORR-001, demonstrated empirically).
-    #[test]
-    fn same_id_files_resolve_file_scoped_self_containment() {
-        let a = spec_at(
-            "---\nid: spec\nkind: intent\nstatement: \"THE a SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| local_a | invariant | `x` | |\n| cross | invariant | `y` | [[spec.row_in_b]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[spec.local_a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pa | unit | [[spec.local_a]] | `g()` | `x` |\n| pc | unit | [[spec.cross]] | `g()` | `y` |\n\n## Requirements\n\n### Requirement: A\nThe system SHALL hold.\n",
-            "a/spec.md",
-        );
-        let b = spec_at(
-            "---\nid: spec\nkind: intent\nstatement: \"THE b SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| row_in_b | invariant | `z` | |\n\n## Model\n\n### States\n\n- `s2`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s2 | s2 | [[spec.row_in_b]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pb | unit | [[spec.row_in_b]] | `g()` | `z` |\n\n## Requirements\n\n### Requirement: B\nThe system SHALL hold.\n",
-            "b/spec.md",
-        );
-        let report = lint_corpus(&[a, b]);
-        let refs: Vec<_> = report
-            .issues
-            .iter()
-            .filter(|i| i.rule_id == "linter.total_refs")
-            .collect();
-        assert_eq!(refs.len(), 1, "cross-file ref must dangle: {:?}", refs);
-        assert!(
-            refs[0].message.contains("spec.row_in_b"),
-            "names the self-containment violation: {}",
-            refs[0].message
-        );
-    }
+    /// Revision 18 (specodelic-mcy): the self-containment law retired
+    /// WITH `id: spec`. Real-id dual-format files are distinguished by
+    /// their own file ids, so a dotted ref resolves corpus-wide and a
+    /// typo whose file segment names no real file still dangles — the
+    /// false-resolution CORR-001 guarded against needed the id:spec
+    /// collision to exist.
 
     // --- specodelic-b15: model_shape remainder + graph_shape ---
 
@@ -2046,6 +1967,9 @@ mod tests {
             "dotted targets are never metasyntactic"
         );
     }
+
+    #[path = "revision18.rs"]
+    mod revision18;
 }
 
 #[cfg(test)]

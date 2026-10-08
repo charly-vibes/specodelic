@@ -142,6 +142,8 @@ fn assert_status(list: &[(String, String)], id: &str, status: &str) {
 /// `!passing` the counterexample fragment.
 fn write_dual_spec(dir: &std::path::Path, passing: bool) {
     std::fs::create_dir_all(dir).unwrap();
+    // Revision 18: spec.md derives its id from the parent directory.
+    let fid = dir.file_name().and_then(|s| s.to_str()).unwrap_or("d1");
     let fragment = if passing {
         "state != \"blackhole\""
     } else {
@@ -150,15 +152,15 @@ fn write_dual_spec(dir: &std::path::Path, passing: bool) {
     std::fs::write(
         dir.join("spec.md"),
         format!(
-            "---\nid: spec\nkind: intent\nstatement: \"THE delta SHALL be a dual-format model-check fixture\"\n---\n\
-             \n# spec Specification\n\
+            "---\nid: {fid}\nkind: intent\nstatement: \"THE delta SHALL be a dual-format model-check fixture\"\n---\n\
+             \n# {fid} Specification\n\
              \n## Purpose\n\
              \nMinimal dual-format model-check fixture.\n\
              \n## Constraints\n\
              \n| id | kind | expr | traces_to |\n\
              |----|------|------|-----------|\n\
-             | c1 | invariant | `**rust:** {fragment}` | [[spec]] |\n\
-             | c2 | invariant | `[[spec.c1]]` | [[spec]] |\n\
+             | c1 | invariant | `**rust:** {fragment}` | [[{fid}]] |\n\
+             | c2 | invariant | `[[{fid}.c1]]` | [[{fid}]] |\n\
              \n## Model\n\
              \n### States\n\
              \n- s1\n\
@@ -166,12 +168,12 @@ fn write_dual_spec(dir: &std::path::Path, passing: bool) {
              \n### Transitions\n\
              \n| id | from | to | guard |\n\
              |----|------|----|-------|\n\
-             | t | s1 | s2 | [[spec.c1]] |\n\
+             | t | s1 | s2 | [[{fid}.c1]] |\n\
              \n## Properties\n\
              \n| id | kind | derives_from | generator | predicate |\n\
              |----|------|--------------|-----------|------------|\n\
-             | p_c1 | unit | [[spec.c1]] | `word()` | `**rust:** v0.len() >= 1` |\n\
-             | p_c2 | unit | [[spec.c2]] | `word()` | `**rust:** v0.len() >= 1` |\n\
+             | p_c1 | unit | [[{fid}.c1]] | `word()` | `**rust:** v0.len() >= 1` |\n\
+             | p_c2 | unit | [[{fid}.c2]] | `word()` | `**rust:** v0.len() >= 1` |\n\
              \n## ADDED Requirements\n\
              \n### Requirement: Isolated delta scope\nThe delta SHALL be model-checked only as the sole parsed input.\n\
              \n## Requirements\n\
@@ -455,16 +457,26 @@ fn property_row_citation_is_unknown_without_property_execution() {
 // ---- Scenario: File-local identities do not merge into a corpus ----
 
 #[test]
-fn combined_dual_format_scope_fails_before_any_writes() {
+fn combined_same_identity_scope_fails_before_any_writes() {
+    // Revision 18 (specodelic-mcy): the retired `id: spec` isolated-scope
+    // rule is folded into the identity law — a combined invocation whose
+    // inputs claim the SAME intent id fails duplicate_corpus_identity
+    // before any writes.
     let td = tempfile::tempdir().unwrap();
     write_dual_spec(&td.path().join("d1"), true);
-    write_dual_spec(&td.path().join("d2"), false); // opposite outcome
+    let twin = {
+        let dir = td.path().join("d1x");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("spec.md");
+        std::fs::copy(td.path().join("d1/spec.md"), &path).unwrap();
+        path.to_str().unwrap().to_string()
+    };
     let out = td.path().join("out");
     let result = spk()
         .args([
             "model-check",
             td.path().join("d1/spec.md").to_str().unwrap(),
-            td.path().join("d2/spec.md").to_str().unwrap(),
+            twin.as_str(),
             "--json",
             "--out-dir",
             out.to_str().unwrap(),
@@ -474,23 +486,16 @@ fn combined_dual_format_scope_fails_before_any_writes() {
     assert_ne!(result.status.code(), Some(0));
     let stderr = String::from_utf8(result.stderr).unwrap();
     assert!(
-        stderr.contains("isolated_scope_required"),
+        stderr.contains("duplicate_corpus_identity"),
         "labeled scope failure: {stderr}"
-    );
-    // The remediation hint rides the envelope's hints channel.
-    let stdout = String::from_utf8(result.stdout).unwrap();
-    assert!(
-        stdout.contains("separately") && stdout.contains("--out-dir"),
-        "hint to run each file separately with its own out-dir: {stdout}"
     );
     // Before ANY writes: no run reports exist for either file.
     assert!(!out.join("spec.check.json").exists());
 }
 
 #[test]
-fn dual_format_plus_ordinary_input_fails_scope_for_check_and_verify() {
+fn combined_same_identity_fails_scope_for_check_and_verify() {
     let td = tempfile::tempdir().unwrap();
-    write_dual_spec(&td.path().join("d1"), true);
     let ordinary = td.path().join("ord_demo.md");
     write_rows_spec(
         &ordinary,
@@ -498,15 +503,22 @@ fn dual_format_plus_ordinary_input_fails_scope_for_check_and_verify() {
         &verified_row_for("ord_demo"),
         &property_rows_for("ord_demo", &["c1"]),
     );
-    let dual = td.path().join("d1/spec.md").to_str().unwrap().to_string();
+    let twin = td.path().join("ord_demo_twin.md");
+    write_rows_spec(
+        &twin,
+        "ord_demo",
+        &verified_row_for("ord_demo"),
+        &property_rows_for("ord_demo", &["c1"]),
+    );
     let ordinary = ordinary.to_str().unwrap().to_string();
+    let twin = twin.to_str().unwrap().to_string();
     let out = td.path().join("out");
     for command in ["model-check", "verify"] {
         let result = spk()
             .args([
                 command,
-                dual.as_str(),
                 ordinary.as_str(),
+                twin.as_str(),
                 "--json",
                 "--out-dir",
                 out.to_str().unwrap(),
@@ -516,20 +528,14 @@ fn dual_format_plus_ordinary_input_fails_scope_for_check_and_verify() {
         assert_ne!(
             result.status.code(),
             Some(0),
-            "{command} must refuse the mixed scope"
+            "{command} must refuse the same-identity scope"
         );
         let stderr = String::from_utf8(result.stderr).unwrap();
         assert!(
-            stderr.contains("isolated_scope_required"),
+            stderr.contains("duplicate_corpus_identity"),
             "{command}: labeled scope failure: {stderr}"
         );
-        let stdout = String::from_utf8(result.stdout).unwrap();
-        assert!(
-            stdout.contains("separately"),
-            "{command}: hint to run each file separately: {stdout}"
-        );
     }
-    assert!(!out.join("spec.check.json").exists());
     assert!(!out.join("ord_demo.check.json").exists());
 }
 
@@ -573,24 +579,31 @@ fn independent_dual_format_runs_preserve_opposite_outcomes() {
 }
 
 #[test]
-fn orchestrate_mixed_dual_format_scope_fails_before_any_writes() {
-    // H2 (RO5U): the delta names model-check, verify AND orchestrate —
-    // orchestrate's guard fires before the compile stage writes anything.
+fn orchestrate_mixed_same_identity_scope_fails_before_any_stage() {
+    // H2 (RO5U), revised Revision 18 (specodelic-mcy): the scope law is
+    // the identity law — orchestrate's preflight refuses a same-id pair
+    // before the compile stage writes anything.
     let td = tempfile::tempdir().unwrap();
-    write_dual_spec(&td.path().join("d1"), true);
-    let ordinary = td.path().join("ord_demo.md");
+    let a = td.path().join("dup_one.md");
+    let b = td.path().join("dup_two.md");
     write_rows_spec(
-        &ordinary,
-        "ord_demo",
-        &verified_row_for("ord_demo"),
-        &property_rows_for("ord_demo", &["c1"]),
+        &a,
+        "dup_id",
+        &verified_row_for("dup_id"),
+        &property_rows_for("dup_id", &["c1"]),
+    );
+    write_rows_spec(
+        &b,
+        "dup_id",
+        &verified_row_for("dup_id"),
+        &property_rows_for("dup_id", &["c1"]),
     );
     let out = td.path().join("out");
     let result = spk()
         .args([
             "orchestrate",
-            td.path().join("d1/spec.md").to_str().unwrap(),
-            ordinary.to_str().unwrap(),
+            a.to_str().unwrap(),
+            b.to_str().unwrap(),
             "--json",
             "--out-dir",
             out.to_str().unwrap(),
@@ -600,7 +613,7 @@ fn orchestrate_mixed_dual_format_scope_fails_before_any_writes() {
     assert_ne!(result.status.code(), Some(0));
     let stderr = String::from_utf8(result.stderr).unwrap();
     assert!(
-        stderr.contains("isolated_scope_required"),
+        stderr.contains("duplicate_corpus_identity"),
         "labeled scope failure: {stderr}"
     );
     // Before ANY writes: no compile or report artifacts exist.

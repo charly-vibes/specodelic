@@ -1,5 +1,5 @@
 ---
-id: spec
+id: verification.claims
 kind: intent
 statement: "THE verifier SHALL accept only complete current evidence for every required invariant claim."
 ---
@@ -13,10 +13,11 @@ THE verifier SHALL accept only complete current evidence for every required inva
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| required_set | invariant | required claims come from explicit executable or kernel or citation invariant opt-ins | [[spec]] |
-| aggregate | invariant | nonempty required claims must all verify and property blocks must all pass | [[spec]] |
-| freshness | invariant | reports bind a versioned claim set to current structured scope and artifacts | [[spec]] |
-| visible_scope | invariant | all report views and release docs state the same assurance scope | [[spec]] |
+| process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[verification.claims]] |
+| required_set | invariant | required claims come from explicit executable or kernel or citation invariant opt-ins | [[verification.claims]] |
+| aggregate | invariant | nonempty required claims must all verify and property blocks must all pass | [[verification.claims]] |
+| freshness | invariant | reports bind a versioned claim set to current structured scope and artifacts | [[verification.claims]] |
+| visible_scope | invariant | all report views and release docs state the same assurance scope | [[verification.claims]] |
 
 ## Model
 
@@ -30,18 +31,19 @@ THE verifier SHALL accept only complete current evidence for every required inva
 
 | id | from | to | guard |
 |----|------|----|-------|
-| approve | proposed | approved | maintainer approves this proposal |
-| implement | approved | implemented | every constraint has passing behavioral evidence |
-| deploy | implemented | deployed | required gates pass and dual-format archive preserves every requirement |
+| approve | proposed | approved | [[verification.claims.process_lifecycle]] ∧ maintainer approves this proposal  |
+| implement | approved | implemented | [[verification.claims.process_lifecycle]] ∧ every constraint has passing behavioral evidence  |
+| deploy | implemented | deployed | [[verification.claims.process_lifecycle]] ∧ required gates pass and dual-format archive preserves every requirement  |
 
 ## Properties
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
-| required_set_checked | unit | [[spec.required_set]] | mixed_claim_corpus() | required and unchecked sets equal the expected IDs |
-| aggregate_checked | unit | [[spec.aggregate]] | mixed_claim_statuses() | false and unknown claims cannot yield verified |
-| freshness_checked | unit | [[spec.freshness]] | changed_scope_or_legacy_report() | verify rejects stale or incomplete evidence with a rerun hint |
-| visible_scope_checked | unit | [[spec.visible_scope]] | report_and_docs_fixture() | claim counts agree and pending features are not advertised as implemented |
+| process_lifecycle_checked | unit | [[verification.claims.process_lifecycle]] | `lifecycle_model_present()` | `check(file) == passed` |
+| required_set_checked | unit | [[verification.claims.required_set]] | mixed_claim_corpus() | required and unchecked sets equal the expected IDs |
+| aggregate_checked | unit | [[verification.claims.aggregate]] | mixed_claim_statuses() | false and unknown claims cannot yield verified |
+| freshness_checked | unit | [[verification.claims.freshness]] | changed_scope_or_legacy_report() | verify rejects stale or incomplete evidence with a rerun hint |
+| visible_scope_checked | unit | [[verification.claims.visible_scope]] | report_and_docs_fixture() | claim counts agree and pending features are not advertised as implemented |
 
 ## ADDED Requirements
 
@@ -81,27 +83,32 @@ corpus and consumed artifacts. Verify SHALL recompute scope and expected
 claims from current inputs. Unsupported or old reports, omitted or duplicate
 records, changed contributing inputs, or artifact mismatch SHALL fail with a
 rerun hint. Reordering CLI paths or changing prose alone SHALL preserve scope.
-Ordinary corpus intent IDs SHALL be unique. A dual-format id: spec file
-SHALL be the sole parsed input to model-check, verify or orchestrate;
-combined input SHALL fail with isolated_scope_required and a hint to run
-each file separately with separate artifact/report directories, before
-compilation, evaluation or report writes. In that isolated scope, spec.row
-claim IDs and references SHALL resolve only locally. Multi-file dual-format
-lint SHALL remain supported. The digest SHALL bind structured content,
-not filesystem paths, so opposite claims with identical names cannot
-reuse each other's evidence.
+Reordering CLI paths or changing prose alone SHALL preserve scope.
+The intent IDs of a command's parsed inputs SHALL be unique: a combined
+invocation whose inputs claim the same intent id SHALL fail with
+duplicate_corpus_identity and a rename hint before compilation,
+evaluation or report writes (Revision 18: dual-format files carry real
+ids and compose like any corpus — the former `id: spec` isolated-scope
+rule retired with `id: spec` itself). The digest SHALL bind structured
+content, not filesystem paths, so opposite claims with identical names
+cannot reuse each other's evidence.
 
 #### Scenario: Cross-file changes invalidate a clean report
 - **WHEN** a referenced file changes structurally or is omitted from the supplied corpus after the report was produced
 - **THEN** verify rejects the report as stale or scope-mismatched and names the rerun command
 
-#### Scenario: Dual-format commands isolate file-local identities
-- **WHEN** two dual-format files share id: spec and local claim c1 but assert different invariant expressions
-- **THEN** combined command evaluation fails as isolated_scope_required; independent runs in separate directories retain each claim's own status, produce different scope digests and reject swapped reports, while lint still accepts their file-local identities
 
-#### Scenario: A dual-format file cannot join an ordinary corpus
-- **WHEN** model-check, verify or orchestrate receives one id: spec file plus another parsed file
-- **THEN** it refuses the combined scope before writing artifacts or reports and gives separate-invocation guidance
+#### Scenario: Cross-file changes invalidate a clean report
+- **WHEN** a referenced file changes structurally or is omitted from the supplied corpus after the report was produced
+- **THEN** verify rejects the report as stale or scope-mismatched and names the rerun command
+
+#### Scenario: A same-id pair is refused before any writes
+- **WHEN** two parsed inputs claim the same intent id (the transitional pair: an active change's delta and its deployed capability spec)
+- **THEN** model-check, verify and orchestrate refuse the combined scope as duplicate_corpus_identity before writing artifacts or reports, with rename guidance; independent runs in separate directories retain each claim's own status, produce different scope digests and reject swapped reports, while lint accepts files with distinct ids together
+
+#### Scenario: Old reports cannot acquire new evidence implicitly
+- **WHEN** a stored report has no claim schema version or required records
+- **THEN** verify rejects it with a model-check rerun hint without modifying the report
 
 #### Scenario: Old reports cannot acquire new evidence implicitly
 - **WHEN** a stored report has no claim schema version or required records
@@ -160,27 +167,32 @@ corpus and consumed artifacts. Verify SHALL recompute scope and expected
 claims from current inputs. Unsupported or old reports, omitted or duplicate
 records, changed contributing inputs, or artifact mismatch SHALL fail with a
 rerun hint. Reordering CLI paths or changing prose alone SHALL preserve scope.
-Ordinary corpus intent IDs SHALL be unique. A dual-format id: spec file
-SHALL be the sole parsed input to model-check, verify or orchestrate;
-combined input SHALL fail with isolated_scope_required and a hint to run
-each file separately with separate artifact/report directories, before
-compilation, evaluation or report writes. In that isolated scope, spec.row
-claim IDs and references SHALL resolve only locally. Multi-file dual-format
-lint SHALL remain supported. The digest SHALL bind structured content,
-not filesystem paths, so opposite claims with identical names cannot
-reuse each other's evidence.
+Reordering CLI paths or changing prose alone SHALL preserve scope.
+The intent IDs of a command's parsed inputs SHALL be unique: a combined
+invocation whose inputs claim the same intent id SHALL fail with
+duplicate_corpus_identity and a rename hint before compilation,
+evaluation or report writes (Revision 18: dual-format files carry real
+ids and compose like any corpus — the former `id: spec` isolated-scope
+rule retired with `id: spec` itself). The digest SHALL bind structured
+content, not filesystem paths, so opposite claims with identical names
+cannot reuse each other's evidence.
 
 #### Scenario: Cross-file changes invalidate a clean report
 - **WHEN** a referenced file changes structurally or is omitted from the supplied corpus after the report was produced
 - **THEN** verify rejects the report as stale or scope-mismatched and names the rerun command
 
-#### Scenario: Dual-format commands isolate file-local identities
-- **WHEN** two dual-format files share id: spec and local claim c1 but assert different invariant expressions
-- **THEN** combined command evaluation fails as isolated_scope_required; independent runs in separate directories retain each claim's own status, produce different scope digests and reject swapped reports, while lint still accepts their file-local identities
 
-#### Scenario: A dual-format file cannot join an ordinary corpus
-- **WHEN** model-check, verify or orchestrate receives one id: spec file plus another parsed file
-- **THEN** it refuses the combined scope before writing artifacts or reports and gives separate-invocation guidance
+#### Scenario: Cross-file changes invalidate a clean report
+- **WHEN** a referenced file changes structurally or is omitted from the supplied corpus after the report was produced
+- **THEN** verify rejects the report as stale or scope-mismatched and names the rerun command
+
+#### Scenario: A same-id pair is refused before any writes
+- **WHEN** two parsed inputs claim the same intent id (the transitional pair: an active change's delta and its deployed capability spec)
+- **THEN** model-check, verify and orchestrate refuse the combined scope as duplicate_corpus_identity before writing artifacts or reports, with rename guidance; independent runs in separate directories retain each claim's own status, produce different scope digests and reject swapped reports, while lint accepts files with distinct ids together
+
+#### Scenario: Old reports cannot acquire new evidence implicitly
+- **WHEN** a stored report has no claim schema version or required records
+- **THEN** verify rejects it with a model-check rerun hint without modifying the report
 
 #### Scenario: Old reports cannot acquire new evidence implicitly
 - **WHEN** a stored report has no claim schema version or required records

@@ -34,8 +34,8 @@ pub mod spec_gen {
         Just("arbitrary_valid_frontmatter".into())
     }
 
-    pub fn stem() -> impl Strategy<Value = String> {
-        Just("stem".into())
+    pub fn expected_id_from_path() -> impl Strategy<Value = String> {
+        Just("expected_id_from_path".into())
     }
 
     pub fn frontmatter_with() -> impl Strategy<Value = String> {
@@ -71,11 +71,11 @@ proptest! {
         todo_predicate!("`check(frontmatter) == passed`");
     }
     // id: filename_mismatch
-    // generator: `(id, filename)` pairs where `id ≠ stem(filename)`
-    // predicate: `check(id, filename) == failed`
+    // generator: `(id, path)` pairs where `id ≠ expected_id_from_path(path)` (stem files, spec.md files under their capability directory, and bare spec.md all covered)
+    // predicate: `check(id, path) == failed`
     #[test]
-    fn filename_mismatch(v0 in spec_gen::stem()) {
-        todo_predicate!("`check(id, filename) == failed`");
+    fn filename_mismatch(v0 in spec_gen::expected_id_from_path()) {
+        todo_predicate!("`check(id, path) == failed`");
     }
     // id: missing_statement_rejected
     // generator: `frontmatter_without("statement")` and `frontmatter_with(statement: "")`

@@ -1,5 +1,5 @@
 ---
-id: spec
+id: observability
 kind: intent
 statement: "THE observability capability SHALL let Constraint rows declare observability of effect Constraints via a typed one-directional observes reference, SHALL report every unobserved effect as an advisory finding, and SHALL derive external-boundary classification from published extension_point rows alone."
 ---
@@ -19,11 +19,12 @@ no hand-maintained tags that can drift from the edges.
 
 | id                        | kind      | expr                                                                                                                                                                                                                                                                       | traces_to |
 |---------------------------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| observes_typing           | invariant | `every observes reference is a one-directional outbound pointer from a Constraint row to a Constraint row with kind == effect (intra-file or cross-file) — same shape as the satisfies precedent, per the Reference Typing row for observes in specs/specodelic.md`                                                                                                                                                                          | [[spec]]  |
-| acyclic_edge_set_stable   | invariant | `the acyclic invariant's edge set (specs/linter-graph_shape.md) grows only under a new Revision of that file; observes is deliberately absent from it — an observation claim is not a dependency, so mutual observation across files is well-formed`                                                                                                                         | [[spec]]  |
-| unobserved_effect_reported | invariant | `within the lint invocation's file set (corpus-wide lint via just lint-specs is the canonical run), every effect Constraint is either the target of ≥1 observes edge or is reported as an advisory warning on the lint output's warnings channel — exit 0, never counted as a lint failure (design D5) — naming the unobserved row; no waiver machinery exists in v1 (specs/linter-external_completeness.md's covered/waived pattern is the candidate when the need is demonstrated)` | [[spec]]  |
-| no_gate_change            | invariant | `whether linter.observability ever gates a lifecycle transition (specs/orchestrate.md) is decided only after dogfooding produces real friction evidence — until then it is advisory by severity and the stage guards are untouched`                                                                                                                                        | [[spec]]  |
-| boundary_derived          | invariant | `external-boundary classification is derived from published extension_point Constraints (a file hosting ≥1 is an external boundary); no authored boundary tag exists anywhere — hand-maintained tags drift from edges, against specs/graph.md's graph_is_derived_not_authored philosophy`   | [[spec]]  |
+| process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[observability]] |
+| observes_typing           | invariant | `every observes reference is a one-directional outbound pointer from a Constraint row to a Constraint row with kind == effect (intra-file or cross-file) — same shape as the satisfies precedent, per the Reference Typing row for observes in specs/specodelic.md`                                                                                                                                                                          | [[observability]]  |
+| acyclic_edge_set_stable   | invariant | `the acyclic invariant's edge set (specs/linter-graph_shape.md) grows only under a new Revision of that file; observes is deliberately absent from it — an observation claim is not a dependency, so mutual observation across files is well-formed`                                                                                                                         | [[observability]]  |
+| unobserved_effect_reported | invariant | `within the lint invocation's file set (corpus-wide lint via just lint-specs is the canonical run), every effect Constraint is either the target of ≥1 observes edge or is reported as an advisory warning on the lint output's warnings channel — exit 0, never counted as a lint failure (design D5) — naming the unobserved row; no waiver machinery exists in v1 (specs/linter-external_completeness.md's covered/waived pattern is the candidate when the need is demonstrated)` | [[observability]]  |
+| no_gate_change            | invariant | `whether linter.observability ever gates a lifecycle transition (specs/orchestrate.md) is decided only after dogfooding produces real friction evidence — until then it is advisory by severity and the stage guards are untouched`                                                                                                                                        | [[observability]]  |
+| boundary_derived          | invariant | `external-boundary classification is derived from published extension_point Constraints (a file hosting ≥1 is an external boundary); no authored boundary tag exists anywhere — hand-maintained tags drift from edges, against specs/graph.md's graph_is_derived_not_authored philosophy`   | [[observability]]  |
 
 ## Model
 
@@ -37,23 +38,24 @@ no hand-maintained tags that can drift from the edges.
 
 | id         | from       | to          | guard                                                                                      |
 |------------|------------|-------------|--------------------------------------------------------------------------------------------|
-| approve    | proposed   | approved    | `proposal reviewed and approved by the maintainer`                                          |
-| implement  | approved   | implemented | `all tasks.md items complete; spk lint and openspec validate --strict pass over the change` |
-| archive    | implemented| archived    | `just archive-change id=add-observability-contracts ran with the dual-format recipe`        |
+| approve    | proposed   | approved    | [[observability.process_lifecycle]] ∧ `proposal reviewed and approved by the maintainer`  |
+| implement  | approved   | implemented | [[observability.process_lifecycle]] ∧ `all tasks.md items complete; spk lint and openspec validate --strict pass over the change`  |
+| archive    | implemented| archived    | [[observability.process_lifecycle]] ∧ `just archive-change id=add-observability-contracts ran with the dual-format recipe`  |
 
 ## Properties
 
 | id                             | kind | derives_from                     | generator                                              | predicate                                                              |
 |--------------------------------|------|----------------------------------|----------------------------------------------------------------------------------------------|
-| observes_wrong_target_rejected | unit | [[spec.observes_typing]]         | `observes_field_pointing_at_an_invariant_constraint()`  | `check(file) == failed` — same shape as emits_cannot_target_non_effect |
-| observes_cross_file_resolves   | unit | [[spec.observes_typing]]         | `observes_from_consumer_file_to_published_effect()`     | `extraction yields exactly one cross-file edge and lint passes`        |
-| observes_cycle_not_flagged     | unit | [[spec.acyclic_edge_set_stable]] | `two_files_mutually_observing_each_others_effects()`    | `acyclic check passes — no cycle finding emitted`                      |
-| unobserved_effect_finding      | unit | [[spec.unobserved_effect_reported]] | `effect_with_zero_observes_edges()`                  | `advisory finding linter.observability emitted naming the row id`      |
-| observed_effect_silent         | unit | [[spec.unobserved_effect_reported]] | `effect_with_at_least_one_observes_edge()`           | `no linter.observability finding emitted`                              |
-| gates_untouched                | unit | [[spec.no_gate_change]]          | `corpus_with_unobserved_effects_through_full_pipeline()` | `linted/compiled/model_checked/verified outcomes identical to before` |
-| boundary_from_extension_points | unit | [[spec.boundary_derived]]        | `file_hosting_extension_point_row()`                   | `graph classifies the file as an external boundary`                    |
-| plain_file_not_boundary        | unit | [[spec.boundary_derived]]        | `file_with_no_extension_point_rows()`                  | `graph does not classify the file as an external boundary`             |
-| stale_boundary_impossible      | unit | [[spec.boundary_derived]]        | `file_whose_extension_points_are_all_removed()`        | `boundary classification disappears — no authored tag left to clean`   |
+| process_lifecycle_checked | unit | [[observability.process_lifecycle]] | `lifecycle_model_present()` | `check(file) == passed` |
+| observes_wrong_target_rejected | unit | [[observability.observes_typing]]         | `observes_field_pointing_at_an_invariant_constraint()`  | `check(file) == failed` — same shape as emits_cannot_target_non_effect |
+| observes_cross_file_resolves   | unit | [[observability.observes_typing]]         | `observes_from_consumer_file_to_published_effect()`     | `extraction yields exactly one cross-file edge and lint passes`        |
+| observes_cycle_not_flagged     | unit | [[observability.acyclic_edge_set_stable]] | `two_files_mutually_observing_each_others_effects()`    | `acyclic check passes — no cycle finding emitted`                      |
+| unobserved_effect_finding      | unit | [[observability.unobserved_effect_reported]] | `effect_with_zero_observes_edges()`                  | `advisory finding linter.observability emitted naming the row id`      |
+| observed_effect_silent         | unit | [[observability.unobserved_effect_reported]] | `effect_with_at_least_one_observes_edge()`           | `no linter.observability finding emitted`                              |
+| gates_untouched                | unit | [[observability.no_gate_change]]          | `corpus_with_unobserved_effects_through_full_pipeline()` | `linted/compiled/model_checked/verified outcomes identical to before` |
+| boundary_from_extension_points | unit | [[observability.boundary_derived]]        | `file_hosting_extension_point_row()`                   | `graph classifies the file as an external boundary`                    |
+| plain_file_not_boundary        | unit | [[observability.boundary_derived]]        | `file_with_no_extension_point_rows()`                  | `graph does not classify the file as an external boundary`             |
+| stale_boundary_impossible      | unit | [[observability.boundary_derived]]        | `file_whose_extension_points_are_all_removed()`        | `boundary classification disappears — no authored tag left to clean`   |
 
 ## ADDED Requirements
 

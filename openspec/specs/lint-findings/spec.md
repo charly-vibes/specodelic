@@ -1,5 +1,5 @@
 ---
-id: spec
+id: lint.findings
 kind: intent
 statement: "THE linter SHALL make every finding self-describing by carrying its stable rule id and a one-line rule semantics string in both JSON and human output."
 ---
@@ -16,7 +16,8 @@ can act on a finding without repository access.
 
 | id               | kind      | expr                                                                                                                      | traces_to |
 |------------------|-----------|----------------------------------------------------------------------------------------------------------------------------|-----------|
-| self_describing  | invariant | `every finding carries rule_id linter.<name> and a non-empty one-line rule_semantics sourced from the rule table, in JSON and human output` | [[spec]]  |
+| process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[lint.findings]] |
+| self_describing  | invariant | `every finding carries rule_id linter.<name> and a non-empty one-line rule_semantics sourced from the rule table, in JSON and human output` | [[lint.findings]]  |
 
 ## Model
 
@@ -28,13 +29,14 @@ can act on a finding without repository access.
 
 | id     | from  | to       | guard                     |
 |--------|-------|----------|---------------------------|
-| emit   | found | emitted  | [[spec.self_describing]]  |
+| emit   | found | emitted  | [[lint.findings.self_describing]]  |
 
 ## Properties
 
 | id       | kind | derives_from              | generator             | predicate                                   |
 |----------|------|---------------------------|-----------------------|---------------------------------------------|
-| p_finding | unit | [[spec.self_describing]] | `arbitrary_finding()` | `finding.rule_id stable ∧ semantics non-empty in both output modes` |
+| process_lifecycle_checked | unit | [[lint.findings.process_lifecycle]] | `lifecycle_model_present()` | `check(file) == passed` |
+| p_finding | unit | [[lint.findings.self_describing]] | `arbitrary_finding()` | `finding.rule_id stable ∧ semantics non-empty in both output modes` |
 
 ## Requirements
 ### Requirement: Self-Describing Lint Findings

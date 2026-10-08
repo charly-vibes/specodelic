@@ -21,7 +21,7 @@ traces_to = "[[linter.frontmatter]]"
 [[constraints]]
 id = "id_matches_file"
 kind = "invariant"
-expr = "`frontmatter.id == expected_id_from_filename(path)`"
+expr = "`frontmatter.id == expected_id_from_path(path)` — spec.md derives from its parent directory, any other file from its stem (Revision 18)"
 traces_to = "[[linter.frontmatter]]"
 
 [[constraints]]

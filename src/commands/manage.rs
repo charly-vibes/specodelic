@@ -565,16 +565,17 @@ pub(crate) fn cmd_migrate(
             return 2;
         }
     };
-    // Generated frontmatter is always `id: spec` — the dual-format naming
-    // law requires deltas to carry `id: spec` AND be named spec.md
-    // (linter.dual_format_valid + id_matches_file). A different filename
-    // cannot lint clean, so warn instead of silently generating an
-    // id the linter will reject.
+    // Generated frontmatter carries the real id derived by the naming
+    // law (Revision 18, specodelic-mcy): a spec.md file derives from its
+    // parent directory. openspec still requires the delta filename
+    // spec.md for `openspec validate`, so a differently-named delta file
+    // is warned about — the scaffold's id derives from its stem, which
+    // lints clean but openspec will not accept as a delta.
     let stem = std::path::Path::new(file)
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_default();
-    match migrate::migrate(&text) {
+    match migrate::migrate(&text, std::path::Path::new(file)) {
         Err(e) => {
             // Refusals are invocation errors, never tool failures
             // (specodelic-7rr precedent) — the file is never rewritten.
@@ -613,7 +614,7 @@ pub(crate) fn cmd_migrate(
             ];
             if outcome.inserted_frontmatter {
                 steps
-                    .push("deltas conventionally carry id: spec — adjust if the generated frontmatter needs it".to_string());
+                    .push("the generated id is a scaffold — the naming law derives it from the parent directory (spec.md) or the stem; adjust if the capability has a canonical id".to_string());
             }
             let mut out: Output<serde_json::Value> = Output::success(serde_json::json!({
                 "file": file,
@@ -628,7 +629,7 @@ pub(crate) fn cmd_migrate(
             );
             if outcome.inserted_frontmatter && stem != "spec" {
                 out = out.with_warning(format!(
-                    "dual-format naming law: the file must be named spec.md (id `spec` matches the stem) — rename {file} to spec.md before linting"
+                    "openspec requires the delta filename spec.md — rename {file} to spec.md before `openspec validate` (the lint-clean id derives from the parent directory)"
                 ));
             }
             for s in &steps {
@@ -648,7 +649,12 @@ pub(crate) fn cmd_new(
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) -> i32 {
-    let default_name = id.replace('.', "-");
+    // Revision 18 (specodelic-mcy, rollout step 1): the default target
+    // is the single-tree openspec layout — openspec/specs/<cap>/spec.md —
+    // so a new spec is authored with its real id and can never produce
+    // the two-tree distinction. An explicit file argument keeps the
+    // stem-derived naming law for non-openspec corpora.
+    let default_name = format!("openspec/specs/{}/spec.md", id.replace('.', "-"));
     let name = file.unwrap_or(&default_name);
     let filename = if name.ends_with(".md") {
         name.to_string()

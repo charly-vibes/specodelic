@@ -104,20 +104,15 @@ resolve somewhere in the corpus (`total_refs`).
 **Refs are file-qualified**: the general shape is
 `[[<file-id>.<row-id>]]`. A bare-text cell (`derives_from: C-foo`)
 produces no reference at all — the property reports as orphaned. A bare
-`[[C-foo]]` (no dot in the target) is skipped as metasyntactic — except
-in a dual-format delta (`id: spec`), where a bare target naming one of
-the file's own rows resolves to that row: `[[c1]]` is exactly
-`[[spec.c1]]` there, because the file is self-contained and the bare
-form has one possible meaning. A dotless target naming no own row stays
-metasyntactic in every file. A dual-format delta cites its own rows
-with either spelling — `[[c1]]` or `[[spec.c1]]` — in `derives_from`
-and in transition `guard` cells; files outside the delta always use the
-file-qualified form.
+`[[C-foo]]` (no dot in the target) is skipped as metasyntactic in every
+file: dotless spellings are format prose, never references. A
+`spec.md` file under its capability directory carries its real id
+(`openspec/specs/ge-cli/spec.md` → `id: ge.cli` — Revision 18) and
+cites its own rows file-qualified: `[[ge.cli.c1]]`.
 
 **Resolution algorithm** (for dotted ids — file ids routinely contain
-namespace dots): exact file id first, then a bare-local row (own file,
-`id: spec` files only), then every dot split from the LAST to the
-FIRST: `prefix` must be a known file id and the remainder must be a
+namespace dots): exact file id first, then every dot split from the
+LAST to the FIRST: `prefix` must be a known file id and the remainder must be a
 row, the `model.state`/`model.transition` anchor, or `row.member` —
 the row is the single segment right after the split, everything after
 it is a member path (row ids are never dotted). Last-dot wins, so
@@ -182,9 +177,9 @@ two parsers, requirement text authored once.
 
 A **dual-format file** carries both grammars:
 
-- Specodelic half: YAML frontmatter (`id: spec`, `kind: intent`, an
-  EARS `statement`) plus the `## Constraints`, `## Model`, and
-  `## Properties` tables.
+- Specodelic half: YAML frontmatter (a real `id` from the naming law,
+  `kind: intent`, an EARS `statement`) plus the `## Constraints`,
+  `## Model`, and `## Properties` tables.
 - Openspec half: `## Purpose`, `## ADDED Requirements`, and a sibling
   `## Requirements` section with identical text. A `## MODIFIED
   Requirements` delta is dual-format the same way — same id law, same
@@ -193,28 +188,31 @@ A **dual-format file** carries both grammars:
   compares per requirement, so the natural mirror (all delta
   requirements, delta order) satisfies the rule.
 
-**Naming law**: openspec hard-requires the delta filename `spec.md`,
-so dual-format files declare `id: spec` (the `-` ⇔ `.` mapping makes
-that the legal id). Uniqueness is per-file — any number of `id: spec`
-files coexist. Deltas stay self-contained: `[[wiki-refs]]` resolve
-only within the file; domain semantics are cited by prose path
-(`specs/<name>.md`), never wiki-link.
+**Naming law** (Revision 18): openspec hard-requires the filename
+`spec.md`, and the id law derives a `spec.md` file's expected id from
+its PARENT DIRECTORY name — `openspec/specs/ge-cli/spec.md` declares
+`id: ge.cli` (the `-` ⇔ `.` mapping). There is no `id: spec`: every
+dual-format file carries its real id, wiki-refs resolve corpus-wide
+(deltas compose like any corpus), and two files claiming the same
+intent id are refused on command paths (`duplicate_corpus_identity`).
 
 **Enforcement**: `linter.dual_format_valid` — a file carrying
-`## ADDED Requirements` or `## MODIFIED Requirements` must declare
-`id: spec` and pair it with the
-sibling `## Requirements` section; a capability spec under
+`## ADDED Requirements` or `## MODIFIED Requirements` must pair it
+with the sibling `## Requirements` section (the id is the naming
+law's business); a capability spec under
 `openspec/specs/` must be dual-format or CI fails.
 `linter.requirement_drift` (enforced by `spk lint` itself) fails when
 the two requirement sections drift apart (blank lines and trailing
-space ignored). Self-contained deltas trace to their own intent with
-the file's own frontmatter id: `traces_to: [[spec]]` is the intended
-constraint → intent edge for a `id: spec` file.
+space ignored). Dual-format files trace to their own intent with
+the file's real id: `traces_to: [[<file-id>]]` is the intended
+constraint → intent edge.
 
 **Migration** (plain openspec file → compliant):
 
-1. Add the frontmatter: `id: spec`, `kind: intent`, one EARS `SHALL`
-   statement condensing the requirements.
+1. Add the frontmatter: the real id derived by the naming law
+   (`spec.md` under its capability directory → parent-dir name;
+   anything else → stem), `kind: intent`, one EARS `SHALL` statement
+   condensing the requirements.
 2. Derive the tables: one `invariant` Constraint per MUST the
    requirements imply, a Model covering the scenarios, one unit
    Property deriving from each constraint (the coverage rule).

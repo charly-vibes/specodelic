@@ -1,5 +1,5 @@
 ---
-id: spec
+id: archive.companion
 kind: intent
 statement: "THE archive-companion capability SHALL archive an openspec change while preserving its dual-format layer verbatim — invoking openspec's own archiver with spec application skipped, verifying each archived delta carries the specodelic layer before deploying it, and refusing any delta that does not."
 ---
@@ -20,14 +20,15 @@ a stripped spec.
 
 | id                      | kind      | expr                                                                                                                                                                                                                                                                                   | traces_to |
 |-------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| layer_preserved         | invariant | `after the command completes, every deployed openspec/specs/<cap>/spec.md touched by the change is byte-identical to its archived delta under openspec/changes/archive/*-<id>/specs/<cap>/spec.md — frontmatter and all three tables included`                                              | [[spec]]  |
-| openspec_not_forked     | invariant | `archive semantics come from the openspec CLI itself (invoked with spec application skipped); the companion never re-implements delta merging, requirement parsing, or directory moves`                                                                                                     | [[spec]]  |
-| fail_closed_unverifiable | invariant | `a delta lacking the dual-format layer (no frontmatter opener or no Constraints section) is refused before any copy, the whole command fails listing every refused delta, and no deployed spec is written`                                                                                  | [[spec]]  |
-| idempotent_rerun        | invariant | `re-running the command for an already-archived change skips the openspec invocation and re-executes the restore; the result is byte-identical to a first run`                                                                                                                              | [[spec]]  |
-| newest_archive_wins     | invariant | `when multiple archive directories match the change id, the lexicographically greatest name is used and is named in the envelope — ambiguity is observable, never silent`                                                                                                                    | [[spec]]  |
-| dry_run_never_mutates   | invariant | `--dry-run resolves the restore plan (archive directory, delta list, dual-format verification) and emits the envelope without invoking openspec and without writing any file`                                                                                                                | [[spec]]  |
-| empty_restore_valid     | invariant | `a change with no spec deltas completes successfully with an empty restored list — nothing to restore is a stated outcome, not an error`                                                                                                                                                     | [[spec]]  |
-| delta_self_contained    | invariant | `the verbatim deployment presumes self-contained dual-format deltas per the corpus convention; a partial delta would narrow the deployed spec — the companion does not merge, so the convention (every delta restates the capability's full requirement set) is load-bearing`                  | [[spec]]  |
+| process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[archive.companion]] |
+| layer_preserved         | invariant | `after the command completes, every deployed openspec/specs/<cap>/spec.md touched by the change is byte-identical to its archived delta under openspec/changes/archive/*-<id>/specs/<cap>/spec.md — frontmatter and all three tables included`                                              | [[archive.companion]]  |
+| openspec_not_forked     | invariant | `archive semantics come from the openspec CLI itself (invoked with spec application skipped); the companion never re-implements delta merging, requirement parsing, or directory moves`                                                                                                     | [[archive.companion]]  |
+| fail_closed_unverifiable | invariant | `a delta lacking the dual-format layer (no frontmatter opener or no Constraints section) is refused before any copy, the whole command fails listing every refused delta, and no deployed spec is written`                                                                                  | [[archive.companion]]  |
+| idempotent_rerun        | invariant | `re-running the command for an already-archived change skips the openspec invocation and re-executes the restore; the result is byte-identical to a first run`                                                                                                                              | [[archive.companion]]  |
+| newest_archive_wins     | invariant | `when multiple archive directories match the change id, the lexicographically greatest name is used and is named in the envelope — ambiguity is observable, never silent`                                                                                                                    | [[archive.companion]]  |
+| dry_run_never_mutates   | invariant | `--dry-run resolves the restore plan (archive directory, delta list, dual-format verification) and emits the envelope without invoking openspec and without writing any file`                                                                                                                | [[archive.companion]]  |
+| empty_restore_valid     | invariant | `a change with no spec deltas completes successfully with an empty restored list — nothing to restore is a stated outcome, not an error`                                                                                                                                                     | [[archive.companion]]  |
+| delta_self_contained    | invariant | `the verbatim deployment presumes self-contained dual-format deltas per the corpus convention; a partial delta would narrow the deployed spec — the companion does not merge, so the convention (every delta restates the capability's full requirement set) is load-bearing`                  | [[archive.companion]]  |
 
 ## Model
 
@@ -41,23 +42,24 @@ a stripped spec.
 
 | id       | from      | to        | guard                                                                                                                 |
 |----------|-----------|-----------|-------------------------------------------------------------------------------------------------------------------------|
-| locate   | resolved  | archived  | [[spec.openspec_not_forked]]                                                                                             |
-| deploy   | archived  | restored  | [[spec.layer_preserved]] ∧ [[spec.fail_closed_unverifiable]] ∧ [[spec.delta_self_contained]]                              |
-| reject   | archived  | refused   | `¬[[spec.fail_closed_unverifiable]]`                                                                                      |
+| locate   | resolved  | archived  | [[archive.companion.openspec_not_forked]]  |
+| deploy   | archived  | restored  | [[archive.companion.layer_preserved]] ∧ [[archive.companion.fail_closed_unverifiable]] ∧ [[archive.companion.delta_self_contained]]  |
+| reject   | archived  | refused   | `¬[[archive.companion.fail_closed_unverifiable]]`  |
 
 ## Properties
 
 | id                        | kind | derives_from                       | generator                                    | predicate                                                                                      |
 |---------------------------|------|-------------------------------------|----------------------------------------------|-------------------------------------------------------------------------------------------------|
-| deployed_byte_identical   | unit | [[spec.layer_preserved]]            | `change_archived_then_compared()`            | `each deployed spec equals its archived delta byte-for-byte`                                     |
-| no_bespoke_merge          | unit | [[spec.openspec_not_forked]]        | `module_inspected_for_merge_logic()`         | `the module contains no delta-merge code path; only the external invocation and cp remain`        |
-| plain_delta_refused       | unit | [[spec.fail_closed_unverifiable]]   | `archive_dir_with_frontmatterless_delta()`   | `command fails, lists the delta, writes nothing`                                                  |
-| rerun_byte_identical      | unit | [[spec.idempotent_rerun]]           | `companion_run_twice()`                      | `second run's envelope matches the first's restored set; deployed files unchanged`                |
-| ambiguous_dir_reported    | unit | [[spec.newest_archive_wins]]        | `two_archive_dirs_same_change_id()`          | `lexicographically greatest dir used and named in the envelope`                                   |
-| dry_run_writes_nothing    | unit | [[spec.dry_run_never_mutates]]      | `dry_run_over_populated_archive()`           | `envelope emitted; no file mtimes changed; openspec not invoked`                                  |
-| docs_only_change_succeeds | unit | [[spec.empty_restore_valid]]        | `archived_change_without_spec_deltas()`      | `exit 0, restored: []`                                                                            |
-| missing_openspec_labeled  | unit | [[spec.openspec_not_forked]]        | `path_without_openspec_binary()`             | `labeled error with an install/PATH remediation hint`                                             |
-| partial_delta_narrows     | unit | [[spec.delta_self_contained]]       | `archive_dir_with_partial_delta()`           | `deployed spec retains exactly the requirements the delta restates — narrowing is deployable and detectable only by the convention, so self-containment is load-bearing` |
+| process_lifecycle_checked | unit | [[archive.companion.process_lifecycle]] | `lifecycle_model_present()` | `check(file) == passed` |
+| deployed_byte_identical   | unit | [[archive.companion.layer_preserved]]            | `change_archived_then_compared()`            | `each deployed spec equals its archived delta byte-for-byte`                                     |
+| no_bespoke_merge          | unit | [[archive.companion.openspec_not_forked]]        | `module_inspected_for_merge_logic()`         | `the module contains no delta-merge code path; only the external invocation and cp remain`        |
+| plain_delta_refused       | unit | [[archive.companion.fail_closed_unverifiable]]   | `archive_dir_with_frontmatterless_delta()`   | `command fails, lists the delta, writes nothing`                                                  |
+| rerun_byte_identical      | unit | [[archive.companion.idempotent_rerun]]           | `companion_run_twice()`                      | `second run's envelope matches the first's restored set; deployed files unchanged`                |
+| ambiguous_dir_reported    | unit | [[archive.companion.newest_archive_wins]]        | `two_archive_dirs_same_change_id()`          | `lexicographically greatest dir used and named in the envelope`                                   |
+| dry_run_writes_nothing    | unit | [[archive.companion.dry_run_never_mutates]]      | `dry_run_over_populated_archive()`           | `envelope emitted; no file mtimes changed; openspec not invoked`                                  |
+| docs_only_change_succeeds | unit | [[archive.companion.empty_restore_valid]]        | `archived_change_without_spec_deltas()`      | `exit 0, restored: []`                                                                            |
+| missing_openspec_labeled  | unit | [[archive.companion.openspec_not_forked]]        | `path_without_openspec_binary()`             | `labeled error with an install/PATH remediation hint`                                             |
+| partial_delta_narrows     | unit | [[archive.companion.delta_self_contained]]       | `archive_dir_with_partial_delta()`           | `deployed spec retains exactly the requirements the delta restates — narrowing is deployable and detectable only by the convention, so self-containment is load-bearing` |
 
 ## ADDED Requirements
 

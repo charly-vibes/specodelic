@@ -6,9 +6,9 @@
 //! as exact corpus keys — in deterministic dependency order, with cycles,
 //! missing targets, and property rows reported `unknown` with a reason;
 //! and enforce the command scope law shared by model-check, verify and
-//! orchestrate: ordinary corpus intent ids are unique
-//! (`duplicate_corpus_identity`), a dual-format `id: spec` file is only
-//! accepted as the sole parsed input (`isolated_scope_required`).
+//! orchestrate: corpus intent ids are unique within the invocation
+//! (`duplicate_corpus_identity`; Revision 18 retired the former
+//! `id: spec` isolated-scope rule with `id: spec` itself).
 //!
 //! Responsibilities: `check_corpus_scope` (the pre-write scope guard);
 //! `resolve_corpus_citations` (whole-corpus status resolution over
@@ -141,57 +141,22 @@ pub fn apply_corpus_resolution(specs: &[Spec], runs: &mut [FileRun]) -> Vec<Vec<
 /// A scope-law violation: the labeled kind, the message naming the
 /// offending inputs, and the remediation hint.
 pub struct ScopeViolation {
-    /// The stable label (`isolated_scope_required` or
-    /// `duplicate_corpus_identity`).
+    /// The stable label (`duplicate_corpus_identity`).
     pub label: &'static str,
     pub message: String,
     pub hint: String,
 }
 
-/// The dual-format naming law: a delta file declares `id: spec` (any
-/// number may coexist — uniqueness is per-file).
-const DUAL_FORMAT_ID: &str = "spec";
-
-/// The command scope law (design D9), checked before compilation,
-/// evaluation, or report writes:
-///
-/// - an `id: spec` (dual-format) file is accepted only as the sole
-///   parsed input — combined with any other file the invocation fails
-///   `isolated_scope_required`, with a hint to run each separately using
-///   separate artifact/report directories;
-/// - ordinary intent ids must be unique — a collision fails
-///   `duplicate_corpus_identity` (repeated local row ids across distinct
-///   ordinary intents are valid and stay file-local).
+/// The command scope law (design D9, revised Revision 18 —
+/// specodelic-mcy): intent ids must be unique across the invocation —
+/// a collision fails `duplicate_corpus_identity` (repeated local row
+/// ids across distinct intents are valid and stay file-local). The
+/// former `id: spec` isolated-scope rule retired with `id: spec`
+/// itself: dual-format files now carry real intent ids like everyone
+/// else, and the identity-uniqueness law is the only scope law left.
 pub fn check_corpus_scope(specs: &[Spec]) -> Result<(), ScopeViolation> {
-    let dual: Vec<&Spec> = specs
-        .iter()
-        .filter(|s| s.intent.id == DUAL_FORMAT_ID)
-        .collect();
-    if !dual.is_empty() && specs.len() > 1 {
-        let files: Vec<String> = dual
-            .iter()
-            .map(|s| {
-                s.path
-                    .as_ref()
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_else(|| format!("<{}>", s.intent.id))
-            })
-            .collect();
-        return Err(ScopeViolation {
-            label: "isolated_scope_required",
-            message: format!(
-                "dual-format id: spec file(s) {} must be the sole parsed input — a combined invocation would merge file-local identities into one corpus",
-                files.join(", ")
-            ),
-            hint: "run each file separately, each with its own --out-dir, so artifact and report files never collide".to_string(),
-        });
-    }
     let mut seen: BTreeMap<&str, String> = BTreeMap::new();
     for spec in specs {
-        // id: spec files are exempt — dual-format uniqueness is per-file.
-        if spec.intent.id == DUAL_FORMAT_ID {
-            continue;
-        }
         let display = spec
             .path
             .as_ref()
