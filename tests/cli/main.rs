@@ -48,6 +48,7 @@ mod feedback_init;
 mod graph_views;
 mod hooks_hostile_output;
 mod lint;
+mod migrate;
 mod model_check;
 mod orchestrate_verify;
 mod parse_misc;

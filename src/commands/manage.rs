@@ -582,6 +582,9 @@ pub(crate) fn cmd_migrate(
                 migrate::MigrateError::AlreadyMigrated => {
                     "run: spk lint <file> to verify the migrated file"
                 }
+                migrate::MigrateError::ConflictingDelta { .. } => {
+                    "rename the requirement in one delta section (or hand-mirror the file), then re-run: spk migrate <file>"
+                }
                 _ => "a delta must carry an ## ADDED Requirements section",
             };
             let out: Output<serde_json::Value> =

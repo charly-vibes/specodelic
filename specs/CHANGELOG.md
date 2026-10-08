@@ -1,5 +1,28 @@
 # Changelog
 
+## #119 — migrate mirrors mixed deltas (ADDED + MODIFIED) instead of the ADDED body only (specodelic-54v)
+
+`spk migrate` on a delta carrying both `## ADDED Requirements` and
+`## MODIFIED Requirements` wrote the mirror as a byte-exact copy of the
+ADDED body only — the MODIFIED section was dropped. Since #93,
+`linter.requirement_drift` compares per requirement across **all**
+carried delta sections, so the freshly migrated file was guaranteed to
+fail lint (migrate exit 0 → lint exit 1):
+
+- **`spk migrate`** now aggregates the mirror: the ADDED body lands
+  byte-exact as before, and each MODIFIED requirement lands in its
+  modified form under the same `## Requirements` heading — the same
+  per-requirement comparison the linter performs. `spk lint` on the
+  freshly migrated mixed delta exits 0.
+- A requirement heading appearing in **both** ADDED and MODIFIED can
+  never be mirrored faithfully (one heading, two texts) — migrate now
+  refuses labeled (exit 2) naming the requirement, with a remediation
+  hint, instead of silently producing a guaranteed lint failure. The
+  file is never rewritten.
+- ADDED-only deltas are byte-for-byte unchanged (the mirror is still
+  the byte-exact ADDED slice); MODIFIED-only deltas are still refused
+  as not-a-delta.
+
 ## #118 — model-check never silently demotes a malformed kernel claim (specodelic-m6k, eval F2)
 
 After a successful `spk compile`, editing a `**kernel:**` constraint cell
