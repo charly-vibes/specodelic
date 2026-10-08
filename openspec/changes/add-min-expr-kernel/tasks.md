@@ -190,19 +190,35 @@ claim must be present in a fresh command report with the expected status.
 
 ## 7. Discipline, contracts, closure
 
-- [ ] 7.1 **CHORE**: FORMAT_REVISION bump — `src/guide.rs:20` + all
+- [x] 7.1 **CHORE**: FORMAT_REVISION bump — `src/guide.rs:20` + all
       `specodelic.md Revision N` literals (`tests/cli/model_check.rs`
       ×3, `tests/cli/parse_misc.rs:787`, doctor/init skew sites) +
       regenerate compiled artifacts, as one chore commit (turu
       specodelic-6sb).
-- [ ] 7.2 **GREEN**: per-scenario contract TOMLs for every scenario
+      → 4d8181b — Revision 17 declared in specodelic.md (the kernel
+      becomes format vocabulary); compile.md carries the normative rows
+      (`kernel_expr_opt_in`/`kernel_binding_opaque` + 4 deriving
+      properties); FORMAT_REVISION 16→17 + all embedded literals
+      (init fixture, doctor ×3, skew advisory); artifacts regenerated
+      (22 compiled, 0 failed); just ci green.
+- [x] 7.2 **GREEN**: per-scenario contract TOMLs for every scenario
       this change deploys, authored in the same phase (espectacular
       gate: `ah check` green; lefthook ah-check gate runs on every
       commit — EDGE-001).
-- [ ] 7.3 **GREEN**: `delta_self_contained` verification per capability
+      → d50cc40 — 28 staged contract TOMLs
+      (.espectacular/changes/add-min-expr-kernel/{kernel,compile,
+      model-check}/) bound to real cargo tests; the 5 slice-1 TOMLs
+      from the /tmp/txo-contracts stash verified current and reused;
+      `ah check --changes --run-tests`: 200 passed, 0 execution
+      findings.
+- [x] 7.3 **GREEN**: `delta_self_contained` verification per capability
       delta — each delta restates the full requirement set; no orphan
       contracts, no scenarios without contracts (14b7a75 discipline).
-- [ ] 7.4 **TIDY**: `openspec validate --strict` green; `just ci` green;
+      → verified: every deployed requirement title and scenario of
+      compile/model-check is restated in the delta (dry set-diff at
+      HEAD, zero missing); kernel is a new capability; the 28 new
+      scenarios all have staged contracts (no no-toml findings).
+- [x] 7.4 **TIDY**: `openspec validate --strict` green; `just ci` green;
       archive via `just archive-change id=add-min-expr-kernel`.
 
 ## Implementation ticket map
