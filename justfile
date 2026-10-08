@@ -221,13 +221,14 @@ docs-build: docs-graphs
     cp -r openspec/specs docs/src/openspec
     python3 scripts/stamp_llms.py page
     mdbook build
-    # Unresolved-include gate: mdbook only WARNS on a missing {{#include}}
-    # and emits the raw directive — a green build can still ship a page
-    # with unrendered views. Fail loudly instead (docs.yml runs the same
-    # assertion after mdbook build — keep both in lockstep).
-    if grep -rq '{{#include' book/; then
-        echo "docs-build: unresolved {{#include}} leaked into the built book:" >&2
-        grep -rl '{{#include' book/ >&2
+    # Unresolved-include gate: mdbook only WARNS on a missing include
+    # directive and emits the raw text — a green build can still ship a
+    # page with unrendered views. Fail loudly instead (docs.yml runs the
+    # same assertion after mdbook build — keep both in lockstep). The
+    # {{'{{'}} escapes just's interpolation.
+    if grep -rq "{{'{{'}}#include" book/; then
+        echo "docs-build: unresolved include directive leaked into the built book:" >&2
+        grep -rl "{{'{{'}}#include" book/ >&2
         exit 1
     fi
     python3 scripts/stamp_llms.py llms
