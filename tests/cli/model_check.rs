@@ -1694,3 +1694,35 @@ fn usage_quick_start_kernel_claims_verify() {
     let report = claim_report(&out, "order-cancel");
     assert_eq!(report["outcome"], "no_counterexample");
 }
+
+#[test]
+fn usage_micro_example_kernel_claims_verify() {
+    // Task 6.1 (design D5, example 2/2): the §3 worked micro-example's
+    // data-dependent structural facts are kernel claims — same gate
+    // shape as the quick-start, extracted live from the doc.
+    let td = tempfile::tempdir().unwrap();
+    let out = td.path().join("out");
+    let spec = td.path().join("api-rate_limit.md");
+    std::fs::write(&spec, usage_example("api.rate_limit")).unwrap();
+    spk()
+        .args(["lint", spec.to_str().unwrap()])
+        .assert()
+        .success();
+    claim_compile(spec.to_str().unwrap(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_eq!(code, Some(0));
+    assert_eq!(json["data"]["outcome"], "no_counterexample");
+    let statuses = checked_statuses(&json);
+    for (id, status) in [
+        ("rate_traces_resolve", "verified"),
+        ("exceed_guard_reaches", "verified"),
+    ] {
+        assert!(
+            statuses.contains(&(id.to_string(), status.to_string())),
+            "missing claim evidence {id}:{status} in {statuses:?}"
+        );
+    }
+    // The persisted report carries the identical statuses.
+    let report = claim_report(&out, "api-rate_limit");
+    assert_eq!(report["outcome"], "no_counterexample");
+}

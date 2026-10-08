@@ -565,6 +565,8 @@ statement: "WHEN a client exceeds the configured request rate, THE API
 | limit_enforced       | invariant | `requests_in_window > limit ⟹ response == 429`  | [[api.rate_limit]]  |
 | default_limit        | invariant | `default(limit) == 100 per minute`              | [[api.rate_limit]]  |
 | adaptive_limiting     | advisory  | `limit could vary with observed load`           | [[api.rate_limit]]  |
+| rate_traces_resolve  | invariant | `**kernel:** resolves(traces_to)`               | [[api.rate_limit]]  |
+| exceed_guard_reaches | invariant | `**kernel:** reachable(api.rate_limit.exceed, api.rate_limit.limit_enforced, guard)` | [[api.rate_limit]]  |
 
 ## Model
 
@@ -586,7 +588,16 @@ statement: "WHEN a client exceeds the configured request rate, THE API
 | over_limit_is_429 | unit | [[api.rate_limit.limit_enforced]]   | `arbitrary_request()`  | `response == 429`                     |
 | default_is_100    | unit | [[api.rate_limit.default_limit]]    | `arbitrary_config()`   | `default(limit) == 100 per minute`    |
 | adaptive_is_advisory | unit | [[api.rate_limit.adaptive_limiting]] | `arbitrary_config()` | `varying(limit) never blocks a response` |
+| rate_traces_resolve_prop | unit | [[api.rate_limit.rate_traces_resolve]] | `arbitrary_request()` | `every constraint trace resolves` |
+| exceed_guard_reaches_prop | unit | [[api.rate_limit.exceed_guard_reaches]] | `arbitrary_request()` | `the exceed transition's guard reaches the enforced limit` |
 ```
+
+The two `**kernel:**` rows are this example's executable slice, the
+same shape the quick-start shows: `resolves(traces_to)` and
+`reachable(…, guard)` evaluate over the file's own rows and references
+(the min-expr kernel, `add-min-expr-kernel`), and `spk model-check`
+reports each one's status in its run report — the domain-data cells
+above them stay informal strings per §4.
 
 The "stopgap... adaptive eventually" aside becomes the `advisory` row —
 recorded, traceable, and non-gating by typing rather than left as a
