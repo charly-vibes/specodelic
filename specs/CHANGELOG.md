@@ -1,5 +1,34 @@
 # Changelog
 
+## #123 — v0.6.0: kernel + verification-claims capabilities ship; the exit-code/envelope contract enforced end-to-end
+
+First release carrying the two new deployed openspec capabilities —
+`kernel` (executable corpus invariants, FORMAT_REVISION 16→17) and
+`verification-claims` (required/unchecked claim classification gating
+model-check and verify verdicts) — plus the 2026-10-08 bug sweep that
+brought the runtime in line with the published error contract
+(specs/errors.md) and the docs-readiness pass that aligns every user-facing
+page with implemented behavior (verify.assurance_views_agree →
+release_docs_match_implemented_capabilities).
+
+- **Kernel + verification claims**: `**kernel:**` claims execute on the
+  native backend (closed atomic grammar, per-cell marker opt-in);
+  a refuted required claim gates the verdict (`counterexample_found`,
+  exit 1, `ok:false`); scope-bound versioned claim reports
+  (`claim_schema_version=1`, canonical `scope_sha256`, freshness recompute,
+  `isolated_scope_required` preflight) bind evidence to inputs.
+- **Errors obey the published contract**: failures never ride
+  success-shaped envelopes (`ok:false`/`envelope_kind:error` on every
+  labeled failure across compile/model-check/verify/orchestrate); unknown
+  and counterexample claim records carry their reason, naming the offending
+  id; graph projections obey the 0/1/2 exit-code mapping in text modes.
+- **graph/migrate robustness**: member-path link targets intern canonical
+  ids (no more panic on `[[v.row.deep]]`); the migrate mirror aggregates
+  ADDED + MODIFIED deltas and refuses conflicting headings labeled.
+- **Docs**: commands.md, README and USAGE describe the claim gates, the
+  graph projection flags, and the lowercase bold-label compile edge;
+  the #114 no-emitter hint strings match the code.
+
 ## #122 — kernel claim records carry their reason when not verified (specodelic-7gh, eval F4/F6)
 
 A `**kernel:**` claim that evaluated to unknown — e.g.
