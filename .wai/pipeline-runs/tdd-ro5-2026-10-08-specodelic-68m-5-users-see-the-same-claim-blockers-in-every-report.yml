@@ -1,0 +1,10 @@
+run_id: tdd-ro5-2026-10-08-specodelic-68m-5-users-see-the-same-claim-blockers-in-every-report
+pipeline: tdd-ro5
+topic: 'specodelic-68m.5: users see the same claim blockers in every report'
+created_at: '2026-10-08T00:28:18.958074113+00:00'
+current_step: 1
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
