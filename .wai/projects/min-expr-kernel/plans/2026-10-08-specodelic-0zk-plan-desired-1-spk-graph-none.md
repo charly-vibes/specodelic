@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-08-specodelic-0zk-graph-projection-exit-code-semantics-f3-f8, pipeline-step:plan]
+---
+
+specodelic-0zk plan — desired: (1) spk graph /nonexistent --format edges exits 2 with labeled failure (matching JSON mode + errors.md exit_code_mapping); zero-spec-files-but-existing-path stays exit 0 empty. (2) spk graph <violations fixture> --format edges|dot|mermaid exits 1 while violations still ride along as annotation rows (D3); JSON mode unchanged. Out of scope: no corpus edits, no JSON-mode changes, no dropping violations from projections. Tests (tests/cli/graph_projection.rs, RED first): nonexistent_path_projection_exits_2; empty_existing_dir_still_exits_0 (guard zero_file fixture); violations_fixture_projection_exits_1_and_keeps_rows (edges + dot + mermaid + wiring). Narrow: cargo test --test cli graph_projection. Full: just test + just lint-specs. Files: src/main.rs (cmd_graph_projection), tests/cli/{main.rs,graph_projection.rs}, tests/cli/graph_views.rs (update typing_violations exit assertion), docs/src/commands.md help line.

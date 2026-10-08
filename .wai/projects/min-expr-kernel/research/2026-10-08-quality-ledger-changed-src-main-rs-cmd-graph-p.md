@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-08-specodelic-0zk-graph-projection-exit-code-semantics-f3-f8, pipeline-step:quality-ledger]
+---
+
+QUALITY LEDGER: Changed — src/main.rs (cmd_graph_projection: F3 nonexistent-root refusal exit 2 with labeled envelope on stderr; F8 violations exit 1; help text updated; named_roots helper extracted), tests/cli/main.rs (+graph_projection module), tests/cli/graph_projection.rs (new: 6 tests, RED→GREEN), tests/cli/graph_views.rs + tests/cli/parse_misc.rs (4 exit-code pins updated to new contract), tests/cli/model_check.rs (pre-existing clippy while-let lint fixed mechanically), docs/src/commands.md (exit-code semantics paragraph). Verified — just test (32 suites ok), cargo clippy --all-targets -D warnings clean, cargo fmt --check clean, pretender check exit 0 (vendored mermaid aside per brief), just lint-specs ok:true, repro lines print 2 and 1. Review — RO5U: no critical/high; MEDIUM (2) deferred (violations-only exit trigger is the ticket's decided scope); LOWs noted. Risks — projection exit 1 does not cover dangling/supersedes-cycle corpora (JSON mode does); dual build cost negligible. Next — orchestrator verification.
