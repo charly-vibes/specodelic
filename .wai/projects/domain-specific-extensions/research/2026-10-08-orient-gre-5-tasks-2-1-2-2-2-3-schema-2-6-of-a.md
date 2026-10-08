@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-08-specodelic-gre-5-guide-schema-json-and-schema-diagrams-tasks-2-1-2-3, pipeline-step:orient]
+---
+
+ORIENT: gre.5 = tasks 2.1/2.2/2.3(schema)/2.6 of add-graph-views. Read tasks.md, design.md D4/D8, proposal schema slice, spec delta graph-views. Key facts: (a) spec delta names `spk guide --schema --json` literally — add a Guide subcommand with --schema flag; ordinary guide payload (kinds, row shapes, format_revision) also required, WITHOUT the REFERENCE_TYPING table (D4: reference typing stays a value-set consumer only). (b) tests/cli/parse_misc.rs at 2283/2300 lines — new byte-pins go to unit tests over pure fns in src/guide.rs (gre.4 precedent). (c) Schema exporter must be shared between canonical() production and constructed test schemas. (d) Python scripts/graph_views.py schema view consumes ONLY the serialized export; ≥5 malformed cases → schema_export_invalid before output. (e) pretender: script role caps fn_lines 59, cyclomatic 15, params 3; lib caps exported fn lines 320.

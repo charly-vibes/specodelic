@@ -1,5 +1,8 @@
 # Orchestrator pattern: pi subagents + wai pipeline (tdd-ro5)
 
+Canon: `~/.wai/resources/patterns/orchestrator-subagents.md` — invariants live
+there; on conflict, canon wins. This file is the specodelic projection.
+
 Established 2026-10-06 during specodelic-txo (slice 1 of add-min-expr-kernel).
 
 **Tooling-enforced since 2026-10-07** (specodelic-k9v): the loop below is the

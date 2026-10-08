@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-08-specodelic-gre-5-guide-schema-json-and-schema-diagrams-tasks-2-1-2-3, pipeline-step:green]
+---
+
+GREEN (2.1/2.2): (a) src/guide.rs gained pub fn value_set_payload() (format_revision, intent/constraint/property kinds, row_shapes for constraint/property/state/transition; NO reference typing — D4) and pub fn schema_export(&Schema) -> serde_json::Value (schema_version 1, format_revision from FORMAT_REVISION, sorted objects, morphisms sorted (source,name), refinements sorted (side,kind), source_rule as unchecked|appears_on|same_kind strings, endo_acyclic bool|null; shared exporter accepts any &Schema so constructed fixtures use the production serialization; defensive re-sort). (b) src/main.rs: new Guide { --schema } clap subcommand, cmd_guide emits both payloads through genesis Output::emit (emit_report, human summary line, next-step hints). Reference typing (REFERENCE_TYPING const) untouched and outside both payloads. Narrow: cargo test --lib guide:: → 20 passed; just test-smart → all suites green; CLI runs verified (guide --json, guide --schema --json).

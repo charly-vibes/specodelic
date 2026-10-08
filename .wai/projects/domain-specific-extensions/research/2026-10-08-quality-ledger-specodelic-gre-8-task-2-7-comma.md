@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-08-specodelic-gre-8-derived-diagrams-stable-under-prose-perturbation-task-2-7, pipeline-step:quality-ledger]
+---
+
+QUALITY LEDGER (specodelic-gre.8, task 2.7): Commands run — python3 -m unittest discover -s scripts -p test_graph_views.py → 58 tests OK (incl. new views_from_artifact_only characterization); just ci → exit 0 (fmt-check, clippy -D warnings, full cargo test, release build, openspec-validate, lint-deltas, model-check, sync-sections, doc gates, pretender check, guard scripts, ah check --run-tests 214 passed); ah check → no issues (0 structural, 0 execution); openspec validate --all --strict → 25 passed, 0 failed. RO5U review: verdict pass, no Critical/High/Medium findings; two Lows documented (binary presence precondition fails loudly, not skipped; characterization anchors tied to fixture wording). Risks: none known — renderers byte-identical (58 pinned renders + CLI subprocess contract tests); characterization depends on prebuilt target binary by design. Next: orchestrator verifies commits 42407ec + decbf45 + tasks.md tick and closes specodelic-gre.8.

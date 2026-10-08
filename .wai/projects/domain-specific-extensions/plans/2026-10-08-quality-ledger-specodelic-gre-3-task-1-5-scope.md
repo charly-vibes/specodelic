@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-08-specodelic-gre-3-native-dot-mermaid-projections-task-1-5, pipeline-step:quality-ledger]
+---
+
+QUALITY LEDGER specodelic-gre.3 task 1.5: scope = openspec add-graph-views task 1.5 only (checkbox flipped; no other tasks touched). RED-first honored (13 CLI tests observed failing on clap invalid-value exit 2 before implementation). Tests: 13 new CLI cases in tests/cli/parse_misc.rs (dot pins/parity/rerun/violation/dangling/zero-file/json-override; mermaid pins/emits-bold/violation/dangling/rerun/zero-file/json-override); existing 64-test parse_misc suite plus pinned TSV characterization untouched and green. Known remaining risks: (a) mermaid escaping covers quotes only — ids/reasons with other HTML-special chars would need mermaid_escape growth (no corpus hits it; cheap follow-up); (b) dot label parity delta vs the retired jq bridge: full field.column labels instead of the short kind, documented in the pinning test; (c) violation linkStyle index depends on the deterministic link sort — pinned per fixture, would shift only if sort changes. Gates: just ci pending (next step), then ah check + openspec validate.
