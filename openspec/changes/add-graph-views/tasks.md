@@ -85,7 +85,7 @@ Tidying commits are separate from feature commits.
       Validate its envelope/schema before rendering; make 2.3's perturbation
       and malformed-input fixtures pass. No Rust-source parsing or second
       reference-typing table in Python.
-- [ ] 2.7 **TIDY**: shared rendering helpers; prose-independence test
+- [x] 2.7 **TIDY**: shared rendering helpers; prose-independence test
       (`views_from_artifact_only`: perturb prose blocks of a fixture, view
       output byte-identical).
 

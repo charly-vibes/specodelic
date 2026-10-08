@@ -26,19 +26,29 @@ Rationale: the view derives from the artifacts alone (design D1) — it
 never re-walks corpus markdown and embeds no reference-typing table.
 Split out of graph_views.py to honor the script-role structural ratchet;
 graph_views.py re-exports the entry point so the CLI surface stays one
-import home.
+import home. The genuinely shared pieces (TSV contract, scope gate,
+Mermaid primitives, fan-in, violation annotation) live in view_common.py
+(specodelic-gre.8, task 2.7 tidy) — only the traceability view's own
+semantics (owning-intent collapsing, dependency dedupe, refusal on
+unattributable endpoints) remain here.
 
 Usage: python3 scripts/graph_views.py trace <edges.tsv> --graph <graph.json> [--lint <lint.json>]
 """
 
-from state_view import (
-    _mermaid_escape,
-    _mermaid_names,
-    _owning_file,
-    _scope_gate,
+from view_common import (
+    ArtifactInvalid,
+    VIOLATION_CLASSDEF,
+    declared_intents,
+    fan_in,
+    mermaid_escape,
+    mermaid_names,
+    no_output_note,
+    owning_file,
     parse_edges_tsv,
+    partition_violations,
+    scope_gate,
+    violation_lines,
 )
-from view_common import ArtifactInvalid
 
 NO_DEPENDENCIES_NOTE = (
     "no cross-file dependency edges in the artifact — file dependencies "
@@ -53,8 +63,8 @@ def _dependency_pairs(deps, intents):
     (D3: never silently dropped)."""
     pairs = set()
     for r in deps:
-        src = _owning_file(r["from"], intents)
-        dst = _owning_file(r["to"], intents)
+        src = owning_file(r["from"], intents)
+        dst = owning_file(r["to"], intents)
         stray = src if src not in intents else dst if dst not in intents else None
         if stray is not None:
             raise ArtifactInvalid(
@@ -66,34 +76,18 @@ def _dependency_pairs(deps, intents):
     return pairs
 
 
-def _fan_in(pairs):
-    """fan-in per target over DISTINCT source intents — D2: the raw TSV
-    keeps duplicate instances; duplicate rows add 0 beyond a source's
-    first contribution."""
-    fan = {}
-    for src, dst in pairs:
-        fan.setdefault(dst, set()).add(src)
-    return fan
-
-
-def _violation_lines(violations, intents, names):
-    """Violations as annotated red-dashed elements dashed into their
-    collapsed intent target — annotated, never omitted (D3), and not
-    recorded edges (they contribute nothing to fan-in)."""
-    lines = []
-    for i, r in enumerate(sorted(violations, key=lambda r: (r["to"], r["annotation"])), 1):
-        target = _owning_file(r["to"], intents)
+def _violation_target_of(violations, intents, names):
+    """Target-node mapper for the shared violation renderer: each
+    violation collapses to its owning intent's node — refusing
+    unattributable targets as artifact_invalid (D3)."""
+    for r in sorted(violations, key=lambda r: (r["to"], r["annotation"])):
+        target = owning_file(r["to"], intents)
         if target not in intents:
             raise ArtifactInvalid(
                 f"violation target {target} collapses outside the intent set — "
                 "the edges TSV and the graph envelope disagree"
             )
-        label = f"{r['field']}: {r['annotation']}".strip(": ")
-        lines.append(
-            f'  violation_{i}(["{_mermaid_escape(label)}"]):::violation'
-            f' -.->|"{r["field"]}"| {names[target]}'
-        )
-    return lines
+    return lambda r: names[owning_file(r["to"], intents)]
 
 
 def render_traceability(edges_tsv_text, graph_payload, lint_payload=None):
@@ -102,19 +96,19 @@ def render_traceability(edges_tsv_text, graph_payload, lint_payload=None):
     intent, deduped cross-file dependency edges, distinct-source fan-in
     labels, annotated violations. Raises OutOfScopeRefused or
     ArtifactInvalid before any rendering."""
-    data = _scope_gate(graph_payload, lint_payload)
+    data = scope_gate(graph_payload, lint_payload)
     rows = parse_edges_tsv(edges_tsv_text)
-    intents = set(data["intents"])
-    intents |= {r["from"] for r in rows if r["from_kind"] == "Intent"}
-    intents |= {r["to"] for r in rows if r["to_kind"] == "Intent"}
-    deps = [r for r in rows if not r["field"].startswith("violation:")]
-    violations = [r for r in rows if r["field"].startswith("violation:")]
+    intents = declared_intents(data, rows)
+    deps, violations = partition_violations(rows)
     pairs = _dependency_pairs(deps, intents)
-    fan_in = _fan_in(pairs)
+    # fan-in per target over DISTINCT source intents — D2: the raw TSV
+    # keeps duplicate instances; duplicate rows add 0 beyond a source's
+    # first contribution.
+    fan = fan_in(pairs, target=lambda p: p[1], source=lambda p: p[0])
     reserved = ["no_dependencies"] + [
         f"violation_{i}" for i in range(1, len(violations) + 1)
     ]
-    names = _mermaid_names(intents, reserved)
+    names = mermaid_names(intents, reserved)
     lines = [
         "%% traceability view — derived from spk graph --format edges"
         " (edges collapsed to owning intents; fan-in over distinct source"
@@ -122,16 +116,15 @@ def render_traceability(edges_tsv_text, graph_payload, lint_payload=None):
         "flowchart LR",
     ]
     for intent in sorted(intents):
-        sources = fan_in.get(intent)
+        sources = fan.get(intent)
         label = f"{intent} (fan-in {len(sources)})" if sources else intent
-        lines.append(f'  {names[intent]}["{_mermaid_escape(label)}"]')
+        lines.append(f'  {names[intent]}["{mermaid_escape(label)}"]')
     for src, dst in sorted(pairs):
         lines.append(f"  {names[src]} --> {names[dst]}")
     if not pairs:
-        lines.append(
-            f'  no_dependencies["no_dependencies: {NO_DEPENDENCIES_NOTE}"]:::violation'
-        )
-    lines.extend(_violation_lines(violations, intents, names))
+        lines.append(no_output_note("no_dependencies", NO_DEPENDENCIES_NOTE))
+    target_of = _violation_target_of(violations, intents, names)
+    lines.extend(violation_lines(violations, target_of))
     if violations or not pairs:
-        lines.append("  classDef violation stroke:red,stroke-dasharray:5 5")
+        lines.append(VIOLATION_CLASSDEF)
     return "\n".join(lines) + "\n"
