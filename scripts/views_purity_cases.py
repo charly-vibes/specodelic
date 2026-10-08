@@ -88,11 +88,13 @@ def spk_binary():
 
 def artifacts_for(corpus_dir):
     """The artifact pair the views consume: TSV text + graph envelope.
-    `--format edges` exits 0; `--json` over a violation-bearing corpus
-    exits 1 (diagnostic: graphed-with-findings) while still emitting an
-    ok:true envelope — only the envelope contract is asserted here."""
-    tsv = run_graph(corpus_dir, "--format", "edges", expect=(0,))
-    graph = json.loads(run_graph(corpus_dir, "--json", expect=(0, 1)))
+    The corpus carries Reference Typing violations by design, and both
+    projection modes follow the 0/1/2 exit-code mapping (specodelic-0zk,
+    design D3): violations ride along as annotation rows while the
+    command exits 1 (diagnostic: graphed-with-findings) and still emits
+    its artifact — only the artifact contents are asserted here."""
+    tsv = run_graph(corpus_dir, "--format", "edges", expect=(1,))
+    graph = json.loads(run_graph(corpus_dir, "--json", expect=(1,)))
     assert graph.get("ok") is True, "graph envelope must be ok:true"
     return tsv, graph
 
