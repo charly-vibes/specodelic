@@ -1,9 +1,3 @@
----
-id: spec
-kind: intent
-statement: "THE acset-core capability SHALL hold the format's fixed finite schema — five objects and typed reference morphisms — as one data value, SHALL build each parsed corpus into a typed instance whose dangling references are representable values rather than lint-time afterthoughts, and SHALL answer reachability questions through a single closure primitive shared by graph, merge, and refactor — all internal-only, with every migration gated by parity against the existing walks."
----
-
 # acset-core Specification
 
 ## Purpose
@@ -22,29 +16,29 @@ category) ships with the later pushout change; nothing here needs it.
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| objects_closed | invariant | `the schema's objects are exactly {Intent, Constraint, State, Transition, Property}; a sixth object is added only under a new Revision heading of specs/specodelic.md (append-only discipline)` | [[spec]] |
-| morphisms_typed | invariant | `every morphism has a name, exactly one source object, and exactly one target object; the pair (source, name) is unique across the schema` | [[spec]] |
-| typing_table_is_data | invariant | `allowed_targets(m) is read from the Schema value for every morphism m — never decided by a per-field match arm; adding a reference field is adding one row` | [[spec]] |
-| refinement_declared | invariant | `a typing rule that depends on a row's own kind column (emits targets effect Constraints only; satisfies targets extension_point only; observes targets effect only) is declared as a refinement predicate on the morphism's target, never inlined into the checker` | [[spec]] |
-| endo_acyclicity_flagged | invariant | `an endo-morphism (supersedes; derives_from between laws) carries an explicit flag saying whether cycles through it are forbidden; acyclicity is checked generically for flagged morphisms only` | [[spec]] |
-| schema_matches_typing_table | invariant | `when the lint target carries the format doc, the Schema value equals its Reference Typing table (specs/specodelic.md) row for row, reported as a lint finding on divergence — the document and the code cannot drift; a corpus without the format doc is out of the gate's scope (no-op, never fabricated expected rows)` | [[spec]] |
-| canonical_order | invariant | `objects and morphisms are enumerated in a canonical sorted order, so every artifact derived from the Schema is byte-stable` | [[spec]] |
-| ids_interned | invariant | `each object's id-set is a dense index 0..n-1 with a bidirectional map to the file-qualified string id; a duplicate file-qualified id is resolved first-wins and recorded in the builder's collision report — identical to the existing graph builder's or_insert behavior — and a lint-clean corpus carries none (no_duplicate_claim fires upstream)` | [[spec]] |
-| morphisms_partial | invariant | `each schema morphism is stored as a vector of optional indices, None meaning an unresolved reference; the builder never drops an unresolved reference at parse time` | [[spec]] |
-| typing_enforced_at_build | invariant | `a resolved reference whose target object or sub-kind violates the Schema's allowed_targets is recorded as a typing violation and is not stored as a morphism value — the behaviour of specs/graph.md's edge_kind_matches_typing` | [[spec]] |
-| adapter_total | invariant | `from_specs is total on parsed corpora: every Link of every spec is stored as a morphism value, recorded as dangling, or recorded as a typing violation — none is silently dropped` | [[spec]] |
-| adapter_graph_equivalent | invariant | `for every corpus the existing graph builder accepts, the edge set derived from the instance equals the edges of the existing graph builder, edge for edge — the parity gate that retires the old path without a flag day` | [[spec]] |
-| build_deterministic | invariant | `index assignment follows sorted file-qualified id order; two builds of the same corpus serialize byte-identically regardless of input file order` | [[spec]] |
-| cells_carried | invariant | `non-reference cells (expr, statement, generator, predicate, kind cells) are carried as attribute columns keyed by the same indices and are never inspected by the builder — consistent with specs/specodelic.md's prose_untouched` | [[spec]] |
-| seeds_exist | invariant | `every seed id is an id of the instance; an unknown seed is rejected, not ignored` | [[spec]] |
-| scope_by_morphism_set | invariant | `a query names the set M of schema morphisms to follow; restricting M to supersedes yields exactly the supersedes subgraph, on which cycle detection is closure-based (specs/specodelic.md's supersedes_acyclic)` | [[spec]] |
-| single_traversal_primitive | invariant | `forward_closure and backward_closure over a seed set and a morphism set M are the only traversal primitives; graph, merge, and refactor are expressed through them with no private adjacency map` | [[spec]] |
-| closure_terminates | invariant | `closure on a finite instance terminates and visits each node at most once, including when M contains a cycle` | [[spec]] |
-| dangling_not_followed | invariant | `an unresolved reference is not an edge: traversal skips it, the dangling report lists it, and it contributes to no reachability result` | [[spec]] |
-| blast_radius_defined | invariant | `blast_radius(I, touched) == the mixed transitive closure — from every reached node, both the morphism values are followed forward and the references backward, i.e. the fixpoint of X ↦ backward_closure(forward_closure(X)); the backward closure of the touched ids alone, plus the targets reached forward from them, is NOT the definition (a backward-reached dependent's own forward reach joins the radius) — the definition in specs/graph.md's blast_radius_is_transitive_closure, pinned by parity against merge.rs's pre-migration walk` | [[spec]] |
-| fan_in_is_preimage_size | invariant | `fan_in(x) == the number of pairs (s, m) with the morphism value at s defined and equal to x` | [[spec]] |
-| results_ordered | invariant | `query results are sorted by file-qualified id, so output is deterministic` | [[spec]] |
-| parity_with_existing | invariant | `for every corpus, query-derived blast_radius, fan_in, and supersedes cycles equal the values computed by the pre-migration walks in graph.rs and merge.rs — the parity gate that lets the private adjacency maps be deleted` | [[spec]] |
+| objects_closed | invariant | `the schema's objects are exactly {Intent, Constraint, State, Transition, Property}; a sixth object is added only under a new Revision heading of specs/specodelic.md (append-only discipline)` | [[acset.core]] |
+| morphisms_typed | invariant | `every morphism has a name, exactly one source object, and exactly one target object; the pair (source, name) is unique across the schema` | [[acset.core]] |
+| typing_table_is_data | invariant | `allowed_targets(m) is read from the Schema value for every morphism m — never decided by a per-field match arm; adding a reference field is adding one row` | [[acset.core]] |
+| refinement_declared | invariant | `a typing rule that depends on a row's own kind column (emits targets effect Constraints only; satisfies targets extension_point only; observes targets effect only) is declared as a refinement predicate on the morphism's target, never inlined into the checker` | [[acset.core]] |
+| endo_acyclicity_flagged | invariant | `an endo-morphism (supersedes; derives_from between laws) carries an explicit flag saying whether cycles through it are forbidden; acyclicity is checked generically for flagged morphisms only` | [[acset.core]] |
+| schema_matches_typing_table | invariant | `when the lint target carries the format doc, the Schema value equals its Reference Typing table (specs/specodelic.md) row for row, reported as a lint finding on divergence — the document and the code cannot drift; a corpus without the format doc is out of the gate's scope (no-op, never fabricated expected rows)` | [[acset.core]] |
+| canonical_order | invariant | `objects and morphisms are enumerated in a canonical sorted order, so every artifact derived from the Schema is byte-stable` | [[acset.core]] |
+| ids_interned | invariant | `each object's id-set is a dense index 0..n-1 with a bidirectional map to the file-qualified string id; a duplicate file-qualified id is resolved first-wins and recorded in the builder's collision report — identical to the existing graph builder's or_insert behavior — and a lint-clean corpus carries none (no_duplicate_claim fires upstream)` | [[acset.core]] |
+| morphisms_partial | invariant | `each schema morphism is stored as a vector of optional indices, None meaning an unresolved reference; the builder never drops an unresolved reference at parse time` | [[acset.core]] |
+| typing_enforced_at_build | invariant | `a resolved reference whose target object or sub-kind violates the Schema's allowed_targets is recorded as a typing violation and is not stored as a morphism value — the behaviour of specs/graph.md's edge_kind_matches_typing` | [[acset.core]] |
+| adapter_total | invariant | `from_specs is total on parsed corpora: every Link of every spec is stored as a morphism value, recorded as dangling, or recorded as a typing violation — none is silently dropped` | [[acset.core]] |
+| adapter_graph_equivalent | invariant | `for every corpus the existing graph builder accepts, the edge set derived from the instance equals the edges of the existing graph builder, edge for edge — the parity gate that retires the old path without a flag day` | [[acset.core]] |
+| build_deterministic | invariant | `index assignment follows sorted file-qualified id order; two builds of the same corpus serialize byte-identically regardless of input file order` | [[acset.core]] |
+| cells_carried | invariant | `non-reference cells (expr, statement, generator, predicate, kind cells) are carried as attribute columns keyed by the same indices and are never inspected by the builder — consistent with specs/specodelic.md's prose_untouched` | [[acset.core]] |
+| seeds_exist | invariant | `every seed id is an id of the instance; an unknown seed is rejected, not ignored` | [[acset.core]] |
+| scope_by_morphism_set | invariant | `a query names the set M of schema morphisms to follow; restricting M to supersedes yields exactly the supersedes subgraph, on which cycle detection is closure-based (specs/specodelic.md's supersedes_acyclic)` | [[acset.core]] |
+| single_traversal_primitive | invariant | `forward_closure and backward_closure over a seed set and a morphism set M are the only traversal primitives; graph, merge, and refactor are expressed through them with no private adjacency map` | [[acset.core]] |
+| closure_terminates | invariant | `closure on a finite instance terminates and visits each node at most once, including when M contains a cycle` | [[acset.core]] |
+| dangling_not_followed | invariant | `an unresolved reference is not an edge: traversal skips it, the dangling report lists it, and it contributes to no reachability result` | [[acset.core]] |
+| blast_radius_defined | invariant | `blast_radius(I, touched) == the mixed transitive closure — from every reached node, both the morphism values are followed forward and the references backward, i.e. the fixpoint of X ↦ backward_closure(forward_closure(X)); the backward closure of the touched ids alone, plus the targets reached forward from them, is NOT the definition (a backward-reached dependent's own forward reach joins the radius) — the definition in specs/graph.md's blast_radius_is_transitive_closure, pinned by parity against merge.rs's pre-migration walk` | [[acset.core]] |
+| fan_in_is_preimage_size | invariant | `fan_in(x) == the number of pairs (s, m) with the morphism value at s defined and equal to x` | [[acset.core]] |
+| results_ordered | invariant | `query results are sorted by file-qualified id, so output is deterministic` | [[acset.core]] |
+| parity_with_existing | invariant | `for every corpus, query-derived blast_radius, fan_in, and supersedes cycles equal the values computed by the pre-migration walks in graph.rs and merge.rs — the parity gate that lets the private adjacency maps be deleted` | [[acset.core]] |
 
 ## Model
 
@@ -66,32 +60,32 @@ category) ships with the later pushout change; nothing here needs it.
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
-| sixth_object_rejected | unit | [[spec.objects_closed]] | `schema_with_extra_object("Action")` | `check(schema) == failed` |
-| duplicate_morphism_rejected | unit | [[spec.morphisms_typed]] | `schema_with_two_morphisms_same_source_and_name()` | `check(schema) == failed` |
-| duplicate_id_first_wins_parity | unit | [[spec.ids_interned]] | `corpus_with_two_rows_same_qualified_id()` | `node_kinds(builder(corpus)) == node_kinds(existing kind_index(corpus))` — first-wins, and the collision report names the id |
-| typing_read_from_schema | unit | [[spec.typing_table_is_data]] | `schema_with_one_added_reference_field()` | `typing_violation(edge_over_new_field) is decided with no change to checker code` |
-| endo_cycle_detected | unit | [[spec.endo_acyclicity_flagged]] | `supersedes_cycle_a_b_a()` | `check(instance) == failed` |
-| unflagged_endo_cycle_tolerated | unit | [[spec.endo_acyclicity_flagged]] | `law_derives_from_law_self_edge()` | `check(instance) == passed` — only flagged morphisms are cycle-checked |
-| schema_drift_detected | unit | [[spec.schema_matches_typing_table]] | `schema_missing_one_row_of_the_typing_table()` | `check(schema, typing_table) == failed` |
-| index_roundtrip | unit | [[spec.ids_interned]] | `arbitrary_corpus()` | `name_of(object, index_of(object, id)) == id` |
-| emits_refinement_enforced | unit | [[spec.refinement_declared]] | `emits_edge_to_invariant_constraint()` | `check(edge) == failed` — the effect-only rule comes from the declared refinement |
-| order_is_canonical | unit | [[spec.canonical_order]] | `arbitrary_schema_built_from_two_declaration_orders()` | `schemas_equal_as_values()` — enumeration order never depends on declaration order |
-| dangling_is_a_value | unit | [[spec.morphisms_partial]] | `corpus_with_one_unresolved_link()` | `morphism_value(source) == None` and the build reports no error |
-| no_link_dropped | unit | [[spec.adapter_total]] | `arbitrary_corpus()` | `card(stored) + card(dangling) + card(violations) == card(links)` |
-| graph_parity | unit | [[spec.adapter_graph_equivalent]] | `arbitrary_corpus_accepted_by_graph_build()` | `edges(from_specs(c)) == the pre-migration builder's edges` |
-| forbidden_edge_not_stored | unit | [[spec.typing_enforced_at_build]] | `traces_to_pointing_at_a_state()` | `morphism_value(source) == None` and `card(typing_violations) == 1` |
-| rebuild_is_byte_stable | unit | [[spec.build_deterministic]] | `arbitrary_corpus(), arbitrary_file_order()` | `serialize(from_specs(shuffle(c))) == serialize(from_specs(c))` |
-| attributes_untouched | unit | [[spec.cells_carried]] | `row_whose_expr_contains_wiki_link_syntax_in_prose()` | `attribute(row, "expr") == original_cell` |
-| unknown_seed_rejected | unit | [[spec.seeds_exist]] | `closure_over_unknown_seed()` | `check(query) == failed` |
-| supersedes_scope_exact | unit | [[spec.scope_by_morphism_set]] | `corpus_with_supersedes_and_traces_edges()` | `closure(M == supersedes) contains no traces edge` |
-| no_private_adjacency | unit | [[spec.single_traversal_primitive]] | `grep_for_adjacency_map_construction()` | `no adjacency-map construction exists outside acset::query` |
-| closure_on_cycle_terminates | unit | [[spec.closure_terminates]] | `cyclic_morphism_set()` | `closure(seed) terminates and visits each node at most once` |
-| closure_laws_hold | unit | [[spec.single_traversal_primitive]] | `arbitrary_instance(), arbitrary_seed_set(), arbitrary_morphism_set()` | **contains:** `S ⊆ closure(S)` **idempotence:** `closure(closure(S)) == closure(S)` **monotonicity:** `S ⊆ T implies closure(S) ⊆ closure(T)` |
-| dangling_not_followed_in_traversal | unit | [[spec.dangling_not_followed]] | `corpus_with_one_dangling_link()` | `closure(seed) skips the dangling endpoint and the dangling report lists it` |
-| blast_radius_parity | unit | [[spec.blast_radius_defined]] | `arbitrary_corpus_with_two_branch_tips()` | `blast_radius(query) == blast_radius(pre-migration merge walk)` |
-| fan_in_matches_preimage | unit | [[spec.fan_in_is_preimage_size]] | `corpus_with_one_shared_target()` | `fan_in(shared_target) == 2` |
-| results_sorted_by_id | unit | [[spec.results_ordered]] | `query_over_reverse_insertion_order()` | `output == sorted(output)` |
-| walk_parity_fan_and_cycles | unit | [[spec.parity_with_existing]] | `arbitrary_corpus()` | `closure-derived fan_in, fan_out, and supersedes cycles == the pre-migration walks' values` |
+| sixth_object_rejected | unit | [[acset.core.objects_closed]] | `schema_with_extra_object("Action")` | `check(schema) == failed` |
+| duplicate_morphism_rejected | unit | [[acset.core.morphisms_typed]] | `schema_with_two_morphisms_same_source_and_name()` | `check(schema) == failed` |
+| duplicate_id_first_wins_parity | unit | [[acset.core.ids_interned]] | `corpus_with_two_rows_same_qualified_id()` | `node_kinds(builder(corpus)) == node_kinds(existing kind_index(corpus))` — first-wins, and the collision report names the id |
+| typing_read_from_schema | unit | [[acset.core.typing_table_is_data]] | `schema_with_one_added_reference_field()` | `typing_violation(edge_over_new_field) is decided with no change to checker code` |
+| endo_cycle_detected | unit | [[acset.core.endo_acyclicity_flagged]] | `supersedes_cycle_a_b_a()` | `check(instance) == failed` |
+| unflagged_endo_cycle_tolerated | unit | [[acset.core.endo_acyclicity_flagged]] | `law_derives_from_law_self_edge()` | `check(instance) == passed` — only flagged morphisms are cycle-checked |
+| schema_drift_detected | unit | [[acset.core.schema_matches_typing_table]] | `schema_missing_one_row_of_the_typing_table()` | `check(schema, typing_table) == failed` |
+| index_roundtrip | unit | [[acset.core.ids_interned]] | `arbitrary_corpus()` | `name_of(object, index_of(object, id)) == id` |
+| emits_refinement_enforced | unit | [[acset.core.refinement_declared]] | `emits_edge_to_invariant_constraint()` | `check(edge) == failed` — the effect-only rule comes from the declared refinement |
+| order_is_canonical | unit | [[acset.core.canonical_order]] | `arbitrary_schema_built_from_two_declaration_orders()` | `schemas_equal_as_values()` — enumeration order never depends on declaration order |
+| dangling_is_a_value | unit | [[acset.core.morphisms_partial]] | `corpus_with_one_unresolved_link()` | `morphism_value(source) == None` and the build reports no error |
+| no_link_dropped | unit | [[acset.core.adapter_total]] | `arbitrary_corpus()` | `card(stored) + card(dangling) + card(violations) == card(links)` |
+| graph_parity | unit | [[acset.core.adapter_graph_equivalent]] | `arbitrary_corpus_accepted_by_graph_build()` | `edges(from_specs(c)) == the pre-migration builder's edges` |
+| forbidden_edge_not_stored | unit | [[acset.core.typing_enforced_at_build]] | `traces_to_pointing_at_a_state()` | `morphism_value(source) == None` and `card(typing_violations) == 1` |
+| rebuild_is_byte_stable | unit | [[acset.core.build_deterministic]] | `arbitrary_corpus(), arbitrary_file_order()` | `serialize(from_specs(shuffle(c))) == serialize(from_specs(c))` |
+| attributes_untouched | unit | [[acset.core.cells_carried]] | `row_whose_expr_contains_wiki_link_syntax_in_prose()` | `attribute(row, "expr") == original_cell` |
+| unknown_seed_rejected | unit | [[acset.core.seeds_exist]] | `closure_over_unknown_seed()` | `check(query) == failed` |
+| supersedes_scope_exact | unit | [[acset.core.scope_by_morphism_set]] | `corpus_with_supersedes_and_traces_edges()` | `closure(M == supersedes) contains no traces edge` |
+| no_private_adjacency | unit | [[acset.core.single_traversal_primitive]] | `grep_for_adjacency_map_construction()` | `no adjacency-map construction exists outside acset::query` |
+| closure_on_cycle_terminates | unit | [[acset.core.closure_terminates]] | `cyclic_morphism_set()` | `closure(seed) terminates and visits each node at most once` |
+| closure_laws_hold | unit | [[acset.core.single_traversal_primitive]] | `arbitrary_instance(), arbitrary_seed_set(), arbitrary_morphism_set()` | **contains:** `S ⊆ closure(S)` **idempotence:** `closure(closure(S)) == closure(S)` **monotonicity:** `S ⊆ T implies closure(S) ⊆ closure(T)` |
+| dangling_not_followed_in_traversal | unit | [[acset.core.dangling_not_followed]] | `corpus_with_one_dangling_link()` | `closure(seed) skips the dangling endpoint and the dangling report lists it` |
+| blast_radius_parity | unit | [[acset.core.blast_radius_defined]] | `arbitrary_corpus_with_two_branch_tips()` | `blast_radius(query) == blast_radius(pre-migration merge walk)` |
+| fan_in_matches_preimage | unit | [[acset.core.fan_in_is_preimage_size]] | `corpus_with_one_shared_target()` | `fan_in(shared_target) == 2` |
+| results_sorted_by_id | unit | [[acset.core.results_ordered]] | `query_over_reverse_insertion_order()` | `output == sorted(output)` |
+| walk_parity_fan_and_cycles | unit | [[acset.core.parity_with_existing]] | `arbitrary_corpus()` | `closure-derived fan_in, fan_out, and supersedes cycles == the pre-migration walks' values` |
 
 ## ADDED Requirements
 

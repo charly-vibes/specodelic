@@ -1,9 +1,3 @@
----
-id: spec
-kind: intent
-statement: "THE docs system SHALL render the spec corpus and the command surface as an mdBook site deployed to GitHub Pages on every push to main."
----
-
 # docs-site Specification
 
 ## Purpose
@@ -16,10 +10,10 @@ specs plus dual-format capability specs), served at
 
 | id              | kind      | expr                                                                                                                                          | traces_to |
 |-----------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| site_present    | invariant | `the repo carries an mdBook under docs/ with book.toml at the root, an index, and a command reference`                                          | [[spec]]  |
-| specs_in_book   | invariant | `SUMMARY.md links every domain spec file under specs/ and every dual-format capability spec under openspec/specs/; specs are copied at build time, never vendored` | [[spec]]  |
-| pages_deployed  | invariant | `pushing to main builds the book and deploys it to GitHub Pages at /specodelic/ via docs.yml (upload-pages-artifact → deploy-pages)`             | [[spec]]  |
-| llms_txt_served | invariant | `the site serves an llms.txt tool summary at its root, copied into the built book`                                                               | [[spec]]  |
+| site_present    | invariant | `the repo carries an mdBook under docs/ with book.toml at the root, an index, and a command reference`                                          | [[docs.site]]  |
+| specs_in_book   | invariant | `SUMMARY.md links every domain spec file under specs/ and every dual-format capability spec under openspec/specs/; specs are copied at build time, never vendored` | [[docs.site]]  |
+| pages_deployed  | invariant | `pushing to main builds the book and deploys it to GitHub Pages at /specodelic/ via docs.yml (upload-pages-artifact → deploy-pages)`             | [[docs.site]]  |
+| llms_txt_served | invariant | `the site serves an llms.txt tool summary at its root, copied into the built book`                                                               | [[docs.site]]  |
 
 ## Model
 
@@ -32,17 +26,17 @@ specs plus dual-format capability specs), served at
 
 | id            | from     | to       | guard                    |
 |---------------|----------|----------|--------------------------|
-| docs_build    | authored | built    | [[spec.site_present]]    |
-| docs_deploy   | built    | deployed | [[spec.pages_deployed]]  |
+| docs_build    | authored | built    | [[docs.site.site_present]]    |
+| docs_deploy   | built    | deployed | [[docs.site.pages_deployed]]  |
 
 ## Properties
 
 | id          | kind | derives_from            | generator             | predicate                                        |
 |-------------|------|-------------------------|-----------------------|--------------------------------------------------|
-| p_site      | unit | [[spec.site_present]]   | `fresh_checkout()`    | `docs-build() == ok ∧ index_html_exists`          |
-| p_specs     | unit | [[spec.specs_in_book]]  | `arbitrary_spec_file()` | `SUMMARY.md links f ⇒ book page for f resolves`  |
-| p_deploy    | unit | [[spec.pages_deployed]] | `push_to_main()`      | `pages_url == /specodelic/ ∧ book deployed`       |
-| p_llms      | unit | [[spec.llms_txt_served]]| `site_fetch()`        | `GET /llms.txt == 200 ∧ body non-empty`           |
+| p_site      | unit | [[docs.site.site_present]]   | `fresh_checkout()`    | `docs-build() == ok ∧ index_html_exists`          |
+| p_specs     | unit | [[docs.site.specs_in_book]]  | `arbitrary_spec_file()` | `SUMMARY.md links f ⇒ book page for f resolves`  |
+| p_deploy    | unit | [[docs.site.pages_deployed]] | `push_to_main()`      | `pages_url == /specodelic/ ∧ book deployed`       |
+| p_llms      | unit | [[docs.site.llms_txt_served]]| `site_fetch()`        | `GET /llms.txt == 200 ∧ body non-empty`           |
 
 ## ADDED Requirements
 

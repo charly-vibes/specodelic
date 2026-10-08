@@ -1,9 +1,3 @@
----
-id: spec
-kind: intent
-statement: "THE hooks step SHALL wire the specodelic dual-format gate into a repository's hook chain as a marker-guarded managed block in its lefthook config, additively and idempotently, without ever claiming core.hooksPath or writing foreign hook files."
----
-
 # hooks Specification
 
 ## Purpose
@@ -16,10 +10,10 @@ lefthook) keeps flowing untouched.
 
 | id                   | kind      | expr                                                                                                                              | traces_to |
 |----------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| chain_preserved      | invariant | `wiring is purely additive: existing commands, entries, and their order in the lefthook config are never dropped, reordered, or wrapped` | [[spec]]  |
-| no_foreign_writes    | invariant | `no install or uninstall path ever writes .git/hooks hook files, .beads/hooks hook files, or the core.hooksPath config`              | [[spec]]  |
-| honest_anchor        | invariant | `a config whose stage or commands structure cannot be anchored is refused without modification, with a labeled error and a hint`     | [[spec]]  |
-| idempotent_lifecycle | invariant | `install on a wired repo and uninstall on an unwired repo are successful no-ops that leave the config byte-identical`                | [[spec]]  |
+| chain_preserved      | invariant | `wiring is purely additive: existing commands, entries, and their order in the lefthook config are never dropped, reordered, or wrapped` | [[hooks]]  |
+| no_foreign_writes    | invariant | `no install or uninstall path ever writes .git/hooks hook files, .beads/hooks hook files, or the core.hooksPath config`              | [[hooks]]  |
+| honest_anchor        | invariant | `a config whose stage or commands structure cannot be anchored is refused without modification, with a labeled error and a hint`     | [[hooks]]  |
+| idempotent_lifecycle | invariant | `install on a wired repo and uninstall on an unwired repo are successful no-ops that leave the config byte-identical`                | [[hooks]]  |
 
 ## Model
 
@@ -42,11 +36,11 @@ lefthook) keeps flowing untouched.
 
 | id                    | kind | derives_from                   | generator                                    | predicate                                                              |
 |-----------------------|------|--------------------------------|----------------------------------------------|-------------------------------------------------------------------------|
-| additive_wiring       | unit | [[spec.chain_preserved]]       | `fixture config with an existing pre-commit commands mapping` | `existing entries unchanged and lefthook parses the config`            |
-| idempotent_install    | unit | [[spec.idempotent_lifecycle]]  | `install run twice on a fixture`             | `config byte-identical after the second install`                        |
-| foreign_refused       | unit | [[spec.no_foreign_writes]]     | `fixture with a bd-owned pre-commit hook`    | `.git/hooks and .beads/hooks hook files byte-identical after install`   |
-| clean_uninstall       | unit | [[spec.idempotent_lifecycle]]  | `wired fixture, then uninstall`              | `rest of the config byte-identical and the gate entry gone`             |
-| unsupported_framework | unit | [[spec.honest_anchor]]         | `fixture with a husky-sigil pre-commit`      | `install errors labeling the framework and the tree is untouched`       |
+| additive_wiring       | unit | [[hooks.chain_preserved]]       | `fixture config with an existing pre-commit commands mapping` | `existing entries unchanged and lefthook parses the config`            |
+| idempotent_install    | unit | [[hooks.idempotent_lifecycle]]  | `install run twice on a fixture`             | `config byte-identical after the second install`                        |
+| foreign_refused       | unit | [[hooks.no_foreign_writes]]     | `fixture with a bd-owned pre-commit hook`    | `.git/hooks and .beads/hooks hook files byte-identical after install`   |
+| clean_uninstall       | unit | [[hooks.idempotent_lifecycle]]  | `wired fixture, then uninstall`              | `rest of the config byte-identical and the gate entry gone`             |
+| unsupported_framework | unit | [[hooks.honest_anchor]]         | `fixture with a husky-sigil pre-commit`      | `install errors labeling the framework and the tree is untouched`       |
 
 ## ADDED Requirements
 

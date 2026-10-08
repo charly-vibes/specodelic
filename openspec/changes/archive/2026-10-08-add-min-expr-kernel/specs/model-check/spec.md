@@ -1,9 +1,3 @@
----
-id: spec
-kind: intent
-statement: "WHEN a compiled artifact carries guard citations or kernel expressions, THE model-check backend SHALL evaluate guard citations under the citation algebra with an explicit three-valued status, SHALL keep executable guard fragments rejected of record, and SHALL persist run reports naming backend, bound, and per-invariant status with unknown persisted honestly."
----
-
 # model-check Specification
 
 ## Purpose
@@ -20,12 +14,12 @@ CI property test over shared fixtures until the py backend lands.
 
 | id                        | kind      | expr                                                                                                                                                                                                                                                                        | traces_to |
 |---------------------------|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| guard_citation_evaluated  | invariant | `an invariant-kind Constraint's guard citations resolve against same-run invariant outcomes and compose under the citation algebra — conjunction and negation with an explicit three-valued status — the evaluated citation is an annotation upgrade and never a sole verdict unless executed` | [[spec]]  |
-| fragment_guard_rejected_stands | invariant | `a Transition's guard cell carrying a rust: fragment still fails labeled — the deferral of record (deferred to a future Revision alongside a data-carrying state space) is not met by instance-grounded expressions, so the decision of record stands unchanged`                  | [[spec]]  |
-| run_report_status         | invariant | `a model-check run persists backend, bound, and per-invariant status — verified, counterexample, or unknown — unknown is persisted honestly and never coerced, and a run whose invariants were not executed remains exploration_only and explicitly not clean`                      | [[spec]]  |
-| backend_agreement_ci      | invariant | `the same fixture corpus evaluates through every deployed backend with identical three-valued status per cell, asserted by a CI property test — the rust-only interim asserts rust status equals the fixture's expected status, and the cross-backend assertion activates with the py backend without being disabled` | [[spec]]  |
+| guard_citation_evaluated  | invariant | `an invariant-kind Constraint's guard citations resolve against same-run invariant outcomes and compose under the citation algebra — conjunction and negation with an explicit three-valued status — the evaluated citation is an annotation upgrade and never a sole verdict unless executed` | [[model.check]]  |
+| fragment_guard_rejected_stands | invariant | `a Transition's guard cell carrying a rust: fragment still fails labeled — the deferral of record (deferred to a future Revision alongside a data-carrying state space) is not met by instance-grounded expressions, so the decision of record stands unchanged`                  | [[model.check]]  |
+| run_report_status         | invariant | `a model-check run persists backend, bound, and per-invariant status — verified, counterexample, or unknown — unknown is persisted honestly and never coerced, and a run whose invariants were not executed remains exploration_only and explicitly not clean`                      | [[model.check]]  |
+| backend_agreement_ci      | invariant | `the same fixture corpus evaluates through every deployed backend with identical three-valued status per cell, asserted by a CI property test — the rust-only interim asserts rust status equals the fixture's expected status, and the cross-backend assertion activates with the py backend without being disabled` | [[model.check]]  |
 
-| command_claims | invariant | every accepted kernel or citation invariant has one canonical status in CLI output and persisted reports over the explicit corpus | [[spec]] |
+| command_claims | invariant | every accepted kernel or citation invariant has one canonical status in CLI output and persisted reports over the explicit corpus | [[model.check]] |
 
 ## Model
 
@@ -38,20 +32,20 @@ CI property test over shared fixtures until the py backend lands.
 
 | id        | from              | to               | guard                                                                              |
 |-----------|-------------------|------------------|------------------------------------------------------------------------------------|
-| upgrade   | citation_inert    | citation_evaluated | `citation algebra lands per [[spec.guard_citation_evaluated]]: citations resolve and compose with three-valued status`  |
-| activate  | citation_evaluated | agreement_active | `the py backend lands (l8l): the cross-backend assertion activates per [[spec.backend_agreement_ci]]`      |
+| upgrade   | citation_inert    | citation_evaluated | `citation algebra lands per [[model.check.guard_citation_evaluated]]: citations resolve and compose with three-valued status`  |
+| activate  | citation_evaluated | agreement_active | `the py backend lands (l8l): the cross-backend assertion activates per [[model.check.backend_agreement_ci]]`      |
 
 ## Properties
 
 | id                        | kind | derives_from                              | generator                              | predicate                                                                  |
 |---------------------------|------|-------------------------------------------|----------------------------------------|-----------------------------------------------------------------------------|
-| citation_composes         | unit | [[spec.guard_citation_evaluated]]         | `artifact_with_composite_citation()`   | `citation resolves and composes with an explicit three-valued status`        |
-| undischargable_is_unknown | unit | [[spec.guard_citation_evaluated]]         | `artifact_with_undischargable_citation()` | `citation reports unknown, never pass`                                   |
-| guard_fragment_still_rejected | unit | [[spec.fragment_guard_rejected_stands]] | `transition_row_with_fragment_guard()` | `compile fails labeled (fragment_extraction stage), decision of record intact` |
-| report_names_status       | unit | [[spec.run_report_status]]                | `run_with_mixed_invariant_status()`    | `report persists backend, bound, and per-invariant status with unknown honest` |
-| fixture_status_agrees     | unit | [[spec.backend_agreement_ci]]             | `shared_fixture_corpus()`              | `every deployed backend yields identical status per cell on shared fixtures` |
+| citation_composes         | unit | [[model.check.guard_citation_evaluated]]         | `artifact_with_composite_citation()`   | `citation resolves and composes with an explicit three-valued status`        |
+| undischargable_is_unknown | unit | [[model.check.guard_citation_evaluated]]         | `artifact_with_undischargable_citation()` | `citation reports unknown, never pass`                                   |
+| guard_fragment_still_rejected | unit | [[model.check.fragment_guard_rejected_stands]] | `transition_row_with_fragment_guard()` | `compile fails labeled (fragment_extraction stage), decision of record intact` |
+| report_names_status       | unit | [[model.check.run_report_status]]                | `run_with_mixed_invariant_status()`    | `report persists backend, bound, and per-invariant status with unknown honest` |
+| fixture_status_agrees     | unit | [[model.check.backend_agreement_ci]]             | `shared_fixture_corpus()`              | `every deployed backend yields identical status per cell on shared fixtures` |
 
-| command_claims_checked | unit | [[spec.command_claims]] | mixed_kernel_and_citation_cli_corpus() | reported claim IDs and statuses equal expected values in CLI and persisted JSON |
+| command_claims_checked | unit | [[model.check.command_claims]] | mixed_kernel_and_citation_cli_corpus() | reported claim IDs and statuses equal expected values in CLI and persisted JSON |
 
 ## ADDED Requirements
 

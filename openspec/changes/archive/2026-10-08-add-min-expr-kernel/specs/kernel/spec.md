@@ -1,9 +1,3 @@
----
-id: spec
-kind: intent
-statement: "WHEN a corpus declares kernel expressions, THE toolchain SHALL evaluate them as a decidable bounded logic over the acset instances I(k) with every v0 atomic grounded in existing proven machinery, SHALL report every evaluation with an explicit three-valued status whose unknown propagates honestly and never coerces to pass, and SHALL register no new atomic that is not decidable over finite instances."
----
-
 # kernel Specification
 
 ## Purpose
@@ -21,11 +15,11 @@ claim constraints without specodelic learning their language.
 
 | id                      | kind      | expr                                                                                                                                                                                                                                                                          | traces_to |
 |-------------------------|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| kernel_grammar_closed   | invariant | `a kernel expression's atomics come from the closed set — equality, comparisons, bounded universal and existential quantification over I(k), conjunction, negation, and the reference-typed atomics resolves, unique, acyclic, reachable — an expression using an atomic outside the closed set is a labeled failure naming the atomic and the closed set, never prose and never silently ignored` | [[spec]]  |
-| kernel_decidable        | invariant | `every kernel expression is decidable over the finite instances I(k) — evaluation is total, terminates, and yields exactly one of verified, counterexample, unknown — an addition to the closed set that fails decidability over finite instances cannot register`               | [[spec]]  |
-| kernel_status_three_valued | invariant | `every kernel evaluation reports an explicit three-valued status — verified, counterexample, unknown — unknown is honest (the claim could not be discharged) and propagates under Kleene rules; no evaluation path coerces unknown to pass or to counterexample`                | [[spec]]  |
-| kernel_grounded_in_machinery | invariant | `each v0 atomic's semantics is grounded in existing proven machinery — acyclic and reachable on graph traversal, unique and resolves on acset traversal, equality, comparisons, and bounded quantifiers on model_check bounded evaluation — an atomic without a grounding entry cannot ship` | [[spec]]  |
-| kernel_binding_opaque   | invariant | `the per-constraint kernel.binding cell is an opaque claim carrier — the toolchain extracts and surfaces its contents verbatim and never interprets them; external checkers claim constraints through contract-TOML flags without the format learning their language; no registry is built` | [[spec]]  |
+| kernel_grammar_closed   | invariant | `a kernel expression's atomics come from the closed set — equality, comparisons, bounded universal and existential quantification over I(k), conjunction, negation, and the reference-typed atomics resolves, unique, acyclic, reachable — an expression using an atomic outside the closed set is a labeled failure naming the atomic and the closed set, never prose and never silently ignored` | [[kernel]]  |
+| kernel_decidable        | invariant | `every kernel expression is decidable over the finite instances I(k) — evaluation is total, terminates, and yields exactly one of verified, counterexample, unknown — an addition to the closed set that fails decidability over finite instances cannot register`               | [[kernel]]  |
+| kernel_status_three_valued | invariant | `every kernel evaluation reports an explicit three-valued status — verified, counterexample, unknown — unknown is honest (the claim could not be discharged) and propagates under Kleene rules; no evaluation path coerces unknown to pass or to counterexample`                | [[kernel]]  |
+| kernel_grounded_in_machinery | invariant | `each v0 atomic's semantics is grounded in existing proven machinery — acyclic and reachable on graph traversal, unique and resolves on acset traversal, equality, comparisons, and bounded quantifiers on model_check bounded evaluation — an atomic without a grounding entry cannot ship` | [[kernel]]  |
+| kernel_binding_opaque   | invariant | `the per-constraint kernel.binding cell is an opaque claim carrier — the toolchain extracts and surfaces its contents verbatim and never interprets them; external checkers claim constraints through contract-TOML flags without the format learning their language; no registry is built` | [[kernel]]  |
 
 ## Model
 
@@ -38,19 +32,19 @@ claim constraints without specodelic learning their language.
 
 | id       | from          | to            | guard                                                                              |
 |----------|---------------|---------------|------------------------------------------------------------------------------------|
-| declare  | expr_absent   | expr_evaluated | `an expr cell opts into kernel translation per [[spec.kernel_grammar_closed]]`               |
-| discharge | expr_evaluated | expr_unknown | `an evaluation cannot discharge its claim per [[spec.kernel_status_three_valued]]`  |
-| widen    | expr_evaluated | expr_evaluated | `a new atomic registers per [[spec.kernel_decidable]] with a grounding entry`        |
+| declare  | expr_absent   | expr_evaluated | `an expr cell opts into kernel translation per [[kernel.kernel_grammar_closed]]`               |
+| discharge | expr_evaluated | expr_unknown | `an evaluation cannot discharge its claim per [[kernel.kernel_status_three_valued]]`  |
+| widen    | expr_evaluated | expr_evaluated | `a new atomic registers per [[kernel.kernel_decidable]] with a grounding entry`        |
 
 ## Properties
 
 | id                       | kind | derives_from                          | generator                             | predicate                                                                  |
 |--------------------------|------|---------------------------------------|---------------------------------------|----------------------------------------------------------------------------|
-| unknown_propagates       | unit | [[spec.kernel_status_three_valued]]   | `expression_with_undischargable_subclaim()` | `composite status is unknown and no coercion to pass or counterexample occurs` |
-| acyclic_decides          | unit | [[spec.kernel_grounded_in_machinery]] | `instance_with_cycle_fixtures()`      | `acyclic atomic returns counterexample on a cyclic instance, verified on an acyclic one` |
-| quantifier_bounded       | unit | [[spec.kernel_decidable]]             | `large_finite_instance()`             | `bounded quantifier evaluation terminates with exactly one status`          |
-| unknown_atomic_fails     | unit | [[spec.kernel_grammar_closed]]        | `expression_with_nonmember_atomic()`  | `grammar rejects labeled, naming the atomic and the closed set`             |
-| binding_never_interpreted | unit | [[spec.kernel_binding_opaque]]        | `constraint_with_arbitrary_binding_text()` | `binding cell contents surface verbatim; no parse, no interpretation`  |
+| unknown_propagates       | unit | [[kernel.kernel_status_three_valued]]   | `expression_with_undischargable_subclaim()` | `composite status is unknown and no coercion to pass or counterexample occurs` |
+| acyclic_decides          | unit | [[kernel.kernel_grounded_in_machinery]] | `instance_with_cycle_fixtures()`      | `acyclic atomic returns counterexample on a cyclic instance, verified on an acyclic one` |
+| quantifier_bounded       | unit | [[kernel.kernel_decidable]]             | `large_finite_instance()`             | `bounded quantifier evaluation terminates with exactly one status`          |
+| unknown_atomic_fails     | unit | [[kernel.kernel_grammar_closed]]        | `expression_with_nonmember_atomic()`  | `grammar rejects labeled, naming the atomic and the closed set`             |
+| binding_never_interpreted | unit | [[kernel.kernel_binding_opaque]]        | `constraint_with_arbitrary_binding_text()` | `binding cell contents surface verbatim; no parse, no interpretation`  |
 
 ## ADDED Requirements
 

@@ -1,18 +1,12 @@
----
-id: spec
-kind: intent
-statement: "THE compile delta SHALL restate the engineering acceptance criteria of specs/compile.md in openspec delta grammar without reinterpreting domain semantics."
----
-
 # Spike: dual-format delta (openspec grammar + specodelic schema)
 
 ## Constraints
 
 | id                 | kind      | expr                                                                    | traces_to |
 |--------------------|-----------|--------------------------------------------------------------------------|-----------|
-| delta_grammar_valid | invariant | `file parses under openspec validate --strict`                           | [[spec]]  |
-| no_domain_drift    | invariant | `every delta scenario maps to exactly one domain row in specs/compile.md` | [[spec]]  |
-| domain_ids_preserved | invariant | `domain row ids appear unchanged in the delta text`                      | [[spec]]  |
+| delta_grammar_valid | invariant | `file parses under openspec validate --strict`                           | [[other]]  |
+| no_domain_drift    | invariant | `every delta scenario maps to exactly one domain row in specs/compile.md` | [[other]]  |
+| domain_ids_preserved | invariant | `domain row ids appear unchanged in the delta text`                      | [[other]]  |
 
 ## Model
 
@@ -24,15 +18,15 @@ statement: "THE compile delta SHALL restate the engineering acceptance criteria 
 
 | id    | from     | to      | guard                    |
 |-------|----------|---------|--------------------------|
-| sync  | unsynced | synced  | [[spec.no_domain_drift]] |
+| sync  | unsynced | synced  | [[other.no_domain_drift]] |
 
 ## Properties
 
 | id                | kind | derives_from                    | generator                  | predicate                                        |
 |-------------------|------|---------------------------------|----------------------------|--------------------------------------------------|
-| grammar_validates | unit | [[spec.delta_grammar_valid]]    | `arbitrary_dual_format_delta()` | `openspec_validate(delta) == passed`          |
-| drift_absent      | unit | [[spec.no_domain_drift]]        | `delta_vs_domain_diff()`   | `∀ scenario: maps_to_domain_row(scenario)`       |
-| ids_stable        | unit | [[spec.domain_ids_preserved]]   | `arbitrary_domain_id()`    | `id ∈ delta_scenario_text`                       |
+| grammar_validates | unit | [[other.delta_grammar_valid]]    | `arbitrary_dual_format_delta()` | `openspec_validate(delta) == passed`          |
+| drift_absent      | unit | [[other.no_domain_drift]]        | `delta_vs_domain_diff()`   | `∀ scenario: maps_to_domain_row(scenario)`       |
+| ids_stable        | unit | [[other.domain_ids_preserved]]   | `arbitrary_domain_id()`    | `id ∈ delta_scenario_text`                       |
 
 ## ADDED Requirements
 

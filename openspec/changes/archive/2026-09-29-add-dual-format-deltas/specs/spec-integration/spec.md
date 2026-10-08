@@ -1,9 +1,3 @@
----
-id: spec
-kind: intent
-statement: "THE openspec workflow SHALL carry every change's requirements as one dual-format markdown file that validates under both the openspec and the specodelic parsers."
----
-
 # spec-integration Specification
 
 ## Purpose
@@ -13,13 +7,13 @@ Define how openspec change artifacts carry specodelic-formatted requirement cont
 
 | id                 | kind      | expr                                                                                              | traces_to |
 |--------------------|-----------|---------------------------------------------------------------------------------------------------|-----------|
-| dual_format_valid  | invariant | `every change delta file passes openspec validate --strict and spk lint with zero issues`           | [[spec]]  |
-| id_spec_accepted   | invariant | `dual-format files declare id: spec; uniqueness holds per-file and deltas stay self-contained`      | [[spec]]  |
-| self_contained     | invariant | `every wiki-ref in a dual-format file resolves within that same file; domain specs referenced by prose path only` | [[spec]]  |
-| archive_verbatim   | invariant | `archiving runs openspec archive --skip-specs then copies the delta file unchanged to openspec/specs/<cap>/spec.md` | [[spec]]  |
-| section_sync       | invariant | `the ADDED Requirements section text equals the Requirements section text in every dual-format file` | [[spec]]  |
-| lifecycle_modeled  | invariant | `every dual-format delta's Model section encodes proposed → approved → implemented → archived`       | [[spec]]  |
-| ci_gated           | invariant | `just ci runs openspec validate --strict over all changes and spk lint over all dual-format deltas`  | [[spec]]  |
+| dual_format_valid  | invariant | `every change delta file passes openspec validate --strict and spk lint with zero issues`           | [[spec.integration]]  |
+| id_spec_accepted   | invariant | `dual-format files declare id: spec; uniqueness holds per-file and deltas stay self-contained`      | [[spec.integration]]  |
+| self_contained     | invariant | `every wiki-ref in a dual-format file resolves within that same file; domain specs referenced by prose path only` | [[spec.integration]]  |
+| archive_verbatim   | invariant | `archiving runs openspec archive --skip-specs then copies the delta file unchanged to openspec/specs/<cap>/spec.md` | [[spec.integration]]  |
+| section_sync       | invariant | `the ADDED Requirements section text equals the Requirements section text in every dual-format file` | [[spec.integration]]  |
+| lifecycle_modeled  | invariant | `every dual-format delta's Model section encodes proposed → approved → implemented → archived`       | [[spec.integration]]  |
+| ci_gated           | invariant | `just ci runs openspec validate --strict over all changes and spk lint over all dual-format deltas`  | [[spec.integration]]  |
 
 ## Model
 
@@ -33,21 +27,21 @@ Define how openspec change artifacts carry specodelic-formatted requirement cont
 
 | id         | from      | to          | guard                            |
 |------------|-----------|-------------|----------------------------------|
-| approve    | proposed  | approved    | [[spec.dual_format_valid]]       |
-| implement  | approved  | implemented | [[spec.section_sync]]            |
-| archive    | implemented | archived  | [[spec.archive_verbatim]]        |
+| approve    | proposed  | approved    | [[spec.integration.dual_format_valid]]       |
+| implement  | approved  | implemented | [[spec.integration.section_sync]]            |
+| archive    | implemented | archived  | [[spec.integration.archive_verbatim]]        |
 
 ## Properties
 
 | id                | kind | derives_from                    | generator                              | predicate                                                       |
 |-------------------|------|---------------------------------|----------------------------------------|-----------------------------------------------------------------|
-| parsers_agree     | unit | [[spec.dual_format_valid]]      | `arbitrary_dual_format_delta()`        | `openspec_validate(f) == passed ∧ spk_lint(f) == passed`         |
-| id_collision_safe | unit | [[spec.id_spec_accepted]]       | `two_dual_format_files_id_spec()`      | `spk_lint(f1, f2) == passed`                                     |
-| no_ambiguous_refs | unit | [[spec.self_contained]]         | `delta_with_cross_file_ref()`          | `lint(f) == failed` (dangling ref reported)                      |
-| verbatim_archive  | unit | [[spec.archive_verbatim]]       | `change_at_archive_gate()`             | `diff(openspec/specs/cap/spec.md, delta) == empty`               |
-| sections_identical| unit | [[spec.section_sync]]           | `dual_format_file_with_drifted_sections()` | `ci_sync_check(f) == failed` (names divergent requirement)   |
-| lifecycle_parseable | unit | [[spec.lifecycle_modeled]]    | `arbitrary_dual_format_delta()`        | `graph(f) resolves all lifecycle refs`                           |
-| gates_run         | unit | [[spec.ci_gated]]               | `pr_skipping_validation()`             | `just ci == failed`                                              |
+| parsers_agree     | unit | [[spec.integration.dual_format_valid]]      | `arbitrary_dual_format_delta()`        | `openspec_validate(f) == passed ∧ spk_lint(f) == passed`         |
+| id_collision_safe | unit | [[spec.integration.id_spec_accepted]]       | `two_dual_format_files_id_spec()`      | `spk_lint(f1, f2) == passed`                                     |
+| no_ambiguous_refs | unit | [[spec.integration.self_contained]]         | `delta_with_cross_file_ref()`          | `lint(f) == failed` (dangling ref reported)                      |
+| verbatim_archive  | unit | [[spec.integration.archive_verbatim]]       | `change_at_archive_gate()`             | `diff(openspec/specs/cap/spec.md, delta) == empty`               |
+| sections_identical| unit | [[spec.integration.section_sync]]           | `dual_format_file_with_drifted_sections()` | `ci_sync_check(f) == failed` (names divergent requirement)   |
+| lifecycle_parseable | unit | [[spec.integration.lifecycle_modeled]]    | `arbitrary_dual_format_delta()`        | `graph(f) resolves all lifecycle refs`                           |
+| gates_run         | unit | [[spec.integration.ci_gated]]               | `pr_skipping_validation()`             | `just ci == failed`                                              |
 
 ## ADDED Requirements
 

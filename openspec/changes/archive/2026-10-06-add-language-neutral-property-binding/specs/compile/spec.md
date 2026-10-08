@@ -1,9 +1,3 @@
----
-id: spec
-kind: intent
-statement: "WHEN a Property row or invariant-kind Constraint opts into executable translation, THE toolchain SHALL extract the fragment under exactly one tag from the closed language set {rust, py, ts}, SHALL reject an unknown tag with a labeled extraction failure, and SHALL fail labeled — never silently — when the tag's emitter does not exist."
----
-
 # compile Specification
 
 ## Purpose
@@ -20,11 +14,11 @@ out of scope here.
 
 | id                     | kind      | expr                                                                                                                                                                                                                                                                                     | traces_to |
 |------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| fragment_language_closed | invariant | `a Property's predicate cell (or an invariant-kind Constraint's expr cell) opts into executable translation with exactly one tag from the closed set {rust, py, ts} — the fragment-position rule (specodelic-sd1) and the non-empty-fragment requirement carry over verbatim per tag`      | [[spec]]  |
-| unknown_tag_rejected   | invariant | `a marker whose tag is not in the closed set (e.g. **go:**) is a labeled extraction failure naming the tag and the closed set — never treated as prose, never extracted, never silently ignored (sd1 discipline, design D7)`                                                              | [[spec]]  |
-| rust_back_compat       | invariant | `every predicate or expr cell that extracted under the pre-change **rust:** grammar extracts to the identical fragment post-change — the widening is pure: nothing valid before this Revision is invalidated`                                                                             | [[spec]]  |
-| no_emitter_labeled_failure | invariant | `a fragment tagged **py:** or **ts:** compiles to a labeled extraction failure whose remediation names the missing emitter and its follow-up change — never a silent fall-through to Rust emission, never prose, never a compilable-but-vacuous artifact`                                  | [[spec]]  |
-| mention_not_extraction | invariant | `a tag occurrence in any non-fragment position — mid-span, as in the defining rows of this very table, or in prose between spans — is a mention of the mechanism and never extracts, per tag, unchanged from the sd1 rule`                                                                | [[spec]]  |
+| fragment_language_closed | invariant | `a Property's predicate cell (or an invariant-kind Constraint's expr cell) opts into executable translation with exactly one tag from the closed set {rust, py, ts} — the fragment-position rule (specodelic-sd1) and the non-empty-fragment requirement carry over verbatim per tag`      | [[compile]]  |
+| unknown_tag_rejected   | invariant | `a marker whose tag is not in the closed set (e.g. **go:**) is a labeled extraction failure naming the tag and the closed set — never treated as prose, never extracted, never silently ignored (sd1 discipline, design D7)`                                                              | [[compile]]  |
+| rust_back_compat       | invariant | `every predicate or expr cell that extracted under the pre-change **rust:** grammar extracts to the identical fragment post-change — the widening is pure: nothing valid before this Revision is invalidated`                                                                             | [[compile]]  |
+| no_emitter_labeled_failure | invariant | `a fragment tagged **py:** or **ts:** compiles to a labeled extraction failure whose remediation names the missing emitter and its follow-up change — never a silent fall-through to Rust emission, never prose, never a compilable-but-vacuous artifact`                                  | [[compile]]  |
+| mention_not_extraction | invariant | `a tag occurrence in any non-fragment position — mid-span, as in the defining rows of this very table, or in prose between spans — is a mention of the mechanism and never extracts, per tag, unchanged from the sd1 rule`                                                                | [[compile]]  |
 
 ## Model
 
@@ -44,12 +38,12 @@ out of scope here.
 
 | id                  | kind | derives_from                     | generator                                  | predicate                                                              |
 |---------------------|------|-----------------------------------|---------------------------------------------|-------------------------------------------------------------------------|
-| py_tag_extracts     | unit | [[spec.fragment_language_closed]] | `predicate_cell_with_py_fragment()`         | `fragment extracted under the py tag with cell text after the marker`   |
-| go_tag_rejected     | unit | [[spec.unknown_tag_rejected]]     | `predicate_cell_with_go_marker()`           | `extraction fails labeled, naming the tag and the closed set`           |
-| rust_unchanged      | unit | [[spec.rust_back_compat]]         | `pre_change_rust_fixtures()`                | `extracted fragment identical to the pre-change extraction, byte-for-byte` |
-| py_no_emitter_fails | unit | [[spec.no_emitter_labeled_failure]] | `py_fragment_compiled()`                  | `compile fails labeled; remediation names the py emitter follow-up`     |
-| midspan_mention_ignored | unit | [[spec.mention_not_extraction]] | `cell_with_midspan_py_marker()`           | `no fragment extracted; cell compiles exactly as before`                |
-| expr_tag_same_grammar | unit | [[spec.fragment_language_closed]] | `invariant_expr_cell_with_py_fragment()`  | `expr cell accepts the same tag grammar as predicate cells`             |
+| py_tag_extracts     | unit | [[compile.fragment_language_closed]] | `predicate_cell_with_py_fragment()`         | `fragment extracted under the py tag with cell text after the marker`   |
+| go_tag_rejected     | unit | [[compile.unknown_tag_rejected]]     | `predicate_cell_with_go_marker()`           | `extraction fails labeled, naming the tag and the closed set`           |
+| rust_unchanged      | unit | [[compile.rust_back_compat]]         | `pre_change_rust_fixtures()`                | `extracted fragment identical to the pre-change extraction, byte-for-byte` |
+| py_no_emitter_fails | unit | [[compile.no_emitter_labeled_failure]] | `py_fragment_compiled()`                  | `compile fails labeled; remediation names the py emitter follow-up`     |
+| midspan_mention_ignored | unit | [[compile.mention_not_extraction]] | `cell_with_midspan_py_marker()`           | `no fragment extracted; cell compiles exactly as before`                |
+| expr_tag_same_grammar | unit | [[compile.fragment_language_closed]] | `invariant_expr_cell_with_py_fragment()`  | `expr cell accepts the same tag grammar as predicate cells`             |
 
 ## ADDED Requirements
 
@@ -90,6 +84,28 @@ before.
 - **WHEN** an invariant-kind Constraint's expr cell carries a `**py:**` fragment
 - **THEN** the same tag grammar and failure modes apply as for predicate cells
 
+### Requirement: Properties table compiles to proptest blocks
+The system SHALL compile each Property row to at least one `proptest!`
+block — generator as input strategy, predicate as assertion body — and
+a law-kind property to exactly one block per case enumerated in the
+row's predicate in machine-findable `**name:**` label form. The
+identity and associativity floor (`law_requires_cases`) is mandatory
+and lint-enforced before compile (the compile precondition gate);
+extra named cases compile as first-class checkable blocks, never prose.
+
+#### Scenario: Law expands to enumerated cases
+- **WHEN** a law-kind property row's predicate carries `**identity:**`,
+  `**associativity:**`, and `**commutativity:**` labels
+- **THEN** exactly three blocks are emitted for that row, one per
+  enumerated case
+
+#### Scenario: Unlabeled floor fails the precondition
+- **WHEN** a law-kind property row's predicate states its cases in
+  prose only (no `**name:**` labels)
+- **THEN** the compile precondition gate reports the `linter.law_cases`
+  finding naming the missing floor cases
+- **AND** no artifact set is reported as compiled
+
 ## Requirements
 
 ### Requirement: Closed language-tag fragment opt-in
@@ -128,3 +144,25 @@ before.
 #### Scenario: Invariant expr cells share the grammar
 - **WHEN** an invariant-kind Constraint's expr cell carries a `**py:**` fragment
 - **THEN** the same tag grammar and failure modes apply as for predicate cells
+
+### Requirement: Properties table compiles to proptest blocks
+The system SHALL compile each Property row to at least one `proptest!`
+block — generator as input strategy, predicate as assertion body — and
+a law-kind property to exactly one block per case enumerated in the
+row's predicate in machine-findable `**name:**` label form. The
+identity and associativity floor (`law_requires_cases`) is mandatory
+and lint-enforced before compile (the compile precondition gate);
+extra named cases compile as first-class checkable blocks, never prose.
+
+#### Scenario: Law expands to enumerated cases
+- **WHEN** a law-kind property row's predicate carries `**identity:**`,
+  `**associativity:**`, and `**commutativity:**` labels
+- **THEN** exactly three blocks are emitted for that row, one per
+  enumerated case
+
+#### Scenario: Unlabeled floor fails the precondition
+- **WHEN** a law-kind property row's predicate states its cases in
+  prose only (no `**name:**` labels)
+- **THEN** the compile precondition gate reports the `linter.law_cases`
+  finding naming the missing floor cases
+- **AND** no artifact set is reported as compiled

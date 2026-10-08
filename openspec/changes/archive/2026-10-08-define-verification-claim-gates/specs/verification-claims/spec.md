@@ -1,9 +1,3 @@
----
-id: spec
-kind: intent
-statement: "THE verifier SHALL accept only complete current evidence for every required invariant claim."
----
-
 # Verification claims
 
 ## Purpose
@@ -13,10 +7,10 @@ THE verifier SHALL accept only complete current evidence for every required inva
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| required_set | invariant | required claims come from explicit executable or kernel or citation invariant opt-ins | [[spec]] |
-| aggregate | invariant | nonempty required claims must all verify and property blocks must all pass | [[spec]] |
-| freshness | invariant | reports bind a versioned claim set to current structured scope and artifacts | [[spec]] |
-| visible_scope | invariant | all report views and release docs state the same assurance scope | [[spec]] |
+| required_set | invariant | required claims come from explicit executable or kernel or citation invariant opt-ins | [[verification.claims]] |
+| aggregate | invariant | nonempty required claims must all verify and property blocks must all pass | [[verification.claims]] |
+| freshness | invariant | reports bind a versioned claim set to current structured scope and artifacts | [[verification.claims]] |
+| visible_scope | invariant | all report views and release docs state the same assurance scope | [[verification.claims]] |
 
 ## Model
 
@@ -38,10 +32,10 @@ THE verifier SHALL accept only complete current evidence for every required inva
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
-| required_set_checked | unit | [[spec.required_set]] | mixed_claim_corpus() | required and unchecked sets equal the expected IDs |
-| aggregate_checked | unit | [[spec.aggregate]] | mixed_claim_statuses() | false and unknown claims cannot yield verified |
-| freshness_checked | unit | [[spec.freshness]] | changed_scope_or_legacy_report() | verify rejects stale or incomplete evidence with a rerun hint |
-| visible_scope_checked | unit | [[spec.visible_scope]] | report_and_docs_fixture() | claim counts agree and pending features are not advertised as implemented |
+| required_set_checked | unit | [[verification.claims.required_set]] | mixed_claim_corpus() | required and unchecked sets equal the expected IDs |
+| aggregate_checked | unit | [[verification.claims.aggregate]] | mixed_claim_statuses() | false and unknown claims cannot yield verified |
+| freshness_checked | unit | [[verification.claims.freshness]] | changed_scope_or_legacy_report() | verify rejects stale or incomplete evidence with a rerun hint |
+| visible_scope_checked | unit | [[verification.claims.visible_scope]] | report_and_docs_fixture() | claim counts agree and pending features are not advertised as implemented |
 
 ## ADDED Requirements
 

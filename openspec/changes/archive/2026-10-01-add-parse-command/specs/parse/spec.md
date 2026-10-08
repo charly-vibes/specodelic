@@ -1,9 +1,3 @@
----
-id: spec
-kind: intent
-statement: "WHEN a user runs spk parse on one spec file THE parse capability SHALL emit the full parsed Spec IR as a json envelope, SHALL succeed independently of lint status, and SHALL fail with a labeled error envelope on unparseable input."
----
-
 # structured parse export
 
 The structured layer (Properties rows included) is fully modeled in the lib
@@ -19,11 +13,11 @@ they consume the typed IR through the versioned-binary boundary instead.
 
 | id | kind | expr | traces_to |
 |----|------|------|-----------|
-| C-parse-ir | invariant | spk parse emits the full parsed Spec IR for a well-formed file — intent, constraints rows, states, transitions, properties rows, and structured links — with no structured field omitted | [[spec]] |
-| C-parse-lint-independent | invariant | parse succeeds on a file that fails spk lint and the parse envelope embeds no lint status | [[spec]] |
-| C-parse-envelope | invariant | parse output conforms to the shared json envelope discipline — ok, envelope_version, cli_version, envelope_kind, data, warnings, hints, meta — with hints suggesting spk lint on the parsed file | [[spec]] |
-| C-parse-error | effect | `spec.parse_failure(detail) — the file could not be parsed or located because detail; the error envelope satisfies the fleet error contract (error-kind envelope, labeled, remediation hint present, non-zero exit)` | [[spec]] |
-| C-parse-single-file | advisory | parse accepts exactly one file path argument per invocation, without globbing or bulk export | [[spec]] |
+| C-parse-ir | invariant | spk parse emits the full parsed Spec IR for a well-formed file — intent, constraints rows, states, transitions, properties rows, and structured links — with no structured field omitted | [[parse]] |
+| C-parse-lint-independent | invariant | parse succeeds on a file that fails spk lint and the parse envelope embeds no lint status | [[parse]] |
+| C-parse-envelope | invariant | parse output conforms to the shared json envelope discipline — ok, envelope_version, cli_version, envelope_kind, data, warnings, hints, meta — with hints suggesting spk lint on the parsed file | [[parse]] |
+| C-parse-error | effect | `spec.parse_failure(detail) — the file could not be parsed or located because detail; the error envelope satisfies the fleet error contract (error-kind envelope, labeled, remediation hint present, non-zero exit)` | [[parse]] |
+| C-parse-single-file | advisory | parse accepts exactly one file path argument per invocation, without globbing or bulk export | [[parse]] |
 
 ## Model
 
@@ -32,25 +26,25 @@ they consume the typed IR through the versioned-binary boundary instead.
 - `reading`
 - `parsed`
 - `emitted`
-- `failed` (emits: `[[spec.C-parse-error]])`
+- `failed` (emits: `[[parse.C-parse-error]])`
 
 ### Transitions
 
 | id | from | to | guard |
 |----|------|----|-------|
-| t-parse | reading | parsed | [[spec.C-parse-ir]] |
-| t-emit | parsed | emitted | [[spec.C-parse-envelope]] |
-| t-fail | reading | failed | `¬([[spec.C-parse-ir]])` |
+| t-parse | reading | parsed | [[parse.C-parse-ir]] |
+| t-emit | parsed | emitted | [[parse.C-parse-envelope]] |
+| t-fail | reading | failed | `¬([[parse.C-parse-ir]])` |
 
 ## Properties
 
 | id | kind | derives_from | generator | predicate |
 |----|------|--------------|-----------|-----------|
-| P-ir | unit | [[spec.C-parse-ir]] | `well_formed_four_layer_file()` | `data.carries(intent, constraints, states, transitions, properties, links) ∧ every_row_present` |
-| P-lintindep | unit | [[spec.C-parse-lint-independent]] | a file that parses but fails spk lint | parse exits zero with the full IR and no lint status anywhere in the envelope |
-| P-envelope | unit | [[spec.C-parse-envelope]] | parse output inspected field by field | every shared envelope field is present and hints suggest spk lint |
-| P-error | unit | [[spec.C-parse-error]] | `unparseable_file()` and `nonexistent_path()` | `envelope.has_label ∧ envelope.has_hint ∧ exit != 0` in both cases |
-| P-single | unit | [[spec.C-parse-single-file]] | parse invoked with zero or two or more paths | the invocation is rejected with usage guidance |
+| P-ir | unit | [[parse.C-parse-ir]] | `well_formed_four_layer_file()` | `data.carries(intent, constraints, states, transitions, properties, links) ∧ every_row_present` |
+| P-lintindep | unit | [[parse.C-parse-lint-independent]] | a file that parses but fails spk lint | parse exits zero with the full IR and no lint status anywhere in the envelope |
+| P-envelope | unit | [[parse.C-parse-envelope]] | parse output inspected field by field | every shared envelope field is present and hints suggest spk lint |
+| P-error | unit | [[parse.C-parse-error]] | `unparseable_file()` and `nonexistent_path()` | `envelope.has_label ∧ envelope.has_hint ∧ exit != 0` in both cases |
+| P-single | unit | [[parse.C-parse-single-file]] | parse invoked with zero or two or more paths | the invocation is rejected with usage guidance |
 
 ## Purpose
 
