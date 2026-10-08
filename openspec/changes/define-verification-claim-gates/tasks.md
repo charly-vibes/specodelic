@@ -29,7 +29,7 @@ separate TIDY ticket is mapped below; keep refactoring commits separate. Preserv
 - [x] 3.2 GREEN: show blockers/unchecked claims and synchronize README,
       docs/src/status.md, openspec/project.md, specs/STATUS.md, and embedded
       guide. Document the distinction from application-test execution.
-- [ ] 3.3 TIDY: separate documentation cleanup commit removes stale restatements.
+- [x] 3.3 TIDY: separate documentation cleanup commit removes stale restatements.
 
 ## 4. Release discipline
 - [ ] 4.1 Update domain specs under their Revision rules and regenerate affected

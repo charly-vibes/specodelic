@@ -273,8 +273,9 @@ expressions, and whole-cell citations — must be verified before a file
 verifies; prose-only invariants stay explicitly unchecked, claim reports
 are versioned and bound to the structured corpus scope, and the JSON,
 human, and persisted report views name the same blockers and counts.
-Verification is bounded model checking of opted-in invariant claims —
-not a substitute for the application's own test suite.
+The assurance semantics — what a `verified` verdict does and does not
+imply — are stated once in the [README](../README.md) ("Verification is
+not application testing"); this file does not restate them.
 
 ### Done — the rename/refactor tool
 `rename_naturality` appeared as a property in three different files

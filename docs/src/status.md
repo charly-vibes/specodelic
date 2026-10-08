@@ -19,9 +19,10 @@
 
 - The format itself: every file in `specs/` is a spec in the format; `openspec` proposals for changes.
 
-**Verification is not application testing:** verification is bounded model
-checking of opted-in invariant claims plus compiled property execution — not
-a substitute for the application's own test suite.
+**Verification is not application testing** — the canonical statement of
+what specodelic's verification does and does not assure lives in the repo
+[README](../../README.md); this page keeps the capability table only and
+does not restate the assurance semantics.
 
 ## Dogfooding
 
