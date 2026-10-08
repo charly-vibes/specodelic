@@ -35,6 +35,14 @@ jobs:
         with:
           mdbook-version: latest
 
+      # mermaid blocks in docs/src/graph-views.md (generated graph views,
+      # add-graph-views) need the preprocessor — without it the book ships
+      # unrendered ```mermaid code fences (seen on graph-views.html). The
+      # bundle itself is untracked (.gitignore) — `just docs-mermaid` fetches
+      # it, pinned; same recipe as local `just docs-build` (no drift).
+      - name: Install mdbook-mermaid
+        run: cargo install mdbook-mermaid --locked
+
       - name: Install just
         uses: extractions/setup-just@v2
 
@@ -54,6 +62,11 @@ jobs:
         # generated views — they must exist before mdbook build. Same
         # recipe as local `just docs-graphs` (shared path, no drift).
         run: just docs-graphs
+
+      - name: Fetch vendored mermaid bundle
+        # book.toml additional-js points at vendor/mermaid.min.js (untracked,
+        # see .gitignore). Same recipe as local docs-build — lockstep.
+        run: just docs-mermaid
 
       - name: Build docs
         run: mdbook build

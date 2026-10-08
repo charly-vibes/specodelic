@@ -213,7 +213,21 @@ docs-graphs:
 # lockstep — release page before the build, stamped llms.txt after).
 # Depends on docs-graphs (add-graph-views task 3.3): the generated views
 # must exist before mdbook resolves the {{#include}} directives.
-docs-build: docs-graphs
+# Fetch the vendored mermaid bundle if missing (see .gitignore for why it
+# is not tracked). Version pinned to what mdbook-mermaid 0.17.1 bundles.
+# Runs in docs-build AND docs.yml (CI) — keep both paths in lockstep.
+[private]
+docs-mermaid:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ ! -f vendor/mermaid.min.js ]; then
+        mkdir -p vendor
+        curl -fsSL -o vendor/mermaid.min.js \
+            https://cdn.jsdelivr.net/npm/mermaid@11.6.0/dist/mermaid.min.js
+        echo "fetched vendor/mermaid.min.js (mermaid 11.6.0)"
+    fi
+
+docs-build: docs-graphs docs-mermaid
     #!/usr/bin/env bash
     set -euo pipefail
     rm -rf docs/src/specs docs/src/openspec

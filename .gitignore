@@ -12,6 +12,12 @@
 # Beads (no-db mode: .beads/issues.jsonl is the source of truth, tracked in git)
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
 /book/
+# Vendored mermaid bundle (mdbook-mermaid): fetched by `just docs-mermaid`,
+# not tracked — pretender's --staged gate lints tracked .js files regardless
+# of the vendor/** exclude, and a 2.6k-line minified bundle can never pass
+# a ratchet built for project code. mermaid-init.js (39 lines, hand-sized)
+# IS tracked. Version pinned — keep in lockstep with mdbook-mermaid 0.17.1.
+vendor/mermaid.min.js
 # Contains mutation testing data
 *.db
 debug
