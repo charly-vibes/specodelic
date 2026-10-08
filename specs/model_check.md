@@ -30,6 +30,10 @@ contain.
 | rerun_on_model_change                 | invariant | `a run's clean result does not satisfy [[specodelic.no_counterexample]] once the Model section (States or Transitions) or any executable invariant fragment has changed since that run — the model must be re-run, not assumed still clean (the fragment extension is specodelic.md Revision 15; the compiled module carries the fragment manifest, so the artifact hash covers it)` | [[model_check]] |
 | executable_invariants_execute         | invariant | `the native backend executes every executable invariant fragment (the **rust:** marker in a kind == invariant Constraint's expr — specodelic.md Revision 15) as an invariant over the compiled model: each evaluated at every reachable state, each named by its Constraints-table id in the report's invariants_checked. Fragments are Rust, compiled verbatim — executed by a scratch-crate run, since the interpreter backend cannot evaluate user Rust in-process; a backend that cannot execute fragments reports exploration_only, never a fabricated clean` | [[model_check]] |
 | invariant_totality                    | invariant | `an executable invariant fragment evaluation that panics reports the invariant violated at the state where the panic occurred — a panicking predicate is never a pass and never silently skipped` | [[model_check]] |
+| required_claims_classified             | invariant | `a run partitions each parsed file's invariant-kind Constraints into a required set — those opted into executable (rust: fragment), kernel, or citation evaluation — and an unchecked set of prose-only invariants: prose wording, a constraint's name, or merely having a deriving Property never implies evaluation, and advisory/effect/extension-point rows are never required` | [[model_check]] |
+| claim_aggregate_governs                | invariant | `the run outcome is governed by the required claims' statuses with fixed priority: any refuted required claim yields counterexample_found naming it; absent refutation, an exhausted time/state/depth budget yields timed_out; otherwise any unknown, unsupported, or missing required claim yields exploration_only with reasons — and so does an empty required set; a nonempty required set all verified over a completed bounded exploration is the only clean` | [[specodelic.no_counterexample]] |
+| claim_report_schema                    | invariant | `the run's persisted report declares claim_schema_version 1, canonical qualified claim records (id, evaluator kind, status, reason where not verified), expected_claim_ids, unchecked_claim_ids, and a scope_sha256 digest of the parsed structured content and the consumed compiled artifacts — the digest binds structured content, not filesystem paths: reordering CLI paths or editing prose alone preserves it, while two inputs differing in invariant content never share one` | [[model_check]] |
+| dual_format_isolated_scope             | invariant | `a dual-format id: spec file is accepted as the sole parsed input of model-check, verify, or orchestrate evaluation: a combined invocation (any additional parsed file) fails isolated_scope_required with a separate-run hint before compilation, evaluation, or report writes; spec.<row> claim ids resolve only within their own file, and multi-file dual-format lint stays supported` | [[model_check]] |
 
 ## Model
 
@@ -46,7 +50,7 @@ contain.
 | id               | from      | to                   | guard                                                                                                  |
 |------------------|-----------|----------------------|---------------------------------------------------------------------------------------------------------|
 | begin            | not_run   | running              | [[model_check.checker_invoked]]                                                                         |
-| finish_clean     | running   | clean                | [[model_check.exhaustive_within_bound]] ∧ `no violation found within the bound`                          |
+| finish_clean     | running   | clean                | [[model_check.exhaustive_within_bound]] ∧ [[model_check.claim_aggregate_governs]] ∧ `no violation found within the bound ∧ every required claim verified`       |
 | finish_violation | running   | counterexample_found | [[model_check.counterexample_is_minimal]] ∧ [[model_check.counterexample_names_violated_invariant]]       |
 | finish_timeout   | running   | timed_out            | `the stated bound was not reached before the run's time/state budget expired`                            |
 | finish_exploration | running | exploration_only     | [[model_check.exhaustive_within_bound]] ∧ `the backend executed no invariant predicates — a completed exploration is evidence the space ends within the bound, never that the model holds` |
@@ -68,6 +72,15 @@ contain.
 | fragment_clean_run_is_no_counterexample | unit | [[model_check.executable_invariants_execute]]               | `model_with_executable_invariants_no_violation()`                         | `check(model).outcome == no_counterexample` — the model gate's reachable leg |
 | panicking_fragment_violates           | unit | [[model_check.invariant_totality]]                          | `model_with_panicking_invariant_fragment()`                               | `check(model).outcome == counterexample_found ∧ violated_invariant_id == the_panicking_id` |
 | fragment_violation_traces             | unit | [[model_check.counterexample_names_violated_invariant]]     | `model_with_falsifiable_executable_invariant()`                           | `check(model).trace == the_reachable_state_path` — the trace leg is the existing constraint's, not a new one |
+| false_claim_is_counterexample_found     | unit | [[model_check.claim_aggregate_governs]]                     | `model_with(passing_rust_claim, counterexample_kernel_claim)`              | `check(model) == counterexample_found naming the false claim id` — a passing Rust claim never hides it |
+| unknown_or_missing_claim_blocks_clean   | unit | [[model_check.claim_aggregate_governs]]                     | `model_with(unknown_or_missing_required_claim)`                            | `check(model) == exploration_only with reasons naming the claim ids` |
+| exhausted_bound_stays_timed_out         | unit | [[model_check.claim_aggregate_governs]]                     | `model_with(all_verified_claims_but_exhausted_bound)`                      | `check(model) == timed_out` — verified claims cannot outrank an incomplete exploration |
+| prose_only_is_unchecked_not_required    | unit | [[model_check.required_claims_classified]]                  | `model_with_only_prose_invariants()`                                       | `required_claims(model) == [] ∧ unchecked_claims(model) == those ids` — never implied verified |
+| report_binds_claims_and_scope_digest    | unit | [[model_check.claim_report_schema]]                         | `run_report_from_current_inputs()`                                         | `report.claim_schema_version == 1 ∧ expected/unchecked ids present ∧ scope_sha256 present` |
+| reordered_paths_and_prose_preserve_scope | unit | [[model_check.claim_report_schema]]                        | `same_structured_inputs_in_different_cli_order()`                          | `scope_sha256 unchanged` — the digest binds content, not paths |
+| swapped_reports_rejected_unrewritten    | unit | [[model_check.claim_report_schema]]                         | `two_files_same_claim_names_opposite_invariants()`                         | `digest(a) ≠ digest(b) ∧ each run rejects the other's report without rewriting it` |
+| combined_dual_format_scope_refused      | unit | [[model_check.dual_format_isolated_scope]]                  | `id_spec_file_plus_any_other_parsed_input()`                               | `check(invocation) == isolated_scope_required` before any artifact or report write |
+| multi_file_dual_format_lint_stays_valid | unit | [[model_check.dual_format_isolated_scope]]                  | `several_dual_format_files_linted_together()`                              | `check(lint) == valid` — the isolation is a command-evaluation rule, not a lint rule |
 
 ## Notes
 
@@ -155,3 +168,36 @@ so editing a fragment changes the artifact hash and `rerun_on_model_change`
 (reworded above to name fragments explicitly) fails the stale report
 closed — an invariant that changed since the clean run is not the
 invariant the run checked.
+
+**Claim-gated aggregation (define-verification-claim-gates).**
+`claim_aggregate_governs` refines what a clean run means without
+redefining any state: a refuted required claim is a real
+`counterexample_found` (named, via the existing minimal-trace machinery),
+an exhausted bound is still `timed_out`, and an *incomplete* required set
+— unknown, unsupported, missing, or empty — lands in `exploration_only`,
+joining the zero-predicates case the Notes above already pinned. The
+priority order matters and is normative: refutation outranks exhaustion
+outranks incompleteness, so a passing Rust claim can never launder a
+false kernel or citation claim into `no_counterexample`.
+`claim_report_schema` gives the verdict an evidence carrier: a versioned
+report whose `scope_sha256` digest binds the parsed structured content
+and consumed artifacts — not filesystem paths — so reordering CLI inputs
+or editing prose alone reuses a report, while genuinely different
+invariant content never does.
+`dual_format_isolated_scope` is the corpus-identity side of the same
+policy: ordinary corpus intent ids must be unique, and a dual-format
+`id: spec` file's file-local identities never merge into a command
+evaluation — lint keeps accepting them together, commands refuse to.
+
+**Revision-discipline note.** These rows deliberately do NOT touch
+`specodelic.md` (no Revision 18): `no_counterexample`'s expr there stays
+"the selected model-check backend finds no violated invariant", and this
+file — already the owner of that row's precise meaning via
+`no_counterexample_feeds_verify` — narrows the reachable clean leg
+instead of restating it in the core (the `AGENTS.md` rule 3a preference
+for widening an existing constraint's scope over restating it).
+`verify.md` carries the acceptance-side twins: the claim gate on
+`verified`, scope-bound evidence, and view parity. All three
+implementations share one aggregation path (design D4 of
+`openspec/changes/define-verification-claim-gates`), so model-check,
+verify, and orchestrate cannot drift apart on these rules.

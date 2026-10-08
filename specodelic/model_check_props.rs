@@ -66,6 +66,30 @@ pub mod spec_gen {
         Just("model_with_falsifiable_executable_invariant".into())
     }
 
+    pub fn model_with_only_prose_invariants() -> impl Strategy<Value = String> {
+        Just("model_with_only_prose_invariants".into())
+    }
+
+    pub fn run_report_from_current_inputs() -> impl Strategy<Value = String> {
+        Just("run_report_from_current_inputs".into())
+    }
+
+    pub fn same_structured_inputs_in_different_cli_order() -> impl Strategy<Value = String> {
+        Just("same_structured_inputs_in_different_cli_order".into())
+    }
+
+    pub fn two_files_same_claim_names_opposite_invariants() -> impl Strategy<Value = String> {
+        Just("two_files_same_claim_names_opposite_invariants".into())
+    }
+
+    pub fn id_spec_file_plus_any_other_parsed_input() -> impl Strategy<Value = String> {
+        Just("id_spec_file_plus_any_other_parsed_input".into())
+    }
+
+    pub fn several_dual_format_files_linted_together() -> impl Strategy<Value = String> {
+        Just("several_dual_format_files_linted_together".into())
+    }
+
 }
 
 proptest! {
@@ -163,6 +187,69 @@ proptest! {
     #[test]
     fn fragment_violation_traces(v0 in spec_gen::model_with_falsifiable_executable_invariant()) {
         todo_predicate!("`check(model).trace == the_reachable_state_path` — the trace leg is the existing constraint's, not a new one");
+    }
+    // id: false_claim_is_counterexample_found
+    // generator: `model_with(passing_rust_claim, counterexample_kernel_claim)`
+    // predicate: `check(model) == counterexample_found naming the false claim id` — a passing Rust claim never hides it
+    #[test]
+    fn false_claim_is_counterexample_found(v0 in spec_gen::model_with()) {
+        todo_predicate!("`check(model) == counterexample_found naming the false claim id` — a passing Rust claim never hides it");
+    }
+    // id: unknown_or_missing_claim_blocks_clean
+    // generator: `model_with(unknown_or_missing_required_claim)`
+    // predicate: `check(model) == exploration_only with reasons naming the claim ids`
+    #[test]
+    fn unknown_or_missing_claim_blocks_clean(v0 in spec_gen::model_with()) {
+        todo_predicate!("`check(model) == exploration_only with reasons naming the claim ids`");
+    }
+    // id: exhausted_bound_stays_timed_out
+    // generator: `model_with(all_verified_claims_but_exhausted_bound)`
+    // predicate: `check(model) == timed_out` — verified claims cannot outrank an incomplete exploration
+    #[test]
+    fn exhausted_bound_stays_timed_out(v0 in spec_gen::model_with()) {
+        todo_predicate!("`check(model) == timed_out` — verified claims cannot outrank an incomplete exploration");
+    }
+    // id: prose_only_is_unchecked_not_required
+    // generator: `model_with_only_prose_invariants()`
+    // predicate: `required_claims(model) == [] ∧ unchecked_claims(model) == those ids` — never implied verified
+    #[test]
+    fn prose_only_is_unchecked_not_required(v0 in spec_gen::model_with_only_prose_invariants()) {
+        todo_predicate!("`required_claims(model) == [] ∧ unchecked_claims(model) == those ids` — never implied verified");
+    }
+    // id: report_binds_claims_and_scope_digest
+    // generator: `run_report_from_current_inputs()`
+    // predicate: `report.claim_schema_version == 1 ∧ expected/unchecked ids present ∧ scope_sha256 present`
+    #[test]
+    fn report_binds_claims_and_scope_digest(v0 in spec_gen::run_report_from_current_inputs()) {
+        todo_predicate!("`report.claim_schema_version == 1 ∧ expected/unchecked ids present ∧ scope_sha256 present`");
+    }
+    // id: reordered_paths_and_prose_preserve_scope
+    // generator: `same_structured_inputs_in_different_cli_order()`
+    // predicate: `scope_sha256 unchanged` — the digest binds content, not paths
+    #[test]
+    fn reordered_paths_and_prose_preserve_scope(v0 in spec_gen::same_structured_inputs_in_different_cli_order()) {
+        todo_predicate!("`scope_sha256 unchanged` — the digest binds content, not paths");
+    }
+    // id: swapped_reports_rejected_unrewritten
+    // generator: `two_files_same_claim_names_opposite_invariants()`
+    // predicate: `digest(a) ≠ digest(b) ∧ each run rejects the other's report without rewriting it`
+    #[test]
+    fn swapped_reports_rejected_unrewritten(v0 in spec_gen::two_files_same_claim_names_opposite_invariants()) {
+        todo_predicate!("`digest(a) ≠ digest(b) ∧ each run rejects the other's report without rewriting it`");
+    }
+    // id: combined_dual_format_scope_refused
+    // generator: `id_spec_file_plus_any_other_parsed_input()`
+    // predicate: `check(invocation) == isolated_scope_required` before any artifact or report write
+    #[test]
+    fn combined_dual_format_scope_refused(v0 in spec_gen::id_spec_file_plus_any_other_parsed_input()) {
+        todo_predicate!("`check(invocation) == isolated_scope_required` before any artifact or report write");
+    }
+    // id: multi_file_dual_format_lint_stays_valid
+    // generator: `several_dual_format_files_linted_together()`
+    // predicate: `check(lint) == valid` — the isolation is a command-evaluation rule, not a lint rule
+    #[test]
+    fn multi_file_dual_format_lint_stays_valid(v0 in spec_gen::several_dual_format_files_linted_together()) {
+        todo_predicate!("`check(lint) == valid` — the isolation is a command-evaluation rule, not a lint rule");
     }
 }
 

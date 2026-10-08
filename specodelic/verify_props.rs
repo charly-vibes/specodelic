@@ -50,6 +50,22 @@ pub mod spec_gen {
         Just("fixture_with".into())
     }
 
+    pub fn report_with() -> impl Strategy<Value = String> {
+        Just("report_with".into())
+    }
+
+    pub fn report_from_a_different_structured_scope() -> impl Strategy<Value = String> {
+        Just("report_from_a_different_structured_scope".into())
+    }
+
+    pub fn run_with() -> impl Strategy<Value = String> {
+        Just("run_with".into())
+    }
+
+    pub fn docs_built_for_a_release() -> impl Strategy<Value = String> {
+        Just("docs_built_for_a_release".into())
+    }
+
 }
 
 proptest! {
@@ -130,6 +146,59 @@ proptest! {
     #[test]
     fn fragments_reach_verified(v0 in spec_gen::fixture_with()) {
         todo_predicate!("`check(file) == verified` — with executable fragments (specodelic.md Revision 15) both gates are reachable: a passing executable predicate and a clean executable-invariant run verify a real file, the state the gate could never reach before this Revision");
+    }
+    // id: claim_complete_evidence_verifies
+    // generator: `fixture_with(all_required_claims_verified, properties_pass)`
+    // predicate: `check(file) == verified with the exact required and unchecked sets`
+    #[test]
+    fn claim_complete_evidence_verifies(v0 in spec_gen::fixture_with()) {
+        todo_predicate!("`check(file) == verified with the exact required and unchecked sets`");
+    }
+    // id: false_claim_blocks_verified
+    // generator: `file_with(properties_pass: true, counterexample_kernel_claim)`
+    // predicate: `check(file) == failed naming the false claim id` — properties never cover a refuted claim
+    #[test]
+    fn false_claim_blocks_verified(v0 in spec_gen::file_with()) {
+        todo_predicate!("`check(file) == failed naming the false claim id` — properties never cover a refuted claim");
+    }
+    // id: malformed_records_rejected
+    // generator: `report_with(missing_or_duplicate_claim_record)`
+    // predicate: `check(file) == failed with a rerun hint` — never inferred as unknown success
+    #[test]
+    fn malformed_records_rejected(v0 in spec_gen::report_with()) {
+        todo_predicate!("`check(file) == failed with a rerun hint` — never inferred as unknown success");
+    }
+}
+
+// id: stale_report_rejected_with_rerun_hint
+// generator: `(clean_report, structurally_edited_inputs_afterward)`
+// predicate: `check(file) == failed naming the rerun command — the report is never rewritten`
+#[test]
+fn stale_report_rejected_with_rerun_hint() {
+        todo_predicate!("`check(file) == failed naming the rerun command — the report is never rewritten`");
+}
+
+proptest! {
+    // id: swapped_scope_report_rejected
+    // generator: `report_from_a_different_structured_scope()`
+    // predicate: `check(file) == failed — the digest binds structured content, not paths`
+    #[test]
+    fn swapped_scope_report_rejected(v0 in spec_gen::report_from_a_different_structured_scope()) {
+        todo_predicate!("`check(file) == failed — the digest binds structured content, not paths`");
+    }
+    // id: views_agree_on_blockers
+    // generator: `run_with(required_unknown_claim_and_prose_invariant)`
+    // predicate: `json.blockers == human.blockers == report.blockers ∧ unchecked sets agree`
+    #[test]
+    fn views_agree_on_blockers(v0 in spec_gen::run_with()) {
+        todo_predicate!("`json.blockers == human.blockers == report.blockers ∧ unchecked sets agree`");
+    }
+    // id: release_docs_match_implemented_capabilities
+    // generator: `docs_built_for_a_release()`
+    // predicate: `version derives from Cargo metadata ∧ pending capabilities not advertised as implemented`
+    #[test]
+    fn release_docs_match_implemented_capabilities(v0 in spec_gen::docs_built_for_a_release()) {
+        todo_predicate!("`version derives from Cargo metadata ∧ pending capabilities not advertised as implemented`");
     }
 }
 

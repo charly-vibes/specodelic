@@ -1,5 +1,5 @@
 {
-  "artifact_sha256": "d2f8f608c6c77596316df2966ee3f0e531b30e6d9aedec5cfb2bbc8ac9114403",
+  "artifact_sha256": "31621e493c5ea0eb466dd856f8b9ca1aa6841621746f923211441ae10eee6fca",
   "backend": {
     "engine": "stateright",
     "version": "0.31.0"
@@ -12,15 +12,18 @@
   "expected_claim_ids": [],
   "invariants_checked": [],
   "outcome": "exploration_only",
-  "scope_sha256": "217e8b5896822dd8721a76681df7f93993f8cde2ec8911141c989afb8fc41656",
+  "scope_sha256": "b38ceb4bc560424e7869aae76aa371fcc9506f783dca08de6088d1c4e6d5cd16",
   "states_explored": 5,
   "unchecked_claim_ids": [
+    "assurance_views_agree",
     "blocks_run_to_completion",
     "both_gates_required",
     "bounded_wall_clock",
+    "evidence_scope_bound",
     "failure_reports_shrunk_counterexample",
     "law_cases_unexecuted",
     "properties_pass_reflects_latest_run",
+    "required_claims_govern_acceptance",
     "verify_is_idempotent"
   ]
 }

@@ -47,3 +47,21 @@ id = "verification_failure"
 kind = "effect"
 expr = "`verify.verification_failure(detail)`"
 traces_to = "[[verify]]"
+
+[[constraints]]
+id = "required_claims_govern_acceptance"
+kind = "invariant"
+expr = "`verify only transitions a file to verified when every required claim (model_check.md's required_claims_classified set) is verified in the current report AND every generated property block passes — a passing property run alone never covers an unknown, missing, or refuted claim; invalid or duplicate claim records are rejected as malformed evidence, never inferred as unknown success, and prose-only invariants stay unchecked`"
+traces_to = "[[verify]]"
+
+[[constraints]]
+id = "evidence_scope_bound"
+kind = "invariant"
+expr = "`verify recomputes the scope digest and the required claim set from the current inputs and compares them against the stored report: old or unrecognized claim-schema versions, absent scope fingerprints, omitted or duplicate records, changed contributing inputs, or artifact mismatch fail with a rerun hint naming the model-check command — a stored report is never rewritten to manufacture evidence, and the digest binds structured content, not filesystem paths, so swapped reports from different scopes never verify`"
+traces_to = "[[verify]]"
+
+[[constraints]]
+id = "assurance_views_agree"
+kind = "invariant"
+expr = "`CLI JSON, human output, and the persisted report agree on evaluated, unchecked, and blocking claims — no view reports verified while another names a blocker — and release documentation distinguishes structural lint, bounded model exploration, verified declared claims, and external application-test binding without advertising pending capabilities as implemented`"
+traces_to = "[[verify]]"

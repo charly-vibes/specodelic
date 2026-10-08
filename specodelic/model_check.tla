@@ -20,7 +20,7 @@ Init == vpc = "not_run"
 Next ==
   \* begin: not_run -> running (guard: [[model_check.checker_invoked]])
   \/ vpc = "not_run" /\ vpc' = "running"
-  \* finish_clean: running -> clean (guard: [[model_check.exhaustive_within_bound]] ∧ `no violation found within the bound`)
+  \* finish_clean: running -> clean (guard: [[model_check.exhaustive_within_bound]] ∧ [[model_check.claim_aggregate_governs]] ∧ `no violation found within the bound ∧ every required claim verified`)
   \/ vpc = "running" /\ vpc' = "clean"
   \* finish_violation: running -> counterexample_found (guard: [[model_check.counterexample_is_minimal]] ∧ [[model_check.counterexample_names_violated_invariant]])
   \/ vpc = "running" /\ vpc' = "counterexample_found"

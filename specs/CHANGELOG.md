@@ -1,5 +1,41 @@
 # Changelog
 
+## #116 — verification claims gate the verdict (define-verification-claim-gates)
+
+`specodelic.md`'s `no_counterexample` and `verified` gates get explicit
+evidence contracts — **without a Revision bump** (see the discipline
+note in `model_check.md`): the claim semantics live in the two capability
+files that already own those gates' precise meanings, widening them
+instead of restating them in the core.
+
+- **specs/model_check.md** gains `required_claims_classified`
+  (required = executable/kernel/citation opt-ins; prose-only invariants
+  are enumerated unchecked — a deriving Property never implies
+  evaluation), `claim_aggregate_governs` (fixed priority: refuted →
+  counterexample_found, exhausted budget → timed_out, incomplete →
+  exploration_only; a nonempty all-verified required set is the only
+  clean), `claim_report_schema` (claim_schema_version 1, canonical
+  qualified records, expected/unchecked ids, and a content-bound —
+  never path-bound — `scope_sha256` digest), and
+  `dual_format_isolated_scope` (a dual-format `id: spec` file is the
+  sole parsed input of command evaluation; multi-file lint stays
+  valid). `finish_clean`'s guard now cites the claim aggregate.
+- **specs/verify.md** gains the acceptance-side twins:
+  `required_claims_govern_acceptance` (verified requires every required
+  claim verified plus every property block passing; malformed/duplicate
+  records rejected, never inferred unknown success),
+  `evidence_scope_bound` (verify recomputes scope and the required set;
+  stale, swapped, or old reports fail with a rerun hint and are never
+  rewritten), and `assurance_views_agree` (CLI JSON, human output, and
+  the persisted report name the same blockers and unchecked claims;
+  release docs distinguish lint / bounded exploration / verified
+  claims / external application-test binding). The `accept`/`reject`
+  transitions cite all three new constraints.
+- New rows derive coverage (9 unit properties in `model_check.md`, 7 in
+  `verify.md`), each bound to the CLI fixtures
+  `define-verification-claim-gates` §1–§3 already deployed — the
+  compiled corpus artifacts are regenerated (`spk compile specs`).
+
 ## #115 — the min-expr kernel becomes Revision 17 (add-min-expr-kernel)
 
 The kernel landed in two moves that deliberately outran the Revision

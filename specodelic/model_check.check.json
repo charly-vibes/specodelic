@@ -1,5 +1,5 @@
 {
-  "artifact_sha256": "d073cecf2668a0bc4eb10eaff86647ec6d96143cc125b724c652abcb04824e1c",
+  "artifact_sha256": "3a786cdbab94bbd7433792cdd00f3f383ac67b3b63777d642b8007737d2bcb94",
   "backend": {
     "engine": "stateright",
     "version": "0.31.0"
@@ -12,17 +12,21 @@
   "expected_claim_ids": [],
   "invariants_checked": [],
   "outcome": "exploration_only",
-  "scope_sha256": "217e8b5896822dd8721a76681df7f93993f8cde2ec8911141c989afb8fc41656",
+  "scope_sha256": "b38ceb4bc560424e7869aae76aa371fcc9506f783dca08de6088d1c4e6d5cd16",
   "states_explored": 6,
   "unchecked_claim_ids": [
     "backend_identified",
     "checker_invoked",
+    "claim_aggregate_governs",
+    "claim_report_schema",
     "counterexample_is_minimal",
     "counterexample_names_violated_invariant",
+    "dual_format_isolated_scope",
     "executable_invariants_execute",
     "exhaustive_within_bound",
     "invariant_totality",
     "no_counterexample_feeds_verify",
+    "required_claims_classified",
     "rerun_on_model_change"
   ]
 }
