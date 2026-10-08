@@ -62,8 +62,24 @@ separate TIDY ticket is mapped below; keep refactoring commits separate. Preserv
       with the archive commit (bxk 91ae76b precedent —
       summary-completeness requires openspec/specs/verification-claims/
       spec.md to exist first).
-- [ ] 4.3 Run strict OpenSpec validation, section sync, corpus lint and just ci;
+- [x] 4.3 Run strict OpenSpec validation, section sync, corpus lint and just ci;
       archive only via the dual-format recipe after implementation approval.
+      → 9b622b5 (+staged-promotion commits) — just ci green pre-archive
+      (214 contract tests, 0 findings); archive via
+      `just archive-change define-verification-claim-gates`
+      (openspec archive --skip-specs via archive-companion + verbatim
+      deploy; dry-run first: restore plan =
+      openspec/specs/verification-claims/spec.md). Verbatim parity
+      verified by diff (archive delta == deployed spec, byte-identical):
+      4 requirements, 10 scenarios, all identities preserved — 0
+      deploy-time repairs needed. Contracts promoted via `ah archive`
+      (10 → .espectacular/verification-claims/). SUMMARY entry added
+      (summary-completeness: 0 missing). Post-archive gates: just ci
+      green; ah check --run-tests 243 passed, 0 findings;
+      openspec validate --all --strict green (25/25); lint specs
+      0 issues. Mid-task, 60123fc (specodelic-75a, parallel gre.7
+      session) repaired the 4.1 row's traces_to to [[model_check]] —
+      artifacts regenerated after the repair (9b622b5).
 
 ## Implementation ticket map
 
