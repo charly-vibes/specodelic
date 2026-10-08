@@ -164,8 +164,27 @@ claim must be present in a fresh command report with the expected status.
       evidence at HEAD (zero claims, `exploration_only`) in
       .wai/projects/min-expr-kernel/research/; zero lint baseline
       additions
-- [ ] 6.2 **RED→GREEN**: migrate `specs/specodelic.md` invariants
+- [x] 6.2 **RED→GREEN**: migrate `specs/specodelic.md` invariants
       (equational and bounded-quantified cells) the same way.
+      ✅ four eligible cells migrated: `total_refs` (resolves
+      conjunction over all 10 Reference Typing morphisms), `coverage`
+      (`∀ c ∈ Constraint: ∃ p ∈ Property: p.derives_from == c`),
+      `every_transition_valid` (`∀ t ∈ Transition: ¬(t.from == ⊥) ∧
+      ¬(t.to == ⊥)`), `supersedes_acyclic` (`acyclic(supersedes)`);
+      extraction test runs corpus lint → corpus compile → model-check
+      on specodelic.md as sole invocation corpus asserting
+      `no_counterexample` with all four claims `verified` in JSON and
+      the persisted report; RED evidence at HEAD (outcome
+      `exploration_only`, claims `[]`) in
+      .wai/projects/min-expr-kernel/research/; ineligible cells stay
+      informal with recorded decisions (`unique_id` — id is not a
+      schema morphism; `guard_required` — ¬(t.guard == ⊥) conflates
+      prose-guard presence with absence; `every_state_used` — needs ∨;
+      `acyclic_traces` — union-graph DAG not expressible,
+      per-morphism acyclicity is a strict weakening;
+      kind-set/typing cells outside the closed grammar); zero lint
+      baseline additions; no revision bump — `append_only_variants`'
+      governed id-sets untouched, FORMAT_REVISION stays Revision 16
 - [ ] 6.3 **TIDY**: no new advisory class introduced; if a migration
       would need one, the migration is wrong — record the decision.
 
