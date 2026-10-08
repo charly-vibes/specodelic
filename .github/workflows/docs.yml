@@ -33,6 +33,9 @@ jobs:
         with:
           mdbook-version: latest
 
+      - name: Install just
+        uses: extractions/setup-just@v2
+
       - name: Copy spec trees into the book source
         run: |
           cp -r specs docs/src/specs
@@ -43,6 +46,12 @@ jobs:
         # and local paths cannot drift (specodelic-2m7). Version comes from
         # Cargo.toml, never hand-typed text — §6 (DDL-j0u).
         run: python3 scripts/stamp_llms.py page
+
+      - name: Generate graph views
+        # add-graph-views 3.3: docs/src/graph-views.md {{#include}}s the
+        # generated views — they must exist before mdbook build. Same
+        # recipe as local `just docs-graphs` (shared path, no drift).
+        run: just docs-graphs
 
       - name: Build docs
         run: mdbook build
