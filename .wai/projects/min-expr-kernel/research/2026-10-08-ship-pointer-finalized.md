@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:epic-orchestrator-2026-10-07-specodelic-gre-2-byte-stable-edge-projections-after-formatting-tidy-task-1-4, pipeline-step:spawn-subagent]
+---
+
+SHIP: pointer finalized
