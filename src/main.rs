@@ -16,7 +16,7 @@ use genesis::envelope::{Envelope, EnvelopeKind};
 use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
-use specodelic::{checklist, graph, guide, model_check, spec, verify};
+use specodelic::{acset, checklist, graph, guide, model_check, spec, verify};
 
 mod commands;
 
@@ -293,6 +293,16 @@ enum Commands {
         /// Topic to explain; omit to list the topics
         topic: Option<String>,
     },
+    /// Print the guide's closed value sets as a JSON envelope (kinds, row
+    /// shapes, format revision); `--schema` selects the versioned acset
+    /// Schema export instead (add-graph-views D4 — the schema view's
+    /// transport interface)
+    Guide {
+        /// Export the versioned acset Schema payload instead of the value
+        /// sets (consumed by scripts/graph_views.py's schema view)
+        #[arg(long)]
+        schema: bool,
+    },
     /// Diagnose the Specodelic workspace setup
     Doctor {
         /// Auto-repair what the doctor can repair (the SPECODELIC block
@@ -420,6 +430,47 @@ fn cmd_graph_projection(
     0
 }
 
+/// `spk guide [--schema]` (add-graph-views 2.2, D4): the guide's closed
+/// value sets (kinds, row shapes, format_revision) as a JSON envelope —
+/// or, with `--schema`, the versioned acset Schema export that is the
+/// Python schema view's sole structural input. Both emit through
+/// genesis Output::emit; the reference-typing table stays out of both
+/// payloads (guide typing constants are not a derivation source).
+fn cmd_guide(
+    schema: bool,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let (payload, next_step, human): (serde_json::Value, &str, String) = if schema {
+        let export = guide::schema_export(&acset::schema::canonical());
+        let morphs = export["morphisms"].as_array().map(Vec::len).unwrap_or(0);
+        let objects = export["objects"].as_array().map(Vec::len).unwrap_or(0);
+        let text = format!(
+            "schema export: {objects} objects, {morphs} morphisms — {} (derived from the lint-gated acset Schema; render with: scripts/graph_views.py schema <export.json>)",
+            guide::FORMAT_REVISION
+        );
+        (
+            export,
+            "render the schema view: python3 scripts/graph_views.py schema <export.json>",
+            text,
+        )
+    } else {
+        (
+            guide::value_set_payload(),
+            "versioned schema export: specodelic guide --schema --json",
+            format!(
+                "guide value sets — format revision: {} (use --schema for the acset Schema export)",
+                guide::FORMAT_REVISION
+            ),
+        )
+    };
+    let out = Output::success(payload).with_next_step(next_step);
+    emit_report(out, Some(human), format, verbosity, stdout, stderr);
+    0
+}
+
 fn run(
     cli: &Cli,
     format: OutputFormat,
@@ -542,6 +593,7 @@ fn run(
         Commands::Explain { topic } => {
             cmd_explain(topic.as_deref(), format, verbosity, stdout, stderr)
         }
+        Commands::Guide { schema } => cmd_guide(*schema, format, verbosity, stdout, stderr),
         Commands::Doctor { fix } => cmd_doctor(*fix, format, verbosity, stdout, stderr),
         Commands::Init { force } => cmd_init(*force, format, verbosity, stdout, stderr),
         Commands::Feedback {

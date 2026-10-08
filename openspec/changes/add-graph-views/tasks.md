@@ -46,16 +46,18 @@ Tidying commits are separate from feature commits.
 
 ## 2. Guide JSON and transform prototype (`scripts/graph_views.py`)
 
-- [ ] 2.1 **RED**: CLI fixtures pin guide --json to kinds, row shapes and
+- [x] 2.1 **RED**: CLI fixtures pin guide --json to kinds, row shapes and
       format_revision, and guide --schema --json to D4's versioned schema
       payload. Assert canonical objects/morphisms, refinements, source rules,
       endo flags and sorted deterministic data; no guide typing constants.
       Both commands currently absent: run and observe failure first.
-- [ ] 2.2 **GREEN**: implement the guide JSON command and schema selector,
+      (byte-pins live as unit tests over the pure exporters in src/guide.rs —
+      parse_misc.rs is at its file_lines cap; gre.4 precedent)
+- [x] 2.2 **GREEN**: implement the guide JSON command and schema selector,
       emitting through genesis Output::emit. Share a Schema-to-data exporter
       between canonical() production input and constructed test values;
       leave reference typing out of the ordinary guide value-set payload.
-- [ ] 2.3 **RED**: script tests against three checked-in fixture corpora —
+- [x] 2.3 **RED**: script tests against three checked-in fixture corpora —
       empty (zero spec files = intentless: asserts `out_of_scope_refused`,
       exits non-zero with a remediation hint), single-intent
       (`single_intent_sane`), violation-bearing — plus a lint-dirty
@@ -66,13 +68,16 @@ Tidying commits are separate from feature commits.
       corresponding diagram change and revision label. Missing fields,
       unknown version, unsuccessful envelope, duplicate identities and
       dangling endpoints fail schema_export_invalid before output writes.
+      (schema-export portion DONE in scripts/test_graph_views.py + the
+      Rust↔Python delta test in src/guide.rs — specodelic-gre.5; the
+      corpus/scope/rendering legs remain for gre.6/gre.7)
 - [ ] 2.4 **GREEN**: implement per-file state-machine view (transition
       edges grouped by owning file; guards annotated; files without
       transitions skipped cleanly; fan-in counts distinct targets per
       D2's multiplicity rule).
 - [ ] 2.5 **GREEN**: implement file-level traceability view (collapse to
       intents, fan-in annotation).
-- [ ] 2.6 **GREEN**: implement the schema view consuming only the schema
+- [x] 2.6 **GREEN**: implement the schema view consuming only the schema
       export from 2.2, including format revision and refinement labels.
       Validate its envelope/schema before rendering; make 2.3's perturbation
       and malformed-input fixtures pass. No Rust-source parsing or second
