@@ -80,6 +80,8 @@ fn oracle_bytes(r: &graph::GraphReport) -> String {
 const TYPING_ALLOWED: &str = "tests/fixtures/typing_allowed";
 const TYPING_VIOLATIONS: &str = "tests/fixtures/typing_violations";
 const DANGLING: &str = "tests/fixtures/dangling";
+const MEMBER_PATH: &str = "tests/fixtures/member_path";
+const MEMBER_PATH_DANGLING: &str = "tests/fixtures/member_path_dangling";
 const SMALL: &str = "tests/fixtures/small";
 const ZERO_FILE: &str = "tests/fixtures/zero_file";
 const SINGLE_INTENT: &str = "tests/fixtures/single_intent";
@@ -383,7 +385,17 @@ fn parity_property_edges_from_specs_matches_graph_build() {
 /// of them.
 #[test]
 fn adapter_graph_equivalent_over_fixture_corpora() {
-    for dir in [SMALL, TYPING_ALLOWED, TYPING_VIOLATIONS, DANGLING] {
+    // specodelic-efb: member-path corpora too — resolve()'s member arm
+    // returns the label-qualified `file.row (member)`, and both consumers
+    // must agree on the canonical interning of it (no panic, no drift).
+    for dir in [
+        SMALL,
+        TYPING_ALLOWED,
+        TYPING_VIOLATIONS,
+        DANGLING,
+        MEMBER_PATH,
+        MEMBER_PATH_DANGLING,
+    ] {
         let specs = collect_fixture(dir);
         let acset_edges = from_specs(&specs).edges();
         let graph_edges = graph::build(&specs).edges.clone();
@@ -392,6 +404,58 @@ fn adapter_graph_equivalent_over_fixture_corpora() {
             "the acset constructor must reproduce graph::build's edges for {dir}"
         );
     }
+}
+
+/// RED (specodelic-efb): a member-path link (`[[v.row.deep]]` → the
+/// member arm's `v.row (deep)`) must produce the canonical edge
+/// `v.mem -> v.row` — the instance builder interns defined ids only, so
+/// pre-fix this panicked at instance.rs:126 (`uninterned node id: v.row
+/// (deep)`) on plain `spk graph`.
+#[test]
+fn member_path_link_projects_canonical_edge() {
+    let specs = collect_fixture(MEMBER_PATH);
+    let acset_edges = from_specs(&specs).edges();
+    assert_eq!(
+        acset_edges,
+        vec![
+            graph::Edge {
+                from: "v.row".into(),
+                to: "v".into(),
+                kind: "constraints.traces_to".into(),
+            },
+            graph::Edge {
+                from: "v.mem".into(),
+                to: "v.row".into(),
+                kind: "constraints.traces_to".into(),
+            },
+        ],
+        "the label-qualified member target must intern as the canonical row id"
+    );
+}
+
+/// specodelic-efb (dangling member path): the row under the member path
+/// is not defined (`v.norow`), so the member arm must not fire — the link
+/// stays dangling on its labeled path (`v.norow.deep`), never silently
+/// resolved, and never a panic.
+#[test]
+fn dangling_member_path_stays_dangling_on_labeled_path() {
+    use specodelic::acset::instance::Instance;
+    let specs = collect_fixture(MEMBER_PATH_DANGLING);
+    let instance = Instance::from_specs(&specs);
+    let edges = instance.edges();
+    assert!(
+        edges
+            .iter()
+            .all(|e| e.to != "v.norow" && e.to != "v.norow.deep"),
+        "no edge may be invented for an unresolvable member path"
+    );
+    let dangling = instance.dangling();
+    assert_eq!(dangling.len(), 1, "the dangling link is a stored value");
+    assert_eq!(dangling[0].target, "v.norow.deep");
+    // The instance's dangling kind is the Reference Typing column (the
+    // graph's edge-kind spelling rides the report, not the value).
+    assert_eq!(dangling[0].kind, "traces_to");
+    assert_eq!(dangling[0].from, "v.mem");
 }
 
 /// The real corpus, collected the way main.rs does: `.md` files, skipping

@@ -1083,6 +1083,12 @@ pub fn build(specs: &[Spec]) -> GraphReport {
                         });
                         continue;
                     }
+                    // specodelic-efb: the member arm's label-qualified
+                    // target (`v.row (deep)`) is a display qualifier over
+                    // the defined row id — record the canonical id so the
+                    // report's edge set matches the instance builder's
+                    // interning (the projection normalized it anyway, D2).
+                    let target = canonical_id(&target).to_string();
                     record_edge(
                         &mut report,
                         Edge {

@@ -1,5 +1,25 @@
 # Changelog
 
+## #120 — graph no longer panics on member-path link targets (specodelic-efb)
+
+A corpus carrying a member-path link — `[[v.row.deep]]`, which the
+reference resolver's member arm resolves to the label-qualified
+`v.row (deep)` (specodelic-njh) — crashed `spk graph` with `uninterned
+node id: v.row (deep)` at the acset instance builder: the builder
+interns only defined ids, and the display qualifier made the resolved
+target address no node.
+
+- **`spk graph`** (every format, plain `--json` included) now interns the
+canonical row id: the member-path link projects as the edge
+`v.mem → v.row`, and fan in/out are computed — the display qualifier was
+already stripped at projection (add-graph-views D2), so user-visible
+projections are unchanged apart from no longer crashing.
+- The link stays resolved-clean (specodelic-njh semantics): the typing
+check still consults the raw resolved spelling, so lint and graph do
+not diverge on the same link. An unresolvable member path (`v.norow`
+undefined under `[[v.norow.deep]]`) still dangles on its labeled path —
+never silently resolved.
+
 ## #119 — migrate mirrors mixed deltas (ADDED + MODIFIED) instead of the ADDED body only (specodelic-54v)
 
 `spk migrate` on a delta carrying both `## ADDED Requirements` and

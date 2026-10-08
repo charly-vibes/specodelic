@@ -13,7 +13,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::acset::schema::{self, Endpoint, Morphism, Schema, Typing, classify};
-use crate::graph::{self, Edge, NodeKind};
+use crate::graph::{self, Edge, NodeKind, canonical_id};
 use crate::spec::Spec;
 
 /// A link that resolved to no id — stored as a value (`None` in the
@@ -364,10 +364,18 @@ impl Walk<'_> {
                 return;
             }
         };
+        // specodelic-efb: resolve()'s member arm can return a
+        // label-qualified member target (`v.row (deep)`) — a display
+        // qualifier over a defined row id, not a node of its own. Intern
+        // the canonical id; the qualifier is a projection-time annotation
+        // (add-graph-views D2), never an internable node. The typing
+        // check above deliberately ran on the raw spelling: the qualifier
+        // is not a kind, so member-path links keep their resolved-clean
+        // semantics (specodelic-njh) — lint and graph must not diverge.
         self.stored.push(Value {
             morph,
             from: intern_of(self.intern, &source_node),
-            to: Some(intern_of(self.intern, &target)),
+            to: Some(intern_of(self.intern, canonical_id(&target))),
             kind,
             raw: String::new(),
         });

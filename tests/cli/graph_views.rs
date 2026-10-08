@@ -158,3 +158,64 @@ fn fixture_lint_dirty_corpus_parses_but_fails_lint() {
         "the scope gate names guard_required as the failed gate: {rules:?}"
     );
 }
+
+/// specodelic-efb (RED first): a member-path link (`[[v.row.deep]]` → the
+/// member arm's label-qualified `v.row (deep)`) must not panic the graph
+/// build (`uninterned node id: v.row (deep)` at instance.rs:126) — plain
+/// `spk graph --json` exits 0, and the edges projection carries the
+/// canonical edge `v.mem → v.row` (the display qualifier is an
+/// instance-build concern normalized before interning, never shown).
+#[test]
+fn member_path_link_graphs_without_panicking() {
+    let json = spk()
+        .args(["graph", "tests/fixtures/member_path", "--json"])
+        .output()
+        .unwrap();
+    assert_eq!(
+        json.status.code(),
+        Some(0),
+        "member-path corpora graph cleanly: {}",
+        String::from_utf8_lossy(&json.stderr)
+    );
+    let out = spk()
+        .args(["graph", "tests/fixtures/member_path", "--format", "edges"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let rows = edges_rows(&out.stdout);
+    assert!(
+        rows.iter()
+            .any(|r| r[0] == "v.mem" && r[2] == "constraints.traces_to" && r[3] == "v.row"),
+        "the member-path link projects to the canonical row id: {rows:?}"
+    );
+    assert!(
+        rows.iter()
+            .all(|r| !r[0].contains(" (") && !r[3].contains(" (")),
+        "no display qualifier may leak into the projected endpoints: {rows:?}"
+    );
+}
+
+/// specodelic-efb (dangling member path): the row under the member path
+/// is not defined (`v.norow`), so the link stays dangling on its labeled
+/// path — reported as unresolved (findings exit, envelope ok:true), never
+/// silently resolved, never a panic.
+#[test]
+fn dangling_member_path_reports_not_silently_resolves() {
+    let json = spk()
+        .args(["graph", "tests/fixtures/member_path_dangling", "--json"])
+        .output()
+        .unwrap();
+    assert_eq!(
+        json.status.code(),
+        Some(1),
+        "dangling findings exit 1, never the panic 101: {}",
+        String::from_utf8_lossy(&json.stderr)
+    );
+    let data: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
+    assert_eq!(data["ok"], serde_json::Value::Bool(true));
+    let rendered = serde_json::to_string(&data["data"]).unwrap();
+    assert!(
+        rendered.contains("v.norow.deep"),
+        "the dangling report keeps the labeled path spelling: {rendered}"
+    );
+}
