@@ -1,0 +1,10 @@
+run_id: tdd-ro5-2026-10-08-specodelic-efb-acset-instance-panic-on-member-path-label-qualified-link-targets
+pipeline: tdd-ro5
+topic: 'specodelic-efb: acset instance panic on member-path label-qualified link targets'
+created_at: '2026-10-08T15:32:17.895493993+00:00'
+current_step: 8
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
