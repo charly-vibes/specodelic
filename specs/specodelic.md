@@ -40,6 +40,21 @@ the project/format/tool/subject terminology).
 | property_kind_closed     | invariant | `∀ Property row: row.kind ∈ {unit, law}` — see [[kinds.property_row_shape]] | [[specodelic]]  |
 | supersedes_acyclic       | invariant | `**kernel:** acyclic(supersedes)` — the supersedes graph alone (Constraint→Constraint, Property→Property) contains no cycle | [[specodelic]]  |
 
+The four rows carrying the `**kernel:**` marker are this file's
+executable slice — the min-expr kernel's closed atomic grammar
+(`add-min-expr-kernel`), each backed by its own coverage property row.
+The remaining data-dependent cells stay informal by recorded decision,
+not by omission, and no new advisory class was invented to force them
+in: `unique_id` (an id is not a schema morphism — uniqueness has no
+acset-backed atomic), `guard_required` (¬(t.guard == ⊥) would conflate
+prose-guard presence with absence), `every_state_used` (needs ∨,
+outside the closed grammar), `acyclic_traces` (the union-graph DAG is
+not expressible in the closed grammar — per-morphism acyclicity is a
+strict weakening), and the kind-set/typing cells (outside the closed
+grammar). A cell migrates only when a Revision widens the closed
+grammar to carry it — a migration that would need a new advisory class
+is a migration bug, not a corpus fact.
+
 ### Reference Typing
 
 Which `kind` a reference field may point at — every reference field here

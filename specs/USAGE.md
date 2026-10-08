@@ -621,7 +621,12 @@ citing it.
   categorical law so a machine can execute it (rather than a human read
   it) is a theorem-proving project, not a specodelic extension — see
   `specodelic.md` Revision 6's closing note. Write the law clearly in
-  prose-math; don't try to make the schema parse it.
+  prose-math; don't try to make the schema parse it. The one opt-in is
+  the `**kernel:**` marker shown in the quick start above: a
+  data-structural fact inside the min-expr kernel's closed atomic
+  grammar becomes an executable claim over the file's own rows and
+  references — that is not a widening of what a law cell can express,
+  so prose-math stays prose.
 - **The model checker is bounded.** `model_check.md` is explicit that
   unbounded checking never terminates. A Model section is for a
   *finite-state lifecycle* (a reducer's phases, a request's lifecycle) —

@@ -185,7 +185,7 @@ claim must be present in a fresh command report with the expected status.
       kind-set/typing cells outside the closed grammar); zero lint
       baseline additions; no revision bump — `append_only_variants`'
       governed id-sets untouched, FORMAT_REVISION stays Revision 16
-- [ ] 6.3 **TIDY**: no new advisory class introduced; if a migration
+- [x] 6.3 **TIDY**: no new advisory class introduced; if a migration
       would need one, the migration is wrong — record the decision.
 
 ## 7. Discipline, contracts, closure
