@@ -4,7 +4,8 @@
 Feeds serialized artifacts — the exact shapes the spk commands emit — to
 the graph_views renderers and pins each view's contract. The TestCase
 classes live in schema_view_cases, state_view_cases,
-state_view_scope_cases and traceability_view_cases (split to honor the
+state_view_scope_cases, traceability_view_cases and views_purity_cases
+(split to honor the
 script-role structural ratchet); this module re-imports them so the
 documented meter
 (`python3 -m unittest discover -s scripts -p test_graph_views.py`) runs
@@ -26,6 +27,7 @@ from schema_view_cases import *  # noqa: F401,F403
 from state_view_cases import *  # noqa: F401,F403
 from state_view_scope_cases import *  # noqa: F401,F403
 from traceability_view_cases import *  # noqa: F401,F403
+from views_purity_cases import *  # noqa: F401,F403
 
 if __name__ == "__main__":
     import unittest
