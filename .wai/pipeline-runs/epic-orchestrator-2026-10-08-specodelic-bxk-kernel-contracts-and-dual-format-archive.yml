@@ -1,0 +1,10 @@
+run_id: epic-orchestrator-2026-10-08-specodelic-bxk-kernel-contracts-and-dual-format-archive
+pipeline: epic-orchestrator
+topic: 'specodelic-bxk: kernel contracts and dual-format archive'
+created_at: '2026-10-08T02:23:16.366991627+00:00'
+current_step: 0
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
