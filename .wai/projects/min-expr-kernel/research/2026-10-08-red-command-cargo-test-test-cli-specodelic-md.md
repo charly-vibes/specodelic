@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-08-specodelic-7yk-core-format-invariants-execute-as-declared-kernel-claims, pipeline-step:red]
+---
+
+RED: command='cargo test --test cli specodelic_md_kernel_invariants_verify' — new test specodelic_md_kernel_invariants_verify fails at HEAD: lint+compile of the corpus succeed, model-check on specs/specodelic.md returns outcome exploration_only (expected no_counterexample); claims:[] and all four target ids (total_refs, coverage, every_transition_valid, supersedes_acyclic) sit in unchecked_claim_ids — exactly the missing claim evidence the migration exists to produce. Failure is behavioral (zero kernel claims in specodelic.md at HEAD), not setup breakage: lint and compile steps assert().success() and pass. Fixture notes: lint and compile are corpus-wide (cross-file refs [[kinds.*]] resolve corpus-wide; compile's precondition_satisfied remediation names 'run spk compile specs'), model-check runs on specodelic.md as the sole invocation corpus into a tempdir — no repo artifacts touched.
