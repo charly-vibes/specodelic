@@ -1,0 +1,10 @@
+run_id: epic-orchestrator-2026-10-08-bug-fix-sweep-run-4-specodelic-efb-acset-instance-builder-panic-on-member-path-label-qualified-link-targets
+pipeline: epic-orchestrator
+topic: 'bug-fix sweep run 4: specodelic-efb acset instance builder panic on member-path label-qualified link targets'
+created_at: '2026-10-08T15:29:42.944397327+00:00'
+current_step: 3
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
