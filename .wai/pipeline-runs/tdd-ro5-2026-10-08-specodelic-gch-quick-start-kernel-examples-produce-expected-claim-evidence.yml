@@ -1,0 +1,10 @@
+run_id: tdd-ro5-2026-10-08-specodelic-gch-quick-start-kernel-examples-produce-expected-claim-evidence
+pipeline: tdd-ro5
+topic: 'specodelic-gch: quick-start kernel examples produce expected claim evidence'
+created_at: '2026-10-08T01:33:55.228024436+00:00'
+current_step: 9
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
