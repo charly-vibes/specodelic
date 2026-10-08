@@ -109,21 +109,21 @@ Tidying commits are separate from feature commits.
 
 ## 4. Dogfood and follow-ups
 
-- [ ] 4.1 Run the full pipeline over this repo's corpus; confirm the
+- [x] 4.1 Run the full pipeline over this repo's corpus; confirm the
       rendered views are honestly clean — the corpus is at 0 typing
       violations since the acset-core landing (was 38 when drafted), so
       zero annotated elements must appear AND the violation-rendering
       path must be exercised by the fixture corpora (2.3), not assumed.
-- [ ] 4.2 Run the pipeline over `../bajan/specs` (out-of-CI, manual check
+- [x] 4.2 Run the pipeline over `../bajan/specs` (out-of-CI, manual check
       recorded in the change notes): views derive with zero
       corpus-specific code. Update vs the 5qj decision note: bajan now
       carries 4 typed inter-file `satisfies` edges (the "wiring empty
       until ac8" contingency is stale) — the wiring view renders for
       real there.
-- [ ] 4.3 ~~File the bajan corpus-feedback beads issue~~ **done ahead of
+- [x] 4.3 ~~File the bajan corpus-feedback beads issue~~ **done ahead of
       implementation — bajan-ac8 filed 2026-09-29 (issue-review pass); the
       implementer only verifies it's still open and cross-references it**.
-- [ ] 4.4 Verify `tasks.md` all checked; `just ci` and
+- [x] 4.4 Verify `tasks.md` all checked; `just ci` and
       `openspec validate add-graph-views --strict` pass.
 
 ## Implementation ticket map
