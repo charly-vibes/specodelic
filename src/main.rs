@@ -143,7 +143,12 @@ enum Commands {
         /// `--human`: the raw text goes straight to stdout — the one
         /// documented exception to Output::emit, scoped to this flag so
         /// awk/jq pipelines consume it without an envelope parser. Zero
-        /// spec files exit 0 with empty output.
+        /// spec files on a real path exit 0 with empty output; a
+        /// nonexistent or unreadable path is an invocation error (exit 2,
+        /// labeled envelope on stderr — a typo'd path is not a clean empty
+        /// corpus, specodelic-0zk F3); typing violations are findings
+        /// (exit 1 — matching the JSON envelope's exit, violations still
+        /// riding along as annotation rows per D3, specodelic-0zk F8).
         #[arg(long)]
         format: Option<GraphFormat>,
         /// View selection over the text projections (see the format
@@ -407,17 +412,53 @@ fn print_version_json() -> bool {
 /// Output::emit, scoped to this flag. The transform's scope gate
 /// (intentless corpora) is the Python layer's beat; the tool-level
 /// projection stays well-formed per specs/graph.md's parsed-not-linted
-/// note: zero spec files exit 0 with empty output.
+/// note: zero spec files on a real path exit 0 with empty output.
+///
+/// Exit-code semantics follow the corpus-wide 0/1/2 mapping
+/// (specs/errors.md `exit_code_mapping`, specodelic-0zk F3+F8): a
+/// nonexistent/unreadable path is an invocation error (exit 2 — a typo'd
+/// path must not read as an empty corpus), and typing violations are
+/// findings (exit 1) while still riding along as annotation rows (D3).
 fn cmd_graph_projection(
     paths: &[String],
     format: &GraphFormat,
     view: Option<&GraphView>,
     stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
 ) -> i32 {
     let (specs, _checklists, _notes, _parse_errors) = parse_batch(paths, Verbosity::Quiet);
     if specs.is_empty() {
+        // F3 (specodelic-0zk): a named root that never resolves is an
+        // invocation error, not a clean empty corpus. `collect_specs`
+        // pushes a nonexistent root through as a file, so parse_batch
+        // never distinguishes it from a real empty path — check the roots
+        // directly. At least one readable root keeps the parsed-not-linted
+        // exit 0 (the zero_file fixture's contract).
+        let roots = named_roots(paths);
+        if roots.iter().all(|r| std::fs::metadata(r).is_err()) {
+            // Projection stdout is the raw text channel — the labeled
+            // refusal envelope routes to stderr (mirrors cmd_graph's
+            // JSON-mode refusal, which exits 2 for the same input).
+            let refusal: Output<()> = Output::failure(
+                "no spec files found and no path resolves — the named path(s) do not exist or are unreadable",
+            )
+            .with_next_step("pass files or directories containing *.md specs with YAML frontmatter");
+            let _ = refusal.emit(
+                VERSION,
+                OutputFormat::Json,
+                Verbosity::Quiet,
+                &mut Vec::new(),
+                stderr,
+            );
+            return 2;
+        }
         return 0;
     }
+    // F8 (specodelic-0zk): violations flip the exit code like the JSON
+    // envelope mode does, without changing the projection text — the
+    // annotation rows still ride along (D3: a view is never cleaner than
+    // the artifact).
+    let violations = graph::build(&specs).violations;
     let text = match (format, view) {
         (GraphFormat::Edges, None) => graph::edges_tsv(&specs),
         (GraphFormat::Dot, None) => graph::dot_projection(&specs),
@@ -427,7 +468,7 @@ fn cmd_graph_projection(
         (GraphFormat::Mermaid, Some(GraphView::Wiring)) => graph::wiring_mermaid(&specs),
     };
     let _ = write!(stdout, "{text}");
-    0
+    if violations.is_empty() { 0 } else { 1 }
 }
 
 /// `spk guide [--schema]` (add-graph-views 2.2, D4): the guide's closed
@@ -485,7 +526,7 @@ fn run(
             paths,
             format: Some(format),
             view,
-        } => cmd_graph_projection(paths, format, view.as_ref(), stdout),
+        } => cmd_graph_projection(paths, format, view.as_ref(), stdout, stderr),
         Commands::Graph { paths, .. } => cmd_graph(paths, format, verbosity, stdout, stderr),
         Commands::Compile { paths, out_dir } => {
             cmd_compile(paths, out_dir, format, verbosity, stdout, stderr)
@@ -627,6 +668,17 @@ fn run(
     }
 }
 
+/// The named roots of a batch: the paths as given, defaulting to
+/// `./specs` (shared by collect_specs and the projection exit-code
+/// check — specodelic-0zk).
+pub(crate) fn named_roots(paths: &[String]) -> Vec<std::path::PathBuf> {
+    if paths.is_empty() {
+        vec!["specs".into()]
+    } else {
+        paths.iter().map(std::path::PathBuf::from).collect()
+    }
+}
+
 /// Collect spec files from paths (files, or directories searched
 /// recursively for `.md`, skipping hidden and build directories:
 /// `.git`, `target`, `node_modules`, anything dot-prefixed).
@@ -657,11 +709,7 @@ pub(crate) fn collect_specs(paths: &[String]) -> Vec<std::path::PathBuf> {
             }
         }
     }
-    let roots: Vec<std::path::PathBuf> = if paths.is_empty() {
-        vec!["specs".into()]
-    } else {
-        paths.iter().map(std::path::PathBuf::from).collect()
-    };
+    let roots = named_roots(paths);
     let mut files = vec![];
     for root in roots {
         if root.is_dir() {

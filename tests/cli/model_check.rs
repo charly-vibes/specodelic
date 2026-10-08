@@ -1717,8 +1717,8 @@ fn usage_example(id: &str) -> String {
     blocks
         .into_iter()
         .find(|b| {
-            let mut lines = b.lines().skip(1); // past the opening ---
-            while let Some(line) = lines.next() {
+            let lines = b.lines().skip(1); // past the opening ---
+            for line in lines {
                 if line.trim() == "---" {
                     break;
                 }

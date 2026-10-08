@@ -80,6 +80,12 @@ cycles. The rename/merge/refactor advisors build on it.
 Same discovery hint as `lint`: with an `openspec/` tree present, the
 zero-files failure suggests `spk graph openspec`.
 
+Exit codes (both modes): 0 clean, 1 findings (typing violations —
+the annotation rows still ride along in projections), 2 invocation
+error (no spec files on an existing path is clean-empty, but a
+nonexistent or unreadable path is an error — a typo'd path is not a
+clean empty corpus).
+
 ## `spk new <id>`
 
 Scaffolds a spec file from the template — per-layer HTML-comment

@@ -102,7 +102,8 @@ fn fixture_typing_violations_corpus_projects_annotation_and_transition_rows() {
         ])
         .output()
         .unwrap();
-    assert_eq!(out.status.code(), Some(0));
+    // specodelic-0zk F8: typing violations are findings — exit 1, not 0.
+    assert_eq!(out.status.code(), Some(1));
     let rows = edges_rows(&out.stdout);
     for row in &rows {
         assert_eq!(row.len(), 6, "every row has exactly six columns: {row:?}");

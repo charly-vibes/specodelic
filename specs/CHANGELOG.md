@@ -1,5 +1,25 @@
 # Changelog
 
+## #121 — graph projections obey the 0/1/2 exit-code mapping (specodelic-0zk)
+
+`spk graph --format edges|dot|mermaid` (and the wiring view) reported
+success for both failure shapes: a typo'd path exited 0 like an empty
+corpus (JSON mode exited 2), and a typing-violations corpus exited 0
+while JSON mode exited 1 — so a pipeline could neither catch the typo
+nor gate on violations in text mode.
+
+- **F3**: a nonexistent or unreadable named path is now an invocation
+  error (exit 2) — a labeled refusal envelope goes to stderr (projection
+  stdout stays the raw text channel), matching the JSON envelope mode
+  and specs/errors.md's `exit_code_mapping`. Zero spec files on a real
+  path keep the parsed-not-linted exit 0 with empty output (the
+  intentless-corpus contract the Python transform's scope gate relies
+  on).
+- **F8**: typing violations in the corpus now flip the projection exit
+  to 1 — matching JSON mode — while the violation annotation rows still
+  ride along unchanged (specs/graph.md D3: a view is never cleaner than
+  the artifact). JSON-mode exits are unchanged.
+
 ## #120 — graph no longer panics on member-path link targets (specodelic-efb)
 
 A corpus carrying a member-path link — `[[v.row.deep]]`, which the

@@ -1721,7 +1721,8 @@ fn violations_survive_projection() {
         .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
         .output()
         .unwrap();
-    assert_eq!(out.status.code(), Some(0));
+    // specodelic-0zk F8: violations are findings — exit 1, not 0.
+    assert_eq!(out.status.code(), Some(1));
     let rows = edges_rows(&out.stdout);
     let annotations: Vec<&Vec<&str>> = rows
         .iter()
@@ -1894,7 +1895,8 @@ fn dot_projection_renders_violations_red_dashed() {
         .args(["graph", dir.path().to_str().unwrap(), "--format", "dot"])
         .output()
         .unwrap();
-    assert_eq!(out.status.code(), Some(0));
+    // specodelic-0zk F8: violations are findings — exit 1, not 0.
+    assert_eq!(out.status.code(), Some(1));
     let text = std::str::from_utf8(&out.stdout).unwrap();
     assert!(
         text.contains(
@@ -2036,7 +2038,8 @@ fn mermaid_projection_renders_violations_red_dashed() {
         .args(["graph", dir.path().to_str().unwrap(), "--format", "mermaid"])
         .output()
         .unwrap();
-    assert_eq!(out.status.code(), Some(0));
+    // specodelic-0zk F8: violations are findings — exit 1, not 0.
+    assert_eq!(out.status.code(), Some(1));
     let text = std::str::from_utf8(&out.stdout).unwrap();
     assert!(
         text.contains("viol_b -->|\"violation:constraints.traces_to: traces_to must resolve to an Intent (Reference Typing); target is a Constraint (kind `invariant`)\"| viol_a"),
