@@ -1326,7 +1326,7 @@ fn revision_skew_is_a_warning_not_a_failure() {
     assert!(
         warnings.iter().any(|w| {
             let s = w["message"].as_str().unwrap_or("");
-            s.contains("bioimage") && s.contains("Revision 10") && s.contains("Revision 16")
+            s.contains("bioimage") && s.contains("Revision 10") && s.contains("Revision 17")
         }),
         "no skew advisory naming both revisions: {warnings:?}"
     );

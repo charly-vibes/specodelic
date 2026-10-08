@@ -1,5 +1,34 @@
 # Changelog
 
+## #115 — the min-expr kernel becomes Revision 17 (add-min-expr-kernel)
+
+The kernel landed in two moves that deliberately outran the Revision
+heading — the per-file corpus migration (USAGE.md examples, then
+specodelic.md's invariants, 2026-10-06/07, each gated lint-clean and
+command-verified) used the grammar before this Revision declared it.
+Revision 17 is that declaration of record:
+
+- **specs/specodelic.md gains `## Revision 17`** — the min-expr kernel
+  becomes format vocabulary: the **kernel:** marker opt-in under the
+  closed atomic set (equality, comparisons, bounded ∀/∃ over the finite
+  instances, ∧/¬, resolves/unique/acyclic/reachable, each grounded in
+  proven machinery, widening gated on decidability), the three-valued
+  never-coerced status chain, guard-citation evaluation (slice 1 —
+  `fragment_guard_rejected` stands), and the opaque `kernel.binding`
+  bridge.
+- **specs/compile.md** carries the normative rows: `kernel_expr_opt_in`
+  and `kernel_binding_opaque` (invariants) each derive coverage —
+  `kernel_expr_extracts`, `kernel_nonmember_labeled`,
+  `binding_text_surfaces_verbatim`, `claim_path_is_flags` — so the
+  corpus-wide `linter.coverage` gate stays green.
+- **FORMAT_REVISION 16 → 17** (src/guide.rs) with every embedded
+  literal: the init AGENTS.md block fixture, doctor's format_revision
+  assertions (×3), and the pack revision-skew advisory assertion.
+  Guide-drift guard green.
+- **Compiled corpus artifacts regenerated** (`spk compile specs`):
+  compile.toml carries the two new invariant constraints,
+  compile_props.rs the four new unit properties.
+
 ## #114 — language-neutral property binding: the closed fragment-tag grammar lands (add-language-neutral-property-binding)
 
 Revision 16's corpus delta shipped with v0.5.2 (`1ec6b90`, `c5d2b39`);

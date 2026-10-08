@@ -22,7 +22,7 @@
 /// hand when the corpus revision bumps; a corpus-lint style drift test
 /// (task 6.1) compares this numerically against the corpus so staleness
 /// fails CI, not consumers.
-pub const FORMAT_REVISION: &str = "specodelic.md Revision 16";
+pub const FORMAT_REVISION: &str = "specodelic.md Revision 17";
 
 /// The closed set of Intent `kind` values (frontmatter). Revision 14
 /// added `profile` — a domain pack file (see `specs/packs.md`); the set

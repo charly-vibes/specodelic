@@ -61,6 +61,18 @@ expr = "`a marker in fragment position whose tag is not in the closed set — **
 traces_to = "[[compile]]"
 
 [[constraints]]
+id = "kernel_expr_opt_in"
+kind = "invariant"
+expr = "`an expr cell may opt into kernel translation per cell with exactly one **kernel:** marker and a non-empty kernel expression after it, under the same fragment-position rule as [[compile.predicate_fragment_opt_in]] — the expression is parsed against the closed atomic grammar (equality, comparisons, bounded ∀/∃ over the finite instances, ∧/¬, and the reference-typed atomics resolves/unique/acyclic/reachable; the closed set's name is kernel_grammar_closed) and evaluates three-valued per model_check.md; an expression using a non-member atomic fails labeled naming the atomic and the closed set — never prose, never silently ignored; a cell without the marker compiles exactly as before (pure widening, nothing valid before this Revision is invalidated; add-min-expr-kernel Revision 17)`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "kernel_binding_opaque"
+kind = "invariant"
+expr = "`an invariant-kind Constraint's kernel.binding cell extracts as an opaque string surfaced verbatim in the compiled Constraints artifact — no parse, no validation, no interpretation of its internals by the toolchain — and the claim path for an external checker is its contract-TOML flags binding (a test node id, a filter expression, or a shell command payload), not a toolchain registry; a row with no binding column compiles exactly as before (design D4, add-min-expr-kernel Revision 17)`"
+traces_to = "[[compile]]"
+
+[[constraints]]
 id = "rust_back_compat"
 kind = "invariant"
 expr = "`every cell that extracted a **rust:** fragment under Revision 15's grammar extracts a byte-identical fragment under the widened grammar, and a cell without any marker compiles exactly as before — pure widening, nothing valid at Revision 15 is invalidated ([[specodelic-lf3]] Revision 16)`"

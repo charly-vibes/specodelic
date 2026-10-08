@@ -243,6 +243,18 @@ corpus drift against their installed binary.
   `kind: profile` file, set-valued, outbound leaf). The full pack
   contract lives in `packs.md`; base closed sets freeze by policy from
   this Revision on — pack vocabulary is per-pack, never global.
+- **Revision 17**: the min-expr kernel (`add-min-expr-kernel`) — the
+  decidable bounded fragment over the finite instances becomes format
+  vocabulary: the **kernel:** marker opt-in under a closed atomic set,
+  three-valued never-coerced evaluation, guard-citation evaluation
+  (`fragment_guard_rejected` stands), and the opaque `kernel.binding`
+  bridge. Normative rows live in `compile.md`
+  (`kernel_expr_opt_in`, `kernel_binding_opaque`); this file's own
+  migrated kernel rows (`total_refs`, `coverage`,
+  `every_transition_valid`, `supersedes_acyclic`) are the corpus's
+  executable slice. (Revisions 15–16 — executable predicate fragments
+  and the closed fragment-tag grammar — live in `compile.md` and the
+  changelog; their rows changed no id-set here.)
 
 ---
 

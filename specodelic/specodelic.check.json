@@ -56,7 +56,7 @@
   ],
   "invariants_checked": [],
   "outcome": "no_counterexample",
-  "scope_sha256": "ff837d5d55306c509a2981063a5ded54b0ee991ef5741bfba0e286aba0e9b4eb",
+  "scope_sha256": "217e8b5896822dd8721a76681df7f93993f8cde2ec8911141c989afb8fc41656",
   "states_explored": 6,
   "unchecked_claim_ids": [
     "acyclic_traces",

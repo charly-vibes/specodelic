@@ -94,6 +94,22 @@ pub mod spec_gen {
         Just("effect_row_with_fragment".into())
     }
 
+    pub fn invariant_cell_with_kernel_marker() -> impl Strategy<Value = String> {
+        Just("invariant_cell_with_kernel_marker".into())
+    }
+
+    pub fn invariant_cell_with_nonmember_atomic() -> impl Strategy<Value = String> {
+        Just("invariant_cell_with_nonmember_atomic".into())
+    }
+
+    pub fn constraint_row_with_arbitrary_binding_text() -> impl Strategy<Value = String> {
+        Just("constraint_row_with_arbitrary_binding_text".into())
+    }
+
+    pub fn external_checker_claiming_a_constraint() -> impl Strategy<Value = String> {
+        Just("external_checker_claiming_a_constraint".into())
+    }
+
 }
 
 proptest! {
@@ -257,6 +273,34 @@ proptest! {
     #[test]
     fn non_invariant_fragment_labeled(v0 in spec_gen::effect_row_with_fragment()) {
         todo_predicate!("`error_stage == fragment_extraction`");
+    }
+    // id: kernel_expr_extracts
+    // generator: `invariant_cell_with_kernel_marker()`
+    // predicate: `the expression extracts under the closed grammar and evaluates to exactly one of verified, counterexample, unknown`
+    #[test]
+    fn kernel_expr_extracts(v0 in spec_gen::invariant_cell_with_kernel_marker()) {
+        todo_predicate!("`the expression extracts under the closed grammar and evaluates to exactly one of verified, counterexample, unknown`");
+    }
+    // id: kernel_nonmember_labeled
+    // generator: `invariant_cell_with_nonmember_atomic()`
+    // predicate: `error_stage == kernel_grammar ∧ the message names the offending atomic and the closed set`
+    #[test]
+    fn kernel_nonmember_labeled(v0 in spec_gen::invariant_cell_with_nonmember_atomic()) {
+        todo_predicate!("`error_stage == kernel_grammar ∧ the message names the offending atomic and the closed set`");
+    }
+    // id: binding_text_surfaces_verbatim
+    // generator: `constraint_row_with_arbitrary_binding_text()`
+    // predicate: `the compiled TOML carries the binding cell text verbatim — no interpretation, no validation of its internals`
+    #[test]
+    fn binding_text_surfaces_verbatim(v0 in spec_gen::constraint_row_with_arbitrary_binding_text()) {
+        todo_predicate!("`the compiled TOML carries the binding cell text verbatim — no interpretation, no validation of its internals`");
+    }
+    // id: claim_path_is_flags
+    // generator: `external_checker_claiming_a_constraint()`
+    // predicate: `the claim is carried by contract-TOML flags binding; the toolchain builds no registry`
+    #[test]
+    fn claim_path_is_flags(v0 in spec_gen::external_checker_claiming_a_constraint()) {
+        todo_predicate!("`the claim is carried by contract-TOML flags binding; the toolchain builds no registry`");
     }
 }
 

@@ -327,7 +327,7 @@ fn explain_known_topic_works_offline_in_consumer_dir() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["ok"], true);
     assert_eq!(json["data"]["topic"], "format");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 16");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 17");
     let body = json["data"]["body"].as_str().unwrap();
     assert!(body.contains("## Constraints"));
     assert!(body.contains("## Properties"));
@@ -396,7 +396,7 @@ fn version_json_reports_format_revision() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["envelope_kind"], "version");
     assert_eq!(json["data"]["name"], "specodelic");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 16");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 17");
 }
 
 #[test]
@@ -430,7 +430,7 @@ fn doctor_consumer_with_corpus_reports_format_revision() {
     let json: serde_json::Value =
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["data"]["mode"], "consumer");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 16");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 17");
 }
 
 #[test]

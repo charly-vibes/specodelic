@@ -826,3 +826,57 @@ No row of this file's own tables changes in this Revision — the growth
 lives entirely in `compile.md`, mirroring Revision 15's shape. Nothing
 valid at Revision 15 is invalidated, and the proptest/verify machinery
 is untouched.
+
+## Revision 17 — 2026-10-08
+
+**The min-expr kernel** (`add-min-expr-kernel`, 2026-10-08). The
+data-dependent cells — the equational and bounded-quantified ones — had
+no defined semantics: the linter and model-check verify structure, but
+"resolves is unique" or "every reachable row satisfies a bound" was
+prose only. This Revision defines a decidable bounded fragment of the
+internal language of `Set^𝒦` — the kernel — and makes it first-class
+format vocabulary:
+
+- **One opt-in marker, closed grammar.** An expr cell opts in per cell
+  with the **kernel:** marker in fragment position, under the same
+  fragment-position rule as the executable-fragment markers; the
+  expression is parsed against the closed atomic set — equality,
+  comparisons, bounded ∀/∃ over the finite instances `I(k)`, ∧/¬, and
+  the reference-typed atomics `resolves`/`unique`/`acyclic`/`reachable`
+  — and a non-member atomic fails labeled naming the atomic and the
+  closed set (`compile.md`'s `kernel_expr_opt_in`). A cell without the
+  marker compiles exactly as before — pure widening, nothing valid at
+  Revision 16 is invalidated.
+- **Three-valued, never coerced.** Evaluation over the finite instances
+  reports exactly one of verified, counterexample, unknown; `unknown` is
+  honest (the claim could not be discharged), propagates under Kleene
+  rules, and never coerces to pass or to counterexample.
+- **Semantics never outrun proven machinery.** Each v0 atomic names its
+  grounding — `acyclic`/`reachable` on graph traversal,
+  `unique`/`resolves` on acset traversal, equality, comparisons, and
+  bounded quantifiers on model_check bounded evaluation — and an atomic
+  without a grounding entry cannot ship. The widening law: a new atomic
+  (pack predicates included) registers only if it is decidable over
+  finite instances; a predicate failing the gate stays pack-side,
+  checked by contract-TOML runners rather than by the kernel.
+- **Guard citations evaluate.** A guard citation (`[[a]] ∧ [[b]]`, ¬)
+  is upgraded from inert annotation to a kernel-evaluated claim with the
+  same three-valued honesty — an undischargable citation reports
+  unknown, never pass. Executable guard fragments remain rejected of
+  record: `fragment_guard_rejected`'s deferral condition (a
+  data-carrying state space) is not met, and this Revision does not
+  claim it.
+- **`kernel.binding`, the opaque bridge.** An invariant-kind Constraint
+  may carry a `kernel.binding` cell, extracted and surfaced verbatim and
+  never interpreted by the toolchain; external checkers claim
+  constraints through contract-TOML `flags` binding, and no registry is
+  built (`compile.md`'s `kernel_binding_opaque`).
+
+The grammar growth lives in `compile.md` (`kernel_expr_opt_in`,
+`kernel_binding_opaque`), mirroring Revision 16's shape. This file's own
+Constraints table carries the migrated kernel rows — `total_refs`,
+`coverage`, `every_transition_valid`, and `supersedes_acyclic` opt in
+with the **kernel:** marker; their per-file migration (USAGE.md examples,
+then this file's invariants) was gated lint-clean and command-verified
+before this Revision's heading, and this Revision declares the grammar
+those cells use. Nothing valid at Revision 16 is invalidated.
