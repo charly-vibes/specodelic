@@ -149,10 +149,21 @@ Prerequisites: 3.6–3.8 and `define-verification-claim-gates` are approved
 and implemented. A lint-only migration gate is insufficient; every migrated
 claim must be present in a fresh command report with the expected status.
 
-- [ ] 6.1 **RED→GREEN**: migrate `specs/USAGE.md` examples to kernel
+- [x] 6.1 **RED→GREEN**: migrate `specs/USAGE.md` examples to kernel
       expressions where they assert data-dependent facts; each file
       stays lint-clean before the next migrates (`just lint-specs`
       gate on every commit; design D5).
+      ✅ aa21795 (order.cancel quick-start) + ddf80a1 (api.rate_limit
+      micro-example) — both fenced examples gained kernel invariants
+      (`resolves(traces_to)`, `reachable(…, guard)`) plus coverage
+      property rows; extraction tests pull each example live from the
+      doc through lint → compile → model-check asserting
+      `no_counterexample` with both claims `verified` in JSON and the
+      persisted report; domain-data cells stay informal strings
+      (kernel semantics never outruns the acset instance); RED
+      evidence at HEAD (zero claims, `exploration_only`) in
+      .wai/projects/min-expr-kernel/research/; zero lint baseline
+      additions
 - [ ] 6.2 **RED→GREEN**: migrate `specs/specodelic.md` invariants
       (equational and bounded-quantified cells) the same way.
 - [ ] 6.3 **TIDY**: no new advisory class introduced; if a migration
