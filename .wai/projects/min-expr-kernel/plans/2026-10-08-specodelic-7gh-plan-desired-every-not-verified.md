@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-08-specodelic-7gh-claim-records-carry-reason-when-not-verified-f4-f6, pipeline-step:plan]
+---
+
+specodelic-7gh plan — DESIRED: every not-verified kernel claim record (output entries AND persisted QualifiedClaim) carries a labeled reason; unknown reasons name the bad id (e.g. reachable seed 'order.cancel.nope — not an id of this instance'). STATUS SEMANTICS UNCHANGED (Kleene verdicts, exit codes, exploration_only). OUT OF SCOPE: corpus edits, citation_corpus.rs semantics, RunReport schema shape, verdict logic. TESTS (RED first): tests/cli/model_check.rs new test dangling_kernel_endpoint_unknown_carries_reason — usage_example(order.cancel) with sed'd kernel cell reachable(order.cancel.nope, order.cancel.refund_bounded, guard); assert statuses entry for refund_traces_resolve has reason naming order.cancel.nope AND persisted report claims[] record carries it; outcome exploration_only + exit 0 (unchanged). FILES: src/kernel.rs (atomic/eq/cmp/eval_scope -> (status, reason) tuples like citation_corpus::evaluate; evaluate_reasoned(); attach reasons in evaluate_corpus_claims native arm). VERIFY: just test-smart then full just ci.

@@ -1,0 +1,10 @@
+run_id: tdd-ro5-2026-10-08-specodelic-7gh-claim-records-carry-reason-when-not-verified-f4-f6
+pipeline: tdd-ro5
+topic: 'specodelic-7gh: claim records carry reason when not verified (F4/F6)'
+created_at: '2026-10-08T16:20:33.736937008+00:00'
+current_step: 8
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
