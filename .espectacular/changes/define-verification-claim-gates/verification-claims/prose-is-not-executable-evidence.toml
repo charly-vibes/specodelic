@@ -1,9 +1,0 @@
-id = "prose-is-not-executable-evidence"
-description = "Prose-only invariants stay unchecked — never implied verified (define-verification-claim-gates)"
-archetype = "PF"
-status = "active"
-superseded_by = ""
-authored_with = "0.9.2"
-
-[[tests.cargo]]
-flags = "no_required_claims_stay_explicitly_unchecked"
