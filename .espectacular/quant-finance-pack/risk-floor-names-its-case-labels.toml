@@ -1,0 +1,9 @@
+id = "risk-floor-names-its-case-labels"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "missing_manifest_table_is_a_labeled_pack_shape_finding"

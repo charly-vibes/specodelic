@@ -1,0 +1,9 @@
+id = "orphan-vocabulary-names-the-quant-pack"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "vocabulary_used_without_any_pack_is_a_labeled_orphan_failure"

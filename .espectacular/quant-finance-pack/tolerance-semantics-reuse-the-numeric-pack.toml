@@ -1,0 +1,9 @@
+id = "tolerance-semantics-reuse-the-numeric-pack"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "pack_kinds_must_be_pack_qualified_narrowing_is_rejected"

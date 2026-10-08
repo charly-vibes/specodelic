@@ -1,0 +1,9 @@
+id = "honest-empty-closure-with-no-limits-rows"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "declared_uses_edge_enables_the_pack"

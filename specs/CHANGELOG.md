@@ -1,5 +1,42 @@
 # Changelog
 
+## #126 — the D6 second domain pack: quant-finance (add-quant-finance-pack)
+
+`add-quant-finance-pack` implemented — no code, no base-set change: the
+mechanism's second thin domain instance (the decision of record's D6
+"quant second" sequencing) ships as an in-repo `kind: profile` artifact
+at `packs/quant-finance.md` (id `quant.finance`, base pin
+`specodelic.md` **Revision 18** — the current revision; the 14-pinned
+standard packs stay valid under `append_only_variants`, skew advisory)
+with cross-pack `## Requires` deps on `numeric.predicates` and
+`data.lineage`. Its design stress is **restraint**: most of what the
+two vendor quant designs asked for already ships in the standard packs
+tolerance is `numeric.tolerance`, statistics are `empirical.statistic`,
+fixtures/datasets are `## Data` rows — so the pack declares only the
+vocabulary no standard pack carries: a namespaced `## Limits` section
+(row shape `| name | kind | unit | bound |`, row-kind labels closed to
+`risk`/`pricing` per-pack), the `quant.risk` and `quant.pricing` kinds
+(a law-shaped kind with its floor deliberately deferred to a later
+release under `append_only_packs`), the `capped_by` reference field
+resolving to a `## Limits` row of the declaring file (outbound leaf,
+intra-file, no reachability join — the `measured_by` precedent), the
+honest-empty pack-qualified checkers (`quant.limit_closed`,
+`quant.risk_labels` — the mechanism names them, never executes them),
+and the kind-dependent risk case-label floor (`**horizon:**` +
+`**confidence:**` — grok-quant's tolerance fields reduced to the R4
+per-kind floor precedent; the numeric pack's `numeric.tolerance`
+absorbs `{metric, abs, rel, unit}`). Vocabulary hygiene pre-paid: every
+declared token audited (`risk`, `Limits`, `horizon`, `capped_by`,
+`quant.*` 0-file; bare `limit` 4+1, `confidence` 5+0, `Fixtures` 4+4
+corpus-contaminated → excluded; `horizon`/`confidence` survive only as
+floor case labels the activation scanner never reads). Six dogfood
+probes verified (91kt/9h3z): RED/GREEN orphan + kind-column + dangling
+`capped_by` (`linter.total_refs`, row id named) shapes, base `law`
+floor byte-identical with the pack discovered, and all-five-pack
+corpus lint byte-identical with vs without quant (`no_pack_no_change`).
+Archive deployed the capability spec `openspec/specs/quant-finance-pack/
+(id `quant.finance.pack`) via the dual-format companion recipe.
+
 ## #125 — v0.7.0: Revision 18 single-tree authoring + the `--rekey` migration path
 
 The breaking-format release: Revision 18 (`update-id-derivation-spec-md`,

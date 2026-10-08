@@ -73,3 +73,4 @@
 - [numeric-predicates-pack — capability](openspec/numeric-predicates-pack/spec.md)
 - [empirical-registry-pack — capability](openspec/empirical-registry-pack/spec.md)
 - [bioimage-data-pack — capability](openspec/bioimage-data-pack/spec.md)
+- [quant-finance-pack — capability](openspec/quant-finance-pack/spec.md)

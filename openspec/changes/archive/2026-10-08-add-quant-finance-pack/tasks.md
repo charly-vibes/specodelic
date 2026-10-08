@@ -80,6 +80,10 @@ every phase.
 
 ## 3. Close-out
 
-- [ ] 3.1 Update tasks.md statuses; `bd close specodelic-up7`; commit
-      and push per the repo's commit-hygiene rule (stage only files
-      this session authored).
+- [x] 3.1 Update tasks.md statuses (the scaffold ticket
+      `specodelic-up7` closed at ffd5c79; this line's stale reference
+      corrected); implementation ran as specodelic-91kt (pack artifact
+      a407ff0), probes as specodelic-9h3z (probe outcome in design.md),
+      archive + close-out as specodelic-idcx; commit and push per the
+      repo's commit-hygiene rule (stage only files this session
+      authored).
