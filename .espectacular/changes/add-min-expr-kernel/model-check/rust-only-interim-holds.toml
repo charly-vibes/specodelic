@@ -1,0 +1,10 @@
+id = "rust-only-interim-holds"
+description = "Rust-only interim: every fixture cell's rust status equals its expected status (add-min-expr-kernel D2)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "every_cell_matches_its_expected_status_on_the_rust_backend"
+

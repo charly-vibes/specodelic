@@ -1,0 +1,10 @@
+id = "mixed-inputs-cannot-hide-a-false-kernel-claim"
+description = "Every opted-in kernel claim surfaces with its status; a false kernel claim is counterexample (add-min-expr-kernel 3.7)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "mixed_kernel_and_rust_claims_both_surface"
+

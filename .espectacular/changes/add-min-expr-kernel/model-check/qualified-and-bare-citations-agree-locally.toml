@@ -1,0 +1,13 @@
+id = "qualified-and-bare-citations-agree-locally"
+description = "Qualified and bare citations agree locally, exact-ID resolution never by suffix (add-min-expr-kernel 3.6)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "qualified_and_bare_citations_agree_on_local_exec_evidence"
+
+[[tests.cargo]]
+flags = "qualified_citations_resolve_exactly_never_by_suffix"
+

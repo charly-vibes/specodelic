@@ -1,0 +1,10 @@
+id = "undecidable-predicate-stays-pack-side"
+description = "An undecidable pack predicate is refused registration and stays pack-side (add-min-expr-kernel D8)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "registration_gate_refuses_ungrounded_and_undecidable"
+

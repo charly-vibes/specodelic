@@ -1,0 +1,10 @@
+id = "undischargable-citation-is-honest"
+description = "Contract test binding the spec scenario to its cargo test (slice 1, specodelic-txo)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "undischargable_citation_reports_unknown_never_pass"
+

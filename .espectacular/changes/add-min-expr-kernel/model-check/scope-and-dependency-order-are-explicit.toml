@@ -1,0 +1,19 @@
+id = "scope-and-dependency-order-are-explicit"
+description = "Chains resolve in dependency order either input order; reversed order identical; cycles and missing targets unknown with reason (add-min-expr-kernel 3.6/3.7)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "citation_chains_resolve_in_dependency_order_either_input_order"
+
+[[tests.cargo]]
+flags = "reversed_file_order_yields_identical_statuses"
+
+[[tests.cargo]]
+flags = "citation_cycle_is_unknown_with_cycle_reason"
+
+[[tests.cargo]]
+flags = "missing_citation_target_is_unknown_with_reason"
+

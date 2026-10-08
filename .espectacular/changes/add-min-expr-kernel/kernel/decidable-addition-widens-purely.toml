@@ -1,0 +1,10 @@
+id = "decidable-addition-widens-purely"
+description = "A decidable atomic registers with grounding and widens purely (add-min-expr-kernel D8)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "decidable_registration_widens_purely"
+

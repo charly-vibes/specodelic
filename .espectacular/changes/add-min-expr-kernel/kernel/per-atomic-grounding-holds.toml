@@ -1,0 +1,25 @@
+id = "per-atomic-grounding-holds"
+description = "Every v0 atomic agrees with its grounding machinery on shared fixtures (add-min-expr-kernel D1)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "acyclic_agrees_with_graph_cycle_detection"
+
+[[tests.cargo]]
+flags = "reachable_agrees_with_forward_closure"
+
+[[tests.cargo]]
+flags = "resolves_agrees_with_the_dangling_report"
+
+[[tests.cargo]]
+flags = "unique_agrees_with_injectivity_of_defined_values"
+
+[[tests.cargo]]
+flags = "comparisons_agree_with_bounded_evaluation"
+
+[[tests.cargo]]
+flags = "bounded_quantifiers_agree_over_the_instance"
+

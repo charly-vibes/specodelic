@@ -1,0 +1,10 @@
+id = "honest-unknown-propagates"
+description = "Honest unknown propagates under Kleene rules, never coerced to pass (add-min-expr-kernel)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "unknown_absorbs_in_composites_never_coerced_to_pass"
+

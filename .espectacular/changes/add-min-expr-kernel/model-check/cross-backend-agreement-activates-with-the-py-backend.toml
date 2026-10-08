@@ -1,0 +1,13 @@
+id = "cross-backend-agreement-activates-with-the-py-backend"
+description = "Cross-backend agreement asserted when the py backend lands; py seat honest pending l8l (add-min-expr-kernel D2)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "supporting_backends_agree_on_every_cell"
+
+[[tests.cargo]]
+flags = "py_seat_is_honest_pending_l8l"
+

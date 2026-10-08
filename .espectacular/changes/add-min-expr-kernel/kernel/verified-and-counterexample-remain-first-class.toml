@@ -1,0 +1,13 @@
+id = "verified-and-counterexample-remain-first-class"
+description = "Verified and counterexample travel the full status chain into run output (add-min-expr-kernel)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "verified_claim_travels_the_whole_chain"
+
+[[tests.cargo]]
+flags = "counterexample_claim_travels_the_whole_chain"
+

@@ -1,0 +1,10 @@
+id = "non-member-atomic-rejected-labeled"
+description = "Non-member atomic fails labeled at compile, stage kernel_grammar (add-min-expr-kernel)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "broken_kernel_grammar_fails_labeled_at_compile"
+

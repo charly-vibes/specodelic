@@ -1,0 +1,13 @@
+id = "ungrounded-atomic-cannot-ship"
+description = "An atomic without a grounding entry is not in the closed set and registration refuses it (add-min-expr-kernel D1)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "every_v0_atomic_has_a_grounding_entry"
+
+[[tests.cargo]]
+flags = "registration_gate_refuses_ungrounded_and_undecidable"
+
