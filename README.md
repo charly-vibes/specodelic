@@ -114,7 +114,10 @@ CLI/envelope/self-healing infrastructure.
   self-describing: it carries its `linter.<name>` rule id and a one-line
   semantics string (rendered by `specodelic explain lint-rules` from the
   same table the linter emits from)
-- ✅ `graph` — derived typed reference graph, dangling detection
+- ✅ `graph` — derived typed reference graph, dangling detection; text
+  projections (`--format edges|dot|mermaid`) and the file-level
+  `--view wiring` producer→consumer projection (see
+  [graph views](docs/src/graph-views.md))
 - ✅ `new`, `doctor`, `completions`
 - ✅ `explain` — embedded AIX guide (format/ears/kinds/references/
   lifecycle/lint-rules topics) plus `format_revision` in `--version --json`

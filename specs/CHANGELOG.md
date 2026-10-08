@@ -213,8 +213,8 @@ this entry records the implementation landing that activates it:
   grammar, never fragment markers.
 - **No-emitter gate** (`no_emitter_labeled_failure`): a `**py:**` or
   `**ts:**` fragment gates compile with stage `compile.emission_failure`
-  and remediation naming its follow-up (`specodelic-l8l` py,
-  `specodelic-aby` ts) — never a silent fall-through to Rust emission.
+  and remediation naming its follow-up (`add-py-fragment-emission` py,
+  `add-ts-fragment-emission` ts) — never a silent fall-through to Rust emission.
   `**rust:**` extraction is byte-identical to Revision 15
   (`rust_back_compat`); the lenient IR path only ever extracts Rust.
 - **Pytest exemplar binding** (the espectacular seam, tasks 1.2–1.4):

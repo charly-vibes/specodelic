@@ -126,6 +126,15 @@ deriving Property, does the Model's guard set match what
 part of the domain need one of the patterns in §2 before it's forced into
 the wrong table.
 
+**Inspecting the corpus.** `spk graph specs` derives the typed reference
+graph from the corpus. `--format edges|dot|mermaid` writes raw text
+projections to stdout — a six-column TSV edge list, a Graphviz DOT
+diagram, or a Mermaid flowchart (pipe into `dot -Tsvg` or a mermaid
+renderer; rendering stays external) — and `--view wiring` (requires
+`--format`) projects `constraints.satisfies` edges to file level so you
+can see which spec consumes which extension point. `spk explain
+graph-views` has the one-pipe recipes.
+
 ---
 
 ## 2. Pattern catalog

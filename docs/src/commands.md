@@ -75,6 +75,27 @@ per row, dangling references, typing violations (the Reference Typing
 table — forbidden edges are reported, never recorded), and supersedes
 cycles. The rename/merge/refactor advisors build on it.
 
+**Text projections** (`--format edges|dot|mermaid`): `edges` writes the
+raw six-column TSV edge list (source_id, source_kind, field, target_id,
+target_kind, annotation — every recorded edge one row, every typing
+violation one annotation row); `dot` and `mermaid` write byte-stable
+Graphviz/Mermaid text projections (visual grammar: solid = state
+machine, dashed = guards, bold = `emits`, dotted = traceability, red
+dashed = dangling/violations). Rendering stays external — pipe into
+`dot -Tsvg` or paste into a mermaid renderer; there is no `--render`.
+The projections are the one documented exception to the envelope:
+raw text straight to stdout, so awk/jq pipelines consume it without an
+envelope parser. `--view wiring` (requires `--format`, composes with
+all three) selects the wiring view: `constraints.satisfies` edges
+project to file level (consumer file → the producer's published
+contract), self-loops are dropped, and the remaining cross-file
+instances aggregate per distinct pair; a corpus with no remaining
+edges emits a labeled `no_wiring` element, never a silently clean
+diagram. Derived diagrams of this repo's own corpus (wiring, states,
+trace, schema) live in [graph views](graph-views.md); `spk explain
+graph-views` carries the same taxonomy and one-pipe recipes for your
+own corpora.
+
 - Spec: [graph](specs/graph.md)
 
 Same discovery hint as `lint`: with an `openspec/` tree present, the
@@ -121,6 +142,12 @@ labeled failure naming its emitter follow-up
 (`add-py-fragment-emission` / `add-ts-fragment-emission`), never a
 silent fall-through to Rust emission.
 
+The tag shape is lowercase-initial (`[a-z][a-z0-9_-]*` before `:**`):
+ordinary bold prose (`**Note:**`) stays prose, but a lowercase bold
+label in fragment position (`**note:**`) is tag-shaped and therefore a
+labeled extraction failure naming the tag and the closed set — keep
+prose labels capitalized, or move them out of fragment position.
+
 Two binding layers, never cross-wired:
 
 1. **Artifact scaffolds (specodelic).** compile emits the fragment
@@ -158,24 +185,54 @@ semantics from ah, crossing the sibling-tool boundary (read-only over
 Runs the compiled model through a model-check backend within a stated
 bound (`--max-depth`, `--max-states`, `--timeout-secs`). Two backends:
 
-- **stateright** (default) — embedded BFS exploration; interprets guards
-  as prose and executes no invariant predicates, so it reports
-  `exploration_only` (space exhausted within the bound) or `timed_out`.
+- **stateright** (default) — embedded BFS exploration over the compiled
+  model, executing the claims opted into evaluation: `**rust:**`
+  predicate fragments compiled into the module run inside the
+  exploration, and `**kernel:**` claims evaluate over the kernel
+  grammar. Prose guards are never interpreted.
 - **tlc** (opt-in, `--backend tlc --tlc-jar <tla2tools.jar>`) — the TLA+
   TLC reference engine as a JVM subprocess over the compiled module,
   `-depth` as the stated bound (`--max-states` has no TLC equivalent and
   is a labeled error). The JVM binary comes from `PATH` or `SPK_TLC_JAVA`;
   a missing binary or jar is a `missing_checker` error, never a verdict.
 
-The same prose-predicate honesty applies to both: no corpus invariant is
-executable yet (Decision 3, Option A), so a completed run is
-`exploration_only` — never `no_counterexample`, which is reserved for a
-backend that actually executed invariant predicates. Run reports persist
-as `<stem>.check.json` with the consumed module's SHA-256 and the
-backend engine + version, so backends' reports are attributable and
-comparable. A refuted kernel claim (`counterexample_found` — CHANGELOG
+**Claim gates** (model_check.md's `required_claims_classified` +
+`claim_aggregate_governs`): a run partitions each parsed file's
+invariant-kind Constraints into a **required** set — those opted into
+evaluation (`**rust:**` fragment, `**kernel:**`, or citation) — and an
+explicitly **unchecked** set of prose-only invariants: prose wording, a
+constraint's name, or a deriving Property never implies evaluation, and
+advisory/effect/extension-point rows are never required. The outcome is
+governed by the required claims' statuses with fixed priority: any
+refuted required claim is `counterexample_found` naming it; absent
+refutation, an exhausted time/state/depth budget is `timed_out`;
+otherwise any unknown, unsupported, or missing required claim is
+`exploration_only` with reasons — and so is an empty required set (a
+prose-only corpus has nothing required, so a completed run stays
+`exploration_only`). Only a nonempty required set all verified over a
+completed bounded exploration reports `no_counterexample` — the native
+backend earns it when the corpus carries executable claims; it is not
+TLC-only. A refuted kernel claim (`counterexample_found` — CHANGELOG
 #116's failing aggregate outcome) is findings: exit 1 with an error-kind
-envelope (`ok:false`), the payload intact. A `**kernel:**` constraint
+envelope (`ok:false`), the payload intact.
+
+Evidence: the run report persists as `<stem>.check.json`
+(`claim_schema_version 1`) with the consumed module's SHA-256, the
+backend engine + version, canonical claim records (id, evaluator kind,
+status, reason where not verified), `expected_claim_ids` /
+`unchecked_claim_ids`, and a `scope_sha256` digest of the parsed
+structured content and the consumed compiled artifacts. The digest
+binds structured content, not filesystem paths: reordering CLI inputs
+or editing prose alone preserves it, while two inputs differing in
+invariant content never share one. Verify (and orchestrate's verify
+stage) recompute the digest and the required claim set from the current
+inputs and reject stale, foreign, or malformed reports with a rerun
+hint naming the model-check command — a stored report is never
+rewritten to manufacture evidence. A dual-format `id: spec` file is
+accepted only as the sole parsed input: any additional file fails
+`isolated_scope_required` with a separate-run hint before compilation,
+evaluation, or report writes (`spec.<row>` claim ids resolve only
+within their own file). A `**kernel:**` constraint
 cell that breaks the closed grammar is a labeled `kernel_grammar`
 failure before any run — the same validation compile applies — so a
 stale compile can never silently demote a malformed kernel claim to
@@ -205,9 +262,13 @@ green stage:
   never skipped. Failing blocks report proptest's shrunk minimal input.
 - **Model gate** — the `<stem>.check.json` run report must be current
   (its `artifact_sha256` matches the on-disk `<stem>.tla`; a missing
-  module fails closed as stale) and its outcome must be
-  `no_counterexample` — which the native backend never reports
-  (`exploration_only` is explicitly not clean).
+  module fails closed as stale), its `scope_sha256` digest and required
+  claim set must match the current inputs (verify recomputes them —
+  stale, foreign, or malformed reports fail with a rerun hint, never
+  rewritten), and its outcome must be `no_counterexample` — earned only
+  when every required claim verified over a completed bounded
+  exploration (`exploration_only` and `timed_out` are explicitly not
+  clean).
 
 `--timeout-secs <N>` (default 600; `0` = unbounded) bounds the whole
 cargo run on a wall-clock clock: a hanging (likely pathological)
@@ -363,10 +424,12 @@ specifies and halting at the first stage that fails:
 - **Compile stage** — advances past the coverage checker's verdict only
   (`compile_gate_matches_coverage`), never a looser or stricter check.
 - **Model_check stage** — passes only when every file's outcome is
-  `no_counterexample`; the native backend's `exploration_only` is
-  honestly not clean, so a native-only corpus halts here (use
-  `--backend tlc --tlc-jar` for the predicate-executing reference
-  engine).
+  `no_counterexample`; `exploration_only` and `timed_out` are honestly
+  not clean, so a corpus whose required claims never all verify halts
+  here — a prose-only corpus (empty required set) always reports
+  `exploration_only`, while corpora with executable claims can pass on
+  the native backend (use `--backend tlc --tlc-jar` for the TLC
+  reference engine over TLA+ modules).
 - **Verify stage** — the conjunction of both gates (see `spk verify`).
 
 `.data.stages` lists every stage with a status (`passed` / `failed` /
