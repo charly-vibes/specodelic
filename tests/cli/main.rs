@@ -44,6 +44,7 @@ fn write_model_check_spec(path: &std::path::Path, id: &str) {
 }
 mod citation_resolution;
 mod feedback_init;
+mod graph_views;
 mod hooks_hostile_output;
 mod lint;
 mod model_check;

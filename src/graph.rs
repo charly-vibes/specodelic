@@ -6,7 +6,8 @@
 //! state edges), resolve them corpus-wide, enforce the Reference Typing
 //! table (forbidden edges are reported as labeled violations, never
 //! recorded — `edge_kind_matches_typing`), flag `supersedes` cycles, and
-//! report dangling references plus per-node fan-in/fan-out. Rationale: the
+//! report dangling references, per-node fan-in/fan-out, and the corpus's
+//! sorted intent ids (the view layer's owning-file collapse key). Rationale: the
 //! graph is the substrate rename/merge/refactor all build on — deriving it
 //! once, deterministically, is what makes those tools safe. The raw edge
 //! projection (`spk graph --format edges`, add-graph-views D2/D3) is the
@@ -77,6 +78,12 @@ pub struct GraphReport {
     /// `external_boundary_derived`): each hosts ≥1 `extension_point`
     /// Constraint — pure derivation, never an authored tag.
     pub external_boundaries: Vec<String>,
+    /// The corpus's intent (file) ids, sorted — the owning-file
+    /// collapse key for the view layer (add-graph-views 2.4: the edges
+    /// TSV alone cannot recover it — an intent without typed-reference
+    /// endpoints never appears there, and dotted intent ids make prefix
+    /// splitting ambiguous without the declared set).
+    pub intents: Vec<String>,
 }
 
 /// What kind of node a resolved id addresses — the target side of the
@@ -987,6 +994,12 @@ pub fn build(specs: &[Spec]) -> GraphReport {
     }
     let mut report = GraphReport {
         files: specs.len(),
+        intents: specs
+            .iter()
+            .map(|s| s.intent.id.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect(),
         ..Default::default()
     };
 
