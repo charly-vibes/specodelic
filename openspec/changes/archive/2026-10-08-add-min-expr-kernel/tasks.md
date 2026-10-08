@@ -220,6 +220,14 @@ claim must be present in a fresh command report with the expected status.
       scenarios all have staged contracts (no no-toml findings).
 - [x] 7.4 **TIDY**: `openspec validate --strict` green; `just ci` green;
       archive via `just archive-change id=add-min-expr-kernel`.
+      → 91ae76b — dual-format deploy verbatim (3 specs), contracts
+      promoted via `ah archive`, kernel SUMMARY entry; one deploy-time
+      repair: the delta's new mid-span scenario slug collided with the
+      language-tag one — renamed to `kernel-mid-span-occurrence-is-a-
+      mention` in both the archived delta and the deployed spec, bound
+      (midspan_kernel_syntax_is_a_mention). Post-archive: just ci
+      green, ah check --run-tests 214 passed / 0 findings, openspec
+      validate --all --strict green.
 
 ## Implementation ticket map
 
