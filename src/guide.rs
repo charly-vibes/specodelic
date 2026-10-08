@@ -5,12 +5,17 @@
 //! pairs) plus the format-revision marker, so parser, linter, compiler,
 //! and the embedded guide all consume one definition. Responsibilities:
 //! expose `pub const` slices for the closed sets, `FORMAT_REVISION`
-//! mirroring the corpus revision this binary implements, and `GUIDE_MD`
+//! mirroring the corpus revision this binary implements, `GUIDE_MD`
 //! (the `include_str!`-ed `src/guide.md` primer rendered by `spk
-//! explain`). Rationale: one source makes closed-set drift
-//! unrepresentable — the same design bias as the format itself
-//! (append_only_variants); the primer cannot disagree with the enforced
-//! sets because the sets are not duplicated in its prose.
+//! explain`), the `spk guide` JSON payloads — the ordinary value-set
+//! payload and the versioned acset Schema export (`schema_export`,
+//! add-graph-views D4), which also serializes constructed perturbation
+//! fixtures for the Python schema-view tests. Rationale: one source
+//! makes closed-set drift unrepresentable — the same design bias as the
+//! format itself (append_only_variants); the primer cannot disagree with
+//! the enforced sets because the sets are not duplicated in its prose,
+//! and the schema export projects the lint-gated Schema value directly
+//! so reference-typing constants never become a derivation source.
 
 /// The format revision this binary embeds/implements — mirrors the
 /// latest `## Revision N` heading in `specs/specodelic.md`. Updated by
@@ -192,6 +197,93 @@ fn lint_rules_catalog() -> String {
         ));
     }
     rows.join("\n")
+}
+
+/// The ordinary guide value-set payload (`spk guide`, JSON envelope):
+/// kinds, row shapes and format_revision for value-set consumers.
+/// The Reference Typing table is deliberately absent (add-graph-views
+/// D4): reference typing remains the embedded guide's rendering surface
+/// only, and the schema view consumes the `--schema` export below.
+pub fn value_set_payload() -> serde_json::Value {
+    serde_json::json!({
+        "format_revision": FORMAT_REVISION,
+        "intent_kinds": INTENT_KINDS,
+        "constraint_kinds": CONSTRAINT_KINDS,
+        "property_kinds": PROPERTY_KINDS,
+        "row_shapes": {
+            "constraint": ["id", "kind", "expr", "traces_to"],
+            "property": ["id", "kind", "derives_from"],
+            "state": ["id", "emits"],
+            "transition": ["id", "from", "to", "guard"],
+        },
+    })
+}
+
+/// The versioned schema export (`spk guide --schema`, JSON envelope
+/// data — add-graph-views 2.2, design D4): a direct projection of the
+/// acset `Schema` value with schema_version 1, the format revision
+/// marker, sorted object names and morphisms sorted by (source, name).
+/// Each morphism carries name, column, source, target, refinements
+/// (sorted by side then kind), source_rule and endo_acyclic — no prose
+/// parsing, no reference-typing constant, no graph-node inference.
+/// Takes any `&Schema` so constructed perturbation fixtures exercise
+/// the same serialization as the production input
+/// (`acset::schema::canonical()`).
+pub fn schema_export(schema: &crate::acset::schema::Schema) -> serde_json::Value {
+    use crate::acset::schema::{Side, SourceRule};
+    let refinements = |rs: &[crate::acset::schema::Refinement]| -> serde_json::Value {
+        let mut rows: Vec<(&str, &str)> = rs
+            .iter()
+            .map(|r| match r.side {
+                Side::Source => ("source", r.kind),
+                Side::Target => ("target", r.kind),
+            })
+            .collect();
+        rows.sort(); // (side, kind) canonical order
+        serde_json::json!(
+            rows.into_iter()
+                .map(|(side, kind)| serde_json::json!({ "side": side, "kind": kind }))
+                .collect::<Vec<_>>()
+        )
+    };
+    let source_rule = |rule: SourceRule| match rule {
+        SourceRule::Unchecked => "unchecked",
+        SourceRule::AppearsOn => "appears_on",
+        SourceRule::SameKind => "same_kind",
+    };
+    let mut morphisms: Vec<serde_json::Value> = schema
+        .morphisms
+        .iter()
+        .map(|m| {
+            serde_json::json!({
+                "name": m.name,
+                "column": m.column,
+                "source": m.source.0,
+                "target": m.target.0,
+                "refinements": refinements(&m.refinements),
+                "source_rule": source_rule(m.source_rule),
+                "endo_acyclic": m.endo_acyclic,
+            })
+        })
+        .collect();
+    // Defensive canonical order: the Schema value declares sorted
+    // morphisms, but constructed fixtures must serialize the same way.
+    morphisms.sort_by_key(|m| {
+        (
+            m["source"].as_str().unwrap_or_default().to_string(),
+            m["name"].as_str().unwrap_or_default().to_string(),
+        )
+    });
+    serde_json::json!({
+        "schema_version": 1,
+        "format_revision": FORMAT_REVISION,
+        "objects": schema
+            .objects
+            .iter()
+            .map(|o| o.0.as_str())
+            .collect::<Vec<_>>(),
+        "morphisms": morphisms,
+    })
 }
 
 /// Extract the trailing revision number from a `## Revision N` heading
@@ -522,6 +614,212 @@ mod tests {
         assert_eq!(revision_number("## Revision 8"), Some(8));
         assert_eq!(revision_number("## Model"), None);
         assert_eq!(revision_number("## Revision abc"), None);
+    }
+
+    #[test]
+    fn value_set_payload_carries_kinds_row_shapes_and_revision() {
+        // add-graph-views 2.1: `spk guide` (JSON envelope) exposes kinds,
+        // row shapes and format_revision for value-set consumers — and,
+        // per D4, leaves the Reference Typing table OUT of the payload
+        // (reference typing remains the embedded guide's rendering
+        // surface only; the schema view consumes the --schema export).
+        let payload = value_set_payload();
+        assert_eq!(payload["format_revision"], FORMAT_REVISION);
+        assert_eq!(
+            payload["intent_kinds"],
+            serde_json::json!(INTENT_KINDS),
+            "intent kinds must equal the enforced constant"
+        );
+        assert_eq!(
+            payload["constraint_kinds"],
+            serde_json::json!(CONSTRAINT_KINDS)
+        );
+        assert_eq!(payload["property_kinds"], serde_json::json!(PROPERTY_KINDS));
+        assert_eq!(
+            payload["row_shapes"]["constraint"],
+            serde_json::json!(["id", "kind", "expr", "traces_to"])
+        );
+        assert_eq!(
+            payload["row_shapes"]["property"],
+            serde_json::json!(["id", "kind", "derives_from"])
+        );
+        assert_eq!(
+            payload["row_shapes"]["transition"],
+            serde_json::json!(["id", "from", "to", "guard"])
+        );
+        assert_eq!(
+            payload["row_shapes"]["state"],
+            serde_json::json!(["id", "emits"])
+        );
+        // D4: no reference-typing table in the ordinary guide payload.
+        assert!(payload.get("reference_typing").is_none());
+        assert!(
+            !payload.to_string().contains("resolves_to"),
+            "ordinary guide payload must not leak typing-table rows"
+        );
+    }
+
+    #[test]
+    fn schema_export_projects_canonical_schema() {
+        // add-graph-views 2.1/2.2 (D4): the versioned schema export is
+        // derived from the acset Schema value — schema_version 1,
+        // format_revision, sorted objects, morphisms sorted by
+        // (source, name), each carrying name, column, source, target,
+        // sorted refinements, source_rule and endo_acyclic.
+        let data = schema_export(&crate::acset::schema::canonical());
+        assert_eq!(data["schema_version"], 1);
+        assert_eq!(data["format_revision"], FORMAT_REVISION);
+        assert_eq!(
+            data["objects"],
+            serde_json::json!(["Constraint", "Intent", "Property", "State", "Transition"]),
+            "objects must be the closed five, sorted"
+        );
+        let morphs = data["morphisms"]
+            .as_array()
+            .expect("morphisms must be an array");
+        let canonical = &crate::acset::schema::canonical().morphisms;
+        assert_eq!(
+            morphs.len(),
+            canonical.len(),
+            "export must carry one row per canonical morphism"
+        );
+        // canonical order: sorted by (source, name) — the Schema value's
+        // own canonical sort inherited by every derived artifact.
+        let mut keys: Vec<(&str, &str)> = morphs
+            .iter()
+            .map(|m| (m["source"].as_str().unwrap(), m["name"].as_str().unwrap()))
+            .collect();
+        let sorted = keys.clone();
+        keys.sort();
+        assert_eq!(keys, sorted, "morphisms must be sorted by (source, name)");
+        for (exported, row) in morphs.iter().zip(canonical) {
+            assert_eq!(exported["name"], row.name);
+            assert_eq!(exported["column"], row.column);
+            assert_eq!(exported["source"], row.source.0);
+            assert_eq!(exported["target"], row.target.0);
+            assert!(exported.get("refinements").is_some());
+            assert!(exported.get("source_rule").is_some());
+            assert!(exported.get("endo_acyclic").is_some());
+        }
+        // Spot-checks pin the projection semantics, not just the shape.
+        let find = |name: &str, source: &str| {
+            morphs
+                .iter()
+                .find(|m| m["name"] == name && m["source"] == source)
+                .unwrap_or_else(|| panic!("{source}.{name} missing from export"))
+        };
+        let traces = find("traces_to", "Constraint");
+        assert_eq!(traces["source_rule"], "unchecked");
+        assert!(traces["endo_acyclic"].is_null());
+        let law = find("derives_from_law", "Property");
+        assert_eq!(
+            law["refinements"],
+            serde_json::json!([{ "side": "source", "kind": "law" }])
+        );
+        assert_eq!(law["endo_acyclic"], false);
+        let supersedes = find("supersedes", "Constraint");
+        assert_eq!(supersedes["endo_acyclic"], true);
+        assert_eq!(supersedes["source_rule"], "same_kind");
+        let guard = find("guard", "Transition");
+        assert_eq!(
+            guard["refinements"],
+            serde_json::json!([{ "side": "target", "kind": "invariant" }])
+        );
+    }
+
+    #[test]
+    fn schema_export_is_deterministic() {
+        // byte-identical re-runs (sorted, deterministic data — D4)
+        let a = schema_export(&crate::acset::schema::canonical());
+        let b = schema_export(&crate::acset::schema::canonical());
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn schema_export_accepts_constructed_schemas() {
+        // The exporter is shared: the same function serializes
+        // constructed perturbation fixtures (2.3's consumer inputs) and
+        // canonical()'s production export. Here: canonical minus the
+        // `emits` morphism — a valid schema differing by ONE morphism.
+        let mut constructed = crate::acset::schema::canonical();
+        let before = constructed.morphisms.len();
+        constructed
+            .morphisms
+            .retain(|m| !(m.name == "emits" && m.source.0 == "State"));
+        assert_eq!(constructed.morphisms.len(), before - 1);
+        let data = schema_export(&constructed);
+        let names: Vec<&str> = data["morphisms"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|m| m["name"].as_str().unwrap())
+            .collect();
+        assert!(!names.contains(&"emits"), "dropped morphism must be gone");
+        assert_eq!(
+            data["objects"],
+            serde_json::json!(["Constraint", "Intent", "Property", "State", "Transition"])
+        );
+    }
+
+    #[test]
+    fn python_schema_view_renders_constructed_export_delta() {
+        // add-graph-views 2.3 schema portion / D4: the shared exporter's
+        // output for two valid constructed schemas differing in ONE
+        // morphism renders through the real script as a diagram
+        // differing by exactly that edge — the producer↔consumer
+        // contract, exercised end to end without a renderer edit.
+        let mut constructed = crate::acset::schema::canonical();
+        constructed
+            .morphisms
+            .retain(|m| !(m.name == "emits" && m.source.0 == "State"));
+        let render = |schema: &crate::acset::schema::Schema| {
+            let path = std::env::temp_dir().join(format!(
+                "spk_schema_export_{}_{}.json",
+                std::process::id(),
+                schema.morphisms.len()
+            ));
+            std::fs::write(
+                &path,
+                serde_json::to_string(&serde_json::json!({
+                    "ok": true,
+                    "data": schema_export(schema)
+                }))
+                .unwrap(),
+            )
+            .unwrap();
+            let out = std::process::Command::new("python3")
+                .arg("scripts/graph_views.py")
+                .arg("schema")
+                .arg(&path)
+                .output()
+                .expect("python3 must run the schema view script");
+            std::fs::remove_file(&path).ok();
+            assert!(
+                out.status.success(),
+                "schema view failed: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+            String::from_utf8_lossy(&out.stdout).to_string()
+        };
+        let base = render(&crate::acset::schema::canonical());
+        let perturbed = render(&constructed);
+        assert!(base.contains("emits"), "canonical export renders the edge");
+        let base_lines: Vec<&str> = base.lines().filter(|l| !l.trim().is_empty()).collect();
+        let pert_lines: Vec<&str> = perturbed.lines().filter(|l| !l.trim().is_empty()).collect();
+        let removed: Vec<&&str> = base_lines
+            .iter()
+            .filter(|l| !pert_lines.contains(l))
+            .collect();
+        let added: Vec<&&str> = pert_lines
+            .iter()
+            .filter(|l| !base_lines.contains(l))
+            .collect();
+        assert!(added.is_empty(), "dropping one morphism must add no edge");
+        assert_eq!(removed.len(), 1, "one morphism out = one edge out");
+        assert!(
+            removed[0].contains("emits"),
+            "the removed edge is the one dropped"
+        );
     }
 
     #[test]
