@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-08-specodelic-54v-mixed-delta-migrate-mirror-fails-lint-added-modified, pipeline-step:green]
+---
+
+GREEN: src/migrate.rs — mirror now aggregates ADDED body (byte-exact D6 slice, unchanged for ADDED-only) plus the MODIFIED body in modified form, joined by one blank line; MODIFIED located over the whole body (before layers / between / trailing all copied verbatim). Duplicate requirement heading across ADDED+MODIFIED → new MigrateError::ConflictingDelta{heading} labeled refusal (mirror can't hold two texts per requirement; migrating would guarantee requirement_drift) with remediation hint in cmd_migrate (src/commands/manage.rs). New helpers section_body (EOL-agnostic heading-line skip) + requirement_headings. Evidence: cargo test migrate 16 passed (incl. 5 new unit tests + lint_corpus clean check + CRLF + MODIFIED-before-ADDED + duplicate refusal); --lib 383, --test cli 260, --test fuzz 3 all green incl. migrate_mixed_delta_lints_clean CLI repro (migrate 0 → lint 0).
