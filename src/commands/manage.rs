@@ -543,12 +543,76 @@ pub(crate) fn cmd_feedback(
     }
 }
 
+/// The `--rekey` half of migrate (add-migrate-rekey): rewrite an
+/// `id: spec` dual-format file to its Revision 18 real id in place;
+/// refusals are invocation errors (exit 2), idempotent no-ops report
+/// success with a warning and never rewrite.
+fn cmd_migrate_rekey(
+    file: &str,
+    text: &str,
+    dry_run: bool,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    match migrate::rekey(text, std::path::Path::new(file)) {
+        Err(e) => {
+            let hint = match e {
+                migrate::MigrateError::NotADelta => {
+                    "a rekey target must already be dual-format (frontmatter + id: spec); a plain delta takes the wrap path: spk migrate <file>"
+                }
+                migrate::MigrateError::NoDerivableId => {
+                    "move the file under its capability directory (openspec/specs/<cap>/spec.md) — the id derives from the parent dir"
+                }
+                _ => "run: spk migrate <file> (the wrap path)",
+            };
+            let out: Output<serde_json::Value> =
+                Output::failure(format!("{file}: {e}")).with_next_step(hint);
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            2
+        }
+        Ok(outcome) => {
+            let rekeyed = outcome.rekeyed.unwrap_or(false);
+            let write_result = if !dry_run && rekeyed {
+                std::fs::write(file, &outcome.content)
+            } else {
+                Ok(())
+            };
+            if let Err(e) = write_result {
+                let out: Output<serde_json::Value> =
+                    Output::failure(format!("{file}: write failed ({e})"))
+                        .with_next_step("check file permissions");
+                emit_report(out, None, format, verbosity, stdout, stderr);
+                return 2;
+            }
+            let mut out: Output<serde_json::Value> = Output::success(serde_json::json!({
+                "file": file,
+                "dry_run": dry_run,
+                "rekeyed": rekeyed,
+                "content": outcome.content,
+            }));
+            if !rekeyed {
+                out = out.with_warning(format!(
+                    "{file} does not declare `id: spec` — nothing to re-key; the file is unchanged"
+                ));
+            }
+            out = out.with_next_step(format!(
+                "run: spk lint {file} — the rekeyed file must lint clean"
+            ));
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            0
+        }
+    }
+}
+
 /// Write `<stem>.toml`, `<stem>_props.rs`, and `<stem>.tla` into `out_dir`. Byte-stable
 /// output: the same input always produces the same bytes, so committed
 /// artifacts make reruns diff-visible. Returns the written paths.
 pub(crate) fn cmd_migrate(
     file: &str,
     dry_run: bool,
+    rekey: bool,
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl std::io::Write,
@@ -565,6 +629,9 @@ pub(crate) fn cmd_migrate(
             return 2;
         }
     };
+    if rekey {
+        return cmd_migrate_rekey(file, &text, dry_run, format, verbosity, stdout, stderr);
+    }
     // Generated frontmatter carries the real id derived by the naming
     // law (Revision 18, specodelic-mcy): a spec.md file derives from its
     // parent directory. openspec still requires the delta filename

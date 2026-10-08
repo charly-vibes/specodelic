@@ -25,6 +25,8 @@ author's job.
 | merge_adds_only_missing | invariant | `only missing pieces are inserted — generated frontmatter, missing layer skeletons, missing mirror; existing sections pass through untouched`                             | [[migrate]]  |
 | scaffold_lints_clean    | invariant | `the generated scaffold (frontmatter + wired scaffold_* placeholder rows + one-state model) exits spk lint 0 with zero findings as written — the author starts from a green baseline` | [[migrate]]  |
 | dry_run_writes_nothing  | invariant | `--dry-run emits the resulting content as data and never writes the file; the on-disk bytes are unchanged`                                                               | [[migrate]]  |
+| rekey_derives_real_id   | invariant | `--rekey derives the real id by the naming law — the parent directory name for a spec.md file (- ⇔ ., _ literal) — and replaces the frontmatter `id: spec` line with it; every [[spec]] ref re-keys to [[<derived-id>]] and every [[spec. prefix to [[<derived-id>.; every other byte stays untouched` | [[migrate]] |
+| rekey_refusals          | invariant | `--rekey on a file without frontmatter is refused (a plain delta takes the wrap path); on a spec.md with no derivable id (bare, or parent dir named `spec`) it is refused; on a file whose id is already not `spec` it is an idempotent no-op with a warning, never rewritten` | [[migrate]] |
 
 ## Model
 
@@ -34,6 +36,7 @@ author's job.
 - `wrapping`
 - `written`
 - `refused`
+- `rekeyed`
 
 ### Transitions
 
@@ -45,6 +48,8 @@ author's job.
 | refuse       | unwrapping | refused   | [[migrate.refuse_already_migrated]]  |
 | merge_only   | wrapping   | written   | [[migrate.merge_adds_only_missing]]  |
 | verify_green | written    | written   | [[migrate.scaffold_lints_clean]]  |
+| rekey_result | unwrapping | rekeyed   | [[migrate.rekey_derives_real_id]]  |
+| rekey_refuse | unwrapping | refused   | [[migrate.rekey_refusals]]  |
 
 ## Properties
 
@@ -57,6 +62,8 @@ author's job.
 | p_merge_adds_only_missing | unit | [[migrate.merge_adds_only_missing]] | `delta_with(partial_layers: any)`| `existing_sections(result) == existing_sections(original)` |
 | p_scaffold_lints_clean    | unit | [[migrate.scaffold_lints_clean]]    | `any_plain_delta()`              | `lint(migrate(file)) == zero_findings`            |
 | p_dry_run_writes_nothing  | unit | [[migrate.dry_run_writes_nothing]]  | `any_plain_delta()`              | `dry_run(file).disk_bytes == original.disk_bytes` |
+| p_rekey_derives_real_id   | unit | [[migrate.rekey_derives_real_id]] | `legacy_id_spec_dual_format_file()` | `rekey(file).id == parent_dir_derived ∧ refs re-keyed ∧ rest byte-identical` |
+| p_rekey_refusals          | unit | [[migrate.rekey_refusals]] | `plain_delta_or_bare_spec_md()` | `rekey(file) == refused ∧ disk_unchanged ∧ second_run_is_noop` |
 
 ## ADDED Requirements
 
@@ -92,6 +99,36 @@ section.
 #### Scenario: Second run is a refusal
 - **WHEN** `spk migrate` runs on an already migrated file
 - **THEN** the command fails with an already-migrated message and the file is unchanged
+
+
+### Requirement: Rekey an id:spec dual-format file to its real id
+The system SHALL support `--rekey` on the migrate command: a file
+carrying frontmatter with `id: spec` SHALL be rewritten in place with
+the real id derived by the naming law — the parent directory name for a
+`spec.md` file (`-` ⇔ `.`, `_` literal) — every `[[spec]]` reference
+re-keyed to `[[<derived-id>]]` and every `[[spec.` prefix re-keyed to
+`[[<derived-id>.`, and every other byte of the file left untouched. A
+file without frontmatter SHALL be refused (it is a plain delta — the
+wrap path's job); a bare `spec.md` with no parent directory SHALL be
+refused (no derivable id); a file whose id is already not `spec` SHALL
+be a no-op with a warning, never rewritten, so a directory-wide rekey
+sweep is idempotent.
+
+#### Scenario: Legacy dual-format file rekeys
+- **WHEN** `spk migrate openspec/specs/ge-cli/spec.md --rekey` runs on a file declaring `id: spec` with `[[spec.c1]]` refs
+- **THEN** the file declares `id: ge.cli`, its refs read `[[ge.cli]]` / `[[ge.cli.c1]]`, and everything else is byte-identical
+
+#### Scenario: Refusals never rewrite
+- **WHEN** `--rekey` runs on a plain delta (no frontmatter) or a bare `spec.md` with no parent directory
+- **THEN** the command fails (exit 2) with a labeled refusal naming the right path (the wrap path, or an unguessable id) and the file is unchanged
+
+#### Scenario: Rekey sweep is idempotent
+- **WHEN** `--rekey` runs twice, or on a file already carrying its real id
+- **THEN** the second run is a success with a no-op warning and the file is unchanged
+
+#### Scenario: Dry-run rekey writes nothing
+- **WHEN** `spk migrate <file> --rekey --dry-run` runs
+- **THEN** the on-disk bytes are unchanged and the envelope data carries the would-be content
 
 ### Requirement: Dry-run writes nothing
 The system SHALL support `--dry-run`, emitting the resulting content as
@@ -135,6 +172,36 @@ section.
 #### Scenario: Second run is a refusal
 - **WHEN** `spk migrate` runs on an already migrated file
 - **THEN** the command fails with an already-migrated message and the file is unchanged
+
+
+### Requirement: Rekey an id:spec dual-format file to its real id
+The system SHALL support `--rekey` on the migrate command: a file
+carrying frontmatter with `id: spec` SHALL be rewritten in place with
+the real id derived by the naming law — the parent directory name for a
+`spec.md` file (`-` ⇔ `.`, `_` literal) — every `[[spec]]` reference
+re-keyed to `[[<derived-id>]]` and every `[[spec.` prefix re-keyed to
+`[[<derived-id>.`, and every other byte of the file left untouched. A
+file without frontmatter SHALL be refused (it is a plain delta — the
+wrap path's job); a bare `spec.md` with no parent directory SHALL be
+refused (no derivable id); a file whose id is already not `spec` SHALL
+be a no-op with a warning, never rewritten, so a directory-wide rekey
+sweep is idempotent.
+
+#### Scenario: Legacy dual-format file rekeys
+- **WHEN** `spk migrate openspec/specs/ge-cli/spec.md --rekey` runs on a file declaring `id: spec` with `[[spec.c1]]` refs
+- **THEN** the file declares `id: ge.cli`, its refs read `[[ge.cli]]` / `[[ge.cli.c1]]`, and everything else is byte-identical
+
+#### Scenario: Refusals never rewrite
+- **WHEN** `--rekey` runs on a plain delta (no frontmatter) or a bare `spec.md` with no parent directory
+- **THEN** the command fails (exit 2) with a labeled refusal naming the right path (the wrap path, or an unguessable id) and the file is unchanged
+
+#### Scenario: Rekey sweep is idempotent
+- **WHEN** `--rekey` runs twice, or on a file already carrying its real id
+- **THEN** the second run is a success with a no-op warning and the file is unchanged
+
+#### Scenario: Dry-run rekey writes nothing
+- **WHEN** `spk migrate <file> --rekey --dry-run` runs
+- **THEN** the on-disk bytes are unchanged and the envelope data carries the would-be content
 
 ### Requirement: Dry-run writes nothing
 The system SHALL support `--dry-run`, emitting the resulting content as

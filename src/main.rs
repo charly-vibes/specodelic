@@ -270,13 +270,18 @@ enum Commands {
     },
     /// Wrap an existing openspec delta file in place into the dual-format
     /// four-layer skeleton (frontmatter + scaffold layers + byte-identical
-    /// ## Requirements mirror); already-migrated files are refused
+    /// ## Requirements mirror); already-migrated files are refused.
+    /// With --rekey, instead rewrite an `id: spec` dual-format file to its
+    /// Revision 18 real id (naming law; idempotent no-op when already real)
     Migrate {
         /// Delta file to wrap in place (must contain ## ADDED Requirements)
         file: String,
         /// Print the resulting content without writing the file
         #[arg(long)]
         dry_run: bool,
+        /// Rekey an `id: spec` dual-format file to its real parent-dir-derived id
+        #[arg(long)]
+        rekey: bool,
     },
     /// Scaffold a new spec file from the four-layer template
     New {
@@ -628,9 +633,11 @@ fn run(
         Commands::New { id, file } => {
             cmd_new(id, file.as_deref(), format, verbosity, stdout, stderr)
         }
-        Commands::Migrate { file, dry_run } => {
-            cmd_migrate(file, *dry_run, format, verbosity, stdout, stderr)
-        }
+        Commands::Migrate {
+            file,
+            dry_run,
+            rekey,
+        } => cmd_migrate(file, *dry_run, *rekey, format, verbosity, stdout, stderr),
         Commands::Explain { topic } => {
             cmd_explain(topic.as_deref(), format, verbosity, stdout, stderr)
         }

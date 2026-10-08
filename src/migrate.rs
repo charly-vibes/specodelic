@@ -31,6 +31,9 @@ pub enum MigrateError {
     /// impossible — migrating would guarantee a
     /// `linter.requirement_drift` failure.
     ConflictingDelta { heading: String },
+    /// `--rekey` on a bare `spec.md` with no parent directory: the
+    /// naming law has nothing to derive the real id from (Revision 18).
+    NoDerivableId,
 }
 
 impl fmt::Display for MigrateError {
@@ -50,6 +53,10 @@ impl fmt::Display for MigrateError {
                     "no ## ADDED Requirements section found — nothing to wrap"
                 )
             }
+            MigrateError::NoDerivableId => write!(
+                f,
+                "the real id cannot be derived (bare spec.md, or parent dir named `spec`) — move the file under its capability directory"
+            ),
             MigrateError::ConflictingDelta { heading } => write!(
                 f,
                 "requirement `{heading}` appears in both ## ADDED Requirements and ## MODIFIED Requirements — the Requirements mirror cannot hold two different texts for one requirement, so migrating would guarantee a linter.requirement_drift failure"
@@ -58,11 +65,82 @@ impl fmt::Display for MigrateError {
     }
 }
 
+/// `--rekey` transform (add-migrate-rekey): rewrite an `id: spec`
+/// dual-format file to its Revision 18 real id. The naming law derives
+/// the id from the parent directory (spec.md) or the stem (anything
+/// else); `[[spec]]`/`[[spec.` refs re-key to the derived id; every
+/// other byte stays untouched. A file already carrying its real id is
+/// a no-op (idempotent sweeps); a plain delta or a bare spec.md is
+/// refused, never rewritten.
+pub fn rekey(text: &str, path: &std::path::Path) -> Result<MigrateOutcome, MigrateError> {
+    // Shape refusals first — mirror the wrap path's triage.
+    if !text.starts_with(
+        "---
+",
+    ) && !text.starts_with(
+        "---
+",
+    ) {
+        return Err(MigrateError::NotADelta);
+    }
+    let derived = crate::lint::expected_id_from_path(path);
+    if derived == "spec" || derived.is_empty() {
+        // Nothing to re-key TO: a bare spec.md (no parent dir) or a
+        // spec.md under a directory named `spec` both derive `spec` back
+        // — refusing beats a self-referential rewrite.
+        return Err(MigrateError::NoDerivableId);
+    }
+    let fm_close = text[4..]
+        .find(
+            "
+---
+",
+        )
+        .map(|i| i + 4)
+        .map(|i| i + 5)
+        .ok_or(MigrateError::NotADelta)?;
+    let frontmatter = &text[..fm_close];
+    let id_line = frontmatter
+        .lines()
+        .find(|l| l.trim_start().starts_with("id:"))
+        .ok_or(MigrateError::NotADelta)?;
+    let current_id = id_line.trim_start()[3..].trim();
+    if current_id != "spec" {
+        // Idempotence: already re-keyed (or never was id:spec) — a
+        // no-op, never rewritten, so directory-wide sweeps are safe.
+        return Ok(MigrateOutcome {
+            rekeyed: Some(false),
+            content: text.to_string(),
+            inserted_frontmatter: false,
+            inserted_layers: vec![],
+            inserted_mirror: false,
+        });
+    }
+    // A no-op when the derived id equals the current one is impossible
+    // here (current == "spec", derived != "spec"), so a real rewrite
+    // always follows: rekey the id line, then the body refs.
+    let new_fm = frontmatter.replacen(&format!("id: {current_id}"), &format!("id: {derived}"), 1);
+    let body = &text[fm_close..];
+    let body = body.replace("[[spec]]", &format!("[[{derived}]]"));
+    let body = body.replace("[[spec.", &format!("[[{derived}."));
+    let content = format!("{new_fm}{body}");
+    Ok(MigrateOutcome {
+        rekeyed: Some(true),
+        content,
+        inserted_frontmatter: false,
+        inserted_layers: vec![],
+        inserted_mirror: false,
+    })
+}
+
 /// Outcome of a migration: the new content plus what was inserted.
 #[derive(Debug, PartialEq, Clone)]
 pub struct MigrateOutcome {
     /// The full rewritten file content.
     pub content: String,
+    /// True when the transform was a rekey (id/refs rewritten, layers
+    /// and mirror untouched); false for a wrap migration.
+    pub rekeyed: Option<bool>,
     /// True when frontmatter was generated (vs kept verbatim).
     pub inserted_frontmatter: bool,
     /// Names of the layer sections inserted (empty when all present).
@@ -185,6 +263,7 @@ pub fn migrate(text: &str, path: &std::path::Path) -> Result<MigrateOutcome, Mig
     out.push_str(eol);
 
     Ok(MigrateOutcome {
+        rekeyed: None,
         content: out,
         inserted_frontmatter: !has_frontmatter,
         inserted_layers,
@@ -526,5 +605,102 @@ mod tests {
             "scaffold must lint clean: {:?}",
             report.issues.iter().map(|i| &i.message).collect::<Vec<_>>()
         );
+    }
+}
+
+#[cfg(test)]
+mod rekey_tests {
+    use super::*;
+
+    fn spec_path() -> std::path::PathBuf {
+        std::path::PathBuf::from("openspec/specs/ge-cli/spec.md")
+    }
+
+    /// A 0.6.0-era dual-format file: `id: spec` + `[[spec.*]]` refs.
+    fn legacy_file() -> String {
+        "---\nid: spec\nkind: intent\nstatement: \"THE ge cli SHALL hold\"\n---\n\n\
+         ## Constraints\n\n\
+         | id | kind | expr | traces_to |\n\
+         |----|------|------|-----------|\n\
+         | c1 | invariant | `x` | [[spec]] |\n\
+         | c2 | invariant | `y` | [[spec.c1]] |\n\n\
+         ## Model\n\n\
+         ### States\n\n- `s1`\n\n\
+         ### Transitions\n\n\
+         | id | from | to | guard |\n\
+         |----|------|----|-------|\n\
+         | t | s1 | s1 | [[spec.c1]] |\n\n\
+         ## Properties\n\n\
+         | id | kind | derives_from | generator | predicate |\n\
+         |----|------|--------------|-----------|------------|\n\
+         | p | unit | [[spec.c1]] | `g()` | `x` |\n\n\
+         ## Requirements\n\n\
+         ### Requirement: Ge cli\nThe ge cli SHALL hold.\n"
+            .to_string()
+    }
+
+    #[test]
+    fn rekey_rewrites_id_and_refs() {
+        let out = rekey(&legacy_file(), &spec_path()).expect("rekeys");
+        assert!(out.content.contains("id: ge.cli\n"), "{}", out.content);
+        assert!(out.content.contains("[[ge.cli]]"));
+        assert!(out.content.contains("[[ge.cli.c1]]"));
+        assert!(
+            !out.content.contains("[[spec"),
+            "no spec-qualified ref survives"
+        );
+        // Everything else byte-identical: strip the id line and refs, the
+        // skeleton is untouched.
+        assert!(out.content.contains("| c1 | invariant | `x` |"));
+        assert!(
+            out.content
+                .contains("### Requirement: Ge cli\nThe ge cli SHALL hold.")
+        );
+    }
+
+    #[test]
+    fn rekey_refuses_plain_delta() {
+        let delta = "## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n";
+        let err = rekey(delta, &spec_path()).unwrap_err();
+        assert_eq!(err, MigrateError::NotADelta);
+    }
+
+    #[test]
+    fn rekey_refuses_bare_spec_md() {
+        let err = rekey(&legacy_file(), std::path::Path::new("spec.md")).unwrap_err();
+        assert!(matches!(err, MigrateError::NoDerivableId));
+    }
+
+    #[test]
+    fn rekey_idempotent_second_run_is_noop() {
+        let out = rekey(&legacy_file(), &spec_path()).expect("rekeys");
+        // Second run: id is already real — a no-op.
+        let second = rekey(&out.content, &spec_path()).expect("second run ok");
+        assert_eq!(second.content, out.content, "no-op never rewrites");
+        assert!(second.rekeyed.is_none() || !second.rekeyed.unwrap());
+    }
+
+    #[test]
+    fn rekey_preserves_prose_mentions() {
+        let file = legacy_file().replace(
+            "### Requirement: Ge cli\n",
+            "### Requirement: Ge cli\nSee spec.c1 prose mention — not a wiki-link.\n",
+        );
+        let out = rekey(&file, &spec_path()).expect("rekeys");
+        assert!(
+            out.content.contains("See spec.c1 prose mention"),
+            "prose (non-bracketed) mentions stay untouched: {}",
+            out.content
+        );
+    }
+
+    #[test]
+    fn rekey_dry_run_semantics_via_outcome() {
+        // The command layer owns --dry-run; the library transform is pure.
+        let out = rekey(&legacy_file(), &spec_path()).expect("rekeys");
+        assert!(out.rekeyed.unwrap());
+        assert!(!out.inserted_frontmatter);
+        assert!(out.inserted_layers.is_empty());
+        assert!(!out.inserted_mirror);
     }
 }

@@ -126,7 +126,13 @@ already carries the mirror is refused, never rewritten — re-running is
 safe. The scaffold lints clean as written; keep it green while you
 replace the placeholders. Files not named `spec.md` get a naming-law
 warning (openspec requires the delta filename `spec.md`). `--dry-run`
-prints the resulting content without writing.
+prints the resulting content without writing. `--rekey` instead rewrites
+an `id: spec` dual-format file (0.6.0-era) to its Revision 18 real id —
+derived from the parent directory — re-keying every `[[spec.*]]` ref;
+a file already carrying its real id is an idempotent no-op, and a plain
+delta or undeducible id is refused without rewriting. This is the
+sanctioned 0.6.0 → 0.7.0 corpus migration path: `spk lint <tree>` finds
+the files, `spk migrate <file> --rekey` per file.
 
 ## `spk compile <files> --out-dir <dir>`
 

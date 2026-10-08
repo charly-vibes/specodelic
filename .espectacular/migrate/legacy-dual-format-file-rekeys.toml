@@ -1,0 +1,21 @@
+id = "legacy-dual-format-file-rekeys"
+description = "add-migrate-rekey: --rekey semantics bound to its CLI/lib tests"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "rekey_rewrites_legacy_dual_format_file"
+
+[[tests.cargo]]
+flags = "rekey_refusals_never_rewrite"
+
+[[tests.cargo]]
+flags = "rekey_dry_run_writes_nothing"
+
+[[tests.cargo]]
+flags = "rekey_rewrites_id_and_refs"
+
+[[tests.cargo]]
+flags = "rekey_idempotent_second_run_is_noop"
