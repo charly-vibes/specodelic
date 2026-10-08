@@ -1,5 +1,32 @@
 # Changelog
 
+## #125 — v0.7.0: Revision 18 single-tree authoring + the `--rekey` migration path
+
+The breaking-format release: Revision 18 (`update-id-derivation-spec-md`,
+specodelic-mcy) retires `id: spec` — a `spec.md` file now derives its id
+from its PARENT DIRECTORY name (`openspec/specs/ge-cli/spec.md` →
+`id: ge.cli`), so single-tree spec authoring (one corpus, real ids, no
+per-repo deploy transforms) is legal format. Everything that made the
+two-tree architecture load-bearing retires with it: `dual_format_valid`
+no longer polices the id, `total_refs` resolves every file corpus-wide,
+the command scope law folds `isolated_scope_required` into
+`duplicate_corpus_identity`, `spk new` targets
+`openspec/specs/<id>/spec.md` by default, and `spk migrate` scaffolds the
+real derived id. FORMAT_REVISION 17 → 18.
+
+- **The migration path** (`add-migrate-rekey`): `spk migrate <file>
+  --rekey` rewrites a 0.6.0-era `id: spec` dual-format file to its real
+  id in place, re-keying every `[[spec.*]]` ref — idempotent (already-real
+  files are warning no-ops), refusals never rewrite. Recipe: `spk lint
+  <tree>` finds the files, `spk migrate <file> --rekey` per file.
+- **Strictly stronger scope law**: a combined command invocation whose
+  inputs claim the same intent id (transitionally: an active change's
+  delta and its deployed spec) fails `duplicate_corpus_identity` before
+  any write — the old law's per-file `id: spec` exemption is gone.
+- **Scaffolds teach the single tree**: `spk new` defaults to
+  `openspec/specs/<id>/spec.md`; new users cannot produce the two-tree
+  distinction.
+
 ## #124 — Revision 18: id derivation — `spec.md` takes its id from its parent directory (update-id-derivation-spec-md, specodelic-mcy)
 
 The naming law no longer forces `id: spec` on openspec-housed files. A
