@@ -9,6 +9,8 @@ on:
       - 'theme/**'
       - 'Cargo.toml'
       - 'llms.txt'
+      - 'justfile'
+      - '.github/workflows/docs.yml'
     tags:
       - 'v*'
   workflow_dispatch:
