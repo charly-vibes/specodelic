@@ -1,0 +1,12 @@
+id = "passing-rust-does-not-hide-a-false-kernel-invariant"
+description = "Aggregate priority: a refuted required claim is counterexample_found even with passing Rust; exhausted bound stays timed_out (define-verification-claim-gates)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "false_kernel_claim_forces_counterexample_found"
+
+[[tests.cargo]]
+flags = "exhausted_bound_stays_timed_out_despite_verified_claims"

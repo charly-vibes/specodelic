@@ -64,7 +64,7 @@ traces_to = "[[model_check]]"
 id = "claim_aggregate_governs"
 kind = "invariant"
 expr = "`the run outcome is governed by the required claims' statuses with fixed priority: any refuted required claim yields counterexample_found naming it; absent refutation, an exhausted time/state/depth budget yields timed_out; otherwise any unknown, unsupported, or missing required claim yields exploration_only with reasons — and so does an empty required set; a nonempty required set all verified over a completed bounded exploration is the only clean`"
-traces_to = "[[specodelic.no_counterexample]]"
+traces_to = "[[model_check]]"
 
 [[constraints]]
 id = "claim_report_schema"

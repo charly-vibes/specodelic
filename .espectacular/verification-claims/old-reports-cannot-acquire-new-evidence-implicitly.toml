@@ -1,0 +1,18 @@
+id = "old-reports-cannot-acquire-new-evidence-implicitly"
+description = "Old/unrecognized schema versions and missing or duplicate claim records require a model-check rerun — never inferred success (define-verification-claim-gates)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "old_report_requires_model_check_rerun"
+
+[[tests.cargo]]
+flags = "unrecognized_claim_schema_version_requires_rerun"
+
+[[tests.cargo]]
+flags = "missing_claim_record_requires_rerun"
+
+[[tests.cargo]]
+flags = "duplicate_claim_record_rejected"

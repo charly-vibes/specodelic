@@ -1,0 +1,9 @@
+id = "complete-evidence-passes-both-gates"
+description = "All required claims verified over a completed bounded exploration plus passing property blocks verify (define-verification-claim-gates)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "all_true_claims_over_completed_exploration_verify"

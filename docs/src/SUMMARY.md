@@ -58,6 +58,7 @@
 - [lint-findings — capability](openspec/lint-findings/spec.md)
 - [model-check — capability](openspec/model-check/spec.md)
 - [spec-integration — capability](openspec/spec-integration/spec.md)
+- [verification-claims — capability](openspec/verification-claims/spec.md)
 - [error-contract — capability](openspec/error-contract/spec.md)
 - [observability — capability](openspec/observability/spec.md)
 - [migrate — capability](openspec/migrate/spec.md)
