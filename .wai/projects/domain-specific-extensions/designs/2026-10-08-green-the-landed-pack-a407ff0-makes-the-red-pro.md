@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-08-specodelic-9h3z-quant-pack-dogfood-probes, pipeline-step:green]
+---
+
+GREEN: the landed pack (a407ff0) makes the RED probes pass — (b) fiber kinds quant.risk/quant.pricing extend the closed set, property_kind_closed+orphan gone, activation advisory on warnings channel exit 0; (f) GREEN shapes are activation advisories exit 0; (d) additivity byte-identical (diff empty), extra horizon/confidence/bound/against labels ride along clean, risk floor declaration-only (mechanism names, never executes); (a) positive capped_by intra-file lints clean + advisory, graph 0 dangling/0 violations with NO capped_by edge (outbound leaf, no join, no carve-out); (e) issues+warnings byte-identical with all FIVE packs vs without (0 issues both, exit 0); (f/uses+vocab) GREEN exit 0. Deviations recorded: (c) Requires dep rows are declaration-only — no labeled advisory fires (bioimage D8 precedent); dual-format delta is frontmatter-less → skipped, so no pre-archive activation exception needed; archived capability spec (bioimage.data.pack) shows the post-archive warning-channel shape. Evidence: /var/tmp/qfp-9h3z/evidence/*.json

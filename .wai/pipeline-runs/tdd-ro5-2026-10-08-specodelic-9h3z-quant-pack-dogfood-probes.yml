@@ -1,0 +1,10 @@
+run_id: tdd-ro5-2026-10-08-specodelic-9h3z-quant-pack-dogfood-probes
+pipeline: tdd-ro5
+topic: 'specodelic-9h3z: quant pack dogfood probes'
+created_at: '2026-10-08T21:35:01.931983817+00:00'
+current_step: 8
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
