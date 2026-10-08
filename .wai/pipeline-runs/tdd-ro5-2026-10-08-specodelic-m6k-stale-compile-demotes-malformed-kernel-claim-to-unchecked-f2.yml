@@ -1,0 +1,10 @@
+run_id: tdd-ro5-2026-10-08-specodelic-m6k-stale-compile-demotes-malformed-kernel-claim-to-unchecked-f2
+pipeline: tdd-ro5
+topic: 'specodelic-m6k: stale compile demotes malformed kernel claim to unchecked (F2)'
+created_at: '2026-10-08T14:29:34.626057593+00:00'
+current_step: 8
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
