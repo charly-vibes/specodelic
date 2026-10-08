@@ -78,7 +78,7 @@ Tidying commits are separate from feature commits.
       edges grouped by owning file; guards annotated; files without
       transitions skipped cleanly; fan-in counts distinct targets per
       D2's multiplicity rule).
-- [ ] 2.5 **GREEN**: implement file-level traceability view (collapse to
+- [x] 2.5 **GREEN**: implement file-level traceability view (collapse to
       intents, fan-in annotation).
 - [x] 2.6 **GREEN**: implement the schema view consuming only the schema
       export from 2.2, including format revision and refinement labels.

@@ -2,15 +2,16 @@
 
 Purpose: the single CLI surface for the derived-view prototype: the
 revision-labeled schema diagram (schema_view), the per-file state-machine
-diagrams (state_view), and the file-level traceability view (gre.7, to
-come) — all rendered from graph artifacts alone.
+diagrams (state_view), and the file-level traceability view
+(traceability_view, gre.7) — all rendered from graph artifacts alone.
 
 Responsibilities: own the subcommand CLI (artifact reading, usage
 handling, labeled refusals with remediation hints) and re-export the
 pure renderers and failure classes so consumers (and the test suite)
 keep one import surface. Every view validates its inputs and refuses
 out-of-scope corpora or malformed artifacts BEFORE any output is written
-(D3/D7).
+(D3/D7). The artifact views (states, trace) share one CLI body over a
+per-view render function.
 
 Rationale: the views derive from the artifacts alone (design D1/D4) —
 they never parse Rust source, never re-walk corpus markdown, and embed no
@@ -21,6 +22,7 @@ keeps the documented CLI stable.
 
 Usage: python3 scripts/graph_views.py schema <export.json>  (Mermaid to stdout)
        python3 scripts/graph_views.py states <edges.tsv> --graph <graph.json> [--lint <lint.json>]
+       python3 scripts/graph_views.py trace <edges.tsv> --graph <graph.json> [--lint <lint.json>]
 """
 
 import json
@@ -39,6 +41,9 @@ from state_view import (  # noqa: F401 — re-exported render surface
     OutOfScopeRefused,
     render_states,
 )
+from traceability_view import (  # noqa: F401 — re-exported render surface
+    render_traceability,
+)
 ARTIFACT_HINT = (
     "regenerate the artifact with a matching tool version: "
     "specodelic graph <corpus> --format edges"
@@ -53,7 +58,8 @@ LINT_HINT = (
 )
 USAGE = (
     "usage: graph_views.py schema <export.json> | "
-    "states <edges.tsv> --graph <graph.json> [--lint <lint.json>]"
+    "states <edges.tsv> --graph <graph.json> [--lint <lint.json>] | "
+    "trace <edges.tsv> --graph <graph.json> [--lint <lint.json>]"
 )
 
 
@@ -66,7 +72,7 @@ def schema_cli(rest):
     print `schema_export_invalid` to stderr, exit 1; usage errors exit 2.
     Output is written only after validation (D4)."""
     if len(rest) != 1:
-        print(f"usage: graph_views.py schema <export.json>", file=sys.stderr)
+        print("usage: graph_views.py schema <export.json>", file=sys.stderr)
         return 2
     try:
         diagram = render_schema(_read_json(rest[0]))
@@ -82,9 +88,10 @@ def schema_cli(rest):
     return 0
 
 
-def states_read_args(rest):
-    """Parse `states <edges.tsv> --graph <graph.json> [--lint <lint.json>]`
-    — returns (tsv_path, graph_path, lint_path) or None on usage error."""
+def artifact_read_args(rest):
+    """Parse `<edges.tsv> --graph <graph.json> [--lint <lint.json>]`
+    (the shared shape of the `states` and `trace` subcommands) — returns
+    (tsv_path, graph_path, lint_path) or None on usage error."""
     tsv_path = graph_path = lint_path = None
     i = 0
     while i < len(rest):
@@ -104,13 +111,14 @@ def states_read_args(rest):
     return tsv_path, graph_path, lint_path
 
 
-def states_cli(rest):
-    """`states <edges.tsv> --graph <graph.json> [--lint <lint.json>]` —
-    read the artifacts, run the scope gate, render to stdout. Refusals
-    print the labeled failure with a remediation hint to stderr and exit
-    1; usage errors exit 2. Output is written only after validation
-    (D7/D3: fail before output writes)."""
-    parsed = states_read_args(rest)
+def artifact_cli(rest, render):
+    """Shared body of the artifact views' CLIs (`states`/`trace
+    <edges.tsv> --graph <graph.json> [--lint <lint.json>]`): read the
+    artifacts, run the view (which runs the scope gate), render to
+    stdout. Refusals print the labeled failure with a remediation hint to
+    stderr and exit 1; usage errors exit 2. Output is written only after
+    validation (D7/D3: fail before output writes)."""
+    parsed = artifact_read_args(rest)
     if parsed is None:
         print(USAGE, file=sys.stderr)
         return 2
@@ -119,7 +127,7 @@ def states_cli(rest):
         tsv = Path(tsv_path).read_text()
         graph_payload = _read_json(graph_path)
         lint_payload = _read_json(lint_path) if lint_path else None
-        diagram = render_states(tsv, graph_payload, lint_payload)
+        diagram = render(tsv, graph_payload, lint_payload)
     except (
         OutOfScopeRefused,
         ArtifactInvalid,
@@ -138,9 +146,23 @@ def states_cli(rest):
     return 0
 
 
+def states_cli(rest):
+    """`states <edges.tsv> --graph <graph.json> [--lint <lint.json>]` —
+    the per-file state-machine view (tasks 1.7/2.4)."""
+    return artifact_cli(rest, render_states)
+
+
+def trace_cli(rest):
+    """`trace <edges.tsv> --graph <graph.json> [--lint <lint.json>]` —
+    the file-level traceability view (task 2.5, gre.7)."""
+    return artifact_cli(rest, render_traceability)
+
+
 def main(argv):
     if argv and argv[0] == "states":
         return states_cli(argv[1:])
+    if argv and argv[0] == "trace":
+        return trace_cli(argv[1:])
     if len(argv) == 2 and argv[0] == "schema":
         return schema_cli(argv[1:])
     print(USAGE, file=sys.stderr)
