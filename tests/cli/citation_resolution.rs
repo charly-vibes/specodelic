@@ -247,7 +247,9 @@ fn qualified_citations_resolve_exactly_never_by_suffix() {
     let out = td.path().join("out");
     compile_batch(&specs, &out);
     let (code, json) = model_check_json(&specs, &out);
-    assert_eq!(code, Some(0));
+    // specodelic-4v1: the resolved-but-refuted citation claim
+    // (m.res.c1's counterexample) is a failing aggregate — exit 1.
+    assert_eq!(code, Some(1));
     // Exact keys only: `[[res.c1]]` is file `res`, never a suffix match
     // against `m.res`; the identically named rows keep their own outcomes.
     let idx = 2; // suffix_cite is the third checked entry
@@ -291,7 +293,8 @@ fn shared_local_ids_stay_file_local_and_qualified_resolves_cross_file() {
     let out = td.path().join("out");
     compile_batch(&specs, &out);
     let (code, json) = model_check_json(&specs, &out);
-    assert_eq!(code, Some(0));
+    // specodelic-4v1: a refuted citation is a failing aggregate — exit 1.
+    assert_eq!(code, Some(1));
     // Bare `[[c1]]` in shrd_a resolves to shrd_a's own verified row —
     // never confused with shrd_b's counterexample of the same local id.
     let statuses_a = json_statuses(&json, 0);
@@ -369,6 +372,8 @@ fn citation_cycle_is_unknown_with_cycle_reason() {
     let out = td.path().join("out");
     compile_batch(&[spec.to_str().unwrap().to_string()], &out);
     let (code, json) = model_check_json(&[spec.to_str().unwrap().to_string()], &out);
+    // specodelic-4v1 boundary: unknown claims are exploration_only — a
+    // NON-failure outcome; exit 0 stays.
     assert_eq!(code, Some(0));
     let statuses = json_statuses(&json, 0);
     assert_status(&statuses, "c2", "unknown");
@@ -401,6 +406,8 @@ fn missing_citation_target_is_unknown_with_reason() {
     let out = td.path().join("out");
     compile_batch(&[spec.to_str().unwrap().to_string()], &out);
     let (code, json) = model_check_json(&[spec.to_str().unwrap().to_string()], &out);
+    // specodelic-4v1 boundary: unknown claims are exploration_only — a
+    // NON-failure outcome; exit 0 stays.
     assert_eq!(code, Some(0));
     let statuses = json_statuses(&json, 0);
     assert_status(&statuses, "c2", "unknown");
@@ -430,6 +437,8 @@ fn property_row_citation_is_unknown_without_property_execution() {
     let out = td.path().join("out");
     compile_batch(&[spec.to_str().unwrap().to_string()], &out);
     let (code, json) = model_check_json(&[spec.to_str().unwrap().to_string()], &out);
+    // specodelic-4v1 boundary: unknown claims are exploration_only — a
+    // NON-failure outcome; exit 0 stays.
     assert_eq!(code, Some(0));
     // A Property row has no same-run invariant evidence: unknown, and
     // model-check never invokes a property runner for it (the only
@@ -551,7 +560,8 @@ fn independent_dual_format_runs_preserve_opposite_outcomes() {
         &[td.path().join("d2/spec.md").to_str().unwrap().to_string()],
         &out2,
     );
-    assert_eq!(code2, Some(0));
+    // specodelic-4v1: the refuted run exits 1 (findings), the clean one 0.
+    assert_eq!(code2, Some(1));
     // Each isolated run keeps its own outcome; the counterexample is not
     // laundered by the sibling file's absence or presence.
     assert_eq!(json1["data"]["outcome"], "no_counterexample");
@@ -709,6 +719,8 @@ fn qualified_citation_without_its_file_in_the_invocation_is_unknown() {
         &out,
     );
     let (code, json) = model_check_json(&[a.to_str().unwrap().to_string()], &out);
+    // specodelic-4v1 boundary: unknown claims are exploration_only — a
+    // NON-failure outcome; exit 0 stays.
     assert_eq!(code, Some(0));
     let statuses = json_statuses(&json, 0);
     assert_status(&statuses, "c2", "unknown");

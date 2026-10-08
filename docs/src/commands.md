@@ -1,11 +1,12 @@
 # Command Reference
 
-**Exit codes** (uniform across verbs): `0` = success (lint with zero
-findings counts); `1` = the stage produced findings or a tool-level
-failure; `2` = invocation error — nothing was processed (path not found,
-no spec files matched, unreadable input). clap argument-parse failures
-also exit 2. The JSON envelope's `envelope_kind` is `"error"` whenever
-the exit code is nonzero-by-invocation.
+**Exit codes** (uniform across verbs): `0` = a clean run; `1` = the stage
+produced findings or a tool-level failure; `2` = invocation error —
+nothing was processed (path not found, no spec files matched, unreadable
+input). clap argument-parse failures also exit 2. The JSON envelope's
+`envelope_kind` is `"error"` and `ok` is `false` whenever the run is not
+a clean run — findings and failures never ride a success-shaped envelope
+(specs/errors.md `envelope_error_kind` + `exit_code_mapping`).
 
 All commands emit through the genesis envelope: JSON for pipes,
 human-readable for TTYs (`--human` / `--format json` to override).
@@ -166,7 +167,14 @@ executable yet (Decision 3, Option A), so a completed run is
 backend that actually executed invariant predicates. Run reports persist
 as `<stem>.check.json` with the consumed module's SHA-256 and the
 backend engine + version, so backends' reports are attributable and
-comparable.
+comparable. A refuted kernel claim (`counterexample_found` — CHANGELOG
+#116's failing aggregate outcome) is findings: exit 1 with an error-kind
+envelope (`ok:false`), the payload intact. The honest non-failure
+outcomes keep exit 0 — `timed_out` (the bound expired) and
+`exploration_only` (a completed exploration over a corpus with no
+executable claims) are real terminal outcomes, not failures
+(model_check.md); `spk verify`'s model gate is what rejects them as
+not-clean.
 
 - Spec: [model_check](specs/model_check.md)
 
@@ -203,7 +211,18 @@ first blocking stage (`missing_properties_artifact`,
 `stale_properties_artifact`, `properties_failed`,
 `properties_timed_out`, `properties_uncompilable`, `runner_unavailable`,
 `missing_model_run`, `stale_model_run`, `model_not_clean`). Verify never
-re-compiles and never re-runs the model checker.
+re-compiles and never re-runs the model checker. A blocked verify is
+findings, never a success-shaped envelope: exit 1 with `ok:false` /
+`envelope_kind:"error"`, the payload (and `.data.status`) intact.
+
+Scope note: verify's stored scope digest binds the run's structured
+*inputs* (contributing files, claim records, artifact SHA-256), not
+result statuses — a hand-forged `check.json` with invented `verified`
+statuses does not yield a clean model gate: verify recomputes the scope
+and the required claim set from the current inputs, and any digest,
+record-shape, or artifact mismatch is rejected with a rerun hint
+(specs/verify.md `evidence_scope_bound`; the persisted report is never
+rewritten).
 
 The properties gate's scratch crate lives under the system temp dir
 (`specodelic-verify/`), with a shared `target/` dir so proptest

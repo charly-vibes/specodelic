@@ -1,5 +1,5 @@
 // Command handlers (split from main.rs — specodelic-g17 file_lines ratchet).
-use crate::{ModelBackend, emit_report, parse_batch};
+use crate::{ModelBackend, commands::as_failure, emit_report, parse_batch};
 
 use genesis::guide::{Output, OutputFormat, Verbosity};
 use specodelic::{citation_corpus, human, lint, model_check, orchestrate, verify};
@@ -98,6 +98,7 @@ pub(crate) fn cmd_model_check(
 
     let mut checked: Vec<serde_json::Value> = vec![];
     let mut failed: Vec<serde_json::Value> = vec![];
+    let mut refuted = false;
     let warnings: Vec<String> = notes;
 
     // The ONE claim-gated pipeline (design D4): the native CLI and the
@@ -110,6 +111,16 @@ pub(crate) fn cmd_model_check(
     {
         match run.outcome {
             Ok(c) => {
+                // specodelic-4v1 (F1): a refuted kernel claim is a
+                // failing aggregate (CHANGELOG #116) — findings ride
+                // exit 1 and an error-kind envelope, never ok:true.
+                // The honest non-failure outcomes (timed_out,
+                // exploration_only — model_check.md explicitly says they
+                // are not failures) keep exit 0; verify's model gate is
+                // what rejects them.
+                if matches!(c.report.outcome, model_check::Outcome::CounterexampleFound) {
+                    refuted = true;
+                }
                 // CLI output and persisted report carry identical
                 // statuses (design D9): every merged entry — exec
                 // outcomes, resolved citations, kernel claims — with
@@ -153,17 +164,39 @@ pub(crate) fn cmd_model_check(
     if checked.len() == 1 {
         payload["outcome"] = checked[0]["outcome"].clone();
     }
+    // specodelic-4v1 (F1): the envelope kind and exit code track the
+    // run's success, not its completion — labeled failures and a
+    // refuted claim aggregate are findings-or-failure (specs/errors.md
+    // envelope_error_kind + exit_code_mapping; CHANGELOG #116 declares
+    // counterexample_found a failing aggregate outcome).
+    let failed_run = !failed.is_empty() || refuted;
     let mut out = Output::success(payload.clone());
     for w in &warnings {
         out = out.with_warning(w.clone());
     }
-    if failed.is_empty() {
-        out = out.with_next_step("run: specodelic verify (consumes the *.check.json reports)");
-    } else {
+    if !failed.is_empty() {
         out = out.with_next_step(
             "fix the labeled failures (missing artifacts: run specodelic compile first)",
         );
+    } else if refuted {
+        out = out.with_next_step(
+            "fix the refuted claim(s) named in .data.checked — verify's model gate accepts only a no_counterexample aggregate",
+        );
+    } else {
+        out = out.with_next_step("run: specodelic verify (consumes the *.check.json reports)");
     }
+    let out = if failed_run {
+        as_failure(
+            out,
+            if failed.is_empty() {
+                "model-check findings: the claim aggregate is not clean (see .data.checked)"
+            } else {
+                "model-check failed: labeled per-file failures (see .data.failed)"
+            },
+        )
+    } else {
+        out
+    };
     emit_report(
         out,
         Some(human::model_check(&payload)),
@@ -172,7 +205,7 @@ pub(crate) fn cmd_model_check(
         stdout,
         stderr,
     );
-    if failed.is_empty() { 0 } else { 1 }
+    if failed_run { 1 } else { 0 }
 }
 
 /// Run `spk verify` — the verified transition (specs/verify.md).
@@ -289,6 +322,17 @@ pub(crate) fn cmd_orchestrate(
             "inspect the first failed (or skipped-after-failure) stage in .data.stages — each stage's detail names the exact findings",
         );
     }
+    // specodelic-4v1 (F1): a failed overall never rides a success-shaped
+    // envelope (specs/errors.md envelope_error_kind + exit_code_mapping).
+    let failed_run = orchestration.overall != "succeeded";
+    let out = if failed_run {
+        as_failure(
+            out,
+            "orchestrate failed — inspect the first failed (or skipped-after-failure) stage in .data.stages",
+        )
+    } else {
+        out
+    };
     emit_report(
         out,
         Some(human::orchestrate(&payload)),
@@ -297,11 +341,7 @@ pub(crate) fn cmd_orchestrate(
         stdout,
         stderr,
     );
-    if orchestration.overall == "succeeded" {
-        0
-    } else {
-        1
-    }
+    if failed_run { 1 } else { 0 }
 }
 
 pub(crate) fn cmd_verify(
@@ -399,6 +439,17 @@ pub(crate) fn cmd_verify(
         let hint = blocked[0]["hint"].as_str().unwrap_or_default().to_string();
         out = out.with_next_step(hint);
     }
+    // specodelic-4v1 (F1): a blocked verdict never rides a success-shaped
+    // envelope (specs/errors.md envelope_error_kind + exit_code_mapping).
+    let failed_run = !blocked.is_empty();
+    let out = if failed_run {
+        as_failure(
+            out,
+            "verify blocked — the blocking gate, message and hint ride .data.blocked",
+        )
+    } else {
+        out
+    };
     emit_report(
         out,
         Some(human::verify(&payload)),
@@ -407,7 +458,7 @@ pub(crate) fn cmd_verify(
         stdout,
         stderr,
     );
-    if blocked.is_empty() { 0 } else { 1 }
+    if failed_run { 1 } else { 0 }
 }
 
 /// The properties gate as envelope JSON: state name plus per-block

@@ -135,8 +135,12 @@ fn model_check_tlc_backend_reports_a_comparable_run_report() {
         )
         .output()
         .unwrap();
+    // specodelic-4v1 boundary: exploration_only is a NON-failure
+    // outcome — exit 0, success envelope, while the report stays
+    // comparable across backends.
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["ok"], serde_json::json!(true));
     let checked = &json["data"]["checked"][0];
     assert_eq!(checked["backend"]["engine"], "tlc");
     assert_eq!(checked["backend"]["version"], "1.20.0");
@@ -184,8 +188,11 @@ fn model_check_tlc_backend_depth_cutoff_reports_timed_out() {
         )
         .output()
         .unwrap();
+    // specodelic-4v1 boundary: timed_out is a NON-failure outcome —
+    // exit 0, success envelope.
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["ok"], serde_json::json!(true));
     assert_eq!(json["data"]["outcome"], "timed_out");
 }
 

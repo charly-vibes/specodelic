@@ -262,6 +262,9 @@ fn verify_requires_a_current_model_run() {
 fn verify_rejects_native_backend_exploration_only() {
     let td = tempfile::tempdir().unwrap();
     let (spec, out) = compile_fixture(&td, "vfix", "        let _ = v0;");
+    // specodelic-4v1 boundary: exploration_only is a NON-failure
+    // model-check outcome (exit 0); verify's model gate is what rejects
+    // it downstream.
     spk()
         .args(["model-check", &spec, "--out-dir", &out])
         .assert()
@@ -281,6 +284,9 @@ fn verify_rejects_native_backend_exploration_only() {
 fn verify_rejects_stale_model_run() {
     let td = tempfile::tempdir().unwrap();
     let (spec, out) = compile_fixture(&td, "vfix", "        let _ = v0;");
+    // specodelic-4v1 boundary: exploration_only is a NON-failure
+    // model-check outcome (exit 0); verify's staleness check is what
+    // rejects the stored report downstream.
     spk()
         .args(["model-check", &spec, "--out-dir", &out])
         .assert()
@@ -780,4 +786,92 @@ fn fragment_that_does_not_compile_is_a_labeled_model_check_error() {
     assert_eq!(mc.status.code(), Some(1));
     let stdout = String::from_utf8_lossy(&mc.stdout);
     assert!(stdout.contains("fragment_compile"), "{stdout}");
+}
+
+// ---- specodelic-4v1: failures ride success-shaped envelopes (F1) ----
+// specs/errors.md's envelope_error_kind row: a failing stage's report is
+// an error-kind envelope with ok == false — exit 1 riding ok:true lied
+// to consumers gating on .ok.
+
+#[test]
+fn verify_blocked_is_an_error_envelope_with_exit_1() {
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("v4v.md");
+    write_verify_spec(&spec, "v4v");
+    // No compiled artifacts → the properties gate blocks (the same
+    // shape verify_reports_missing_properties_artifact pins, minus the
+    // substring check: here we pin the envelope kind).
+    let result = spk()
+        .args([
+            "verify",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            td.path().join("out").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(result.status.code(), Some(1), "blocked verify exits 1");
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(json["ok"], serde_json::json!(false), "envelope: {json}");
+    assert_eq!(json["envelope_kind"], serde_json::json!("error"));
+    // The payload survives: the blocking status is still .data.status.
+    assert_eq!(json["data"]["status"], "missing_properties_artifact");
+    assert!(
+        json["hints"].as_array().is_some_and(|h| !h.is_empty()),
+        "failure carries a remediation hint: {json}"
+    );
+}
+
+#[test]
+fn orchestrate_failed_overall_is_an_error_envelope_with_exit_1() {
+    let td = tempfile::tempdir().unwrap();
+    write_model_check_spec(&td.path().join("o4v.md"), "o4v");
+    let result = spk()
+        .args([
+            "orchestrate",
+            td.path().to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            td.path().join("out").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(result.status.code(), Some(1), "failed overall exits 1");
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(json["ok"], serde_json::json!(false), "envelope: {json}");
+    assert_eq!(json["envelope_kind"], serde_json::json!("error"));
+    // The payload survives: the stage list is still .data.stages.
+    assert_eq!(json["data"]["overall"], "failed");
+    assert!(
+        json["hints"].as_array().is_some_and(|h| !h.is_empty()),
+        "failure carries a remediation hint: {json}"
+    );
+}
+
+#[test]
+fn orchestrate_succeeded_stays_a_success_envelope_with_exit_0() {
+    // The flip must not overreach: a fully succeeded run (the
+    // all-verified kernel-claim fixture, same shape as
+    // verify_accepts_clean_report_with_current_artifacts) keeps
+    // ok:true / envelope_kind:ok / exit 0.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("o4s.md");
+    write_kernel_verified_spec(&spec, "o4s");
+    let out = td.path().join("out");
+    let result = spk()
+        .args([
+            "orchestrate",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(result.status.code(), Some(0), "fixture must succeed");
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(json["ok"], serde_json::json!(true));
+    assert_eq!(json["envelope_kind"], serde_json::json!("ok"));
+    assert_eq!(json["data"]["overall"], "succeeded");
 }

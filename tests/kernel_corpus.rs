@@ -162,7 +162,8 @@ fn mixed_kernel_and_rust_claims_both_surface() {
     // The two-state model versus cardinality 999: the Rust claim passes
     // (s2 is reachable but blackhole is not) and the kernel claims are
     // honestly evaluated — 999 is refuted, 2 is verified.
-    assert_eq!(code, Some(0));
+    // specodelic-4v1: the refuted claim is a failing aggregate — exit 1.
+    assert_eq!(code, Some(1));
     let cli = json_statuses(&json, 0);
     assert_exactly_once(&cli, "c1", "verified");
     assert_exactly_once(&cli, "ka", "counterexample");
@@ -189,7 +190,8 @@ fn kernel_only_corpus_publishes_every_claim() {
     compile(&[spec.to_str().unwrap().to_string()], &out);
     let (code, json) = model_check_json(&[spec.to_str().unwrap().to_string()], &out);
 
-    assert_eq!(code, Some(0));
+    // specodelic-4v1: the refuted claim is a failing aggregate — exit 1.
+    assert_eq!(code, Some(1));
     let cli = json_statuses(&json, 0);
     assert_exactly_once(&cli, "ka", "counterexample");
     assert_exactly_once(&cli, "kb", "verified");
@@ -218,9 +220,11 @@ fn reversed_file_order_yields_identical_statuses() {
     compile(&[sa.clone(), sb.clone()], &out);
 
     let (code, forward) = model_check_json(&[sa.clone(), sb.clone()], &out);
-    assert_eq!(code, Some(0));
+    // specodelic-4v1: the refuted corpus-wide claim is a failing
+    // aggregate — findings exit 1 in both file orders.
+    assert_eq!(code, Some(1));
     let (code_rev, reversed) = model_check_json(&[sb, sa], &out);
-    assert_eq!(code_rev, Some(0));
+    assert_eq!(code_rev, Some(1));
 
     // The corpus-wide statuses are identical in both orders — and they
     // are corpus statuses, not per-file ones.
@@ -310,6 +314,8 @@ fn tlc_backend_kernel_claims_are_labeled_unsupported() {
         .unwrap();
     // The TLC run itself completes; the kernel claims must still be
     // published — labeled unsupported, never omitted, never implied pass.
+    // specodelic-4v1 boundary: unsupported (unknown) claims are
+    // exploration_only — a NON-failure outcome; exit 0 stays.
     assert_eq!(result.status.code(), Some(0));
     let json: Value = serde_json::from_slice(&result.stdout).unwrap();
     let cli = json_statuses(&json, 0);

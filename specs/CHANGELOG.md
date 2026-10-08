@@ -1,5 +1,30 @@
 # Changelog
 
+## #117 — failures never ride success-shaped envelopes (specodelic-4v1, eval F1)
+
+The 2026-10-08 external evaluation's sharpest finding, fixed in the code
+(the corpus was already normative-correct — specs/errors.md's
+`envelope_error_kind` and `exit_code_mapping` rows say what the tools now
+do):
+
+- **`spk model-check`**: a refuted kernel claim (`counterexample_found`,
+  #116's failing aggregate outcome) is findings: exit 1 with an
+  error-kind envelope (`ok:false`), the payload intact. The old
+  convention ("the verdict lives in the report, not the exit code") is
+  retired for the failing aggregate.
+- **`spk compile` / `spk verify` / `spk orchestrate`**: a labeled
+  failure, a blocked verdict, or a failed overall emits an error-kind
+  envelope with `ok:false` — exit codes were already correct; the ok bit
+  lied to consumers gating on `.ok`.
+- Honest non-failure outcomes are unchanged: `timed_out` and
+  `exploration_only` keep model-check's exit 0 (model_check.md says
+  neither is a failure — verify's model gate rejects them), invocation
+  errors still exit 2, and lint findings still exit 1.
+- Docs: `docs/src/commands.md`'s exit-codes paragraph states the fixed
+  mapping; verify's section documents that the scope digest binds
+  structured inputs, not result statuses (eval F7: forged `check.json`
+  statuses yield a blocked verdict, never a clean model gate).
+
 ## #116 — verification claims gate the verdict (define-verification-claim-gates)
 
 `specodelic.md`'s `no_counterexample` and `verified` gates get explicit

@@ -1,0 +1,10 @@
+run_id: tdd-ro5-2026-10-08-specodelic-4v1-failures-ride-success-shaped-envelopes-f1
+pipeline: tdd-ro5
+topic: 'specodelic-4v1: failures ride success-shaped envelopes (F1)'
+created_at: '2026-10-08T13:44:03.371168407+00:00'
+current_step: 9
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null

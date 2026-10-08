@@ -158,7 +158,9 @@ fn mixed_claims_cli_and_orchestrate_parity() {
     // The two-state model: the Rust claim is verified, the 999-cardinality
     // kernel claim is a real counterexample, the 2-cardinality claim is
     // verified, and the missing citation target is unknown with a reason.
-    assert_eq!(cli_code, Some(0));
+    // specodelic-4v1: the refuted claim is a failing aggregate — the CLI
+    // exit code now agrees with the orchestrate stage's verdict (both 1).
+    assert_eq!(cli_code, Some(1));
     let cli_entries = status_entries(&cli_json, 0);
     assert_exactly_once(cli_entries, "c1", "verified");
     assert_exactly_once(cli_entries, "ka", "counterexample");
@@ -253,6 +255,9 @@ fn two_file_corpus_cli_and_orchestrate_parity() {
     let (cli_code, cli_json) = cli_model_check(&specs, &cli_out);
     let (orch_code, orch_json) = orchestrate(&[sa, sb], &orch_out);
 
+    // specodelic-4v1 boundary: the unknown citation claims make the
+    // aggregate exploration_only — a NON-failure outcome; exit 0 stays
+    // while orchestrate's stage still fails downstream (pinned).
     assert_eq!(cli_code, Some(0));
     assert_eq!(orch_code, Some(1)); // verify stage fails downstream; pinned
     let orch_stage = model_check_stage(&orch_json);

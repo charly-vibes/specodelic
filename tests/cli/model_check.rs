@@ -29,8 +29,12 @@ fn model_check_reports_no_counterexample_after_compile() {
         ])
         .output()
         .unwrap();
+    // specodelic-4v1 boundary: exploration_only is a NON-failure
+    // outcome — it keeps exit 0 and a success envelope (verify's model
+    // gate is what rejects it).
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["ok"], serde_json::json!(true));
     let data = &json["data"];
     // Meter contract: .data.outcome for the single-file case. The native
     // backend executes no invariant predicates, so an exhaustive run is
@@ -58,6 +62,61 @@ fn model_check_reports_no_counterexample_after_compile() {
     assert_eq!(report["artifact_sha256"].as_str().unwrap().len(), 64);
 }
 
+// ---- specodelic-4v1: failures ride success-shaped envelopes (F1) ----
+// specs/errors.md's envelope_error_kind + exit_code_mapping rows: a
+// failing stage's report is an error-kind envelope with ok == false, and
+// exit 1 means findings-or-failure — so a refuted kernel claim (a
+// failing aggregate per CHANGELOG #116) must flip BOTH the exit code
+// and the envelope kind. Only counterexample_found — CHANGELOG #116's
+// failing aggregate — moves the exit code; timed_out and exploration_only
+// are model_check.md's honest NON-failure outcomes (they keep exit 0 and
+// ride a success envelope; verify's model gate is what rejects them).
+#[test]
+fn refuted_kernel_claim_exits_1_with_error_envelope() {
+    // The sharpest F1 case: exit 0 + ok:true + counterexample_found —
+    // CI gating on .ok passed a failing run.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("c4v.md");
+    let rows = "| ka | invariant | `**kernel:** unique(traces_to)` | [[c4v]] |\n\
+                | kb | invariant | `**kernel:** resolves(traces_to)` | [[c4v]] |\n";
+    write_claim_spec(&spec, "c4v", rows, &claim_props("c4v", &["ka", "kb"]), "ka");
+    let out = td.path().join("out");
+    claim_compile(spec.to_str().unwrap(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_eq!(
+        code,
+        Some(1),
+        "a refuted claim is findings-or-failure: exit 1"
+    );
+    assert_eq!(json["ok"], serde_json::json!(false), "envelope: {json}");
+    assert_eq!(json["envelope_kind"], serde_json::json!("error"));
+    // The meter contract survives the envelope flip.
+    assert_eq!(json["data"]["outcome"], "counterexample_found");
+    // remediation_hint_present: the hint channel is non-empty.
+    assert!(
+        json["hints"].as_array().is_some_and(|h| !h.is_empty()),
+        "failure carries a remediation hint: {json}"
+    );
+}
+
+#[test]
+fn clean_model_check_stays_a_success_envelope_with_exit_0() {
+    // The flip must not overreach: all claims verified over a completed
+    // bounded exploration keeps ok:true / envelope_kind:ok / exit 0.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("c4c.md");
+    let rows = "| ka | invariant | `**kernel:** acyclic(supersedes)` | [[c4c]] |\n\
+                | kb | invariant | `**kernel:** resolves(traces_to)` | [[c4c]] |\n";
+    write_claim_spec(&spec, "c4c", rows, &claim_props("c4c", &["ka", "kb"]), "ka");
+    let out = td.path().join("out");
+    claim_compile(spec.to_str().unwrap(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_eq!(code, Some(0));
+    assert_eq!(json["ok"], serde_json::json!(true));
+    assert_eq!(json["envelope_kind"], serde_json::json!("ok"));
+    assert_eq!(json["data"]["outcome"], "no_counterexample");
+}
+
 #[test]
 fn model_check_without_compiled_artifact_is_a_labeled_error() {
     let dir = tempfile::tempdir().unwrap();
@@ -75,6 +134,9 @@ fn model_check_without_compiled_artifact_is_a_labeled_error() {
         .unwrap();
     assert_eq!(out.status.code(), Some(1));
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    // specodelic-4v1 (F1): a labeled failure never rides ok:true.
+    assert_eq!(json["ok"], serde_json::json!(false), "envelope: {json}");
+    assert_eq!(json["envelope_kind"], serde_json::json!("error"));
     let failed = &json["data"]["failed"][0];
     assert_eq!(failed["stage"], "missing_artifact");
     // remediation hint, never a silent no_counterexample
@@ -122,6 +184,9 @@ fn model_check_rejects_a_spec_edited_after_compile() {
         .unwrap();
     assert_eq!(out.status.code(), Some(1));
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    // specodelic-4v1 (F1): a labeled failure never rides ok:true.
+    assert_eq!(json["ok"], serde_json::json!(false), "envelope: {json}");
+    assert_eq!(json["envelope_kind"], serde_json::json!("error"));
     let failed = &json["data"]["failed"][0];
     assert_eq!(failed["stage"], "stale_artifact");
     assert!(
@@ -162,8 +227,11 @@ fn model_check_timed_out_when_bound_cannot_be_exhausted() {
         ])
         .output()
         .unwrap();
+    // specodelic-4v1 boundary: timed_out is a NON-failure outcome —
+    // exit 0, success envelope (verify's model gate rejects it).
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["ok"], serde_json::json!(true));
     assert_eq!(json["data"]["outcome"], "timed_out");
 }
 
@@ -641,9 +709,11 @@ fn false_kernel_claim_forces_counterexample_found() {
     let out = td.path().join("out");
     claim_compile(spec.to_str().unwrap(), &out);
     let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
-    // Completed runs keep model-check's CLI exit convention; the
-    // aggregate verdict lives in the report, not the exit code.
-    assert_eq!(code, Some(0));
+    // specodelic-4v1: a refuted claim is a failing aggregate — the
+    // verdict gates the exit code AND the envelope kind now.
+    assert_eq!(code, Some(1));
+    assert_eq!(json["ok"], serde_json::json!(false));
+    assert_eq!(json["envelope_kind"], serde_json::json!("error"));
     assert_eq!(json["data"]["outcome"], "counterexample_found");
     let checked = &json["data"]["checked"][0];
     assert_eq!(checked["outcome"], "counterexample_found");
@@ -689,7 +759,8 @@ fn false_negated_citation_forces_counterexample_found() {
     let out = td.path().join("out");
     claim_compile(spec.to_str().unwrap(), &out);
     let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
-    assert_eq!(code, Some(0));
+    // specodelic-4v1: a refuted claim is a failing aggregate — exit 1.
+    assert_eq!(code, Some(1));
     assert_eq!(json["data"]["outcome"], "counterexample_found");
     assert_eq!(json["data"]["checked"][0]["violated_invariant_id"], "c2");
     let report = claim_report(&out, "cnf");
@@ -714,6 +785,8 @@ fn unknown_kernel_claim_prevents_clean() {
     let out = td.path().join("out");
     claim_compile(spec.to_str().unwrap(), &out);
     let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    // specodelic-4v1 boundary: an unknown claim is exploration_only —
+    // a NON-failure outcome; exit 0 stays (verify rejects the gate).
     assert_eq!(code, Some(0));
     assert_eq!(json["data"]["outcome"], "exploration_only");
     let statuses = &json["data"]["checked"][0]["invariant_statuses"];
@@ -738,6 +811,8 @@ fn missing_evidence_citation_prevents_clean_and_names_the_reason() {
     let out = td.path().join("out");
     claim_compile(spec.to_str().unwrap(), &out);
     let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    // specodelic-4v1 boundary: incomplete required set =
+    // exploration_only, a NON-failure outcome; exit 0 stays.
     assert_eq!(code, Some(0));
     assert_eq!(json["data"]["outcome"], "exploration_only");
     let statuses = &json["data"]["checked"][0]["invariant_statuses"];
@@ -809,8 +884,11 @@ fn exhausted_bound_stays_timed_out_despite_verified_claims() {
         ])
         .output()
         .unwrap();
+    // specodelic-4v1 boundary: the exhausted-budget aggregate is
+    // timed_out — a NON-failure outcome; exit 0 stays.
     assert_eq!(result.status.code(), Some(0));
     let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(json["ok"], serde_json::json!(true));
     assert_eq!(json["data"]["outcome"], "timed_out");
     assert_eq!(claim_report(&out, "cex")["outcome"], "timed_out");
     let (vcode, _) = claim_verify_json(spec.to_str().unwrap(), &out);
@@ -828,6 +906,8 @@ fn no_required_claims_stay_explicitly_unchecked() {
     let out = td.path().join("out");
     claim_compile(spec.to_str().unwrap(), &out);
     let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    // specodelic-4v1 boundary: an empty required set is a NON-failure
+    // exploration_only outcome; exit 0 stays (verify rejects the gate).
     assert_eq!(code, Some(0));
     assert_eq!(json["data"]["outcome"], "exploration_only");
     assert!(
@@ -882,6 +962,8 @@ fn mixed_fixture_views_agree_on_blockers_and_unchecked() {
 
     // JSON envelope vs persisted report: identical claim fields.
     let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    // specodelic-4v1 boundary: unknown claim = exploration_only, a
+    // NON-failure outcome; exit 0 stays.
     assert_eq!(code, Some(0));
     assert_eq!(json["data"]["outcome"], "exploration_only");
     let checked = &json["data"]["checked"][0];
@@ -1004,7 +1086,8 @@ fn refuted_kernel_blocker_names_the_same_claim_in_every_view() {
     let out = td.path().join("out");
     claim_compile(spec.to_str().unwrap(), &out);
     let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
-    assert_eq!(code, Some(0));
+    // specodelic-4v1: a refuted claim is a failing aggregate — exit 1.
+    assert_eq!(code, Some(1));
     assert_eq!(json["data"]["outcome"], "counterexample_found");
     let checked = &json["data"]["checked"][0];
     let claims = checked["claims"]
@@ -1190,11 +1273,8 @@ fn mc_batch(specs: &[&str], out: &std::path::Path) -> (Option<i32>, serde_json::
     let result = spk().args(&args).output().unwrap();
     let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
     let code = result.status.code();
-    assert_eq!(
-        code,
-        Some(0),
-        "model-check must produce the report the fixture manipulates: {json}"
-    );
+    // specodelic-4v1: the exit code now tracks the aggregate — callers
+    // assert the exact code their fixture's outcome implies.
     (code, json)
 }
 
@@ -1557,8 +1637,9 @@ fn dual_format_opposite_outcomes_isolated_scope_and_swapped_reports() {
     scope_compile(&[d2.as_str()], &out2);
     let (c1, _) = mc_batch(&[d1.as_str()], &out1);
     let (c2, _) = mc_batch(&[d2.as_str()], &out2);
+    // specodelic-4v1: the refuted run exits 1 (findings), the clean one 0.
     assert_eq!(c1, Some(0));
-    assert_eq!(c2, Some(0));
+    assert_eq!(c2, Some(1));
     assert_eq!(
         read_check_report(&out1, "spec")["outcome"],
         "no_counterexample"

@@ -1,4 +1,5 @@
 // Command handlers (split from main.rs — specodelic-g17 file_lines ratchet).
+use crate::commands::as_failure;
 use crate::{MAX_INPUT_BYTES, collect_specs, emit_report, openspec_tree_present, parse_batch};
 
 use genesis::guide::{Output, OutputFormat, Verbosity};
@@ -546,6 +547,10 @@ pub(crate) fn cmd_compile(
         "compiled": compiled,
         "failed": failed,
     });
+    // specodelic-4v1 (F1): a labeled compile failure never rides a
+    // success-shaped envelope (specs/errors.md envelope_error_kind +
+    // exit_code_mapping) — exit 1 was already correct, the ok bit lied.
+    let failed_run = !failed.is_empty();
     let mut out = Output::success(payload.clone());
     for w in &warnings {
         out = out.with_warning(w.clone());
@@ -557,6 +562,14 @@ pub(crate) fn cmd_compile(
             "fix the labeled stage failures (lint findings first — compile requires a linted-and-covered file)",
         );
     }
+    let out = if failed_run {
+        as_failure(
+            out,
+            "compile failed: labeled per-file failures (see .data.failed)",
+        )
+    } else {
+        out
+    };
     emit_report(
         out,
         Some(human::compile(&payload)),
