@@ -792,6 +792,15 @@ fn unknown_kernel_claim_prevents_clean() {
     let statuses = &json["data"]["checked"][0]["invariant_statuses"];
     assert_eq!(statuses[0]["id"], "g1");
     assert_eq!(statuses[0]["status"], "unknown");
+    // specodelic-7gh: the unknown is labeled and names the bad seed id.
+    assert!(
+        statuses[0]["reason"]
+            .as_str()
+            .unwrap_or_else(|| panic!("RED (specodelic-7gh): unlabeled unknown: {}", statuses[0]))
+            .contains("demo.ghost.nowhere"),
+        "the reason must name the bad id: {}",
+        statuses[0]
+    );
     assert_eq!(claim_report(&out, "cuk")["outcome"], "exploration_only");
     let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
     assert_eq!(vcode, Some(1));
@@ -1778,6 +1787,66 @@ fn usage_quick_start_kernel_claims_verify() {
     // The persisted report carries the identical statuses.
     let report = claim_report(&out, "order-cancel");
     assert_eq!(report["outcome"], "no_counterexample");
+}
+
+#[test]
+fn dangling_kernel_endpoint_unknown_carries_reason() {
+    // specodelic-7gh (F4/F6): a kernel claim that evaluates to unknown
+    // carries a labeled reason naming the bad id — never a bare
+    // {"status":"unknown"} record. The quick-start's reachable cell
+    // with a dangling seed endpoint lints and compiles, then evaluates
+    // to unknown; the run degrades to exploration_only and the record
+    // must point at the bad id. Status semantics are unchanged: the
+    // unknown itself is deliberate (never a fabricated verdict) — the
+    // fix is the attached reason, so exit 0 stays (post-4v1).
+    let td = tempfile::tempdir().unwrap();
+    let out = td.path().join("out");
+    let example = usage_example("order.cancel").replace(
+        "reachable(order.cancel.refund, order.cancel.refund_bounded, guard)",
+        "reachable(order.cancel.nope, order.cancel.refund_bounded, guard)",
+    );
+    assert!(
+        example.contains("order.cancel.nope"),
+        "the sed must hit the reachable cell"
+    );
+    let spec = td.path().join("order-cancel.md");
+    std::fs::write(&spec, example).unwrap();
+    claim_compile(spec.to_str().unwrap(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_eq!(code, Some(0));
+    assert_eq!(json["data"]["outcome"], "exploration_only");
+    let entry = json["data"]["checked"][0]["invariant_statuses"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["id"] == "refund_guard_reaches")
+        .unwrap()
+        .clone();
+    assert_eq!(entry["status"], "unknown");
+    let reason = entry["reason"].as_str().unwrap_or_else(|| {
+        panic!("RED (specodelic-7gh): unknown claim record carries no reason: {entry}")
+    });
+    assert!(
+        reason.contains("order.cancel.nope"),
+        "the reason must name the bad id: {reason}"
+    );
+    // The persisted report's qualified claim record carries the same
+    // reason — the report is what verify and later readers consume.
+    let report = claim_report(&out, "order-cancel");
+    let claim = report["claims"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["id"] == "refund_guard_reaches")
+        .unwrap();
+    assert_eq!(claim["status"], "unknown");
+    assert!(
+        claim["reason"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("order.cancel.nope"),
+        "persisted claim record carries the labeled reason: {claim}"
+    );
 }
 
 #[test]

@@ -1,5 +1,28 @@
 # Changelog
 
+## #122 — kernel claim records carry their reason when not verified (specodelic-7gh, eval F4/F6)
+
+A `**kernel:**` claim that evaluated to unknown — e.g.
+`reachable(order.cancel.nope, …, guard)` with a dangling seed endpoint,
+which lints and compiles clean — persisted a bare
+`{"evaluator":"kernel","id":…,"status":"unknown"}` record with no reason,
+so a run downgraded to `exploration_only` with nothing pointing at the
+bad id (the diagnosability asymmetry: a mistyped morphism in
+`resolves(…)` gets a labeled compile error, a mistyped endpoint in
+`reachable(…)` got unlabeled unknown).
+
+- **`spk model-check` / `spk orchestrate`**: kernel evaluation now
+  threads the labeled reason through the same Kleene-with-reasons shape
+  the citation path already uses — a traversal error names the offending
+  endpoint (the `QueryError` display, e.g. `unknown seed
+  `order.cancel.nope``), a discharge failure names why (type mismatch,
+  non-integer ordering, composition provenance), and a counterexample
+  record names itself. A verified status still carries no reason, and
+  the persisted qualified claim records carry the same reason.
+- **Verdict semantics untouched**: the unknown itself was deliberate
+  (never a fabricated verdict) — statuses, the aggregate outcome
+  (`exploration_only`), and all exit codes are unchanged.
+
 ## #121 — graph projections obey the 0/1/2 exit-code mapping (specodelic-0zk)
 
 `spk graph --format edges|dot|mermaid` (and the wiring view) reported

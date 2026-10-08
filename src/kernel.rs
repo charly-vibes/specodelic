@@ -795,26 +795,33 @@ impl KernelEnv {
 
     /// Compare two term values under `==` — Kleene: a type mismatch
     /// (id vs integer) cannot be discharged and is `unknown`, never a
-    /// fabricated verdict.
-    fn eq(&self, a: &TermVal, b: &TermVal) -> ThreeValued {
+    /// fabricated verdict. The unknown carries its labeled reason
+    /// (specodelic-7gh): what could not be discharged, and why.
+    fn eq(&self, a: &TermVal, b: &TermVal) -> (ThreeValued, Option<String>) {
         match (a, b) {
-            (TermVal::Int(x), TermVal::Int(y)) if x == y => ThreeValued::Verified,
-            (TermVal::Int(_), TermVal::Int(_)) => ThreeValued::Counterexample,
-            (TermVal::Id(x), TermVal::Id(y)) if x == y => ThreeValued::Verified,
-            (TermVal::Id(_), TermVal::Id(_)) => ThreeValued::Counterexample,
-            (TermVal::Dangling, TermVal::Dangling) => ThreeValued::Verified,
+            (TermVal::Int(x), TermVal::Int(y)) if x == y => (ThreeValued::Verified, None),
+            (TermVal::Int(_), TermVal::Int(_)) => (ThreeValued::Counterexample, None),
+            (TermVal::Id(x), TermVal::Id(y)) if x == y => (ThreeValued::Verified, None),
+            (TermVal::Id(_), TermVal::Id(_)) => (ThreeValued::Counterexample, None),
+            (TermVal::Dangling, TermVal::Dangling) => (ThreeValued::Verified, None),
             // A defined value never equals the dangling value.
             (TermVal::Id(_), TermVal::Dangling) | (TermVal::Dangling, TermVal::Id(_)) => {
-                ThreeValued::Counterexample
+                (ThreeValued::Counterexample, None)
             }
-            _ => ThreeValued::Unknown,
+            _ => (
+                ThreeValued::Unknown,
+                Some(
+                    "equality cannot be discharged: the compared terms have mismatched or indeterminate values (id vs integer, or an unbound variable / projection on a missing node)"
+                        .to_string(),
+                ),
+            ),
         }
     }
 
     /// Ordering comparison — integers only in v0; an id has no order
     /// (honest unknown), and anything touching dangling or a
-    /// type-mismatch is unknown.
-    fn cmp(&self, op: CmpOp, a: &TermVal, b: &TermVal) -> ThreeValued {
+    /// type-mismatch is unknown, labeled with why (specodelic-7gh).
+    fn cmp(&self, op: CmpOp, a: &TermVal, b: &TermVal) -> (ThreeValued, Option<String>) {
         match (a, b) {
             (TermVal::Int(x), TermVal::Int(y)) => {
                 let holds = match op {
@@ -824,18 +831,44 @@ impl KernelEnv {
                     CmpOp::Ge => x >= y,
                 };
                 if holds {
-                    ThreeValued::Verified
+                    (ThreeValued::Verified, None)
                 } else {
-                    ThreeValued::Counterexample
+                    (ThreeValued::Counterexample, None)
                 }
             }
-            _ => ThreeValued::Unknown,
+            _ => (
+                ThreeValued::Unknown,
+                Some(
+                    "ordering comparison requires integer values — an id or an indeterminate term has no order"
+                        .to_string(),
+                ),
+            ),
         }
     }
 
     /// Evaluate one atomic under its grounding (D1 table). Total and
-    /// terminating over any finite instance (`kernel_decidable`).
-    fn atomic(&self, a: &Atomic, scope: &BTreeMap<String, String>) -> ThreeValued {
+    /// terminating over any finite instance (`kernel_decidable`). The
+    /// unknown carries its labeled reason (specodelic-7gh): a traversal
+    /// error names the offending endpoint (the same `QueryError` display
+    /// the query path labels with — a dangling reachable(...) seed is
+    /// pointed at, not silently absorbed into an unlabeled unknown).
+    fn atomic(
+        &self,
+        a: &Atomic,
+        scope: &BTreeMap<String, String>,
+    ) -> (ThreeValued, Option<String>) {
+        let traversal_unknown = |what: &str, errs: Vec<query::QueryError>| {
+            (
+                ThreeValued::Unknown,
+                Some(format!(
+                    "{what} cannot traverse the instance: {} (fix the cell's endpoint/morphism to an id or morphism of this instance)",
+                    errs.iter()
+                        .map(|e| e.to_string())
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                )),
+            )
+        };
         match a {
             Atomic::Resolves(m) => {
                 // Acset traversal: the morphism vector's `None` values
@@ -847,9 +880,9 @@ impl KernelEnv {
                     .iter()
                     .all(|(_, t)| t.is_some())
                 {
-                    ThreeValued::Verified
+                    (ThreeValued::Verified, None)
                 } else {
-                    ThreeValued::Counterexample
+                    (ThreeValued::Counterexample, None)
                 }
             }
             Atomic::Unique(m) => {
@@ -864,33 +897,33 @@ impl KernelEnv {
                 targets.sort();
                 let distinct = targets.iter().collect::<std::collections::BTreeSet<_>>();
                 if targets.len() == distinct.len() {
-                    ThreeValued::Verified
+                    (ThreeValued::Verified, None)
                 } else {
-                    ThreeValued::Counterexample
+                    (ThreeValued::Counterexample, None)
                 }
             }
             Atomic::Acyclic(m) => {
                 // Graph traversal: the closure-based cycle membership
                 // (`cyclic_nodes`) — empty set means acyclic.
                 match query::cyclic_nodes(&self.instance, &[m.as_str()]) {
-                    Ok(cyclic) if cyclic.is_empty() => ThreeValued::Verified,
-                    Ok(_) => ThreeValued::Counterexample,
-                    Err(_) => ThreeValued::Unknown,
+                    Ok(cyclic) if cyclic.is_empty() => (ThreeValued::Verified, None),
+                    Ok(_) => (ThreeValued::Counterexample, None),
+                    Err(errs) => traversal_unknown(&format!("acyclic({m})"), errs),
                 }
             }
             Atomic::Reachable(from, to, m) => {
                 // Graph traversal: the forward closure from the seed.
                 // An unknown seed cannot be discharged — unknown, never
-                // a fabricated verdict.
+                // a fabricated verdict; the reason names the bad seed.
                 let reached =
                     query::forward_closure(&self.instance, &[from.as_str()], &[m.as_str()]);
                 match reached {
-                    Err(_) => ThreeValued::Unknown,
+                    Err(errs) => traversal_unknown(&format!("reachable({from}, {to}, {m})"), errs),
                     Ok(set) => {
                         if set.contains(to) {
-                            ThreeValued::Verified
+                            (ThreeValued::Verified, None)
                         } else {
-                            ThreeValued::Counterexample
+                            (ThreeValued::Counterexample, None)
                         }
                     }
                 }
@@ -912,66 +945,123 @@ impl KernelEnv {
     /// status (`kernel_decidable`), Kleene-composed (dl/1 absorb:
     /// unknown never coerces to pass or to counterexample).
     pub fn evaluate(&self, expr: &KernelExpr) -> ThreeValued {
+        self.eval_scope(expr, &BTreeMap::new()).0
+    }
+
+    /// Evaluate and, when the status is unknown, also return its labeled
+    /// reason (specodelic-7gh): the same evaluation, with the unknown's
+    /// cause carried out — the Kleene-with-reasons pattern the citation
+    /// path already uses. The verdict is unchanged; only the reason is
+    /// new surface.
+    pub fn evaluate_reasoned(&self, expr: &KernelExpr) -> (ThreeValued, Option<String>) {
         self.eval_scope(expr, &BTreeMap::new())
     }
 
-    fn eval_scope(&self, expr: &KernelExpr, scope: &BTreeMap<String, String>) -> ThreeValued {
+    fn eval_scope(
+        &self,
+        expr: &KernelExpr,
+        scope: &BTreeMap<String, String>,
+    ) -> (ThreeValued, Option<String>) {
         match expr {
             KernelExpr::Atomic(a) => self.atomic(a, scope),
-            KernelExpr::Not(inner) => match self.eval_scope(inner, scope) {
-                ThreeValued::Verified => ThreeValued::Counterexample,
-                ThreeValued::Counterexample => ThreeValued::Verified,
-                ThreeValued::Unknown => ThreeValued::Unknown,
-            },
+            KernelExpr::Not(inner) => {
+                let (status, reason) = self.eval_scope(inner, scope);
+                (
+                    match status {
+                        ThreeValued::Verified => ThreeValued::Counterexample,
+                        ThreeValued::Counterexample => ThreeValued::Verified,
+                        ThreeValued::Unknown => ThreeValued::Unknown,
+                    },
+                    reason.map(|r| format!("composed ¬ over unknown: {r}")),
+                )
+            }
             KernelExpr::And(a, b) => {
                 // The citation algebra's conjunction, verbatim: a
                 // counterexample dominates; two verifieds verify;
-                // otherwise the unknown absorbs (never pass).
-                match (self.eval_scope(a, scope), self.eval_scope(b, scope)) {
+                // otherwise the unknown absorbs (never pass) — and the
+                // absorbed unknown keeps its labeled reason (the first
+                // unknown operand's cause wins).
+                let (sa, ra) = self.eval_scope(a, scope);
+                let (sb, rb) = self.eval_scope(b, scope);
+                match (sa, sb) {
                     (ThreeValued::Counterexample, _) | (_, ThreeValued::Counterexample) => {
-                        ThreeValued::Counterexample
+                        (ThreeValued::Counterexample, None)
                     }
-                    (ThreeValued::Verified, ThreeValued::Verified) => ThreeValued::Verified,
-                    _ => ThreeValued::Unknown,
+                    (ThreeValued::Verified, ThreeValued::Verified) => (ThreeValued::Verified, None),
+                    _ => (
+                        ThreeValued::Unknown,
+                        Some(
+                            ra.or(rb)
+                                .unwrap_or_else(|| "an operand evaluated to unknown".to_string()),
+                        ),
+                    ),
                 }
             }
             KernelExpr::ForAll(var, object, body) => {
                 // Bounded ∀ over I(k): empty domain is verified (vacuous
                 // truth over a finite, empty set — the bounded reading);
-                // a counterexample dominates; else unknown absorbs.
+                // a counterexample dominates; else unknown absorbs —
+                // with the first unknown grounding's labeled reason.
                 let mut saw_unknown = false;
+                let mut unknown_reason: Option<String> = None;
                 for id in self.domain(object) {
                     let mut bound = scope.clone();
                     bound.insert(var.clone(), id.clone());
-                    match self.eval_scope(body, &bound) {
-                        ThreeValued::Counterexample => return ThreeValued::Counterexample,
-                        ThreeValued::Unknown => saw_unknown = true,
+                    let (status, reason) = self.eval_scope(body, &bound);
+                    match status {
+                        ThreeValued::Counterexample => return (ThreeValued::Counterexample, None),
+                        ThreeValued::Unknown => {
+                            saw_unknown = true;
+                            if unknown_reason.is_none() {
+                                unknown_reason = reason;
+                            }
+                        }
                         ThreeValued::Verified => {}
                     }
                 }
                 if saw_unknown {
-                    ThreeValued::Unknown
+                    (
+                        ThreeValued::Unknown,
+                        Some(
+                            unknown_reason
+                                .unwrap_or_else(|| "a grounding evaluated to unknown".to_string()),
+                        ),
+                    )
                 } else {
-                    ThreeValued::Verified
+                    (ThreeValued::Verified, None)
                 }
             }
             KernelExpr::Exists(var, object, body) => {
                 // Bounded ∃ over I(k): a verified witness wins; else a
-                // counterexample on every element refutes; else unknown.
+                // counterexample on every element refutes; else unknown
+                // — with the first unknown grounding's labeled reason.
                 let mut saw_unknown = false;
+                let mut unknown_reason: Option<String> = None;
                 for id in self.domain(object) {
                     let mut bound = scope.clone();
                     bound.insert(var.clone(), id.clone());
-                    match self.eval_scope(body, &bound) {
-                        ThreeValued::Verified => return ThreeValued::Verified,
-                        ThreeValued::Unknown => saw_unknown = true,
+                    let (status, reason) = self.eval_scope(body, &bound);
+                    match status {
+                        ThreeValued::Verified => return (ThreeValued::Verified, None),
+                        ThreeValued::Unknown => {
+                            saw_unknown = true;
+                            if unknown_reason.is_none() {
+                                unknown_reason = reason;
+                            }
+                        }
                         ThreeValued::Counterexample => {}
                     }
                 }
                 if saw_unknown {
-                    ThreeValued::Unknown
+                    (
+                        ThreeValued::Unknown,
+                        Some(
+                            unknown_reason
+                                .unwrap_or_else(|| "a grounding evaluated to unknown".to_string()),
+                        ),
+                    )
                 } else {
-                    ThreeValued::Counterexample
+                    (ThreeValued::Counterexample, None)
                 }
             }
         }
@@ -1020,8 +1110,8 @@ impl CorpusBackend {
 
 /// One kernel claim's command-path status: the Constraints-table row id
 /// (within the file that declares it), its three-valued status, and the
-/// labeled reason when (and only when) the status is unknown for a
-/// namable cause. Mirrors the citation path's `ResolvedStatus` shape —
+/// labeled reason whenever the status is not verified (specodelic-7gh —
+/// the unknown names its cause, the counterexample names itself). Mirrors the citation path's `ResolvedStatus` shape —
 /// the same command-output and persisted-report duality, merged through
 /// the one shared identity helper (`merge_corpus_statuses`, §3.8 TIDY).
 #[derive(Debug, Clone, PartialEq)]
@@ -1124,11 +1214,30 @@ pub fn evaluate_corpus_claims(
                         .guard_kernel
                         .iter()
                         .map(|(id, cell)| match parse_kernel_str(cell) {
-                            Ok(Some(expr)) => CorpusClaimStatus {
-                                id: id.clone(),
-                                status: env.evaluate(&expr),
-                                reason: None,
-                            },
+                            Ok(Some(expr)) => {
+                                let (status, eval_reason) = env.evaluate_reasoned(&expr);
+                                // specodelic-7gh (F4/F6): a not-verified
+                                // status carries its labeled reason —
+                                // the unknown names the cause (the bad
+                                // id), the counterexample names itself;
+                                // a verified status carries none. The
+                                // verdict semantics are untouched.
+                                let reason = match status {
+                                    ThreeValued::Verified => None,
+                                    ThreeValued::Unknown => Some(eval_reason.unwrap_or_else(
+                                        || "the claim evaluated to unknown".to_string(),
+                                    )),
+                                    ThreeValued::Counterexample => Some(
+                                        "the claim evaluated to counterexample over the invocation corpus instance — the aggregate names a refuted claim as the violated invariant"
+                                            .to_string(),
+                                    ),
+                                };
+                                CorpusClaimStatus {
+                                    id: id.clone(),
+                                    status,
+                                    reason,
+                                }
+                            }
                             // Proven parseable at extraction time; a failed
                             // re-parse is honest unknown, never a silent drop.
                             _ => CorpusClaimStatus {
