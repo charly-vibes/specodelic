@@ -9,6 +9,10 @@ toolchain reasons about lives in the structured rows.
 The repo dogfoods itself: every file in [`specs/`](specs/specodelic.md)
 is a spec written in the format it describes.
 
+New to the format? Read the [worked example](examples/worked-example.md) —
+one reservation/order spec built layer by layer, with every lint finding
+and counterexample the author hit on the way.
+
 ## The four layers
 
 | Layer        | Carries                                                        | Checked by                    |
