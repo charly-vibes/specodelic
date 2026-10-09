@@ -45,6 +45,7 @@ statement: "THE system SHALL conform"
 | confirm | held | confirmed | [[demo.conform.locked]] ∧ [[demo.conform.audited]] |
 | reopen | confirmed | held | [[demo.conform.locked]] |
 | escalate | held | held | [[demo.conform.portable]] |
+| crosscheck | held | held | [[other.spec.audited]] |
 "#;
 
 fn fixture_spec() -> spec::Spec {
@@ -304,4 +305,58 @@ fn name_identity_is_mechanical_after_trimming() {
     ]);
     let records = classify_traces(&spec, &corpus, false);
     assert_eq!(records[0].verdict, Verdict::Permitted);
+}
+
+// ---------------------------------------------------------------------------
+// RO5U review pins — corpus refusal at step level, foreign citations
+// ---------------------------------------------------------------------------
+
+/// Unknown fields are refused with a remediation hint, never silently
+/// ignored — at step level too, not just the scenario envelope (design
+/// D3: envelope discipline).
+#[test]
+fn unknown_step_field_is_refused_with_hint() {
+    let err = parse_corpus(
+        r#"{"id": "x", "setup": {"state": "held"}, "trace": [{"action": "reopen", "expects": "y"}]}"#,
+    )
+    .expect_err("an unknown step field must be refused, never ignored");
+    assert!(
+        err.message.contains("unknown field"),
+        "names the offense: {}",
+        err.message
+    );
+    assert!(
+        err.message.contains("expects"),
+        "names the offending field: {}",
+        err.message
+    );
+    assert!(
+        err.message.contains("one JSON object per line"),
+        "carries the remediation hint: {}",
+        err.message
+    );
+}
+
+/// A foreign citation in a guard (`other.spec.audited`) is an outbound
+/// typed edge of record — it must NOT resolve to a local claim by suffix
+/// identity. conform classifies THIS file's claims only (OQ1: one file
+/// per invocation), so the trace is Model-explainable → permitted.
+#[test]
+fn foreign_citation_never_resolves_to_a_local_claim() {
+    let spec = fixture_spec();
+    let corpus = corpus(&[
+        r#"{"id": "crosscheck", "setup": {"state": "held"}, "trace": [{"action": "crosscheck"}]}"#,
+    ]);
+    let records = classify_traces(&spec, &corpus, false);
+    assert_eq!(
+        records[0].verdict,
+        Verdict::Permitted,
+        "reason: {}",
+        records[0].reason
+    );
+    assert!(
+        !records[0].reason.contains("audited"),
+        "a foreign citation must not misattribute the local prose claim: {}",
+        records[0].reason
+    );
 }

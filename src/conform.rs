@@ -220,6 +220,7 @@ fn extract_ir(spec: &Spec) -> ModelIr {
 /// field is named `observations` — never `observes` — to avoid colliding
 /// with the format's typed reference field of the same name (design D3).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TraceStep {
     pub action: String,
     /// Observed state/effect references: the string values of the JSON
@@ -252,10 +253,7 @@ fn uncovered_record(
     closed_world: bool,
 ) -> VerdictRecord {
     let (verdict, reason) = if closed_world {
-        (
-            Verdict::Forbidden,
-            reason::uncovered_forbidden(closed_world, &detail),
-        )
+        (Verdict::Forbidden, reason::uncovered_forbidden(&detail))
     } else {
         (
             Verdict::Underspecified,
@@ -567,31 +565,42 @@ fn covering_claims_of(
     let Some(guard) = t.guard.as_deref() else {
         return Vec::new();
     };
-    cited_claim_ids(guard)
+    cited_claim_ids(spec, guard)
         .into_iter()
         .filter_map(|id| claims.claim(&id).cloned())
         .collect()
 }
 
 /// Extract `[[...]]` citation targets from a guard cell and resolve them
-/// to local invariant claim ids: `demo.conform.locked` → `locked` when
-/// the file prefix matches the file's own intent id. Mechanical string
-/// surgery, never semantic interpretation of the guard's meaning.
-fn cited_claim_ids(guard: &str) -> Vec<String> {
+/// to LOCAL invariant claim ids: a bare `locked` target is already local;
+/// `demo.conform.locked` → `locked` only when the dotted prefix IS the
+/// file's own intent id. A foreign citation (`other.spec.audited`) is an
+/// outbound typed edge of record, never a local claim — resolving it by
+/// suffix alone would misattribute a claim this run does not classify.
+/// Mechanical string surgery, never semantic interpretation of the
+/// guard's meaning.
+fn cited_claim_ids(spec: &Spec, guard: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut rest = guard;
     while let Some(start) = rest.find("[[") {
         let after = &rest[start + 2..];
         let Some(end) = after.find("]]") else { break };
         let target = after[..end].trim();
-        // `file.row` → local row id when the prefix is the file's own id;
-        // a bare `row` target is already local. Non-invariant or foreign
-        // targets resolve to nothing (claims.claim misses).
-        let local = target
-            .rsplit_once('.')
-            .map(|(_, row)| row.to_string())
-            .unwrap_or_else(|| target.to_string());
-        out.push(local);
+        let own_prefix = format!("{}.", spec.intent.id);
+        let local = if let Some(row) = target.strip_prefix(&own_prefix) {
+            // `file.row` → local row id when the prefix is the file's own
+            // intent id; anything else is a foreign citation (outbound
+            // leaf — this run does not classify another file's claims).
+            Some(row.to_string())
+        } else if !target.contains('.') {
+            // A bare `row` target is already local.
+            Some(target.to_string())
+        } else {
+            None
+        };
+        if let Some(local) = local {
+            out.push(local);
+        }
         rest = &after[end + 2..];
     }
     out
@@ -640,13 +649,12 @@ pub mod reason {
 
     /// `closed_world_forbidden_recorded` — the exhaustiveness declaration
     /// is named in the reason (design D2: the flag is the recorded
-    /// declaration the failure criterion requires).
-    pub fn uncovered_forbidden(closed_world: bool, detail: &str) -> String {
-        let mut out = format!("closed_world_forbidden_recorded: {detail}");
-        if closed_world {
-            out.push_str(" — forbidden under the declared closed-world mode (--closed-world)");
-        }
-        out
+    /// declaration the failure criterion requires). Only called when the
+    /// declaration was made, so the reason carries it unconditionally.
+    pub fn uncovered_forbidden(detail: &str) -> String {
+        format!(
+            "closed_world_forbidden_recorded: {detail} — forbidden under the declared closed-world mode (--closed-world)"
+        )
     }
 
     /// Uncovered detail: the scenario's setup names no initial state.
