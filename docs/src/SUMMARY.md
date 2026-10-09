@@ -45,6 +45,10 @@
 - [linter.failure_shape](specs/linter-failure_shape.md)
 - [linter.observability](specs/linter-observability.md)
 
+# Architecture
+
+- [Architecture — the four layers and the lint pipeline](architecture.md)
+
 # Worked Examples
 
 - [batch-resume — derived parallelism, worked end to end](examples/batch-resume.md)
