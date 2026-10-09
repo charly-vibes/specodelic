@@ -176,3 +176,7 @@ application correctness is inferred from a `verified` verdict.
 
 Known corpus gaps (found by dogfooding `specodelic lint specs`) are tracked in
 beads: `bd list`.
+
+How specodelic relates to OpenSpec (dual-format delta files) and to the
+read-only `ah`/espectacular spec↔test correspondence companion:
+[docs/src/tool-relationships.md](docs/src/tool-relationships.md).

@@ -69,7 +69,10 @@ at the site root for a machine summary.
 specodelic is part of the [charly-vibes tool
 ecosystem](https://charly-vibes.github.io/dulce-de-leche/ecosystem-map.html)
 — the ecosystem map shows how `spk` relates to the sibling tools
-(`wai`, beads, openspec, genesis-vibes, and the checkers).
+(`wai`, beads, openspec, genesis-vibes, and the checkers). For the two
+relationships that touch this repo daily — the OpenSpec dual-format
+protocol and the `ah`/espectacular correspondence companion — see
+[tool relationships](tool-relationships.md).
 
 ## Install
 

@@ -51,6 +51,10 @@
 - [Architecture — the four layers and the lint pipeline](architecture.md)
 - [Verification boundaries — the guarantee ladder and known limitations](verification-boundaries.md)
 
+# Tool Relationships
+
+- [specodelic, OpenSpec, and the `ah` companion — who owns what](tool-relationships.md)
+
 # Worked Examples
 
 - [worked example — reservation/order, built layer by layer, failures included](examples/worked-example.md)
