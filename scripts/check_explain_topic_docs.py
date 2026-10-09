@@ -10,8 +10,11 @@ src/guide.rs as source of truth and fails CI naming:
 
   1. any page whose stated topic count (digit or word: "six topics",
      "seven topics", "eight topics", "9 topics") != len(TOPICS);
-  2. any page that fails to enumerate every served topic id (a page
-     naming the count must name the topics);
+  2. any page that fails to enumerate every served topic id — but only
+     pages whose framing carries a topic enumeration (README.md,
+     docs/src/index.md). docs/src/installation.md is COUNT-ONLY: it
+     must state the served count and is never required to enumerate
+     ids (installation.md is a cross-reference page — count-only);
   3. the word/digit count fallback itself: any count phrase that
      matches no TOPICS-derived count is a finding (rule 1 restated —
      there is no TOPICS-derived count other than len(TOPICS));
@@ -33,7 +36,16 @@ import sys
 from pathlib import Path
 
 GUIDE_RS = "src/guide.rs"
-PAGES = ("README.md", "docs/src/index.md", "docs/src/installation.md")
+# Per-page policy map: pages whose framing carries a topic enumeration
+# must enumerate every served id ("enumerate"); count-only pages must
+# state the served count and are NOT required to enumerate ids
+# ("count-only" — installation.md is a cross-reference page).
+PAGES = (
+    ("README.md", "enumerate"),
+    ("docs/src/index.md", "enumerate"),
+    ("docs/src/installation.md", "count-only"),
+)
+POLICIES = ("enumerate", "count-only")
 
 TOPICS_BLOCK_RE = re.compile(
     r"pub const TOPICS: &\[\(&str, &str\)\] = &\[(.*?)\];", re.S
@@ -112,7 +124,12 @@ def stated_count(count_word: str) -> int:
     return COUNT_FALLBACK[count_word.lower()] if count_word.lower() in COUNT_FALLBACK else int(count_word)
 
 
-def check_page(page: Path, topics: list[str]) -> list[str]:
+def check_page(page: Path, topics: list[str], policy: str) -> list[str]:
+    if policy not in POLICIES:  # fail-closed on unknown policy
+        raise ValueError(
+            f"unknown page policy '{policy}' — must be one of "
+            f"{', '.join(POLICIES)}"
+        )
     problems: list[str] = []
     text = page.read_text(encoding="utf-8")
     n = len(topics)
@@ -124,12 +141,13 @@ def check_page(page: Path, topics: list[str]) -> list[str]:
                 f"{page}: stated topic count '{count_word} topics' != "
                 f"the {n} topics spk explain serves ({served})"
             )
-    missing = [t for t in topics if t not in text]
-    if missing:
-        problems.append(
-            f"{page}: missing served explain topics {', '.join(missing)} "
-            f"— a page naming the topic count must enumerate all {n}"
-        )
+    if policy == "enumerate":
+        missing = [t for t in topics if t not in text]
+        if missing:
+            problems.append(
+                f"{page}: missing served explain topics {', '.join(missing)} "
+                f"— a page naming the topic count must enumerate all {n}"
+            )
     problems.extend(enum_problems(page, text, topics))
     return problems
 
@@ -140,14 +158,14 @@ def check(root: Path) -> list[str]:
         topics = parse_topics((root / GUIDE_RS).read_text(encoding="utf-8"))
     except ValueError as e:
         return [f"{GUIDE_RS}: {e}"]
-    for rel in PAGES:
+    for rel, policy in PAGES:
         page = root / rel
         if not page.exists():
             problems.append(f"{rel}: doc page not found (guard checks a "
                             "fixed page set — a renamed page must be "
                             "re-listed in PAGES)")
             continue
-        problems.extend(check_page(page, topics))
+        problems.extend(check_page(page, topics, policy))
     return problems
 
 
@@ -163,7 +181,7 @@ def main() -> int:
             "never the guard or the const)", file=sys.stderr,
         )
         return 1
-    print(f"check_explain_topic_docs: OK — all pages enumerate the "
+    print(f"check_explain_topic_docs: OK — all pages agree with the "
           f"topics served by spk explain")
     return 0
 

@@ -52,10 +52,6 @@ spk explain       # the embedded format guide — nine topics, no repo access ne
 spk feedback      # send feedback about the tool
 ```
 
-The guide serves nine topics (`format`, `ears`, `kinds`, `references`,
-`lifecycle`, `lint-rules`, `dual-format`, `packs`, `graph-views`) straight
-from the binary.
-
 ## Self-hosting
 
 This repo's own corpus (`specs/`) is linted by the tool itself:

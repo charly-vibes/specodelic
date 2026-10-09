@@ -27,6 +27,13 @@ LISTING = (" (`format`, `ears`, `kinds`, `references`, `lifecycle`, "
            "`lint-rules`, `dual-format`, `packs`, `graph-views`)")
 
 
+# Convenience accessors: PAGES is a per-page policy map of
+# (relative_path, policy) tuples.
+README = cetd.PAGES[0][0]
+INDEX = cetd.PAGES[1][0]
+INSTALL = cetd.PAGES[2][0]
+
+
 def topics_block(ids: list[str]) -> str:
     entries = ",\n".join(
         f'    (\n        "{t}",\n        "Title for {t}",\n    )' for t in ids
@@ -46,7 +53,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
 
     def base_tree(self, count: str, id_list: str, with_ids: bool) -> dict[str, str]:
         pages = {}
-        for rel in cetd.PAGES:
+        for rel, _policy in cetd.PAGES:
             listing = id_list if with_ids else ""
             pages[rel] = (
                 f"Guide page.\n\n`spk explain` serves {count} topics"
@@ -66,7 +73,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
         # README's post-fix shape: count phrase + adjacent slash-list of
         # every served id.
         tree = self.base_tree("nine", LISTING, True)
-        tree[cetd.PAGES[0]] = (
+        tree[README] = (
             "- ✅ `explain` — embedded AIX guide (nine topics: "
             "format/ears/kinds/references/lifecycle/lint-rules/"
             "dual-format/packs/graph-views) plus extras.\n"
@@ -80,7 +87,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
         # page-level missing-id rule can miss this when the omitted ids
         # appear elsewhere on the page.
         tree = self.base_tree("nine", LISTING, True)
-        tree[cetd.PAGES[0]] = (
+        tree[README] = (
             "- ✅ `explain` — embedded AIX guide (format/ears/kinds/"
             "references/lifecycle/lint-rules topics) plus `dual-format`, "
             "`packs`, `graph-views` elsewhere.\n"
@@ -95,7 +102,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
         # index.md's drift shape: "eight topics (`format`, ..., `packs`)"
         # — the adjacent backticked list omits graph-views.
         tree = self.base_tree("eight", LISTING, True)
-        tree[cetd.PAGES[1]] = (
+        tree[INDEX] = (
             "`spk explain` serves eight topics (`format`, `ears`, `kinds`, "
             "`references`, `lifecycle`, `lint-rules`, `dual-format`, "
             "`packs`). Nothing more.\n"
@@ -107,7 +114,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
 
     def test_non_topic_enumeration_is_ignored(self):
         tree = self.base_tree("nine", LISTING, True)
-        tree[cetd.PAGES[2]] = (
+        tree[INSTALL] = (
             "Guide page. `spk explain` serves nine topics" + LISTING +
             ". It also mentions migrations/notes topics unrelated to "
             "the guide.\n"
@@ -145,7 +152,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
 
     def test_missing_id_is_flagged(self):
         tree = self.base_tree("nine", LISTING, True)
-        tree[cetd.PAGES[1]] = (
+        tree[INDEX] = (
             "Guide page.\n\n`spk explain` serves nine topics "
             "(`format`, `ears`, `kinds`, `references`, `lifecycle`, "
             "`lint-rules`, `dual-format`, `packs`). Nothing more.\n"
@@ -159,6 +166,37 @@ class ExplainTopicDocsTest(unittest.TestCase):
                             for p in problems), problems)
         self.assertTrue(any("omits served topic(s) graph-views" in p
                             for p in problems), problems)
+
+    def test_count_only_page_with_no_ids_passes(self):
+        # installation.md is COUNT-ONLY: a correct count with NO topic
+        # enumeration must pass (cross-reference page — count-only).
+        tree = self.base_tree("nine", LISTING, True)
+        tree[INSTALL] = (
+            "Guide page.\n\n`spk explain` serves nine topics straight "
+            "from the binary. Nothing more.\n"
+        )
+        root = self.write(tree)
+        self.assertEqual(cetd.check(root), [])
+
+    def test_count_only_page_with_wrong_count_fails(self):
+        # COUNT-ONLY pages still cannot state a stale count.
+        tree = self.base_tree("nine", LISTING, True)
+        tree[INSTALL] = (
+            "Guide page.\n\n`spk explain` serves eight topics straight "
+            "from the binary. Nothing more.\n"
+        )
+        root = self.write(tree)
+        problems = cetd.check(root)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("'eight topics' != the 9 topics", problems[0])
+
+    def test_count_only_page_is_not_required_to_enumerate_ids(self):
+        # The missing-id rule must not fire for count-only pages even
+        # when zero served ids appear in the text.
+        tree = self.base_tree("nine", LISTING, True)
+        tree[INSTALL] = "Guide page. Nine topics served, ids omitted.\n"
+        root = self.write(tree)
+        self.assertEqual(cetd.check(root), [])
 
     def test_parse_topics_reads_append_only_const(self):
         self.assertEqual(cetd.parse_topics(topics_block(ALL_IDS)), ALL_IDS)
