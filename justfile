@@ -133,6 +133,21 @@ sync-sections:
 lint-doc-examples:
     python3 scripts/check_doc_examples.py specs
 
+# Docs-accuracy gate (specodelic-lf4b.10): re-run the quickstart commands
+# whose output is captured verbatim in docs/src/installation.md and
+# docs/src/examples/worked-example.md, and diff the real output against
+# the fenced blocks in the docs. Captured output rots as the tool evolves
+# (the 7-vs-9 explain-topics drift is the existence proof); this fails on
+# drift naming the doc and command. Scenario inputs live under
+# docs/fixtures/doc-outputs (inputs only — expected outputs are parsed
+# live from the docs, never duplicated). Never hand-edit an expected
+# block to go green: re-capture from the real binary instead.
+doc-examples:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build -q
+    python3 scripts/check_quickstart_outputs.py --spk target/debug/spk
+
 # Honest dogfood gate: corpus findings vs the shrink-only baseline
 # (specs/.lint-baseline). Baseline is empty today — the corpus lints
 # fully clean — so this is strict zero-findings until an entry is added,
@@ -260,7 +275,7 @@ docs-build: docs-graphs docs-mermaid
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs sync-sections sync-sections-test summary-completeness check-explain-topic-docs lint-doc-examples lint-baseline pretender-check guard-kernel-agreement guard-siblings guard-drill-lock guard-espectacular
+ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs sync-sections sync-sections-test summary-completeness check-explain-topic-docs lint-doc-examples doc-examples lint-baseline pretender-check guard-kernel-agreement guard-siblings guard-drill-lock guard-espectacular
 
 # Structural-quality hard gate (pretender, gate mode — pretender.toml
 # thresholds are a ratchet: entries only move DOWN; never touch .git/hooks,
