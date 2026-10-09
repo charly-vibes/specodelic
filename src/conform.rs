@@ -251,15 +251,17 @@ fn uncovered_record(
     evaluated: Vec<String>,
     closed_world: bool,
 ) -> VerdictRecord {
-    let (verdict, rule) = if closed_world {
-        (Verdict::Forbidden, "closed_world_forbidden_recorded")
+    let (verdict, reason) = if closed_world {
+        (
+            Verdict::Forbidden,
+            reason::uncovered_forbidden(closed_world, &detail),
+        )
     } else {
-        (Verdict::Underspecified, "uncovered_trace_never_forbidden")
+        (
+            Verdict::Underspecified,
+            reason::uncovered_open_world(&detail),
+        )
     };
-    let mut reason = format!("{rule}: {detail}");
-    if closed_world {
-        reason.push_str(" — forbidden under the declared closed-world mode (--closed-world)");
-    }
     VerdictRecord {
         scenario_id: scenario_id.to_string(),
         verdict,
@@ -425,10 +427,7 @@ fn classify_trace(
     let Some(initial) = initial else {
         return uncovered_record(
             &scenario.id,
-            format!(
-                "scenario `{}` declares no initial state in setup — no Model element anchors the trace",
-                scenario.id
-            ),
+            reason::no_initial_state(&scenario.id),
             Vec::new(),
             closed_world,
         );
@@ -436,9 +435,7 @@ fn classify_trace(
     if !states.contains(initial.as_str()) {
         return uncovered_record(
             &scenario.id,
-            format!(
-                "setup state `{initial}` is not a declared Model state — no Model element anchors the trace"
-            ),
+            reason::undeclared_state(&initial),
             Vec::new(),
             closed_world,
         );
@@ -446,7 +443,7 @@ fn classify_trace(
 
     let mut current = initial;
     let mut covering: Vec<ClassifiedClaim> = Vec::new();
-    let mut exercised: Vec<&str> = Vec::new();
+    let mut exercised: Vec<String> = Vec::new();
 
     for (i, step) in scenario.trace.iter().enumerate() {
         let action = step.action.trim();
@@ -454,10 +451,7 @@ fn classify_trace(
         let Some(t) = transitions.get(action) else {
             return uncovered_record(
                 &scenario.id,
-                format!(
-                    "step {} action `{action}` is not a declared Model transition — no declared Model element or claim covers the trace",
-                    i + 1
-                ),
+                reason::undeclared_action(i + 1, action),
                 covering_ids(&covering),
                 closed_world,
             );
@@ -466,9 +460,12 @@ fn classify_trace(
         // the current state; the compiled Model forbids this move.
         if t.from != current {
             let guards = covering_claims_of(spec, claims, &t.id);
-            let reason = contradiction_reason(&t.id, &current, &guards);
             let evaluated = covering_ids(&guards);
-            return record(Verdict::Forbidden, reason, evaluated);
+            return record(
+                Verdict::Forbidden,
+                reason::contradiction_step(&t.id, &current, &guards),
+                evaluated,
+            );
         }
         // Rule 1/2 on observations: an observation value must name a
         // declared state or effect (else uncovered); a state observation
@@ -479,22 +476,16 @@ fn classify_trace(
             if states.contains(value) {
                 if value != t.to.as_str() {
                     let guards = covering_claims_of(spec, claims, &t.id);
-                    let reason = format!(
-                        "contradiction_forbidden_any_mode: step {} observed state `{value}` but transition `{}` declares target `{}` — the compiled Model forbids this outcome{}",
-                        i + 1,
-                        t.id,
-                        t.to,
-                        claims_suffix(&guards)
+                    return record(
+                        Verdict::Forbidden,
+                        reason::contradiction_observation(i + 1, value, &t.id, &t.to, &guards),
+                        covering_ids(&guards),
                     );
-                    return record(Verdict::Forbidden, reason, covering_ids(&guards));
                 }
             } else if !effects.contains(value) {
                 return uncovered_record(
                     &scenario.id,
-                    format!(
-                        "step {} observation `{value}` names no declared Model state or effect — no declared Model element or claim covers the trace",
-                        i + 1
-                    ),
+                    reason::undeclared_observation(i + 1, value),
                     covering_ids(&covering),
                     closed_world,
                 );
@@ -507,58 +498,38 @@ fn classify_trace(
                 covering.push(claim);
             }
         }
-        exercised.push(&t.id);
+        exercised.push(t.id.clone());
         current = t.to.clone();
     }
 
-    let _ = exercised;
     // Rule 3: an unsupported covering claim names its kind — the kind
     // exists in the format but is not executable in this run.
     if let Some(claim) = covering
         .iter()
         .find(|c| !c.evaluator.is_executable() && c.evaluator != Evaluator::Prose)
     {
-        let reason = format!(
-            "unsupported_evaluator_kind: claim `{}` covers this trace but its evaluator kind `{}` has no emitter in this run — the claim exists in the format, is not executable here",
-            claim.id,
-            claim.evaluator.label()
+        return record(
+            Verdict::Unsupported,
+            reason::unsupported_kind(claim),
+            covering_ids(&covering),
         );
-        return record(Verdict::Unsupported, reason, covering_ids(&covering));
     }
     // Rule 4: a prose-only covering claim is not interpretable — unknown,
     // naming the claim; prose never implies a judgment.
     if let Some(claim) = covering.iter().find(|c| c.evaluator == Evaluator::Prose) {
-        let reason = format!(
-            "prose_claim_not_interpretable: claim `{}` covers this trace but its expr is prose — not interpretable by this run, never implied permitted or forbidden",
-            claim.id
+        return record(
+            Verdict::Unknown,
+            reason::prose_not_interpretable(claim),
+            covering_ids(&covering),
         );
-        return record(Verdict::Unknown, reason, covering_ids(&covering));
     }
     // Rule 5: the walk explains the trace; executable covering claims'
     // guards enabled each step — permitted.
-    let reason = match exercised.as_slice() {
-        [] => format!(
-            "permitted: scenario `{}` declares an empty trace from state `{current}` — explainable by the declared Model",
-            scenario.id
-        ),
-        steps => format!(
-            "permitted: trace through {} explainable by the declared Model's transition relation{}",
-            steps
-                .iter()
-                .map(|s| format!("`{s}`"))
-                .collect::<Vec<_>>()
-                .join(", "),
-            if covering.is_empty() {
-                String::new()
-            } else {
-                format!(
-                    " — executable claims evaluated: {}",
-                    covering_ids(&covering).join(", ")
-                )
-            }
-        ),
-    };
-    record(Verdict::Permitted, reason, covering_ids(&covering))
+    record(
+        Verdict::Permitted,
+        reason::permitted(&scenario.id, &exercised, &current, &covering),
+        covering_ids(&covering),
+    )
 }
 
 /// The string values of a step's observations object — the observed
@@ -626,33 +597,159 @@ fn cited_claim_ids(guard: &str) -> Vec<String> {
     out
 }
 
-/// The `contradiction_forbidden_any_mode` reason: names the violated
-/// transition, the state it was exercised from, and the executable
-/// claim(s) covering it (the claim id the record must name).
-fn contradiction_reason(transition: &str, from_state: &str, guards: &[ClassifiedClaim]) -> String {
-    format!(
-        "contradiction_forbidden_any_mode: transition `{transition}` is declared from another state — exercised from `{from_state}`, the compiled Model's transition relation forbids this step{}",
-        claims_suffix(guards)
-    )
-}
+// ---------------------------------------------------------------------------
+// Verdict-reason formatting — the ONE place reason strings are built, as
+// pure functions of their labeled inputs so the reason text is directly
+// testable (tasks.md 1.5). Each function names the rule marker (the same
+// tokens the delta's Properties table pins) and the claims/elements that
+// produced the verdict.
+// ---------------------------------------------------------------------------
 
-/// The executable-claim suffix a contradiction reason carries: names the
-/// contradicted executable claim id(s) covering the violated transition.
-fn claims_suffix(guards: &[ClassifiedClaim]) -> String {
-    let executable: Vec<&ClassifiedClaim> = guards
-        .iter()
-        .filter(|c| c.evaluator.is_executable())
-        .collect();
-    if executable.is_empty() {
-        String::new()
-    } else {
+/// The pure verdict-reason builders — testable without a spec, a corpus,
+/// or a walk.
+pub mod reason {
+    use super::ClassifiedClaim;
+
+    /// The executable-claim suffix a contradiction reason carries: names
+    /// the contradicted executable claim id(s) covering the violated
+    /// transition.
+    fn executable_claims_suffix(guards: &[ClassifiedClaim]) -> String {
+        let executable: Vec<&ClassifiedClaim> = guards
+            .iter()
+            .filter(|c| c.evaluator.is_executable())
+            .collect();
+        if executable.is_empty() {
+            String::new()
+        } else {
+            format!(
+                " — contradicts executable claim(s) {}",
+                executable
+                    .iter()
+                    .map(|c| format!("`{}`", c.id))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        }
+    }
+
+    /// `uncovered_trace_never_forbidden` — absence of coverage in the
+    /// default open-world mode is underspecification, never prohibition.
+    pub fn uncovered_open_world(detail: &str) -> String {
+        format!("uncovered_trace_never_forbidden: {detail}")
+    }
+
+    /// `closed_world_forbidden_recorded` — the exhaustiveness declaration
+    /// is named in the reason (design D2: the flag is the recorded
+    /// declaration the failure criterion requires).
+    pub fn uncovered_forbidden(closed_world: bool, detail: &str) -> String {
+        let mut out = format!("closed_world_forbidden_recorded: {detail}");
+        if closed_world {
+            out.push_str(" — forbidden under the declared closed-world mode (--closed-world)");
+        }
+        out
+    }
+
+    /// Uncovered detail: the scenario's setup names no initial state.
+    pub fn no_initial_state(scenario_id: &str) -> String {
         format!(
-            " — contradicts executable claim(s) {}",
-            executable
-                .iter()
-                .map(|c| format!("`{}`", c.id))
-                .collect::<Vec<_>>()
-                .join(", ")
+            "scenario `{scenario_id}` declares no initial state in setup — no Model element anchors the trace"
+        )
+    }
+
+    /// Uncovered detail: the setup's state names no declared Model state.
+    pub fn undeclared_state(state: &str) -> String {
+        format!(
+            "setup state `{state}` is not a declared Model state — no Model element anchors the trace"
+        )
+    }
+
+    /// Uncovered detail: a step's action names no declared transition.
+    pub fn undeclared_action(step: usize, action: &str) -> String {
+        format!(
+            "step {step} action `{action}` is not a declared Model transition — no declared Model element or claim covers the trace"
+        )
+    }
+
+    /// Uncovered detail: an observation names no declared state/effect.
+    pub fn undeclared_observation(step: usize, value: &str) -> String {
+        format!(
+            "step {step} observation `{value}` names no declared Model state or effect — no declared Model element or claim covers the trace"
+        )
+    }
+
+    /// `contradiction_forbidden_any_mode` — a declared transition
+    /// exercised from a state it is not declared from.
+    pub fn contradiction_step(
+        transition: &str,
+        from_state: &str,
+        guards: &[ClassifiedClaim],
+    ) -> String {
+        format!(
+            "contradiction_forbidden_any_mode: transition `{transition}` is declared from another state — exercised from `{from_state}`, the compiled Model's transition relation forbids this step{}",
+            executable_claims_suffix(guards)
+        )
+    }
+
+    /// `contradiction_forbidden_any_mode` — an observation contradicting
+    /// the transition's declared target state.
+    pub fn contradiction_observation(
+        step: usize,
+        observed: &str,
+        transition: &str,
+        target: &str,
+        guards: &[ClassifiedClaim],
+    ) -> String {
+        format!(
+            "contradiction_forbidden_any_mode: step {step} observed state `{observed}` but transition `{transition}` declares target `{target}` — the compiled Model forbids this outcome{}",
+            executable_claims_suffix(guards)
+        )
+    }
+
+    /// `unsupported_evaluator_kind` — the kind exists in the format but
+    /// has no emitter in this run; the reason names the kind.
+    pub fn unsupported_kind(claim: &ClassifiedClaim) -> String {
+        format!(
+            "unsupported_evaluator_kind: claim `{}` covers this trace but its evaluator kind `{}` has no emitter in this run — the claim exists in the format, is not executable here",
+            claim.id,
+            claim.evaluator.label()
+        )
+    }
+
+    /// `prose_claim_not_interpretable` — the reason names the prose
+    /// claim; prose never implies a permitted/forbidden judgment.
+    pub fn prose_not_interpretable(claim: &ClassifiedClaim) -> String {
+        format!(
+            "prose_claim_not_interpretable: claim `{}` covers this trace but its expr is prose — not interpretable by this run, never implied permitted or forbidden",
+            claim.id
+        )
+    }
+
+    /// `permitted` — the walk explains the trace through the declared
+    /// transition relation, with the executable covering claims named.
+    pub fn permitted(
+        scenario_id: &str,
+        exercised: &[String],
+        current_state: &str,
+        covering: &[ClassifiedClaim],
+    ) -> String {
+        if exercised.is_empty() {
+            return format!(
+                "permitted: scenario `{scenario_id}` declares an empty trace from state `{current_state}` — explainable by the declared Model"
+            );
+        }
+        let steps = exercised
+            .iter()
+            .map(|s| format!("`{s}`"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let claims = if covering.is_empty() {
+            String::new()
+        } else {
+            let ids: Vec<String> = covering.iter().map(|c| c.id.clone()).collect();
+            format!(" — executable claims evaluated: {}", ids.join(", "))
+        };
+        format!(
+            "permitted: trace through {steps} explainable by the declared Model's transition relation{claims}"
         )
     }
 }
