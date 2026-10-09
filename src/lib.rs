@@ -16,6 +16,7 @@ pub mod blocks;
 pub mod checklist;
 pub mod citation_corpus;
 pub mod compile;
+pub mod conform;
 pub mod doctor;
 pub mod ears;
 pub mod graph;
