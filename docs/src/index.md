@@ -46,8 +46,9 @@ see the [packs spec](specs/packs.md).
 ## For agents
 
 No repo access needed: `spk explain` serves the distilled format guide
-from inside the binary — eight topics (`format`, `ears`, `kinds`,
-`references`, `lifecycle`, `lint-rules`, `dual-format`, `packs`), and every lint
+from inside the binary — nine topics (`format`, `ears`, `kinds`,
+`references`, `lifecycle`, `lint-rules`, `dual-format`, `packs`,
+`graph-views`), and every lint
 finding carries its own `rule_id` and one-line semantics. See `llms.txt`
 at the site root for a machine summary.
 

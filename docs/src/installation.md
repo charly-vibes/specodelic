@@ -48,9 +48,13 @@ spk model-check order.cancel.md
 ```sh
 spk doctor        # diagnose the workspace (self-hosting vs consumer mode)
 spk init          # write the SPECODELIC managed block into AGENTS.md
-spk explain       # the embedded format guide — seven topics, no repo access needed
+spk explain       # the embedded format guide — nine topics, no repo access needed
 spk feedback      # send feedback about the tool
 ```
+
+The guide serves nine topics (`format`, `ears`, `kinds`, `references`,
+`lifecycle`, `lint-rules`, `dual-format`, `packs`, `graph-views`) straight
+from the binary.
 
 ## Self-hosting
 
