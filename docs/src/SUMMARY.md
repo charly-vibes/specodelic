@@ -48,6 +48,7 @@
 # Architecture
 
 - [Architecture — the four layers and the lint pipeline](architecture.md)
+- [Verification boundaries — the guarantee ladder and known limitations](verification-boundaries.md)
 
 # Worked Examples
 

@@ -12,8 +12,18 @@
 
 ## In progress
 
-- Self-hosting round: `specs/` described in its own format.
-- Docs conformance round (DDL-u8x epic) — book migrated to root `book.toml`.
+- **Self-hosting round** — the `specs/` corpus is specodelic's own
+  specification, written in the format it defines, so the tool lints and
+  verifies its own documentation the way it would a user's spec (the
+  self-hosting-compiler analogy). The round keeps that corpus lint-clean
+  as the format grows, making the tool's own spec the first consumer of
+  every new rule.
+- **Docs conformance round** — the project's documentation is held to a
+  conformance standard like the specs' own: the mdBook site now builds
+  from a single root `book.toml`, so one build renders the whole book —
+  including the generated spec and openspec pages — and drift between
+  the prose and the corpus it mirrors surfaces as a build or gate
+  failure instead of rotting silently.
 
 ## Mapped to specs
 

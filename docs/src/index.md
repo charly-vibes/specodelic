@@ -13,6 +13,11 @@ New to the format? Read the [worked example](examples/worked-example.md) —
 one reservation/order spec built layer by layer, with every lint finding
 and counterexample the author hit on the way.
 
+Before trusting a green checkmark, read
+[verification boundaries](verification-boundaries.md) — the guarantee
+ladder from lint-clean to matches-oracle, and what each rung does *not*
+assure.
+
 ## The four layers
 
 | Layer        | Carries                                                        | Checked by                    |
