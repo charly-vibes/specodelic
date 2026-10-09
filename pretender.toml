@@ -23,7 +23,9 @@ exclude = [
   "docs/**",
   "./docs/**",
   "vendor/**",
+  "./vendor/**",
   "node_modules/**",
+  "./node_modules/**",
   "**/*_generated.*",
 ]
 
