@@ -9,6 +9,7 @@ on:
       - 'theme/**'
       - 'Cargo.toml'
       - 'llms.txt'
+      - 'llm.txt'
       - 'justfile'
       - '.github/workflows/docs.yml'
     tags:
@@ -88,6 +89,13 @@ jobs:
         # Status link on the DEPLOYED copy; repo-source llms.txt is never
         # touched (specodelic-2m7).
         run: python3 scripts/stamp_llms.py llms
+
+      - name: Refresh repo-root narrative
+        # specodelic-lf4b.11: keep the CI path in lockstep with `just
+        # docs-build` — the root phase derives repo-root llm.txt from
+        # llms.txt + SUMMARY.md (ephemeral in CI; the local run surfaces
+        # drift in git status).
+        run: python3 scripts/stamp_llms.py root
 
 
       - name: Upload Pages artifact

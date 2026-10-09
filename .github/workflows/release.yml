@@ -236,3 +236,24 @@ jobs:
           git add bucket/specodelic.json
           git diff --staged --quiet || git commit -m "Update specodelic to ${VERSION}"
           git push
+
+      - name: Stamp release artifacts back to main
+        # specodelic-lf4b.11: docs/src/release.md and llm.txt are generated
+        # (scripts/stamp_llms.py) but tracked in git, so repo browsers read
+        # the checked-in copies — which used to lag the crate version until
+        # someone ran a docs build. Commit-stamp at release time: the tag
+        # push IS the release trigger, so stamp both artifacts from it and
+        # commit to main. GITHUB_REF_NAME/GITHUB_SHA make the stamp name
+        # the release tag. Runs last: a stamping failure must not gate the
+        # shipped release. The resulting commit may trigger a docs.yml
+        # rebuild (release.md is under docs/**) — that cannot loop, since
+        # docs.yml itself commits nothing.
+        run: |
+          git checkout -B main origin/main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          python3 scripts/stamp_llms.py page
+          python3 scripts/stamp_llms.py root
+          git add docs/src/release.md llm.txt
+          git diff --staged --quiet || git commit -m "stamp: regenerate release.md + llm.txt for ${GITHUB_REF_NAME} (specodelic-lf4b.11)"
+          git push origin main

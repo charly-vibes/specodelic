@@ -235,7 +235,8 @@ docs-graphs:
 
 # Build the docs book locally, mirroring the docs.yml workflow steps
 # (specodelic-2m7: the shared scripts/stamp_llms.py keeps both paths in
-# lockstep — release page before the build, stamped llms.txt after).
+# lockstep — release page before the build, stamped llms.txt after; the
+# repo-root narrative is refreshed by the `root` phase, lf4b.11).
 # Depends on docs-graphs (add-graph-views task 3.3): the generated views
 # must exist before mdbook resolves the {{#include}} directives.
 # Fetch the vendored mermaid bundle if missing (see .gitignore for why it
@@ -271,7 +272,26 @@ docs-build: docs-graphs docs-mermaid
         exit 1
     fi
     python3 scripts/stamp_llms.py llms
+    # specodelic-lf4b.11: refresh the repo-root narrative too, so any
+    # docs build surfaces drift between llms.txt and llm.txt in git
+    # status instead of letting it rot silently.
+    python3 scripts/stamp_llms.py root
     echo "docs built: book/index.html"
+
+# Regenerate the checked-in stamped artifacts (docs/src/release.md and
+# llm.txt) from Cargo.toml / llms.txt / docs/src/SUMMARY.md — both are
+# generated but tracked, so repo browsers read them straight from git
+# (specodelic-lf4b.11). release.yml runs the same stamps on a tag push
+# and commits them to main (commit-stamp at release time); this target is
+# the local equivalent for drift between releases. Never hand-edit those
+# two files.
+[private]
+stamp-artifacts:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python3 scripts/stamp_llms.py page
+    python3 scripts/stamp_llms.py root
+    echo "stamped: docs/src/release.md, llm.txt"
 
 # === CI Pipeline ===
 
