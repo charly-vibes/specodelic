@@ -2,7 +2,7 @@ run_id: epic-orchestrator-2026-10-09-specodelic-lf4b-4-static-mermaid-diagrams-f
 pipeline: epic-orchestrator
 topic: 'specodelic-lf4b.4: static Mermaid diagrams — four-layer relationship + lint checker DAG'
 created_at: '2026-10-09T16:38:46.375782555+00:00'
-current_step: 3
+current_step: 5
 approvals: {}
 epic: null
 child_issues: []
