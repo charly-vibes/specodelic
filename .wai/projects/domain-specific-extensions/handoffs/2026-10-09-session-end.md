@@ -32,34 +32,22 @@ phase: design
 
 ## Context
 
-### git_status
-
-```
- M .wai/pipeline-runs/epic-orchestrator-2026-10-09-specodelic-lf4b-2-add-expected-outputs-to-the-installation-md-quickstart.yml
-?? .wai/projects/domain-specific-extensions/plans/2026-10-09-brief-wai-projects-domain-specific-extensions-br-3.md
-```
-
 ### open_issues
 
 ```
 ○ specodelic-eczv P1 Change add-conform scaffolded: spk conform external-oracle trace conformance (ladder level 4)
+├── ○ specodelic-eczv.1 P1 conform phase 1: verdict engine core (pure classification, no CLI)
+├── ○ specodelic-eczv.2 P1 conform phase 2: report schema and scope digest
+├── ○ specodelic-eczv.3 P1 conform phase 3: input gate (artifacts, corpus validation)
+├── ○ specodelic-eczv.4 P1 conform phase 4: CLI wiring and exit-code contract
+└── ○ specodelic-eczv.5 P1 conform phase 5: lifecycle independence and dogfood
 ○ specodelic-jf1 P1 Rollout: migrate specs/ corpus into openspec/specs/ single tree (mcy steps 3+5)
 ○ specodelic-04c P2 Decide kernel.binding vocabulary enablement: orphan_vocabulary labels files with the kernel.binding column until a kind:profile pack in namespace 'kernel' is discovered (src/packs.rs scans column headers). Found by specodelic-bf5 — its CLI fixture needed a minimal kernel pack as the rule's sanctioned remediation. Decide at §6 corpus migration / archive: ship kernel vocabulary enablement in specs/, or a linter carve-out. Out of specodelic-bf5 scope.
-○ specodelic-0jg P2 tap: publish homebrew/scoop formulae — tap serves 0.3.1, now 2 releases behind (0.4.0, 0.5.0); TAP_GITHUB_TOKEN absent (HITL)
 ○ specodelic-39w P2 [bug] acset instance builder panics on model.state anchor links — uninterned pseudo-node
 ○ specodelic-7c7 P2 lint: model_present 'empty-but-present beats absent' wording promises a differential that does not exist
 ○ specodelic-bhp P2 Rollout: tambor/espectacular contract re-key + archive-companion write-path decision (mcy steps 4+6)
 ○ specodelic-d8c P2 lint: Reference Typing (ref_kind_compatible) is declared but enforced by no rule
 ○ specodelic-dlf P2 openspec: MODIFIED change for migrate mirror_byte_identical — mixed-delta aggregation supersedes ADDED-only mirror (follow-up to specodelic-54v)
-○ specodelic-lf4b P2 [epic] Human-facing documentation improvements from external reviews
-├── ○ specodelic-lf4b.4 P2 Add static diagrams: four-layer relationship and lint checker DAG
-├── ○ specodelic-lf4b.5 P2 Add one evolving worked example to the docs book
-├── ○ specodelic-lf4b.6 P2 Add guarantee-ladder / verification-boundaries page
-├── ○ specodelic-lf4b.7 P2 Add a cold-reader glossary to the docs book
-├── ○ specodelic-lf4b.8 P3 Add 'when to use this command' context to command reference
-├── ○ specodelic-lf4b.9 P3 Document tool relationships: OpenSpec dual-format and the ah companion CLI
-├── ○ specodelic-lf4b.10 P3 Add docs-accuracy gate: re-run quickstart commands and diff captured outputs
-└── ○ specodelic-lf4b.11 P3 Sync stamped machine artifacts (release.md, llm.txt) for repo readers
 ○ specodelic-vpq P2 docs: positioning — state the spec-first/disposable-code assumption and when NOT to use the format
 ○ specodelic-xci P2 lint: advisory warnings for placeholder and tautology content (TODO cells, trivially-true predicates)
 ○ specodelic-3a8 P3 refactor: decouple dual-format (openspec) metadata from core Spec parse — adapter layer
@@ -95,7 +83,7 @@ phase: design
 ○ specodelic-mlc P4 corpus: consolidate restated outbound-leaf carve-outs into one normative statement
 
 --------------------------------------------------------------------------------
-Total: 51 issues (51 open, 0 in progress)
+Total: 46 issues (46 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
