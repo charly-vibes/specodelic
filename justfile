@@ -146,6 +146,16 @@ lint-baseline:
 summary-completeness:
     python3 scripts/check_summary_completeness.py .
 
+# Explain-topic doc guard: README.md, docs/src/index.md and
+# docs/src/installation.md must agree with the served `spk explain`
+# TOPICS count parsed from src/guide.rs (README said six, index said
+# eight, installation said seven — against a binary serving nine;
+# specodelic-lf4b.1). The stdlib unittest for the guard needs no
+# separate recipe: sync-sections-test below discovers all
+# scripts/test_*.py, including test_check_explain_topic_docs.py.
+check-explain-topic-docs:
+    python3 scripts/check_explain_topic_docs.py .
+
 # Tests for the section-sync script itself (stdlib unittest): drift
 # logic + the capability-format check (openspec/specs/<cap>/spec.md
 # must be dual-format — frontmatter-less capability specs fail CI;
@@ -250,7 +260,7 @@ docs-build: docs-graphs docs-mermaid
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs sync-sections sync-sections-test summary-completeness lint-doc-examples lint-baseline pretender-check guard-kernel-agreement guard-siblings guard-drill-lock guard-espectacular
+ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs sync-sections sync-sections-test summary-completeness check-explain-topic-docs lint-doc-examples lint-baseline pretender-check guard-kernel-agreement guard-siblings guard-drill-lock guard-espectacular
 
 # Structural-quality hard gate (pretender, gate mode — pretender.toml
 # thresholds are a ratchet: entries only move DOWN; never touch .git/hooks,
