@@ -9,6 +9,7 @@
 
 - [Installation & Quick Start](installation.md)
 - [Command Reference](commands.md)
+- [Glossary — the jargon, defined for a cold read](glossary.md)
 
 # The Format
 
