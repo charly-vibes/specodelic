@@ -95,6 +95,20 @@ chmod +x specodelic spk && sudo mv specodelic spk /usr/local/bin/
 
 Or via Cargo: `cargo install specodelic` (installs `specodelic` and `spk`).
 
+### Verify it works
+
+```sh
+spk --version
+spk explain
+```
+
+`spk --version` confirms the binaries are on your `PATH`; `spk explain`
+lists the built-in topics and is the natural first command — try
+`spk explain format` for the four-layer overview.
+
+For the full quickstart (scaffold, lint, compile, verify — with captured
+output), see [`docs/src/installation.md`](docs/src/installation.md).
+
 ## Development
 
 ```console
