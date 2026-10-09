@@ -6,6 +6,24 @@ You are a pi subagent in repo `/var/home/sasha/para/areas/dev/gh/charly/specodel
 The orchestrator will verify with real gates — never claim work the diff
 doesn't contain.
 
+## Seeded insight (from a prior spawn's 50-min research pass — do NOT re-derive)
+
+A previous subagent run for this ticket spent ~50 minutes tracing output
+plumbing before dying. Its conclusions, take them as given:
+
+- Commands emit through `genesis::guide::Output::emit` (genesis-vibes 0.11,
+  the version this repo pins): **JSON envelope for pipes, human-readable
+  for TTYs** — the capture script MUST force a deterministic format (run
+  with `--format json` / `--json` envelope output, or `--human` explicitly,
+  NOT relying on TTY detection, and run with stdout redirected).
+- Human output mixes the payload with hints/warnings blocks; the **JSON
+  envelope is the stable comparison surface** (`data` + `warnings` keys).
+- Verified: `cargo run -q -- lint specs --human` captures work; envelope
+  has stable top-level keys (`ok`, `data`, `warnings`, `hints`, `meta`).
+- Timebox: research is DONE — go straight to implementation. Land a first
+  working `just doc-examples` within ~15 minutes, then iterate. A prior
+  run died in extended research; do not repeat it.
+
 ## Orientation (do this first)
 
 - `export WAI_PROJECT=domain-specific-extensions`
