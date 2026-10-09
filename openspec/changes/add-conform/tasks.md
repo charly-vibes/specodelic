@@ -9,7 +9,7 @@ Tidying commits are separate from feature commits.
 (Assumes design.md OQ2 resolution — invariant claims + Model only, laws
 excluded; revisit before 1.2 if the maintainer rules otherwise.)
 
-- [ ] 1.1 **RED**: unit tests in `tests/conform_classification.rs` for the
+- [x] 1.1 **RED**: unit tests in `tests/conform_classification.rs` for the
       closed taxonomy over a fixture spec + fixture JSONL corpus:
       executable-claim contradiction → verdict with claim id in reason
       (per `required_claims_classified` semantics); prose-only covering
@@ -17,11 +17,11 @@ excluded; revisit before 1.2 if the maintainer rules otherwise.)
       `underspecified`; unsupported evaluator kind → `unsupported` naming
       the kind. Run `just test-smart` — all new tests must fail (module
       does not exist).
-- [ ] 1.2 **GREEN**: implement claim classification consumption in
+- [x] 1.2 **GREEN**: implement claim classification consumption in
       `src/conform.rs` reusing model_check's claim types (D4 — no new
       status vocabulary); classify traces against the compiled Model's
       transition relation (mechanical name identity after trimming, D3).
-- [ ] 1.3 **RED→GREEN**: evidence-class separation (design D2) — a
+- [x] 1.3 **RED→GREEN**: evidence-class separation (design D2) — a
       contradicting trace classified *without* the declaration is still
       `forbidden`, record `closed_world: false`, reason names the claim
       (`contradiction_forbidden_any_mode`); an uncovered trace *with*
@@ -30,10 +30,10 @@ excluded; revisit before 1.2 if the maintainer rules otherwise.)
       (`closed_world_forbidden_recorded`); the same uncovered trace
       without the declaration is `underspecified`
       (`uncovered_trace_never_forbidden`).
-- [ ] 1.4 **RED→GREEN**: taxonomy totality — every corpus trace receives
+- [x] 1.4 **RED→GREEN**: taxonomy totality — every corpus trace receives
       exactly one verdict; fixture corpus reaching all five values
       (`taxonomy_is_total_and_distinct`).
-- [ ] 1.5 **TIDY**: extract verdict-reason formatting into a testable
+- [x] 1.5 **TIDY**: extract verdict-reason formatting into a testable
       unit; dead-flag and clippy sweep.
 
 ## 2. Report schema and scope digest
