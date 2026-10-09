@@ -10,9 +10,14 @@ a clean run — findings and failures never ride a success-shaped envelope
 
 All commands emit through the genesis envelope: JSON for pipes,
 human-readable for TTYs (`--human` / `--format json` to override).
-Failures carry a remediation hint.
+Failures carry a remediation hint. Hit jargon? The
+[glossary](glossary.md) defines every term a cold read needs.
 
 ## `spk lint <files|dirs>`
+
+**Use when:** you want the gate — before committing, in CI, or wired as
+the pre-commit hook (`spk hooks install`). It is the first stage every
+other verb assumes (`spk explain lifecycle`).
 
 The gate. Runs every rule in the catalog over spec files (recursively;
 files without frontmatter are skipped with a warning). Each finding
@@ -69,6 +74,10 @@ gates a lifecycle stage — no checklist declared, nothing checked;
 
 ## `spk graph <files|dirs>`
 
+**Use when:** you need to see who references what — dangling references,
+fan-in/fan-out, typing violations, supersedes cycles — before making
+rename, merge, or refactor decisions (the advisors build on it).
+
 Derives the reference graph from every typed reference field: nodes,
 edges (including a Transition's `from`/`to` state edges), fan-in/fan-out
 per row, dangling references, typing violations (the Reference Typing
@@ -109,11 +118,19 @@ clean empty corpus).
 
 ## `spk new <id>`
 
+**Use when:** you are starting a fresh spec and want the four-layer
+skeleton plus the per-layer guidance comments instead of a blank file.
+
 Scaffolds a spec file from the template — per-layer HTML-comment
 guidance (valid kinds, what a guard may cite, law-case requirements),
 rendered from the same constants the linter enforces.
 
 ## `spk migrate <file> [--dry-run]`
+
+**Use when:** you have an existing openspec delta to wrap (plain form)
+or — with `--rekey` — a 0.6.0-era dual-format file still carrying
+`id: spec` that must be re-keyed to its real parent-dir-derived id for
+the 0.6.0 → 0.7.0 corpus migration (`spk lint <tree>` finds them).
 
 Wraps an existing openspec delta file in place into the dual-format
 four-layer skeleton: generated frontmatter (the real id derived by the
@@ -135,6 +152,10 @@ sanctioned 0.6.0 → 0.7.0 corpus migration path: `spk lint <tree>` finds
 the files, `spk migrate <file> --rekey` per file.
 
 ## `spk compile <files> --out-dir <dir>`
+
+**Use when:** a spec is lint-clean and you want its executable artifacts
+— the Constraints TOML, proptest scaffolding, and TLA+ module that
+`model-check` and `verify` consume.
 
 Compiles a lint-clean spec into three artifacts: `<stem>.toml`
 (Constraints), `<stem>_props.rs` (proptest scaffolding), `<stem>.tla`
@@ -188,6 +209,24 @@ semantics from ah, crossing the sibling-tool boundary (read-only over
 - Spec: [compile](specs/compile.md)
 
 ## `spk model-check <files>`
+
+**Use when:** you want bounded evidence that the compiled model's
+required claims hold (`spk explain lifecycle`: model_check requires a
+complete Model section). Read the outcome honestly —
+`claim_aggregate_governs` (specs/model_check.md) fixes the priority:
+
+- `no_counterexample` — clean: a nonempty required set all verified over
+  a completed bounded exploration (the native backend earns it when the
+  corpus carries executable claims; it is not TLC-only).
+- `counterexample_found` — a required claim was refuted; exit 1, the
+  finding names the claim id.
+- `timed_out` — the depth/state/time bound expired before the
+  exploration completed; exit 0, but not clean.
+- `exploration_only` — the exploration completed but required claims
+  were unknown, unsupported, or missing — including a prose-only corpus
+  whose required set is empty; exit 0, but not clean.
+
+Only `no_counterexample` satisfies `spk verify`'s model gate.
 
 Runs the compiled model through a model-check backend within a stated
 bound (`--max-depth`, `--max-states`, `--timeout-secs`). Two backends:
@@ -255,6 +294,15 @@ not-clean.
 
 ## `spk verify <files>`
 
+**Use when:** you want the conjunction — executed proptest properties
+*and* a current clean model verdict (`no_counterexample`). **Choose**
+`verify` over re-running `model-check` when a current `.check.json`
+exists and you want the full gate without re-exploring the model —
+verify never re-compiles and never re-runs the model checker; choose
+`model-check` when you need fresh bounded exploration evidence itself.
+Neither is a substitute for the application's own test suite
+(`spk explain lifecycle`).
+
 Executes the emitted proptest scaffolding and rejects stale clean
 results via the `.check.json` hash.
 
@@ -315,6 +363,10 @@ whole — the next verify pays one cold proptest rebuild. Set
 
 ## `spk parse <file>`
 
+**Use when:** a downstream tool or script needs one file's structured IR
+as JSON — syntax-only, it succeeds even where lint would fail (chain
+`spk lint` yourself).
+
 Emits the parsed Spec IR for one file as a JSON envelope (specodelic-9rv):
 `data` carries the full structured layer — intent, constraints rows,
 states, transitions, properties rows (cells as keyed maps, not generated
@@ -326,6 +378,9 @@ error envelope with a remediation hint and a non-zero exit.
 
 ## `spk doctor`
 
+**Use when:** onboarding a repo or after a format-revision bump — it
+classifies the workspace and warns (never fails) on corpus revision lag.
+
 Classifies the workspace (`self_hosting` vs `consumer`), checks the
 local corpus's `Revision N` against the binary's embedded
 `format_revision` — warns, never fails, on lag. A `corpus discovery`
@@ -334,16 +389,25 @@ file count, or the discovery rule).
 
 ## `spk explain [topic]`
 
-The embedded format guide: `format`, `ears`, `kinds`, `references`,
-`lifecycle`, `lint-rules`. No repository access required.
+**Use when:** you are offline or want the canonical wording — the
+embedded format guide, no repository access required. Nine topics:
+`format`, `ears`, `kinds`, `references`, `lifecycle`, `lint-rules`,
+`dual-format`, `packs`, `graph-views`.
 
 ## `spk init`, `spk feedback`
+
+**Use when:** provisioning an agent-facing repo (`init` writes the
+SPECODELIC managed block) or filing an upstream issue (`feedback`).
 
 `spk init` writes/refreshes the `SPECODELIC` managed block in the
 repo's `AGENTS.md` (rule catalog + format revision). `spk feedback`
 opens a prefilled feedback channel for the tool.
 
 ## `spk hooks install`, `spk hooks uninstall`
+
+**Use when:** you want the dual-format lint gate (`spk lint openspec`)
+to run on every commit — marker-guarded and additive in the lefthook
+chain, never a commit trap.
 
 `spk hooks install` wires the dual-format gate (`spk lint openspec`)
 into the repo's pre-commit chain as a marker-guarded managed block in
@@ -358,6 +422,10 @@ get a labeled refusal with a manual-wiring hint. `spk hooks
 uninstall` strips only the managed block.
 
 ## `spk archive-companion <CHANGE_ID>`
+
+**Use when:** archiving an openspec change whose deltas carry the
+dual-format layer — the default `openspec archive` would strip it
+(`spk explain dual-format` has the migration recipe).
 
 `spk archive-companion` archives an openspec change while preserving
 its dual-format layer (specodelic-fzo, GH#7): default `openspec
@@ -376,6 +444,11 @@ to this command.
 
 ## `spk rename <old_id> <new_id> [files|dirs]`
 
+**Use when:** an id changes and every referencing `[[link]]` (plus
+checklist `mapped_ids` and the filename itself) must follow — computed
+and verified in memory before any byte is written, so a failed rename
+leaves the repo byte-identical.
+
 The atomic rename (specs/rename.md): updates the defining row (an
 Intent frontmatter id or a table row's qualified id) and every
 referencing `[[link]]` — including child refs like `[[old_id.child]]` —
@@ -393,6 +466,10 @@ rejections are labeled failures with remediation hints.
 - Spec: [rename](specs/rename.md)
 
 ## Merge check
+
+**Use when:** two branch tips both touched spec ids and you want what a
+textually clean merge cannot see — id collisions, dangling renames,
+intersecting blast radii — checked *before* joining the trees.
 
 `spk merge --branch <incoming-tree> [--base <ancestor-tree>] [current-tree]`
 checks what a textually clean 3-way merge cannot see
@@ -416,6 +493,10 @@ Exit 0 = merged, 1 = findings (verdict `needs_review` or `failed`),
 - Spec: [merge](specs/merge.md)
 
 ## `spk orchestrate <files|dirs> [--out-dir <dir>] [--backend tlc --tlc-jar <jar>]`
+
+**Use when:** you want the whole pipeline — parse → lint → compile →
+model_check → verify — in the fixed stage order with each gate enforced,
+halting at the first failing stage, in one invocation.
 
 Drives the full pipeline — `parse → lint → compile → model_check →
 verify` — in the order [orchestrate](specs/orchestrate.md) fixes, gating
@@ -448,6 +529,10 @@ repo is byte-identical.
 - Spec: [orchestrate](specs/orchestrate.md)
 
 ## Refactor advisor
+
+**Use when:** you are planning a tidy-first split — advisory findings
+(high unrelated fan-in, changeset subset ownership) that never gate a
+run.
 
 `spk refactor [paths] [--high-fan-in N] [--changeset id1,id2]` is the
 tidy-first split advisor ([refactor](specs/refactor.md)): it flags nodes
