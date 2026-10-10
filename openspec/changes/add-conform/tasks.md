@@ -57,7 +57,7 @@ excluded; revisit before 1.2 if the maintainer rules otherwise.)
       `--human` for TTYs); extend model_check's scope-digest computation
       to bind scenario corpus bytes for this run only — model_check's own
       digest contract is unchanged.
-- [ ] 2.4 **TIDY**: shared digest helper extracted if (and only if) the
+- [x] 2.4 **TIDY**: shared digest helper extracted if (and only if) the
       model_check digest contract stays byte-identical; otherwise keep
       conform-local.
 

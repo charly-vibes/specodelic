@@ -311,5 +311,4 @@ fn digest_binds_scenarios() {
     parse_corpus(&extended).expect("extended corpus parses");
     let digest_extended = scope_digest(&spec, extended.as_bytes());
     assert_ne!(digest_a, digest_extended, "a changed corpus never shares a digest");
-    let _ = corpus;
 }

@@ -16,12 +16,10 @@
 //! surface it will call.
 
 use std::collections::{BTreeMap, BTreeSet};
-
-use serde::{Deserialize, Serialize};
-
 use std::io::Write;
 
 use genesis::guide::{Output, OutputFormat, Verbosity};
+use serde::{Deserialize, Serialize};
 
 use crate::compile::{self, ModelIr};
 use crate::spec::Spec;
