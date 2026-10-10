@@ -10,8 +10,8 @@
 use std::path::PathBuf;
 
 use specodelic::conform::{
-    build_report, emit_report, parse_corpus, scope_digest, EVIDENCE_SCOPE, REPORT_SCHEMA_VERSION,
-    Verdict,
+    EVIDENCE_SCOPE, REPORT_SCHEMA_VERSION, Verdict, build_report, emit_report, parse_corpus,
+    scope_digest,
 };
 use specodelic::spec;
 use specodelic::verify::CLAIM_SCHEMA_VERSION;
@@ -119,7 +119,10 @@ fn report_schema_roundtrip() {
     assert_eq!(report.records.len(), 3);
     for record in &report.records {
         assert!(!record.scenario_id.is_empty());
-        assert!(!record.reason.is_empty(), "every verdict carries its reason");
+        assert!(
+            !record.reason.is_empty(),
+            "every verdict carries its reason"
+        );
         assert!(
             matches!(
                 record.verdict,
@@ -138,7 +141,10 @@ fn report_schema_roundtrip() {
         .find(|r| r.scenario_id == "wrong-state-reopen")
         .expect("record per scenario id");
     assert_eq!(reopen.verdict, Verdict::Forbidden);
-    assert!(!reopen.closed_world, "run was open-world; the record says so");
+    assert!(
+        !reopen.closed_world,
+        "run was open-world; the record says so"
+    );
     assert!(
         reopen.evaluated_claim_ids.contains(&"locked".to_string()),
         "record names the claims the run evaluated: {:?}",
@@ -217,7 +223,11 @@ fn rerun_byte_identical() {
 
     // Records are sorted by scenario id (not corpus order — the corpus
     // fixture deliberately lists wrong-state-reopen first).
-    let ids: Vec<&str> = first.records.iter().map(|r| r.scenario_id.as_str()).collect();
+    let ids: Vec<&str> = first
+        .records
+        .iter()
+        .map(|r| r.scenario_id.as_str())
+        .collect();
     let mut sorted = ids.clone();
     sorted.sort();
     assert_eq!(ids, sorted, "records are sorted by scenario id");
@@ -286,7 +296,10 @@ fn digest_binds_scenarios() {
         report_a.scope_sha256, report_again.scope_sha256,
         "identical inputs produce identical digests across runs"
     );
-    assert_eq!(report_a.scope_sha256, digest_a, "build_report and scope_digest agree");
+    assert_eq!(
+        report_a.scope_sha256, digest_a,
+        "build_report and scope_digest agree"
+    );
 
     // Path reordering/preservation: the digest binds structured content,
     // never the CLI path the file was read from.
@@ -310,5 +323,8 @@ fn digest_binds_scenarios() {
     );
     parse_corpus(&extended).expect("extended corpus parses");
     let digest_extended = scope_digest(&spec, extended.as_bytes());
-    assert_ne!(digest_a, digest_extended, "a changed corpus never shares a digest");
+    assert_ne!(
+        digest_a, digest_extended,
+        "a changed corpus never shares a digest"
+    );
 }

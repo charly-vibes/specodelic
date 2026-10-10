@@ -590,8 +590,9 @@ fn cmd_conform(
     if !parse_errors.is_empty() {
         // An unparsed spec never reaches the gate (the same discipline
         // orchestrate applies before lint) — labeled, exit 2, no records.
-        let mut out: Output<serde_json::Value> =
-            Output::failure("the spec file failed to parse — verdicts are never derived from an unparsed file");
+        let mut out: Output<serde_json::Value> = Output::failure(
+            "the spec file failed to parse — verdicts are never derived from an unparsed file",
+        );
         for e in &parse_errors {
             out = out.with_warning(e.clone());
         }
@@ -606,9 +607,7 @@ fn cmd_conform(
         for n in &notes {
             out = out.with_warning(n.clone());
         }
-        out = out.with_next_step(
-            "pass exactly one spec file (*.md with YAML frontmatter)",
-        );
+        out = out.with_next_step("pass exactly one spec file (*.md with YAML frontmatter)");
         emit_report(out, None, format, verbosity, stdout, stderr);
         return 2;
     }
@@ -631,9 +630,8 @@ fn cmd_conform(
             // The exit mapping keys off the taxonomy's own spellings —
             // never a string literal that could drift from
             // conform::Verdict's serde form.
-            let violation_count = |v: conform::Verdict| {
-                report.verdict_counts.get(v.as_str()).copied().unwrap_or(0)
-            };
+            let violation_count =
+                |v: conform::Verdict| report.verdict_counts.get(v.as_str()).copied().unwrap_or(0);
             let forbidden = violation_count(conform::Verdict::Forbidden);
             let unsupported = violation_count(conform::Verdict::Unsupported);
             if forbidden + unsupported > 0 {

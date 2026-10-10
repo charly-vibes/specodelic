@@ -77,16 +77,14 @@ statement: "THE system SHALL conform to the recorded oracle traces"
 | p | unit | [[demo.cli_conform.locked]] | `g()` | `x` |
 "#;
 
-const PERMITTED_LINE: &str =
-    r#"{"id": "confirm-happy", "setup": {"state": "held"}, "trace": [{"action": "confirm", "observations": {"status": "confirmed"}}]}"#;
+const PERMITTED_LINE: &str = r#"{"id": "confirm-happy", "setup": {"state": "held"}, "trace": [{"action": "confirm", "observations": {"status": "confirmed"}}]}"#;
 /// `undo` is no declared transition — uncovered (underspecified
 /// open-world, forbidden only under `--closed-world`).
 const UNCOVERED_LINE: &str =
     r#"{"id": "undo-undeclared", "setup": {"state": "held"}, "trace": [{"action": "undo"}]}"#;
 /// A declared transition exercised from a state it is not declared
 /// from — positive contradiction, forbidden in ANY invocation mode.
-const CONTRADICTION_LINE: &str =
-    r#"{"id": "confirm-from-wrong-state", "setup": {"state": "confirmed"}, "trace": [{"action": "confirm"}]}"#;
+const CONTRADICTION_LINE: &str = r#"{"id": "confirm-from-wrong-state", "setup": {"state": "confirmed"}, "trace": [{"action": "confirm"}]}"#;
 
 /// Compile the fixture spec into a temp out-dir (the gate requires
 /// current artifacts — conform never re-compiles).
@@ -105,7 +103,11 @@ fn compiled_out_dir(dir: &std::path::Path, spec: &std::path::Path) -> String {
     out_dir.to_str().unwrap().to_string()
 }
 
-fn conform_json(spec: &std::path::Path, corpus: &std::path::Path, extra: &[&str]) -> (Option<i32>, serde_json::Value) {
+fn conform_json(
+    spec: &std::path::Path,
+    corpus: &std::path::Path,
+    extra: &[&str],
+) -> (Option<i32>, serde_json::Value) {
     let dir = spec.parent().unwrap().to_path_buf();
     let out_dir = compiled_out_dir(dir.as_path(), spec);
     let out = spk()
@@ -144,7 +146,9 @@ fn conform_emits_report_envelope_open_world_never_forbidden() {
     assert_eq!(data["report_schema_version"], 1);
     assert_eq!(data["closed_world"], serde_json::json!(false));
     assert!(
-        data["evidence_scope"].as_str().is_some_and(|s| !s.is_empty()),
+        data["evidence_scope"]
+            .as_str()
+            .is_some_and(|s| !s.is_empty()),
         "evidence_scope present in the JSON view: {json}"
     );
     // Records sorted by scenario id; the uncovered trace is
@@ -178,7 +182,11 @@ fn conform_closed_world_recorded_and_uncovered_forbidden() {
 
     let (code, json) = conform_json(&spec, &corpus, &["--closed-world"]);
     // Uncovered + declared closed-world → forbidden → exit 1.
-    assert_eq!(code, Some(1), "closed-world forbidden fails the run: {json}");
+    assert_eq!(
+        code,
+        Some(1),
+        "closed-world forbidden fails the run: {json}"
+    );
     assert_eq!(json["ok"], serde_json::json!(false));
     let data = &json["data"];
     // The declaration is recorded in the header AND every record (D2).
@@ -227,7 +235,11 @@ fn conform_invocation_error_exits_2_without_records() {
         ])
         .output()
         .unwrap();
-    assert_eq!(out.status.code(), Some(2), "missing spec is an invocation error");
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "missing spec is an invocation error"
+    );
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(json["ok"], serde_json::json!(false));
     assert!(
@@ -250,7 +262,11 @@ fn conform_invocation_error_exits_2_without_records() {
         ])
         .output()
         .unwrap();
-    assert_eq!(out.status.code(), Some(2), "missing oracle is an invocation error");
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "missing oracle is an invocation error"
+    );
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(json["ok"], serde_json::json!(false));
     assert!(json["data"]["records"].is_null(), "zero records: {json}");
@@ -313,7 +329,9 @@ fn conform_empty_corpus_yields_valid_empty_report_exit_0() {
     assert_eq!(data["records"], serde_json::json!([]));
     assert_eq!(data["verdict_counts"], serde_json::json!({}));
     assert!(
-        data["evidence_scope"].as_str().is_some_and(|s| !s.is_empty()),
+        data["evidence_scope"]
+            .as_str()
+            .is_some_and(|s| !s.is_empty()),
         "evidence_scope intact on the empty report: {json}"
     );
 }

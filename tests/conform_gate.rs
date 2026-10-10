@@ -10,7 +10,7 @@
 use std::path::PathBuf;
 
 use specodelic::conform::{
-    gate, parse_corpus, run, ConformError, EVIDENCE_SCOPE, REPORT_SCHEMA_VERSION,
+    ConformError, EVIDENCE_SCOPE, REPORT_SCHEMA_VERSION, gate, parse_corpus, run,
 };
 use specodelic::spec;
 use specodelic::{compile, orchestrate};
@@ -195,7 +195,10 @@ fn lint_dirty_refused() {
     // The lint stage itself flags the fixture (orchestrate's own gate
     // discipline — the gate reuses the same stage, not a re-derivation).
     let stage = orchestrate::run_lint_stage(std::slice::from_ref(&spec), &[]);
-    assert_eq!(stage.status, "failed", "fixture is lint-dirty by the shared stage");
+    assert_eq!(
+        stage.status, "failed",
+        "fixture is lint-dirty by the shared stage"
+    );
 
     let err = run(&spec, &out_dir, CORPUS.as_bytes(), false)
         .expect_err("lint-dirty file must be refused");
@@ -274,10 +277,9 @@ fn duplicate_id_refused() {
 /// ignored (design D3; envelope discipline).
 #[test]
 fn unknown_field_refused() {
-    let err = parse_corpus(
-        r#"{"id": "ok", "trace": [{"action": "confirm"}], "expected": "confirmed"}"#,
-    )
-    .expect_err("unknown field refused");
+    let err =
+        parse_corpus(r#"{"id": "ok", "trace": [{"action": "confirm"}], "expected": "confirmed"}"#)
+            .expect_err("unknown field refused");
     assert!(
         err.message.contains("one JSON object per line") || err.message.contains("unknown"),
         "refusal carries the remediation hint: {err}"
@@ -301,8 +303,11 @@ fn empty_corpus_yields_valid_report() {
     assert_eq!(report.report_schema_version, REPORT_SCHEMA_VERSION);
     // The digest still binds the (empty) corpus bytes.
     assert!(!report.scope_sha256.is_empty());
-    assert!(report.verdict_counts.is_empty(), "no verdict counts: {:?}",
-        report.verdict_counts);
+    assert!(
+        report.verdict_counts.is_empty(),
+        "no verdict counts: {:?}",
+        report.verdict_counts
+    );
 }
 
 /// parse_corpus over a zero-line corpus is Ok(vec![]) — the emptiness is

@@ -964,8 +964,7 @@ pub struct ConformReport {
 /// the run consumed, so a one-byte corpus difference flips the digest
 /// while identical inputs agree across runs and path reordering.
 pub fn scope_digest(spec: &Spec, corpus_bytes: &[u8]) -> String {
-    let structured =
-        crate::verify::scope_digest(std::slice::from_ref(spec), &BTreeMap::new());
+    let structured = crate::verify::scope_digest(std::slice::from_ref(spec), &BTreeMap::new());
     let payload = serde_json::json!({
         "report_schema_version": REPORT_SCHEMA_VERSION,
         "structured_content_sha256": structured,
@@ -989,7 +988,9 @@ pub fn build_report(
     records.sort_by(|a, b| a.scenario_id.cmp(&b.scenario_id));
     let mut verdict_counts: BTreeMap<String, usize> = BTreeMap::new();
     for record in &records {
-        *verdict_counts.entry(record.verdict.as_str().to_string()).or_insert(0) += 1;
+        *verdict_counts
+            .entry(record.verdict.as_str().to_string())
+            .or_insert(0) += 1;
     }
     ConformReport {
         report_schema_version: REPORT_SCHEMA_VERSION,
@@ -1056,7 +1057,12 @@ pub fn emit_report(
             .with_verbosity(Verbosity::MAX + 1)
             .emit(env!("CARGO_PKG_VERSION"), format, verbosity, stdout, stderr)
     } else {
-        Output::success(report.clone())
-            .emit(env!("CARGO_PKG_VERSION"), format, verbosity, stdout, stderr)
+        Output::success(report.clone()).emit(
+            env!("CARGO_PKG_VERSION"),
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        )
     }
 }
