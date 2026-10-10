@@ -361,6 +361,49 @@ whole — the next verify pays one cold proptest rebuild. Set
 
 - Spec: [verify](specs/verify.md)
 
+## `spk conform <file> --oracle scenarios.jsonl [--closed-world]`
+
+**Use when:** you have evidence from *outside* the spec — traces recorded
+from a legacy system, a curated case set, or a reference implementation —
+and you want each trace classified against what the spec declares and can
+actually execute. Every other verb evaluates the spec's own claims;
+conform is the one verb that checks the spec against reality. It is
+strictly **read-only** (help text states it): it never advances the
+lifecycle, is never an `orchestrate` stage, and writes nothing.
+
+Each JSONL trace record (one per line, carrying `id`, an optional `setup`
+state, and a `trace` of actions with observations) receives exactly one
+verdict from a closed set — never collapsed to pass/fail:
+
+- `permitted` — a declared, executable claim covers the trace and it agrees
+- `forbidden` — the trace *violates* a declared executable claim (in any
+  invocation mode), or — only under `--closed-world` — nothing declared
+  covers it
+- `underspecified` — no declared Model element or claim covers the trace
+  (open-world default: a spec gap, never a prohibition)
+- `unknown` — a covering claim exists but is prose-only (prose is never
+  silently checked)
+- `unsupported` — the covering claim's evaluator kind is not executable
+  in this run
+
+The run report carries a conform-local `report_schema_version`, per-trace
+records sorted by scenario id (no timestamps — reruns over identical
+inputs are byte-identical), a `scope_sha256` binding the parsed spec and
+the consumed corpus bytes, and a fixed `evidence_scope` field in **both**
+the JSON envelope and the `--human` view — "agreement on the supplied
+corpus; not a proof of behavioral equality". That scope is data, not a
+disclaimer: a finite trace corpus agreeing with the spec never proves the
+spec describes the system.
+
+Exit codes: `0` = no `forbidden`/`unsupported` verdict; `1` = any such
+verdict; `2` = invocation error or gate refusal (stale artifacts,
+lint-dirty file, malformed corpus) with **zero** verdict records emitted.
+`unknown` and `underspecified` surface as counts but never fail the run —
+they are spec-gap findings, not refutations.
+
+- Book: [conform — external oracle evidence](conform.md) (spec page lands
+  with the corpus archive; see [book: verification boundaries](verification-boundaries.md))
+
 ## `spk parse <file>`
 
 **Use when:** a downstream tool or script needs one file's structured IR

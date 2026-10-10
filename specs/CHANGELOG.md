@@ -1,5 +1,32 @@
 # Changelog
 
+## #127 — `spk conform`: external-oracle trace conformance (add-conform)
+
+`add-conform` implemented end-to-end (specodelic-eczv, five phases) — the
+mechanism's first command that evaluates a spec against evidence from
+*outside* it: recorded traces from a legacy system, curated case set, or
+reference implementation are classified against the compiled Model's
+transition relation and its declared executable claims. Closed five-value
+taxonomy (`permitted | forbidden | underspecified | unknown | unsupported`,
+never collapsed to pass/fail); evidence-class separation per D2 (a
+contradiction is `forbidden` in any invocation mode; an uncovered trace is
+`forbidden` only under `--closed-world`, otherwise `underspecified` — a
+spec gap, never a prohibition); claim classification reuses model_check's
+types (no new status vocabulary). The run report is byte-identical across
+reruns over identical inputs (records sorted by scenario id, no
+timestamps), binds a conform-local `report_schema_version` and a
+`scope_sha256` over the parsed spec and consumed corpus bytes, and carries
+the fixed `evidence_scope` field — "agreement on the supplied corpus; not
+a proof of behavioral equality" — in both JSON and `--human` views (D6:
+data, not docs). Exit-code contract: 0 = no `forbidden`/`unsupported`,
+1 = any such verdict, 2 = invocation error or gate refusal (stale
+artifacts, lint-dirty file, malformed corpus) with zero verdict records
+emitted. conform is strictly read-only and outside the artifact lifecycle:
+never an `orchestrate` stage, never gates a transition, never writes.
+Ship record: commits f1e48e7..bc18293 (tests: classification, report,
+gate, CLI, lifecycle; docs book page `conform.md`). Archive + per-scenario
+contract TOMLs sequenced as specodelic-6aj0.
+
 ## #126 — the D6 second domain pack: quant-finance (add-quant-finance-pack)
 
 `add-quant-finance-pack` implemented — no code, no base-set change: the
