@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-10-specodelic-eczv-3-conform-phase-3-input-gate, pipeline-step:quality-ledger]
+---
+
+QUALITY LEDGER: specodelic-eczv.3 conform phase 3 (input gate + corpus validation). Changed: src/conform.rs (gate/run/lint_findings_of + duplicate-id refusal in parse_corpus), src/orchestrate.rs (run_lint_stage visibility pub — the anticipated single-line tweak), tests/conform_gate.rs (new, 10 tests), openspec/changes/add-conform/tasks.md (3.1-3.4 checkoffs). Verified: cargo test --test conform_gate 10/0 after RED (missing API) observed; just test all 35 test binaries ok/0 failed incl. orchestrate currency behavior untouched; just lint clean; just pretender-check exit 0 (no new red; classify_trace yellow pre-existing); ah check — 17 pre-existing no-toml findings only (sequenced contract authoring, out of scope mid-change per brief); openspec validate --all --strict 29 passed/0 failed. Review: RO5U done — 0 critical/high, 1 medium (message separator) + 2 low fixed, none remaining. Risks: none known — gate is library-level; CLI exit-code contract lands phase 4. Next: orchestrator verify + phase 4
