@@ -27,6 +27,7 @@
 - [merge](specs/merge.md)
 - [refactor](specs/refactor.md)
 - [orchestrate](specs/orchestrate.md)
+- [conform — external oracle evidence, outside the lifecycle](conform.md)
 - [errors](specs/errors.md)
 
 # Graph Views

@@ -134,6 +134,7 @@ cargo install specodelic
 - [Installation & Quick Start](https://charly-vibes.github.io/specodelic/installation.html)
 - [Command Reference](https://charly-vibes.github.io/specodelic/commands.html)
 - [Glossary — the jargon, defined for a cold read](https://charly-vibes.github.io/specodelic/glossary.html)
+- [conform — external oracle evidence, outside the lifecycle](https://charly-vibes.github.io/specodelic/conform.html)
 - [Graph views — derived diagrams of the corpus](https://charly-vibes.github.io/specodelic/graph-views.html)
 - [Architecture — the four layers and the lint pipeline](https://charly-vibes.github.io/specodelic/architecture.html)
 - [Verification boundaries — the guarantee ladder and known limitations](https://charly-vibes.github.io/specodelic/verification-boundaries.html)

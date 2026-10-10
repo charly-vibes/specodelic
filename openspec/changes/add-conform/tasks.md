@@ -96,20 +96,20 @@ excluded; revisit before 1.2 if the maintainer rules otherwise.)
 
 ## 5. Lifecycle independence and dogfood
 
-- [ ] 5.1 **RED**: `tests/conform_lifecycle.rs` — `spk orchestrate` over
+- [x] 5.1 **RED**: `tests/conform_lifecycle.rs` — `spk orchestrate` over
       a spec with conform available never invokes conform and the
       pipeline stages are unchanged (`outside_lifecycle`); a conform run
       over a `model_checked` artifact leaves the stage unchanged.
-- [ ] 5.2 **GREEN**: assert orchestrate's stage list; no orchestrate
+- [x] 5.2 **GREEN**: assert orchestrate's stage list; no orchestrate
       code change expected (constraint is conformance, not behavior).
-- [ ] 5.3 **RED→GREEN**: read-only dogfood — run conform against a
+- [x] 5.3 **RED→GREEN**: read-only dogfood — run conform against a
       fixture copy of a `specs/` corpus file and a fixture oracle corpus;
       assert spec files and git worktree are byte-identical after the
       run (`consumes_never_writes`).
-- [ ] 5.4 **GREEN**: dual-format gates — `spk lint` the delta, `just
+- [x] 5.4 **GREEN**: dual-format gates — `spk lint` the delta, `just
       sync-sections` passes (ADDED/Requirements mirror identical), `spk
       lint openspec/specs` unaffected.
-- [ ] 5.5 **TIDY**: `just ci` full gate; docs book pipeline section gains
+- [x] 5.5 **TIDY**: `just ci` full gate; docs book pipeline section gains
       the conform page stating the evidence scope (D6 wording verbatim).
 
 ## Dependencies
