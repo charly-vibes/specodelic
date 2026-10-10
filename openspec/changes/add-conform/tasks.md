@@ -38,7 +38,7 @@ excluded; revisit before 1.2 if the maintainer rules otherwise.)
 
 ## 2. Report schema and scope digest
 
-- [ ] 2.1 **RED**: `tests/conform_report.rs` — persisted report carries
+- [x] 2.1 **RED**: `tests/conform_report.rs` — persisted report carries
       `report_schema_version` (conform-local, not model_check's
       `claim_schema_version`), per-trace records (scenario id, verdict,
       reason, evaluated claim ids, closed_world flag), `evidence_scope`
@@ -48,11 +48,11 @@ excluded; revisit before 1.2 if the maintainer rules otherwise.)
       `evidence_scope_present_in_both_views`); two runs over identical
       inputs are byte-identical — records sorted by scenario id, no
       timestamps (`rerun_byte_identical`).
-- [ ] 2.2 **RED**: digest binding — identical spec content with
+- [x] 2.2 **RED**: digest binding — identical spec content with
       one-byte-different scenario corpora produce different
       `scope_sha256`; identical inputs produce identical digests across
       runs and path reordering (`digest_binds_scenarios`).
-- [ ] 2.3 **GREEN**: implement the report in `src/conform.rs` emitting
+- [x] 2.3 **GREEN**: implement the report in `src/conform.rs` emitting
       through `genesis::guide::Output::emit` (envelope default for pipes,
       `--human` for TTYs); extend model_check's scope-digest computation
       to bind scenario corpus bytes for this run only — model_check's own

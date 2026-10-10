@@ -7,13 +7,21 @@
 //! claim classification reusing model_check's machinery (D4), mechanical
 //! trace classification against the compiled Model's transition relation
 //! (D3 — string identity after trimming), and the closed-world evidence
-//! gate (D2). Read-only: it evaluates, it never generates.
-//! Rationale: phase 1 is the pure engine — no CLI wiring, no report
-//! envelope, no input gate (later phases).
+//! gate (D2), plus the persisted report: conform-local schema version,
+//! fixed evidence_scope (D6), scope digest binding structured content and
+//! the consumed scenario corpus bytes, and genesis envelope emit
+//! plumbing. Read-only: it evaluates, it never generates.
+//! Rationale: no CLI wiring and no input gate yet — the `spk conform`
+//! command lands in phase 4; the emit layer here is the testable API
+//! surface it will call.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
+
+use std::io::Write;
+
+use genesis::guide::{Output, OutputFormat, Verbosity};
 
 use crate::compile::{self, ModelIr};
 use crate::spec::Spec;
@@ -319,7 +327,7 @@ pub fn parse_corpus(jsonl: &str) -> Result<Vec<ScenarioTrace>, ConformError> {
 /// produced it), the ids of the claims the run evaluated, and whether
 /// the invocation declared closed-world mode (recorded in EVERY record,
 /// never inferred — design D2).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerdictRecord {
     pub scenario_id: String,
     pub verdict: Verdict,
@@ -770,4 +778,153 @@ fn covering_ids(covering: &[ClassifiedClaim]) -> Vec<String> {
         .filter(|c| seen.insert(c.id.clone()))
         .map(|c| c.id.clone())
         .collect()
+}
+
+// ---------------------------------------------------------------------------
+// Persisted report (tasks 2.1–2.3; design D4/D6) — conform-local schema
+// version, fixed evidence scope, scope digest, emit plumbing.
+// ---------------------------------------------------------------------------
+
+/// The conform report schema version — conform-LOCAL, deliberately
+/// distinct from model_check's `claim_schema_version`
+/// ([`crate::verify::CLAIM_SCHEMA_VERSION`]): the two report families
+/// version independently, and a conform report never claims to be a
+/// claim report.
+pub const REPORT_SCHEMA_VERSION: u32 = 1;
+
+/// The fixed evidence-scope statement (design D6): present in BOTH the
+/// JSON envelope and the `--human` view — data, not documentation, so no
+/// consumer can strip it by reformatting.
+pub const EVIDENCE_SCOPE: &str =
+    "agreement on the supplied corpus; not a proof of behavioral equality";
+
+/// The persisted conform run report (delta `verdict_report_schema`):
+/// carries its own schema version, the fixed evidence_scope statement,
+/// the scope digest, the recorded closed-world declaration (report
+/// header, D2), per-verdict counts, and the per-trace records sorted by
+/// scenario id. No timestamps, no iteration-order leakage — two runs
+/// over identical inputs serialize byte-identically.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConformReport {
+    pub report_schema_version: u32,
+    pub evidence_scope: String,
+    pub scope_sha256: String,
+    /// The recorded invocation-mode declaration (report header, D2 —
+    /// every record also carries it).
+    pub closed_world: bool,
+    /// Verdict → count, keyed by the verdict's snake_case spelling;
+    /// surfaced in both views so unknown/underspecified coverage gaps are
+    /// visible without gating (delta `exit_code_verdict_mapping`).
+    pub verdict_counts: BTreeMap<String, usize>,
+    /// Per-trace verdict records, sorted by scenario id.
+    pub records: Vec<VerdictRecord>,
+}
+
+/// The scope digest (design D4/D6, delta `verdict_report_schema`):
+/// SHA-256 over a canonical JSON payload binding (a) the parsed
+/// structured content and (b) the consumed scenario corpus bytes.
+///
+/// The structured-content half runs through the model_check computation
+/// path — [`crate::verify::scope_digest`]'s canonical serialization
+/// (prose, paths, byte spans excluded; intent id keyed) — reused, never
+/// forked: that function's own contract is untouched, so model_check's
+/// digests stay byte-identical. The corpus half binds the exact bytes
+/// the run consumed, so a one-byte corpus difference flips the digest
+/// while identical inputs agree across runs and path reordering.
+pub fn scope_digest(spec: &Spec, corpus_bytes: &[u8]) -> String {
+    let structured =
+        crate::verify::scope_digest(std::slice::from_ref(spec), &BTreeMap::new());
+    let payload = serde_json::json!({
+        "report_schema_version": REPORT_SCHEMA_VERSION,
+        "structured_content_sha256": structured,
+        "scenario_corpus_sha256": crate::model_check::artifact_sha256(corpus_bytes),
+    });
+    let canonical = serde_json::to_string(&payload).expect("conform scope payload serializes");
+    crate::model_check::artifact_sha256(canonical.as_bytes())
+}
+
+/// Build the persisted report for one classification pass: classify every
+/// corpus trace (phase-1 engine), sort the records by scenario id,
+/// count verdicts, and bind the digest over the spec's structured
+/// content plus the exact corpus bytes consumed.
+pub fn build_report(
+    spec: &Spec,
+    corpus_bytes: &[u8],
+    corpus: &[ScenarioTrace],
+    closed_world: bool,
+) -> ConformReport {
+    let mut records = classify_traces(spec, corpus, closed_world);
+    records.sort_by(|a, b| a.scenario_id.cmp(&b.scenario_id));
+    let mut verdict_counts: BTreeMap<String, usize> = BTreeMap::new();
+    for record in &records {
+        *verdict_counts.entry(record.verdict.as_str().to_string()).or_insert(0) += 1;
+    }
+    ConformReport {
+        report_schema_version: REPORT_SCHEMA_VERSION,
+        evidence_scope: EVIDENCE_SCOPE.to_string(),
+        scope_sha256: scope_digest(spec, corpus_bytes),
+        closed_world,
+        verdict_counts,
+        records,
+    }
+}
+
+/// The `--human` view of the report (the same convention as the other
+/// verbs: one text formatter rendered from the same report values the
+/// JSON envelope carries, so the two views cannot drift). Always carries
+/// the fixed `evidence_scope` statement (D6 — no view can omit it) and
+/// the unknown/underspecified counts.
+pub fn human_view(report: &ConformReport) -> String {
+    let mut summary: Vec<String> = Vec::new();
+    for (verdict, count) in &report.verdict_counts {
+        summary.push(format!("{verdict} {count}"));
+    }
+    let mut out = format!(
+        "conform: {} trace(s) — {}",
+        report.records.len(),
+        summary.join(", ")
+    );
+    out.push_str(&format!("\n  evidence_scope: {}", report.evidence_scope));
+    out.push_str(&format!("\n  scope_sha256: {}", report.scope_sha256));
+    out.push_str(&format!("\n  closed_world: {}", report.closed_world));
+    for record in &report.records {
+        out.push_str(&format!(
+            "\n  {}: {} — {}",
+            record.scenario_id, record.verdict, record.reason
+        ));
+        if !record.evaluated_claim_ids.is_empty() {
+            out.push_str(&format!(
+                "\n    claims evaluated: {}",
+                record.evaluated_claim_ids.join(", ")
+            ));
+        }
+    }
+    out
+}
+
+/// Emit the report through the genesis envelope conventions (delta
+/// `verdict_report_schema`): JSON envelope default for pipes, the human
+/// view for `--human` TTYs. The human branch prints [`human_view`]
+/// above the suppressed data dump — the human text IS the report; the
+/// JSON branch rides [`Output::emit`]'s envelope. Phase-4 CLI wiring
+/// calls this; the library keeps it testable over in-memory streams.
+pub fn emit_report(
+    report: &ConformReport,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl Write,
+    stderr: &mut impl Write,
+) -> std::io::Result<()> {
+    if format == OutputFormat::Human {
+        writeln!(stdout, "{}", human_view(report))?;
+        // Suppress the Debug data line (verbosity above the ceiling) so the
+        // human view is not followed by a Rust dump — the same convention
+        // as main.rs's emit_report.
+        Output::success(report.clone())
+            .with_verbosity(Verbosity::MAX + 1)
+            .emit(env!("CARGO_PKG_VERSION"), format, verbosity, stdout, stderr)
+    } else {
+        Output::success(report.clone())
+            .emit(env!("CARGO_PKG_VERSION"), format, verbosity, stdout, stderr)
+    }
 }
