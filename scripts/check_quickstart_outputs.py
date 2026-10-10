@@ -2,45 +2,32 @@
 """Re-run the docs' captured quickstart commands and diff against the docs.
 
 Purpose: every fenced ```text block in docs/src/installation.md and
-docs/src/examples/worked-example.md claims to be verbatim captured output
-("captured from specodelic 0.7.0"). Captured output rots as the tool
-evolves — the 7-vs-9 explain-topics drift is the existence proof — and the
-sibling check_doc_examples.py gate covers fenced SPEC examples, not
-captured command output. This gate is the complement: it re-executes each
-documented command with the freshly built binary and diffs the real
-output against the doc's expected block. Drift fails the run naming the
-doc file and command.
+docs/src/examples/worked-example.md claims to be verbatim captured output.
+Captured output rots as the tool evolves (the 7-vs-9 explain-topics drift
+is the existence proof); the sibling check_doc_examples.py gate covers
+fenced SPEC examples, this gate is the complement: it re-executes each
+documented command with the fresh binary and diffs real output against
+the doc's expected block, failing on drift (doc file + command named).
 
-Responsibilities: extract (command fence, expected-output fence) pairs
-adjacent in each doc; replay each scenario of the quickstart_manifest
-table in a throwaway directory (fixtures under docs/fixtures/doc-outputs
-provide the worked-example's intermediate spec files — the tutorial only
-shows fragments); force a deterministic human format (--human, no TTY
-detection, merged stdout+stderr as a terminal capture, offline); diff
-verbatim (whitespace-normalized per line) with a unified diff on drift;
-emit a version advisory (docs claim version X, binary is Y) without
-failing — the hard failure is reserved for semantic drift.
+Responsibilities: extract (command, expected-output) fence pairs adjacent
+in each doc; replay each quickstart_manifest scenario in a throwaway dir
+(fixtures under docs/fixtures/doc-outputs supply the worked-example's
+intermediate spec files); force deterministic human format (--human, no
+TTY detection, merged stdout+stderr, offline); diff verbatim
+(whitespace-normalized, cargo chatter for the verify scratch ignored —
+see _CHATTER); emit a non-failing version advisory (docs X vs binary Y) —
+the hard failure is reserved for semantic drift.
 
-Rationale: expected outputs live only in the docs (parsed live, no
-duplicate fixtures) so the gate checks the real rendered text; scenario
+Rationale: expected outputs live only in the docs (parsed live); scenario
 inputs are checked in because the worked example's intermediate states
-cannot be reconstructed from the tutorial's fragments. Never hand-edit
-an expected block to go green: re-capture from the real binary instead
-(the failure message says so).
+cannot be reconstructed from fragments. Never hand-edit an expected block
+to go green: re-capture from the real binary instead.
 
 Exit codes: 0 = every documented output matches; 1 = drift, an
 unresolvable scenario (fence gone from the doc), or a replay error.
 """
 
-import argparse
-import difflib
-import os
-import re
-import shlex
-import shutil
-import subprocess
-import sys
-import tempfile
+import argparse, difflib, os, re, shlex, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 from quickstart_manifest import (
@@ -202,9 +189,20 @@ def root_relative(rel):
     return path
 
 
+# Cargo/rustc build chatter for the verify scratch crate (warm machines print
+# none, cold CI all of it; cargo's lines, never spk's — ignored on BOTH diff
+# sides so no cache state is baked into the doc; classes: progress headers,
+# rustc diagnostics/locations/snippets/gutters/carets, warning summaries).
+_CHATTER = re.compile(
+    r"^\s*(?:Compiling|Finished|Running|Downloaded|Downloading|Updating|Locking|Dry-run"
+    r"|warning:|help:|note:|error: (?:could not compile|aborting)|--> |\d+\s*\|"
+    r"|\||\^|=|generated \d+ warnings?)"
+)
+
+
 def normalize(text):
     """Whitespace-normalize captured text: rstrip lines, drop trailing blanks."""
-    lines = [line.rstrip() for line in text.splitlines()]
+    lines = [line.rstrip() for line in text.splitlines() if not _CHATTER.match(line)]
     while lines and lines[-1] == "":
         lines.pop()
     return lines

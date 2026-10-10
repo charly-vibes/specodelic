@@ -101,7 +101,7 @@ from the named row, not from a diff.
 ## Known limitations
 
 Each limitation below cites a runnable command; run it yourself — the
-outputs shown were captured at v0.7.0.
+outputs shown were captured at v0.8.0.
 
 ### Coverage cannot detect a missing constraint
 

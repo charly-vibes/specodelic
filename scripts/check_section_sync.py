@@ -66,28 +66,35 @@ def has_specodelic_tables(text: str) -> bool:
         and "## Constraints" in text and "## Model" in text and "## Properties" in text
 
 
-def check(path: Path) -> list[str]:
-    text = path.read_text(encoding="utf-8")
+def capability_problems(path: Path, text: str) -> list[str]:
     # Capability-format check (Rule-of-5 EDGE-001): capability specs live
     # under openspec/specs/<cap>/spec.md and MUST be dual-format files.
     # Files without frontmatter never reach spk lint (parse_batch skips
     # them), so a plain openspec regeneration output here would otherwise
     # sail through CI lint-clean forever.
-    if is_capability_spec(path) and not has_specodelic_tables(text):
-        if not (text.lstrip().startswith("---")):
-            return [
-                f"{path}: capability spec has no frontmatter — not a dual-format "
-                "file (plain openspec regeneration output); see the migration "
-                "recipe in openspec/project.md: add id:spec frontmatter + "
-                "## Constraints/## Model/## Properties, then the ## Requirements "
-                "sibling (deltas: mirror the ADDED text; capability specs: keep "
-                "## Requirements)"
-            ]
+    if not (is_capability_spec(path) and not has_specodelic_tables(text)):
+        return []
+    if not (text.lstrip().startswith("---")):
         return [
-            f"{path}: capability spec carries frontmatter but is missing the "
-            "specodelic tables (## Constraints / ## Model / ## Properties) — "
-            "see the migration recipe in openspec/project.md"
+            f"{path}: capability spec has no frontmatter — not a dual-format "
+            "file (plain openspec regeneration output); see the migration "
+            "recipe in openspec/project.md: add id:spec frontmatter + "
+            "## Constraints/## Model/## Properties, then the ## Requirements "
+            "sibling (deltas: mirror the ADDED text; capability specs: keep "
+            "## Requirements)"
         ]
+    return [
+        f"{path}: capability spec carries frontmatter but is missing the "
+        "specodelic tables (## Constraints / ## Model / ## Properties) — "
+        "see the migration recipe in openspec/project.md"
+    ]
+
+
+def check(path: Path) -> list[str]:
+    text = path.read_text(encoding="utf-8")
+    problems = capability_problems(path, text)
+    if problems:
+        return problems
     if not is_dual_format(text):
         return []
     secs = sections(text)
@@ -100,7 +107,7 @@ def check(path: Path) -> list[str]:
         for name in ("ADDED Requirements", "MODIFIED Requirements")
         if name in secs
     ]
-    problems: list[str] = []
+    problems: list[str] = []  # populated by the per-section comparisons below
     if all(body == reqs for _, body in delta_sections):
         return problems
     for name, added in delta_sections:

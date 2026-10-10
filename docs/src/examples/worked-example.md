@@ -4,7 +4,7 @@ This page builds one small spec from nothing: a reservation service for a
 web shop. You will see the whole four-layer journey — **Intent →
 Constraints → Model → Properties** — and then the part most tutorials
 skip: the mistakes. Every lint finding below is real output from
-`specodelic 0.7.0` on the file as it stood at that moment; the fixes are
+`specodelic 0.8.0` on the file as it stood at that moment; the fixes are
 the fixes that were actually made. The finished spec lives at
 [`examples/reservation-order.md`](reservation-order.md) and lints clean —
 you can check that yourself with `spk lint docs/src/examples/reservation-order.md`
