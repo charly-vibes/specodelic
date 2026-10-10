@@ -10,10 +10,12 @@
 //! gate (D2), plus the persisted report: conform-local schema version,
 //! fixed evidence_scope (D6), scope digest binding structured content and
 //! the consumed scenario corpus bytes, and genesis envelope emit
-//! plumbing. Read-only: it evaluates, it never generates.
-//! Rationale: no CLI wiring and no input gate yet — the `spk conform`
-//! command lands in phase 4; the emit layer here is the testable API
-//! surface it will call.
+//! plumbing, plus the command-path input gate (D5): lint-clean file,
+//! current compiled artifacts, and a fully validated scenario corpus.
+//! Read-only: it evaluates, it never generates.
+//! Rationale: no CLI wiring yet — the `spk conform` command lands in
+//! phase 4; the gate and emit layers here are the testable API surface
+//! it will call.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
@@ -295,10 +297,12 @@ impl std::error::Error for ConformError {}
 /// Parse a JSONL scenario corpus: one object per line, each
 /// `{id, setup?, trace: [{action, observations?}]}`. Unknown fields and
 /// malformed lines are refused with a remediation hint, never silently
-/// ignored (design D3). Full corpus validation (duplicate ids, missing
-/// id) lands with the phase-3 input gate.
+/// ignored (design D3): missing `id` and duplicate ids are refused too —
+/// the report is keyed by scenario id, so a duplicate would silently
+/// overwrite evidence.
 pub fn parse_corpus(jsonl: &str) -> Result<Vec<ScenarioTrace>, ConformError> {
     let mut out = Vec::new();
+    let mut seen: BTreeSet<String> = BTreeSet::new();
     for (n, line) in jsonl.lines().enumerate() {
         let line = line.trim();
         if line.is_empty() {
@@ -311,9 +315,139 @@ pub fn parse_corpus(jsonl: &str) -> Result<Vec<ScenarioTrace>, ConformError> {
                 n + 1
             ),
         })?;
+        if !seen.insert(scenario.id.clone()) {
+            return Err(ConformError {
+                stage: "corpus_parse".into(),
+                message: format!(
+                    "line {}: duplicate scenario id `{}` — scenario ids must be unique across the corpus (one JSON object per line: {{id, setup?, trace}}); rename or drop the duplicate record",
+                    n + 1,
+                    scenario.id
+                ),
+            });
+        }
         out.push(scenario);
     }
     Ok(out)
+}
+
+// ---------------------------------------------------------------------------
+// The input gate (design D5 — lint-clean file, current compiled artifacts)
+// ---------------------------------------------------------------------------
+
+/// The command-path input gate (design D5, delta `artifact_gate`): the
+/// target file must lint clean and its compiled artifacts must be
+/// current before any classification runs. The checks reuse the exact
+/// machinery the pipeline stages run — the orchestrate lint stage (the
+/// seven gate checkers, via `orchestrate::run_lint_stage`) and compile's
+/// own byte-stable emission (`compile_spec`, whose `.tla` artifact is
+/// the staleness key `model_check::is_stale`/verify compare against).
+/// A spec that fails to parse never reaches this gate: the parse stage
+/// refuses it upstream (phase-4 CLI wiring), the same discipline
+/// orchestrate applies before lint.
+///
+/// Refusals carry a remediation hint naming the failing stage's command
+/// (`spk lint` / `spk compile`) per the error contract; the caller emits
+/// zero verdict records on an Err.
+pub fn gate(spec: &Spec, out_dir: &std::path::Path) -> Result<(), ConformError> {
+    // Lint stage first — a lint-dirty file must be refused with the lint
+    // remediation even if its artifacts are also missing/stale (the same
+    // stage order orchestrate applies: parse → lint → compile).
+    let stage = crate::orchestrate::run_lint_stage(std::slice::from_ref(spec), &[]);
+    if stage.status != "passed" {
+        let findings = lint_findings_of(&stage);
+        return Err(ConformError {
+            stage: "artifact_gate".into(),
+            message: format!(
+                "the file has lint findings — conform requires a lint-clean spec, verdicts are never derived from invalid artifacts ({}; run: spk lint)",
+                findings
+            ),
+        });
+    }
+    // Artifact currency: the on-disk `<stem>.tla` must equal the current
+    // spec's compile emission — the same regenerate-and-compare discipline
+    // the properties gate applies to `*_props.rs` (verify.rs), with
+    // compile's byte-stable contract making the comparison exact.
+    let stem = compile::artifact_stem(spec);
+    let tla_path = out_dir.join(format!("{stem}.tla"));
+    let on_disk = std::fs::read(&tla_path).map_err(|e| {
+        ConformError {
+            stage: "artifact_gate".into(),
+            message: format!(
+                "no compiled module at {}: {e} — conform consumes compile's output, it never re-compiles (run: spk compile)",
+                tla_path.display()
+            ),
+        }
+    })?;
+    let compiled = compile::compile_spec(spec).map_err(|e| ConformError {
+        stage: "artifact_gate".into(),
+        message: format!(
+            "the spec no longer compiles ({}: {}) — the on-disk artifacts cannot be current (run: spk compile)",
+            e.stage, e.message
+        ),
+    })?;
+    if crate::model_check::artifact_sha256(&on_disk)
+        != crate::model_check::artifact_sha256(compiled.tla.as_bytes())
+    {
+        return Err(ConformError {
+            stage: "artifact_gate".into(),
+            message: format!(
+                "the compiled module at {} is stale: the spec's structured content changed after compile — verdicts are never derived from stale artifacts (run: spk compile to refresh the artifacts)",
+                tla_path.display()
+            ),
+        });
+    }
+    Ok(())
+}
+
+/// The failed lint stage's finding summary: the stage detail nests
+/// issues per checker (`checkers[].issues[].message`); the refusal names
+/// the count and the first finding so the author can go straight to it.
+fn lint_findings_of(stage: &crate::orchestrate::Stage) -> String {
+    let issues: Vec<String> = stage
+        .detail
+        .as_ref()
+        .and_then(|d| d.get("checkers"))
+        .and_then(|v| v.as_array())
+        .map(|checkers| {
+            checkers
+                .iter()
+                .filter_map(|c| c.get("issues"))
+                .filter_map(|v| v.as_array())
+                .flatten()
+                .filter_map(|i| i.get("message"))
+                .filter_map(|m| m.as_str())
+                .map(String::from)
+                .collect()
+        })
+        .unwrap_or_default();
+    let first = issues.first().map(String::as_str).unwrap_or("");
+    if first.is_empty() {
+        format!("{} checker issue(s)", issues.len())
+    } else {
+        format!("{} checker issue(s): {first}", issues.len())
+    }
+}
+
+/// The command-path run the phase-4 CLI calls: gate (D5), then corpus
+/// parse/validation (D3), then the report. Every refusal path returns
+/// Err — zero verdict records are emitted for a gated-out invocation —
+/// and a zero-line corpus is a valid Ok report with zero records,
+/// `evidence_scope` intact, never an error.
+pub fn run(
+    spec: &Spec,
+    out_dir: &std::path::Path,
+    corpus_bytes: &[u8],
+    closed_world: bool,
+) -> Result<ConformReport, ConformError> {
+    gate(spec, out_dir)?;
+    let corpus = std::str::from_utf8(corpus_bytes).map_err(|e| ConformError {
+        stage: "corpus_parse".into(),
+        message: format!(
+            "scenario corpus is not valid UTF-8: {e} — fix the scenario record (one JSON object per line: {{id, setup?, trace}})"
+        ),
+    })?;
+    let scenarios = parse_corpus(corpus)?;
+    Ok(build_report(spec, corpus_bytes, &scenarios, closed_world))
 }
 
 // ---------------------------------------------------------------------------

@@ -140,7 +140,7 @@ fn checker_skipped(
 /// checklist is declared and never gates. The stage passes iff every
 /// gate checker reports passed — a skipped checker means its dependency
 /// failed, so the stage fails with the dependency's findings.
-fn run_lint_stage(specs: &[Spec], checklists: &[Checklist]) -> Stage {
+pub fn run_lint_stage(specs: &[Spec], checklists: &[Checklist]) -> Stage {
     // Branch A head: the first gate.
     let fm = lint::frontmatter_findings(specs);
     let fm_ok = fm.is_empty();

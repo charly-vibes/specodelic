@@ -63,18 +63,18 @@ excluded; revisit before 1.2 if the maintainer rules otherwise.)
 
 ## 3. Input gate
 
-- [ ] 3.1 **RED**: `tests/conform_gate.rs` — stale artifacts (spec
+- [x] 3.1 **RED**: `tests/conform_gate.rs` — stale artifacts (spec
       structured content changed after compile) refused with hint naming
       compile; lint-dirty file refused with hint naming lint; both emit
       zero verdict records (`stale_artifacts_refused`,
       `lint_dirty_refused`).
-- [ ] 3.2 **GREEN**: gate in the command path reusing the artifact
+- [x] 3.2 **GREEN**: gate in the command path reusing the artifact
       currency check orchestrate applies between stages (D5); refusal
       carries the remediation hint per the error contract.
-- [ ] 3.3 **RED→GREEN**: scenario corpus validation — malformed JSONL
+- [x] 3.3 **RED→GREEN**: scenario corpus validation — malformed JSONL
       lines, missing `id`, duplicate ids, unknown fields refused with
       remediation hints, never silently ignored (D3).
-- [ ] 3.4 **RED→GREEN**: zero-line corpus yields a valid report with
+- [x] 3.4 **RED→GREEN**: zero-line corpus yields a valid report with
       zero records and `evidence_scope` intact, exit 0 — never an error
       (`empty corpus` scenario in the report-schema requirement).
 
