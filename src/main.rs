@@ -628,12 +628,14 @@ fn cmd_conform(
         closed_world,
     ) {
         Ok(report) => {
-            let forbidden = report.verdict_counts.get("forbidden").copied().unwrap_or(0);
-            let unsupported = report
-                .verdict_counts
-                .get("unsupported")
-                .copied()
-                .unwrap_or(0);
+            // The exit mapping keys off the taxonomy's own spellings —
+            // never a string literal that could drift from
+            // conform::Verdict's serde form.
+            let violation_count = |v: conform::Verdict| {
+                report.verdict_counts.get(v.as_str()).copied().unwrap_or(0)
+            };
+            let forbidden = violation_count(conform::Verdict::Forbidden);
+            let unsupported = violation_count(conform::Verdict::Unsupported);
             if forbidden + unsupported > 0 {
                 // Findings-or-failure (exit 1): the error-kind envelope
                 // is the published contract (specs/errors.md

@@ -294,6 +294,30 @@ fn conform_gate_refusal_exits_2_without_records() {
     );
 }
 
+#[test]
+fn conform_empty_corpus_yields_valid_empty_report_exit_0() {
+    // Delta 'Empty corpus yields a valid empty report' at CLI level: a
+    // zero-line corpus is a valid Ok report — zero records,
+    // evidence_scope intact, exit 0 — never an error.
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("demo.cli_conform.md");
+    std::fs::write(&spec, SPEC_TEXT).unwrap();
+    let corpus = dir.path().join("scenarios.jsonl");
+    std::fs::write(&corpus, "\n").unwrap();
+
+    let (code, json) = conform_json(&spec, &corpus, &[]);
+    assert_eq!(code, Some(0), "zero traces never fail: {json}");
+    assert_eq!(json["ok"], serde_json::json!(true));
+    let data = &json["data"];
+    assert_eq!(data["report_schema_version"], 1);
+    assert_eq!(data["records"], serde_json::json!([]));
+    assert_eq!(data["verdict_counts"], serde_json::json!({}));
+    assert!(
+        data["evidence_scope"].as_str().is_some_and(|s| !s.is_empty()),
+        "evidence_scope intact on the empty report: {json}"
+    );
+}
+
 // ---- task 4.2: the help contract — READ-ONLY, stated up front ----
 
 #[test]
