@@ -44,6 +44,7 @@ fn write_model_check_spec(path: &std::path::Path, id: &str) {
 }
 mod citation_resolution;
 mod compile;
+mod conform;
 mod feedback_init;
 mod graph_projection;
 mod graph_views;

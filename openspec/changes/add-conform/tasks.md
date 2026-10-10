@@ -80,18 +80,18 @@ excluded; revisit before 1.2 if the maintainer rules otherwise.)
 
 ## 4. CLI wiring
 
-- [ ] 4.1 **RED**: CLI test in `tests/cli/` — `spk conform <file>
+- [x] 4.1 **RED**: CLI test in `tests/cli/` — `spk conform <file>
       --oracle scenarios.jsonl` produces the report envelope;
       `--closed-world` is accepted and recorded; no-declaration runs
       never contain a `forbidden` verdict
       (`open_world_never_forbidden` at CLI level).
-- [ ] 4.2 **GREEN**: add the `Conform` command to `src/main.rs`
+- [x] 4.2 **GREEN**: add the `Conform` command to `src/main.rs`
       (`Commands` enum, help text stating read-only evaluation); wire the
       exit-code contract: 0 = no `forbidden`/`unsupported` verdict, 1 =
       any `forbidden`/`unsupported`, `unknown`/`underspecified` surfaced
       as counts but never failing, 2 = invocation error / gate refusal
       with no verdict records emitted.
-- [ ] 4.3 **TIDY**: completions regenerate; `spk explain` untouched (no
+- [x] 4.3 **TIDY**: completions regenerate; `spk explain` untouched (no
       new topic this change — proposal contract).
 
 ## 5. Lifecycle independence and dogfood

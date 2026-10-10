@@ -16,7 +16,7 @@ use genesis::envelope::{Envelope, EnvelopeKind};
 use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
-use specodelic::{acset, checklist, graph, guide, model_check, spec, verify};
+use specodelic::{acset, checklist, conform, graph, guide, model_check, spec, verify};
 
 mod commands;
 
@@ -205,6 +205,28 @@ enum Commands {
         /// timeout, never a silent hang. 0 runs unbounded.
         #[arg(long, default_value_t = verify::DEFAULT_VERIFY_TIMEOUT_SECS)]
         timeout_secs: u64,
+    },
+    /// Evaluate an external oracle's recorded traces against a spec —
+    /// READ-ONLY evaluation: conform classifies, it never generates,
+    /// never writes artifacts, and never advances the lifecycle
+    /// (openspec/changes/add-conform phase 4)
+    Conform {
+        /// The spec file to conform (exactly one)
+        spec_path: String,
+        /// JSONL scenario corpus from the external oracle — one
+        /// {id, setup?, trace} object per line
+        #[arg(long)]
+        oracle: String,
+        /// Declare closed-world mode: a trace nothing covers is
+        /// forbidden, not underspecified — the declaration is recorded
+        /// in every verdict record and the report header. Without it,
+        /// absence of coverage is underspecified and never forbidden.
+        #[arg(long)]
+        closed_world: bool,
+        /// Directory holding the compiled artifacts (must match compile's
+        /// out-dir — conform never re-compiles)
+        #[arg(long, default_value = "specodelic")]
+        out_dir: String,
     },
     /// Rename a spec row id, updating the definition and every [[link]]
     /// atomically (all-or-nothing, verified against the linters)
@@ -517,6 +539,149 @@ fn cmd_guide(
     0
 }
 
+/// The conform invocation parameters beyond the spec path — the oracle
+/// corpus path, the recorded closed-world declaration, and the artifact
+/// directory, grouped to keep the shared emit plumbing (cli/format/
+/// verbosity/streams) within the arg lint (the CheckTarget precedent).
+struct ConformTarget {
+    oracle: String,
+    closed_world: bool,
+    out_dir: String,
+}
+
+/// `spk conform <spec-path> --oracle <scenarios.jsonl>` (add-conform
+/// phase 4): the READ-ONLY external-oracle evaluation over
+/// `conform::run` — the artifact gate (design D5), mechanical
+/// classification (D3), and the persisted report. Exit codes follow the
+/// delta's exit_code_verdict_mapping over specs/errors.md
+/// `exit_code_mapping`: 0 when no verdict is forbidden or unsupported
+/// (unknown/underspecified never fail — their counts surface in both
+/// views), 1 when any forbidden/unsupported verdict fails the run (an
+/// error-kind envelope — the published ok:false contract, envelope_error_kind),
+/// 2 on invocation errors and gate refusals — with ZERO verdict records
+/// emitted from any refusal path.
+fn cmd_conform(
+    spec_path: &str,
+    target: ConformTarget,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let ConformTarget {
+        oracle,
+        closed_world,
+        out_dir,
+    } = target;
+    // Invocation errors precede everything: zero verdict records.
+    let corpus_bytes = match std::fs::read(&oracle) {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            let out: Output<serde_json::Value> =
+                Output::failure(format!("cannot read the scenario corpus {oracle}: {e}")).with_next_step(
+                    "pass an existing JSONL scenario corpus file — one {id, setup?, trace} object per line (--oracle)",
+                );
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            return 2;
+        }
+    };
+    let paths = vec![spec_path.to_string()];
+    let (specs, _checklists, notes, parse_errors) = parse_batch(&paths, verbosity);
+    if !parse_errors.is_empty() {
+        // An unparsed spec never reaches the gate (the same discipline
+        // orchestrate applies before lint) — labeled, exit 2, no records.
+        let mut out: Output<serde_json::Value> =
+            Output::failure("the spec file failed to parse — verdicts are never derived from an unparsed file");
+        for e in &parse_errors {
+            out = out.with_warning(e.clone());
+        }
+        out = out.with_next_step("fix the frontmatter/tables named above");
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
+    if specs.is_empty() {
+        let mut out: Output<serde_json::Value> =
+            Output::failure("no spec file to conform — nothing was evaluated");
+        // Hostile-input/parse notes name themselves even here (suz).
+        for n in &notes {
+            out = out.with_warning(n.clone());
+        }
+        out = out.with_next_step(
+            "pass exactly one spec file (*.md with YAML frontmatter)",
+        );
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
+    if specs.len() > 1 {
+        let out: Output<serde_json::Value> = Output::failure(format!(
+            "conform evaluates exactly one spec file — the given path named {}",
+            specs.len()
+        ))
+        .with_next_step("pass a single spec file path");
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
+    match conform::run(
+        &specs[0],
+        std::path::Path::new(&out_dir),
+        &corpus_bytes,
+        closed_world,
+    ) {
+        Ok(report) => {
+            let forbidden = report.verdict_counts.get("forbidden").copied().unwrap_or(0);
+            let unsupported = report
+                .verdict_counts
+                .get("unsupported")
+                .copied()
+                .unwrap_or(0);
+            if forbidden + unsupported > 0 {
+                // Findings-or-failure (exit 1): the error-kind envelope
+                // is the published contract (specs/errors.md
+                // envelope_error_kind) — a failed conformance run never
+                // rides a success-shaped envelope. The human view is the
+                // same one the success branch renders.
+                let out = commands::as_failure(
+                    Output::success(report.clone()),
+                    format!(
+                        "{forbidden} forbidden and {unsupported} unsupported verdict(s) — the oracle disagrees with the declared model"
+                    ),
+                );
+                emit_report(
+                    out,
+                    Some(conform::human_view(&report)),
+                    format,
+                    verbosity,
+                    stdout,
+                    stderr,
+                );
+                1
+            } else {
+                conform::emit_report(&report, format, verbosity, stdout, stderr).ok();
+                0
+            }
+        }
+        Err(e) => {
+            // Gate refusals and corpus refusals stay exit 2 (delta
+            // exit_code_verdict_mapping) with zero verdict records; the
+            // message already carries the failing stage, the hint names
+            // its remediation command.
+            let hint = if e.message.contains("spk lint") {
+                "run: spk lint <file>"
+            } else if e.message.contains("spk compile") {
+                "run: spk compile <file>"
+            } else if e.stage == "corpus_parse" {
+                "fix the scenario record — one JSON object per line: {id, setup?, trace}"
+            } else {
+                "address the labeled refusal above"
+            };
+            let out: Output<serde_json::Value> =
+                Output::failure(format!("{}: {}", e.stage, e.message)).with_next_step(hint);
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            2
+        }
+    }
+}
+
 fn run(
     cli: &Cli,
     format: OutputFormat,
@@ -569,6 +734,23 @@ fn run(
             paths,
             out_dir,
             *timeout_secs,
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        ),
+        Commands::Conform {
+            spec_path,
+            oracle,
+            closed_world,
+            out_dir,
+        } => cmd_conform(
+            spec_path,
+            ConformTarget {
+                oracle: oracle.clone(),
+                closed_world: *closed_world,
+                out_dir: out_dir.clone(),
+            },
             format,
             verbosity,
             stdout,
