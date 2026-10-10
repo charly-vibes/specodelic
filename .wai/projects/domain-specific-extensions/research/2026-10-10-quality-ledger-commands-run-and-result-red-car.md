@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-10-specodelic-eczv-4-conform-phase-4-cli-wiring, pipeline-step:quality-ledger]
+---
+
+QUALITY LEDGER: commands run and result — RED: cargo test --test cli conform (6 failed: unrecognized subcommand conform, 2026-10-10); GREEN: same command 6 passed; post-fix: 7 passed; suites: cargo test --test cli 280 passed 0 failed 1 ignored; conform library tests 27 passed; just test exit 0 (35 ok suites); just lint exit 0; just pretender-check exit 0 (own files green, 12 pre-existing grandfathered reds in untouched files); openspec validate --all --strict 29 passed; pre-commit hooks all green on 050e083. RO5U status: M1 fixed, M3 fixed (new test), M2 deferred (single rendering path in conform.rs emit_report — out of hard scope), L1-L3 no action. Remaining findings: M2 only. Risks: M2 latent render-drift surface between exit-0/exit-1 JSON branches (envelope kind differs by contract, human view shared via conform::human_view) — low; known sequenced no-toml ah-check findings for the conform spec are pre-existing follow-up scope. Next: advance pipeline to the end report; commit the review fixes as a second commit

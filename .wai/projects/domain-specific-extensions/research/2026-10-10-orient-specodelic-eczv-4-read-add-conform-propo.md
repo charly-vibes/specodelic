@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-10-specodelic-eczv-4-conform-phase-4-cli-wiring, pipeline-step:orient, pipeline-run:epic-orchestrator-2026-10-10-specodelic-eczv-4-conform-phase-4-cli-wiring-and-exit-code-contract]
+---
+
+ORIENT: specodelic-eczv.4 — read add-conform proposal (What Changes), design.md D2/D6 + D1/D3/D4/D5, tasks.md phase 4 (4.1-4.3), conform delta spec. Study src/main.rs Commands enum + exit-code conventions (specs/errors.md 0/1/2), tests/cli/* envelope assertions, genesis Output::emit helpers. Phase 4 wires src/conform.rs verdict engine/report/gate to CLI: spk conform <file> --oracle scenarios.jsonl, --closed-world flag, exit 0 = no forbidden/unsupported, 1 = any forbidden/unsupported, 2 = invocation error/gate refusal with zero verdict records, open_world_never_forbidden asserted at CLI level. RED first (tests/cli/conform.rs), then GREEN (Commands variant), TIDY (completions, explain untouched). TMPDIR=/var/tmp/specodelic-eczv. Do not push; do not run wai close; orchestrator owns bd.
