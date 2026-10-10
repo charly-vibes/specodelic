@@ -266,6 +266,11 @@ def main(argv=None):
     for sc in scenarios:
         try:
             actual = normalize(replay(spk, sc, env))
+            # A cold scratch-crate compile can eat verify's own 600s wall
+            # clock on CI (properties_timed_out) — machine speed, not
+            # semantics; the shared target/ makes one warm retry honest.
+            if any("properties_timed_out" in line for line in actual):
+                actual = normalize(replay(spk, sc, env))
             expected = normalize(sc["expected"])
         except (OSError, RuntimeError, ValueError) as exc:
             print(f"doc-examples: DRIFT could not replay {sc['doc']} "
