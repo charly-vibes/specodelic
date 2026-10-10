@@ -1,0 +1,10 @@
+run_id: epic-orchestrator-2026-10-10-specodelic-eczv-4-conform-phase-4-cli-wiring-and-exit-code-contract
+pipeline: epic-orchestrator
+topic: 'specodelic-eczv.4: conform phase 4 CLI wiring and exit-code contract'
+created_at: '2026-10-10T00:56:57.527414044+00:00'
+current_step: 3
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
