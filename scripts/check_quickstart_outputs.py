@@ -270,6 +270,8 @@ def main(argv=None):
             # clock on CI (properties_timed_out) — machine speed, not
             # semantics; the shared target/ makes one warm retry honest.
             if any("properties_timed_out" in line for line in actual):
+                print(f"doc-examples: cold-scratch timeout on {sc['doc']} "
+                      f"[{scenario_label(sc)!r}] — retrying warm", file=sys.stderr)
                 actual = normalize(replay(spk, sc, env))
             expected = normalize(sc["expected"])
         except (OSError, RuntimeError, ValueError) as exc:

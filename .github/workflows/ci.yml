@@ -24,7 +24,11 @@ jobs:
   ci:
     name: Full pipeline
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # doc-examples may replay a verify scenario twice (cold scratch compile
+    # can eat the 600s wall clock on the first run; the gate retries warm —
+    # specodelic doc-gate retry). Two 600s verify budgets + the test suite
+    # needs > 15m; 40m leaves headroom without masking true hangs.
+    timeout-minutes: 40
 
     steps:
       - name: Checkout
