@@ -1,0 +1,10 @@
+run_id: tdd-ro5-2026-10-09-specodelic-eczv-1-conform-phase-1-verdict-engine-core
+pipeline: tdd-ro5
+topic: 'specodelic-eczv.1: conform phase 1 verdict engine core'
+created_at: '2026-10-09T23:44:20.358752082+00:00'
+current_step: 8
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
