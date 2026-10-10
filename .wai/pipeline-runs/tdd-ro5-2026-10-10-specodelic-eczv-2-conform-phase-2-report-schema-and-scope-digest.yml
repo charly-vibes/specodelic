@@ -1,0 +1,10 @@
+run_id: tdd-ro5-2026-10-10-specodelic-eczv-2-conform-phase-2-report-schema-and-scope-digest
+pipeline: tdd-ro5
+topic: 'specodelic-eczv.2: conform phase 2 report schema and scope digest'
+created_at: '2026-10-10T00:11:25.811345842+00:00'
+current_step: 9
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null

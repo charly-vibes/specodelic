@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-10-specodelic-eczv-2-conform-phase-2-report-schema-and-scope-digest, pipeline-step:quality-ledger]
+---
+
+QUALITY-LEDGER specodelic-eczv.2: Changed — src/conform.rs (report layer: REPORT_SCHEMA_VERSION, EVIDENCE_SCOPE, ConformReport, build_report, scope_digest composing verify::scope_digest + corpus-bytes hash, human_view, emit_report via genesis Output::emit; VerdictRecord +Eq), tests/conform_report.rs (new: report_schema_roundtrip, evidence_scope_present_in_both_views, rerun_byte_identical, digest_binds_scenarios), openspec tasks.md 2.1-2.4 checkboxes. Verified — cargo test --test conform_report 4/4; conform_classification 13/13; just test-smart 495 selected exit 0; just lint clean; just pretender-check exit 0 (no new reds, no thresholds raised); src/verify.rs and src/model_check.rs untouched — model_check digest contract byte-identical. Review — RO5U converged stage 4, verdict pass, 0 critical/high/medium, 2 lows fixed. Risks — conform digest does not bind artifact hashes (delta requires structured content + corpus bytes only; phase-3 artifact gate may revisit).

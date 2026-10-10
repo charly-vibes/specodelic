@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-10-specodelic-eczv-2-conform-phase-2-report-schema-and-scope-digest, pipeline-step:green]
+---
+
+GREEN specodelic-eczv.2: src/conform.rs gained REPORT_SCHEMA_VERSION=1 (conform-local, distinct field from model_check's claim_schema_version), EVIDENCE_SCOPE const, ConformReport (schema version, evidence_scope, scope_sha256, closed_world header flag, verdict_counts, records sorted by scenario id, no timestamps), build_report over the phase-1 engine, scope_digest = sha256 over canonical JSON {report_schema_version, structured_content_sha256 = verify::scope_digest(spec, empty artifacts) — the model_check computation path REUSED not forked, its own contract byte-identical —, scenario_corpus_sha256 = model_check::artifact_sha256(corpus_bytes)}, emit_report through genesis Output::emit (JSON envelope default; human branch prints human_view and suppresses the Debug dump per main.rs emit_report convention). Tests: 4/4 conform_report green, test-smart 495 selected exit 0
