@@ -26,7 +26,7 @@ Installs two binaries: `specodelic` and its alias `spk`.
 
 ## Quick start
 
-All output below was captured verbatim from `specodelic 0.7.0`. On a TTY
+All output below was captured verbatim from `specodelic 0.8.0`. On a TTY
 the tool prints human-readable text (shown here); when stdout is piped it
 emits a JSON envelope instead.
 

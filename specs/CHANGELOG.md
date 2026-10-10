@@ -1,5 +1,34 @@
 # Changelog
 
+## #128 — v0.8.0: `spk conform` external-oracle conformance, quant-finance pack, docs book round
+
+Release entry for the three threads shipped since #126:
+
+- **`spk conform` (add-conform, specodelic-eczv)** — the first command that
+  evaluates a spec against evidence from *outside* it: recorded traces from
+  a legacy system, curated case set, or reference implementation classified
+  against the compiled Model and its executable claims. Closed five-value
+  taxonomy, evidence-class separation (`--closed-world` is the only route
+  to `forbidden` for uncovered traces), byte-identical reruns,
+  `evidence_scope` data in both views, exit-code contract 0/1/2, strictly
+  read-only and outside the lifecycle. See #127.
+- **quant-finance pack (add-quant-finance-pack)** — the D6 second thin
+  domain pack (`quant.finance`, base pin Revision 18) with namespaced
+  `## Limits`, `quant.risk`/`quant.pricing` kinds, `capped_by` references,
+  honest-empty checkers, and six dogfood probes; archived dual-format with
+  10 scenario contracts. See #126.
+- **Human-facing docs round (specodelic-lf4b)** — architecture page,
+  worked example, guarantee-ladder / verification-boundaries page,
+  cold-reader glossary, tool-relationships page, verbatim quickstart
+  captures with a replay-on-CI docs-accuracy gate (`doc-examples`),
+  explain-topic anti-drift guard, one-line when/why notes on every verb in
+  the command reference, and llm.txt stamped at commit time with
+  release.md committed at release (lf4b.11).
+
+Housekeeping: pretender vendor excludes now cover ./-anchored walk paths
+(specodelic-m1rk). FORMAT_REVISION unchanged at 18 — this release adds
+code and docs, not corpus rules.
+
 ## #127 — `spk conform`: external-oracle trace conformance (add-conform)
 
 `add-conform` implemented end-to-end (specodelic-eczv, five phases) — the
