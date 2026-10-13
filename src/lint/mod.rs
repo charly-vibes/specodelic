@@ -1598,18 +1598,18 @@ mod tests {
         );
     }
 
-    /// Two files sharing the same file id (the transitional Revision 18
-    /// state: an active change's delta and the deployed capability spec
-    /// both live at `<cap>/spec.md` and both derive id `<cap>`) must not
-    /// erase each other from the reference index: every file's OWN rows
-    /// stay resolvable (the #37 bug was an overwrite erasing them).
-
-    /// Revision 18 (specodelic-mcy): the self-containment law retired
-    /// WITH `id: spec`. Real-id dual-format files are distinguished by
-    /// their own file ids, so a dotted ref resolves corpus-wide and a
-    /// typo whose file segment names no real file still dangles — the
-    /// false-resolution CORR-001 guarded against needed the id:spec
-    /// collision to exist.
+    // Two files sharing the same file id (the transitional Revision 18
+    // state: an active change's delta and the deployed capability spec
+    // both live at `<cap>/spec.md` and both derive id `<cap>`) must not
+    // erase each other from the reference index: every file's OWN rows
+    // stay resolvable (the #37 bug was an overwrite erasing them).
+    //
+    // Revision 18 (specodelic-mcy): the self-containment law retired
+    // WITH `id: spec`. Real-id dual-format files are distinguished by
+    // their own file ids, so a dotted ref resolves corpus-wide and a
+    // typo whose file segment names no real file still dangles — the
+    // false-resolution CORR-001 guarded against needed the id:spec
+    // collision to exist.
 
     // --- specodelic-b15: model_shape remainder + graph_shape ---
 

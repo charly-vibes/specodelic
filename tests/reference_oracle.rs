@@ -1060,35 +1060,6 @@ fn oracle_rules_fire_individually() {
 // Corpus walking
 // ---------------------------------------------------------------------------
 
-fn collect_corpus_specs(dir: &Path, out: &mut Vec<(String, String)>) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for e in entries.flatten() {
-        let p = e.path();
-        if p.is_dir() {
-            collect_corpus_specs(&p, out);
-        } else if p.extension().is_some_and(|x| x == "md") {
-            let name = p
-                .file_name()
-                .map(|s| s.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            // Non-spec files (no frontmatter) are exempt by construction —
-            // the oracle skips files without frontmatter. Checklists too.
-            if name.ends_with(".checklist.md") {
-                continue;
-            }
-            let text = std::fs::read_to_string(&p).unwrap_or_default();
-            let rel = p
-                .strip_prefix(Path::new(env!("CARGO_MANIFEST_DIR")))
-                .unwrap_or(&p)
-                .to_string_lossy()
-                .into_owned();
-            out.push((rel, text));
-        }
-    }
-}
-
 fn collect_openspec_capability_specs(dir: &Path, out: &mut Vec<(String, String)>) {
     // openspec/specs/<capability>/spec.md — exactly one level deep.
     let Ok(entries) = std::fs::read_dir(dir) else {
