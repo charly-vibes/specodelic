@@ -1,5 +1,32 @@
 # Changelog
 
+## #131 — v0.10.0: single-tree corpus release — `specs/` retired, two panic-class fixes
+
+Release entry for the thread shipped since #130:
+
+- **Single-tree corpus migration** (specodelic-jf1, #130): the corpus
+  moved from `specs/` into `openspec/specs/` — every corpus file is a
+  markdown spec written in the format it describes, at
+  `openspec/specs/<dir>/spec.md`. Gates, docs, tooling, and
+  espectacular contracts (281 TOMLs, 535 passed) all re-keyed onto the
+  new layout. This is the workflow-breaking change driving the minor
+  bump: external tooling pointed at `specs/` must re-point at
+  `openspec/specs/`.
+- **fix(verify)** (specodelic-kbmv): drain runner pipes during the
+  wall-clock poll — scratch `cargo test` no longer wedges past the
+  pipe buffer (a hang, root-caused and fixed).
+- **fix(migrate)** (specodelic-7i7): refuse a bare one-line delta
+  heading labeled — no more byte-OOB panic.
+- **fix(deny)**: CRLF-safe thin-pointer guard + cargo-deny ignore for
+  RUSTSEC-2024-0375; advisory id corrected to unsafe-libyaml.
+- **fix(corpus)** (specodelic-7jw8): acset-core closure_laws_hold case
+  labels out of fragment position.
+- **docs**: positioning section in `openspec/USAGE.md` — what the
+  format assumes, and when NOT to use it (specodelic-vpq).
+- FORMAT_REVISION unchanged at 18.
+
+Gates: just ci green.
+
 ## docs — positioning: what the format assumes, and when NOT to use it (specodelic-vpq)
 
 - `openspec/USAGE.md` gains a **Positioning** section right after the
