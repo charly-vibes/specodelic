@@ -8,6 +8,54 @@ few shapes that don't look like they fit until you see where they go.*
 
 ---
 
+## Positioning: what the format assumes — and when NOT to use it
+
+*Prose governance only — editorial positioning, reviewed against the
+convergent findings of the 2026-10 external evaluations. No rule enforces
+any of this.*
+
+The format's value presumes a **spec-first workflow**: the spec is the
+design artifact, and the implementation is machine-checked, regenerable
+code authored by an agent — the compile artifacts say "edit the spec, not
+here," and `llms.txt` names AI agents as the primary audience. The
+Constraints/Properties tables only earn their keep because something
+downstream actually consumes them: compiled proptest scaffolding, the
+TLA+ module, `verify`, `model-check`, the `ah` contract gate.
+
+**When the presumption holds** — agent-authored, spec-driven development;
+design conversations where you want counterexamples, not vibes; contracts
+several implementations must honor — the format is leverage: the linter
+catches shape drift, the model checker explores interleavings you didn't,
+and `verify` keeps the properties honest.
+
+**When it does not, the structured layers become pure tax.** Every
+third-party evaluation of the format (2026-10) reached this verdict
+independently:
+
+- **Hand-maintained code.** If humans edit the implementation directly
+  and nothing regenerates it from the spec, the coverage/anchoring
+  discipline buys nothing and costs every edit. Write an ordinary design
+  doc instead.
+- **Exploratory or throwaway prototypes.** A day-old sketch does not need
+  a guard-complete state machine.
+- **Quantitative or scientific claims you want actually checked.** Today's
+  guard grammar is propositional; real-valued predicates are uncheckable —
+  the single most convergent demand in the external reviews. State them in
+  prose and let `spk conform` report `unknown` rather than forcing them
+  into rows that pretend otherwise.
+- **A spec you already maintain elsewhere.** Migration (§3 below) is a
+  rewrite into the schema — do it because you want the pipeline, not for
+  cosmetics.
+
+The honest one-line test: **will anything mechanical consume the
+structured rows?** If no — write prose and skip `spk`. The format adds no
+value the linter cannot enforce for you, and `prose_untouched` guarantees
+it will never pretend otherwise: prose-only claims stay explicitly
+unchecked and are never counted as verified (see the verification
+boundaries discussion in the site docs).
+
+---
+
 ## 0. Terminology: four words that are easy to confuse
 
 Prose governance only — the parser never reads any of this

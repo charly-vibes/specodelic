@@ -13,6 +13,14 @@ format it describes.
 Hit jargon? The [glossary](glossary.md) defines every term a cold read
 needs, from EARS to the guarantee ladder.
 
+**Is this for you?** The format presumes a spec-first workflow — the spec
+is the design artifact and the implementation is agent-authored,
+regenerable, machine-checked code. If humans hand-maintain the code and
+nothing consumes the structured rows, the layers are pure tax, not
+leverage. The full when-not-to-use statement (assumption, honest one-line
+test, and the cases where an ordinary design doc wins) is in
+[USAGE.md](specs/USAGE.md).
+
 New to the format? Read the [worked example](examples/worked-example.md) —
 one reservation/order spec built layer by layer, with every lint finding
 and counterexample the author hit on the way.

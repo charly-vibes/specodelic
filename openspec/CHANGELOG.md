@@ -1,5 +1,22 @@
 # Changelog
 
+## docs — positioning: what the format assumes, and when NOT to use it (specodelic-vpq)
+
+- `openspec/USAGE.md` gains a **Positioning** section right after the
+  intro: the spec-first/agent-authored/regenerable-code assumption, the
+  four cases where the structured layers are pure tax (hand-maintained
+  code, throwaway prototypes, quantitative claims that need real
+  checking, specs already maintained elsewhere), and the honest one-line
+  test — *will anything mechanical consume the structured rows?* Worded
+  against the convergent verdicts of the 2026-10 external evaluations
+  (the `prose_untouched` ↔ domain-semantics tension; the uncheckable
+  real-valued predicate wall). Positioning only: no rules, no format
+  changes.
+- Site surfaces updated to match: the introduction's cold-read path
+  (index.md) now carries a short "Is this for you?" paragraph, and the
+  FAQ answers "Should I use this for my hand-maintained codebase?" —
+  both linking to the USAGE section as the authoritative statement.
+
 ## #130 — single-tree corpus migration (repo rollout, specodelic-jf1)
 
 - The corpus moved from `specs/` into the single tree `openspec/specs/`:

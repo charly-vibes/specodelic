@@ -30,6 +30,18 @@ prose stays free for humans. What a green check attests — and what it
 does *not* — is the subject of [verification
 boundaries](verification-boundaries.md).
 
+### Should I use this for my hand-maintained codebase?
+
+Probably not. The format presumes **spec-first, agent-authored,
+regenerable code** — its value comes from something mechanical consuming
+the structured rows (compiled properties, the TLA+ model, the contract
+gate). Under hand-maintained code the coverage/anchoring discipline is
+pure tax: every third-party evaluation of the format reached this verdict
+independently. The [positioning section of
+USAGE.md](specs/USAGE.md) states the assumption, the honest one-line test
+("will anything mechanical consume the structured rows?"), and the cases
+where an ordinary design doc wins.
+
 ### Why can't I write prose and have the linter check it?
 
 Deliberately not. The linter never parses prose, so prose is free to
