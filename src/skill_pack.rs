@@ -309,11 +309,15 @@ fn generate_design_pack() -> PackFiles {
             "../skill-packs/specodelic-design/references/format.md"
         )),
     );
+    // design D2: the example is `include_str!` straight from the book —
+    // `docs/src/examples/reservation-order.md` is the only authoring
+    // surface for the worked example (the doc-examples gate replays the
+    // quickstart against it), so no copied second source exists here to
+    // drift. The marker is prepended at generate time; the book file
+    // stays marker-free.
     files.insert(
         "references/example.md".to_string(),
-        marked(include_str!(
-            "../skill-packs/specodelic-design/references/example.md"
-        )),
+        marked(include_str!("../docs/src/examples/reservation-order.md")),
     );
     files
 }

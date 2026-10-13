@@ -41,15 +41,15 @@ beads tickets `specodelic-*` carrying the `add-skill-pack` label.)
 
 ## 3. Example embedding + lint gate
 
-- [ ] 3.1 **RED**: test — generated `references/example.md` equals
+- [x] 3.1 **RED**: test — generated `references/example.md` equals
       `docs/src/examples/reservation-order.md` content plus the managed
       marker prefix; running the shipped linter over the generated
       example reports zero findings and zero warnings; a corpus change
       that dirties the example fails this test.
-- [ ] 3.2 **GREEN**: `include_str!` embed of the book example into
+- [x] 3.2 **GREEN**: `include_str!` embed of the book example into
       `references/example.md`; wire the lint test through the same
       linter API `just lint-specs` uses.
-- [ ] 3.3 **TIDY**: none expected; verify the doc-examples gate and the
+- [x] 3.3 **TIDY**: none expected; verify the doc-examples gate and the
       new test cannot disagree (both parse the same file).
 
 ## 4. CLI verb — `spk skill install`

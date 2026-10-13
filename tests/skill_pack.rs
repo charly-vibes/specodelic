@@ -18,10 +18,11 @@
 
 use specodelic::ears::PATTERNS;
 use specodelic::guide::TOPICS;
-use specodelic::lint::RULE_TABLE;
+use specodelic::lint::{RULE_TABLE, lint_all};
 use specodelic::skill_pack::{
     PackFiles, check_membership, generate_pack, pack_content_hash, render_body, topics_mentioned,
 };
+use specodelic::spec::parse_str;
 
 /// The managed marker every generated file must start with (proposal:
 /// manual edits are detectable by construction; design D5/D6).
@@ -300,4 +301,59 @@ fn metasyntactic_explain_mention_is_not_flagged() {
     // `spk explain <topic>` in prose is a meta-shape, not a topic mention
     check_membership("prefer `spk explain <topic>` for detail")
         .expect("metasyntactic mention passes");
+}
+
+// ---- phase 3 (specodelic-xoeu, tasks.md §3): example embedding + lint gate ----
+
+/// The book example, read from disk at test time — the single authoring
+/// surface for the worked example (design D2). Reading at test time (not
+/// `include_str!`) is what makes the verbatim check a drift detector: the
+/// assertion compares the compiled-in pack against what the repo
+/// actually serves, so a corpus edit that dirties the example flips this
+/// test (via the lint gate below) or the doc-examples gate — never
+/// neither.
+fn book_example() -> String {
+    std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/src/examples/reservation-order.md"
+    ))
+    .expect("the book example exists at docs/src/examples/reservation-order.md")
+}
+
+#[test]
+fn example_reference_embeds_the_book_example_verbatim() {
+    // design D2: `references/example.md` is the book example verbatim
+    // under the managed marker — never a copied (driftable) second
+    // authoring surface.
+    let files = generate_pack("specodelic-design").expect("known pack generates");
+    let generated = files
+        .get("references/example.md")
+        .expect("the pack carries references/example.md");
+    let expected = format!("{MANAGED_MARKER}\n\n{}", book_example());
+    assert_eq!(
+        generated, &expected,
+        "references/example.md must be the managed marker + docs/src/examples/reservation-order.md, verbatim"
+    );
+}
+
+#[test]
+fn embedded_example_lints_clean_through_the_corpus_api() {
+    // The shipped linter, over the embedded example, through the same
+    // entry point `spk lint` (and so `just lint-specs`) runs — zero
+    // findings and zero warnings, else the pack would ship a skill
+    // teaching a spec that fails its own tool (tasks.md §3.1).
+    let book = book_example();
+    let spec = parse_str(&book).expect("the book example parses as a spec");
+    let report = lint_all(&[spec], &[]);
+    assert_eq!(
+        report.failures(),
+        0,
+        "the embedded example must lint with zero findings: {:?}",
+        report.issues
+    );
+    assert!(
+        report.warnings.is_empty(),
+        "the embedded example must lint with zero warnings: {:?}",
+        report.warnings
+    );
 }
