@@ -973,3 +973,64 @@ pub(crate) fn currency_check(
         }
     }
 }
+
+/// `spk skill install [--dir <dir>]` — write the managed skill pack
+/// under the target directory (default `~/.claude/skills`), refusing to
+/// overwrite non-marker files (add-skill-pack §4, design D5/D6). Exit
+/// codes per the error contract: 0 installed, 1 write failure, 2
+/// invalid invocation or overwrite refusal.
+pub(crate) fn cmd_skill_install(
+    dir: Option<String>,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let target = match dir {
+        Some(d) => std::path::PathBuf::from(d),
+        None => match specodelic::skill_pack::default_target() {
+            Ok(t) => t,
+            Err(msg) => {
+                let out: Output<serde_json::Value> = Output::failure(msg).with_next_step(
+                    specodelic::skill_pack::InstallError::NoHome(String::new()).hint(),
+                );
+                emit_report(out, None, format, verbosity, stdout, stderr);
+                return 2;
+            }
+        },
+    };
+    match specodelic::skill_pack::install(&target) {
+        Ok(report) => {
+            let payload = serde_json::to_value(&report).unwrap_or_default();
+            let out: Output<serde_json::Value> = Output::success(payload.clone())
+                .with_next_step("staleness is checked by: spk doctor (key spk.managed-skill-pack)");
+            emit_report(
+                out,
+                Some(human::skill_install(&payload)),
+                format,
+                verbosity,
+                stdout,
+                stderr,
+            );
+            0
+        }
+        Err(e @ specodelic::skill_pack::InstallError::Refusal(_)) => {
+            let out: Output<serde_json::Value> =
+                Output::failure(e.to_string()).with_next_step(e.hint());
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            2
+        }
+        Err(e @ specodelic::skill_pack::InstallError::Io(_, _)) => {
+            let out: Output<serde_json::Value> =
+                Output::failure(e.to_string()).with_next_step(e.hint());
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            1
+        }
+        Err(e @ specodelic::skill_pack::InstallError::NoHome(_)) => {
+            let out: Output<serde_json::Value> =
+                Output::failure(e.to_string()).with_next_step(e.hint());
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            2
+        }
+    }
+}

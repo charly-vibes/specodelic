@@ -21,6 +21,7 @@
 
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 /// Relative path → file content, sorted by path (BTreeMap ordering).
 pub type PackFiles = BTreeMap<String, String>;
@@ -30,6 +31,223 @@ pub type PackFiles = BTreeMap<String, String>;
 /// design D6).
 pub const MANAGED_MARKER: &str =
     "<!-- MANAGED BY specodelic — DO NOT EDIT MANUALLY. Regenerate: spk skill install -->\n\n";
+
+/// The one managed pack this binary ships (design D4: one procedure, two
+/// references — no sub-skills).
+pub const PACK_NAME: &str = "specodelic-design";
+
+/// The default install target: the Claude/pai skill roots convention
+/// (tasks.md §4.1). The pack lands under `<target>/<PACK_NAME>/` so
+/// skill loaders that expect `skills/<name>/SKILL.md` find it.
+pub fn default_target() -> Result<PathBuf, String> {
+    let home = match std::env::var("HOME") {
+        Ok(h) if !h.is_empty() => h,
+        _ => {
+            return Err(
+                "cannot determine the home directory (HOME unset) — pass --dir <dir>".to_string(),
+            );
+        }
+    };
+    Ok(PathBuf::from(home).join(".claude").join("skills"))
+}
+
+/// The recorded-targets state file: one absolute target directory per
+/// line, written by [`install`] so the doctor staleness check (§5) can
+/// re-check non-default `--dir` targets. This is a target record, NOT a
+/// staleness state — D5's "no state file" rule is about hashes, which
+/// are recomputed from the generated pack on both sides.
+pub fn targets_record_path() -> Result<PathBuf, String> {
+    let base = match std::env::var("XDG_STATE_HOME") {
+        Ok(x) if !x.is_empty() => PathBuf::from(x),
+        _ => {
+            let home = std::env::var("HOME")
+                .map_err(|_| "cannot determine the home directory (HOME unset)".to_string())?;
+            PathBuf::from(home).join(".local").join("state")
+        }
+    };
+    Ok(base.join("specodelic").join("skill-targets"))
+}
+
+/// Append a successfully installed target to the record file (deduped).
+fn record_target(target: &Path) {
+    let Ok(record) = targets_record_path() else {
+        return;
+    };
+    if let Some(parent) = record.parent()
+        && let Err(_) = std::fs::create_dir_all(parent)
+    {
+        return;
+    }
+    let line = target.display().to_string();
+    let existing = std::fs::read_to_string(&record).unwrap_or_default();
+    if existing.lines().any(|l| l == line) {
+        return;
+    }
+    let mut out = existing;
+    if !out.is_empty() && !out.ends_with('\n') {
+        out.push('\n');
+    }
+    out.push_str(&line);
+    out.push('\n');
+    // Best-effort: a failed record write must not fail an install that
+    // fully succeeded (the envelope already names the target).
+    let _ = std::fs::write(&record, out);
+}
+
+/// The targets the doctor staleness check evaluates: the default target
+/// first, then every recorded `--dir` target (deduped, insertion order).
+pub fn doctor_targets() -> Vec<PathBuf> {
+    let mut targets = vec![];
+    if let Ok(default) = default_target() {
+        targets.push(default);
+    }
+    if let Ok(record) = targets_record_path()
+        && let Ok(existing) = std::fs::read_to_string(&record)
+    {
+        for line in existing.lines() {
+            let p = PathBuf::from(line);
+            if !targets.contains(&p) {
+                targets.push(p);
+            }
+        }
+    }
+    targets
+}
+
+/// What [`install`] did: the resolved target, the written relative
+/// paths, the per-file SHA-256s, and the pack hash (design D5 — the
+/// hash is emitted at install so the doctor can recompute both sides).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct InstallReport {
+    pub target: String,
+    pub paths: Vec<String>,
+    pub files: Vec<FileHash>,
+    pub pack_content_hash: String,
+}
+
+/// One written file and its SHA-256.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct FileHash {
+    pub path: String,
+    pub sha256: String,
+}
+
+/// Why an install did not happen.
+#[derive(Debug)]
+pub enum InstallError {
+    /// A target path holds a file without the managed marker — refuse,
+    /// never silently replace (design D6). Exit 2.
+    Refusal(PathBuf),
+    /// The filesystem refused the write. Exit 1.
+    Io(PathBuf, std::io::Error),
+    /// No home directory — an invalid invocation. Exit 2.
+    NoHome(String),
+}
+
+impl std::fmt::Display for InstallError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InstallError::Refusal(p) => write!(
+                f,
+                "refusing to overwrite a file without the managed marker: {}",
+                p.display()
+            ),
+            InstallError::Io(p, e) => write!(f, "could not write {}: {e}", p.display()),
+            InstallError::NoHome(msg) => write!(f, "{msg}"),
+        }
+    }
+}
+
+impl InstallError {
+    /// The remediation hint the envelope carries (output discipline:
+    /// every error names its next step).
+    pub fn hint(&self) -> String {
+        match self {
+            InstallError::Refusal(p) => format!(
+                "move or delete {} first (it is not specodelic-managed), then re-run: spk skill install",
+                p.display()
+            ),
+            InstallError::Io(p, _) => format!(
+                "check permissions on {} (or pick another target with --dir), then re-run: spk skill install",
+                p.display()
+            ),
+            InstallError::NoHome(_) => {
+                "pass --dir <dir> to install into an explicit directory".to_string()
+            }
+        }
+    }
+}
+
+/// Write the generated pack under `<target>/<PACK_NAME>/`. Refuses
+/// (exit-2 class) BEFORE writing anything when any target path holds a
+/// non-marker file — the pre-check is atomic across the whole pack, so
+/// a refusal leaves the target byte-identical (design D6).
+pub fn install(target: &Path) -> Result<InstallReport, InstallError> {
+    let files = generate_pack(PACK_NAME).expect("known pack generates");
+    let pack_dir = target.join(PACK_NAME);
+
+    // Fail-closed pre-check: every target path must be either absent or
+    // marker-bearing. Nothing is written until all paths pass.
+    for rel in files.keys() {
+        let path = pack_dir.join(rel);
+        if path.is_file()
+            && !std::fs::read_to_string(&path)
+                .map(|c| c.starts_with(MANAGED_MARKER))
+                .unwrap_or(false)
+        {
+            return Err(InstallError::Refusal(path));
+        }
+    }
+
+    std::fs::create_dir_all(&pack_dir).map_err(|e| InstallError::Io(pack_dir.clone(), e))?;
+    let mut hashes = Vec::with_capacity(files.len());
+    for (rel, content) in &files {
+        let path = pack_dir.join(rel);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| InstallError::Io(path.clone(), e))?;
+        }
+        std::fs::write(&path, content).map_err(|e| InstallError::Io(path.clone(), e))?;
+        hashes.push(FileHash {
+            path: rel.clone(),
+            sha256: content_sha256(content),
+        });
+    }
+    let hash = pack_content_hash(&files);
+    record_target(target);
+    Ok(InstallReport {
+        target: target.display().to_string(),
+        paths: files.keys().cloned().collect(),
+        files: hashes,
+        pack_content_hash: hash,
+    })
+}
+
+/// SHA-256 over one file's bytes (hex) — the per-file rows of the
+/// install envelope.
+fn content_sha256(content: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(content.as_bytes());
+    hasher
+        .finalize()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+/// Hash the on-disk pack: read ONLY the pack's own relative paths (a
+/// mutated non-pack file in the target dir must not flip pass to stale,
+/// tasks.md §5.1) and hash them the same way [`pack_content_hash`] does.
+/// `Err` when a pack file is missing or unreadable — the caller reports
+/// stale (or missing when the whole directory is absent).
+pub fn disk_content_hash(pack_dir: &Path) -> Result<String, std::io::Error> {
+    let files = generate_pack(PACK_NAME).expect("known pack generates");
+    let mut disk = PackFiles::new();
+    for rel in files.keys() {
+        let content = std::fs::read_to_string(pack_dir.join(rel))?;
+        disk.insert(rel.clone(), content);
+    }
+    Ok(pack_content_hash(&disk))
+}
 
 /// Generate all files for a named first-party managed skill pack.
 pub fn generate_pack(pack_name: &str) -> Result<PackFiles, String> {

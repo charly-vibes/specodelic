@@ -446,6 +446,23 @@ pub fn hooks(payload: &serde_json::Value) -> String {
     }
 }
 
+/// Human summary for `spk skill install` (add-skill-pack §4): target,
+/// written paths, and the pack hash the doctor staleness check
+/// recomputes.
+pub fn skill_install(payload: &serde_json::Value) -> String {
+    let target = payload["target"].as_str().unwrap_or("?");
+    let paths: Vec<&str> = payload["paths"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|p| p.as_str()).collect())
+        .unwrap_or_default();
+    format!(
+        "skill: installed {} file(s) to {} (pack hash {})",
+        paths.len(),
+        target,
+        payload["pack_content_hash"].as_str().unwrap_or("?")
+    )
+}
+
 /// Human summary for `spk archive-companion` (dual-format layer
 /// preserved through the archive round-trip).
 pub fn archive_companion(payload: &serde_json::Value) -> String {

@@ -23,7 +23,7 @@ mod commands;
 use commands::corpus::{cmd_compile, cmd_graph, cmd_lint, cmd_merge, cmd_parse, cmd_rename};
 use commands::manage::{
     cmd_archive_companion, cmd_doctor, cmd_explain, cmd_feedback, cmd_hooks, cmd_init, cmd_migrate,
-    cmd_new, cmd_refactor, exit_code_footer,
+    cmd_new, cmd_refactor, cmd_skill_install, exit_code_footer,
 };
 use commands::model_check::{
     CheckTarget, OrchestrateTarget, cmd_model_check, cmd_orchestrate, cmd_verify,
@@ -381,11 +381,30 @@ enum Commands {
         #[arg(value_enum)]
         action: HooksAction,
     },
+    /// Install the first-party managed skill pack (specodelic-design)
+    Skill {
+        #[command(subcommand)]
+        action: SkillAction,
+    },
     /// Generate shell completions
     Completions {
         /// Shell to generate completions for
         #[arg(value_enum)]
         shell: clap_complete::Shell,
+    },
+}
+
+#[derive(Subcommand)]
+enum SkillAction {
+    /// Write the managed skill pack under the target directory
+    /// (default `~/.claude/skills`, creating parents). Refuses to
+    /// overwrite files without the managed marker (exit 2); the
+    /// envelope lists the written paths and `pack_content_hash`.
+    Install {
+        /// Target directory (default `~/.claude/skills`); the pack is
+        /// written under `<dir>/specodelic-design/`
+        #[arg(long)]
+        dir: Option<String>,
     },
 }
 
@@ -842,6 +861,9 @@ fn run(
         Commands::ArchiveCompanion { change_id, dry_run } => {
             cmd_archive_companion(change_id, *dry_run, format, verbosity, stdout, stderr)
         }
+        Commands::Skill {
+            action: SkillAction::Install { dir },
+        } => cmd_skill_install(dir.clone(), format, verbosity, stdout, stderr),
         Commands::Completions { shell } => {
             let mut cmd = Cli::command();
             match generate_completions(&mut cmd, *shell) {
