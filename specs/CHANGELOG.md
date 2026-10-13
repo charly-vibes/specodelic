@@ -1,5 +1,40 @@
 # Changelog
 
+## #129 — v0.9.0: `spk skill install` — the managed skill pack ships
+
+Release entry for the thread shipped since #128:
+
+- **Managed skill pack (add-skill-pack, six phases, archived dual-format)** —
+  the `specodelic-design` skill ships inside the binary: the pack is
+  generated from single tracked sources (`include_str!` over
+  `skill-packs/specodelic-design/SKILL.md` and the book's
+  `docs/src/examples/reservation-order.md`), the format reference renders
+  through the same tables that serve `spk explain` (no drift class —
+  membership tests fail the build on any unresolvable topic/rule/EARS
+  mention), and the embedded worked example lints clean through the same
+  linter API the corpus gate runs.
+- **`spk skill install [--dir <dir>]`** — writes the pack under
+  `~/.claude/skills` (or any `--dir`), refuses to overwrite files without
+  the managed marker (exit 2, path named, file untouched), and emits the
+  written paths plus `pack_content_hash` (SHA-256 over sorted
+  `path` + NUL + `content`).
+- **`spk doctor` staleness check (`spk.managed-skill-pack`)** — stale
+  installs are a warning naming both hashes and the regenerate command;
+  missing installs are an optional hint; the doctor exit code never
+  changes for either.
+- **Docs wiring** — thin-pointer book page `design-conversations.md`,
+  SUMMARY/README/llms verb entries, and an executable thin-pointer guard
+  (`tests/docs_thin_pointer.rs`) so no book page can duplicate the
+  protocol prose or the worked example.
+- Deployed capability spec `openspec/specs/skill-pack/` (archived via
+  the dual-format recipe, byte-identical deploy) with 10 per-scenario
+  contract TOMLs under `.espectacular/skill-pack/` — `ah check` reports
+  zero findings.
+
+Housekeeping: CI hardening for the verify scratch-crate hang on ubuntu
+runners and the doc-gate cold-compile retry. FORMAT_REVISION unchanged
+at 18 — this release adds a verb and docs, not corpus rules.
+
 ## #128 — v0.8.0: `spk conform` external-oracle conformance, quant-finance pack, docs book round
 
 Release entry for the three threads shipped since #126:
