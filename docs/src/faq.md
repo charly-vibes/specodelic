@@ -156,5 +156,5 @@ division of ownership is in [tool relationships](tool-relationships.md).
 
 Through a [domain pack](specs/packs/spec.md): a `kind: profile` manifest
 declaring typed sections, fiber kinds, and reference fields — discovered
-by corpus scan, no config file. Four packs ship in-repo, including the
-first cross-pack `## Requires` pilot (`bioimage.data`).
+by corpus scan, no config file. Five packs ship in-repo — four standard
+packs plus the first cross-pack `## Requires` pilot (`bioimage.data`).

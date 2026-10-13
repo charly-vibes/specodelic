@@ -57,10 +57,10 @@ fan-in/out and dangling detection), `spk rename` / `spk merge` /
 **Domain packs** extend the format without a format revision: a
 `kind: profile` manifest declares typed sections, fiber kinds, and
 reference fields for a domain (no config file — lint discovers packs by
-corpus scan). Four packs ship in-repo — the three standard packs
-(`data.lineage`, `numeric.predicates`, `empirical.registry`) plus the
-bioimage D6 pilot (`bioimage.data`, the first cross-pack `## Requires`);
-see the [packs spec](specs/packs/spec.md).
+corpus scan). Five packs ship in-repo — the four standard packs
+(`data.lineage`, `numeric.predicates`, `empirical.registry`,
+`quant.finance`) plus the bioimage D6 pilot (`bioimage.data`, the first
+cross-pack `## Requires`); see the [packs spec](specs/packs/spec.md).
 
 ## For agents
 
