@@ -1,0 +1,9 @@
+id = "no-duplicate-protocol-in-the-book"
+description = "No book page duplicates the protocol prose or the worked example beyond the thin pointer's one-line summary (skill-pack/docs_stay_thin_pointers)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "no_book_page_duplicates_the_protocol_prose_or_the_worked_example"

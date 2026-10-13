@@ -1,0 +1,9 @@
+id = "install-into-an-empty-directory"
+description = "The verb writes the pack, lists exactly the written paths with their hashes in the envelope, and exits 0 (skill-pack/install_writes_and_reports)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "install_into_an_empty_dir_writes_the_pack_and_lists_paths_and_hash"

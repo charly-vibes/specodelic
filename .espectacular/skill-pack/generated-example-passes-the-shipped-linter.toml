@@ -1,0 +1,9 @@
+id = "generated-example-passes-the-shipped-linter"
+description = "The generated example lints with zero issues and zero warnings through the corpus gate's entry point (skill-pack/example_lints_clean)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "embedded_example_lints_clean_through_the_corpus_api"

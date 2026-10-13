@@ -1,0 +1,9 @@
+id = "marker-survives-verbatim-embedding"
+description = "The installed verbatim embedding starts with the managed marker while the repo source stays marker-free (skill-pack/marker_marks_every_install)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "example_reference_embeds_the_book_example_verbatim"

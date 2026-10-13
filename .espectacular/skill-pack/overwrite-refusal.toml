@@ -1,0 +1,9 @@
+id = "overwrite-refusal"
+description = "A non-marker target file is refused with exit 2 naming the path, the file untouched (skill-pack/install_writes_and_reports)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "overwrite_refusal_for_a_non_marker_target_file"

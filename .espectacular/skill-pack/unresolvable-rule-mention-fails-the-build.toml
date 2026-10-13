@@ -1,0 +1,9 @@
+id = "unresolvable-rule-mention-fails-the-build"
+description = "An in-binary membership test fails the build naming the unresolvable identifier (skill-pack/mentions_membership_tested)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "dangling_rule_mention_fails_naming_the_identifier"

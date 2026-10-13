@@ -1,0 +1,9 @@
+id = "stale-installed-pack-is-flagged"
+description = "The doctor reports a stale entry naming the target, both hashes, and the regenerate command, without changing the exit code (skill-pack/doctor_flags_staleness)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "doctor_reports_stale_with_both_hashes_and_regenerate_command"

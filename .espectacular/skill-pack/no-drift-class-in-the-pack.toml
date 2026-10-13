@@ -1,0 +1,9 @@
+id = "no-drift-class-in-the-pack"
+description = "The topics line and format reference render from the served explain tables, so a table change flows into the next generated pack without editing the skill source (skill-pack/embedded_single_source)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "topics_line_renders_from_the_topic_list_table"

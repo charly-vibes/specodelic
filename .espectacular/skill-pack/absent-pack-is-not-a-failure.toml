@@ -1,0 +1,9 @@
+id = "absent-pack-is-not-a-failure"
+description = "The doctor reports a missing entry with the install hint; the exit code is unchanged (skill-pack/doctor_flags_staleness)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "doctor_reports_missing_when_no_pack_is_installed"

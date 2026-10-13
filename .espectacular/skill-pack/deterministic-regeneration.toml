@@ -1,0 +1,9 @@
+id = "deterministic-regeneration"
+description = "Two generations without an intervening source change are byte-identical (skill-pack/embedded_single_source)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "generate_pack_is_deterministic"

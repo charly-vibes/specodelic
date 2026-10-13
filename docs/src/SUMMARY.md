@@ -94,3 +94,4 @@
 - [empirical-registry-pack — capability](openspec/empirical-registry-pack/spec.md)
 - [bioimage-data-pack — capability](openspec/bioimage-data-pack/spec.md)
 - [quant-finance-pack — capability](openspec/quant-finance-pack/spec.md)
+- [skill-pack — capability](openspec/skill-pack/spec.md)
