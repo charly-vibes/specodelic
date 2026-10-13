@@ -6,13 +6,14 @@ version = 2
 # Known CVEs / yanked crates in the dependency graph fail the build.
 yanked = "deny"
 ignore = [
-  # RUSTSEC-2024-0375: unsafe-libyaml is UNMAINTAINED (not vulnerable).
+  # RUSTSEC-2024-0449: unsafe-libyaml is UNMAINTAINED (not vulnerable).
+  # (RUSTSEC-2024-0375 is serde_yaml itself — not in our graph.)
   # It is serde_yaml_ng 0.10's YAML emitter; serde_yaml_ng is the active
   # fork successor of serde_yaml and has no libyaml-free release yet.
   # Tracked for migration — see specodelic-7nu4. 2026-10-13: advisory DB refresh flipped this
   # from pass to fail; the crate itself is sound for our use (parse+emit
   # of spec frontmatter, no untrusted input surface).
-  "RUSTSEC-2024-0375",
+  "RUSTSEC-2024-0449",
 ]
 
 [licenses]
