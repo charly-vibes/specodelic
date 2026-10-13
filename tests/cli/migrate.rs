@@ -48,6 +48,25 @@ fn migrate_duplicate_requirement_heading_is_refused() {
     assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
 }
 
+/// (specodelic-7i7) A bare `## ADDED Requirements` heading — no
+/// trailing newline, no body — is refused labeled with a remediation
+/// hint (never a panic), and the file is untouched.
+#[test]
+fn migrate_degenerate_one_line_delta_is_refused_labeled() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("spec.md");
+    let original = "## ADDED Requirements";
+    std::fs::write(&file, original).unwrap();
+    spk()
+        .arg("migrate")
+        .arg(&file)
+        .assert()
+        .failure()
+        .stdout(contains("no trailing newline or body"))
+        .stdout(contains("### Requirement:"));
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+}
+
 // ---------- --rekey (add-migrate-rekey) ----------
 
 /// A 0.6.0-era `id: spec` dual-format file rekeys to its real

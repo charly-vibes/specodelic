@@ -653,6 +653,9 @@ pub(crate) fn cmd_migrate(
                 migrate::MigrateError::ConflictingDelta { .. } => {
                     "rename the requirement in one delta section (or hand-mirror the file), then re-run: spk migrate <file>"
                 }
+                migrate::MigrateError::BareDeltaHeading => {
+                    "the delta heading must be a complete line — write the section body (### Requirement: …) after ## ADDED Requirements, then re-run: spk migrate <file>"
+                }
                 _ => "a delta must carry an ## ADDED Requirements section",
             };
             let out: Output<serde_json::Value> =

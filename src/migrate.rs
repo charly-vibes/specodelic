@@ -31,6 +31,10 @@ pub enum MigrateError {
     /// impossible — migrating would guarantee a
     /// `linter.requirement_drift` failure.
     ConflictingDelta { heading: String },
+    /// A `## ADDED Requirements` heading with no trailing newline and no
+    /// body — the degenerate one-line delta (specodelic-7i7): a bare
+    /// heading is not a section, so there is nothing to wrap or mirror.
+    BareDeltaHeading,
     /// `--rekey` on a bare `spec.md` with no parent directory: the
     /// naming law has nothing to derive the real id from (Revision 18).
     NoDerivableId,
@@ -60,6 +64,10 @@ impl fmt::Display for MigrateError {
             MigrateError::ConflictingDelta { heading } => write!(
                 f,
                 "requirement `{heading}` appears in both ## ADDED Requirements and ## MODIFIED Requirements — the Requirements mirror cannot hold two different texts for one requirement, so migrating would guarantee a linter.requirement_drift failure"
+            ),
+            MigrateError::BareDeltaHeading => write!(
+                f,
+                "the ## ADDED Requirements heading has no trailing newline or body — a bare heading is not a section"
             ),
         }
     }
@@ -166,6 +174,12 @@ pub fn migrate(text: &str, path: &std::path::Path) -> Result<MigrateOutcome, Mig
     // REAL id derived by the naming law — spec.md from its parent
     // directory, anything else from its stem. `id: spec` retired.
     let generated_id = crate::lint::expected_id_from_path(path);
+    // specodelic-7i7: a bare `## ADDED Requirements` heading at EOF (no
+    // trailing newline) is not a section — refuse labeled instead of
+    // panicking on the out-of-bounds body index in section_span_from.
+    if has_bare_heading(text, "## ADDED Requirements") {
+        return Err(MigrateError::BareDeltaHeading);
+    }
     let has_added = section_span(text, "## ADDED Requirements").is_some();
     let has_mirror = section_span(text, "## Requirements").is_some();
     let has_frontmatter = text.starts_with("---\n") || text.starts_with("---\r\n");
@@ -278,6 +292,24 @@ fn section_body(text: &str, start: usize, end: usize) -> &str {
     &text[start + heading_len..end]
 }
 
+/// True when a `## <heading>` line occurs at a line start but is not
+/// terminated by a newline (LF or CRLF) — a bare heading at EOF, the
+/// degenerate one-line delta (specodelic-7i7). Such a heading opens no
+/// section; `migrate` refuses labeled instead of panicking on the
+/// out-of-bounds body index in `section_span_from`.
+fn has_bare_heading(text: &str, heading: &str) -> bool {
+    let mut from = 0;
+    while let Some(i) = text[from..].find(heading) {
+        let at = from + i;
+        let at_line_start = at == 0 || text.as_bytes()[at - 1] == b'\n';
+        if at_line_start && !text[at + heading.len()..].starts_with(['\n', '\r']) {
+            return true;
+        }
+        from = at + heading.len();
+    }
+    false
+}
+
 /// The requirement headings (`### Requirement: X`) carried by a delta
 /// section body, in order.
 fn requirement_headings(body: &str) -> Vec<String> {
@@ -297,7 +329,14 @@ fn section_span(text: &str, heading: &str) -> Option<(usize, usize)> {
 fn section_span_from(text: &str, heading: &str, from: usize) -> Option<(usize, usize)> {
     let hay = &text[from..];
     // Heading at a line start: either the very beginning or after \n.
-    let start = if hay.starts_with(heading) {
+    // A heading must be a complete line (terminated by \n or \r\n) to
+    // open a section — a bare heading not terminated by a newline (the
+    // degenerate one-line delta, specodelic-7i7) falls through to the
+    // needle search, which can never match it: the caller refuses
+    // labeled instead of panicking on the out-of-bounds body index.
+    let start = if hay.starts_with(heading)
+        && (hay[heading.len()..].starts_with('\n') || hay[heading.len()..].starts_with("\r\n"))
+    {
         from
     } else {
         let needle = format!("\n{heading}\n");
@@ -374,7 +413,7 @@ mod tests {
     fn already_migrated_is_refused() {
         let dual = "---\nid: spec\nkind: intent\nstatement: \"THE x SHALL x.\"\n---\n\n## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n\n## Requirements\n\n### Requirement: W\nThe system SHALL w.\n";
         assert_eq!(
-            migrate(&dual, &spec_path()),
+            migrate(dual, &spec_path()),
             Err(MigrateError::AlreadyMigrated)
         );
     }
@@ -390,6 +429,18 @@ mod tests {
         assert_eq!(
             migrate("# Just prose\n\nSome text.\n", &spec_path()),
             Err(MigrateError::NoDeltaSection)
+        );
+    }
+
+    /// (specodelic-7i7) A bare `## ADDED Requirements` heading — no
+    /// trailing newline, no body — is not a section: migrate must refuse
+    /// labeled instead of panicking on the out-of-bounds body index
+    /// (section_span_from used to slice past EOF).
+    #[test]
+    fn degenerate_one_line_delta_is_refused_labeled() {
+        assert_eq!(
+            migrate("## ADDED Requirements", &spec_path()),
+            Err(MigrateError::BareDeltaHeading)
         );
     }
 
