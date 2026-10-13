@@ -21,6 +21,12 @@ Before trusting a green checkmark, read
 ladder from lint-clean to matches-oracle, and what each rung does *not*
 assure.
 
+Thinking about a design rather than code? [Specs as the design
+substrate](design-canvas.md) is the canvas for that — and
+[which command when?](decision-guide.md) routes any task to the right
+verb. Questions a cold read asks are answered in the
+[FAQ](faq.md).
+
 ## The four layers
 
 | Layer        | Carries                                                        | Checked by                    |

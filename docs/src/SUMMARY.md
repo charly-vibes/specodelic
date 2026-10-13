@@ -9,7 +9,13 @@
 
 - [Installation & Quick Start](installation.md)
 - [Command Reference](commands.md)
+- [Which command when? — routing a task to the pipeline](decision-guide.md)
 - [Glossary — the jargon, defined for a cold read](glossary.md)
+- [FAQ — the questions a cold read asks](faq.md)
+
+# Thinking in Specs
+
+- [Specs as the design substrate — a canvas for thinking about the system](design-canvas.md)
 
 # The Format
 

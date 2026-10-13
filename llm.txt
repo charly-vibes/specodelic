@@ -106,6 +106,9 @@ Getting started:
 
 - [Installation & Quick Start](https://charly-vibes.github.io/specodelic/installation.html) ·
   [Command Reference](https://charly-vibes.github.io/specodelic/commands.html) ·
+  [Which command when?](https://charly-vibes.github.io/specodelic/decision-guide.html) ·
+  [FAQ](https://charly-vibes.github.io/specodelic/faq.html) ·
+  [Specs as the design substrate](https://charly-vibes.github.io/specodelic/design-canvas.html) ·
   [Full book (bulk)](https://charly-vibes.github.io/specodelic/print.html)
 
 ## Installation
@@ -133,7 +136,10 @@ cargo install specodelic
 - [Introduction](https://charly-vibes.github.io/specodelic/index.html)
 - [Installation & Quick Start](https://charly-vibes.github.io/specodelic/installation.html)
 - [Command Reference](https://charly-vibes.github.io/specodelic/commands.html)
+- [Which command when? — routing a task to the pipeline](https://charly-vibes.github.io/specodelic/decision-guide.html)
 - [Glossary — the jargon, defined for a cold read](https://charly-vibes.github.io/specodelic/glossary.html)
+- [FAQ — the questions a cold read asks](https://charly-vibes.github.io/specodelic/faq.html)
+- [Specs as the design substrate — a canvas for thinking about the system](https://charly-vibes.github.io/specodelic/design-canvas.html)
 - [conform — external oracle evidence, outside the lifecycle](https://charly-vibes.github.io/specodelic/conform.html)
 - [Graph views — derived diagrams of the corpus](https://charly-vibes.github.io/specodelic/graph-views.html)
 - [Architecture — the four layers and the lint pipeline](https://charly-vibes.github.io/specodelic/architecture.html)
