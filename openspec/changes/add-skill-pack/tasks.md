@@ -7,23 +7,23 @@ beads tickets `specodelic-*` carrying the `add-skill-pack` label.)
 
 ## 1. Pack core — tracked sources, `include_str!`, deterministic render
 
-- [ ] 1.1 **RED**: tests in `tests/skill_pack.rs`: `generate_pack` output
+- [x] 1.1 **RED**: tests in `tests/skill_pack.rs`: `generate_pack` output
       is deterministic (two calls byte-identical); every file starts with
       the managed marker naming the regenerate command; the pack contains
       exactly `SKILL.md`, `references/format.md`, `references/example.md`;
       `pack_content_hash` is SHA-256 over sorted `path\0content` (known
       fixture vector). Run `just test-smart` — all new tests must fail
       (module does not exist).
-- [ ] 1.2 **GREEN**: create tracked sources (`skill-packs/specodelic-design/SKILL.md`
+- [x] 1.2 **GREEN**: create tracked sources (`skill-packs/specodelic-design/SKILL.md`
       — protocol prose from the grounded 2026-10-13 draft, corrected
       per the grounding session); `src/skill_pack.rs` with
       `generate_pack`/`pack_content_hash`; marker prepended at generate
       time (repo sources stay marker-free).
-- [ ] 1.3 **RED→GREEN**: render pipeline replaces
+- [x] 1.3 **RED→GREEN**: render pipeline replaces
       `<!-- spk:render:* -->` placeholders in the tracked source with
       explain-derived lists (phase 2); unknown placeholder is a labeled
       generation failure, never a silent passthrough.
-- [ ] 1.4 **TIDY**: hash + collect helpers into one testable unit;
+- [x] 1.4 **TIDY**: hash + collect helpers into one testable unit;
       dead-code and clippy sweep.
 
 ## 2. Explain-derived tables + membership gate

@@ -33,6 +33,7 @@ pub mod packs;
 pub mod parse;
 pub mod refactor;
 pub mod rename;
+pub mod skill_pack;
 pub mod spec;
 pub mod update_notice;
 pub mod verify;
