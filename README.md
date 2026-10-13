@@ -10,10 +10,11 @@
 > spec can fail CI instead of silently underdetermining the build.
 > **Status:** [experimental](docs/src/status.md) · v0.9.0, self-hosting round in progress · [Motivation & design](docs/src/index.md) · [charly-vibes Tool Ecosystem](https://charly-vibes.github.io/dulce-de-leche/ecosystem-map.html)
 Specodelic (formerly `spec-format`) is a self-hosting specification
-format: every file in [`specs/`](specs/) is a markdown spec describing
-either the format or one check its linter performs, written in the
-format itself. Start at [`specs/specodelic.md`](specs/specodelic.md),
-then [`specs/STATUS.md`](specs/STATUS.md) §1 for the primer.
+format: every file in [`openspec/specs/`](openspec/specs/) is a markdown
+spec describing either the format or one check its linter performs,
+written in the format itself. Start at
+[`openspec/specs/specodelic/spec.md`](openspec/specs/specodelic/spec.md),
+then [`openspec/STATUS.md`](openspec/STATUS.md) §1 for the primer.
 
 ## The four layers
 
@@ -45,7 +46,7 @@ $ specodelic archive-companion my-change   # archive with the dual-format layer 
 ```
 
 Domain packs: a workspace extends the format by adding `kind: profile`
-spec files (see the [packs spec](specs/packs.md)) — no config, no
+spec files (see the [packs spec](openspec/specs/packs/spec.md)) — no config, no
 registry; vocabulary use activates a pack's checks advisory-first. The
 first three standard packs and the bioimage D6 pilot ship in-repo:
 [`packs/data-lineage.md`](packs/data-lineage.md) (a typed `## Data`
@@ -66,9 +67,9 @@ OME/NGFF stays authoritative outside the format, never absorbed.
 
 Every specced pipeline verb ships (`compile`, `model-check`, `verify`,
 `rename`, `refactor`, `merge`, `orchestrate`, `migrate`, `parse`); each
-verb's contract lives in its own spec ([`specs/compile.md`](specs/compile.md),
-[`specs/verify.md`](specs/verify.md),
-[`specs/orchestrate.md`](specs/orchestrate.md), etc.) — see `spk --help`
+verb's contract lives in its own spec ([`openspec/specs/compile/spec.md`](openspec/specs/compile/spec.md),
+[`openspec/specs/verify/spec.md`](openspec/specs/verify/spec.md),
+[`openspec/specs/orchestrate/spec.md`](openspec/specs/orchestrate/spec.md), etc.) — see `spk --help`
 for the full list.
 
 Output follows the [genesis-vibes](https://github.com/charly-vibes/genesis)

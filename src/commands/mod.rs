@@ -8,7 +8,7 @@ use genesis::guide::Output;
 /// specodelic-4v1 (F1): a failing run must never ride a success-shaped
 /// envelope — flip the envelope kind to error while keeping the payload,
 /// so consumers gating on `.ok` see the failure and still read the
-/// per-file detail (specs/errors.md `envelope_error_kind` +
+/// per-file detail (openspec/specs/errors/spec.md `envelope_error_kind` +
 /// `exit_code_mapping`). The message leads the warnings channel (the
 /// genesis failure convention: failure messages are always visible, and
 /// in JSON mode they also print to stderr).

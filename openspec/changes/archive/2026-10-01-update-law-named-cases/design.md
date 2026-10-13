@@ -12,17 +12,17 @@ spec list)*. Confirmation performed 2026-10-01:
   `linter-schema_shape` capability — the domain checker files
   (`specs/linter-*.md`) are not mirrored as capabilities.
 - Domain-side ownership is settled by the Checker Ownership table
-  (`specs/specodelic.md` line 98): `linter-coverage.md` owns
+  (`openspec/specs/specodelic/spec.md` line 98): `linter-coverage.md` owns
   `coverage` **and** `law_requires_cases`.
 - The openspec capability that *owns law-row checking* is **compile**:
-  the pipeline row (`specs/specodelic.md` line 76) gates compile on
+  the pipeline row (`openspec/specs/specodelic/spec.md` line 76) gates compile on
   `[[specodelic.coverage]] ∧ [[specodelic.law_requires_cases]]`, and
   compile's "Properties table compiles to proptest blocks" requirement
   is the only deployed requirement whose behavior reads law-row cases.
 
 → Deltas target `compile` (law-case behavior) and `spec-integration`
 (MODIFIED-delta mirror widening). The linter rule itself is specified
-domain-side in `specs/linter-coverage.md`, like every other checker.
+domain-side in `openspec/specs/linter-coverage/spec.md`, like every other checker.
 
 ## D2 — The machine form is the form compile already parses
 
@@ -49,7 +49,7 @@ would churn every law row for zero gained checkability.
   remediation hint (write `**identity:** … **associativity:** …`
   labels). The spec-side error contract stays
   `linter.coverage.law_case_failure` (owned by
-  `specs/linter-coverage.md`'s effect row — not re-declared in the
+  `openspec/specs/linter-coverage/spec.md`'s effect row — not re-declared in the
   deltas, keeping the file-id-namespaced error-label law intact).
 - Floor matching is on the sanitized label (trim + lowercase), so
   `**Identity:**` counts; a label like `**left_identity:**` satisfies
@@ -87,7 +87,7 @@ tests stay green unchanged (D: added_rules_unchanged).
 
 ## D6 — Live corpus catch: `topo_sort_naturality`
 
-`specs/linter-graph_shape.md` line 54's law row carries only
+`openspec/specs/linter-graph_shape/spec.md` line 54's law row carries only
 `**naturality:**`. Once `law_cases` ships, `just lint-specs` fails
 here — the fix follows the cxq precedent (`coverage_naturality`'s
 decision of record): instantiate the floor at the row's observation

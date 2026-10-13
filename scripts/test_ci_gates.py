@@ -4,7 +4,7 @@
 The corpus artifacts shipped in specodelic/ were once re-keyed by hand
 without a re-run (fabricated provenance). The gate that prevents silent
 recurrence: `just ci` must include a corpus-wide model-check stage, and
-that stage must actually invoke `spk model-check specs` (cargo run, never
+that stage must actually invoke `spk model-check openspec/specs` (cargo run, never
 a possibly-stale PATH binary).
 """
 
@@ -41,7 +41,10 @@ class TestCorpusModelCheckGate(unittest.TestCase):
     def test_model_check_specs_recipe_invokes_spk(self):
         body = recipe_body(self.text, "model-check-specs")
         self.assertGreater(len(body.strip()), 0, "model-check-specs recipe missing")
-        self.assertIn("model-check specs", body)
+        # The gate runs over the dogfood corpus dirs (the corpus-backed
+        # capability set, specodelic-jf1) via the CORPUS_DIRS just var.
+        self.assertIn("model-check {{CORPUS_DIRS}}", body)
+        self.assertIn('CORPUS_DIRS := "openspec/specs/', self.text)
 
     def test_gate_uses_cargo_run_not_path_binary(self):
         body = recipe_body(self.text, "model-check-specs")

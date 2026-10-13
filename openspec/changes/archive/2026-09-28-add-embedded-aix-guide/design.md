@@ -4,7 +4,7 @@
 
 `spk` is published as a standalone binary. Consumer repos adopt the
 Specodelic format by writing markdown files and running `spk` — they do
-not clone this repo, so `specs/specodelic.md`, `specs/kinds.md`, and the
+not clone this repo, so `openspec/specs/specodelic/spec.md`, `openspec/specs/kinds/spec.md`, and the
 linter spec files are unreachable at runtime. The only knowledge an
 agent can currently obtain is clap help text and a skeletal scaffold
 template. This design covers how format knowledge gets into the binary
@@ -77,7 +77,7 @@ append-only (same OCP bias as the format's tables).
 after the corpus revision it mirrors — the corpus currently carries
 `## Revision 8`; updated by hand when the corpus revision bumps; a
 corpus-lint style test extracts the latest `Revision N` heading from
-`specs/specodelic.md`, compares **numerically** so `Revision 10` >
+`openspec/specs/specodelic/spec.md`, compares **numerically** so `Revision 10` >
 `Revision 9`, and fails if the constant is stale — the repo's own CI
 catches the drift, not the consumer). Surfaced in `--version --json` as
 `format_revision` and in every `explain` payload.
@@ -93,7 +93,7 @@ param then.
 
 ### Decision 5: Doctor mode detection by marker file
 
-Self-hosting mode ⇔ `specs/specodelic.md` exists; consumer mode
+Self-hosting mode ⇔ `openspec/specs/specodelic/spec.md` exists; consumer mode
 otherwise (including no `specs/` at all). Consumer mode checks: specs
 dir present/absent (informational), beads config (informational, as
 today), embedded guide revision (always ok), and — when a local corpus
@@ -102,7 +102,7 @@ trailing integer) and *warns* (not fails) if it is newer than
 `FORMAT_REVISION`. A corpus with no `Revision` heading at all skips the
 currency check with an informational note — never an error. Self-hosting
 mode preserves today's checks. No marker file format is invented; the
-existing `Revision N` headings in `specs/specodelic.md` are the marker.
+existing `Revision N` headings in `openspec/specs/specodelic/spec.md` are the marker.
 
 ### Decision 6: Scaffold guidance as HTML comments
 

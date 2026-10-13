@@ -78,7 +78,7 @@ fn cargo_deny_wired_with_advisories_and_licenses() {
     }
 }
 
-/// Doc examples rot: fenced ```markdown spec examples in specs/*.md are
+/// Doc examples rot: fenced ```markdown spec examples in the corpus docs are
 /// runnable format artifacts; CI must lint them or USAGE-style blocks
 /// drift (the specodelic-vpx class of bug). The pipeline lives in the
 /// justfile (`just ci` is the local/CI parity point), so that is where

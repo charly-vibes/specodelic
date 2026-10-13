@@ -45,7 +45,7 @@ PERTURBATIONS = (
     (
         "c1.md",
         "A corpus that triggers EVERY Reference Typing violation class "
-        "named in specs/specodelic.md's Reference Typing table, plus a "
+        "named in openspec/specs/specodelic/spec.md's Reference Typing table, plus a "
         "supersedes cycle.",
         "PERTURBED statement text that must never reach any view output.",
     ),

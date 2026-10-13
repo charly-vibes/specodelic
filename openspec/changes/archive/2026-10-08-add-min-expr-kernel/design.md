@@ -18,7 +18,7 @@ evidence directly.
 
 Grounding evidence (verified against the live workspace):
 
-- `specs/compile.md:30` — `fragment_guard_rejected` deferral:
+- `openspec/specs/compile/spec.md:30` — `fragment_guard_rejected` deferral:
   *"decision of record: deferred to a future Revision alongside a
   data-carrying state space"* — the deferral names its own condition;
   this change does not meet it and does not claim it.

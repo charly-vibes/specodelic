@@ -22,14 +22,14 @@ claim was corrected to extraction-free boundary *queries* only.
   - New Reference Typing row: `observes` — one-directional outbound reference
     from a Constraint row to a Constraint with `kind == effect`, on any file
     (cross-file allowed). Mirrors the `satisfies` precedent (`specodelic.md`
-    Revision 7). → `specs/specodelic.md` Revision 9, `specs/kinds.md`
-    Revision 5. (`specs/specodelic.md` stands at Revision 8 today — backend
+    Revision 7). → `openspec/specs/specodelic/spec.md` Revision 9, `openspec/specs/kinds/spec.md`
+    Revision 5. (`openspec/specs/specodelic/spec.md` stands at Revision 8 today — backend
     pluggability — so the observes row is Revision 9; `src/guide.rs`'s
     `FORMAT_REVISION` bumps with it.)
   - `observes` edges are **acyclic-exempt**: they do not join the acyclic
     invariant's edge set (a claim, not a dependency — same reasoning that
     keeps `satisfies` out). Stated explicitly, not left implicit. →
-    `specs/graph.md` + `specs/linter-graph_shape.md` note.
+    `openspec/specs/graph/spec.md` + `openspec/specs/linter-graph_shape/spec.md` note.
 - **Tool — linter:** new check `linter.observability`: every effect
   Constraint is either the target of ≥1 `observes` edge or is reported as an
   **advisory warning** naming the unobserved row — emitted on the success
@@ -47,7 +47,7 @@ claim was corrected to extraction-free boundary *queries* only.
 - **Dogfooding:** one corpus/USAGE worked example carrying real `emits` +
   `observes` rows, so the advisory-vs-gating decision is made against real
   friction, not in the abstract. The corpus already carries one effect row
-  — `specs/refactor.md`'s `advisory_finding_emitted` (emitted by the `found`
+  — `openspec/specs/refactor/spec.md`'s `advisory_finding_emitted` (emitted by the `found`
   state), unobserved — so the first advisory warning fires on the real
   corpus the moment the check lands; that is the intended evidence base,
   not a regression.
@@ -61,9 +61,9 @@ pattern is the candidate when the question reopens).
 
 - Affected specs (openspec capabilities): **new capability `observability`**
   (delta under `specs/observability/` in this change).
-- Affected format corpus: `specs/specodelic.md` (Revision 8), `specs/kinds.md`
-  (Revision 5), `specs/graph.md`, new `specs/linter-observability.md`,
-  `specs/USAGE.md` (worked example), `specs/STATUS.md` (status table row).
+- Affected format corpus: `openspec/specs/specodelic/spec.md` (Revision 8), `openspec/specs/kinds/spec.md`
+  (Revision 5), `openspec/specs/graph/spec.md`, new `openspec/specs/linter-observability/spec.md`,
+  `openspec/USAGE.md` (worked example), `openspec/STATUS.md` (status table row).
 - Affected code: `src/spec.rs` (parse optional `observes` column),
   `src/lint.rs` (`linter.observability`), `src/graph.rs` (`observes` edge in
   `total_extraction`; external-boundary classification), `src/guide.rs`

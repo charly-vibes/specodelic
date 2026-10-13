@@ -59,7 +59,7 @@ emit it through the standard genesis JSON envelope (human-readable under
 #### Scenario: Agent in a consumer repo asks for the format
 
 - **WHEN** `spk explain format` runs in a directory with no
-  `specs/specodelic.md` on disk
+  `openspec/specs/specodelic/spec.md` on disk
 - **THEN** it exits 0 and the envelope `data.body` contains the
   four-layer table and the lifecycle description
 
@@ -113,13 +113,13 @@ payload SHALL include it.
 ### Requirement: Guide-Drift Guard
 
 The repo's test suite SHALL fail if `FORMAT_REVISION` is stale relative
-to the latest `Revision N` heading in `specs/specodelic.md`, comparing
+to the latest `Revision N` heading in `openspec/specs/specodelic/spec.md`, comparing
 the trailing integers numerically, so binary knowledge cannot silently
 lag the corpus.
 
 #### Scenario: Corpus revision bumped without updating the constant
 
-- **WHEN** `specs/specodelic.md` gains a newer `Revision N` marker than
+- **WHEN** `openspec/specs/specodelic/spec.md` gains a newer `Revision N` marker than
   `FORMAT_REVISION` and the test suite runs
 - **THEN** a unit test fails naming both revisions
 

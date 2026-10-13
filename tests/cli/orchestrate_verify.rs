@@ -1,7 +1,7 @@
 // (split from tests/cli.rs — specodelic-g17 file_lines ratchet)
 use super::*;
 
-// ---- specodelic-8kk: spk orchestrate (specs/orchestrate.md) ----
+// ---- specodelic-8kk: spk orchestrate (openspec/specs/orchestrate/spec.md) ----
 
 #[test]
 fn orchestrate_reports_every_stage_and_skips_after_failure() {
@@ -199,7 +199,7 @@ fn unimplemented_pipeline_commands_exit_nonzero() {
     spk().args(["orchestrate"]).assert().failure();
 }
 
-// ---- specodelic-1pv: the verify step (specs/verify.md) ----
+// ---- specodelic-1pv: the verify step (openspec/specs/verify/spec.md) ----
 
 /// A lint-clean spec with no Properties rows — the properties gate
 /// passes vacuously, so the fast verify paths never invoke cargo.
@@ -787,7 +787,7 @@ fn fragment_that_does_not_compile_is_a_labeled_model_check_error() {
 }
 
 // ---- specodelic-4v1: failures ride success-shaped envelopes (F1) ----
-// specs/errors.md's envelope_error_kind row: a failing stage's report is
+// openspec/specs/errors/spec.md's envelope_error_kind row: a failing stage's report is
 // an error-kind envelope with ok == false — exit 1 riding ok:true lied
 // to consumers gating on .ok.
 

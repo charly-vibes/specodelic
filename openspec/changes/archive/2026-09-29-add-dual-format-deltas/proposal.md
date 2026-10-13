@@ -6,7 +6,7 @@ Two spec systems currently describe overlapping reality in two grammars:
 openspec (engineering change workflow) and specodelic (domain spec
 format). Every openspec change must hand-author requirement text that is
 a mechanical restatement of specodelic rows (see `add-compile-functor`'s
-delta, self-labeled "mirrors specs/compile.md"), and `openspec archive`
+delta, self-labeled "mirrors openspec/specs/compile/spec.md"), and `openspec archive`
 regenerates `openspec/specs/<cap>/spec.md` from its own parse — dropping
 the specodelic layer and creating a second formalized source of truth
 that `spk lint` cannot see. A spike
@@ -25,7 +25,7 @@ repo's protocol.
   `spec.md`, so dual-format files declare `id: spec`. Legal — `unique_id`
   is per-file (verified with two coexisting `id: spec` files). Deltas stay
   self-contained: wiki-refs resolve only within the file; domain
-  semantics are referenced by prose path (`specs/compile.md`), never
+  semantics are referenced by prose path (`openspec/specs/compile/spec.md`), never
   `[[wiki-link]]`.
 - **Archive protocol**: `openspec archive <id> --skip-specs` (the
   archiver's regeneration destroys frontmatter and tables — verified),
@@ -36,7 +36,7 @@ repo's protocol.
 - **Modeled change lifecycle**: each delta's `## Model` section encodes
   the change's own lifecycle (`proposed → approved → implemented →
   archived`) with transitions guarded by the file's own constraints —
-  the orchestrator pattern of `specs/orchestrate.md` applied to the
+  the orchestrator pattern of `openspec/specs/orchestrate/spec.md` applied to the
   engineering workflow.
 - **CI gates**: `just ci` gains `openspec validate --strict` over every
   active change and `spk lint` over all dual-format delta files; a

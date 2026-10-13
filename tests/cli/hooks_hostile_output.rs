@@ -350,7 +350,7 @@ fn usage_quick_start_example_is_lint_clean() {
     // the tool's own lint (specodelic-vpx): filename instruction present
     // (id_matches_file) and every constraint has a deriving property
     // (coverage).
-    let usage = std::fs::read_to_string("specs/USAGE.md")
+    let usage = std::fs::read_to_string("openspec/USAGE.md")
         .unwrap()
         // Windows runners check out CRLF (Git for Windows autocrlf);
         // normalize so the fence search below is line-ending-agnostic.
@@ -484,7 +484,7 @@ fn human_hooks_uninstall_renders_text() {
 }
 
 // ---------------------------------------------------------------------------
-// rename (specodelic-ams, specs/rename.md)
+// rename (specodelic-ams, openspec/specs/rename/spec.md)
 // ---------------------------------------------------------------------------
 
 /// Two-file fixture: `alpha` defines constraint `c1` (with a deriving

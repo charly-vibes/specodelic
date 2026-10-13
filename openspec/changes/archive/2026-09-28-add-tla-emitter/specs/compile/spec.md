@@ -1,4 +1,4 @@
-# Delta spec: compile capability (mirrors specs/compile.md's model_to_tla)
+# Delta spec: compile capability (mirrors openspec/specs/compile/spec.md's model_to_tla)
 
 ## ADDED Requirements
 

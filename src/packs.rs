@@ -1,4 +1,4 @@
-//! # packs.rs — the domain-pack mechanism (specs/packs.md, Revision 14)
+//! # packs.rs — the domain-pack mechanism (openspec/specs/packs/spec.md, Revision 14)
 //!
 //! **Purpose:** make specodelic's extension mechanism first-class — a
 //! domain pack is a declared, discoverable, versioned artifact in the
@@ -669,11 +669,14 @@ fn implicit_activation_warnings(spec: &Spec, packs: &[PackInfo], report: &mut Re
 }
 
 /// The workspace corpus's format revision: the latest Revision heading
-/// in `specs/specodelic.md` under the discovery root, else the embedded
+/// in the workspace's specodelic core spec — `openspec/specs/specodelic/spec.md`
+/// (single-tree layout, specodelic-jf1), `openspec/specs/specodelic/spec.md` (two-tree
+/// consumer layout) — under the discovery root, else the embedded
 /// FORMAT_REVISION.
 fn corpus_revision(specs: &[Spec]) -> u32 {
     let root = discovery_root(specs);
     let candidates = [
+        root.join("openspec/specs/specodelic").join("spec.md"),
         root.join("specs").join("specodelic.md"),
         root.join("specodelic.md"),
     ];
@@ -727,7 +730,7 @@ fn shape_findings(pack: &Spec, report: &mut Report) {
                 "pack_shape",
                 pack.intent.id.clone(),
                 format!(
-                    "missing manifest table `{heading}` — the pack_shape law requires all six facets (specs/packs.md manifest_six_tables); every pack declares exactly what it introduces"
+                    "missing manifest table `{heading}` — the pack_shape law requires all six facets (openspec/specs/packs/spec.md manifest_six_tables); every pack declares exactly what it introduces"
                 ),
             )),
             Some(rows) => {
@@ -745,7 +748,7 @@ fn shape_findings(pack: &Spec, report: &mut Report) {
                         "pack_shape",
                         pack.intent.id.clone(),
                         format!(
-                            "manifest facet `{}` has a row not matching its fixed two-column shape — every manifest table's row shape is fixed (specs/packs.md manifest_six_tables)",
+                            "manifest facet `{}` has a row not matching its fixed two-column shape — every manifest table's row shape is fixed (openspec/specs/packs/spec.md manifest_six_tables)",
                             heading.trim_start_matches("## ")
                         ),
                     ));
@@ -764,7 +767,7 @@ fn shape_findings(pack: &Spec, report: &mut Report) {
                 "pack_shape",
                 pack.intent.id.clone(),
                 format!(
-                    "narrowing rejected: pack `## Kinds` row `{kind}` must be pack-qualified (e.g. `{}.tolerance`) and must never name a base closed-set member unqualified — pack vocabulary is fiber-relative, the append-only law forbids narrowing any base set (specs/packs.md base_closed_sets_frozen, append_only_packs)",
+                    "narrowing rejected: pack `## Kinds` row `{kind}` must be pack-qualified (e.g. `{}.tolerance`) and must never name a base closed-set member unqualified — pack vocabulary is fiber-relative, the append-only law forbids narrowing any base set (openspec/specs/packs/spec.md base_closed_sets_frozen, append_only_packs)",
                     pack.intent.id
                 ),
             ));

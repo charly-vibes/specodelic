@@ -20,7 +20,7 @@ rule.
 | **the format** | the markdown schema/language itself: frontmatter fields, the four layer tables, wiki-links, the 5 kinds. Defined by `specodelic.md`, `kinds.md`, `theory.md`. | "states are named variants, not booleans" — a rule *of the format* |
 | **the tool (spk)** | the `specodelic` CLI that lints/compiles/checks files written in the format. Specified by the `linter-*.md`, `compile.md`, … corpus. | `spk lint` reports `linter.frontmatter` findings |
 | **the subject** | whatever a given spec file is *about*. For this corpus the subject is the tool itself (dogfooding); for a domain spec it's whatever system you're specifying. Declared by a file's `statement` + prose — deliberately **not** a frontmatter field, hence never machine-checkable. | `orchestrate.md`'s subject is the pipeline; `order-cancel.md`'s is the refund policy |
-| **spec file** | one document conforming to the format | `specs/orchestrate.md` |
+| **spec file** | one document conforming to the format | `openspec/specs/orchestrate/spec.md` |
 | **the corpus** / `specs/` | the directory of spec files this repo maintains | "the corpus is dogfooding" |
 | **spec-format** | the project's former name. Appears only in provenance contexts (rename history, CHANGELOG); never in current prose | "renamed from `spec-format` on import (2026-09-28)" |
 

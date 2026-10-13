@@ -34,10 +34,10 @@ checkable fact instead of an unstated assumption.
 |------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
 | kind_enum_closed        | invariant | `the five kinds are exactly {Intent, Constraint, State, Transition, Property}, one per top-level section of a spec file (frontmatter, Constraints table, Model/States, Model/Transitions, Properties table)` | [[kinds]] |          |
 | intent_row_shape        | invariant | `an Intent row is the file's frontmatter block; its fields are exactly {id, kind, statement}, with kind == "intent", plus optionally-declared frontmatter keys (currently `checked_against_core`, per `AGENTS.md`'s convention — see Revision 7)`                                    | [[kinds]] |          |
-| constraint_row_shape    | invariant | `a Constraint row is one row of the Constraints table; its base fields are exactly {id, kind, expr, traces_to}, optionally followed by typed reference columns — each such column must be declared in `specodelic.md`'s Reference Typing table (currently `satisfies`, `observes`) and carries no meaning beyond that typing; kind ∈ {invariant, advisory, effect, extension_point}, extended per-file by the active packs' declared kinds (specs/packs.md fiber kinds — never narrower, see linter-schema_shape Notes)`   | [[kinds]] |          |
+| constraint_row_shape    | invariant | `a Constraint row is one row of the Constraints table; its base fields are exactly {id, kind, expr, traces_to}, optionally followed by typed reference columns — each such column must be declared in `specodelic.md`'s Reference Typing table (currently `satisfies`, `observes`) and carries no meaning beyond that typing; kind ∈ {invariant, advisory, effect, extension_point}, extended per-file by the active packs' declared kinds (openspec/specs/packs/spec.md fiber kinds — never narrower, see linter-schema_shape Notes)`   | [[kinds]] |          |
 | state_row_shape         | invariant | `a State row is one bullet under Model/States; its fields are exactly {id, emits?} and it has no kind column of its own — states are named variants, never a typed column; `emits` is optional and, when present, must resolve to a Constraint with kind == "effect" (see `specodelic.md`'s Reference Typing table) — a state with no `emits` is a bare automaton state, not a Moore state, and both are well-formed` | [[kinds]] |          |
 | transition_row_shape    | invariant | `a Transition row is one row of the Model/Transitions table; its fields are exactly {id, from, to, guard}, with no kind column of its own`              | [[kinds]] |          |
-| property_row_shape      | invariant | `a Property row is one row of the Properties table; its fields are exactly {id, kind, derives_from, generator, predicate}, with kind ∈ {unit, law}, extended per-file by the active packs' declared kinds (specs/packs.md fiber kinds — never narrower, see linter-schema_shape Notes)`     | [[kinds]] |          |
+| property_row_shape      | invariant | `a Property row is one row of the Properties table; its fields are exactly {id, kind, derives_from, generator, predicate}, with kind ∈ {unit, law}, extended per-file by the active packs' declared kinds (openspec/specs/packs/spec.md fiber kinds — never narrower, see linter-schema_shape Notes)`     | [[kinds]] |          |
 | kind_field_extensible   | invariant | `a Constraint or Property row's own kind value-set is one instance of [[specodelic.append_only_variants]] — it grows only under a new Revision heading in this file, never silently` | [[kinds]] |          |
 | kind_assignment_failure | effect | `kinds.kind_assignment_failure(detail)` | [[kinds]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 | shape_check_failure | effect | `kinds.shape_check_failure(detail)` | [[kinds]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
@@ -93,7 +93,7 @@ Constraint/Property row's `kind` column accepts them when the pack is
 active for the file — the closed-set walkers' effective set is
 base ∪ active-pack-fiber, never narrower (the base sets above do not
 grow; `kind_field_extensible`'s append-only discipline is untouched —
-the extension is per-fiber, governed by `specs/packs.md`, and dissolves
+the extension is per-fiber, governed by `openspec/specs/packs/spec.md`, and dissolves
 when the pack is not active, firing the labeled finding instead of
 passing silently). The empirical-registry pack is the first consumer:
 its kind targets the base Properties table's `kind` column directly
@@ -276,7 +276,7 @@ narrow nothing, folded under one Revision heading:
   keys.** It read "fields are exactly {id, kind, statement}", but ten
   corpus files carry a fourth key, `checked_against_core` (the
   `AGENTS.md` convention recording a core-check pass) — documented in
-  `specs/AGENTS.md`, undeclared in the format. `constraint_row_shape`
+  `openspec/specs/AGENTS.md`, undeclared in the format. `constraint_row_shape`
   received the optional-declared-columns carve-out in
   `specodelic.md` Revision 9's move (this file's Revision 5); the
   Intent layer never did. Now: base fields stay exactly

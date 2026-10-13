@@ -1,4 +1,4 @@
-//! The tidy-first refactor advisor (`specs/refactor.md`).
+//! The tidy-first refactor advisor (`openspec/specs/refactor/spec.md`).
 //!
 //! Purpose: mechanize Kent Beck's "separate the structural change from the
 //! behavioral one" as a graph query — surface a non-gating advisory to split

@@ -81,7 +81,7 @@ colliding in the global kind sets.
 **Fiber kinds in base-table kind columns (2026-10-03, beads
 `specodelic-ung`):** mechanism v1's closed-set walkers
 (`property_kind_closed` / `constraint_kind_closed`,
-`specs/linter-schema_shape.md`) walked the static base sets, so a
+`openspec/specs/linter-schema_shape/spec.md`) walked the static base sets, so a
 pack-declared fiber kind in a base-table `kind` column fired the
 finding even with its pack discovered — the sibling packs never hit
 this because their kinds live in pack-added sections. The walkers'

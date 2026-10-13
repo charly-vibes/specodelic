@@ -5,7 +5,7 @@
 | id                 | kind      | expr                                                                    | traces_to |
 |--------------------|-----------|--------------------------------------------------------------------------|-----------|
 | delta_grammar_valid | invariant | `file parses under openspec validate --strict`                           | [[compile]]  |
-| no_domain_drift    | invariant | `every delta scenario maps to exactly one domain row in specs/compile.md` | [[compile]]  |
+| no_domain_drift    | invariant | `every delta scenario maps to exactly one domain row in openspec/specs/compile/spec.md` | [[compile]]  |
 | domain_ids_preserved | invariant | `domain row ids appear unchanged in the delta text`                      | [[compile]]  |
 
 ## Model

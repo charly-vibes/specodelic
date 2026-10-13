@@ -1,4 +1,4 @@
-//! Projection-mode exit-code semantics (`specs/errors.md`
+//! Projection-mode exit-code semantics (`openspec/specs/errors/spec.md`
 //! `exit_code_mapping`, specodelic-0zk F3+F8).
 //!
 //! Purpose: pin that `spk graph --format <projection>` obeys the corpus
@@ -8,7 +8,7 @@
 //! error — a typo'd path must not read as an empty corpus), a real
 //! path with zero spec files keeps the parsed-not-linted exit 0, and a
 //! corpus with typing violations exits 1 while the violation annotation
-//! rows still ride along (specs/graph.md design D3).
+//! rows still ride along (openspec/specs/graph/spec.md design D3).
 //!
 //! Rationale: pipelines gate on exit codes; before specodelic-0zk the
 //! projection modes reported success for both failure shapes, so a gate

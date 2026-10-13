@@ -27,7 +27,7 @@ as a test generator"* — is the repo's as-built condition, not a latent risk:
 - Revision 15 gave **predicates** an executable opt-in (`**rust:**` fragments,
   `predicate_fragment_opt_in` + four rejection rows + `fragment_hygiene`).
   **Generators have no analogous mechanism**: `properties_to_proptest`
-  (specs/compile.md) turns the generator cell into the block's input strategy
+  (openspec/specs/compile/spec.md) turns the generator cell into the block's input strategy
   verbatim, and verbatim means a constant call.
 
 Consequence: once a predicate opts in, its block tests exactly **one input**.

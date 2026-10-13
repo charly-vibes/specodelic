@@ -117,9 +117,10 @@ spk feedback      # send feedback about the tool
 
 ## Self-hosting
 
-This repo's own corpus (`specs/`) is linted by the tool itself:
+This repo's own corpus (`openspec/specs/` — the single tree,
+specodelic-jf1) is linted by the tool itself:
 
 ```sh
-just lint-specs   # spk lint specs
+just lint-specs   # spk lint openspec/specs
 just ci           # fmt-check + clippy + tests + release build + openspec gates
 ```

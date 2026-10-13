@@ -2,7 +2,7 @@
 //! tasks 2.x; the acset-core capability's Schema-as-data typing).
 //!
 //! Purpose: hold the five objects and the typed reference morphisms of
-//! `specs/specodelic.md`'s Reference Typing table as a single value that a
+//! `openspec/specs/specodelic/spec.md`'s Reference Typing table as a single value that a
 //! generic checker evaluates — instead of the per-field match arms in
 //! `src/graph.rs::typing_violation`. Responsibilities: declare the closed
 //! object set (a sixth object exists only under a new Revision heading),
@@ -41,7 +41,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 /// One object of the schema — the closed five of
-/// `specs/specodelic.md` (`objects_closed`). The id is open data: `check`
+/// `openspec/specs/specodelic/spec.md` (`objects_closed`). The id is open data: `check`
 /// rejects anything outside {Intent, Constraint, State, Transition,
 /// Property} so the sixth object can be named, tested, and rejected.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -179,7 +179,7 @@ pub struct Cycle {
 }
 
 /// The canonical schema — the Reference Typing table of
-/// `specs/specodelic.md` as data. The value `check` accepts and the
+/// `openspec/specs/specodelic/spec.md` as data. The value `check` accepts and the
 /// `schema_matches_typing_table` lint gate compares against the document.
 pub fn canonical() -> Schema {
     let objects: BTreeSet<ObjectId> = ["Constraint", "Intent", "Property", "State", "Transition"]

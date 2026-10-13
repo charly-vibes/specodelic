@@ -30,13 +30,13 @@
 
 ## 3. Format corpus (Revision 18)
 
-- [x] 3.1 `specs/specodelic.md`: `id_matches_file` row expr + `## Revision 18`
+- [x] 3.1 `openspec/specs/specodelic/spec.md`: `id_matches_file` row expr + `## Revision 18`
       heading; `FORMAT_REVISION` → 18; guide drift guard passes
-- [x] 3.2 `specs/linter-frontmatter.md`: expr + `filename_mismatch` property +
+- [x] 3.2 `openspec/specs/linter-frontmatter/spec.md`: expr + `filename_mismatch` property +
       Notes revision
-- [x] 3.3 `specs/model_check.md`: `corpus_identity_scope` row (renamed from
+- [x] 3.3 `openspec/specs/model_check/spec.md`: `corpus_identity_scope` row (renamed from
       `dual_format_isolated_scope`) + property rows + Notes
-- [x] 3.4 `specs/linter-referential_integrity.md`: resolution-algorithm note
+- [x] 3.4 `openspec/specs/linter-referential_integrity/spec.md`: resolution-algorithm note
 - [x] 3.5 Embedded guide (`src/guide.md`) dual-format + references topics;
       `docs/src/commands.md` migrate/verify/archive passages
 

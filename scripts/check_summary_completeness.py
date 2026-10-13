@@ -2,15 +2,12 @@
 """SUMMARY.md completeness check (specodelic-b3p, per add-mdbook-docs 5.1).
 
 docs/src/SUMMARY.md is hand-written: a new spec file can land without a
-SUMMARY entry and mdbook silently won't render it. This gate requires:
-
-- every frontmatter-bearing corpus file (specs/*.md — the naming law's
-  id-equals-stem files; non-spec md like AGENTS/STATUS/USAGE/theory and
-  *.checklist.md carry no frontmatter and are exempt) and
-- every capability spec (openspec/specs/<cap>/spec.md)
-
-to be linked from docs/src/SUMMARY.md. Archived change deltas under
+SUMMARY entry and mdbook silently won't render it. Since the single-tree
+migration (specodelic-jf1) the corpus lives only at
+openspec/specs/<cap>/spec.md; this gate requires every such spec to be
+linked from docs/src/SUMMARY.md. Archived change deltas under
 openspec/changes/ are not part of the rendered book and are not required.
+Non-frontmatter files in the tree (AGENTS.md, *.checklist.md) are exempt.
 
 Follows the dual-format section-sync pattern (stdlib-only, fails closed).
 
@@ -37,13 +34,14 @@ def linked_paths(summary_text: str) -> set[str]:
     return set(LINK.findall(summary_text))
 
 
-def corpus_spec_files(root: Path) -> list[Path]:
-    """specs/*.md whose first line is frontmatter ('---')."""
-    specs = root / "specs"
-    if not specs.is_dir():
+def spec_files(root: Path) -> list[Path]:
+    """openspec/specs/<cap>/spec.md whose first line is frontmatter
+    ('---'); archived change deltas and frontmatter-less files excluded."""
+    base = root / "openspec" / "specs"
+    if not base.is_dir():
         return []
     out = []
-    for p in sorted(specs.glob("*.md")):
+    for p in sorted(base.glob("*/spec.md")):
         try:
             first = p.read_text(encoding="utf-8").splitlines()[0].strip()
         except (OSError, IndexError):
@@ -51,14 +49,6 @@ def corpus_spec_files(root: Path) -> list[Path]:
         if first == "---":
             out.append(p)
     return out
-
-
-def capability_spec_files(root: Path) -> list[Path]:
-    """openspec/specs/<cap>/spec.md — archived change deltas excluded."""
-    base = root / "openspec" / "specs"
-    if not base.is_dir():
-        return []
-    return sorted(base.glob("*/spec.md"))
 
 
 def check(root: Path) -> list[str]:
@@ -84,12 +74,11 @@ def check(root: Path) -> list[str]:
                 "prose (e.g. docs/src/index.md) and drop the SUMMARY "
                 "entry (docs/src/SUMMARY.md)"
             )
-    for spec in corpus_spec_files(root) + capability_spec_files(root):
+    for spec in spec_files(root):
         rel = spec.relative_to(root).as_posix()
-        # mdbook src mirrors specs/ -> docs/src/specs and
-        # openspec/specs/ -> docs/src/openspec, so a capability spec's
-        # SUMMARY link target is openspec/<cap>/spec.md
-        link = rel.replace("openspec/specs/", "openspec/", 1)
+        # mdbook src mirrors openspec/specs/ -> docs/src/specs, so a
+        # spec's SUMMARY link target is specs/<cap>/spec.md
+        link = rel.replace("openspec/specs/", "specs/", 1)
         if link not in links:
             problems.append(
                 f"{rel} is not linked from docs/src/SUMMARY.md "

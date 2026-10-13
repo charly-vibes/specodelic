@@ -5,7 +5,7 @@ Decision of record: approach **02-profile-intent** (wai design matrix,
 D1 v2 manifest shape (Ro5-reviewed READY WITH_NOTES, TypeSafe-verified on
 HIGH findings), D6 pilot = bioimage-data (follow-on change).
 
-## Categorical frame (grounded in specs/theory.md)
+## Categorical frame (grounded in openspec/theory.md)
 
 - Core = the schema category 𝒦 (5 kinds) + generating morphisms (Reference
   Typing) + laws + append-only discipline. An instance is a functor
@@ -22,10 +22,10 @@ HIGH findings), D6 pilot = bioimage-data (follow-on change).
 
 ## What the core Revision delta contains (exactly)
 
-1. `specs/specodelic.md` — Revision 9 heading: INTENT_KINDS grows by
+1. `openspec/specs/specodelic/spec.md` — Revision 9 heading: INTENT_KINDS grows by
    `profile`; Reference Typing grows by `uses` (outbound leaf → profile
    file's frontmatter id). Instance-definition changes only, per §7.
-2. `specs/packs.md` — new corpus spec file (created FIRST, spec-first
+2. `openspec/specs/packs/spec.md` — new corpus spec file (created FIRST, spec-first
    convention) describing the pack mechanism in the format it describes.
 3. `INTENT_KINDS` in `src/guide.rs` + `REFERENCE_TYPING` gains `uses`.
 4. New append-only lint rule `pack_shape` (+ checker-ownership table row)
@@ -139,7 +139,7 @@ praised by every vendor, preserved verbatim.
 
 ## Follow-on sequencing
 
-1. This change: the mechanism (core revision + tooling + specs/packs.md).
+1. This change: the mechanism (core revision + tooling + openspec/specs/packs/spec.md).
 2. Standard packs (data/lineage, numeric predicates, empirical kind +
    floor registry) — one proposal each, governance rule from packs.md.
 3. `add-bioimage-pack` — thin domain instance, D6 pilot; quant second.

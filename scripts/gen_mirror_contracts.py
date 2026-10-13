@@ -16,9 +16,9 @@ contracts instead, binding each scenario LOOSELY to a REAL cargo test
 (the accepted loose-binding pattern: several deployed packs bind 16
 scenarios to one doctor mechanism test).
 
-Bindings are validated against `cargo test -- --list` output (stdin):
-a binding matching zero tests fails the script loudly — never a
-fabricated provenance.
+Bindings are validated against `cargo test -- --list` output: a binding
+matching zero tests fails the script loudly — never a fabricated
+provenance.
 
 The re-key map is hand-curated (decision recorded in the jf1 session):
 per capability, a default real test; per scenario, an override where an
@@ -30,9 +30,8 @@ import subprocess
 import sys
 import pathlib
 
-ROOT = pathlib.Path(".")
-SPECS = ROOT / "openspec/specs"
-OUT = ROOT / ".espectacular"
+SPECS = pathlib.Path("openspec/specs")
+OUT = pathlib.Path(".espectacular")
 
 AH_VERSION = "0.11.0"
 
@@ -60,11 +59,14 @@ DEFAULT_BINDINGS = {
     "linter-observability": "observes_cross_file_edge_extracts_and_types_clean",
 }
 
-# Per-scenario overrides: (capability dir, scenario id) -> real test filter.
-# compile + packs re-key: the replaced deployed specs' contracts are rebound
-# onto the corpus mirror scenarios where the domain matches; scenarios with
-# no close match fall back to the corpus-wide compile gate (real, exercises
-# every artifact this spec describes).
+# compile + packs re-key default: no close per-scenario match falls back
+# to the corpus-wide compile gate (real, exercises every artifact these
+# specs describe).
+COMPILE_PACKS_DEFAULT = "compile_corpus_succeeds_and_reports_all_artifacts"
+
+# Per-scenario overrides: (capability dir, scenario id) -> real test
+# filter. compile + packs re-key: the replaced deployed specs' contracts
+# are rebound onto the corpus mirror scenarios where the domain matches.
 OVERRIDES = {
     ("compile", "precondition_violation_rejected"): "compile_refuses_lint_dirty_file_naming_precondition",
     ("compile", "toml_roundtrips"): "compile_round_trip_is_byte_stable",
@@ -75,8 +77,6 @@ OVERRIDES = {
     ("compile", "compile_completes_or_fails_cleanly"): "clean_compile_stays_a_success_envelope_with_exit_0",
     ("compile", "id_preservation_holds"): "compile_preserves_every_source_id",
     ("compile", "roundtrip_stable"): "compile_round_trip_is_byte_stable",
-    ("compile", "extraction_failure_label_asserted"): "compile_corpus_succeeds_and_reports_all_artifacts",
-    ("compile", "emission_failure_label_asserted"): "compile_corpus_succeeds_and_reports_all_artifacts",
     ("compile", "fragment_body_emitted_verbatim"): "fragment_body_emitted_verbatim",
     ("compile", "prose_predicate_stays_placeholder"): "prose_and_citation_extraction_unchanged",
     ("compile", "fragment_values_bind_generators"): "fragment_values_bind_generators_as_strings",
@@ -88,7 +88,6 @@ OVERRIDES = {
     ("compile", "law_fragment_labeled"): "law_fragment_rejected_labeled",
     ("compile", "hygiene_violation_labeled"): "hygiene_violation_rejected_labeled_names_token",
     ("compile", "guard_fragment_labeled"): "guard_fragment_rejected_labeled",
-    ("compile", "non_invariant_fragment_labeled"): "compile_corpus_succeeds_and_reports_all_artifacts",
     ("compile", "kernel_expr_extracts"): "kernel_expr_cell_extracts_into_the_ir",
     ("compile", "kernel_nonmember_labeled"): "broken_kernel_grammar_fails_labeled_at_compile",
     ("compile", "binding_text_surfaces_verbatim"): "ordinary_binding_text_preserved_exactly",
@@ -111,78 +110,92 @@ OVERRIDES = {
     ("packs", "fiber_kinds_typeable"): "fiber_kinds_typeable_when_pack_active_finding_without",
 }
 
-COMPILE_DEFAULT = "compile_corpus_succeeds_and_reports_all_artifacts"
-
 
 def kebab(heading):
     return heading.strip().lower().replace("_", "-").replace(" ", "-")
 
 
-def scenario_ids(spec_path):
-    text = spec_path.read_text()
-    return re.findall(r"^#### Scenario: (.+)$", text, flags=re.M)
-
-
-def property_ids(spec_path):
-    """Own-id + property ids from the Properties table (for VERIFIES links)."""
+def mirror_scenarios(spec_path):
+    """The (own id, [(heading, property id)]) pairs of one mirror: every
+    #### Scenario: heading must equal the VERIFIES-linked property id
+    (kebab'd) — the ah correspondence key."""
     text = spec_path.read_text()
     own = re.search(r"^id:\s*(\S+)", text, re.M).group(1)
-    pids = re.findall(r"\*\*VERIFIES\*\* \[\[([^\]]+)\]\]", text)
-    return own, pids
+    heads = re.findall(r"^#### Scenario: (.+)$", text, flags=re.M)
+    links = re.findall(r"\*\*VERIFIES\*\* \[\[([^\]]+)\]\]", text)
+    return own, list(zip(heads, links))
+
+
+def cargo_test_names():
+    out = subprocess.run(
+        ["cargo", "test", "--", "--list"], capture_output=True, text=True
+    )
+    names = {ln[: -len(": test")] for ln in out.stdout.splitlines()
+             if ln.endswith(": test")}
+    if not names:
+        sys.exit("gen: cargo test --list returned nothing")
+    return names
+
+
+def binding_for(cap, heading, default):
+    return OVERRIDES.get((cap, heading), default)
+
+
+def default_for(cap):
+    if cap in DEFAULT_BINDINGS:
+        return DEFAULT_BINDINGS[cap]
+    if cap in ("compile", "packs"):
+        return COMPILE_PACKS_DEFAULT
+    sys.exit(f"gen: no binding map entry for {cap}")
+
+
+def contract_text(cid, binding):
+    return (
+        f'id = "{cid}"\n'
+        f'description = ""\n'
+        f'archetype = "PF"\n'
+        f'status = "active"\n'
+        f'superseded_by = ""\n'
+        f'authored_with = "{AH_VERSION}"\n'
+        f"\n"
+        f"[[tests.cargo]]\n"
+        f'flags = "{binding}"\n'
+    )
+
+
+def write_contracts(cap_dir, known):
+    """Generate the contract TOMLs for one corpus-backed capability dir."""
+    cap = cap_dir.name
+    spec = cap_dir / "spec.md"
+    own, pairs = mirror_scenarios(spec)
+    default = default_for(cap)
+    cap_out = OUT / cap
+    cap_out.mkdir(parents=True, exist_ok=True)
+    generated = 0
+    for heading, link in pairs:
+        if not link.startswith(own + "."):
+            sys.exit(f"gen: {cap}: VERIFIES link {link} does not start with own id {own}")
+        pid = link[len(own) + 1:]
+        if kebab(heading) != kebab(pid):
+            sys.exit(f"gen: {cap}: scenario heading {heading!r} != property id {pid!r}")
+        binding = binding_for(cap, heading, default)
+        # Contract flags are cargo test SUBSTRING filters (loose-binding
+        # precedent) — a binding is real when it matches >= 1 test name.
+        if not any(binding in name for name in known):
+            sys.exit(f"gen: {cap}/{heading}: binding {binding!r} matches zero cargo tests")
+        (cap_out / f"{kebab(heading)}.toml").write_text(contract_text(kebab(heading), binding))
+        generated += 1
+    return generated
 
 
 def main():
-    known = set(subprocess.run(
-        ["cargo", "test", "--", "--list"], capture_output=True, text=True
-    ).stdout.replace(": test", "").split())
-    if not known:
-        sys.exit("gen: cargo test --list returned nothing")
-
+    known = cargo_test_names()
     generated = 0
     for cap_dir in sorted(p for p in SPECS.iterdir() if p.is_dir()):
         spec = cap_dir / "spec.md"
-        if not spec.exists():
-            continue
-        text = spec.read_text()
         # Only corpus-backed files carry the property-coverage mirror.
-        if "VERIFIES" not in text:
-            continue
-        own, pids = property_ids(spec)
-        heads = scenario_ids(spec)
-        if len(heads) != len(pids):
-            sys.exit(f"gen: {cap_dir}: {len(heads)} scenarios vs {len(pids)} VERIFIES links")
-        cap_out = OUT / cap_dir.name
-        cap_out.mkdir(parents=True, exist_ok=True)
-        default = OVERRIDES.get((cap_dir.name, "__default__")) \
-            or DEFAULT_BINDINGS.get(cap_dir.name) \
-            or (COMPILE_DEFAULT if cap_dir.name in ("compile", "packs") else None)
-        if default is None:
-            sys.exit(f"gen: no binding map entry for {cap_dir.name}")
-        for head, link in zip(heads, pids):
-            if not link.startswith(own + "."):
-                sys.exit(f"gen: {cap_dir}: VERIFIES link {link} does not start with own id {own}")
-            pid = link[len(own) + 1:]
-            if kebab(head) != kebab(pid):
-                sys.exit(f"gen: {cap_dir}: scenario heading {head!r} != property id {pid!r}")
-            binding = OVERRIDES.get((cap_dir.name, head), default)
-            # Contract flags are cargo test SUBSTRING filters (loose-binding
-            # precedent) — a binding is real when it matches >= 1 test name.
-            if not any(binding in t for t in known):
-                sys.exit(f"gen: {cap_dir}/{head}: binding {binding!r} matches zero cargo tests")
-            cid = kebab(head)
-            toml = (
-                f'id = "{cid}"\n'
-                f'description = ""\n'
-                f'archetype = "PF"\n'
-                f'status = "active"\n'
-                f'superseded_by = ""\n'
-                f'authored_with = "{AH_VERSION}"\n'
-                f"\n"
-                f"[[tests.cargo]]\n"
-                f'flags = "{binding}"\n'
-            )
-            (cap_out / f"{cid}.toml").write_text(toml)
-            generated += 1
+        if spec.exists() and "**VERIFIES**" in spec.read_text():
+            generated += write_contracts(cap_dir, known)
     print(f"generated {generated} contract TOML(s)")
 
 

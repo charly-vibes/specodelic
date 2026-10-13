@@ -5,12 +5,12 @@
 `spk compile` is a stub that exits non-zero. The corpus just reached
 covered (beads `specodelic-qc8` closed), so `compile`'s own
 `precondition_satisfied` gate can now hold for the whole corpus — and
-`specs/compile.md` fully specifies what compiling must produce. The P1
+`openspec/specs/compile/spec.md` fully specifies what compiling must produce. The P1
 beads ticket `specodelic-lnq` tracks this work; it blocks `verify`
 (`specodelic-1pv`) and `model_check` (`specodelic-nx7`).
 
 **Deferred by decision:** the model-checker backend (TLA+ vs Alloy) is
-not yet chosen — `specs/compile.md` says "TLA+ (or Alloy)" without
+not yet chosen — `openspec/specs/compile/spec.md` says "TLA+ (or Alloy)" without
 pinning one. That choice is now HITL row 6 of beads `specodelic-mp1`.
 This change delivers the two decided translations plus the pipeline
 contract, with model emission built behind a backend-neutral seam;
@@ -19,7 +19,7 @@ it lands in a follow-up once `mp1` row 6 is decided.
 ## What Changes
 
 - Add `src/compile.rs` implementing the decided translations of
-  `specs/compile.md` as one functor with three target categories:
+  `openspec/specs/compile/spec.md` as one functor with three target categories:
   1. Constraints table → TOML document (`constraint_table_to_toml`)
   2. Model section → model-checker module (**deferred** — backend
      undecided, `mp1` row 6; this change ships a backend-neutral
@@ -46,7 +46,7 @@ it lands in a follow-up once `mp1` row 6 is decided.
 ## Impact
 
 - Affected specs: `compile` (new OpenSpec capability; domain spec of
-  record remains `specs/compile.md` — the delta mirrors it, it does not
+  record remains `openspec/specs/compile/spec.md` — the delta mirrors it, it does not
   reinterpret it; the model-backend requirement is stated backend-neutral
   pending `mp1` row 6)
 - Affected code: `src/compile.rs` (new), `src/lib.rs` (module wiring),

@@ -24,7 +24,7 @@ pub(crate) struct CheckTarget {
     pub(crate) tlc_jar: Option<String>,
 }
 
-/// Run `spk model-check` — the model_check step (specs/model_check.md).
+/// Run `spk model-check` — the model_check step (openspec/specs/model_check/spec.md).
 /// Never re-compiles: consumes the compiled `<stem>.tla` artifact from
 /// `out_dir`, runs the native stateright backend within the stated
 /// bound, and persists a `<stem>.check.json` run report carrying the
@@ -195,7 +195,7 @@ pub(crate) fn cmd_model_check(
     }
     // specodelic-4v1 (F1): the envelope kind and exit code track the
     // run's success, not its completion — labeled failures and a
-    // refuted claim aggregate are findings-or-failure (specs/errors.md
+    // refuted claim aggregate are findings-or-failure (openspec/specs/errors/spec.md
     // envelope_error_kind + exit_code_mapping; CHANGELOG #116 declares
     // counterexample_found a failing aggregate outcome).
     let failed_run = !failed.is_empty() || refuted;
@@ -237,7 +237,7 @@ pub(crate) fn cmd_model_check(
     if failed_run { 1 } else { 0 }
 }
 
-/// Run `spk verify` — the verified transition (specs/verify.md).
+/// Run `spk verify` — the verified transition (openspec/specs/verify/spec.md).
 /// Never re-compiles and never re-runs the model checker: consumes the
 /// `*_props.rs` artifact (staleness-checked against the current spec,
 /// then really executed block by block) and the `<stem>.check.json` run
@@ -255,7 +255,7 @@ pub(crate) struct OrchestrateTarget {
     pub(crate) tlc_jar: Option<String>,
 }
 
-/// Run `spk orchestrate` — the full pipeline (specs/orchestrate.md):
+/// Run `spk orchestrate` — the full pipeline (openspec/specs/orchestrate/spec.md):
 /// lint's Checker Ownership checkers in dependency order, then compile,
 /// model_check, verify in sequence, halting at the first stage that
 /// fails. Rename is never part of a run; external_completeness runs
@@ -352,7 +352,7 @@ pub(crate) fn cmd_orchestrate(
         );
     }
     // specodelic-4v1 (F1): a failed overall never rides a success-shaped
-    // envelope (specs/errors.md envelope_error_kind + exit_code_mapping).
+    // envelope (openspec/specs/errors/spec.md envelope_error_kind + exit_code_mapping).
     let failed_run = orchestration.overall != "succeeded";
     let out = if failed_run {
         as_failure(
@@ -469,7 +469,7 @@ pub(crate) fn cmd_verify(
         out = out.with_next_step(hint);
     }
     // specodelic-4v1 (F1): a blocked verdict never rides a success-shaped
-    // envelope (specs/errors.md envelope_error_kind + exit_code_mapping).
+    // envelope (openspec/specs/errors/spec.md envelope_error_kind + exit_code_mapping).
     let failed_run = !blocked.is_empty();
     let out = if failed_run {
         as_failure(

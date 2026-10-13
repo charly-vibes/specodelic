@@ -171,7 +171,7 @@ verified on the HIGH finding; converged at Stage 4, verdict NEEDS_REVISION →
 fixes applied):
 
 - CORR-003 (HIGH, REVIEW_REQUIRED): the Governance bullet cited "the demand
-  rule in `specs/packs.md` (≥2 independent domains)" — no such rule exists in
+  rule in `openspec/specs/packs/spec.md` (≥2 independent domains)" — no such rule exists in
   that file (or anywhere in `specs/`, `openspec/specs/`, or the matrix); the
   phantom citation was inherited from the numeric-predicates proposal. Fix:
   Governance re-grounded on the decision matrix's Demand column, with the

@@ -63,7 +63,7 @@ fn model_check_reports_no_counterexample_after_compile() {
 }
 
 // ---- specodelic-4v1: failures ride success-shaped envelopes (F1) ----
-// specs/errors.md's envelope_error_kind + exit_code_mapping rows: a
+// openspec/specs/errors/spec.md's envelope_error_kind + exit_code_mapping rows: a
 // failing stage's report is an error-kind envelope with ok == false, and
 // exit 1 means findings-or-failure — so a refuted kernel claim (a
 // failing aggregate per CHANGELOG #116) must flip BOTH the exit code
@@ -239,9 +239,34 @@ fn model_check_timed_out_when_bound_cannot_be_exhausted() {
 fn compile_corpus_succeeds_and_reports_all_artifacts() {
     let out = tempfile::tempdir().unwrap();
     let cmd = spk()
+        // The dogfood corpus = the corpus-backed capability dirs (the
+        // specs/ corpus before the single-tree migration, specodelic-jf1):
+        // compile refuses stateless specs, so capability specs authored
+        // without a Model section cannot ride this corpus-wide gate.
         .args([
             "compile",
-            "specs",
+            "openspec/specs/specodelic",
+            "openspec/specs/kinds",
+            "openspec/specs/packs",
+            "openspec/specs/graph",
+            "openspec/specs/compile",
+            "openspec/specs/model_check",
+            "openspec/specs/verify",
+            "openspec/specs/rename",
+            "openspec/specs/merge",
+            "openspec/specs/refactor",
+            "openspec/specs/orchestrate",
+            "openspec/specs/errors",
+            "openspec/specs/linter-frontmatter",
+            "openspec/specs/linter-schema_shape",
+            "openspec/specs/linter-ears_syntax",
+            "openspec/specs/linter-coverage",
+            "openspec/specs/linter-graph_shape",
+            "openspec/specs/linter-model_shape",
+            "openspec/specs/linter-referential_integrity",
+            "openspec/specs/linter-external_completeness",
+            "openspec/specs/linter-failure_shape",
+            "openspec/specs/linter-observability",
             "--json",
             "--out-dir",
             out.path().to_str().unwrap(),
@@ -302,9 +327,15 @@ fn compile_round_trip_is_byte_stable() {
     let out = tempfile::tempdir().unwrap();
     let od = out.path().to_str().unwrap();
     // Reference resolution is corpus-wide (total_refs), so compile the
-    // whole corpus; artifacts land in a tempdir out-dir.
-    let args = ["compile", "specs", "--json", "--out-dir", od];
-    spk().args(args).assert().success();
+    // dogfood corpus (the corpus-backed dirs; compile refuses stateless
+    // capability specs — see common::corpus_dirs); artifacts land in a
+    // tempdir out-dir.
+    let mut args: Vec<String> = ["compile", "--json", "--out-dir", od]
+        .into_iter()
+        .map(String::from)
+        .collect();
+    args.extend(common::corpus_dirs());
+    spk().args(args.clone()).assert().success();
     let first_toml = std::fs::read_to_string(out.path().join("compile.toml")).unwrap();
     let first_props = std::fs::read_to_string(out.path().join("compile_props.rs")).unwrap();
     let first_tla = std::fs::read_to_string(out.path().join("compile.tla")).unwrap();
@@ -473,7 +504,7 @@ fn version_json_reports_format_revision() {
 
 #[test]
 fn doctor_self_hosting_reports_mode() {
-    // this repo carries specs/specodelic.md → mode self_hosting
+    // this repo carries openspec/specs/specodelic/spec.md → mode self_hosting
     let out = spk().args(["doctor", "--json"]).output().unwrap();
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value =
@@ -486,8 +517,8 @@ fn doctor_consumer_with_corpus_reports_format_revision() {
     // consumer workspace: a corpus without the core spec still diagnoses
     // cleanly and reports the embedded guide's format_revision as ok
     let dir = tempfile::tempdir().unwrap();
-    let specs = dir.path().join("specs");
-    std::fs::create_dir(&specs).unwrap();
+    let specs = dir.path().join("openspec/specs");
+    std::fs::create_dir_all(&specs).unwrap();
     std::fs::write(
         specs.join("my_tool.md"),
         "---\nid: my.tool\nkind: intent\nstatement: \"THE tool SHALL work\"\n---\n",
@@ -525,10 +556,10 @@ fn doctor_warns_when_binary_lags_corpus() {
     // synthetic corpus declares Revision 99 while the binary embeds
     // Revision 11 → warning naming both revisions, exit 0 (never fails)
     let dir = tempfile::tempdir().unwrap();
-    let specs = dir.path().join("specs");
-    std::fs::create_dir(&specs).unwrap();
+    let specs = dir.path().join("openspec/specs/specodelic");
+    std::fs::create_dir_all(&specs).unwrap();
     std::fs::write(
-        specs.join("specodelic.md"),
+        specs.join("spec.md"),
         "---\nid: specodelic\nkind: intent\nstatement: \"THE format SHALL be described\"\n---\n\n## Revision 1\n\n## Revision 99\n",
     )
     .unwrap();
@@ -559,10 +590,10 @@ fn doctor_current_consumer_emits_no_currency_warning() {
     // corpus at the embedded revision (8) → no warning; also covers the
     // no-revision-heading skip via a second fixture
     let dir = tempfile::tempdir().unwrap();
-    let specs = dir.path().join("specs");
-    std::fs::create_dir(&specs).unwrap();
+    let specs = dir.path().join("openspec/specs/specodelic");
+    std::fs::create_dir_all(&specs).unwrap();
     std::fs::write(
-        specs.join("specodelic.md"),
+        specs.join("spec.md"),
         "---\nid: specodelic\nkind: intent\nstatement: \"THE format SHALL be described\"\n---\n\n## Revision 8\n",
     )
     .unwrap();
@@ -584,9 +615,9 @@ fn doctor_skips_currency_check_with_note_on_unreadable_corpus() {
     // review EDGE-001: an unreadable corpus must be skipped with an
     // informational warning, never silently treated as current
     let dir = tempfile::tempdir().unwrap();
-    let specs = dir.path().join("specs");
-    std::fs::create_dir(&specs).unwrap();
-    std::fs::write(specs.join("specodelic.md"), b"\xff\xfe\x00binary").unwrap();
+    let specs = dir.path().join("openspec/specs/specodelic");
+    std::fs::create_dir_all(&specs).unwrap();
+    std::fs::write(specs.join("spec.md"), b"\xff\xfe\x00binary").unwrap();
     let out = spk()
         .args(["doctor", "--json"])
         .current_dir(dir.path())
@@ -1151,7 +1182,7 @@ fn docs_carry_release_version_and_implemented_capability_status() {
         "README.md",
         "docs/src/status.md",
         "openspec/project.md",
-        "specs/STATUS.md",
+        "openspec/STATUS.md",
     ];
     // Release-version statements only: `v<semver>` or `Version <semver>`
     // — a bare x.y.z elsewhere (e.g. "Invariant 3.2.5") is not a
@@ -1186,7 +1217,7 @@ fn docs_carry_release_version_and_implemented_capability_status() {
     for doc in [
         "docs/src/status.md",
         "openspec/project.md",
-        "specs/STATUS.md",
+        "openspec/STATUS.md",
     ] {
         let text = norm(&std::fs::read_to_string(root.join(doc)).unwrap());
         assert!(
@@ -1652,7 +1683,7 @@ fn dual_format_opposite_outcomes_and_swapped_reports() {
         stdout.contains("rename"),
         "hint to rename one file: {stdout}"
     );
-    assert!(!out.join("spec.check.json").exists());
+    assert!(!out.join("d1.check.json").exists());
     // Separate runs in separate directories preserve each outcome.
     let out1 = td.path().join("out1");
     let out2 = td.path().join("out2");
@@ -1664,23 +1695,23 @@ fn dual_format_opposite_outcomes_and_swapped_reports() {
     assert_eq!(c1, Some(0));
     assert_eq!(c2, Some(1));
     assert_eq!(
-        read_check_report(&out1, "spec")["outcome"],
+        read_check_report(&out1, "d1")["outcome"],
         "no_counterexample"
     );
     assert_eq!(
-        read_check_report(&out2, "spec")["outcome"],
+        read_check_report(&out2, "d2")["outcome"],
         "counterexample_found"
     );
     // Identical claim names, different structured contents: the digests
     // bind contents, not paths — so they differ.
-    let digest1 = scope_digest_of(&read_check_report(&out1, "spec"));
-    let digest2 = scope_digest_of(&read_check_report(&out2, "spec"));
+    let digest1 = scope_digest_of(&read_check_report(&out1, "d1"));
+    let digest2 = scope_digest_of(&read_check_report(&out2, "d2"));
     assert_ne!(digest1, digest2);
     // Swapped reports are rejected: d1's invocation must not accept
     // d2's evidence, and the rejected report is never rewritten.
-    std::fs::copy(out2.join("spec.check.json"), out1.join("spec.check.json")).unwrap();
-    let before = std::fs::read_to_string(out1.join("spec.check.json")).unwrap();
-    drop_props(&out1, &["spec"]);
+    std::fs::copy(out2.join("d2.check.json"), out1.join("d1.check.json")).unwrap();
+    let before = std::fs::read_to_string(out1.join("d1.check.json")).unwrap();
+    drop_props(&out1, &["d1"]);
     let (vcode, vjson) = verify_batch(&[d1.as_str()], &out1);
     assert_eq!(vcode, Some(1), "swapped evidence never verifies: {vjson}");
     let entry = &vjson["data"]["blocked"][0];
@@ -1689,7 +1720,7 @@ fn dual_format_opposite_outcomes_and_swapped_reports() {
         entry["model"]["detail"].as_str().unwrap().contains("scope"),
         "{entry}"
     );
-    let after = std::fs::read_to_string(out1.join("spec.check.json")).unwrap();
+    let after = std::fs::read_to_string(out1.join("d1.check.json")).unwrap();
     assert_eq!(before, after);
     // Distinct-real-id files lint together like any corpus.
     spk()
@@ -1701,18 +1732,18 @@ fn dual_format_opposite_outcomes_and_swapped_reports() {
 // ---- specodelic-gch: USAGE.md quick-start examples produce expected
 // claim evidence ----
 // (add-min-expr-kernel task 6.1; design D5 per-file gating). The fenced
-// full-file examples in specs/USAGE.md are extracted live from the doc
+// full-file examples in openspec/USAGE.md are extracted live from the doc
 // and pushed through the real compile → model-check path; every
 // migrated kernel claim must surface in the fresh report with the
 // expected three-valued status.
 
 /// The fenced example with frontmatter id `id`, extracted live from
-/// `specs/USAGE.md` — the doc itself is the fixture source, so doc
+/// `openspec/USAGE.md` — the doc itself is the fixture source, so doc
 /// drift breaks this gate instead of silently passing. The scan
 /// mirrors `scripts/check_doc_examples.py`: markdown fences whose
 /// first non-blank line is `---` are runnable format artifacts.
 fn usage_example(id: &str) -> String {
-    let doc_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("specs/USAGE.md");
+    let doc_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("openspec/USAGE.md");
     let doc = std::fs::read_to_string(&doc_path).unwrap();
     let mut blocks: Vec<String> = Vec::new();
     let mut in_fence = false;
@@ -1751,7 +1782,7 @@ fn usage_example(id: &str) -> String {
             }
             false
         })
-        .unwrap_or_else(|| panic!("no fenced example with id {id} in specs/USAGE.md"))
+        .unwrap_or_else(|| panic!("no fenced example with id {id} in openspec/USAGE.md"))
 }
 
 /// The per-invariant (id, status) pairs of the first checked run.
@@ -1909,28 +1940,28 @@ fn usage_micro_example_kernel_claims_verify() {
 fn specodelic_md_kernel_invariants_verify() {
     let td = tempfile::tempdir().unwrap();
     let out = td.path().join("out");
-    let repo_spec = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("specs/specodelic.md");
+    let repo_spec =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("openspec/specs/specodelic/spec.md");
     let spec = repo_spec.to_str().unwrap();
     // The format's own file lints clean — the migration gate (corpus
     // lint, as `just lint-specs` runs it: its cross-file refs resolve
     // corpus-wide, so a single-file lint would false-fail).
-    let specs_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("specs");
+    let specs_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("openspec/specs");
     spk()
         .args(["lint", specs_dir.to_str().unwrap()])
         .assert()
         .success();
     // compile is corpus-wide for the same reason (compile's
-    // precondition_satisfied remediation names it), then model-check
-    // runs on specodelic.md as the sole invocation corpus.
-    spk()
-        .args([
-            "compile",
-            specs_dir.to_str().unwrap(),
-            "--out-dir",
-            out.to_str().unwrap(),
-        ])
-        .assert()
-        .success();
+    // precondition_satisfied remediation names it) — the dogfood corpus
+    // dirs, not the whole tree (stateless capability specs refuse) —
+    // then model-check runs on specodelic.md as the sole invocation
+    // corpus.
+    let mut cargs: Vec<String> = ["compile", "--out-dir", out.to_str().unwrap()]
+        .into_iter()
+        .map(String::from)
+        .collect();
+    cargs.extend(common::corpus_dirs());
+    spk().args(&cargs).assert().success();
     let (code, json) = claim_mc_json(spec, &out);
     assert_eq!(code, Some(0));
     assert_eq!(json["data"]["outcome"], "no_counterexample");
@@ -1961,7 +1992,7 @@ fn specodelic_md_kernel_invariants_verify() {
 // kernel-grammar rule is "never prose, never silence": a cell that opts
 // in via **kernel:** and breaks the closed grammar is a labeled
 // kernel_grammar failure wherever the tool reads it — model-check
-// included (kernel_nonmember_labeled, specs/compile.md).
+// included (kernel_nonmember_labeled, openspec/specs/compile/spec.md).
 #[test]
 fn stale_compile_with_kernel_grammar_broken_cell_fails_labeled() {
     let td = tempfile::tempdir().unwrap();

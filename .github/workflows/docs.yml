@@ -47,10 +47,14 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v2
 
-      - name: Copy spec trees into the book source
+      - name: Copy the spec corpus into the book source
+        # Single tree (specodelic-jf1): the corpus is the openspec/specs
+        # tree; one docs copy (docs/src/specs), plus the corpus prose
+        # companions the docs pages link to. Keep in lockstep with the
+        # local `just docs-build` recipe.
         run: |
-          cp -r specs docs/src/specs
-          cp -r openspec/specs docs/src/openspec
+          cp -r openspec/specs docs/src/specs
+          cp openspec/STATUS.md openspec/USAGE.md openspec/theory.md openspec/CHANGELOG.md docs/src/specs/
 
       - name: Generate release-status page
         # scripts/stamp_llms.py — shared with `just docs-build` so the CI

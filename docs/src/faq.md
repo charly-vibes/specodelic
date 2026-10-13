@@ -18,7 +18,7 @@ substrate](design-canvas.md). For "which command when?", see the
 ### What is specodelic in one sentence?
 
 A specification format and CLI toolchain for AI agents: specs are plain
-markdown with a closed four-table schema, checked by a linter that never
+markdown with a closed four-layer schema, checked by a linter that never
 reads your prose. [The introduction](index.md) and the
 [glossary](glossary.md) expand every term in that sentence.
 
@@ -46,8 +46,8 @@ A closed schema is what makes every other guarantee stateable: row kinds
 are closed sets, every `[[wiki-link]]` is typed, and format evolution is
 additive-only through numbered revisions — the theory behind this is in
 [theory.md](specs/theory.md), the mechanism in
-[specodelic.md](specs/specodelic.md). Domain-specific structure goes
-through [domain packs](specs/packs.md), which extend the format without
+[specodelic.md](specs/specodelic/spec.md). Domain-specific structure goes
+through [domain packs](specs/packs/spec.md), which extend the format without
 a format revision.
 
 ## Checks and guarantees
@@ -104,9 +104,9 @@ verdict taxonomy (`permitted` / `forbidden` / `underspecified` /
 
 Two complementary verbs: `spk model-check` explores the compiled model's
 reachable state space within a bound
-([model_check](specs/model_check.md)), and `spk verify` executes the
+([model_check](specs/model_check/spec.md)), and `spk verify` executes the
 compiled property blocks whose generators produce concrete cases
-([verify](specs/verify.md)). For scenarios coming from *outside* the
+([verify](specs/verify/spec.md)). For scenarios coming from *outside* the
 spec, use [conform](conform.md) instead.
 
 ### Can one spec be implemented in different languages or paradigms?
@@ -126,15 +126,15 @@ illustrative and are *not* executable
 Every finding carries its own rule id and one-line semantics string.
 `spk explain lint-rules` prints the catalog from the same table the
 linter emits from, and each rule has a page under *Lint Rules* in this
-book — start at [the linter overview](specs/specodelic.md).
+book — start at [the linter overview](specs/specodelic/spec.md).
 
 ### How do I safely rename an id, or merge two diverged branches?
 
 `spk rename` rewrites the defining row, every referencing `[[link]]`,
 and checklist `mapped_ids` as one in-memory-verified transaction
-([rename](specs/rename.md)); `spk merge --branch` checks id collisions,
+([rename](specs/rename/spec.md)); `spk merge --branch` checks id collisions,
 dangling renames, and intersecting blast radii *before* you join the
-trees ([merge](specs/merge.md)).
+trees ([merge](specs/merge/spec.md)).
 
 ### Where are the docs agents read without repo access?
 
@@ -154,7 +154,7 @@ division of ownership is in [tool relationships](tool-relationships.md).
 
 ### Can I extend the format for my domain?
 
-Through a [domain pack](specs/packs.md): a `kind: profile` manifest
+Through a [domain pack](specs/packs/spec.md): a `kind: profile` manifest
 declaring typed sections, fiber kinds, and reference fields — discovered
 by corpus scan, no config file. Four packs ship in-repo, including the
 first cross-pack `## Requires` pilot (`bioimage.data`).

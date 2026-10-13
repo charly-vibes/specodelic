@@ -49,7 +49,7 @@ gate-chainable).
   every new delta scenario needs a staged contract at authoring time
   (`add-graph-views` alone would add 26).
 - **Redundancy risk — the deciding factor**: specodelic is already
-  building its own spec↔test execution loop: `verify` (specs/verify.md,
+  building its own spec↔test execution loop: `verify` (openspec/specs/verify/spec.md,
   ticket specodelic-1pv) executes `compile.md`'s proptest! scaffolding
   and folds the result with `model_check` into the corpus `verified`
   gate. Two conformance systems adopted in parallel would duplicate the

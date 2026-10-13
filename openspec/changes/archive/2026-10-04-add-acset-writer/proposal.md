@@ -34,7 +34,7 @@ Both are decided in this proposal's design.
   `apply(f, x)` for edits, returning a write-set of `(path, full new
   contents)` plus optional removals. No subcommand, no flag, no exit-code
   path; errors surface through the consuming command's envelope per
-  `specs/errors.md`.
+  `openspec/specs/errors/spec.md`.
 - **`rename.rs` migrates onto the writer.** Its hand-wired id-cell,
   wiki-link, and state-bullet rewriting is re-expressed as writer edits;
   `spk rename --json` outputs stay byte-identical (parity gate), and
@@ -56,7 +56,7 @@ Both are decided in this proposal's design.
 ## Impact
 
 - Affected specs: new `acset-writer` capability (delta in this change);
-  `specs/rename.md`'s behaviour contract is consumed unchanged (the
+  `openspec/specs/rename/spec.md`'s behaviour contract is consumed unchanged (the
   writer is how its prose-untouched guarantee is realized mechanically).
 - Affected code: `src/spec.rs`/`src/parse.rs` (additive span fields),
   new `src/acset/writer.rs`, `src/rename.rs` (migration), `src/packs.rs`

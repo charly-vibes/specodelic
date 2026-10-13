@@ -335,7 +335,7 @@ fn walk_parity_fan_and_cycles() {
             "dangling".to_string(),
             collect_fixture("tests/fixtures/dangling"),
         ),
-        ("real".to_string(), collect_corpus("specs")),
+        ("real".to_string(), collect_corpus("openspec/specs")),
     ]]
     .concat();
     for (name, specs) in &corpora {

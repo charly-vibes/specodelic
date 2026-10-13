@@ -9,7 +9,7 @@ table widen under a new Revision heading, never silently. Revision 7 added
 `emits` for state outputs. Neither makes "what must be observable" or "what
 crosses the boundary" checkable facts. This design adds the minimal
 vocabulary to close that, shaped on the Revision 7 precedent end to end.
-`specs/specodelic.md` currently stands at Revision 8 (backend
+`openspec/specs/specodelic/spec.md` currently stands at Revision 8 (backend
 pluggability), so the `observes` row lands as **Revision 9** and
 `src/guide.rs`'s `FORMAT_REVISION` bumps with it.
 
@@ -97,7 +97,7 @@ under a new Revision of `linter-graph_shape.md`.
 
 ### D5 — Advisory first, on the warnings channel; gating deferred until after dogfooding
 
-The corpus already uses `emits` today: `specs/refactor.md`'s `found` state
+The corpus already uses `emits` today: `openspec/specs/refactor/spec.md`'s `found` state
 carries `emits: [[refactor.advisory_finding_emitted]]` (a `kind == effect`
 Constraint), and nothing observes it. So the check is **not vacuous** —
 the first advisory warning fires on the real corpus the moment it lands.
@@ -176,7 +176,7 @@ the graph classification; no corpus data migration exists or is needed.
   `no_self_ref` covers only `traces_to`/`derives_from` — can a row
   `observes` *itself*, and does an intra-file observation count as
   "observed" for the check? Decided when writing
-  `specs/linter-observability.md` (task 1.5) against a real fixture.
+  `openspec/specs/linter-observability/spec.md` (task 1.5) against a real fixture.
 - **Subkind vs typing**: if telemetry claims need richer structure than an
   `observes` edge carries (metric name, cardinality), the answer is a new
   constraint subkind via `kind_field_extensible` — out of scope until the

@@ -2,7 +2,7 @@
 
 ## Context
 
-`specs/compile.md` is the spec of record; this change implements it
+`openspec/specs/compile/spec.md` is the spec of record; this change implements it
 verbatim. Current state: `Compile` is a shared stub arm in `main.rs`;
 parsing (`spec.rs`), linting (`lint.rs`), and graph (`graph.rs`) exist.
 The corpus is fully covered, so the precondition gate can hold
@@ -23,7 +23,7 @@ end-to-end today.
 
 - **Decision: model-checker backend deferred — ship a `ModelIR` seam.**
   TLA+ vs Alloy is a human call (beads `specodelic-mp1` row 6;
-  `specs/compile.md` deliberately says "TLA+ (or Alloy)"). This change
+  `openspec/specs/compile/spec.md` deliberately says "TLA+ (or Alloy)"). This change
   extracts the Model section into a backend-neutral intermediate
   representation (`ModelIR { states, transitions, emits }`) with its own
   round-trip tests, and emits no model module until the decision lands.

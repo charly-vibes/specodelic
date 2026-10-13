@@ -1,7 +1,7 @@
 //! The model_check step — run a model-check backend against a compiled
-//! model (specs/model_check.md).
+//! model (openspec/specs/model_check/spec.md).
 //!
-//! Purpose: implement `specs/model_check.md`'s run state machine —
+//! Purpose: implement `openspec/specs/model_check/spec.md`'s run state machine —
 //! `not_run → running → clean | counterexample_found | timed_out` — over
 //! the compiled `ModelIR`, with the two specced backends and a run report
 //! that `verify` can consume with artifact provenance
@@ -53,7 +53,7 @@ pub const BACKEND_ENGINE: &str = "stateright";
 
 /// The opt-in TLC backend's engine name (`backend_identified`) — the JVM
 /// reference engine run as a subprocess over the compiled `.tla` module
-/// (specs/model_check.md, Backends).
+/// (openspec/specs/model_check/spec.md, Backends).
 pub const TLC_ENGINE: &str = "tlc";
 
 /// The resolved TLC invocation: the JVM binary and the `tla2tools.jar`

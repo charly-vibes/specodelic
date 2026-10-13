@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Tests for scripts/check_summary_completeness.py (stdlib unittest, no deps).
 
-Covers the SUMMARY.md completeness gate (specodelic-b3p): every corpus
-spec file (frontmatter-bearing specs/*.md) and every capability spec
-(openspec/specs/*/spec.md) MUST be linked from docs/src/SUMMARY.md —
-the hand-written SUMMARY can silently miss new spec files, and mdbook
-only renders what SUMMARY lists.
+Covers the SUMMARY.md completeness gate (specodelic-b3p): every
+frontmatter-bearing spec in the single tree (openspec/specs/<cap>/spec.md,
+specodelic-jf1) MUST be linked from docs/src/SUMMARY.md — the hand-written
+SUMMARY can silently miss new spec files, and mdbook only renders what
+SUMMARY lists.
 
 Run: python3 -m unittest discover -s scripts -p 'test_*.py'
 """
@@ -34,69 +34,73 @@ class SummaryCompletenessTest(unittest.TestCase):
     def summary(self, *lines: str) -> str:
         return "# Summary\n\n" + "\n".join(lines) + "\n"
 
-    def test_missing_corpus_spec_is_flagged(self):
-        root = self.write({
-            "docs/src/SUMMARY.md": self.summary("- [a](specs/a.md)"),
-            "specs/a.md": FRONTMATTER.format(id="a"),
-            "specs/b.md": FRONTMATTER.format(id="b"),
-        })
-        problems = csc.check(root)
-        self.assertEqual(len(problems), 1)
-        self.assertIn("specs/b.md", problems[0])
-        self.assertIn("SUMMARY.md", problems[0])
-
     def test_missing_capability_spec_is_flagged(self):
         root = self.write({
-            "docs/src/SUMMARY.md": self.summary("- [c](openspec/c/spec.md)"),
-            "openspec/specs/c/spec.md": FRONTMATTER.format(id="spec"),
-            "openspec/specs/d/spec.md": FRONTMATTER.format(id="spec"),
+            "docs/src/SUMMARY.md": self.summary("- [c](specs/c/spec.md)"),
+            "openspec/specs/c/spec.md": FRONTMATTER.format(id="c"),
+            "openspec/specs/d/spec.md": FRONTMATTER.format(id="d"),
         })
         problems = csc.check(root)
         self.assertEqual(len(problems), 1)
         self.assertIn("openspec/specs/d/spec.md", problems[0])
+        self.assertIn("specs/d/spec.md", problems[0])
 
-    def test_frontmatterless_corpus_files_are_exempt(self):
+    def test_missing_corpus_spec_is_flagged(self):
+        # A corpus spec is just a capability dir in the single tree; the
+        # migrated specodelic core must be linked like any other.
         root = self.write({
-            "docs/src/SUMMARY.md": self.summary("- [a](specs/a.md)"),
-            "specs/a.md": FRONTMATTER.format(id="a"),
-            "specs/AGENTS.md": "# governance, no frontmatter\n",
-            "specs/STATUS.md": "# status, no frontmatter\n",
-            "specs/USAGE.md": "# usage, no frontmatter\n",
-            "specs/foo.checklist.md": "# checklist, no frontmatter\n",
+            "docs/src/SUMMARY.md": self.summary("- [c](specs/c/spec.md)"),
+            "openspec/specs/c/spec.md": FRONTMATTER.format(id="c"),
+            "openspec/specs/specodelic/spec.md": FRONTMATTER.format(id="specodelic"),
         })
-        self.assertEqual(csc.check(root), [])
+        problems = csc.check(root)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("openspec/specs/specodelic/spec.md", problems[0])
 
-    def test_non_spec_md_without_frontmatter_is_exempt(self):
+    def test_frontmatterless_files_are_exempt(self):
         root = self.write({
-            "docs/src/SUMMARY.md": self.summary("- [a](specs/a.md)"),
-            "specs/a.md": FRONTMATTER.format(id="a"),
-            "specs/theory.md": "# theory essay, no frontmatter\n",
+            "docs/src/SUMMARY.md": self.summary("- [a](specs/a/spec.md)"),
+            "openspec/specs/a/spec.md": FRONTMATTER.format(id="a"),
+            "openspec/specs/AGENTS.md": "# governance, no frontmatter\n",
+            "openspec/specs/claim-guidance.checklist.md": "# checklist, no frontmatter\n",
+            "openspec/STATUS.md": "# status, no frontmatter\n",
+            "openspec/USAGE.md": "# usage, no frontmatter\n",
         })
         self.assertEqual(csc.check(root), [])
 
     def test_fully_listed_tree_is_clean(self):
         root = self.write({
             "docs/src/SUMMARY.md": self.summary(
-                "- [a](specs/a.md)",
-                "- [c](openspec/c/spec.md)",
+                "- [a](specs/a/spec.md)",
+                "- [c](specs/c/spec.md)",
             ),
-            "specs/a.md": FRONTMATTER.format(id="a"),
-            "openspec/specs/c/spec.md": FRONTMATTER.format(id="spec"),
+            "openspec/specs/a/spec.md": FRONTMATTER.format(id="a"),
+            "openspec/specs/c/spec.md": FRONTMATTER.format(id="c"),
         })
         self.assertEqual(csc.check(root), [])
 
     def test_archived_change_deltas_are_not_required(self):
         root = self.write({
-            "docs/src/SUMMARY.md": self.summary("- [a](specs/a.md)"),
-            "specs/a.md": FRONTMATTER.format(id="a"),
+            "docs/src/SUMMARY.md": self.summary("- [a](specs/a/spec.md)"),
+            "openspec/specs/a/spec.md": FRONTMATTER.format(id="a"),
             "openspec/changes/archive/2026-09-29-x/specs/c/spec.md":
                 FRONTMATTER.format(id="spec"),
         })
         self.assertEqual(csc.check(root), [])
 
+    def test_legacy_two_tree_corpus_is_not_scanned(self):
+        # The specs/ tree is gone after the jf1 migration; a stale file
+        # left behind must not satisfy or fail the gate.
+        root = self.write({
+            "docs/src/SUMMARY.md": self.summary("- [a](specs/a/spec.md)"),
+            "openspec/specs/a/spec.md": FRONTMATTER.format(id="a"),
+            "specs/a.md": FRONTMATTER.format(id="a"),
+        })
+        self.assertEqual(csc.check(root), [])
+
     def test_missing_summary_file_fails_closed(self):
         root = self.write({
-            "specs/a.md": FRONTMATTER.format(id="a"),
+            "openspec/specs/a/spec.md": FRONTMATTER.format(id="a"),
         })
         problems = csc.check(root)
         self.assertEqual(len(problems), 1)
@@ -108,10 +112,10 @@ class SummaryCompletenessTest(unittest.TestCase):
         # belong in a page's prose, never in SUMMARY.md.
         root = self.write({
             "docs/src/SUMMARY.md": self.summary(
-                "- [a](specs/a.md)",
+                "- [a](specs/a/spec.md)",
                 "- [Ecosystem](https://example.com/ecosystem-map.html)",
             ),
-            "specs/a.md": FRONTMATTER.format(id="a"),
+            "openspec/specs/a/spec.md": FRONTMATTER.format(id="a"),
         })
         problems = csc.check(root)
         self.assertEqual(len(problems), 1)
@@ -120,8 +124,8 @@ class SummaryCompletenessTest(unittest.TestCase):
 
     def test_relative_markdown_link_is_not_flagged_as_absolute(self):
         root = self.write({
-            "docs/src/SUMMARY.md": self.summary("- [a](specs/a.md)"),
-            "specs/a.md": FRONTMATTER.format(id="a"),
+            "docs/src/SUMMARY.md": self.summary("- [a](specs/a/spec.md)"),
+            "openspec/specs/a/spec.md": FRONTMATTER.format(id="a"),
         })
         self.assertEqual(csc.check(root), [])
 

@@ -6,7 +6,7 @@ nothing was processed (path not found, no spec files matched, unreadable
 input). clap argument-parse failures also exit 2. The JSON envelope's
 `envelope_kind` is `"error"` and `ok` is `false` whenever the run is not
 a clean run — findings and failures never ride a success-shaped envelope
-(specs/errors.md `envelope_error_kind` + `exit_code_mapping`).
+(openspec/specs/errors/spec.md `envelope_error_kind` + `exit_code_mapping`).
 
 All commands emit through the genesis envelope: JSON for pipes,
 human-readable for TTYs (`--human` / `--format json` to override).
@@ -23,7 +23,7 @@ The gate. Runs every rule in the catalog over spec files (recursively;
 files without frontmatter are skipped with a warning). Each finding
 carries `rule_id` (`linter.<name>`) and `rule_semantics`.
 
-- Spec: [linter rules](specs/linter-frontmatter.md) (one file per rule family)
+- Spec: [linter rules](specs/linter-frontmatter/spec.md) (one file per rule family)
 
 When nothing was found and the repo carries an `openspec/` tree (consumer
 repos keep their corpus under `openspec/changes/*/specs/`), the failure
@@ -60,10 +60,10 @@ The three in-repo standard packs live in [`packs/`](https://github.com/charly-vi
 (`data.lineage`, `numeric.predicates`, `empirical.registry`); a consuming
 file opts in explicitly via a `uses` reference to the pack's frontmatter id.
 
-- Spec: [packs](specs/packs.md)
+- Spec: [packs](specs/packs/spec.md)
 
 A `*.checklist.md` file in the linted tree declares an external checklist
-(specs/linter-external_completeness.md — mp1 row 10's manifest format):
+(openspec/specs/linter-external_completeness/spec.md — mp1 row 10's manifest format):
 a flat `## Items` list plus a `## Mapping` table
 (`item`/`status`/`mapped_ids`/`rationale`). The five
 `linter.external_completeness` rules then check every item is explicitly
@@ -105,7 +105,7 @@ trace, schema) live in [graph views](graph-views.md); `spk explain
 graph-views` carries the same taxonomy and one-pipe recipes for your
 own corpora.
 
-- Spec: [graph](specs/graph.md)
+- Spec: [graph](specs/graph/spec.md)
 
 Same discovery hint as `lint`: with an `openspec/` tree present, the
 zero-files failure suggests `spk graph openspec`.
@@ -206,14 +206,14 @@ hypothetical `property-uncompiled` would enforce compile.md's
 semantics from ah, crossing the sibling-tool boundary (read-only over
 `openspec/`, never enforcing against the `specs/` corpus).
 
-- Spec: [compile](specs/compile.md)
+- Spec: [compile](specs/compile/spec.md)
 
 ## `spk model-check <files>`
 
 **Use when:** you want bounded evidence that the compiled model's
 required claims hold (`spk explain lifecycle`: model_check requires a
 complete Model section). Read the outcome honestly —
-`claim_aggregate_governs` (specs/model_check.md) fixes the priority:
+`claim_aggregate_governs` (openspec/specs/model_check/spec.md) fixes the priority:
 
 - `no_counterexample` — clean: a nonempty required set all verified over
   a completed bounded exploration (the native backend earns it when the
@@ -290,7 +290,7 @@ executable claims) are real terminal outcomes, not failures
 (model_check.md); `spk verify`'s model gate is what rejects them as
 not-clean.
 
-- Spec: [model_check](specs/model_check.md)
+- Spec: [model_check](specs/model_check/spec.md)
 
 ## `spk verify <files>`
 
@@ -348,7 +348,7 @@ result statuses — a hand-forged `check.json` with invented `verified`
 statuses does not yield a clean model gate: verify recomputes the scope
 and the required claim set from the current inputs, and any digest,
 record-shape, or artifact mismatch is rejected with a rerun hint
-(specs/verify.md `evidence_scope_bound`; the persisted report is never
+(openspec/specs/verify/spec.md `evidence_scope_bound`; the persisted report is never
 rewritten).
 
 The properties gate's scratch crate lives under the system temp dir
@@ -359,7 +359,7 @@ orphaned per-invocation crate dirs (from killed runs) are pruned after
 whole — the next verify pays one cold proptest rebuild. Set
 `SPECODELIC_VERIFY_SCRATCH` to relocate the scratch base (e.g. off a size-capped tmpfs).
 
-- Spec: [verify](specs/verify.md)
+- Spec: [verify](specs/verify/spec.md)
 
 ## `spk conform <file> --oracle scenarios.jsonl [--closed-world]`
 
@@ -492,7 +492,7 @@ checklist `mapped_ids` and the filename itself) must follow — computed
 and verified in memory before any byte is written, so a failed rename
 leaves the repo byte-identical.
 
-The atomic rename (specs/rename.md): updates the defining row (an
+The atomic rename (openspec/specs/rename/spec.md): updates the defining row (an
 Intent frontmatter id or a table row's qualified id) and every
 referencing `[[link]]` — including child refs like `[[old_id.child]]` —
 as one transaction. Declared checklists reach into the same law: every
@@ -506,7 +506,7 @@ zero dangling) before any byte is written, so a failed rename leaves
 the repo byte-identical: collisions, unknown ids, and verify-gate
 rejections are labeled failures with remediation hints.
 
-- Spec: [rename](specs/rename.md)
+- Spec: [rename](specs/rename/spec.md)
 
 ## Merge check
 
@@ -516,7 +516,7 @@ intersecting blast radii — checked *before* joining the trees.
 
 `spk merge --branch <incoming-tree> [--base <ancestor-tree>] [current-tree]`
 checks what a textually clean 3-way merge cannot see
-([merge](specs/merge.md)), over the two branch tips' spec trees:
+([merge](specs/merge/spec.md)), over the two branch tips' spec trees:
 
 - **id collisions** — an id minted on both branches (absent from the
   ancestor, or divergently edited on both) is flagged as a collision.
@@ -533,7 +533,7 @@ checks what a textually clean 3-way merge cannot see
 Exit 0 = merged, 1 = findings (verdict `needs_review` or `failed`),
 2 = invalid invocation (missing `--branch`, empty incoming tree).
 
-- Spec: [merge](specs/merge.md)
+- Spec: [merge](specs/merge/spec.md)
 
 ## `spk orchestrate <files|dirs> [--out-dir <dir>] [--backend tlc --tlc-jar <jar>]`
 
@@ -542,8 +542,8 @@ model_check → verify — in the fixed stage order with each gate enforced,
 halting at the first failing stage, in one invocation.
 
 Drives the full pipeline — `parse → lint → compile → model_check →
-verify` — in the order [orchestrate](specs/orchestrate.md) fixes, gating
-each stage transition exactly as [specodelic](specs/specodelic.md)
+verify` — in the order [orchestrate](specs/orchestrate/spec.md) fixes, gating
+each stage transition exactly as [specodelic](specs/specodelic/spec.md)
 specifies and halting at the first stage that fails:
 
 - **Lint stage** — the six Checker Ownership checkers run in dependency
@@ -569,7 +569,7 @@ specifies and halting at the first stage that fails:
 reason. Rename is never part of a run. Re-running against an unchanged
 repo is byte-identical.
 
-- Spec: [orchestrate](specs/orchestrate.md)
+- Spec: [orchestrate](specs/orchestrate/spec.md)
 
 ## Refactor advisor
 
@@ -578,7 +578,7 @@ repo is byte-identical.
 run.
 
 `spk refactor [paths] [--high-fan-in N] [--changeset id1,id2]` is the
-tidy-first split advisor ([refactor](specs/refactor.md)): it flags nodes
+tidy-first split advisor ([refactor](specs/refactor/spec.md)): it flags nodes
 whose incoming cross-file dependents share no namespace segment below the
 root (nearest common ancestor = root — decision of record 2026-09-30),
 and — with `--changeset` — nodes whose owned rows the changeset touches
@@ -588,4 +588,4 @@ high-fan-in threshold is per-invocation configuration
 (`threshold_is_per_repo_setting`; default 3). Findings are advisory:
 exit 0 whether or not anything is flagged.
 
-- Spec: [refactor](specs/refactor.md)
+- Spec: [refactor](specs/refactor/spec.md)

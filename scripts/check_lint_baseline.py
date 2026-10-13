@@ -21,7 +21,7 @@ import pathlib
 import subprocess
 import sys
 
-BASELINE = pathlib.Path("specs/.lint-baseline")
+BASELINE = pathlib.Path("openspec/specs/.lint-baseline")
 
 
 def findings(target):
@@ -54,7 +54,7 @@ def read_baseline():
 
 
 def main(argv):
-    target = argv[1] if len(argv) > 1 else "specs"
+    target = argv[1] if len(argv) > 1 else "openspec/specs"
     live = findings(target)
     base = read_baseline()
 

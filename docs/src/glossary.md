@@ -1,15 +1,15 @@
 # Glossary
 
-The jargon this book (and the `specs/` corpus) uses, defined for a cold
-read. Definitions are one to three sentences; where a deeper explanation
+The jargon this book (and the `openspec/specs/` corpus) uses, defined for
+a cold read. Definitions are one to three sentences; where a deeper explanation
 exists, the entry links to it instead of restating.
 
 ## The format and its files
 
 - **spec / specodelic file** — one markdown file: YAML frontmatter plus
-  fixed tables under a closed schema. Every file in [`specs/`](specs/specodelic.md)
-  is a spec written in the format it describes — see
-  [the core format](specs/specodelic.md).
+  fixed tables under a closed schema. Every corpus file in
+  [`openspec/specs/`](specs/specodelic/spec.md) is a spec written in the
+  format it describes — see [the core format](specs/specodelic/spec.md).
 - **frontmatter** — the YAML block at the top of a spec file carrying the
   file-level identity: `id`, `kind`, and `statement`. Checked shape-first
   by `linter.frontmatter`.
@@ -27,7 +27,7 @@ exists, the entry links to it instead of restating.
 - **kind** — the type tag on a spec file (`kind: intent`, `kind: profile`)
   or a table row (`invariant`, `effect`, `advisory`, `extension_point`,
   `deriving`, …), drawn from closed sets: a value outside the set is a
-  labeled finding, never silently accepted. See [kinds](specs/kinds.md).
+  labeled finding, never silently accepted. See [kinds](specs/kinds/spec.md).
 - **Constraints** — the table of the spec's claims (invariants, effects,
   advisories, extension points), with `[[wiki-linked]]` traces. Compiles
   to TOML.
@@ -38,7 +38,7 @@ exists, the entry links to it instead of restating.
   generator + predicate. Compiles to proptest scaffolding and is
   executed by `spk verify`.
 - **corpus** — the set of spec files a command operates on, usually a
-  whole tree (`specs/`, or an `openspec/` tree in consumer repos). Lint
+  whole tree (`openspec/specs/` here; consumer repos pass any dir). Lint
   discovers packs by scanning it; `spk graph` derives edges over it.
 - **lifecycle** — the ordered stage gates a spec moves through —
   `parse → lint → compile → model_check → verify` — each stage gated on
@@ -68,7 +68,7 @@ exists, the entry links to it instead of restating.
   tables declare typed sections, fiber kinds, and reference fields for a
   domain. Discovered by corpus scan (no config file); a consuming file
   opts in explicitly via a `uses` reference to the pack's id. See
-  [packs](specs/packs.md).
+  [packs](specs/packs/spec.md).
 - **fiber kind** — a kind declared by a pack. While the pack is active,
   the base closed kind set widens to base ∪ active-pack-fiber; the same
   token without an active pack fires a labeled finding.
@@ -91,7 +91,7 @@ exists, the entry links to it instead of restating.
   stage (exit 1) and never ride a success-shaped envelope.
 - **envelope** — the output wrapper every command emits through:
   JSON (`ok`, `envelope_kind`, `data`) for pipes, human-readable for
-  TTYs. Failures carry a remediation hint. See [errors](specs/errors.md).
+  TTYs. Failures carry a remediation hint. See [errors](specs/errors/spec.md).
 - **artifact** — a compiled output on disk: `<stem>.toml` (Constraints),
   `<stem>_props.rs` (proptest scaffolding), `<stem>.tla` (TLA+ module),
   and `<stem>.check.json` (the model-check run report).
@@ -106,7 +106,7 @@ exists, the entry links to it instead of restating.
   binding the run's structured content and consumed compiled artifacts.
   Prose edits and input reordering preserve it; any invariant-content
   change breaks it — so a report can never be reused as evidence for
-  different inputs. See [model_check](specs/model_check.md).
+  different inputs. See [model_check](specs/model_check/spec.md).
 
 ## Verification and checking
 
@@ -144,7 +144,7 @@ exists, the entry links to it instead of restating.
   reference atomics like `resolves`/`unique`/`acyclic`) that evaluates
   three-valued (verified / counterexample / unknown) during model
   checks. A cell outside the grammar is a labeled failure, never prose
-  silently ignored. See [compile](specs/compile.md).
+  silently ignored. See [compile](specs/compile/spec.md).
 - **`kernel.binding`** — an opaque string (test node id, filter, or shell
   payload) on an invariant row, surfaced verbatim in compiled artifacts
   so *external* checkers (like `ah`) can bind their tests to spec
@@ -154,7 +154,7 @@ exists, the entry links to it instead of restating.
   evaluation: a Rust fragment, a kernel claim, or a citation) and an
   explicitly **unchecked** set (prose-only). The run's outcome is
   governed by the required set only — prose wording never implies
-  evaluation. See [model_check](specs/model_check.md).
+  evaluation. See [model_check](specs/model_check/spec.md).
 - **model-check outcomes** — the four terminal states of
   `spk model-check`: `no_counterexample` (every required claim verified
   over a completed bounded exploration), `counterexample_found` (a

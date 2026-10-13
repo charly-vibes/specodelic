@@ -52,7 +52,7 @@ pub(crate) fn cmd_lint(
     for n in notes.iter().chain(&parse_errors) {
         out = out.with_warning(n.clone());
     }
-    // Advisory findings (specs/linter-observability.md) ride the
+    // Advisory findings (openspec/specs/linter-observability/spec.md) ride the
     // warnings channel — exit 0, never a failure; the issues channel is
     // for invariant violations only.
     for w in &report.warnings {
@@ -162,11 +162,11 @@ pub(crate) fn cmd_graph(
         out.with_next_step("every reference resolves — run: specodelic lint")
     } else if !report.violations.is_empty() || !report.supersedes_cycles.is_empty() {
         out.with_next_step(
-            "resolve the typing violations / supersedes cycles (see specs/specodelic.md's Reference Typing table and specs/linter-graph_shape.md)",
+            "resolve the typing violations / supersedes cycles (see openspec/specs/specodelic/spec.md's Reference Typing table and openspec/specs/linter-graph_shape/spec.md)",
         )
     } else {
         out.with_next_step(
-            "resolve the dangling references (see specs/linter-referential_integrity.md)",
+            "resolve the dangling references (see openspec/specs/linter-referential_integrity/spec.md)",
         )
     };
     emit_report(
@@ -548,7 +548,7 @@ pub(crate) fn cmd_compile(
         "failed": failed,
     });
     // specodelic-4v1 (F1): a labeled compile failure never rides a
-    // success-shaped envelope (specs/errors.md envelope_error_kind +
+    // success-shaped envelope (openspec/specs/errors/spec.md envelope_error_kind +
     // exit_code_mapping) — exit 1 was already correct, the ok bit lied.
     let failed_run = !failed.is_empty();
     let mut out = Output::success(payload.clone());

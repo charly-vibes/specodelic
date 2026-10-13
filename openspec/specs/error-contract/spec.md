@@ -38,7 +38,7 @@ pipeline.
 | exit_code_mapping        | invariant | `the output contract maps outcomes to exit codes: 0 for a clean run, 1 for findings-or-failure, 2 for invocation error — the mapping is part of the published contract, not per-tool convention`                      | [[error.contract]]  |
 | remediation_hint_present | invariant | `every error report carries a non-empty remediation hint` (one row per concern: envelope kind, exit codes, and hint are separate rows, resolving design.md's Open Question)                                          | [[error.contract]]  |
 | error_property_names_label | invariant | `every error Constraint has ≥1 unit property whose predicate asserts the exact label string — a label with no falsifying property is not specced, only named`                                                            | [[error.contract]]  |
-| contract_published       | invariant | `the output contract rows live in specs/errors.md as kind == extension_point, and exist only there — this capability's constraints state requirements about them, never duplicate them; tool files point satisfies at the errors.md rows from their own files, per the extension_point mechanism` | [[error.contract]]  |
+| contract_published       | invariant | `the output contract rows live in openspec/specs/errors/spec.md as kind == extension_point, and exist only there — this capability's constraints state requirements about them, never duplicate them; tool files point satisfies at the errors.md rows from their own files, per the extension_point mechanism` | [[error.contract]]  |
 | enforcement_routed       | invariant | `every rule in this capability states its enforcement tier and no scenario overclaims the present tool: tier 1 — enforced today by existing checkers (emits→effect typing via ref_kind_compatible, every_state_used, graph citation-set comparison); tier 2 — enforced by linter-failure_shape once implemented (label-shape pattern check, mute failure states, carve-out list, negation-set equality), its scenarios are normative for that checker, not claims about today's spk lint; tier 3 — runtime rows (single labeled failure, remediation hint, exit codes) enforced via the compile/verify pipeline fixtures` | [[error.contract]]  |
 
 ## Model
@@ -113,10 +113,10 @@ The system SHALL require a failure transition whose guard cites ≥1 [[id]] to c
 - **THEN** the tier-2 check passes — `orchestrate.md` is on the recorded carve-out list in `linter-failure_shape.md`, not silent
 
 ### Requirement: Output contract published and satisfied
-The system SHALL publish the cross-cutting output contract — envelope kind `ok:false` ↔ `"error"`, exit codes 0/1/2, exactly one labeled failure per failing stage, and a non-empty remediation hint — as `extension_point` rows in `specs/errors.md`, with each tool file pointing `satisfies` at them from its own file.
+The system SHALL publish the cross-cutting output contract — envelope kind `ok:false` ↔ `"error"`, exit codes 0/1/2, exactly one labeled failure per failing stage, and a non-empty remediation hint — as `extension_point` rows in `openspec/specs/errors/spec.md`, with each tool file pointing `satisfies` at them from its own file.
 
 #### Scenario: Consumer satisfies the contract
-- **WHEN** a tool file carries a `satisfies` edge pointing at a contract row in `specs/errors.md`
+- **WHEN** a tool file carries a `satisfies` edge pointing at a contract row in `openspec/specs/errors/spec.md`
 - **THEN** extraction yields exactly one cross-file edge and lint passes — no edit to the contract file
 
 #### Scenario: Property-less constraint rejected
@@ -163,10 +163,10 @@ The system SHALL require a failure transition whose guard cites ≥1 [[id]] to c
 - **THEN** the tier-2 check passes — `orchestrate.md` is on the recorded carve-out list in `linter-failure_shape.md`, not silent
 
 ### Requirement: Output contract published and satisfied
-The system SHALL publish the cross-cutting output contract — envelope kind `ok:false` ↔ `"error"`, exit codes 0/1/2, exactly one labeled failure per failing stage, and a non-empty remediation hint — as `extension_point` rows in `specs/errors.md`, with each tool file pointing `satisfies` at them from its own file.
+The system SHALL publish the cross-cutting output contract — envelope kind `ok:false` ↔ `"error"`, exit codes 0/1/2, exactly one labeled failure per failing stage, and a non-empty remediation hint — as `extension_point` rows in `openspec/specs/errors/spec.md`, with each tool file pointing `satisfies` at them from its own file.
 
 #### Scenario: Consumer satisfies the contract
-- **WHEN** a tool file carries a `satisfies` edge pointing at a contract row in `specs/errors.md`
+- **WHEN** a tool file carries a `satisfies` edge pointing at a contract row in `openspec/specs/errors/spec.md`
 - **THEN** extraction yields exactly one cross-file edge and lint passes — no edit to the contract file
 
 #### Scenario: Property-less constraint rejected

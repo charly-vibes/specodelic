@@ -13,14 +13,14 @@
 
 ## 2. Format ratification (domain corpus)
 
-- [x] 2.1 RED (docs-text test): `specs/specodelic.md` Revision 13
+- [x] 2.1 RED (docs-text test): `openspec/specs/specodelic/spec.md` Revision 13
   heading exists; the `law_requires_cases` row names the machine
   form (`**name:**` case labels, floor = identity + associativity,
   extras = checkable declarations). `src/guide.rs` `FORMAT_REVISION`
   bumped to `Revision 13` — the drift-guard test must stay green
   (corpus revision and embedded revision move together).
 - [x] 2.2 GREEN: write both edits.
-- [x] 2.3 `specs/linter-coverage.md`: `every_law_has_cases` constraint
+- [x] 2.3 `openspec/specs/linter-coverage/spec.md`: `every_law_has_cases` constraint
   row wording updated to the machine form; new unit property rows:
   `unlabeled_law_rejected` (prose-mention-only predicate →
   `check(file) == failed`) and `extra_case_is_declaration`
@@ -66,7 +66,7 @@
 
 ## 5. Corpus dogfood
 
-- [x] 5.1 Fix `specs/linter-graph_shape.md` `topo_sort_naturality`:
+- [x] 5.1 Fix `openspec/specs/linter-graph_shape/spec.md` `topo_sort_naturality`:
   add the floor labels per D6 (rename-instantiation identity +
   associativity at the topo_sort observation point); note in the file
   that the catch came from the rule shipping.
@@ -76,7 +76,7 @@
 
 ## 6. Companions (non-format)
 
-- [x] 6.1 `specs/USAGE.md` §2.8: *Derived parallelism — the
+- [x] 6.1 `openspec/USAGE.md` §2.8: *Derived parallelism — the
   accumulator's algebra licenses the architecture* — the demo's tier
   table (deterministic/replayable → map over any partition; monoid →
   chunked reduce; +commutative → order-free workers; semilattice →

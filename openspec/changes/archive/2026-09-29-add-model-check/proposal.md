@@ -3,7 +3,7 @@
 ## Why
 
 `specodelic.md` names `model_check` as the `compiled → model_checked`
-transition, and `specs/model_check.md` specifies what a run means
+transition, and `openspec/specs/model_check/spec.md` specifies what a run means
 (state machine, bounds, minimal counterexamples, backend attribution) —
 but the CLI arm is a stub (`src/main.rs`:"not yet implemented"). The
 backend decision is made (beads `specodelic-mp1` row 6: stateright
@@ -44,7 +44,7 @@ now ship. Beads ticket: `specodelic-nx7`.
 ## Impact
 
 - Affected specs: `model-check` (new OpenSpec capability delta; domain
-  spec of record remains `specs/model_check.md` — the delta mirrors its
+  spec of record remains `openspec/specs/model_check/spec.md` — the delta mirrors its
   constraints, it does not reinterpret them)
 - Affected code: new `src/model_check.rs` + `stateright` dependency;
   `src/main.rs` ModelCheck arm (shared with sibling pipeline tickets);

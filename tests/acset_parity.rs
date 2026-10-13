@@ -2,7 +2,7 @@
 //!
 //! Phase 1 (tasks 1.1): a byte-comparison oracle over checked-in fixture
 //! corpora that pin graph::build's current behaviour — the Reference Typing
-//! violation classes (specs/specodelic.md's Reference Typing table),
+//! violation classes (openspec/specs/specodelic/spec.md's Reference Typing table),
 //! the typing-allowed edges, and the dangling shapes (generic vs the
 //! interface-shaped consumption message, specodelic-2q8). Each fixture is a
 //! minimal one-or-two-spec file authored to trigger exactly one named shape.
@@ -176,7 +176,7 @@ fn dangling_shapes_match_oracle() {
 }
 
 /// A corpus that triggers EVERY Reference Typing violation class named in
-/// specs/specodelic.md's Reference Typing table, plus a supersedes cycle —
+/// openspec/specs/specodelic/spec.md's Reference Typing table, plus a supersedes cycle —
 /// authors assert on named shapes to confirm the corpus actually triggers
 /// them (the snapshot pins today's byte form; the assertions pin the corpus).
 #[test]
@@ -498,7 +498,7 @@ fn collect_corpus(dir: &str) -> Vec<Spec> {
 /// corpus the existing builder accepts, specs/ included.
 #[test]
 fn adapter_graph_equivalent_over_the_real_corpus() {
-    let specs = collect_corpus("specs");
+    let specs = collect_corpus("openspec/specs");
     let acset_edges = from_specs(&specs).edges();
     let graph_edges = graph::build(&specs).edges.clone();
     assert_eq!(
@@ -541,8 +541,10 @@ proptest! {
 
 /// The real format doc, parsed.
 fn format_doc() -> Spec {
-    Spec::from_file(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("specs/specodelic.md"))
-        .expect("the format doc parses")
+    Spec::from_file(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("openspec/specs/specodelic/spec.md"),
+    )
+    .expect("the format doc parses")
 }
 
 /// GREEN state: the real doc's Reference Typing table equals `canonical()`
@@ -580,7 +582,7 @@ fn schema_missing_one_row_of_the_typing_table() {
 #[test]
 fn lint_reports_drift_when_the_doc_loses_a_row() {
     let text = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("specs/specodelic.md"),
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("openspec/specs/specodelic/spec.md"),
     )
     .expect("the format doc reads");
     let doctored: String = text

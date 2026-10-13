@@ -56,14 +56,14 @@ rung 3 puts it under exploration.
 ### Rung 3 — checked-within-bounds
 
 `spk compile` (which *"`only runs on a file that has passed both lint and
-coverage`"* — `specs/compile.md`, `precondition_satisfied`) emits the TOML,
+coverage`"* — `openspec/specs/compile/spec.md`, `precondition_satisfied`) emits the TOML,
 TLA+, and proptest artifacts; `spk model-check` explores the compiled
 model's reachable state space within a stated depth bound. A *clean*
 verdict means no counterexample exists **within the bound**;
 `spk model-check --help` is explicit that *exhaustive runs report
 `exploration_only`, never `no_counterexample`* — a completed exploration
 is evidence the space ends within the bound, never that the model holds
-(`specs/model_check.md`).
+(`openspec/specs/model_check/spec.md`).
 
 **Does not assure:** anything beyond the stated bound, and — because the
 program-counter model carries no data binding — nothing about values, only
@@ -112,7 +112,7 @@ outputs shown were captured at v0.8.0.
 ```
 
 Every constraint present must have a property — but nothing can tell you
-a constraint *should* exist and doesn't. `specs/linter-coverage.md` says
+a constraint *should* exist and doesn't. `openspec/specs/linter-coverage/spec.md` says
 this in so many words: *"a coverage check can only tell you every
 constraint present has a property; it cannot tell you a constraint is
 missing, which is exactly the class of gap the first four checkers caught
@@ -122,7 +122,7 @@ domain needs.
 
 ### `**py:**` and `**ts:**` fragments are not executable
 
-The format grammar accepts both tags (`specs/compile.md`,
+The format grammar accepts both tags (`openspec/specs/compile/spec.md`,
 `fragment_language_closed` — the closed set is `{rust, py, ts}`), and a
 `**py:**` fragment in a predicate cell lints clean. But no emitter has
 shipped: at HEAD, `**rust:**` is the only executable tag. Save this
@@ -175,7 +175,7 @@ Revision (no_emitter_labeled_failure, specodelic.md Revision 16)",
 
 The tag set is closed on purpose — an accepted tag without an emitter
 would silently fall through to Rust, the vacuous outcome the closed set
-exists to prevent (`specs/compile.md`, `no_emitter_labeled_failure`).
+exists to prevent (`openspec/specs/compile/spec.md`, `no_emitter_labeled_failure`).
 
 ### Pipeline verbs vary in implementation maturity
 
@@ -185,13 +185,13 @@ HEAD:
 
 - **`spk refactor` advises — it never edits.** `spk refactor --help`
   opens: *"Advise on tidy-first splits for high unrelated fan-in nodes."*
-  It flags split candidates via graph queries (`specs/refactor.md`);
+  It flags split candidates via graph queries (`openspec/specs/refactor/spec.md`);
   the split itself is yours.
 - **`spk model-check` is bounded, and honest about it.** Exhaustive runs
   report `exploration_only`, never a fabricated clean
   (`spk model-check --help`, backend description); a backend that cannot
   execute Rust fragments reports `exploration_only`, never a fabricated
-  pass (`specs/model_check.md`, `executable_invariants_execute`). TLC
+  pass (`openspec/specs/model_check/spec.md`, `executable_invariants_execute`). TLC
   cannot execute Rust fragments at all and never claims clean.
 - **`spk verify` never re-compiles.** It consumes the artifacts a prior
   `spk compile` wrote to the same out-dir (`spk verify --help`); a stale
@@ -207,6 +207,6 @@ HEAD:
   each pipeline stage in Checker Ownership order (`spk orchestrate --help`).
 
 When in doubt about a verb's exact contract, the corpus file of the same
-name under [`specs/`](specs/specodelic.md) — also served in this book
-under *Pipeline* — is the source of truth, and `spk explain` works
-offline.
+name under [`openspec/specs/`](specs/specodelic/spec.md) — also served in
+this book under *Pipeline* — is the source of truth, and `spk explain`
+works offline.

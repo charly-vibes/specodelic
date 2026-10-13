@@ -18,14 +18,14 @@
 //! so reference-typing constants never become a derivation source.
 
 /// The format revision this binary embeds/implements — mirrors the
-/// latest `## Revision N` heading in `specs/specodelic.md`. Updated by
+/// latest `## Revision N` heading in `openspec/specs/specodelic/spec.md`. Updated by
 /// hand when the corpus revision bumps; a corpus-lint style drift test
 /// (task 6.1) compares this numerically against the corpus so staleness
 /// fails CI, not consumers.
 pub const FORMAT_REVISION: &str = "specodelic.md Revision 18";
 
 /// The closed set of Intent `kind` values (frontmatter). Revision 14
-/// added `profile` — a domain pack file (see `specs/packs.md`); the set
+/// added `profile` — a domain pack file (see `openspec/specs/packs/spec.md`); the set
 /// freezes at {intent, profile} by policy, pack vocabulary is
 /// fiber-relative and never grows this set.
 pub const INTENT_KINDS: &[&str] = &["intent", "profile"];
@@ -577,8 +577,8 @@ mod tests {
         // names the machine-findable case form (the one compile's
         // required_law_cases parses) and Revision 13 records the
         // ratification.
-        let corpus = std::fs::read_to_string("specs/specodelic.md")
-            .expect("specs/specodelic.md must be readable from the crate root");
+        let corpus = std::fs::read_to_string("openspec/specs/specodelic/spec.md")
+            .expect("openspec/specs/specodelic/spec.md must be readable from the crate root");
         let row = corpus
             .lines()
             .find(|l| l.starts_with("| law_requires_cases"))
@@ -620,8 +620,8 @@ mod tests {
     fn pack_mechanism_ratified_in_the_corpus() {
         // Revision 14 is the decision of record for the pack mechanism:
         // the corpus carries the grown rows and the append-only heading.
-        let corpus = std::fs::read_to_string("specs/specodelic.md")
-            .expect("specs/specodelic.md must be readable from the crate root");
+        let corpus = std::fs::read_to_string("openspec/specs/specodelic/spec.md")
+            .expect("openspec/specs/specodelic/spec.md must be readable from the crate root");
         assert!(
             corpus.contains("## Revision 14"),
             "Revision 14 must record the pack-mechanism growth"
@@ -642,11 +642,11 @@ mod tests {
             uses_row.contains("profile"),
             "the uses row must resolve to a kind: profile file's intent"
         );
-        let packs = std::fs::read_to_string("specs/packs.md")
-            .expect("specs/packs.md must be readable from the crate root");
+        let packs = std::fs::read_to_string("openspec/specs/packs/spec.md")
+            .expect("openspec/specs/packs/spec.md must be readable from the crate root");
         assert!(
             packs.contains("kind: profile"),
-            "specs/packs.md must describe the profile pack artifact"
+            "openspec/specs/packs/spec.md must describe the profile pack artifact"
         );
     }
 
@@ -655,8 +655,8 @@ mod tests {
         // specodelic-rjb (Revision 15): executable predicate fragments —
         // the `**rust:**` opt-in marker, verbatim Rust, compiled into the
         // proptest artifact and executed as scratch-crate invariants.
-        let compile_md = std::fs::read_to_string("specs/compile.md")
-            .expect("specs/compile.md must be readable from the crate root");
+        let compile_md = std::fs::read_to_string("openspec/specs/compile/spec.md")
+            .expect("openspec/specs/compile/spec.md must be readable from the crate root");
         let pred_row = compile_md
             .lines()
             .find(|l| l.starts_with("| predicate_fragment_opt_in"))
@@ -673,16 +673,16 @@ mod tests {
             inv_row.contains("**rust:**"),
             "invariant_fragment_opt_in must name the **rust:** marker form"
         );
-        let model_md = std::fs::read_to_string("specs/model_check.md")
-            .expect("specs/model_check.md must be readable from the crate root");
+        let model_md = std::fs::read_to_string("openspec/specs/model_check/spec.md")
+            .expect("openspec/specs/model_check/spec.md must be readable from the crate root");
         assert!(
             model_md
                 .lines()
                 .any(|l| l.starts_with("| executable_invariants_execute")),
             "model_check.md must specify executable invariant execution"
         );
-        let corpus = std::fs::read_to_string("specs/specodelic.md")
-            .expect("specs/specodelic.md must be readable from the crate root");
+        let corpus = std::fs::read_to_string("openspec/specs/specodelic/spec.md")
+            .expect("openspec/specs/specodelic/spec.md must be readable from the crate root");
         assert!(
             corpus.contains("## Revision 15"),
             "Revision 15 must record the predicate-fragment decision"
@@ -908,13 +908,13 @@ mod tests {
     #[test]
     fn format_revision_matches_corpus() {
         // guide-drift guard (task 6.1): FORMAT_REVISION must name the
-        // latest Revision N heading in specs/specodelic.md — the suite
+        // latest Revision N heading in openspec/specs/specodelic/spec.md — the suite
         // fails here, naming both revisions, when the corpus bumps
         // without the constant following.
-        let corpus = std::fs::read_to_string("specs/specodelic.md")
-            .expect("specs/specodelic.md must be readable from the crate root");
-        let corpus_rev =
-            latest_revision(&corpus).expect("specs/specodelic.md declares no Revision headings");
+        let corpus = std::fs::read_to_string("openspec/specs/specodelic/spec.md")
+            .expect("openspec/specs/specodelic/spec.md must be readable from the crate root");
+        let corpus_rev = latest_revision(&corpus)
+            .expect("openspec/specs/specodelic/spec.md declares no Revision headings");
         let format_rev = revision_number(FORMAT_REVISION)
             .unwrap_or_else(|| panic!("FORMAT_REVISION `{FORMAT_REVISION}` carries no Revision N"));
         assert_eq!(

@@ -3,7 +3,7 @@
 ## Why
 
 Law rows are monoid witnesses. `law_requires_cases`
-(`specs/specodelic.md` line 27) mandates associativity + identity as "a
+(`openspec/specs/specodelic/spec.md` line 27) mandates associativity + identity as "a
 floor, not a ceiling", and extra named cases (commutativity,
 idempotence, naturality) are what drive derived-parallelism claims
 (`reduce_sound_iff_monoid` in the reviewed demo). But *where* cases
@@ -12,7 +12,7 @@ real case from prose merely mentioning one.
 
 Two live catches make the gap non-hypothetical:
 
-- `specs/linter-graph_shape.md`'s `topo_sort_naturality` law row
+- `openspec/specs/linter-graph_shape/spec.md`'s `topo_sort_naturality` law row
   carries only `**naturality:**` — the `law_requires_cases` floor
   (identity, associativity) is missing, yet `just lint-specs` is green
   because the floor is unenforced.
@@ -30,7 +30,7 @@ for lint-clean input's siblings.
 
 ## What Changes
 
-- **Format (domain corpus):** `specs/specodelic.md` gains **Revision
+- **Format (domain corpus):** `openspec/specs/specodelic/spec.md` gains **Revision
   13** — the `law_requires_cases` row now names the machine-findable
   form: required cases are enumerated as `**name:**` case labels in the
   law row's own predicate; the identity + associativity floor is a
@@ -55,7 +55,7 @@ for lint-clean input's siblings.
   carrying `## ADDED Requirements` (`id: spec`, mirror checked, drift
   CI-failed).
 - **Companions (non-format):**
-  - `specs/USAGE.md` §2.8 pattern entry: *derived parallelism — the
+  - `openspec/USAGE.md` §2.8 pattern entry: *derived parallelism — the
     accumulator's algebra licenses the architecture* (the demo's tier
     table: deterministic → map; monoid → chunked reduce; +commutative
     → order-free workers; semilattice → free concurrent checkpointing).
@@ -73,10 +73,10 @@ compile's fallback behavior for non-preconditioned input.
 - **Capabilities:** `compile` (1 MODIFIED requirement),
   `spec-integration` (2 MODIFIED requirements: Dual-format delta,
   Section sync).
-- **Domain corpus:** `specs/specodelic.md` (Revision 13),
-  `specs/linter-coverage.md` (`every_law_has_cases` wording),
-  `specs/linter-graph_shape.md` (`topo_sort_naturality` floor fix),
-  `specs/USAGE.md` (§2.8), plus `src/guide.rs` `FORMAT_REVISION`
+- **Domain corpus:** `openspec/specs/specodelic/spec.md` (Revision 13),
+  `openspec/specs/linter-coverage/spec.md` (`every_law_has_cases` wording),
+  `openspec/specs/linter-graph_shape/spec.md` (`topo_sort_naturality` floor fix),
+  `openspec/USAGE.md` (§2.8), plus `src/guide.rs` `FORMAT_REVISION`
   bump (drift guard).
 - **Code:** `src/lint.rs` (rule + shared case-label helper),
   `src/compile.rs` (helper lift, no behavior change),

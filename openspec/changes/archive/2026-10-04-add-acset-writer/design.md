@@ -30,13 +30,13 @@ so no edit can be applied without re-serializing.
    command. The three writer error labels
    (`acset.writer.span_failure`/`apply_failure`/`roundtrip_failure`) are
    internal causes wrapped by the consuming command's envelope error per
-   `specs/errors.md` — no new exit codes.
+   `openspec/specs/errors/spec.md` — no new exit codes.
 2. **Misalignment accepted; no lint advisory (EDGE-001).** The source
    spec is explicit that this is a decision, not a discovery: preserving
    alignment under id edits would force table re-serialization, which
    `source_spans_recorded` forbids. The corpus already tolerates
    unaligned columns, and an advisory finding would (a) require a
-   baseline entry class under `specs/.lint-baseline`'s remove-only
+   baseline entry class under `openspec/specs/.lint-baseline`'s remove-only
    ratchet, (b) fire on every width-changing rename immediately, and
    (c) police a property the format never promised. `emit_identity` is
    the guarantee that matters; if misalignment is ever observed as a

@@ -25,7 +25,7 @@ D6 of the decision of record (2026-10-02, `.wai/projects/domain-specific-extensi
 - **New in-repo pack artifact plan** `packs/quant-finance.md` (id
   `quant.finance`, per the file-naming law): six manifest tables
   declaring exactly the vocabulary above. No checker code — pack
-  checkers ship as declarations per `specs/packs.md` (honest-empty
+  checkers ship as declarations per `openspec/specs/packs/spec.md` (honest-empty
   convention); nothing in `src/` changes.
 
 ## Capabilities
@@ -96,7 +96,7 @@ D6 of the decision of record (2026-10-02, `.wai/projects/domain-specific-extensi
   with FP&A-specific gaps noted by the synthesis) clear the
   two-independent-designs bar the pilot set. The ≥2-independent-domains
   rule cited by the pack proposals is project governance, not yet
-  format law in `specs/packs.md` — a follow-up should either add it
+  format law in `openspec/specs/packs/spec.md` — a follow-up should either add it
   there or strike the citation from this proposal's ancestors.
 - The change follows the `add-bioimage-pack` / `add-numeric-predicates-pack`
   scaffold pattern: proposal + design + tasks + dual-format delta gated

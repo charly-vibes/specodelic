@@ -66,5 +66,5 @@ describing the system. conform tells you exactly how far its evidence
 reaches — and no further. For how that fits the other verbs' guarantees,
 see [verification boundaries](verification-boundaries.md); for the
 lifecycle stages conform stays outside of, see
-[orchestrate](specs/orchestrate.md) and the
+[orchestrate](specs/orchestrate/spec.md) and the
 [command reference](commands.md).

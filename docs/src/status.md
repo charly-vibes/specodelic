@@ -12,7 +12,7 @@
 
 ## In progress
 
-- **Self-hosting round** — the `specs/` corpus is specodelic's own
+- **Self-hosting round** — the `openspec/specs/` corpus is specodelic's own
   specification, written in the format it defines, so the tool lints and
   verifies its own documentation the way it would a user's spec (the
   self-hosting-compiler analogy). The round keeps that corpus lint-clean
@@ -27,7 +27,7 @@
 
 ## Mapped to specs
 
-- The format itself: every file in `specs/` is a spec in the format; `openspec` proposals for changes.
+- The format itself: every corpus file in `openspec/specs/` is a spec in the format; `openspec` proposals for changes.
 
 **Verification is not application testing** — the canonical statement of
 what specodelic's verification does and does not assure lives in the repo

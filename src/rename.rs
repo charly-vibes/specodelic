@@ -1,4 +1,4 @@
-//! The atomic rename operation (`specs/rename.md`).
+//! The atomic rename operation (`openspec/specs/rename/spec.md`).
 //!
 //! Purpose: construct `I'` from `(I, old_id, new_id)` — the concrete
 //! operation the corpus' `rename_naturality` laws are about.
@@ -280,7 +280,7 @@ fn plan_rename(
 /// and re-run linter.referential_integrity — zero dangling or the
 /// rename is rejected before a single write. A pure rename cannot
 /// introduce a cycle (structure is preserved), so dangling is the
-/// gate that can actually fire (specs/rename.md Notes). Checklists
+/// gate that can actually fire (openspec/specs/rename/spec.md Notes). Checklists
 /// ride the same gate through their own linter: the post-rename
 /// manifests must still be well-formed with resolving mapped_ids —
 /// a missed cell is caught here (stray_ref_caught_by_verify), never
@@ -477,7 +477,7 @@ mod tests {
     /// mapping_naturality: `mapped(rename(I)) == rename(mapped(I))` —
     /// the rename reaches into a checklist's mapped_ids cells, wrapped
     /// and bare spellings alike, and the verify gate accepts the
-    /// rewritten manifest (specs/linter-external_completeness.md).
+    /// rewritten manifest (openspec/specs/linter-external_completeness/spec.md).
     #[test]
     fn rename_reaches_into_checklist_mapped_ids() {
         let files = vec![

@@ -1,6 +1,6 @@
 //! The EARS statement grammar — pattern conformance for Intent statements.
 //!
-//! Purpose: implement `specs/linter-ears_syntax.md`'s `ears_pattern_match`
+//! Purpose: implement `openspec/specs/linter-ears_syntax/spec.md`'s `ears_pattern_match`
 //! and `has_shall`. Responsibilities: classify a statement into one of the
 //! five EARS patterns (Ubiquitous / Event-Driven / State-Driven /
 //! Unwanted-Behavior / Optional-Feature) and require an imperative

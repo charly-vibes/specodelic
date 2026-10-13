@@ -13,7 +13,7 @@ label set* — the base `law` floor (identity/associativity) is not
 domain-universal, per-kind floors should be kind-dependent while the
 enumeration *form* stays unchanged. Demand is ≥3 independent domains
 (mistral ×2, grok, zai) — exactly the governance rule in
-`specs/packs.md`. The mechanism (`add-domain-pack-mechanism`, archived
+`openspec/specs/packs/spec.md`. The mechanism (`add-domain-pack-mechanism`, archived
 2026-10-03) made packs first-class; data/lineage and numeric-predicates
 (archived 2026-10-03) are the first two standard packs; this is the
 third — the **Floors facet's first real consumer** — and together with
@@ -32,7 +32,7 @@ them it completes what the bioimage D6 pilot consumes.
 - **New in-repo pack artifact plan** `packs/empirical-registry.md` (id
   `empirical.registry`, per the file-naming law): six manifest tables
   declaring exactly the vocabulary above. No checker code — pack
-  checkers ship as declarations per `specs/packs.md` (honest-empty
+  checkers ship as declarations per `openspec/specs/packs/spec.md` (honest-empty
   convention); nothing in `src/` changes.
 
 ## Capabilities
@@ -95,8 +95,8 @@ them it completes what the bioimage D6 pilot consumes.
 ## Governance
 
 - Demand rule: ≥3 independent domains (R4: mistral ×2, grok, zai) per
-  `specs/packs.md`.
+  `openspec/specs/packs/spec.md`.
 - Ro5 review at proposal time before implementation (recorded in
   design.md "Review outcome").
 - Spec-first: the capability delta states the pack contract; the pack
-  artifact implements it; `specs/packs.md` governs the mechanism.
+  artifact implements it; `openspec/specs/packs/spec.md` governs the mechanism.

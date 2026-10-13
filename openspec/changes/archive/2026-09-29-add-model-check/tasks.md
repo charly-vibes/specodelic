@@ -52,7 +52,7 @@ test first.
 ## 4. Artifacts + docs
 
 - [x] 4.1 Regenerate the committed corpus under `specodelic/` (now with
-      `.check.json`); dogfood `spk model-check specs/model_check.md`
+      `.check.json`); dogfood `spk model-check openspec/specs/model_check/spec.md`
 - [x] 4.2 CHANGELOG entry; STATUS/README CLI rows updated if needed
 
 ## 5. Close out

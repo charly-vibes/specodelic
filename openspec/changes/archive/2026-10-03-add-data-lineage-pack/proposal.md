@@ -9,7 +9,7 @@ outbound-leaf external binding. It was demanded by ≥3 independent domains —
 bioimaging (mistral-bioimage, grok-bioimage: OME/NGFF-bound datasets),
 quant/ML pipelines (mistral-quant, qwen: benchmark manifests, statistical
 inputs), and data engineering/ETL (qwen, zai: pipeline lineage) — which is
-exactly the ≥3-independent-domain rule recorded in `specs/packs.md`
+exactly the ≥3-independent-domain rule recorded in `openspec/specs/packs/spec.md`
 governance. The mechanism (`add-domain-pack-mechanism`, archived
 2026-10-03) made packs first-class; this change ships the first standard
 pack so the mechanism has a real instance before the D6 bioimage pilot.
@@ -28,7 +28,7 @@ pack so the mechanism has a real instance before the D6 bioimage pilot.
   declaration (honest-empty), the `binding` floor, and a
   `specodelic.md Revision 14` base pin.
 - **No checker code.** Pack checkers ship as declarations per
-  `specs/packs.md` (honest-empty convention): the mechanism activates them
+  `openspec/specs/packs/spec.md` (honest-empty convention): the mechanism activates them
   advisory-first; nothing in `src/` changes.
 - **Vocabulary hygiene**: the pack's `## References` table declares
   `produced_by` and `consumed_by` but NOT bare `produces` — the English
@@ -82,4 +82,4 @@ pack so the mechanism has a real instance before the D6 bioimage pilot.
 - Ro5 review at proposal time: verdict READY WITH_NOTES, fix pass applied
   before implementation (see design.md "Review outcome").
 - Spec-first: the capability delta (this change) states the pack contract;
-  the pack artifact implements it; `specs/packs.md` governs the mechanism.
+  the pack artifact implements it; `openspec/specs/packs/spec.md` governs the mechanism.

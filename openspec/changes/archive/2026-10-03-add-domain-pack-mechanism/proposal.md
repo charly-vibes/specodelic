@@ -26,9 +26,9 @@ Make the extension mechanism **first-class** — a *domain pack*:
    `## Requires` — declaring exactly what the pack introduces.
 2. **Core grows once, narrowly (D7 strict thin-core):** `profile` joins
    INTENT_KINDS and `uses` joins Reference Typing as an explicit format
-   Revision (Revision 9 of `specs/specodelic.md`). This is the only core
+   Revision (Revision 9 of `openspec/specs/specodelic/spec.md`). This is the only core
    growth; everything vocabulary-like is pack-fiber-relative (the
-   Grothendieck construction one level up, per `specs/theory.md`
+   Grothendieck construction one level up, per `openspec/theory.md`
    precedent) and the base closed sets stop growing.
 3. **Discovery = corpus scan:** every `kind: profile` file in the workspace
    is a candidate pack. No config file, no registry outside the corpus —
@@ -46,7 +46,7 @@ Make the extension mechanism **first-class** — a *domain pack*:
 
 Governance: standard packs = in-repo, dogfooded, versioned, ≥3-independent-
 domain demand rule + Ro5 at proposal time — recorded spec-first in
-`specs/packs.md` (created before any checker code, per repo convention).
+`openspec/specs/packs/spec.md` (created before any checker code, per repo convention).
 
 ## Capabilities
 

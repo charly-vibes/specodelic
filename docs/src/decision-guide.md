@@ -16,7 +16,7 @@ parse → lint → compile → model-check → verify
 ```
 
 `spk compile` only runs on a file that passed lint and coverage
-(`specs/compile.md`, `precondition_satisfied`); `spk verify` never
+(`openspec/specs/compile/spec.md`, `precondition_satisfied`); `spk verify` never
 re-compiles — it consumes the artifacts a prior compile wrote to the
 same out-dir, so a stale compile is a rerun, never an acceptance;
 `spk orchestrate` applies the same stage discipline across a whole
@@ -49,8 +49,8 @@ classifies, but never gates a lifecycle transition.
 - `spk model-check` is bounded, and honest about it: exhaustive runs
   report `exploration_only`, never a fabricated clean; a backend that
   cannot execute Rust fragments reports `exploration_only`, never a
-  fabricated pass ([model_check](specs/model_check.md)).
+  fabricated pass ([model_check](specs/model_check/spec.md)).
 - `spk refactor` advises — it never edits. Its findings are exit-0
-  regardless ([refactor](specs/refactor.md)).
+  regardless ([refactor](specs/refactor/spec.md)).
 
 More boundaries: [verification boundaries — what a green check actually buys you](verification-boundaries.md).

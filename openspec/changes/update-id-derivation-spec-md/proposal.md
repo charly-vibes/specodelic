@@ -35,7 +35,7 @@ espectacular reads paths from config.
 - **Scaffolds teach the single tree.** `spk new` targets
   `openspec/specs/<id>/spec.md` by default; `spk migrate` generates the
   real derived id in the frontmatter it scaffolds.
-- **Format revision bump** Revision 17 → 18 in `specs/specodelic.md` (the
+- **Format revision bump** Revision 17 → 18 in `openspec/specs/specodelic/spec.md` (the
   format's own corpus, which carries `## Revision 18`); `FORMAT_REVISION`
   in `src/guide.rs` bumped in lockstep.
 - **This repo's openspec tree migrates**: every dual-format `spec.md`
@@ -50,8 +50,8 @@ espectacular reads paths from config.
 ## Impact
 
 - Affected specs: `spec-integration` (the dual-format law — MODIFIED),
-  plus the format corpus `specs/specodelic.md`, `specs/linter-frontmatter.md`,
-  `specs/model_check.md`, `specs/linter-referential_integrity.md` (the
+  plus the format corpus `openspec/specs/specodelic/spec.md`, `openspec/specs/linter-frontmatter/spec.md`,
+  `openspec/specs/model_check/spec.md`, `openspec/specs/linter-referential_integrity/spec.md` (the
   specodelic-layer statements of record).
 - Affected code: `src/lint/rules.rs`, `src/lint/graph.rs`, `src/graph.rs`,
   `src/lint/observability.rs`, `src/acset/instance.rs`,

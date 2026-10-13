@@ -1,7 +1,7 @@
 # specodelic justfile — local/CI workflow for the specodelic CLI
 #
 # Run `just` for default (build + test), `just ci` for the full gate.
-# The specs/ directory is the dogfood corpus: `just lint` runs specodelic on the
+# The openspec/specs/ tree is the dogfood corpus (single tree, specodelic-jf1):
 # format's own spec files.
 
 set shell := ["bash", "-uc"]
@@ -91,11 +91,12 @@ lint:
 
 # Lint the corpus with the freshly built specodelic (coverage gaps tracked in beads)
 lint-specs:
-    cargo run -q -- lint specs
+    cargo run -q -- lint openspec/specs
 
-# Derive the reference graph
+# Derive the reference graph (corpus-wide — graph resolves across the
+# whole tree, capability specs included)
 graph-specs:
-    cargo run -q -- graph specs
+    cargo run -q -- graph openspec/specs
 
 # Validate every active change and every capability spec (openspec, strict,
 # non-interactive — CI safe)
@@ -115,7 +116,15 @@ lint-deltas:
 # never hit a stale installed binary. Fails the gate on any non-clean
 # outcome (nonzero exit).
 model-check-specs:
-    cargo run -q -- model-check specs
+    cargo run -q -- model-check {{CORPUS_DIRS}}
+
+# The corpus-backed capability dirs — the files that were the specs/
+# corpus before the single-tree migration (specodelic-jf1). compile and
+# model-check are per-file gates that refuse stateless specs, so the
+# capability specs authored without a Model section cannot ride them;
+# the dogfood compile/model-check gates target exactly this set (their
+# artifacts are the tracked specodelic/ corpus).
+CORPUS_DIRS := "openspec/specs/specodelic openspec/specs/kinds openspec/specs/packs openspec/specs/graph openspec/specs/compile openspec/specs/model_check openspec/specs/verify openspec/specs/rename openspec/specs/merge openspec/specs/refactor openspec/specs/orchestrate openspec/specs/errors openspec/specs/linter-frontmatter openspec/specs/linter-schema_shape openspec/specs/linter-ears_syntax openspec/specs/linter-coverage openspec/specs/linter-graph_shape openspec/specs/linter-model_shape openspec/specs/linter-referential_integrity openspec/specs/linter-external_completeness openspec/specs/linter-failure_shape openspec/specs/linter-observability"
 
 # Epic status snapshot for autonomous orchestration (specodelic-k9v): pipeline
 # run states, in-progress tickets, unpushed commits, subagent session audit
@@ -131,7 +140,7 @@ sync-sections:
 # quick-start blocks are runnable format artifacts — they drifted once,
 # specodelic-vpx; this gate keeps every frontmatter example lint-clean)
 lint-doc-examples:
-    python3 scripts/check_doc_examples.py specs
+    python3 scripts/check_doc_examples.py openspec/specs openspec/USAGE.md
 
 # Docs-accuracy gate (specodelic-lf4b.10): re-run the quickstart commands
 # whose output is captured verbatim in docs/src/installation.md and
@@ -149,14 +158,14 @@ doc-examples:
     python3 scripts/check_quickstart_outputs.py --spk target/debug/spk
 
 # Honest dogfood gate: corpus findings vs the shrink-only baseline
-# (specs/.lint-baseline). Baseline is empty today — the corpus lints
+# (openspec/specs/.lint-baseline). Baseline is empty today — the corpus lints
 # fully clean — so this is strict zero-findings until an entry is added,
 # and an entry may only ever be REMOVED, never added.
 lint-baseline:
-    python3 scripts/check_lint_baseline.py specs
+    python3 scripts/check_lint_baseline.py openspec/specs
 
-# SUMMARY completeness: every frontmatter-bearing specs/*.md and every
-# openspec/specs/<cap>/spec.md must be linked from docs/src/SUMMARY.md
+# SUMMARY completeness: every frontmatter-bearing openspec/specs/<cap>/spec.md
+# must be linked from docs/src/SUMMARY.md
 # (hand-written SUMMARY can silently miss new spec files, specodelic-b3p)
 summary-completeness:
     python3 scripts/check_summary_completeness.py .
@@ -208,9 +217,9 @@ docs-graphs:
     rm -rf "$SCRATCH"
     mkdir -p "$SCRATCH" "$OUT"
     # Same binary, one build: the graph and schema envelopes (task 3.1)
-    cargo run -q -- graph specs --format edges > "$SCRATCH/edges.tsv"
-    cargo run -q -- graph specs --json > "$SCRATCH/graph.json"
-    cargo run -q -- lint specs --json > "$SCRATCH/lint.json"
+    cargo run -q -- graph openspec/specs --format edges > "$SCRATCH/edges.tsv"
+    cargo run -q -- graph openspec/specs --json > "$SCRATCH/graph.json"
+    cargo run -q -- lint openspec/specs --json > "$SCRATCH/lint.json"
     cargo run -q -- guide --schema --json > "$SCRATCH/schema.json"
     # Derived views → docs/src/views/ (gitignored, D6)
     python3 scripts/graph_views.py schema "$SCRATCH/schema.json" \
@@ -221,7 +230,7 @@ docs-graphs:
     python3 scripts/graph_views.py trace "$SCRATCH/edges.tsv" \
         --graph "$SCRATCH/graph.json" --lint "$SCRATCH/lint.json" \
         > "$OUT/trace.md"
-    cargo run -q -- graph specs --view wiring --format mermaid \
+    cargo run -q -- graph openspec/specs --view wiring --format mermaid \
         > "$OUT/wiring.md"
     # Clean-tree assertion (task 3.1): after a full build, git status
     # scoped to the output dir must stay empty — the views are gitignored
@@ -256,9 +265,15 @@ docs-mermaid:
 docs-build: docs-graphs docs-mermaid
     #!/usr/bin/env bash
     set -euo pipefail
+    # Single tree (specodelic-jf1): the corpus is the openspec tree;
+    # one docs copy (docs/src/specs), the docs/src/openspec mirror is
+    # retired with the two-tree layout. The corpus prose companions
+    # (STATUS/USAGE/theory/CHANGELOG — pages the docs prose links to)
+    # ride the same copy target.
     rm -rf docs/src/specs docs/src/openspec
-    cp -r specs docs/src/specs
-    cp -r openspec/specs docs/src/openspec
+    cp -r openspec/specs docs/src/specs
+    cp openspec/STATUS.md openspec/USAGE.md openspec/theory.md \
+        openspec/CHANGELOG.md docs/src/specs/
     python3 scripts/stamp_llms.py page
     mdbook build
     # Unresolved-include gate: mdbook only WARNS on a missing include

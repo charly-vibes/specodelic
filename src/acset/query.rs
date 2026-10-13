@@ -199,7 +199,7 @@ pub fn blast_radius(
 
 /// The nodes on at least one cycle through the morphism set M (`
 /// closure_terminates`'s counterpart for cycle membership, and the
-/// closure-based reading of specs/specodelic.md's supersedes_acyclic): a
+/// closure-based reading of openspec/specs/specodelic/spec.md's supersedes_acyclic): a
 /// node is on a cycle through M iff some morphism value `s → t` exists
 /// with `s` reachable forward from `t` — including the trivial `s == t`
 /// self-edge. Unresolved references are never followed

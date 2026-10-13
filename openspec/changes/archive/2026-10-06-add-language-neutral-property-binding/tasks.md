@@ -60,25 +60,25 @@ is docs and closure.
 ## 3. Format revision + docs (after or concurrent with specodelic-lf3)
 
 - [x] 3.1 **Corpus revision**: add the Revision heading to
-      `specs/specodelic.md` and `specs/compile.md` —
+      `openspec/specs/specodelic/spec.md` and `openspec/specs/compile/spec.md` —
       `fragment_language_closed`, `unknown_tag_rejected`,
       `no_emitter_labeled_failure` rows; the widening note (pure, per
       `rust_back_compat`); the `**py:**`/`**ts:**` no-emitter gate. Fold
       the review's three-layer ownership table into
-      `specs/compile.md`'s trailing notes (where proptest blocks' scope
+      `openspec/specs/compile/spec.md`'s trailing notes (where proptest blocks' scope
       is already recorded). Dogfood: `just lint-specs` clean.
 - [x] 3.2 **Docs**: add the boundary restatement (D6) and the two-binding
       layers note (artifact metadata comments vs contract-TOML flags,
       CORR-001's correction) to `docs/src/commands.md`; note the deferred
       py emitter and generator-vocabulary follow-ups in
-      `specs/STATUS.md`'s tracking section.
+      `openspec/STATUS.md`'s tracking section.
 - [x] 3.3 **Validate**: `openspec validate add-language-neutral-property-binding --strict`;
       `ah check` green over deployed specs with the change overlay;
       `just ci` green.
 - [x] 3.4 **File follow-ups** (bd): `add-py-fragment-emission` (py emitter
       + pytest adapter behind `PropertiesRunner`, carrying the generator
       vocabulary decision D5 in the same change) and `add-ts-fragment-emission`.
-- [x] 3.5 **TIDY**: fix the stale notes prose in `specs/compile.md` —
+- [x] 3.5 **TIDY**: fix the stale notes prose in `openspec/specs/compile/spec.md` —
       "Neither has its own spec yet" contradicts the parenthetical
       "(both now done — see `model_check.md` and `verify.md`)" two lines
       above it; reword to reference both spec files.

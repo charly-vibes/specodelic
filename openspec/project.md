@@ -10,10 +10,11 @@ statements), machine-lintable constraints, a simulatable state model, and
 PBT-style properties — all parsed from frontmatter and fixed-schema
 tables only; prose is never inspected.
 
-The format corpus in `specs/` is self-hosting: it is written in
-Specodelic itself, and `ddl lint specs` dogfoods the tool against the
-format's own spec files. `specs/specodelic.md` is the single source of
-truth for the format; `specs/STATUS.md` §1 is the primer.
+The format corpus (the single tree at `openspec/specs/`, specodelic-jf1)
+is self-hosting: it is written in Specodelic itself, and `spk lint`
+dogfoods the tool against the format's own spec files.
+`openspec/specs/specodelic/spec.md` is the single source of truth for the
+format; `openspec/STATUS.md` §1 is the primer.
 
 Relation to OpenSpec: openspec manages the *engineering change workflow*
 of this repo (proposals → tasks → archive). Specodelic is a *domain spec
@@ -150,9 +151,9 @@ plain archive) and the completed spike fixtures under
 
 - The five schema objects (Intent, Constraint, State, Transition,
   Property) and the reference typing table live in
-  `specs/specodelic.md`; sub-kind shapes in `specs/kinds.md`
+  `openspec/specs/specodelic/spec.md`; sub-kind shapes in `openspec/specs/kinds/spec.md`
 - The lifecycle is `draft → parsed → linted → compiled → model_checked
-  → verified`; the orchestrator (`specs/orchestrate.md`) drives it and
+  → verified`; the orchestrator (`openspec/specs/orchestrate/spec.md`) drives it and
   never gates more or less than the specified guards
 - Checker semantics are one file per check (`specs/linter-*.md`); when
   implementing a checker, read its spec file first — the implementation

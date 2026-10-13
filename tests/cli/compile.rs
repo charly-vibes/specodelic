@@ -1,7 +1,7 @@
-// Purpose: CLI contract tests for `spk compile` (specs/compile.md) —
+// Purpose: CLI contract tests for `spk compile` (openspec/specs/compile/spec.md) —
 // Responsibilities: pin the envelope/exit-code correspondence of the
 // compile command: a labeled compile failure is an error-kind envelope
-// with ok == false (specs/errors.md envelope_error_kind +
+// with ok == false (openspec/specs/errors/spec.md envelope_error_kind +
 // exit_code_mapping), never a success-shaped envelope riding exit 1.
 // Rationale: specodelic-4v1 (F1) — failures ride success-shaped
 // envelopes; see also tests/cli/model_check.rs for the model-check side.

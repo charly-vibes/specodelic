@@ -27,7 +27,7 @@ separate TIDY ticket is mapped below; keep refactoring commits separate. Preserv
 - [x] 3.1 RED: assert JSON/persisted/human claim counts agree; fail the docs
       check when version or capability status conflicts with the release.
 - [x] 3.2 GREEN: show blockers/unchecked claims and synchronize README,
-      docs/src/status.md, openspec/project.md, specs/STATUS.md, and embedded
+      docs/src/status.md, openspec/project.md, openspec/STATUS.md, and embedded
       guide. Document the distinction from application-test execution.
 - [x] 3.3 TIDY: separate documentation cleanup commit removes stale restatements.
 

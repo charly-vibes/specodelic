@@ -25,7 +25,7 @@ the artifact they came from.
 | violations_annotated     | invariant | `every violation in the graph artifact appears as an annotation row in the edge list; a view rendered from a corpus with violations is never silently clean — dashed/annotated rendering is mandatory, omission forbidden`                                                | [[graph.views]]  |
 | derived_views_only       | invariant | `corpus views consume only graph artifacts; the schema view consumes only a versioned export of the lint-gated acset Schema value and format revision; no view parses prose, re-walks markdown, or embeds hand-authored structure`                                                                                            | [[graph.views]]  |
 | build_time_generation    | invariant | `rendered views are generated into the docs build at build time and never committed; no hand-edit path exists, so graph_is_derived_not_authored holds by construction and no staleness check is needed`                                                                    | [[graph.views]]  |
-| empty_corpus_valid       | invariant | `spk graph --format edges over any parseable corpus — including a directory with zero spec files, or a single intent with no cross-file edges — exits 0 and emits a well-formed (possibly empty) row set: graph extraction requires parsed, not linted (specs/graph.md's scope note); rendered views are transform-level and additionally gated by corpus_scope_operational — an intentless corpus is refused there with a remediation hint, never silently rendered`                                                        | [[graph.views]]  |
+| empty_corpus_valid       | invariant | `spk graph --format edges over any parseable corpus — including a directory with zero spec files, or a single intent with no cross-file edges — exits 0 and emits a well-formed (possibly empty) row set: graph extraction requires parsed, not linted (openspec/specs/graph/spec.md's scope note); rendered views are transform-level and additionally gated by corpus_scope_operational — an intentless corpus is refused there with a remediation hint, never silently rendered`                                                        | [[graph.views]]  |
 | corpus_scope_operational | invariant | `a corpus is in scope iff spk lint over it reports no invariant-rule findings and ≥1 intent file parses; corpora failing this (e.g. openspec-layout repositories) are out of scope until a parse-boundary adapter change lands — no view special-cases them`                                | [[graph.views]]  |
 
 ## Model
@@ -125,7 +125,7 @@ The system SHALL derive a corpus-level view collapsing all edges to intent
 The system SHALL derive the schema view (kinds as nodes, typed reference
 fields as typed edges with allowed targets) from the acset `Schema`
 value (`acset::schema::canonical()` — the Reference Typing table as
-data, lint-gated against `specs/specodelic.md` by
+data, lint-gated against `openspec/specs/specodelic/spec.md` by
 `schema_matches_typing_table`) and the format revision marker, labeled
 with the revision it was derived from. `spk guide --schema --json` SHALL
 provide this value through a genesis envelope whose data contains
@@ -247,7 +247,7 @@ The system SHALL derive a corpus-level view collapsing all edges to intent
 The system SHALL derive the schema view (kinds as nodes, typed reference
 fields as typed edges with allowed targets) from the acset `Schema`
 value (`acset::schema::canonical()` — the Reference Typing table as
-data, lint-gated against `specs/specodelic.md` by
+data, lint-gated against `openspec/specs/specodelic/spec.md` by
 `schema_matches_typing_table`) and the format revision marker, labeled
 with the revision it was derived from. `spk guide --schema --json` SHALL
 provide this value through a genesis envelope whose data contains

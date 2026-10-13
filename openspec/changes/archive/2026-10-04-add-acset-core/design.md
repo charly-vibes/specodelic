@@ -16,7 +16,7 @@ slice 1+2.
 |----|--------------------|-----------------|
 | CORR-001 (HIGH, conf 0.97) | `acset.pushout`'s `universal_property` is declared kind=invariant but quantifies over all instances — undecidable per the repo's model_check discipline | **Deferred with fix**: recorded in the pushout ticket `specodelic-9um` — re-tier as a law in Properties (or state a finite bound). Not in scope here. |
 | CORR-002 (HIGH, conf 0.94) | `acset.morphism.dangling_preserved` ("an edit never resolves … a dangling reference") contradicts `acset.pushout.rename_replay_resolves_dangling` (a repair) | **Deferred with fix**: recorded in the pushout ticket `specodelic-9um` — scope `dangling_preserved` to pure rename edits and add a reconciliation note in the pushout spec. Not in scope here. |
-| CORR-003 (MEDIUM) | `src/merge.rs:122-130` builds a private adjacency despite `specs/merge.md`'s "Depends on graph.md, not a local reachability walk" | **Resolved by this change**: merge's blast-radius queries migrate onto the shared closure primitive; the private map is deleted in the parity phase. |
+| CORR-003 (MEDIUM) | `src/merge.rs:122-130` builds a private adjacency despite `openspec/specs/merge/spec.md`'s "Depends on graph.md, not a local reachability walk" | **Resolved by this change**: merge's blast-radius queries migrate onto the shared closure primitive; the private map is deleted in the parity phase. |
 | CLAR-001 (MEDIUM) | No CLI surface named for any acset module | **Decision**: acset-core is **internal-only** — no new subcommand, flag, or exit-code path. The writer/pushout changes must name their surfaces when proposed. |
 | EDGE-001 (MEDIUM) | `acset.writer.width_padding_policy` permits misaligned tables with no lint rule to notice | Not in scope (writer deferred); noted in the writer ticket `specodelic-p5b`. |
 | EDGE-002 (HIGH, conf 0.87) | `acset.pushout` gluing is unspecified for `None` (dangling) entries | **Deferred with fix**: recorded in the pushout ticket — None glues with None per morphism and reports in the dangling report; None-vs-defined is not a conflict. |
@@ -27,7 +27,7 @@ slice 1+2.
 1. **Internal-only core.** The three modules (`acset_schema`, `acset_instance`,
    `acset_query` under `src/acset/`) are consumed by `graph`, `merge`, and
    `refactor`. No envelope-visible behaviour changes; error handling keeps
-   the existing per-command surfaces (specs/errors.md contract applies at
+   the existing per-command surfaces (openspec/specs/errors/spec.md contract applies at
    the consuming commands, unchanged).
 2. **Parity gates are the migration mechanism.** Each module lands behind
    a fixture+property parity test against the walk it replaces
@@ -43,8 +43,8 @@ slice 1+2.
    carries the pushout/category semantics) to keep this change
    tool-scoped.
 5. **No GAT engine.** Deliberately fixed, finite schema (the proposal's
-   own note): schema changes only under a Revision of `specs/specodelic.md`
-   (append-only discipline, `specs/specodelic.md` `append_only_variants`).
+   own note): schema changes only under a Revision of `openspec/specs/specodelic/spec.md`
+   (append-only discipline, `openspec/specs/specodelic/spec.md` `append_only_variants`).
 
 ## Risks
 

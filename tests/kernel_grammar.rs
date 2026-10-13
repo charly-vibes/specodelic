@@ -3,7 +3,7 @@
 //!
 //! Grammar-scope tests for the closed kernel atomic set: kernel
 //! expressions in expr cells parse under the closed grammar (per-cell
-//! **kernel:** marker opt-in per kernel_expr_opt_in, specs/compile.md —
+//! **kernel:** marker opt-in per kernel_expr_opt_in, openspec/specs/compile/spec.md —
 //! the citation precedent that a marker decides), a non-member atomic fails
 //! labeled naming the atomic AND the closed set (sd1 discipline), prose
 //! expr cells stay prose and compile byte-identically (pure widening),

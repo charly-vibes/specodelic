@@ -46,7 +46,7 @@ evaluation; no active hypothesis testing).
   claim covers the trace) ≠ `unknown` (a claim covers it but the checker
   cannot interpret its content) ≠ `unsupported` (the claim's evaluator kind
   is not executable in this run). Reuses the claim classification and scope
-  digest machinery from `specs/model_check.md` — no new status vocabulary.
+  digest machinery from `openspec/specs/model_check/spec.md` — no new status vocabulary.
 - **Prose discipline:** verdicts derive only from structural model facts and
   executable claims (kernel, `**rust:**` fragments, citations). Prose-only
   claims contribute `unknown` with reasons — mirroring

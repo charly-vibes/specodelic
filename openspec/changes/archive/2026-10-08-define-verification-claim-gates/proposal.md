@@ -27,7 +27,7 @@ is owned by add-min-expr-kernel tasks 3.6–3.8.
 ## Impact
 
 New additive capability: verification-claims. Domain contract updates at
-implementation: specs/model_check.md, specs/verify.md, specs/specodelic.md
+implementation: openspec/specs/model_check/spec.md, openspec/specs/verify/spec.md, openspec/specs/specodelic/spec.md
 with required revision discipline; src/model_check.rs, src/verify.rs,
 src/orchestrate.rs, src/commands/model_check.rs, src/human.rs and CLI tests.
 No competing model-check delta is authored here: add-min-expr-kernel owns

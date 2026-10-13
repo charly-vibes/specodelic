@@ -82,7 +82,7 @@ pub(crate) fn expected_id_from_path(path: &std::path::Path) -> String {
 }
 
 /// Checker-family slice of [`lint_one`]: the file-structure gate
-/// (specs/specodelic.md Checker Ownership, `linter-frontmatter.md`).
+/// (openspec/specs/specodelic/spec.md Checker Ownership, `linter-frontmatter.md`).
 /// Attribution note: `dual_format_valid`/`requirement_drift` postdate
 /// the ownership table and ride this family — they are file-structure
 /// rules (frontmatter id + section shape) enforced with the first gate.
@@ -310,7 +310,7 @@ pub(crate) fn lint_model_family(spec: &Spec, report: &mut Report) {
     }
 }
 
-/// The recorded carve-out list (specs/linter-failure_shape.md Notes):
+/// The recorded carve-out list (openspec/specs/linter-failure_shape/spec.md Notes):
 /// exactly orchestrate.md's stage-fail transitions. That file's Notes
 /// decline to restate upstream files' logic as guard-citable rows, so
 /// these guards stay prose — membership here is CHECKED data, never an

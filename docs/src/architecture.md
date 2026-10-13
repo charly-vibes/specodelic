@@ -92,7 +92,7 @@ stated dependency exists: the failure-shape checker rides the
 orchestrator's lint stage "dependent on `linter.model_shape`" — its walk
 reads the Model's states, transitions and emits edges, so it runs only
 once the model is proven well-formed (`dependency_respecting_skip`,
-specs/linter-failure_shape.md).
+openspec/specs/linter-failure_shape/spec.md).
 
 Three rules are **advisory**: `linter.observability` and
 `linter.skew_advisory` warn on the warnings channel with exit 0, and

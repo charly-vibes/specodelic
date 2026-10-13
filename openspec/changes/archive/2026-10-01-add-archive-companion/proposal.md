@@ -51,4 +51,4 @@ is the fragile alternative and is explicitly out of scope.
   requirements only; no existing capability modified).
 - **Affected code:** `src/archive_companion.rs` (new module),
   `src/main.rs` (CLI arm + dispatch), `justfile` (recipe delegation),
-  `docs/src/commands.md`, `specs/CHANGELOG.md`.
+  `docs/src/commands.md`, `openspec/CHANGELOG.md`.

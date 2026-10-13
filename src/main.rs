@@ -1,7 +1,7 @@
 //! `specodelic` (alias `spk`) — the Specodelic CLI.
 //!
 //! Purpose: lint, compile, verify, graph, and refactor Specodelic spec
-//! files (the four-layer markdown format in `specs/specodelic.md`).
+//! files (the four-layer markdown format in `openspec/specs/specodelic/spec.md`).
 //! Responsibilities: wire clap verbs to the domain modules, emit every
 //! result through genesis's `Output`/envelope so humans and agents get the
 //! same story, and keep the command set aligned with the specced tools
@@ -61,7 +61,7 @@ enum HooksAction {
     Uninstall,
 }
 
-/// The model-check backend selection (specs/model_check.md, Backends).
+/// The model-check backend selection (openspec/specs/model_check/spec.md, Backends).
 #[derive(clap::ValueEnum, Clone, PartialEq)]
 pub(crate) enum ModelBackend {
     /// Embedded stateright BFS exploration (default — exhaustive runs
@@ -183,7 +183,7 @@ enum Commands {
         /// Optional wall-clock budget in seconds
         #[arg(long)]
         timeout_secs: Option<u64>,
-        /// Model-check backend (specs/model_check.md: stateright embedded
+        /// Model-check backend (openspec/specs/model_check/spec.md: stateright embedded
         /// default; tlc = the JVM reference engine over the compiled .tla)
         #[arg(long, value_enum, default_value_t = ModelBackend::Stateright)]
         backend: ModelBackend,
@@ -243,7 +243,7 @@ enum Commands {
         /// Files or directories (defaults to ./specs)
         paths: Vec<String>,
         /// Fan-in count that counts as "high" (threshold_is_per_repo_setting:
-        /// configured per invocation, never a number fixed in specs/refactor.md)
+        /// configured per invocation, never a number fixed in openspec/specs/refactor/spec.md)
         #[arg(long)]
         high_fan_in: Option<usize>,
         /// Comma-separated row ids a proposed changeset would touch, enabling
@@ -265,7 +265,7 @@ enum Commands {
     },
     /// Run the full pipeline: lint (Checker Ownership order) → compile
     /// → model_check → verify, gating each stage exactly as
-    /// specs/orchestrate.md specifies (rename is never part of a run)
+    /// openspec/specs/orchestrate/spec.md specifies (rename is never part of a run)
     Orchestrate {
         /// Files or directories (defaults to ./specs)
         paths: Vec<String>,
@@ -282,7 +282,7 @@ enum Commands {
         /// Optional wall-clock budget (seconds) for the model_check stage
         #[arg(long)]
         timeout_secs: Option<u64>,
-        /// Model-check backend (specs/model_check.md: stateright embedded
+        /// Model-check backend (openspec/specs/model_check/spec.md: stateright embedded
         /// default; tlc = the JVM reference engine over the compiled .tla)
         #[arg(long, value_enum, default_value_t = ModelBackend::Stateright)]
         backend: ModelBackend,
@@ -457,11 +457,11 @@ fn print_version_json() -> bool {
 /// projection text straight to stdout — the one documented exception to
 /// Output::emit, scoped to this flag. The transform's scope gate
 /// (intentless corpora) is the Python layer's beat; the tool-level
-/// projection stays well-formed per specs/graph.md's parsed-not-linted
+/// projection stays well-formed per openspec/specs/graph/spec.md's parsed-not-linted
 /// note: zero spec files on a real path exit 0 with empty output.
 ///
 /// Exit-code semantics follow the corpus-wide 0/1/2 mapping
-/// (specs/errors.md `exit_code_mapping`, specodelic-0zk F3+F8): a
+/// (openspec/specs/errors/spec.md `exit_code_mapping`, specodelic-0zk F3+F8): a
 /// nonexistent/unreadable path is an invocation error (exit 2 — a typo'd
 /// path must not read as an empty corpus), and typing violations are
 /// findings (exit 1) while still riding along as annotation rows (D3).
@@ -572,7 +572,7 @@ struct ConformTarget {
 /// phase 4): the READ-ONLY external-oracle evaluation over
 /// `conform::run` — the artifact gate (design D5), mechanical
 /// classification (D3), and the persisted report. Exit codes follow the
-/// delta's exit_code_verdict_mapping over specs/errors.md
+/// delta's exit_code_verdict_mapping over openspec/specs/errors/spec.md
 /// `exit_code_mapping`: 0 when no verdict is forbidden or unsupported
 /// (unknown/underspecified never fail — their counts surface in both
 /// views), 1 when any forbidden/unsupported verdict fails the run (an
@@ -655,7 +655,7 @@ fn cmd_conform(
             let unsupported = violation_count(conform::Verdict::Unsupported);
             if forbidden + unsupported > 0 {
                 // Findings-or-failure (exit 1): the error-kind envelope
-                // is the published contract (specs/errors.md
+                // is the published contract (openspec/specs/errors/spec.md
                 // envelope_error_kind) — a failed conformance run never
                 // rides a success-shaped envelope. The human view is the
                 // same one the success branch renders.
@@ -951,7 +951,7 @@ pub(crate) fn openspec_tree_present() -> bool {
 
 /// Parse a batch, skipping non-spec files (no frontmatter) with a note.
 /// A `*.checklist.md` file is not a spec — it's the external-completeness
-/// manifest (specs/linter-external_completeness.md, mp1 row 10 decision):
+/// manifest (openspec/specs/linter-external_completeness/spec.md, mp1 row 10 decision):
 /// parsed leniently into [`checklist::Checklist`] and returned alongside
 /// the specs for `spk lint`'s optional non-gating pass. Other commands
 /// ignore checklists (external_completeness never gates a stage).

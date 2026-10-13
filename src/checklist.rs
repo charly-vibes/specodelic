@@ -1,4 +1,4 @@
-//! External-checklist manifests (specs/linter-external_completeness.md).
+//! External-checklist manifests (openspec/specs/linter-external_completeness/spec.md).
 //!
 //! Purpose: parse the dedicated `*.checklist.md` artifact — the manifest
 //! format decided in mp1 row 10: a checklist is an artifact OUTSIDE the
@@ -156,7 +156,7 @@ fn split_mapped_ids(cell: &str) -> Vec<String> {
         .collect()
 }
 
-/// Rewrite one raw `mapped_ids` cell under a rename (`specs/rename.md`
+/// Rewrite one raw `mapped_ids` cell under a rename (`openspec/specs/rename/spec.md`
 /// `old_id_fully_replaced` reaching into mapping rows —
 /// `mapping_naturality`): an id equal to `old_id`, or a child of it
 /// (`old_id.…`), follows its parent's rename — the same semantics

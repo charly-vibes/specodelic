@@ -1,8 +1,8 @@
 //! The Orchestrator — drive the four-stage pipeline (parse → lint →
-//! compile → model_check → verify) in the order specs/orchestrate.md
+//! compile → model_check → verify) in the order openspec/specs/orchestrate/spec.md
 //! fixes.
 //!
-//! Purpose: realize specs/orchestrate.md's sequencing and gating as one
+//! Purpose: realize openspec/specs/orchestrate/spec.md's sequencing and gating as one
 //! driver: every Checker Ownership checker runs in dependency order
 //! (dependents of a failed checker are skipped — never invoked, never
 //! reported as failed), independent branches report regardless, and the
@@ -27,7 +27,7 @@ use crate::spec::Spec;
 use crate::verify;
 
 /// A pipeline stage's outcome. `skipped` always carries the reason —
-/// every skip is reported (specs/orchestrate.md, no-silent-skips).
+/// every skip is reported (openspec/specs/orchestrate/spec.md, no-silent-skips).
 #[derive(Serialize)]
 pub struct Stage {
     pub stage: &'static str,

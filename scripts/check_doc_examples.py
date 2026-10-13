@@ -69,12 +69,31 @@ def stem_for_id(spec_id):
     return spec_id.replace(".", "-")
 
 
+def doc_example_files(root):
+    """The *.md files of one root: a directory scans recursively, a file
+    is itself (the quick-start examples live in openspec/USAGE.md — a
+    single file, not a tree)."""
+    if root.is_dir():
+        return sorted(root.rglob("*.md"))
+    if root.is_file() and root.suffix == ".md":
+        return [root]
+    return None
+
+
 def main(argv):
-    root = pathlib.Path(argv[1]) if len(argv) > 1 else pathlib.Path("specs")
+    # Multiple roots, recursive: the corpus now lives in capability
+    # subdirectories (openspec/specs/<cap>/spec.md, specodelic-jf1) and
+    # the quick-start examples live in openspec/USAGE.md.
+    roots = [pathlib.Path(a) for a in argv[1:]] or [pathlib.Path("specs")]
     found = []
-    for f in sorted(root.glob("*.md")):
-        for i, body in enumerate(extract_spec_examples(f.read_text())):
-            found.append((f, i, body))
+    for root in roots:
+        files = doc_example_files(root)
+        if files is None:
+            print(f"error: doc-examples root {root} is not a directory or .md file", file=sys.stderr)
+            return 1
+        for f in files:
+            for i, body in enumerate(extract_spec_examples(f.read_text())):
+                found.append((f, i, body))
 
     if not found:
         print(f"error: no fenced spec examples found in {root} — "

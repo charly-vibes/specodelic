@@ -573,9 +573,11 @@ fn independent_dual_format_runs_preserve_opposite_outcomes() {
     assert_eq!(json1["data"]["outcome"], "no_counterexample");
     assert_eq!(json2["data"]["outcome"], "counterexample_found");
     // spec.c1 citations resolve locally in the single-file scope.
+    // Artifacts for a spec.md file name by id (dash form) — d1/d2 here
+    // (artifact_stem, specodelic-jf1).
     assert_status(&json_statuses(&json1, 0), "c2", "verified");
-    assert_status(&report_statuses(&out1, "spec"), "c2", "verified");
-    assert_status(&report_statuses(&out2, "spec"), "c2", "counterexample");
+    assert_status(&report_statuses(&out1, "d1"), "c2", "verified");
+    assert_status(&report_statuses(&out2, "d2"), "c2", "counterexample");
 }
 
 #[test]

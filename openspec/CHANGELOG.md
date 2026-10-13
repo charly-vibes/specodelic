@@ -1,5 +1,43 @@
 # Changelog
 
+## #130 — single-tree corpus migration (repo rollout, specodelic-jf1)
+
+- The corpus moved from `specs/` into the single tree `openspec/specs/`:
+  each corpus file is now `openspec/specs/<dir>/spec.md` (Revision 18
+  naming law — a spec.md derives its expected id from the parent
+  directory). Frontmatter ids kept verbatim; `## Purpose` promoted from
+  the prose under the H1; a `## Requirements` mirror generated from the
+  Properties table (one `#### Scenario:` per property, each with a
+  **VERIFIES** link). The transform script (scripts/migrate_corpus_single_tree.py)
+  is validated idempotent.
+- The compile.md/packs.md deploy divergence was resolved by taking the
+  corpus as truth: the deployed capability specs were overwritten by the
+  migrated corpus versions.
+- The corpus prose companions moved with it: `openspec/STATUS.md`,
+  `openspec/USAGE.md`, `openspec/theory.md`, `openspec/CHANGELOG.md`
+  (this file), and `openspec/specs/AGENTS.md` +
+  `openspec/specs/claim-guidance.checklist.md` (the manifest stays in the
+  lint set — checklists_declared reads 1 again).
+- Dogfood gates re-pointed at the new layout: lint/graph over the whole
+  tree (corpus-wide), compile + model-check over the corpus-backed
+  capability dirs (compile refuses stateless specs — the justfile
+  CORPUS_DIRS list, mirrored by tests/common corpus_dirs()).
+- Artifact naming fixed for the single tree (compile::artifact_stem): a
+  spec.md file names its artifacts (and TLA+ module) by id in dash form —
+  `compile.toml`, `linter-graph_shape.toml` — instead of every file
+  colliding on the flat stem `spec`. verify.rs's duplicated
+  artifact_stem now delegates to compile's (the drift it would have
+  caused was caught by the dual-format parity tests).
+- Espectacular re-keyed: 281 contract TOMLs generated for the mirror
+  scenarios (ah sync refuses on per-file lint — total_refs is
+  corpus-wide, so a single file never lints clean; the refusal is an
+  upstream gap, filed). Bindings are loose and real: hand-curated real
+  cargo tests, validated against `cargo test -- --list`. The replaced
+  deployed specs' 31 contracts were re-keyed onto the corpus mirror
+  scenarios. `ah check --run-tests`: 535 passed, 0 findings.
+- Docs: single book copy (docs/src/specs), SUMMARY restructured, the
+  docs/src/openspec mirror retired with the two-tree layout.
+
 ## #129 — v0.9.0: `spk skill install` — the managed skill pack ships
 
 Release entry for the thread shipped since #128:
@@ -179,7 +217,7 @@ First release carrying the two new deployed openspec capabilities —
 `verification-claims` (required/unchecked claim classification gating
 model-check and verify verdicts) — plus the 2026-10-08 bug sweep that
 brought the runtime in line with the published error contract
-(specs/errors.md) and the docs-readiness pass that aligns every user-facing
+(openspec/specs/errors/spec.md) and the docs-readiness pass that aligns every user-facing
 page with implemented behavior (verify.assurance_views_agree →
 release_docs_match_implemented_capabilities).
 
@@ -235,13 +273,13 @@ nor gate on violations in text mode.
 - **F3**: a nonexistent or unreadable named path is now an invocation
   error (exit 2) — a labeled refusal envelope goes to stderr (projection
   stdout stays the raw text channel), matching the JSON envelope mode
-  and specs/errors.md's `exit_code_mapping`. Zero spec files on a real
+  and openspec/specs/errors/spec.md's `exit_code_mapping`. Zero spec files on a real
   path keep the parsed-not-linted exit 0 with empty output (the
   intentless-corpus contract the Python transform's scope gate relies
   on).
 - **F8**: typing violations in the corpus now flip the projection exit
   to 1 — matching JSON mode — while the violation annotation rows still
-  ride along unchanged (specs/graph.md D3: a view is never cleaner than
+  ride along unchanged (openspec/specs/graph/spec.md D3: a view is never cleaner than
   the artifact). JSON-mode exits are unchanged.
 
 ## #120 — graph no longer panics on member-path link targets (specodelic-efb)
@@ -311,7 +349,7 @@ rejects:
 ## #117 — failures never ride success-shaped envelopes (specodelic-4v1, eval F1)
 
 The 2026-10-08 external evaluation's sharpest finding, fixed in the code
-(the corpus was already normative-correct — specs/errors.md's
+(the corpus was already normative-correct — openspec/specs/errors/spec.md's
 `envelope_error_kind` and `exit_code_mapping` rows say what the tools now
 do):
 
@@ -341,7 +379,7 @@ note in `model_check.md`): the claim semantics live in the two capability
 files that already own those gates' precise meanings, widening them
 instead of restating them in the core.
 
-- **specs/model_check.md** gains `required_claims_classified`
+- **openspec/specs/model_check/spec.md** gains `required_claims_classified`
   (required = executable/kernel/citation opt-ins; prose-only invariants
   are enumerated unchecked — a deriving Property never implies
   evaluation), `claim_aggregate_governs` (fixed priority: refuted →
@@ -353,7 +391,7 @@ instead of restating them in the core.
   `dual_format_isolated_scope` (a dual-format `id: spec` file is the
   sole parsed input of command evaluation; multi-file lint stays
   valid). `finish_clean`'s guard now cites the claim aggregate.
-- **specs/verify.md** gains the acceptance-side twins:
+- **openspec/specs/verify/spec.md** gains the acceptance-side twins:
   `required_claims_govern_acceptance` (verified requires every required
   claim verified plus every property block passing; malformed/duplicate
   records rejected, never inferred unknown success),
@@ -377,7 +415,7 @@ specodelic.md's invariants, 2026-10-06/07, each gated lint-clean and
 command-verified) used the grammar before this Revision declared it.
 Revision 17 is that declaration of record:
 
-- **specs/specodelic.md gains `## Revision 17`** — the min-expr kernel
+- **openspec/specs/specodelic/spec.md gains `## Revision 17`** — the min-expr kernel
   becomes format vocabulary: the **kernel:** marker opt-in under the
   closed atomic set (equality, comparisons, bounded ∀/∃ over the finite
   instances, ∧/¬, resolves/unique/acyclic/reachable, each grounded in
@@ -385,7 +423,7 @@ Revision 17 is that declaration of record:
   never-coerced status chain, guard-citation evaluation (slice 1 —
   `fragment_guard_rejected` stands), and the opaque `kernel.binding`
   bridge.
-- **specs/compile.md** carries the normative rows: `kernel_expr_opt_in`
+- **openspec/specs/compile/spec.md** carries the normative rows: `kernel_expr_opt_in`
   and `kernel_binding_opaque` (invariants) each derive coverage —
   `kernel_expr_extracts`, `kernel_nonmember_labeled`,
   `binding_text_surfaces_verbatim`, `claim_path_is_flags` — so the
@@ -476,7 +514,7 @@ and `guide`'s ungated `REFERENCE_TYPING` const.
 
 - **D4 revised** (specodelic-hya, closed 2026-10-04): the schema view
   derives from `acset::schema::canonical()` — the Reference Typing table
-  as data, already lint-gated against `specs/specodelic.md` row-for-row
+  as data, already lint-gated against `openspec/specs/specodelic/spec.md` row-for-row
   by `schema_matches_typing_table` — plus the format revision marker.
   The alternative (keep both sources + a build-time cross-check) was
   rejected as redundant: the Schema is already doc-gated at lint time.
@@ -521,7 +559,7 @@ makes every file rewrite happen through spans the parser recorded.
 ## #110 — acset core: the Reference Typing schema and typed instances as data (specodelic-84i.1, acset slices S1+S2)
 
 The format's Reference Typing table existed twice in code: as a
-documented table (`specs/specodelic.md`) and as hand-written enforcement
+documented table (`openspec/specs/specodelic/spec.md`) and as hand-written enforcement
 (a match in graph.rs whose agreement with the table nothing checked).
 The acset-core landing makes the schema a **value** and enforcement read
 from it.
@@ -726,9 +764,9 @@ not grow (no format Revision; the packs' Revision 14 base pins stay
 valid), and a fiber kind with no active declaring pack stays outside the
 closed set, firing the labeled finding — never a silent pass. A pack
 activates per-file, so a file using none of a pack's vocabulary keeps
-byte-identical lint findings. Recorded in `specs/packs.md` (Notes +
-`fiber_kinds_typeable` property), `specs/linter-schema_shape.md` (both
-closed-set rows + Notes), and `specs/kinds.md` (row shapes + Notes).
+byte-identical lint findings. Recorded in `openspec/specs/packs/spec.md` (Notes +
+`fiber_kinds_typeable` property), `openspec/specs/linter-schema_shape/spec.md` (both
+closed-set rows + Notes), and `openspec/specs/kinds/spec.md` (row shapes + Notes).
 Implementation: `packs::active_fiber_kinds` (workspace scan shared with
 discovery) wired into the schema-shape family; the empirical-registry
 pack's `fiber_kinds_typeable` contract is now enforced end-to-end.
@@ -1493,7 +1531,7 @@ the unblocked P2.**
 
 ## #74 — `linter.failure_shape` checker ships: the error contract's tier-2 half (specodelic-ct5)
 
-The three `specs/linter-failure_shape.md` rules are now enforced by
+The three `openspec/specs/linter-failure_shape/spec.md` rules are now enforced by
 `spk lint` (previously spec-only by design D6 — normative-for-the-future,
 never claims about today's linter):
 
@@ -1534,7 +1572,7 @@ strict 12/12; corpus findings stay zero (clean_repo_passes). 228 lib +
 ## #73 — `spk refactor` ships: the tidy-first split advisor (specodelic-3l7)
 
 The last pipeline-adjacent stub is gone: `spk refactor [paths]
-[--high-fan-in N] [--changeset id1,id2]` implements `specs/refactor.md` —
+[--high-fan-in N] [--changeset id1,id2]` implements `openspec/specs/refactor/spec.md` —
 a non-gating advisory (exit 0 either way) that flags split candidates by
 exactly the specced finding shape `{node_id, dependent_count,
 unrelated_namespace_count, suggested_split}`. Every count is a `graph`
@@ -1555,7 +1593,7 @@ decision landed as #72.
 
 ## #72 — mp1 row 3 decided: refactor's unrelated fan-in keys off the id namespace (of record)
 
-`specs/refactor.md`'s open question — does "unrelated fan-in" key off the
+`openspec/specs/refactor/spec.md`'s open question — does "unrelated fan-in" key off the
 id namespace or physical directory placement — decided of record:
 **id namespace**, test as written ("shares no namespace segment below
 root"). Directory placement rejected: ids are the format's primary
@@ -1571,7 +1609,7 @@ Jev (`jev-1.13.0`) evaluation — choice 0.70, conf 0.54, impact medium
 
 ## #71 — mp1 row 1 decided: batch rename is one atomic transaction (of record)
 
-`specs/rename.md`'s open question — is a whole-namespace batch rename
+`openspec/specs/rename/spec.md`'s open question — is a whole-namespace batch rename
 one transaction or `n` independent ones — decided of record: **one
 atomic transaction**, all-or-nothing, the same
 precondition→apply→reverify shape as the single rename; a partial batch
@@ -1632,7 +1670,7 @@ Six hardening slices, each gated:
   (Constraints only) — completed with Model + Properties. Regression
   suite: scripts/test_check_doc_examples.py (stdlib unittest).
 - **Honest dogfood baseline** (`just lint-baseline`): corpus findings
-  vs specs/.lint-baseline, shrink-only — a new finding fails, and a
+  vs openspec/specs/.lint-baseline, shrink-only — a new finding fails, and a
   baseline entry with no live finding also fails (accepted debt must be
   retired). Baseline is empty today: the corpus lints fully clean.
 - **CI drift guards** (tests/ci_wiring.rs): matrix coverage, MSRV pin,
@@ -1653,7 +1691,7 @@ Model. The orchestrator runs the parse step and reports its outcome
 (parse errors gate lint via `start_lint`'s precondition), but the
 draft→parsed transition's guards stay owned by the frontmatter checker
 and the parser; no Model change. Decision recorded in
-`specs/orchestrate.md` Notes; unblocks closing specodelic-8kk.
+`openspec/specs/orchestrate/spec.md` Notes; unblocks closing specodelic-8kk.
 
 ## #69 — Ro5 over specodelic-8kk: orchestrate hardening
 
@@ -1721,7 +1759,7 @@ The verify gate now re-runs the external-completeness checker
 post-rename corpus — a missed cell or a rename that would dangle one
 is a labeled `VerifyFailed` before any byte is written
 (`mapped(rename(I)) == rename(mapped(I))`). Aspirational-note updates:
-`specs/linter-external_completeness.md`, `specs/STATUS.md`;
+`openspec/specs/linter-external_completeness/spec.md`, `openspec/STATUS.md`;
 `docs/src/commands.md` rename section. RED→GREEN with regression
 pinning at both the cell and file level plus a gate-rejection test.
 
@@ -1798,7 +1836,7 @@ Dogfood consequences, all resolved in this change:
 - openspec tree bridges: `hooks` capability guards carry typed citations
   (prose kept, citation appended — the typing table's guard→invariant
   law); `model-check`'s `no_fabrication` gained `[[spec]]` beside its
-  prose pointer (`specs/model_check.md` — a bare prose path produces no
+  prose pointer (`openspec/specs/model_check/spec.md` — a bare prose path produces no
   edge, so the constraint and its deriving property were an island).
   `lint openspec` and `lint specs` both report zero findings.
 - `external_completeness` (the fourth checker file) remains
@@ -1985,7 +2023,7 @@ actual fix. Now the law is documented where the author already is:
   `[[<file-id>.<constraint-id>]]`" using the finding's own file id, and
   the `coverage` message shows the required target as the literal cell
   text to type (`write `[[t.c]]` in the property's derives_from cell`).
-- `specs/STATUS.md` §1 primer Model row matches the law.
+- `openspec/STATUS.md` §1 primer Model row matches the law.
 
 Gates: just ci (140 lib + integration) + lint-specs 18/0 + graph 0
 dangling + openspec strict 8/8.
@@ -1997,15 +2035,15 @@ wiki-link columns. A Transition's `from`/`to` cells are typed reference
 fields (→ State, same file) and yield `transitions.from`/`transitions.to`
 edges — the corpus graph grew from 407 to 569 edges; an unknown state in
 `from`/`to` dangles rather than vanishing. The Reference Typing table
-(`specs/specodelic.md`) is now enforced at graph-build time: a typed
+(`openspec/specs/specodelic/spec.md`) is now enforced at graph-build time: a typed
 reference column whose resolved target kind is forbidden (31 corpus
 `traces_to`→Constraint rows, 4 `derives_from`, 3 `guard` citing non-
 invariant Constraints) surfaces as a labeled **violation** in the report
-and is never recorded as an edge (`specs/graph.md`'s
+and is never recorded as an edge (`openspec/specs/graph/spec.md`'s
 `edge_kind_matches_typing`) — previously those edges were silently
 recorded. The report carries `violations` and `supersedes_cycles`; the
 `supersedes` edge set is cycle-checked (`supersedes_dag`,
-`specs/linter-graph_shape.md`), rotation-normalized so a cycle reports
+`openspec/specs/linter-graph_shape/spec.md`), rotation-normalized so a cycle reports
 once. The command exits 1 when anything is dangling, violated, or cyclic.
 The corpus's own typing debts are tracked for reconciliation in
 specodelic-cxq — until then `just graph-specs` honestly reports them.
@@ -2054,7 +2092,7 @@ missing JVM binary (PATH or `SPK_TLC_JAVA` seam) or jar is a labeled
 ## #53 — merge: pre-merge id-collision + dangling-rename check (specodelic-7oq)
 
 `spk merge --branch <incoming-tree> [--base <ancestor-tree>] [current-tree]`
-per specs/merge.md — the check that runs after git's 3-way merge succeeds,
+per openspec/specs/merge/spec.md — the check that runs after git's 3-way merge succeeds,
 over the two branch tips' spec trees (never runs git, writes nothing).
 - `no_new_id_collision`: ids defined on both tips are flagged unless the
   ancestor defines them identically (newly minted on both, or edited on
@@ -2078,7 +2116,7 @@ over the two branch tips' spec trees (never runs git, writes nothing).
 
 ## #52 — rename: atomic id rename with link rewrite (specodelic-ams)
 
-`spk rename <old_id> <new_id> [files|dirs]` per specs/rename.md. The
+`spk rename <old_id> <new_id> [files|dirs]` per openspec/specs/rename/spec.md. The
 single-`(old_id, new_id)` rename lifecycle: validate → apply → verify.
 - Owner lookup by QUALIFIED id (intents by frontmatter id; rows by
   `intent.id` + local cell id — links carry the qualified id, table
@@ -2092,7 +2130,7 @@ single-`(old_id, new_id)` rename lifecycle: validate → apply → verify.
   removes old last — the definition is never momentarily missing).
 - Atomicity by construction: the full write set is computed and
   verified in memory (re-parse + `linter.referential_integrity` zero
-  dangling — the two checkers specs/rename.md's Notes select) before
+  dangling — the two checkers openspec/specs/rename/spec.md's Notes select) before
   any write, so collisions (`new_id_available`), unknown ids, and
   verify-gate rejections leave the repo byte-identical. Identity
   rename (`a → a`) is a no-op success (rename_naturality identity).
@@ -2134,7 +2172,7 @@ Pre-release sweep of the remaining 7rr-class warts:
 
 ## #49 — docs drift: STATUS revision row, USAGE quick-start lint-clean (specodelic-vpx)
 
-- `specs/STATUS.md`'s corpus table recorded `specodelic.md — Done —
+- `openspec/STATUS.md`'s corpus table recorded `specodelic.md — Done —
   Revision 7` while the binary embeds Revision 8 (and the same file
   already referenced Revision 8 two sections later). Row corrected to
   Revision 8; the §2.6 citation of Revision 7 stays — it dates when
@@ -2146,7 +2184,7 @@ Pre-release sweep of the remaining 7rr-class warts:
   the file up front and gains the `refund_within_term` unit property.
 - Kept honest without the CI-hardening ticket's doc-example lint step:
   `usage_quick_start_example_is_lint_clean` extracts the §1 markdown
-  block from `specs/USAGE.md` and lints it — the new user's first
+  block from `openspec/USAGE.md` and lints it — the new user's first
   copy-paste can no longer rot silently.
 
 ## #48 — output contract: exit codes 0/1/2, real human text, ok:false errors (specodelic-7rr)
@@ -2296,9 +2334,9 @@ header is now the single-line TLA+ form (`---- MODULE merge ----`) —
 the previous three-line box was not a parseable header — and `Next`
 carries a closing `UNCHANGED vpc` stuttering disjunct so terminal
 states don't read as engine-side deadlocks. All 18 corpus artifacts
-regenerated; `specs/model_check.md` gained the `exploration_only`
+regenerated; `openspec/specs/model_check/spec.md` gained the `exploration_only`
 state + `finish_exploration` transition + `exploration_run_is_not_a_clean_verdict`
-property; `specs/compile.md`'s `model_to_tla` wording and
+property; `openspec/specs/compile/spec.md`'s `model_to_tla` wording and
 disjunct-count property updated.
 
 ## #43 — `spk hooks install`/`uninstall`: the dual-format gate wired into the hook chain
@@ -2353,7 +2391,7 @@ detection resolve `id: spec` files against the file's OWN rows only
 refs are local, zero churn). Also: the capability-format check's
 remediation now distinguishes deltas (mirror the ADDED text) from
 capability specs (keep ## Requirements), and the migrated model-check
-spec cites `specs/model_check.md` by prose path instead of a
+spec cites `openspec/specs/model_check/spec.md` by prose path instead of a
 metasyntactically-skipped `[[model_check]]` link. Residual, by design:
 a single-segment file-id ref from a dual-format file (e.g.
 `[[specodelic]]`) is skipped as metasyntactic rather than flagged —
@@ -2437,7 +2475,7 @@ sync (beads specodelic-3gd, openspec add-dual-format-deltas).
 
 ## #36 — `spk model-check`: the model_check step with the native stateright backend
 
-`spk model-check <files>` runs `specs/model_check.md`'s run state machine
+`spk model-check <files>` runs `openspec/specs/model_check/spec.md`'s run state machine
 against compile's output — it never re-compiles: a missing
 `<stem>.tla` artifact is a labeled `missing_artifact` error with a
 `spk compile` hint, never a silent run. The native default backend
@@ -2507,7 +2545,7 @@ skipped, and the empty result fails with a hint.
 ## #33 — `spk doctor` dual-mode: self-hosting vs consumer + knowledge-currency warning
 
 `spk doctor` now classifies the workspace: `self_hosting` when
-`specs/specodelic.md` exists, `consumer` otherwise, and reports the mode
+`openspec/specs/specodelic/spec.md` exists, `consumer` otherwise, and reports the mode
 in its envelope data. Consumer mode never fails on the missing corpus —
 it reports the embedded guide's `format_revision` and suggests
 `spk new` in an empty workspace. Whenever a local corpus exists, the
@@ -2526,7 +2564,7 @@ JSON envelope and human output (`src/lint.rs`). The semantics come from a
 single `RULE_TABLE` — the same table `spk explain lint-rules` renders its
 catalog from, so the documentation can never disagree with what the
 linter emits. The EARS rule was renamed to the stable id
-`linter.ears_syntax` (matching `specs/linter-ears_syntax.md`'s id), and
+`linter.ears_syntax` (matching `openspec/specs/linter-ears_syntax/spec.md`'s id), and
 the `{{lint_rules}}` placeholder in the embedded primer is no longer a
 stub. Unit tests pin the catalog to exactly the rule ids the linter can
 emit; `--version --json` already reports `format_revision` (specodelic-2kc,
@@ -3252,11 +3290,11 @@ dotted `file_id.row_id` spelling (CLAR-003); the lint payload carries
 `checklists_declared` so a consumer can tell an empty pass from a
 skipped one (EXCL-002). Gates green.
 
-## #66 — the error contract is a published spec file (`specs/errors.md`)
+## #66 — the error contract is a published spec file (`openspec/specs/errors/spec.md`)
 
 add-error-contract phase 1 (beads specodelic-uie, tasks 1.1–1.4): the
 cross-cutting output contract moves from CHANGELOG lore (#48's
-`specodelic-7rr` exit-code/envelope work) into `specs/errors.md` — three
+`specodelic-7rr` exit-code/envelope work) into `openspec/specs/errors/spec.md` — three
 `extension_point` rows (`envelope_error_kind`, `exit_code_mapping`,
 `remediation_hint_present`) plus eight invariant rows (namespaced label
 shape, emitting failure terminals, graph-decidable failure classes,

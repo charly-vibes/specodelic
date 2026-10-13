@@ -128,7 +128,12 @@ absorb.
 
 All files are markdown, in `specodelic`'s own format, describing
 `specodelic` and its linter using themselves (a self-hosting spec, the
-same way a self-hosting compiler compiles its own source).
+same way a self-hosting compiler compiles its own source). Location:
+since the single-tree migration (Changelog #130, specodelic-jf1) each
+corpus file below lives at `openspec/specs/<dir>/spec.md` (`specodelic.md`
+→ `openspec/specs/specodelic/spec.md`, `linter-coverage.md` →
+`openspec/specs/linter-coverage/spec.md`, …); `USAGE.md`, `STATUS.md`,
+`theory.md` and `CHANGELOG.md` live at `openspec/`.
 
 | File | Kind / id | Describes | Status |
 |---|---|---|---|

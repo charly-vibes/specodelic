@@ -1,5 +1,5 @@
 //! `spk verify` — the `model_checked → verified` transition
-//! (specs/verify.md).
+//! (openspec/specs/verify/spec.md).
 //!
 //! Purpose: turn `specodelic.md`'s bare `no_counterexample ∧
 //! properties_pass` guard into an actual mechanism. Responsibilities:
@@ -10,7 +10,7 @@
 //! `<stem>.check.json` must be current — its `artifact_sha256` must match
 //! the on-disk `<stem>.tla` — and its outcome must be
 //! `no_counterexample`), and combine the two gates into the single
-//! verdict `specs/verify.md` calls `verified`. Rationale: neither gate
+//! verdict `openspec/specs/verify/spec.md` calls `verified`. Rationale: neither gate
 //! alone suffices (`both_gates_required`); un-translated predicates panic
 //! via `todo_predicate!` and are reported honestly as failures, never as
 //! skips; a stale artifact is a failure, not a cached pass
@@ -168,7 +168,7 @@ pub struct PropertiesGate {
     pub blocks: Vec<BlockResult>,
 }
 
-/// The single verdict `specs/verify.md` names — `verified` exactly when
+/// The single verdict `openspec/specs/verify/spec.md` names — `verified` exactly when
 /// both gates pass, else the blocking stage.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Verdict {
@@ -324,14 +324,12 @@ pub struct ArtifactPaths {
     pub tla: PathBuf,
 }
 
-/// Artifact naming, mirroring `cmd_compile`/`cmd_model_check`: the file
-/// stem on disk, else the intent id with `.` → `-`.
+/// Artifact naming, mirroring `cmd_compile`/`cmd_model_check`. One
+/// implementation, shared with compile (specodelic-jf1: a spec.md file
+/// names by id-dash; the old local copy here drifted from
+/// compile::artifact_stem the moment artifact naming changed).
 pub fn artifact_stem(spec: &crate::spec::Spec) -> String {
-    spec.path
-        .as_ref()
-        .and_then(|p| p.file_stem().and_then(|s| s.to_str()))
-        .map(str::to_string)
-        .unwrap_or_else(|| spec.intent.id.replace('.', "-"))
+    crate::compile::artifact_stem(spec)
 }
 
 pub fn artifact_paths(out_dir: &Path, stem: &str) -> ArtifactPaths {

@@ -56,7 +56,7 @@ pub(crate) fn cmd_refactor(
         out.with_next_step("no split candidates — run: specodelic lint")
     } else {
         out.with_next_step(
-            "split the flagged node first — the split itself is an ordinary edit, checked by the six existing linters (see specs/refactor.md)",
+            "split the flagged node first — the split itself is an ordinary edit, checked by the six existing linters (see openspec/specs/refactor/spec.md)",
         )
     };
     emit_report(
@@ -75,7 +75,7 @@ pub(crate) fn cmd_refactor(
 /// findings / a tool-level failure; 2 = invocation error — nothing was
 /// processed (path not found, no spec files matched, unreadable input).
 /// clap's own argument-parse failures also exit 2, so the mapping is
-/// uniform. Documented here, in README.md, and in specs/USAGE.md.
+/// uniform. Documented here, in README.md, and in openspec/USAGE.md.
 pub(crate) fn exit_code_footer() -> String {
     format!(
         "{}\n\nExit codes:\n  0 = success\n  1 = findings or tool-level failure\n  2 = invocation error (path not found, no spec files matched)",
@@ -843,7 +843,17 @@ pub(crate) fn cmd_doctor(
     // verify-after-fix; workspace facts (mode, core spec, discovery)
     // render from detail helpers into the payload.
     let root = std::path::Path::new(".");
-    let core = std::path::Path::new("specs/specodelic.md");
+    // Knowledge-currency source: the workspace's specodelic core spec —
+    // single-tree layout first (specodelic-jf1), legacy two-tree second.
+    let core_candidates = [
+        std::path::Path::new("openspec/specs/specodelic/spec.md"),
+        std::path::Path::new("specs/specodelic.md"),
+    ];
+    let core = core_candidates
+        .iter()
+        .find(|p| p.is_file())
+        .copied()
+        .unwrap_or(core_candidates[1]);
     let report = match specodelic::doctor::run_checks(root, fix) {
         Ok(report) => report,
         Err(e) => {
@@ -866,8 +876,8 @@ pub(crate) fn cmd_doctor(
         }
     }
 
-    // Knowledge currency (task 5.2): whenever a local specs/specodelic.md
-    // exists, compare its latest `Revision N` heading (numerically)
+    // Knowledge currency (task 5.2): whenever a local specodelic core
+    // spec exists (either layout), compare its latest `Revision N` heading (numerically)
     // against the binary's embedded FORMAT_REVISION — a vendored consumer
     // corpus can lag or lead. Warn — never fail.
     let mut out = if core.is_file() {

@@ -27,7 +27,7 @@ two parsers, requirement text authored once.
 A dual-format file carries both grammars:
 
 - the **specodelic half** — YAML frontmatter (a real `id` from the
-  [naming law](specs/specodelic.md), `kind: intent`, one EARS
+  [naming law](specs/specodelic/spec.md), `kind: intent`, one EARS
   `statement`) plus the `## Constraints`, `## Model`, and
   `## Properties` tables;
 - the **openspec half** — `## Purpose`, a delta section such as
@@ -108,8 +108,8 @@ boundary violations as bugs, not preferences.
 
 1. Run `spk explain dual-format` — the protocol, from the binary that
    enforces it.
-2. Skim the [core format](specs/specodelic.md) — the four tables the
-   dual-format layer adds to an openspec delta.
+2. Skim the [core format](specs/specodelic/spec.md) — the four
+   specodelic layers the dual-format layer adds to an openspec delta.
 3. Read [verification boundaries](verification-boundaries.md) — what a
    lint-clean or verified file does *not* assure; the same honesty
    discipline `ah check` applies to spec↔test claims.

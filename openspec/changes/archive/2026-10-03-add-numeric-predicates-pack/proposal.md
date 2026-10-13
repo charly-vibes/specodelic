@@ -12,7 +12,7 @@ kinds reusing the `**name:**` case-label machinery with a different
 required label set (R4: mistral's reuse phrasing — tolerance laws owe
 `**bound:**` + `**against:**`, not identity/associativity). Demand is
 ≥3 independent domains (mistral ×2, grok, qwen, zai) — exactly the
-governance rule in `specs/packs.md`. The mechanism
+governance rule in `openspec/specs/packs/spec.md`. The mechanism
 (`add-domain-pack-mechanism`, archived 2026-10-03) made packs
 first-class; data/lineage (archived 2026-10-03) was the first standard
 pack; this is the second, and together with the empirical-registry pack
@@ -31,7 +31,7 @@ it completes what the bioimage D6 pilot consumes.
 - **New in-repo pack artifact** `packs/numeric-predicates.md` (id
   `numeric.predicates`, per the file-naming law): six manifest tables
   declaring exactly the vocabulary above. No checker code — pack
-  checkers ship as declarations per `specs/packs.md` (honest-empty
+  checkers ship as declarations per `openspec/specs/packs/spec.md` (honest-empty
   convention); nothing in `src/` changes.
 
 ## Capabilities
@@ -76,8 +76,8 @@ it completes what the bioimage D6 pilot consumes.
 ## Governance
 
 - Demand rule: ≥3 independent domains (R1: mistral ×2, grok, qwen, zai;
-  R2: all four; R4: mistral ×2, grok, zai) per `specs/packs.md`.
+  R2: all four; R4: mistral ×2, grok, zai) per `openspec/specs/packs/spec.md`.
 - Ro5 review at proposal time before implementation (recorded in
   design.md "Review outcome").
 - Spec-first: the capability delta states the pack contract; the pack
-  artifact implements it; `specs/packs.md` governs the mechanism.
+  artifact implements it; `openspec/specs/packs/spec.md` governs the mechanism.

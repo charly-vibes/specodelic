@@ -1,7 +1,7 @@
 //! The Compile functor — translate a linted-and-covered spec file's
 //! structured layers into machine artifacts.
 //!
-//! Purpose: implement `specs/compile.md` as one functor with three target
+//! Purpose: implement `openspec/specs/compile/spec.md` as one functor with three target
 //! categories — Constraints → TOML (`constraint_table_to_toml`), Model →
 //! backend-neutral IR (`ModelIR`; TLA+/Alloy emission is deferred to beads
 //! `specodelic-mp1` row 6), Properties → proptest! sources
@@ -1119,7 +1119,7 @@ fn fnv1a_64(bytes: &[u8]) -> u64 {
 // TLA+ emission (model_to_tla — completes the functor's second category)
 // ---------------------------------------------------------------------------
 
-/// Compile the Model section to one TLA+ module, per `specs/compile.md`'s
+/// Compile the Model section to one TLA+ module, per `openspec/specs/compile/spec.md`'s
 /// `model_to_tla`: always emitted, regardless of which model_check backend
 /// (native stateright or TLC) later runs against the model. Each State
 /// becomes a value in the state variable's range, each Transition one
@@ -1235,15 +1235,12 @@ pub fn model_to_tla(spec: &Spec) -> String {
     out
 }
 
-/// TLA+ module identifier from the file stem: letters and digits only,
-/// starting with a letter (TLA+ forbids underscores in module names).
+/// TLA+ module identifier from the artifact stem: letters and digits
+/// only, starting with a letter (TLA+ forbids underscores in module
+/// names). The artifact stem, not the raw file stem — a `spec.md` file
+/// (single tree) names its module from the id, like its artifacts.
 fn module_name(spec: &Spec) -> String {
-    let stem = spec
-        .path
-        .as_ref()
-        .and_then(|p| p.file_stem().and_then(|s| s.to_str()))
-        .map(str::to_string)
-        .unwrap_or_else(|| spec.intent.id.replace('.', "_"));
+    let stem = artifact_stem(spec);
     let mut s: String = stem.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
     if s.chars().next().is_some_and(|c| c.is_ascii_digit()) {
         s.insert(0, 'M');
@@ -1314,8 +1311,22 @@ pub fn precondition_satisfied(spec: &Spec, report: &Report) -> Result<(), Compil
 }
 
 /// The artifact filename stem for a spec: the file stem when on disk,
-/// else the intent id with `.` → `-`.
+/// else the intent id with `.` → `-`. A `spec.md` file derives its
+/// identity from its parent directory (Revision 18 naming law,
+/// specodelic-jf1) — a flat `spec` stem would collide across every
+/// capability in the single tree, so the id in dash form names those
+/// artifacts (which keeps every migrated corpus artifact's name stable:
+/// id `linter.graph_shape` → `linter-graph_shape`, exactly the old
+/// corpus file stem).
 pub fn artifact_stem(spec: &Spec) -> String {
+    if spec
+        .path
+        .as_ref()
+        .and_then(|p| p.file_name().and_then(|s| s.to_str()))
+        == Some("spec.md")
+    {
+        return spec.intent.id.replace('.', "-");
+    }
     spec.path
         .as_ref()
         .and_then(|p| p.file_stem().and_then(|s| s.to_str()))

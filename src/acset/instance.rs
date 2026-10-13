@@ -244,7 +244,7 @@ struct Walk<'a> {
 impl Walk<'_> {
     /// A Transition's from/to cells are typed reference fields (→
     /// State, same file): one morphism value each, per
-    /// specs/graph.md's total_extraction. An unknown state dangles
+    /// openspec/specs/graph/spec.md's total_extraction. An unknown state dangles
     /// — never dropped. A null from/to cell is a Model-shape
     /// problem (linter-graph_shape), not a graph edge.
     fn transitions(&mut self, spec: &Spec, file_id: &str, to_morph: usize) {
@@ -318,7 +318,7 @@ impl Walk<'_> {
 
     /// Reference Typing: a typed reference column whose target kind is
     /// forbidden is reported as a labeled violation, never stored as a
-    /// value (`edge_kind_matches_typing`, specs/graph.md).
+    /// value (`edge_kind_matches_typing`, openspec/specs/graph/spec.md).
     #[allow(clippy::too_many_arguments)]
     fn stored_link(
         &mut self,

@@ -7,7 +7,7 @@ under specodelic format Revision 18 (naming law):
 
   1. the frontmatter id is kept verbatim — a spec.md file derives its
      expected id from its PARENT DIRECTORY (`-` <-> `.` mapping), and the
-     corpus naming law already matches (specs/linter-graph_shape.md declares
+     corpus naming law already matches (openspec/specs/linter-graph_shape/spec.md declares
      id: linter.graph_shape; deployed dir linter-graph_shape/spec.md expects
      the same). A mismatch is a loud failure, never a silent rewrite.
   2. no link rewriting or cross-file downgrades — Revision 18 retired the

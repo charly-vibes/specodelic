@@ -1,6 +1,6 @@
 # specodelic
 
-> A specification format and toolchain for AI agents — plain markdown with a closed four-table schema, checked by a self-hosting linter.
+> A specification format and toolchain for AI agents — plain markdown with a closed four-layer schema, checked by a self-hosting linter.
 
 ## What it is
 
@@ -50,9 +50,9 @@ The CLI binary is `spk` (crate: `specodelic`).
 
 ## Self-hosting
 
-The format corpus (`specs/`) is written in the format and linted by the
-tool itself (`just lint-specs`). Engineering truth (openspec) shares
-the same grammar via the dual-format protocol.
+The format corpus (`openspec/specs/`) is written in the format and linted by the
+tool itself (`just lint-specs`). Capability specs live in the same
+tree via the dual-format protocol (openspec).
 
 ## Docs
 

@@ -13,7 +13,7 @@ Tidying commits are separate from feature commits.
       `linter.observability` on the warnings channel with exit 0 (design
       D5), graph classifies extension_point-hosting file
       as external boundary. Run `just test` — all new tests must fail.
-- [x] 1.2 **GREEN (format)**: `specs/specodelic.md` Revision 9 — one new
+- [x] 1.2 **GREEN (format)**: `openspec/specs/specodelic/spec.md` Revision 9 — one new
       Reference Typing row for `observes` (Constraint, any file →
       Constraint, kind == effect only), worded on the `satisfies` precedent,
       including the D7 pre-answered checklist (guard exclusion,
@@ -22,17 +22,17 @@ Tidying commits are separate from feature commits.
       the same commit — the doctor knowledge-currency check and the guide
       drift-guard both key on it. (Revision 8 is taken: backend
       pluggability, landed with specodelic-len.)
-- [x] 1.3 **GREEN (format)**: `specs/kinds.md` Revision 5 — reconcile
+- [x] 1.3 **GREEN (format)**: `openspec/specs/kinds/spec.md` Revision 5 — reconcile
       `constraint_row_shape` with optional typed reference columns
       (`satisfies` tension from design.md D3); state the general rule, not
       an `observes` special case. Landing this resolves HITL ticket
       `specodelic-mp1` row 9 — update that ticket's note when it lands.
-- [x] 1.4 **GREEN (format)**: `specs/graph.md` — `observes` added to
+- [x] 1.4 **GREEN (format)**: `openspec/specs/graph/spec.md` — `observes` added to
       `total_extraction`'s field enumeration; acyclic-exemption stated;
       external-boundary derivation as a derived-not-authored constraint.
-      `specs/linter-graph_shape.md` — note that `acyclic`'s edge set is
+      `openspec/specs/linter-graph_shape/spec.md` — note that `acyclic`'s edge set is
       unchanged (D4).
-- [x] 1.5 **GREEN (format)**: new `specs/linter-observability.md` — the
+- [x] 1.5 **GREEN (format)**: new `openspec/specs/linter-observability/spec.md` — the
       check's semantics: the observation universe is the lint invocation's
       file set (corpus-wide `just lint-specs` is the canonical run);
       every effect in scope is observed or warned; advisory severity means
@@ -102,8 +102,8 @@ Tidying commits are separate from feature commits.
       precedent for adoption-note discipline). The corpus's own
       `refactor.advisory_finding_emitted` is already unobserved — the
       deliberate case may simply be the corpus itself.
-- [x] 5.3 `specs/STATUS.md` — add the status-table row for
-      `linter-observability.md`; `specs/CHANGELOG.md` entry.
+- [x] 5.3 `openspec/STATUS.md` — add the status-table row for
+      `linter-observability.md`; `openspec/CHANGELOG.md` entry.
 - [x] 5.4 Full gates: `just ci`, `just lint-specs`,
       `openspec validate add-observability-contracts --strict`,
       `just sync-sections`.

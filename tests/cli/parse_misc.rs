@@ -1,7 +1,7 @@
 // (split from tests/cli.rs — specodelic-g17 file_lines ratchet)
 use super::*;
 
-// ---- external_completeness (specs/linter-external_completeness.md, mp1 row 10) ----
+// ---- external_completeness (openspec/specs/linter-external_completeness/spec.md, mp1 row 10) ----
 
 /// A lint-clean two-constraint spec a checklist can map to.
 fn write_mappable_spec(path: &std::path::Path, id: &str) {
@@ -289,7 +289,7 @@ fn non_spec_md_filename_warns_naming_law() {
         .stdout(contains("openspec requires the delta filename spec.md"));
 }
 
-// ---------- refactor advisor (specodelic-3l7, specs/refactor.md) ----------
+// ---------- refactor advisor (specodelic-3l7, openspec/specs/refactor/spec.md) ----------
 
 /// A minimal lint-tolerable spec: one constraint whose traces_to cell cites
 /// each target in `refs`.
@@ -342,7 +342,7 @@ fn write_multi_row_spec(path: &std::path::Path, id: &str, n: usize, derives_from
 }
 
 /// unrelated_fan_in_flagged + related_fan_in_not_flagged
-/// (specs/refactor.md Properties): a node referenced from two disjoint
+/// (openspec/specs/refactor/spec.md Properties): a node referenced from two disjoint
 /// top-level namespaces is flagged (threshold 2), a node referenced only
 /// from within its own namespace subtree is clean — and the advisory
 /// never gates (exit 0 either way).
@@ -737,7 +737,7 @@ fn parse_accepts_exactly_one_path() {
     assert_ne!(out.status.code(), Some(0), "two paths must be rejected");
 }
 
-// -- domain packs (specs/packs.md, Revision 14; specodelic-dcx) ------------
+// -- domain packs (openspec/specs/packs/spec.md, Revision 14; specodelic-dcx) ------------
 
 /// A well-formed `kind: profile` pack file — all six manifest tables,
 /// full lifecycle machine, base pin at the current revision.
@@ -1466,7 +1466,7 @@ fn compile_cli_surfaces_binding_in_the_toml_artifact() {
     let dir = tempfile::tempdir().unwrap();
     let spec = dir.path().join("bind_demo.md");
     // The pack-path enablement for the `kernel.binding` vocabulary
-    // (specs/packs.md): the dotted column header is a pack-qualified
+    // (openspec/specs/packs/spec.md): the dotted column header is a pack-qualified
     // token in namespace `kernel`, and orphan_vocabulary's own
     // remediation is a discovered `kind: profile` pack in that
     // namespace. The fixture ships the minimal such pack so the compile

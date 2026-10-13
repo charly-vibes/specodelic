@@ -37,7 +37,7 @@ Tidying commits are separate from feature commits.
       1.1 must stay byte-identical (`adapter_graph_equivalent` gate).
 - [x] 2.4 **RED→GREEN**: lint-time drift gate
       (`schema_matches_typing_table`) — fixture: a Schema missing one row
-      of specs/specodelic.md's Reference Typing table reports at lint
+      of openspec/specs/specodelic/spec.md's Reference Typing table reports at lint
       time.
 - [x] 2.5 **TIDY**: collapse the duplicated edge loops in `src/graph.rs`
       (`:345`/`:438`) behind one edge derivation; dead-flag and clippy
@@ -78,7 +78,7 @@ Tidying commits are separate from feature commits.
       closure primitive (snapshots byte-identical).
 - [x] 4.5 **RED→GREEN**: migrate `src/merge.rs` blast-radius onto the
       closure primitive; **delete** the private `dependents`/`reaches`
-      adjacency (closes the specs/merge.md↔code drift, CORR-003) —
+      adjacency (closes the openspec/specs/merge/spec.md↔code drift, CORR-003) —
       `merge` command snapshots byte-identical.
 - [x] 4.6 **TIDY**: `src/refactor.rs` consumes query-derived counts;
       `just ci`.

@@ -48,7 +48,7 @@ layer reclassified:
 |---|---|
 | `specodelic-wiring.dot/.svg` | file-level `satisfies` wiring, this corpus — 8 producer→consumer pairs, `linter → errors` dominates (51 rows) |
 | `bajan-wiring.dot/.svg` | same projection over bajan — 4 inter-file pairs; **note:** the ticket's contingency ("bajan wiring empty until ac8") is stale, bajan now carries typed satisfies edges |
-| `compile-full.dot/.svg` | full-graph projection of `specs/compile.md` (all edge kinds, red dangling edges visible in file-scoped scope) |
+| `compile-full.dot/.svg` | full-graph projection of `openspec/specs/compile/spec.md` (all edge kinds, red dangling edges visible in file-scoped scope) |
 
 Corpus facts at decision time: this repo 21 files / 639 edges / 99
 `satisfies`; bajan 7 files / 231 edges / 4 `satisfies` / 1 violation.

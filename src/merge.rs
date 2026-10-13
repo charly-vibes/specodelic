@@ -1,4 +1,4 @@
-//! The pre-merge semantic check (`specs/merge.md`).
+//! The pre-merge semantic check (`openspec/specs/merge/spec.md`).
 //!
 //! Purpose: detect what a textually clean 3-way merge cannot see — id
 //! collisions minted independently on two branches, and renames left

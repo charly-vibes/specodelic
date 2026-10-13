@@ -2,7 +2,7 @@
 
 ## Context
 
-`specs/model_check.md` is the spec of record: a backend-neutral run
+`openspec/specs/model_check/spec.md` is the spec of record: a backend-neutral run
 state machine (`not_run → running → clean | counterexample_found |
 timed_out`) with constraints `checker_invoked`, `exhaustive_within_bound`,
 `counterexample_is_minimal`, `counterexample_names_violated_invariant`,

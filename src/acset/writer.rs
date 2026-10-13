@@ -17,7 +17,7 @@ use crate::spec::Spec;
 use std::path::Path;
 
 /// A writer failure — one labeled cause per the fleet error contract
-/// (`specs/errors.md`): the label names the owning file's id (`spec`, the
+/// (`openspec/specs/errors/spec.md`): the label names the owning file's id (`spec`, the
 /// capability intent), the detail says what failed, and the remediation
 /// hint is non-empty. Internal cause — the consuming command wraps it in
 /// its own envelope error; no new exit codes (design decision D1).

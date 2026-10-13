@@ -11,7 +11,7 @@ guidance files it touches (add-min-expr-kernel §5.3, specodelic-ats).
 ## Items
 
 - **commands_claim_path**: docs/src/commands.md documents the `kernel.binding` claim path beside the two-binding-layers passage — compile extracts the column verbatim, an external checker claims constraints through contract-TOML `flags`, specodelic never interprets the binding text (design D4)
-- **usage_claim_path**: specs/USAGE.md documents the external-checker claim path in §2.6 — a checker conforms without editing your file, through its own contract bindings, with the binding column carried as an opaque string
+- **usage_claim_path**: openspec/USAGE.md documents the external-checker claim path in §2.6 — a checker conforms without editing your file, through its own contract bindings, with the binding column carried as an opaque string
 
 ## Mapping
 

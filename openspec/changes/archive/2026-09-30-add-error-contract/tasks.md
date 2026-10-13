@@ -5,7 +5,7 @@ and observed to fail before the change that makes it pass. Tidying commits
 are separate from feature commits. `just lint-specs` must be green after
 every phase — the corpus is its own primary fixture.
 
-## 1. D1 — `specs/errors.md`, the contract file (spec first)
+## 1. D1 — `openspec/specs/errors/spec.md`, the contract file (spec first)
 
 - [x] 1.1 **RED**: author the per-error unit properties first (property
       rows whose predicates assert the exact labels
@@ -18,7 +18,7 @@ every phase — the corpus is its own primary fixture.
       against `error_property_names_label`'s requirement of ≥1 per label.
       The absence of inbound `satisfies` edges to the new extension_point
       rows is observable in the same graph run.
-- [x] 1.2 **GREEN (format)**: create `specs/errors.md` — intent, the
+- [x] 1.2 **GREEN (format)**: create `openspec/specs/errors/spec.md` — intent, the
       nine constraints from the delta (`error_expr_shape`,
       `failure_state_emits`, `failure_class_is_state`,
       `guard_negation_typed`, `single_labeled_failure`,
@@ -32,7 +32,7 @@ every phase — the corpus is its own primary fixture.
       **RESOLVED pre-approval (2026-09-30)**: one row per concern
       (`envelope_error_kind` / `exit_code_mapping` / `remediation_hint_present`)
       — the delta already reflects it; carry the same three rows into
-      `specs/errors.md` verbatim.
+      `openspec/specs/errors/spec.md` verbatim.
 - [x] 1.4 **REFACTOR**: re-read the diff against `AGENTS.md`'s Revision
       discipline (new file, no Revision heading needed — nothing widened);
       `just lint-specs` green; coverage over every new constraint confirmed.
@@ -71,7 +71,7 @@ every phase — the corpus is its own primary fixture.
       property mentally against `compile.md`'s new state set (states map
       1:1 under `model_to_tla`; stuttering disjunct unchanged).
 
-## 3. D3/D6 — `specs/linter-failure_shape.md`, spec-only
+## 3. D3/D6 — `openspec/specs/linter-failure_shape/spec.md`, spec-only
 
 - [x] 3.1 **Spec**: new checker file on the
       `linter-external_completeness.md` shape — constraints

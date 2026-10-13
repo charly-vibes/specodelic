@@ -30,7 +30,7 @@ pub(crate) fn resolves_row(index: &Index, target: &str) -> bool {
     false
 }
 
-/// External completeness (specs/linter-external_completeness.md): diff
+/// External completeness (openspec/specs/linter-external_completeness/spec.md): diff
 /// each declared `*.checklist.md` against the corpus. Optional and
 /// non-gating — it runs only for repos that declare a checklist, never
 /// touches any file's `linted` state, and its findings never block a
@@ -117,7 +117,7 @@ pub(crate) fn graph_edges(specs: &[Spec]) -> GraphEdges {
 
 /// no_self_ref — a row referencing itself via traces_to or
 /// derives_from traces to nothing that owns it
-/// (specs/linter-graph_shape.md no_self_ref).
+/// (openspec/specs/linter-graph_shape/spec.md no_self_ref).
 pub(crate) fn self_ref_findings(edges: &[(String, String, String, String)], report: &mut Report) {
     for (source, target, field, column) in edges {
         if ((*field == "constraints" && *column == "traces_to")
@@ -136,7 +136,7 @@ pub(crate) fn self_ref_findings(edges: &[(String, String, String, String)], repo
 }
 
 /// acyclic — the directed graph formed by traces_to ∪ derives_from ∪
-/// guard-as-edge has no cycle (specs/linter-graph_shape.md). Self-loops
+/// guard-as-edge has no cycle (openspec/specs/linter-graph_shape/spec.md). Self-loops
 /// are `no_self_ref`'s beat and excluded here.
 pub(crate) fn cycle_findings(edges: &[(String, String, String, String)], report: &mut Report) {
     let mut ref_edges: BTreeSet<(String, String)> = BTreeSet::new();
@@ -339,7 +339,7 @@ pub(crate) fn shown_rows(rows: &[String]) -> String {
     format!("{shown}{more}")
 }
 
-/// Observability pass (specs/linter-observability.md): every effect
+/// Observability pass (openspec/specs/linter-observability/spec.md): every effect
 /// Constraint in the invocation's file set must be the target of ≥1
 /// `observes` edge sourced at a *different* row — a row does not observe
 /// itself. The finding is advisory: it lands in [`Report::warnings`]

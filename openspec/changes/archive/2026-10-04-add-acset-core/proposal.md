@@ -8,7 +8,7 @@ table as `NodeKind`/`kind_index` plus per-field match arms in
 `typing_violation` and builds `fan_in`/`fan_out` in two separate edge
 loops (`src/graph.rs:71-127`, `:345`, `:438`); `src/merge.rs` builds its
 own `dependents`/`reaches` adjacency (`src/merge.rs:122-130`) despite
-`specs/merge.md`'s mandate to depend on `graph.md`'s blast-radius query —
+`openspec/specs/merge/spec.md`'s mandate to depend on `graph.md`'s blast-radius query —
 a live spec↔code drift; `src/refactor.rs` consumes `GraphReport` counts.
 An external proposal (the `acset.zip` corpus of six intent specs + a
 `theory.md` patch, reviewed under Rule of 5, 2026-10-03) diagnosed the
@@ -36,10 +36,10 @@ day one.
   collapse to one.
 - **`merge.rs` migration:** the private `dependents`/`reaches` adjacency
   is deleted and blast-radius pre-merge queries are expressed through the
-  same closure primitives — closing the `specs/merge.md`↔code drift as a
+  same closure primitives — closing the `openspec/specs/merge/spec.md`↔code drift as a
   side effect.
 - **Lint-time schema drift gate:** the `Schema` value is checked
-  row-for-row against `specs/specodelic.md`'s Reference Typing table at
+  row-for-row against `openspec/specs/specodelic/spec.md`'s Reference Typing table at
   lint time, so document and code cannot drift.
 - **Explicit non-goals (deferred to tickets):** the span-preserving
   writer (`acset.writer` — needs parse-time byte-span recording) and the

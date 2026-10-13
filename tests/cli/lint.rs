@@ -143,10 +143,15 @@ fn lint_corpus_is_fully_clean() {
     // The corpus is the first dogfood target: every spec file must parse,
     // every reference must resolve, and every constraint must be covered
     // by a deriving property (beads specodelic-qc8 closed the last gaps).
-    let out = spk().args(["lint", "specs", "--json"]).output().unwrap();
+    let out = spk()
+        .args(["lint", "openspec/specs", "--json"])
+        .output()
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let data = &json["data"];
-    assert_eq!(data["files_linted"], 22); // + errors.md + linter-failure_shape.md + packs.md (add-domain-pack-mechanism)
+    // 44 = the migrated corpus (22) + the capability specs that were
+    // already deployed before the single-tree migration (jf1).
+    assert_eq!(data["files_linted"], 44);
     let issues = data["issues"].as_array().unwrap();
     assert!(issues.is_empty(), "corpus lint findings: {issues:?}");
     assert_eq!(out.status.code(), Some(0));
@@ -154,7 +159,10 @@ fn lint_corpus_is_fully_clean() {
 
 #[test]
 fn graph_corpus_is_fully_resolved() {
-    let out = spk().args(["graph", "specs", "--json"]).output().unwrap();
+    let out = spk()
+        .args(["graph", "openspec/specs", "--json"])
+        .output()
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let data = &json["data"];
     assert!(data["dangling"].as_array().unwrap().is_empty());
@@ -223,7 +231,7 @@ fn graph_real_id_files_resolve_corpus_wide_and_typos_dangle() {
 
 /// Rev 7 of kinds.md — CORR-003 (RED first): intent_row_shape now
 /// acknowledges optionally-declared frontmatter keys (currently
-/// `checked_against_core`, per specs/AGENTS.md) beside the three base
+/// `checked_against_core`, per openspec/specs/AGENTS.md) beside the three base
 /// fields. The linter's frontmatter_valid stays a subset check, so a
 /// spec carrying the extra key must lint clean — this pins the
 /// spec-text reading at tool level (a future stricter check would fail
@@ -338,14 +346,17 @@ fn cross_file_only_rows_warn_advisory_never_silent() {
 }
 
 /// add-error-contract task 1.1 (RED first): the corpus must publish the
-/// cross-cutting output contract — specs/errors.md owns the three
+/// cross-cutting output contract — openspec/specs/errors/spec.md owns the three
 /// `extension_point` rows, each pointing at its own intent and each
 /// covered by a falsifying property (error_property_names_label's
 /// coverage half is enforced today; the exact-label half is tier 2).
-/// Fails before specs/errors.md exists — observed RED 2026-09-30.
+/// Fails before openspec/specs/errors/spec.md exists — observed RED 2026-09-30.
 #[test]
 fn error_contract_rows_are_published() {
-    let out = spk().args(["graph", "specs", "--json"]).output().unwrap();
+    let out = spk()
+        .args(["graph", "openspec/specs", "--json"])
+        .output()
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let edges = json["data"]["edges"].as_array().unwrap();
     for row in [
@@ -385,7 +396,8 @@ fn error_contract_rows_are_published() {
 ///   citation sets (failure_class_is_state, D2a).
 #[test]
 fn failure_terminals_emit_labeled_errors() {
-    let out = spk().args(["graph", "specs", "--json"]).output().unwrap();
+    #[rustfmt::skip]
+    let out = spk().args(["graph", "openspec/specs", "--json"]).output().unwrap(); // at the function_lines ratchet
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let edges = json["data"]["edges"].as_array().unwrap();
     let e = |k: &str| -> Vec<(String, String)> {
@@ -413,9 +425,8 @@ fn failure_terminals_emit_labeled_errors() {
     for (f, t) in &to_state {
         inbound.entry(t.as_str()).or_default().push(f);
     }
-    // failure terminals: terminal states whose STATE segment is named *fail*
-    // (rsplit: the node id is <file-id>.<state-id> and a file id may itself
-    // contain "failure" — linter.failure_shape)
+    // failure terminals: terminal states named *fail* (node id is
+    // <file-id>.<state-id> — linter.failure_shape)
     let is_fail_state = |node: &str| -> bool {
         node.rsplit_once('.')
             .map(|(_, st)| st.contains("fail"))
@@ -620,7 +631,7 @@ fn failure_terminals_emit_labeled_errors() {
     }
 }
 
-// ---- specodelic-ct5: linter.failure_shape checker (specs/linter-failure_shape.md) ----
+// ---- specodelic-ct5: linter.failure_shape checker (openspec/specs/linter-failure_shape/spec.md) ----
 // The three rules are graph-decidable per file; these tests reuse the
 // failure_terminals_emit_labeled_errors derivation (above) at single-file
 // lint altitude: mute terminals, label collisions, and guard negation
@@ -867,7 +878,7 @@ fn lint_negation_set_mismatch_flagged() {
     );
 }
 
-/// total_extraction (specs/graph.md): a Transition's `from`/`to` cells are
+/// total_extraction (openspec/specs/graph/spec.md): a Transition's `from`/`to` cells are
 /// typed reference fields (→ State) and must yield exactly one edge each.
 #[test]
 fn graph_extracts_from_to_state_edges() {
@@ -906,7 +917,7 @@ fn graph_extracts_from_to_state_edges() {
     );
 }
 
-/// edge_kind_matches_typing (specs/graph.md): the graph never records an
+/// edge_kind_matches_typing (openspec/specs/graph/spec.md): the graph never records an
 /// edge the Reference Typing table wouldn't allow — a Constraint's
 /// `traces_to` must resolve to an Intent, so a traces_to→Constraint row
 /// surfaces as a labeled violation instead of a silent edge.
@@ -993,7 +1004,7 @@ fn constraint_row_derives_from_is_a_typing_violation() {
     assert_eq!(out.status.code(), Some(1));
 }
 
-/// supersedes_dag (specs/linter-graph_shape.md) + total_extraction: the
+/// supersedes_dag (openspec/specs/linter-graph_shape/spec.md) + total_extraction: the
 /// `supersedes` column yields edges (Constraint→Constraint, Property→
 /// Property), a supersedes cycle is reported rather than silently served,
 /// and a cross-kind supersedes is a typing violation.

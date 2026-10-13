@@ -72,7 +72,7 @@ class StampTest(unittest.TestCase):
             "[Introduction](index.md)\n"
             "[Release Status](./release.md)\n"
             "- [Graph views — diagrams](graph-views.md)\n"
-            "- [core](specs/specodelic.md)\n"
+            "- [core](openspec/specs/specodelic/spec.md)\n"
             "- [hooks](openspec/hooks/spec.md)\n"
         )
         pages = sl.book_pages(summary)

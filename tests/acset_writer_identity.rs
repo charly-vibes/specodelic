@@ -62,7 +62,7 @@ fn corpus(dir: &str) -> Vec<(std::path::PathBuf, String, Spec)> {
 /// Identity emission over the whole `specs/` corpus — byte for byte.
 #[test]
 fn identity_emission_over_the_real_corpus() {
-    for (path, source, spec) in corpus("specs") {
+    for (path, source, spec) in corpus("openspec/specs") {
         let emitted = writer::emit(&source, &spec)
             .unwrap_or_else(|e| panic!("{}: emit failed: {}", path.display(), e));
         assert_eq!(

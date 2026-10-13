@@ -1,13 +1,14 @@
 # specodelic
 
 **specodelic** (`spk`) is a specification format and toolchain for AI
-agents: specs are plain markdown with YAML frontmatter and four fixed
-tables — **Constraints**, **Model**, **Properties** — under a closed
-schema. The linter never reads prose, so prose is free; everything the
+agents: specs are plain markdown with YAML frontmatter (the
+**Intent** layer) and three fixed tables — **Constraints**, **Model**,
+**Properties** — under a closed schema. The linter never reads prose, so prose is free; everything the
 toolchain reasons about lives in the structured rows.
 
-The repo dogfoods itself: every file in [`specs/`](specs/specodelic.md)
-is a spec written in the format it describes.
+The repo dogfoods itself: every corpus file in
+[`openspec/specs/`](specs/specodelic/spec.md) is a spec written in the
+format it describes.
 
 Hit jargon? The [glossary](glossary.md) defines every term a cold read
 needs, from EARS to the guarantee ladder.
@@ -31,7 +32,7 @@ verb. Questions a cold read asks are answered in the
 
 | Layer        | Carries                                                        | Checked by                    |
 |--------------|----------------------------------------------------------------|-------------------------------|
-| Frontmatter  | `id`, `kind`, `statement` (one EARS sentence)                   | `linter.frontmatter`          |
+| Intent (frontmatter) | `id`, `kind`, `statement` (one EARS sentence)  | `linter.frontmatter`          |
 | Constraints  | invariants and effects, `[[wiki-linked]]` traces                | `linter.schema_shape`, graph  |
 | Model        | states + guarded transitions (a state machine)                  | `linter.model_shape`          |
 | Properties   | deriving properties with generator + predicate                  | `linter.coverage`             |
@@ -59,7 +60,7 @@ reference fields for a domain (no config file — lint discovers packs by
 corpus scan). Four packs ship in-repo — the three standard packs
 (`data.lineage`, `numeric.predicates`, `empirical.registry`) plus the
 bioimage D6 pilot (`bioimage.data`, the first cross-pack `## Requires`);
-see the [packs spec](specs/packs.md).
+see the [packs spec](specs/packs/spec.md).
 
 ## For agents
 

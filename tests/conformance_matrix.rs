@@ -5,7 +5,7 @@
 //! - Hold the data-driven case table: every case is a minimal synthetic
 //!   corpus (fixture files, optional `*.checklist.md` manifests) plus the
 //!   EXPECTED findings, derived from the checker specs (`specs/linter-*.md`,
-//!   `specs/errors.md`, the Reference Typing table in `specs/specodelic.md`)
+//!   `openspec/specs/errors/spec.md`, the Reference Typing table in `openspec/specs/specodelic/spec.md`)
 //!   — never from current tool behavior.
 //! - Run each case through the same library entry points the CLI uses
 //!   (`lint::lint_all` for the lint surface, `graph::build` for the graph

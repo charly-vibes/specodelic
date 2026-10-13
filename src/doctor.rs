@@ -28,11 +28,28 @@ use crate::guide;
 
 /// Workspace mode: self-hosting when the repo carries the format's own
 /// core spec, consumer otherwise (add-embedded-aix-guide task 5.1).
+/// The core spec lives at `openspec/specs/specodelic/spec.md` in the
+/// single-tree layout (specodelic-jf1) or `specs/specodelic.md` in the
+/// legacy two-tree layout.
 pub fn workspace_mode(root: &Path) -> &'static str {
-    if root.join("specs/specodelic.md").is_file() {
+    if root.join("openspec/specs/specodelic/spec.md").is_file()
+        || root.join("specs/specodelic.md").is_file()
+    {
         "self_hosting"
     } else {
         "consumer"
+    }
+}
+
+/// Path of the workspace's specodelic core spec, if present (jf1: both
+/// layouts recognized).
+fn core_spec_path(root: &Path) -> Option<&'static str> {
+    if root.join("openspec/specs/specodelic/spec.md").is_file() {
+        Some("openspec/specs/specodelic/spec.md")
+    } else if root.join("specs/specodelic.md").is_file() {
+        Some("specs/specodelic.md")
+    } else {
+        None
     }
 }
 
@@ -49,7 +66,7 @@ pub fn mode_detail(root: &Path) -> String {
 /// format instead), so the consumer note is informational.
 pub fn core_spec_detail(root: &Path) -> String {
     match workspace_mode(root) {
-        "self_hosting" => "ok (specs/specodelic.md)".to_string(),
+        "self_hosting" => format!("ok ({})", core_spec_path(root).unwrap_or("")),
         _ => format!(
             "not present (consumer mode — the binary embeds {})",
             guide::FORMAT_REVISION
@@ -62,6 +79,9 @@ pub fn core_spec_detail(root: &Path) -> String {
 pub fn discovery_detail(root: &Path) -> String {
     if root.join("specs").is_dir() {
         "ok (specs/)".to_string()
+    } else if root.join("openspec/specs").is_dir() {
+        let n = count_md_files(&root.join("openspec/specs"));
+        format!("found openspec/specs/ ({n} spec file(s)) — lint it with: spk lint openspec/specs")
     } else if root.join("openspec").is_dir() {
         let n = count_md_files(&root.join("openspec"));
         format!("found openspec/ ({n} spec file(s)) — lint it with: spk lint openspec")
@@ -115,7 +135,7 @@ impl DoctorCheck for SpecsDirCheck {
         "check that a specs/ corpus directory exists"
     }
     fn run(&self, root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
-        if root.join("specs").is_dir() {
+        if root.join("specs").is_dir() || root.join("openspec/specs").is_dir() {
             Ok(vec![])
         } else {
             Ok(vec![LintResult::with_fix(
@@ -308,7 +328,7 @@ pub fn payload(root: &Path, report: &DoctorReport) -> serde_json::Value {
             crate::skill_pack::staleness_detail(),
         ),
     ];
-    // Discovered domain packs (specs/packs.md, Revision 14) — surfaced
+    // Discovered domain packs (openspec/specs/packs/spec.md, Revision 14) — surfaced
     // only when at least one `kind: profile` file exists in the
     // workspace; absent otherwise (machinery inert, zero migration).
     let packs: Vec<serde_json::Value> = discover_workspace_packs(root)
@@ -374,10 +394,12 @@ mod tests {
     }
 
     fn self_hosting_root(dir: &std::path::Path) -> std::path::PathBuf {
-        let specs = dir.join("specs");
+        // The single-tree layout (specodelic-jf1) is the repo's own
+        // shape: the core spec is openspec/specs/specodelic/spec.md.
+        let specs = dir.join("openspec/specs/specodelic");
         std::fs::create_dir_all(&specs).unwrap();
         std::fs::write(
-            specs.join("specodelic.md"),
+            specs.join("spec.md"),
             "---\nid: specodelic\nkind: intent\nstatement: \"THE format SHALL be described\"\n---\n\n## Revision 12\n",
         )
         .unwrap();
@@ -392,6 +414,19 @@ mod tests {
         let root = self_hosting_root(dir.path());
         assert_eq!(workspace_mode(&root), "self_hosting");
         assert!(mode_detail(&root).starts_with("self_hosting"));
+        assert!(core_spec_path(&root) == Some("openspec/specs/specodelic/spec.md"));
+    }
+
+    #[test]
+    fn mode_is_self_hosting_with_legacy_two_tree_corpus() {
+        // The legacy two-tree layout (specs/specodelic.md) still counts
+        // as self-hosting — consumer repos migrate on their own schedule.
+        let dir = fixture();
+        let specs = dir.path().join("specs");
+        std::fs::create_dir_all(&specs).unwrap();
+        std::fs::write(specs.join("specodelic.md"), "---\nid: specodelic\n---\n").unwrap();
+        assert_eq!(workspace_mode(dir.path()), "self_hosting");
+        assert_eq!(core_spec_path(dir.path()), Some("specs/specodelic.md"));
     }
 
     #[test]
@@ -488,7 +523,7 @@ mod tests {
         std::fs::write(dir.path().join("openspec/.hidden/x.md"), "x").unwrap();
         let detail = discovery_detail(dir.path());
         assert!(
-            detail.contains("found openspec/ (1 spec file(s))"),
+            detail.contains("found openspec/specs/ (1 spec file(s))"),
             "detail: {detail}"
         );
     }
@@ -530,7 +565,7 @@ mod tests {
         );
         assert!(joined.contains("specs/ directory: ok"), "{joined}");
         assert!(
-            joined.contains("core format spec: ok (specs/specodelic.md)"),
+            joined.contains("core format spec: ok (openspec/specs/specodelic/spec.md)"),
             "{joined}"
         );
         assert!(
@@ -545,7 +580,12 @@ mod tests {
             )),
             "{joined}"
         );
-        assert!(joined.contains("corpus discovery: ok (specs/)"), "{joined}");
+        assert!(
+            joined.contains(
+                "corpus discovery: found openspec/specs/ (1 spec file(s)) — lint it with: spk lint openspec/specs"
+            ),
+            "{joined}"
+        );
     }
 
     #[test]

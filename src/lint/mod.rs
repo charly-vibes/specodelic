@@ -1,7 +1,7 @@
 //! The Specodelic linter — per-file invariants plus corpus-wide reference
 //! resolution.
 //!
-//! Purpose: mechanize the invariants in `specs/specodelic.md` and its
+//! Purpose: mechanize the invariants in `openspec/specs/specodelic/spec.md` and its
 //! checker files (`linter-*.md`). Responsibilities: check frontmatter
 //! validity, the filename↔id mapping, id uniqueness, guard presence, the
 //! EARS grammar, coverage, and total reference resolution. Rationale: only
@@ -125,7 +125,7 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
     ),
     (
         "terminal_states_emit",
-        "every failure terminal state must emit exactly one file-owned effect Constraint — a mute failure terminal is a finding (specs/linter-failure_shape.md; timed_out/exploration_only are the stated v1 non-goal)",
+        "every failure terminal state must emit exactly one file-owned effect Constraint — a mute failure terminal is a finding (openspec/specs/linter-failure_shape/spec.md; timed_out/exploration_only are the stated v1 non-goal)",
     ),
     (
         "error_labels_unique",
@@ -181,23 +181,23 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
     ),
     (
         "constraint_kind_closed",
-        "every Constraint row's kind must be in {invariant, advisory, effect, extension_point} — an unreadable kind cell is outside the closed set (specs/linter-schema_shape.md)",
+        "every Constraint row's kind must be in {invariant, advisory, effect, extension_point} — an unreadable kind cell is outside the closed set (openspec/specs/linter-schema_shape/spec.md)",
     ),
     (
         "property_kind_closed",
-        "every Property row's kind must be in {unit, law} — an unreadable kind cell is outside the closed set (specs/linter-schema_shape.md)",
+        "every Property row's kind must be in {unit, law} — an unreadable kind cell is outside the closed set (openspec/specs/linter-schema_shape/spec.md)",
     ),
     (
         "pack_shape",
-        "a kind: profile pack file's manifest must carry all six facet tables (Sections/Kinds/References/Checkers/Floors/Requires) with well-formed two-column rows, its Kinds rows must be pack-qualified (never a base closed-set name — the narrowing rejection), and manifest tables may not appear on non-profile files (specs/packs.md, Revision 14)",
+        "a kind: profile pack file's manifest must carry all six facet tables (Sections/Kinds/References/Checkers/Floors/Requires) with well-formed two-column rows, its Kinds rows must be pack-qualified (never a base closed-set name — the narrowing rejection), and manifest tables may not appear on non-profile files (openspec/specs/packs/spec.md, Revision 14)",
     ),
     (
         "orphan_vocabulary",
-        "orphan vocabulary is a labeled failure naming the candidate pack and both remediations (enable/declare the pack, or fix the vocabulary) — a declared uses edge targeting an id no discovered kind: profile pack carries, or a pack-qualified token used in a kind/field position with no discovered pack in its namespace (candidate prefix-derived when only the namespace is known) (specs/packs.md, Revision 14)",
+        "orphan vocabulary is a labeled failure naming the candidate pack and both remediations (enable/declare the pack, or fix the vocabulary) — a declared uses edge targeting an id no discovered kind: profile pack carries, or a pack-qualified token used in a kind/field position with no discovered pack in its namespace (candidate prefix-derived when only the namespace is known) (openspec/specs/packs/spec.md, Revision 14)",
     ),
     (
         "skew_advisory",
-        "a declared pack's Requires base pin older than the workspace corpus revision is a warnings-channel advisory naming the pack's base pin and the corpus revision — never silent, never failing (specs/packs.md, Revision 14)",
+        "a declared pack's Requires base pin older than the workspace corpus revision is a warnings-channel advisory naming the pack's base pin and the corpus revision — never silent, never failing (openspec/specs/packs/spec.md, Revision 14)",
     ),
     (
         "schema_matches_typing_table",
@@ -223,7 +223,7 @@ pub fn rule_semantics(rule: &str) -> Option<&'static str> {
 pub struct Report {
     pub files_linted: usize,
     pub issues: Vec<Issue>,
-    /// Advisory findings (specs/linter-observability.md): rendered onto
+    /// Advisory findings (openspec/specs/linter-observability/spec.md): rendered onto
     /// the success envelope's warnings channel, exit 0 — never counted
     /// by [`Report::failures`]. The `Issue` model carries no severity,
     /// so advisory findings must not ride the issues channel.
@@ -233,7 +233,7 @@ pub struct Report {
     /// consumer needs to tell an empty pass from a skipped one
     /// (Rule-of-5 EXCL-002, specodelic-b15).
     pub checklists_declared: usize,
-    /// Discovered domain packs (specs/packs.md, Revision 14) — surfaced
+    /// Discovered domain packs (openspec/specs/packs/spec.md, Revision 14) — surfaced
     /// in the envelope data only when at least one `kind: profile` file
     /// exists; absent otherwise, so a pack-free workspace's lint output
     /// stays byte-identical to pre-mechanism.
@@ -282,7 +282,7 @@ pub fn lint_corpus(specs: &[Spec]) -> Report {
 /// manifests. The CLI lint command runs this; `lint_corpus` alone stays
 /// checklist-free for callers whose gate must not see the optional
 /// checker (compile's precondition — external_completeness never gates
-/// a stage, specs/linter-external_completeness.md Notes).
+/// a stage, openspec/specs/linter-external_completeness/spec.md Notes).
 pub fn lint_all(specs: &[Spec], checklists: &[Checklist]) -> Report {
     let mut report = lint_corpus(specs);
     lint_checklists(specs, checklists, &mut report);
@@ -306,7 +306,7 @@ fn empty_report(files_linted: usize) -> Report {
 /// findings. Each function is the checker's engine-side invocation —
 /// the orchestrator (src/orchestrate.rs) calls them in dependency
 /// order, so a checker whose dependency failed is never run at all
-/// (specs/orchestrate.md `dependency_respecting_skip`).
+/// (openspec/specs/orchestrate/spec.md `dependency_respecting_skip`).
 ///
 /// `linter-frontmatter.md` — the first gate: frontmatter validity,
 /// id/filename law, and the dual-format file-structure rules that
@@ -413,7 +413,7 @@ pub fn schema_drift_findings(specs: &[Spec]) -> Vec<Issue> {
 /// table-walkers (specodelic-7h8). Per-file, appended last in
 /// [`lint_one`]'s composition. The effective closed set is the base
 /// set extended with the active packs' fiber kinds (specodelic-ung:
-/// base ∪ active-pack-fiber, never narrower — specs/packs.md); the
+/// base ∪ active-pack-fiber, never narrower — openspec/specs/packs/spec.md); the
 /// finding message still names the base set, whose members are
 /// unconditional.
 pub fn coverage_findings(specs: &[Spec]) -> Vec<Issue> {
@@ -446,7 +446,7 @@ pub fn external_completeness_findings(
     (report.issues, report.checklists_declared)
 }
 
-/// Advisory findings (specs/linter-observability.md) — warnings, never
+/// Advisory findings (openspec/specs/linter-observability/spec.md) — warnings, never
 /// gate; the orchestrator surfaces them on the warnings channel.
 pub fn advisory_findings(specs: &[Spec]) -> Vec<Issue> {
     let mut report = empty_report(specs.len());
@@ -565,7 +565,7 @@ pub fn lint_checklists(specs: &[Spec], checklists: &[Checklist], report: &mut Re
     }
 }
 
-/// Corpus-wide graph-shape pass (specs/linter-graph_shape.md): build the
+/// Corpus-wide graph-shape pass (openspec/specs/linter-graph_shape/spec.md): build the
 /// resolved reference graph once, then check `no_self_ref`, `acyclic`
 /// (over traces_to ∪ derives_from ∪ guard-as-edge — a self-loop is
 /// `no_self_ref`'s beat, never double-reported as a cycle), and
@@ -750,7 +750,7 @@ mod tests {
         ]
     }
 
-    // ---- external_completeness (specs/linter-external_completeness.md) ----
+    // ---- external_completeness (openspec/specs/linter-external_completeness/spec.md) ----
 
     use crate::checklist::parse_str;
 
@@ -980,7 +980,7 @@ mod tests {
         );
     }
 
-    /// Observability semantics (specs/linter-observability.md): the
+    /// Observability semantics (openspec/specs/linter-observability/spec.md): the
     /// warning channel, not the issues channel; self-observation does
     /// not count; observed effects are silent; failures() is untouched.
     #[test]

@@ -6,7 +6,7 @@
 specodelic-format corpus (verified against this repo's corpus: 411
 nodes/~500 edges; against `../bajan/specs`: 159 nodes/188 edges, zero
 corpus-specific code). The Reference Typing table
-(`specs/specodelic.md`) is part of the *format*, so every compliant
+(`openspec/specs/specodelic/spec.md`) is part of the *format*, so every compliant
 corpus shares the same morphism signatures — extraction is corpus-agnostic
 by construction. What is missing is a parseable projection between the
 JSON envelope and any rendering, and the views themselves.
@@ -15,7 +15,7 @@ A Rule-of-5 review of the originating discussion converged with binding
 corrections, folded in as D2, D3, D4, D5, and D7 below. A grounding Ro5
 review (2026-09-29) verified the referenced surfaces against the live
 corpus and folded in: the empty-corpus vs intentless-corpus distinction
-(tool-level projection stays well-formed per `specs/graph.md`'s
+(tool-level projection stays well-formed per `openspec/specs/graph/spec.md`'s
 parsed-not-linted note; the transform's scope gate refuses intentless
 corpora), the AGENTS.md output-discipline exception note in D3, and the
 tab-safety pin on reason text (task 1.2). Two review
@@ -109,7 +109,7 @@ not the command.
 
 *Revised 2026-10-04 (specodelic-hya, after add-acset-core landed).* The
 Reference Typing table now exists as data — `acset::schema::canonical()`
-— and is **lint-gated** against `specs/specodelic.md` row-for-row by
+— and is **lint-gated** against `openspec/specs/specodelic/spec.md` row-for-row by
 `schema_matches_typing_table` (lint fires on divergence in either
 direction). That gate closes the drift concern this decision originally
 answered: the view's source is verified current by the same discipline

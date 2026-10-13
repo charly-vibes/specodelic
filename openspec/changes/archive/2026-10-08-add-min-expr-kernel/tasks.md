@@ -149,7 +149,7 @@ Prerequisites: 3.6–3.8 and `define-verification-claim-gates` are approved
 and implemented. A lint-only migration gate is insufficient; every migrated
 claim must be present in a fresh command report with the expected status.
 
-- [x] 6.1 **RED→GREEN**: migrate `specs/USAGE.md` examples to kernel
+- [x] 6.1 **RED→GREEN**: migrate `openspec/USAGE.md` examples to kernel
       expressions where they assert data-dependent facts; each file
       stays lint-clean before the next migrates (`just lint-specs`
       gate on every commit; design D5).
@@ -164,7 +164,7 @@ claim must be present in a fresh command report with the expected status.
       evidence at HEAD (zero claims, `exploration_only`) in
       .wai/projects/min-expr-kernel/research/; zero lint baseline
       additions
-- [x] 6.2 **RED→GREEN**: migrate `specs/specodelic.md` invariants
+- [x] 6.2 **RED→GREEN**: migrate `openspec/specs/specodelic/spec.md` invariants
       (equational and bounded-quantified cells) the same way.
       ✅ four eligible cells migrated: `total_refs` (resolves
       conjunction over all 10 Reference Typing morphisms), `coverage`

@@ -3,9 +3,9 @@
 //!
 //! Responsibilities:
 //! - Implement a MINI STRUCTURAL CHECKER written from the spec text alone
-//!   (`specs/linter-frontmatter.md`, `specs/linter-referential_integrity.md`,
+//!   (`openspec/specs/linter-frontmatter/spec.md`, `openspec/specs/linter-referential_integrity/spec.md`,
 //!   the Reference Typing table and `id_matches_file`/`every_transition_valid`
-//!   invariants in `specs/specodelic.md`) with its OWN naive frontmatter /
+//!   invariants in `openspec/specs/specodelic/spec.md`) with its OWN naive frontmatter /
 //!   table / `[[wiki-link]]` parser and its OWN resolution algorithm — no
 //!   use of `spec::parse_str`, `lint`, or `graph` internals, so a bug in the
 //!   tool's parser cannot hide in the oracle.
@@ -257,7 +257,7 @@ mod oracle {
         file
     }
 
-    // ---------- resolution (specs/linter-referential_integrity.md) ----------
+    // ---------- resolution (openspec/specs/linter-referential_integrity/spec.md) ----------
 
     /// What a `[[target]]` points at. `row: None` = the file's Intent.
     #[derive(Debug, Clone, PartialEq)]
@@ -298,7 +298,7 @@ mod oracle {
             return Some(("Transition", None));
         }
         // Model section anchors are valid targets of the resolution
-        // algorithm (`specs/linter-referential_integrity.md`, step 3).
+        // algorithm (`openspec/specs/linter-referential_integrity/spec.md`, step 3).
         if row == "model.state" {
             return Some(("State", None));
         }
@@ -428,8 +428,8 @@ mod oracle {
 
     // ---------- checks ----------
 
-    /// Frontmatter gate (`specs/linter-frontmatter.md`) + `id_matches_file`
-    /// (`specs/specodelic.md`): id present + `[a-z][a-z0-9_.]*`, kind ==
+    /// Frontmatter gate (`openspec/specs/linter-frontmatter/spec.md`) + `id_matches_file`
+    /// (`openspec/specs/specodelic/spec.md`): id present + `[a-z][a-z0-9_.]*`, kind ==
     /// intent, statement non-empty, id == stem(path) with `-` → `.`.
     /// Files with no frontmatter are exempt non-spec files.
     fn frontmatter_findings(file: &File, out: &mut Vec<Finding>) {
@@ -505,7 +505,7 @@ mod oracle {
         }
     }
 
-    /// `unique_within_file` (`specs/linter-referential_integrity.md`): no
+    /// `unique_within_file` (`openspec/specs/linter-referential_integrity/spec.md`): no
     /// two rows in a file share the same local id.
     fn duplicate_findings(file: &File, out: &mut Vec<Finding>) {
         let mut seen: Vec<(String, &'static str)> = Vec::new();
@@ -533,7 +533,7 @@ mod oracle {
         }
     }
 
-    /// The Reference Typing table (`specs/specodelic.md`) read as a
+    /// The Reference Typing table (`openspec/specs/specodelic/spec.md`) read as a
     /// constraint, plus `ref_resolves` and `every_transition_valid`.
     fn reference_findings(
         file: &File,
@@ -903,7 +903,8 @@ fn oracle_agrees_with_spk_on_fixtures() {
 fn corpus_passes_reference_oracle() {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let mut files = Vec::new();
-    collect_corpus_specs(&manifest.join("specs"), &mut files);
+    // Single tree (specodelic-jf1): the corpus is the openspec/specs
+    // tree; the legacy two-tree specs/ walk is retired with it.
     collect_openspec_capability_specs(&manifest.join("openspec/specs"), &mut files);
     assert!(
         files.len() > 20,

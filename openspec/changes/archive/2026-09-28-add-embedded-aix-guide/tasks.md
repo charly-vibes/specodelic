@@ -65,10 +65,10 @@ lands before any behavior change.
 ## 6. Drift guard + gates
 
 - [x] 6.1 Unit test extracting the latest `Revision N` heading from
-      `specs/specodelic.md` against `FORMAT_REVISION` (numeric
+      `openspec/specs/specodelic/spec.md` against `FORMAT_REVISION` (numeric
       comparison incl. `10 > 9`; fails the suite if stale)
 - [x] 6.2 Run `just ci` (fmt, clippy `-D warnings`, tests, release
       build), `spk lint specs` — corpus must stay clean — and
       `openspec validate add-embedded-aix-guide --strict`
-- [x] 6.3 Update `README.md` AIX section + `specs/STATUS.md` §3
+- [x] 6.3 Update `README.md` AIX section + `openspec/STATUS.md` §3
       inventory with the new command; file/adjust beads issues

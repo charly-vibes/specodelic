@@ -77,7 +77,7 @@ citation cannot be discharged).
   over shared fixtures) runs as a CI property test; run reports persist
   backend, bound, and per-invariant three-valued status.
 - **Corpus migration (no delta — specodelic-corpus edits, tasks only):**
-  `specs/USAGE.md` examples, then `specs/specodelic.md` invariants,
+  `openspec/USAGE.md` examples, then `openspec/specs/specodelic/spec.md` invariants,
   migrate to kernel expressions gated per-file (specodelic-lf3
   pattern); `just lint-specs` dogfood stays green with no new advisory
   class.
@@ -95,7 +95,7 @@ citation cannot be discharged).
 | D2 | Backend agreement starts as a CI property test over shared fixtures; promotion to `law_requires_cases`-shaped Property row deferred until l8l (py emitter) and aby land | decided |
 | D3 | Slice 1 = citation-algebra interpretation only; `fragment_guard_rejected` stands; executable guard fragments remain rejected of record | decided (CORR-002) |
 | D4 | `kernel.binding` is Tier C mechanism vocabulary — opaque string, never interpreted, namespaced against pack binding columns | decided (CORR-004) |
-| D5 | Migration order: `specs/USAGE.md` examples, then `specs/specodelic.md` invariants; gated per-file | decided |
+| D5 | Migration order: `openspec/USAGE.md` examples, then `openspec/specs/specodelic/spec.md` invariants; gated per-file | decided |
 | D6 | No type-vocabulary freeze in this change; atomics per D1; E1 (namespaced kinds) / CLAR-002 stay open | decided |
 | D7 | Kernel-first sequencing, conditional on sibling joint sign-off; pack numeric predicates stay pack-side | **decided** — kernel-first countersigned by the sibling 2026-10-06 (CORR-003) |
 | D8 | Widening law: new atomics must be decidable over finite instances; pack predicates register under the same gate | decided |

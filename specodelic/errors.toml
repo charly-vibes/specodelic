@@ -57,7 +57,7 @@ traces_to = "[[errors]]"
 [[constraints]]
 id = "contract_published"
 kind = "invariant"
-expr = "`the output contract rows live in specs/errors.md as kind == extension_point, and exist only there — capability constraints state requirements about them, never duplicate them; tool files point satisfies at the errors.md rows from their own files, per the extension_point mechanism`"
+expr = "`the output contract rows live in openspec/specs/errors/spec.md as kind == extension_point, and exist only there — capability constraints state requirements about them, never duplicate them; tool files point satisfies at the errors.md rows from their own files, per the extension_point mechanism`"
 traces_to = "[[errors]]"
 
 [[constraints]]

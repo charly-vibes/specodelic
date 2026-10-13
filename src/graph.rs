@@ -1,4 +1,4 @@
-//! The typed reference graph — derived, never authored (`specs/graph.md`).
+//! The typed reference graph — derived, never authored (`openspec/specs/graph/spec.md`).
 //!
 //! Purpose: turn every typed reference field in the corpus into one
 //! adjacency structure over the format's kinds. Responsibilities: extract
@@ -43,8 +43,8 @@ pub struct Edge {
 }
 
 /// A typing-forbidden edge (the Reference Typing table in
-/// `specs/specodelic.md`). Reported as a labeled violation, never recorded
-/// as an edge — `specs/graph.md`'s `edge_kind_matches_typing`.
+/// `openspec/specs/specodelic/spec.md`). Reported as a labeled violation, never recorded
+/// as an edge — `openspec/specs/graph/spec.md`'s `edge_kind_matches_typing`.
 #[derive(Debug, Clone, Serialize)]
 pub struct Violation {
     /// Source node the forbidden edge would have started at.
@@ -68,13 +68,13 @@ pub struct GraphReport {
     /// Typing-forbidden edges — labeled, never recorded as edges.
     pub violations: Vec<Violation>,
     /// Cycles in the `supersedes` edge set (`supersedes_dag`,
-    /// `specs/linter-graph_shape.md`), rendered as `a → b → a` paths.
+    /// `openspec/specs/linter-graph_shape/spec.md`), rendered as `a → b → a` paths.
     pub supersedes_cycles: Vec<String>,
     /// Per-node fan-in counts (how many edges point at the node).
     pub fan_in: BTreeMap<String, usize>,
     /// Per-node fan-out counts.
     pub fan_out: BTreeMap<String, usize>,
-    /// Files classified as external boundaries (specs/graph.md
+    /// Files classified as external boundaries (openspec/specs/graph/spec.md
     /// `external_boundary_derived`): each hosts ≥1 `extension_point`
     /// Constraint — pure derivation, never an authored tag.
     pub external_boundaries: Vec<String>,
@@ -164,8 +164,8 @@ pub(crate) fn kind_index(specs: &[Spec]) -> BTreeMap<String, NodeKind> {
 }
 
 /// The closed union of typed reference columns the graph extracts edges
-/// from — `specs/graph.md`'s `total_extraction`, whose authority is the
-/// Reference Typing table in `specs/specodelic.md`. `satisfies` IS a typed
+/// from — `openspec/specs/graph/spec.md`'s `total_extraction`, whose authority is the
+/// Reference Typing table in `openspec/specs/specodelic/spec.md`. `satisfies` IS a typed
 /// field (Revision 7) even though graph.md's parenthetical enumeration
 /// predates it — `errors.md`'s `contract_satisfied_from_consumer` pins
 /// satisfies edges as extracted. A link in any OTHER column — `expr`,
@@ -329,7 +329,7 @@ pub(crate) fn resolve_link(
 }
 
 /// Cycles in the `supersedes` edge set (`supersedes_dag`,
-/// `specs/linter-graph_shape.md`). Deterministic: BTreeMap iteration plus
+/// `openspec/specs/linter-graph_shape/spec.md`). Deterministic: BTreeMap iteration plus
 /// rotation-normalized cycle paths (a cycle found from any of its nodes
 /// reports once, smallest node first).
 fn find_supersedes_cycles(edges: &[Edge]) -> Vec<String> {
@@ -1018,7 +1018,7 @@ pub fn build(specs: &[Spec]) -> GraphReport {
     for spec in specs {
         let file_id = &spec.intent.id;
         // A Transition's `from`/`to` cells are typed reference fields (→
-        // State, same file): one edge each, per `specs/graph.md`'s
+        // State, same file): one edge each, per `openspec/specs/graph/spec.md`'s
         // total_extraction. An unknown state dangles — never dropped.
         for t in &spec.transitions {
             let from_node = format!("{file_id}.{}", t.id);
@@ -1064,10 +1064,10 @@ pub fn build(specs: &[Spec]) -> GraphReport {
                     source_kind,
                     ..
                 } => {
-                    // Reference Typing (specs/specodelic.md): a typed
+                    // Reference Typing (openspec/specs/specodelic/spec.md): a typed
                     // reference column whose target kind is forbidden is
                     // reported as a labeled violation, never recorded as an
-                    // edge (edge_kind_matches_typing, specs/graph.md).
+                    // edge (edge_kind_matches_typing, openspec/specs/graph/spec.md).
                     if let Some(reason) =
                         typing_violation(&schema, &column, source_kind.as_ref(), kinds.get(&target))
                     {
@@ -1130,7 +1130,7 @@ pub fn build(specs: &[Spec]) -> GraphReport {
     let instance = crate::acset::instance::Instance::from_specs(specs);
     report.fan_in = crate::acset::query::fan_in(&instance);
     report.fan_out = crate::acset::query::fan_out(&instance);
-    // External boundaries (specs/graph.md `external_boundary_derived`):
+    // External boundaries (openspec/specs/graph/spec.md `external_boundary_derived`):
     // derived from published contracts alone — a stale tag cannot exist
     // because there is no tag.
     report.external_boundaries = specs

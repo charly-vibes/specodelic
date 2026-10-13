@@ -40,7 +40,7 @@ skip the question, lint tells you where.
 **Intent — what do we promise?** One EARS-patterned sentence in the
 frontmatter. If a feature cannot be stated in one sentence, the feature
 is not understood yet; the EARS patterns ([kinds and
-statement](specs/kinds.md), [EARS](specs/linter-ears_syntax.md)) force
+statement](specs/kinds/spec.md), [EARS](specs/linter-ears_syntax/spec.md)) force
 the promise to be about a system response with defined conditions, not a
 vague ambition.
 
@@ -48,18 +48,18 @@ vague ambition.
 Invariants and effects, each a table row tracing to the Intent it serves.
 This is where you discover whether your invariants are actually
 invariant, and which observable outcomes are *contractual* rather than
-incidental ([specodelic.md](specs/specodelic.md)).
+incidental ([specodelic.md](specs/specodelic/spec.md)).
 
 **Model — what can happen?** A state machine: states, guarded
 transitions. The guards must cite the Constraints — the checker demands
 the wiring — so "the model says so" always decomposes into "these named
 claims say so". Writing the Model is where you find out that your
 constraints were silent about the failure paths
-([linter.model_shape](specs/linter-model_shape.md)).
+([linter.model_shape](specs/linter-model_shape/spec.md)).
 
 **Properties — what would convince us?** Every constraint needs a
 deriving property with a generator and a predicate ([coverage,
-linter.coverage](specs/linter-coverage.md)). A claim with no way to
+linter.coverage](specs/linter-coverage/spec.md)). A claim with no way to
 challenge it is a wish, not a design decision.
 
 ## The design loop

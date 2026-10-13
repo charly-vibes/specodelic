@@ -10,15 +10,17 @@ in `CHANGELOG.md`.
 ## What this repo is
 
 A self-hosting specification format (`specodelic`) written in itself:
-every file here is a markdown spec describing either the format, or one
-check the format's own linter performs on other spec files. Start with
-`specodelic.md`, then `STATUS.md` §1 for the full primer if you weren't
-already familiar with this project.
+every corpus file here is a markdown spec describing either the format,
+or one check the format's own linter performs on other spec files. The
+corpus is the single tree `openspec/specs/` (specodelic-jf1): each spec
+is `openspec/specs/<dir>/spec.md`. Start with
+`openspec/specs/specodelic/spec.md`, then `openspec/STATUS.md` §1 for the
+full primer if you weren't already familiar with this project.
 
 **If you're about to write a spec for a piece of software** (a feature, a
 service, a library) rather than for this repo's own linter, read
-`USAGE.md` first. It has the four-layer quick-start and a pattern catalog
-(closed enumerations, Moore-machine output, multi-implementation
+`openspec/USAGE.md` first. It has the four-layer quick-start and a pattern
+catalog (closed enumerations, Moore-machine output, multi-implementation
 conformance, staged/lazy evaluation, algebraic laws, consumer-extended
 contracts, event-sourced/append-only logs, empirical runtime bounds)
 worked out from checking this format against a real domain — most things
@@ -27,13 +29,18 @@ wrong section, not an actual gap.
 
 ## File naming — non-negotiable
 
-A file's declared `id` (in its YAML frontmatter) must equal its filename
-with the following exact mapping:
+A spec file's declared `id` (in its YAML frontmatter) must equal the
+naming-law derivation of its path, with the following exact mapping:
 
-- `-` (hyphen) in the filename ⇔ `.` (dot, namespace separator) in the id
+- `-` (hyphen) in the path ⇔ `.` (dot, namespace separator) in the id
 - `_` (underscore) is preserved literally in both
 
-Example: `linter-graph_shape.md` ⇔ `id: linter.graph_shape`.
+Example: `linter-graph_shape.md` ⇔ `id: linter.graph_shape`. Since
+Revision 18, a file named `spec.md` (the single-tree layout, jf1) derives
+the expected id from its PARENT DIRECTORY: `openspec/specs/linter-graph_shape/spec.md`
+expects `id: linter.graph_shape`. A corpus file outside the tree (legacy
+`specs/<name>.md`, the two-tree layout) still derives it from the file
+stem.
 
 Do not use a hyphen to represent an underscore, or vice versa — this was
 the exact bug fixed in Revision 3 of `specodelic.md` (see `CHANGELOG.md`).
@@ -118,10 +125,10 @@ namespace segment, use `_` inside the segment, `-` only between segments.
   cross-file grep to find every stale reference; don't rely on memory of
   which files mention which other files.
 
-## What doesn't exist yet — don't assume it does
+## What exists — check `STATUS.md` §4 for the gap list
 
-There is no working parser, linter, or model-checker generator yet — only
-the specs describing what they must do. `STATUS.md` §4 has the prioritized
-list of what's unbuilt (kind definitions, the compile/model-check/verify
-pipeline, the rename tool, external completeness checking, orchestration).
-Don't write code that assumes any of this exists without checking §4 first.
+The tool is real: `spk` parses, lints, compiles, model-checks, verifies,
+renames, merges, and orchestrates — the binary dogfoods this very corpus
+(`just lint-specs`, `just ci`). What §4 tracks is the remaining unbuilt
+surface; check it before writing code that assumes a mechanism exists
+(or assumes one doesn't).

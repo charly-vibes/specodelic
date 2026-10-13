@@ -46,7 +46,7 @@ form mean the seam needs no construction, only adoption).
 
 ## What Changes
 
-- **Format (specs/specodelic.md, specs/compile.md — new Revision):**
+- **Format (openspec/specs/specodelic/spec.md, openspec/specs/compile/spec.md — new Revision):**
   the `**rust:**` marker widens to a closed language-tag set —
   `**rust:**`, `**py:**`, `**ts:**` — under a new `fragment_language_closed`
   invariant. The fragment-position rule (specodelic-sd1: marker only in
@@ -56,7 +56,7 @@ form mean the seam needs no construction, only adoption).
   tag from the closed set *without an emitter* (`py`, `ts` — emitters are
   a follow-up change) is a **labeled extraction failure with a remediation
   hint**, never a silent fall-through to Rust emission and never prose.
-- **Verify (specs/verify.md, no behavior change):** `PropertiesRunner`
+- **Verify (openspec/specs/verify/spec.md, no behavior change):** `PropertiesRunner`
   stays the seam; `CargoRunner` stays the only adapter; per-language
   adapters land *with* their emitters in the follow-up — no registry is
   built here (D3).

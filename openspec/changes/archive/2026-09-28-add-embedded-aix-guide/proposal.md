@@ -10,7 +10,7 @@ lifecycle) lives exclusively in this repo's `specs/*.md` corpus. An
 agent in a **consumer repo** running the released `spk` binary has no
 access to it: `rg include_str src/` is empty, `spk lint --help` teaches
 nothing about *what* the invariants are, `spk new` scaffolds a skeletal
-template, and `spk doctor` demands `specs/specodelic.md` on disk —
+template, and `spk doctor` demands `openspec/specs/specodelic/spec.md` on disk —
 reporting "missing" on a perfectly valid consumer workspace. The tool
 can check specs but cannot explain them.
 
@@ -37,7 +37,7 @@ can check specs but cannot explain them.
   (valid constraint kinds, what a guard may cite, law-case requirements)
   so the scaffold explains itself while being filled in
 - **`spk doctor` dual-mode**: distinguishes a *self-hosting corpus*
-  workspace (has `specs/specodelic.md`) from a *consumer workspace*
+  workspace (has `openspec/specs/specodelic/spec.md`) from a *consumer workspace*
   (specs dir without the core spec); consumer mode no longer fails on
   the missing core spec and instead reports the embedded guide revision,
   warning when a local corpus declares a newer format revision than the
@@ -56,7 +56,7 @@ unknown fields are unaffected.
 
 - Affected specs: `embedded-guide`, `lint-findings`, `doctor` (new
   OpenSpec capabilities; the domain spec of record for the format itself
-  remains `specs/specodelic.md` — this change embeds a *rendering* of
+  remains `openspec/specs/specodelic/spec.md` — this change embeds a *rendering* of
   it, it does not reinterpret it)
 - Affected code: new `src/guide.rs` (+ embedded `src/guide.md`), thin
   wiring in `src/main.rs` (new subcommand, version payload, doctor

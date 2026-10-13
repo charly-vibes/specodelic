@@ -6,11 +6,11 @@ are separate tasks from features.
 
 ## 1. Spec-first (corpus)
 
-- [x] 1.1 Create `specs/packs.md` — four-layer corpus spec describing the
+- [x] 1.1 Create `openspec/specs/packs/spec.md` — four-layer corpus spec describing the
       pack mechanism (kind: profile, six manifest tables, corpus-scan
       discovery, advisory-first opt-in, `uses` outbound leaf, lifecycle,
       honest-empty). File-naming law: `id: packs`. Must pass `spk lint`.
-- [x] 1.2 Revision 9 delta in `specs/specodelic.md`: append-only Revision
+- [x] 1.2 Revision 9 delta in `openspec/specs/specodelic/spec.md`: append-only Revision
       heading — INTENT_KINDS grows by `profile`, Reference Typing grows by
       `uses` (outbound leaf → profile id). Update STATUS.md §1 primer +
       USAGE.md.

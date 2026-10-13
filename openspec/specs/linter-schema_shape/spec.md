@@ -49,8 +49,8 @@ about any single file's current shape.
 |--------------------------|-----------|--------------------------------------------------------------------------------------------------|-----------------------------------------------------|
 | id_set_grows_only         | invariant | `∀ 𝒦-governed id-set S (a variant-table's ids, a Constraint/Property row's own kind value-set, or the Reference Typing table's field set), revision r < r': S(r) ⊆ S(r'), appended only under a new Revision heading — no member removed or renumbered; a member's typing may narrow only in the same Revision that introduces the kind-split it depends on, and only if it invalidates nothing valid at r` | [[linter.schema_shape]]  |          |
 | id_set_order_stable       | invariant | `∀ 𝒦-governed id-set S, revision r < r': the relative order of members present in both r and r' is unchanged` | [[linter.schema_shape]]  |          |
-| constraint_kind_closed    | invariant | `∀ Constraint row: row.kind ∈ {invariant, advisory, effect, extension_point}, extended per-file by the active packs' declared kinds (specs/packs.md fiber kinds — base ∪ active-pack-fiber, never narrower; without the pack active the token stays outside the closed set and the labeled finding fires)` — see [[kinds.constraint_row_shape]]   | [[linter.schema_shape]] |          |
-| property_kind_closed      | invariant | `∀ Property row: row.kind ∈ {unit, law}, extended per-file by the active packs' declared kinds (specs/packs.md fiber kinds — base ∪ active-pack-fiber, never narrower; without the pack active the token stays outside the closed set and the labeled finding fires)` — see [[kinds.property_row_shape]]                        | [[linter.schema_shape]]   |          |
+| constraint_kind_closed    | invariant | `∀ Constraint row: row.kind ∈ {invariant, advisory, effect, extension_point}, extended per-file by the active packs' declared kinds (openspec/specs/packs/spec.md fiber kinds — base ∪ active-pack-fiber, never narrower; without the pack active the token stays outside the closed set and the labeled finding fires)` — see [[kinds.constraint_row_shape]]   | [[linter.schema_shape]] |          |
+| property_kind_closed      | invariant | `∀ Property row: row.kind ∈ {unit, law}, extended per-file by the active packs' declared kinds (openspec/specs/packs/spec.md fiber kinds — base ∪ active-pack-fiber, never narrower; without the pack active the token stays outside the closed set and the labeled finding fires)` — see [[kinds.property_row_shape]]                        | [[linter.schema_shape]]   |          |
 | no_prose_field_parsed     | invariant | `the parser's AST never branches on the text content of a rationale/description field`            | [[linter.schema_shape]]        |          |
 | prose_field_passthrough   | invariant | `rationale/description content is stored verbatim and emitted verbatim in the compiled TOML`      | [[linter.schema_shape]]        |          |
 | kind_check_failure | effect | `linter.schema_shape.kind_check_failure(detail)` | [[linter.schema_shape]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
@@ -112,7 +112,7 @@ directly) fired the finding even with the pack discovered. The
 walkers' effective set is now base ∪ active-pack-fiber: the `## Kinds`
 tokens of every pack active for the file (declared `uses` edge or
 vocabulary match, the advisory-first activation rule in
-`specs/packs.md`). Never narrower than the base set — a base-set member
+`openspec/specs/packs/spec.md`). Never narrower than the base set — a base-set member
 is accepted unconditionally, the base sets themselves do not grow
 (`id_set_grows_only` untouched, no format Revision), and a fiber kind
 with no active declaring pack stays outside the closed set, firing the

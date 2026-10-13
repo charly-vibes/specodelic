@@ -76,7 +76,7 @@ content **and** the consumed scenario corpus bytes. No new claim status
 vocabulary is introduced; conform statuses map onto the existing
 evaluator-kind set. Rationale: two taxonomies for "what the checker can
 and cannot interpret" would drift — the model_check spec already fixed the
-semantics (`specs/model_check.md`, `claim_aggregate_governs`).
+semantics (`openspec/specs/model_check/spec.md`, `claim_aggregate_governs`).
 
 ### D5 — Input gate: lint-clean file, current artifacts
 

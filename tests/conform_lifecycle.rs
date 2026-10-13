@@ -268,7 +268,7 @@ fn conform_run_leaves_stage_unchanged() {
 // ---------------------------------------------------------------------------
 
 /// Read-only dogfood: conform run against a FIXTURE COPY of a real
-/// `specs/` corpus file (`specs/errors.md` — the only real corpus file
+/// `specs/` corpus file (`openspec/specs/errors/spec.md` — the only real corpus file
 /// that lints clean standalone AND compiles single-file) and a fixture
 /// oracle corpus. The REAL corpus directory and the git worktree must be
 /// byte-identical after the run, and conform must write nothing at all —
@@ -277,22 +277,23 @@ fn conform_run_leaves_stage_unchanged() {
 #[test]
 fn consumes_never_writes() {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let real_corpus = manifest.join("specs");
+    let real_corpus = manifest.join("openspec/specs");
 
-    // BEFORE: snapshot the real corpus (the REAL specs/ directory) and
-    // the git worktree state.
+    // BEFORE: snapshot the real corpus (the single-tree corpus — the
+    // errors capability dir, specodelic-jf1) and the git worktree state.
     let corpus_before = snapshot(&real_corpus);
     let worktree_before = git_status_porcelain(&manifest);
 
     // Fixture: a byte-copy of a real corpus file in a temp dir, compiled
     // into a temp out-dir (never the real corpus).
     let dir = tempfile::tempdir_in(std::env::temp_dir()).expect("tempdir");
-    let original = std::fs::read(real_corpus.join("errors.md")).expect("real corpus reads");
-    std::fs::write(dir.path().join("errors.md"), &original).expect("fixture copy writes");
+    let original = std::fs::read(real_corpus.join("errors/spec.md")).expect("real corpus reads");
+    std::fs::create_dir_all(dir.path().join("errors")).unwrap();
+    std::fs::write(dir.path().join("errors/spec.md"), &original).expect("fixture copy writes");
     let mut spec =
         spec::parse_str(&String::from_utf8(original.clone()).expect("real corpus is utf8"))
             .expect("real corpus file parses");
-    spec.path = Some(dir.path().join("errors.md"));
+    spec.path = Some(dir.path().join("errors/spec.md"));
     let out_dir = dir.path().join("out");
     compile_fixture(&spec, &out_dir);
 

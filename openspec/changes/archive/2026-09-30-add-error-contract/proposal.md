@@ -24,7 +24,7 @@ intra-file citations with an explicit orchestrate carve-out.
 
 ## What Changes
 
-- **New format corpus file `specs/errors.md`** owning the cross-cutting
+- **New format corpus file `openspec/specs/errors/spec.md`** owning the cross-cutting
   output contract as `extension_point` rows (envelope kind ↔ `ok:false`,
   exit codes 0/1/2, one labeled failure per stage, remediation hint
   required) plus the error-shape law: an error Constraint's expr is a
@@ -38,7 +38,7 @@ intra-file citations with an explicit orchestrate carve-out.
   edge to a file-owned labeled error Constraint; failure guards become
   typed negations `¬([[c1]] ∧ [[c2]] ∧ …)` where the cited constraints are
   intra-file; tool files point `satisfies` at the contract rows.
-- **New checker file `specs/linter-failure_shape.md`, spec-only in this
+- **New checker file `openspec/specs/linter-failure_shape/spec.md`, spec-only in this
   change** — the future eighth checker (`terminal_states_emit`,
   `error_labels_unique`, `guard_negation_total`). Implementation is a
   separate ticket; most of its enforcement already exists structurally via

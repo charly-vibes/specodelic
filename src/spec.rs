@@ -3,7 +3,7 @@
 //! One spec file = YAML frontmatter (Intent) + a `## Constraints` table +
 //! a `## Model` section (`### States` list, `### Transitions` table) +
 //! a `## Properties` table. Prose is never parsed (see
-//! `specs/specodelic.md`, `prose_untouched`).
+//! `openspec/specs/specodelic/spec.md`, `prose_untouched`).
 //!
 //! This parser is deliberately dumb: frontmatter and fixed-schema markdown
 //! tables only, `[[wiki-link]]` references from structured cells. It is the

@@ -40,7 +40,7 @@ stat-test rows. This is the stress test the mechanism was built for.
 - **New in-repo pack artifact plan** `packs/bioimage-data.md` (id
   `bioimage.data`, per the file-naming law): six manifest tables
   declaring exactly the vocabulary above. No checker code — pack
-  checkers ship as declarations per `specs/packs.md` (honest-empty
+  checkers ship as declarations per `openspec/specs/packs/spec.md` (honest-empty
   convention); nothing in `src/` changes.
 
 ## Capabilities
@@ -108,8 +108,8 @@ stat-test rows. This is the stress test the mechanism was built for.
 ## Governance
 
 - Decision of record: synthesis §10 D6 (pilot = bioimage-data); demand
-  R2/R3 (mistral-bioimage, grok-bioimage) per `specs/packs.md`.
+  R2/R3 (mistral-bioimage, grok-bioimage) per `openspec/specs/packs/spec.md`.
 - Ro5 review at proposal time before implementation (recorded in
   design.md "Review outcome").
 - Spec-first: the capability delta states the pack contract; the pack
-  artifact implements it; `specs/packs.md` governs the mechanism.
+  artifact implements it; `openspec/specs/packs/spec.md` governs the mechanism.

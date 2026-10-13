@@ -1,4 +1,4 @@
-# Delta spec: compile capability (mirrors specs/compile.md)
+# Delta spec: compile capability (mirrors openspec/specs/compile/spec.md)
 
 ## ADDED Requirements
 

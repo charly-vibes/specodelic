@@ -3,7 +3,7 @@ authors = ["charly vibes"]
 language = "en"
 src = "docs/src"
 title = "specodelic"
-description = "A specification format for AI agents — frontmatter, Constraints, Model, and Properties tables in plain markdown, with a linter, graph, and pipeline toolchain."
+description = "A specification format for AI agents — Intent frontmatter plus Constraints, Model, and Properties tables in plain markdown, with a linter, graph, and pipeline toolchain."
 
 [output.html]
 default-theme = "coal"

@@ -158,7 +158,7 @@ the openspec proposal gates, not ride a vendor pile-on.
 the format should be very extendable. The §6 "core candidate" labels for
 R1/R3/R7 are demoted accordingly.
 
-**Categorical framing (grounded in specs/theory.md):**
+**Categorical framing (grounded in openspec/theory.md):**
 
 - Core = the schema category 𝒦 (5 kinds) + generating morphisms (Reference
   Typing) + laws + append-only discipline. An instance is a functor
@@ -226,7 +226,7 @@ Mechanisms ⇒ standard packs; vocabularies ⇒ domain fibers.
   Standard-pack governance (new): a pack is "standard" when it ships
   in-repo, is dogfooded by the corpus, versions with the format, and passed
   the ≥3-independent-domain demand rule + Ro5 at proposal time. Recorded
-  spec-first in a future specs/ file (e.g. specs/packs.md).
+  spec-first in a future specs/ file (e.g. openspec/specs/packs/spec.md).
 
 Still open: **D1** (pack artifact shape), **D6** (pilot pack).
 
@@ -276,4 +276,4 @@ manifest shape, rejections of 01/03/04, D6 pilot choice).
 per-facet manifest tables, discovery/opt-in/lifecycle) + the three standard
 packs the pilot needs (data/lineage, numeric predicates, empirical kind),
 then `add-bioimage-pack` as the thin domain instance. Spec-first:
-`specs/packs.md` before checker code, per repo convention.
+`openspec/specs/packs/spec.md` before checker code, per repo convention.

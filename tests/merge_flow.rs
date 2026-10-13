@@ -1,4 +1,4 @@
-//! Integration tests for `spk merge` (specs/merge.md, beads specodelic-7oq).
+//! Integration tests for `spk merge` (openspec/specs/merge/spec.md, beads specodelic-7oq).
 //!
 //! METER from the ticket: tempdir spec trees per fixture, `spk merge
 //! --json`, findings asserted on the envelope. The three MUSTs: an id
