@@ -54,15 +54,15 @@ beads tickets `specodelic-*` carrying the `add-skill-pack` label.)
 
 ## 4. CLI verb — `spk skill install`
 
-- [ ] 4.1 **RED**: CLI tests — default target `~/.claude/skills`
+- [x] 4.1 **RED**: CLI tests — default target `~/.claude/skills`
       (parent dirs created), `--dir` override; overwrite refusal for a
       non-marker target file (exit 2, hint names the path, file
       untouched); marker-bearing overwrite succeeds; exit 0/1/2 per the
       error contract; envelope lists written paths + `pack_content_hash`.
-- [ ] 4.2 **GREEN**: implement the verb on the genesis CLI surface
+- [x] 4.2 **GREEN**: implement the verb on the genesis CLI surface
       (envelope output, `--human` for TTYs); register in the command
       list, completions.
-- [ ] 4.3 **TIDY**: verb docs (`spk skill --help`), README command
+- [x] 4.3 **TIDY**: verb docs (`spk skill --help`), README command
       surface entry.
 
 ## 5. Doctor staleness check
