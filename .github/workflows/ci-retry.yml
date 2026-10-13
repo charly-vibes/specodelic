@@ -1,0 +1,79 @@
+# One-shot auto-retry for CI runner-acquisition failures (specodelic-xskh).
+#
+# macOS arm64 hosted runners periodically starve: the job never acquires a
+# runner, queues for 15 minutes, and fails with "The job was not acquired
+# by Runner of type hosted even after multiple attempts" — with zero steps
+# executed. That shows main red while every code gate is green, masking
+# real regressions. This workflow re-runs the failed jobs of a CI run once,
+# and only when every failed job failed infra-style:
+#
+#   - the run completed with conclusion `failure`;
+#   - it was attempt 1 of a push to main (attempt >= 2 never retries, so
+#     this cannot loop and a persistent outage still lands red honestly);
+#   - every failed job has NO completed steps — a real clippy/test failure
+#     always has completed (failing) steps, so it is never masked.
+#
+# `workflow_run` evaluates the version of this file on the default branch,
+# so landing it on main is what arms it.
+name: CI retry
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  actions: write
+
+jobs:
+  retry:
+    name: Re-run infra-failed jobs (once)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Detect infra failure and re-run failed jobs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const attempt = run.run_attempt || 1;
+            if (run.conclusion !== 'failure') {
+              core.info(`run ${run.id} concluded ${run.conclusion}; nothing to do`);
+              return;
+            }
+            if (attempt > 1) {
+              core.info(`run ${run.id} is attempt ${attempt}; one retry already spent`);
+              return;
+            }
+            if (run.event !== 'push') {
+              core.info(`run ${run.id} was triggered by ${run.event}; only push runs auto-retry`);
+              return;
+            }
+            const jobs = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: run.id,
+              per_page: 100,
+            });
+            const failed = jobs.data.jobs.filter(j => j.conclusion === 'failure');
+            if (failed.length === 0) {
+              core.info('no failed jobs found; nothing to do');
+              return;
+            }
+            // A job that never acquired a runner has no completed steps.
+            // Any completed (failing/cancelled) step means real work ran —
+            // never mask it.
+            const infra = failed.filter(j =>
+              j.steps.every(s => s.status !== 'completed')
+            );
+            if (infra.length !== failed.length) {
+              const real = failed.filter(j => !infra.includes(j)).map(j => j.name);
+              core.info(`real step failures present (${real.join(', ')}); not auto-retrying`);
+              return;
+            }
+            core.info(`attempt 2 for run ${run.id}: infra failures in ${infra.map(j => j.name).join(', ')}`);
+            await github.rest.actions.reRunWorkflowFailedJobs({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: run.id,
+            });

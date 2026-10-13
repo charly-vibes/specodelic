@@ -14,6 +14,10 @@
 //! 4. ci.yml lints fenced spec examples extracted from the corpus docs
 //!    (scripts/check_doc_examples.py), so USAGE-style quick-start blocks
 //!    cannot silently drift out of the format.
+//! 5. ci-retry.yml re-runs infra-failed CI jobs once (runner-acquisition
+//!    starvation, specodelic-xskh) — with the no-loop and no-masking
+//!    guards, so a dropped retry file cannot silently reintroduce the
+//!    red-main-without-code-failure failure mode.
 
 use std::fs;
 use std::path::Path;
@@ -57,6 +61,36 @@ fn ci_matrix_covers_linux_macos_windows() {
     for os in ["ubuntu-latest", "macos-latest", "windows-latest"] {
         assert!(ci.contains(os), "ci.yml matrix must include {os}");
     }
+}
+
+/// macOS hosted runners periodically starve (specodelic-xskh): the job
+/// never acquires a runner and fails with zero steps executed. ci-retry.yml
+/// re-runs such failures once — but only when every failed job ran no steps
+/// (a real clippy/test failure always has completed steps, so it is never
+/// masked) and only on attempt 1 of a push run (no loop; a persistent
+/// outage still lands red). Pin the wiring so the file cannot silently
+/// rot the way workflows otherwise do.
+#[test]
+fn ci_retry_pins_infra_re_run_with_guards() {
+    let retry = read(".github/workflows/ci-retry.yml");
+    assert!(
+        retry.contains("workflow_run"),
+        "ci-retry.yml must trigger on CI workflow_run completion"
+    );
+    for guard in [
+        "attempt > 1",
+        "event !== 'push'",
+        "s.status !== 'completed'",
+    ] {
+        assert!(
+            retry.contains(guard),
+            "ci-retry.yml must keep the {guard:?} guard — without it the retry loops or masks real failures"
+        );
+    }
+    assert!(
+        retry.contains("reRunWorkflowFailedJobs"),
+        "ci-retry.yml must re-run only the failed jobs"
+    );
 }
 
 /// Supply-chain gate: cargo-deny must run in CI with advisories and
