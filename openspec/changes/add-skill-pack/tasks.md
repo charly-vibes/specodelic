@@ -80,11 +80,11 @@ beads tickets `specodelic-*` carrying the `add-skill-pack` label.)
 
 ## 6. Docs wiring + change completion
 
-- [ ] 6.1 Book thin-pointer page `docs/src/design-conversations.md`
+- [x] 6.1 Book thin-pointer page `docs/src/design-conversations.md`
       (links procedure source, install command, FAQ/design-canvas; quotes
       only a one-line summary — never duplicates protocol prose or the
       example); SUMMARY.md entry under Thinking in Specs; README + llms
       verb entries; `just docs-build` green (unresolved-include gate).
-- [ ] 6.2 `openspec validate add-skill-pack --strict`; `just ci` green;
+- [x] 6.2 `openspec validate add-skill-pack --strict`; `just ci` green;
       tasks in this file checked; change ready for the dual-format
       archive recipe (separate rollout ticket).

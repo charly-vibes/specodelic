@@ -16,6 +16,7 @@
 # Thinking in Specs
 
 - [Specs as the design substrate — a canvas for thinking about the system](design-canvas.md)
+- [Design conversations — the specodelic-design skill](design-conversations.md)
 
 # The Format
 

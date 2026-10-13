@@ -52,6 +52,7 @@ The CLI binary is `spk` (crate: `specodelic`).
 - `spk migrate <file>` — wrap an openspec delta into the dual-format skeleton
 - `spk archive-companion <CHANGE_ID>` — archive an openspec change preserving its dual-format layer
 - `spk hooks install|uninstall` — wire/unwire the dual-format lint gate in the hook chain
+- `spk skill install` — install the managed specodelic-design skill pack (~/.claude/skills; doctor flags staleness)
 
 ## Self-hosting
 
@@ -140,6 +141,7 @@ cargo install specodelic
 - [Glossary — the jargon, defined for a cold read](https://charly-vibes.github.io/specodelic/glossary.html)
 - [FAQ — the questions a cold read asks](https://charly-vibes.github.io/specodelic/faq.html)
 - [Specs as the design substrate — a canvas for thinking about the system](https://charly-vibes.github.io/specodelic/design-canvas.html)
+- [Design conversations — the specodelic-design skill](https://charly-vibes.github.io/specodelic/design-conversations.html)
 - [conform — external oracle evidence, outside the lifecycle](https://charly-vibes.github.io/specodelic/conform.html)
 - [Graph views — derived diagrams of the corpus](https://charly-vibes.github.io/specodelic/graph-views.html)
 - [Architecture — the four layers and the lint pipeline](https://charly-vibes.github.io/specodelic/architecture.html)
