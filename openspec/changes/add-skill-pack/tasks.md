@@ -28,15 +28,15 @@ beads tickets `specodelic-*` carrying the `add-skill-pack` label.)
 
 ## 2. Explain-derived tables + membership gate
 
-- [ ] 2.1 **RED**: membership tests — every topic name, lint rule id, and
+- [x] 2.1 **RED**: membership tests — every topic name, lint rule id, and
       EARS pattern name appearing in generated text resolves against the
       served `spk explain` tables; a deliberately dangling mention in a
       test fixture fails with the identifier named.
-- [ ] 2.2 **GREEN**: render `references/format.md` (EARS patterns, kind
+- [x] 2.2 **GREEN**: render `references/format.md` (EARS patterns, kind
       sets, typed-reference table, naming law) through the same code
       paths that serve `spk explain ears`/`kinds`/`references`; the
       topics line renders from the topic list table.
-- [ ] 2.3 **TIDY**: single render entry point shared by explain and pack
+- [x] 2.3 **TIDY**: single render entry point shared by explain and pack
       generation (no table restatement in either direction).
 
 ## 3. Example embedding + lint gate

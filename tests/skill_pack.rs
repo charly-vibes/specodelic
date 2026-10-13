@@ -7,8 +7,21 @@
 //! three files, every generated file carries the managed marker naming
 //! the regenerate command, and `pack_content_hash` is SHA-256 over
 //! sorted `path\0content` with a known fixture vector.
+//!
+//! Phase 2 (specodelic-ifm7) contract: the explain-derived tables are
+//! rendered through the same code paths that serve `spk explain` (design
+//! D3 — no table restatement), and every topic name, lint rule id, and
+//! EARS pattern name mentioned in the hand-authored protocol resolves
+//! against the in-binary tables. A dangling mention fails naming the
+//! identifier — a hand-maintained list may be stale, a generated one
+//! cannot.
 
-use specodelic::skill_pack::{PackFiles, generate_pack, pack_content_hash, render_body};
+use specodelic::ears::PATTERNS;
+use specodelic::guide::TOPICS;
+use specodelic::lint::RULE_TABLE;
+use specodelic::skill_pack::{
+    PackFiles, check_membership, generate_pack, pack_content_hash, render_body, topics_mentioned,
+};
 
 /// The managed marker every generated file must start with (proposal:
 /// manual edits are detectable by construction; design D5/D6).
@@ -137,4 +150,154 @@ fn tracked_sources_render_clean() {
     // No tracked source carries a dangling placeholder at HEAD: pack
     // generation must succeed (a drift-class guard in its own right).
     generate_pack("specodelic-design").expect("current sources must render cleanly");
+}
+
+// ---- Phase 2: explain-derived rendering (tasks.md §2.2, design D3) ----
+
+#[test]
+fn topics_line_renders_from_the_topic_list_table() {
+    // The protocol's topics line is rendered from `guide::TOPICS` — the
+    // same table `spk explain` (no argument) lists — never restated in
+    // the source. Order and set must match the served table exactly (the
+    // grounding drift class: the draft listed 8 of 9 topics).
+    let pack = generate_pack("specodelic-design").expect("pack generates");
+    let skill = &pack["SKILL.md"];
+    let line = skill
+        .lines()
+        .find(|l| l.contains("topics:"))
+        .expect("SKILL.md names the explaunable topics");
+    let rendered = topics_mentioned(line);
+    let served: Vec<&str> = TOPICS.iter().map(|(id, _)| *id).collect();
+    assert_eq!(
+        rendered, served,
+        "the topics line must equal the served topic list, in serving order"
+    );
+    // and the source itself must not carry a hand-copied list: the line
+    // was produced by the renderer, so the tracked source holds the
+    // placeholder instead.
+    let source = include_str!("../skill-packs/specodelic-design/SKILL.md");
+    assert!(
+        source.contains("<!-- spk:render:explain-topics -->"),
+        "SKILL.md must render its topics line from the placeholder, not restate it"
+    );
+}
+
+#[test]
+fn format_reference_renders_the_explain_topics_it_summarizes() {
+    // references/format.md renders EARS patterns, kind sets, the
+    // typed-reference table, and the naming law through the same code
+    // paths that serve `spk explain ears`/`kinds`/`references`/`format`
+    // — byte-equal to the served bodies, never a hand-copied table.
+    let pack = generate_pack("specodelic-design").expect("pack generates");
+    let format_ref = &pack["references/format.md"];
+    for topic in ["format", "ears", "kinds", "references"] {
+        let body = specodelic::guide::topic_body(topic)
+            .unwrap_or_else(|| panic!("topic `{topic}` must render"));
+        assert!(
+            format_ref.contains(&body),
+            "references/format.md must render the served `{topic}` body verbatim"
+        );
+    }
+    // no placeholder and no unfilled slot may survive rendering
+    for content in pack.values() {
+        assert!(!content.contains("<!-- spk:render:"), "placeholder leaked");
+        assert!(!content.contains("{{"), "unfilled slot leaked");
+    }
+}
+
+#[test]
+fn ears_table_names_exactly_the_five_grammar_patterns() {
+    // The rendered EARS table must name exactly the patterns the EARS
+    // grammar classifies — the enum is the source of truth, the guide
+    // prose cannot gain or lose a pattern without failing here.
+    let pack = generate_pack("specodelic-design").expect("pack generates");
+    let served: Vec<&str> = PATTERNS.iter().map(|p| p.display_name()).collect();
+    let rendered = specodelic::skill_pack::pattern_name_mentions(&pack["references/format.md"]);
+    assert_eq!(
+        rendered, served,
+        "the rendered EARS table must list exactly the five grammar patterns"
+    );
+}
+
+#[test]
+fn every_rule_mention_in_the_protocol_resolves() {
+    // The self-check names the rules behind each hand-check in canonical
+    // `linter.<rule>` form; every such mention must resolve against the
+    // lint rule catalog (the grounding drift class: a rule cited in a
+    // failure table but absent from the served list).
+    let pack = generate_pack("specodelic-design").expect("pack generates");
+    let skill = &pack["SKILL.md"];
+    check_membership(skill).expect("every mention in the protocol resolves");
+    // the gate must have shipped teeth: the self-check names rules
+    let mentioned = skill
+        .split('`')
+        .skip(1)
+        .step_by(2)
+        .filter(|t| t.starts_with("linter."))
+        .count();
+    assert!(
+        mentioned >= 5,
+        "the self-check must name the governing rules in `linter.<rule>` form, found {mentioned}"
+    );
+    for token in skill.split('`').skip(1).step_by(2) {
+        if let Some(rule) = token.strip_prefix("linter.") {
+            assert!(
+                RULE_TABLE.iter().any(|(name, _)| *name == rule),
+                "rule `{rule}` mentioned in the protocol is not in the lint rule catalog"
+            );
+        }
+    }
+}
+
+// ---- Phase 2: membership gate (tasks.md §2.1) ----
+
+#[test]
+fn dangling_topic_mention_fails_naming_the_identifier() {
+    let err = check_membership("consult spk explain (topics: format, no-such-topic)")
+        .expect_err("a dangling topic mention must fail");
+    assert!(
+        err.contains("no-such-topic"),
+        "failure must name the identifier, got: {err}"
+    );
+}
+
+#[test]
+fn dangling_rule_mention_fails_naming_the_identifier() {
+    let err = check_membership("treat the finding's rule id `linter.no_such_rule` as ground truth")
+        .expect_err("a dangling rule mention must fail");
+    assert!(
+        err.contains("linter.no_such_rule"),
+        "failure must name the identifier, got: {err}"
+    );
+}
+
+#[test]
+fn dangling_ears_pattern_fails_naming_the_identifier() {
+    let fixture = "| Pattern | Shape |\n|---|---|\n| Fake-Pattern | `THE SYSTEM SHALL x` |";
+    let err = check_membership(fixture).expect_err("a dangling EARS pattern must fail");
+    assert!(
+        err.contains("Fake-Pattern"),
+        "failure must name the identifier, got: {err}"
+    );
+}
+
+#[test]
+fn resolvable_mentions_pass_the_membership_gate() {
+    // the served tables themselves are members by construction
+    let fixture = format!(
+        "(topics: {}) — rule `linter.ears_syntax` — | Event-Driven | `WHEN t THE SYSTEM SHALL r` |",
+        TOPICS
+            .iter()
+            .map(|(id, _)| *id)
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    check_membership(&fixture).expect("resolvable mentions pass");
+}
+
+#[test]
+fn metasyntactic_explain_mention_is_not_flagged() {
+    // `spk explain <topic>` in prose is a meta-shape, not a topic mention
+    check_membership("prefer `spk explain <topic>` for detail")
+        .expect("metasyntactic mention passes");
 }

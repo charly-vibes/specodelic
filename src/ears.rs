@@ -22,6 +22,33 @@ pub enum EarsPattern {
     OptionalFeature,
 }
 
+/// Every EARS pattern, in the guide table's serving order — the closed
+/// set behind the membership gate (add-skill-pack §2.1): a rendered
+/// pattern-name mention must resolve to one of these, and the rendered
+/// EARS table must name exactly these five.
+pub const PATTERNS: &[EarsPattern] = &[
+    EarsPattern::Ubiquitous,
+    EarsPattern::EventDriven,
+    EarsPattern::StateDriven,
+    EarsPattern::UnwantedBehavior,
+    EarsPattern::OptionalFeature,
+];
+
+impl EarsPattern {
+    /// The display name the served guide table uses (`spk explain ears`)
+    /// — the canonical spelling the membership gate checks mentions
+    /// against.
+    pub fn display_name(self) -> &'static str {
+        match self {
+            EarsPattern::Ubiquitous => "Ubiquitous",
+            EarsPattern::EventDriven => "Event-Driven",
+            EarsPattern::StateDriven => "State-Driven",
+            EarsPattern::UnwantedBehavior => "Unwanted-Behavior",
+            EarsPattern::OptionalFeature => "Optional-Feature",
+        }
+    }
+}
+
 /// Check a statement against the EARS grammar.
 ///
 /// Returns `None` when the statement matches no pattern.

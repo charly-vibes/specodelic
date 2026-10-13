@@ -47,18 +47,22 @@ You usually cannot run the linter in chat, so check these by hand. They are
 the rules that most often fail:
 
 - `id` equals the filename stem with `-` read as `.` (`reservation-order.md`
-  -> `reservation.order`); `_` stays literal.
-- `statement` matches exactly one EARS pattern and contains `SHALL`.
-- Every `kind` is from the closed sets in format.md; never invent one.
-- Every Constraint has at least one Property whose `derives_from` points at it.
+  -> `reservation.order`); `_` stays literal (`linter.id_matches_file`).
+- `statement` matches exactly one EARS pattern and contains `SHALL`
+  (`linter.ears_syntax`).
+- Every `kind` is from the closed sets in format.md; never invent one
+  (`linter.constraint_kind_closed`, `linter.property_kind_closed`).
+- Every Constraint has at least one Property whose `derives_from` points at it
+  (`linter.coverage`).
 - Every reference is **file-qualified**, e.g. `[[reservation.order.all_or_nothing]]`.
-  Bare text like `all_or_nothing` creates no reference.
+  Bare text like `all_or_nothing` creates no reference (`linter.total_refs`).
 - Every transition has a non-empty guard; guards cite only `invariant`
-  constraints or states; a state's `emits` cites only `effect` constraints.
+  constraints or states; a state's `emits` cites only `effect` constraints
+  (`linter.guard_required`).
 - Every state appears in at least one transition; every transition endpoint
-  is a declared state.
+  is a declared state (`linter.every_state_used`, `linter.every_transition_valid`).
 - A literal `|` inside a table cell is written `\|`.
-- Ids are unique within the file.
+- Ids are unique within the file (`linter.unique_id`).
 
 ## Honesty about verification
 
@@ -77,5 +81,4 @@ rules. If the user needs them, say so and point to `spk explain packs` and
 `spk explain dual-format` rather than guessing.
 
 If a shell and the `spk` binary are available, prefer `spk explain <topic>`
-for authoritative detail (topics: format, ears, kinds, references,
-lifecycle, lint-rules, dual-format, packs, graph-views) and run `spk lint` on each draft.
+for authoritative detail (topics: <!-- spk:render:explain-topics -->) and run `spk lint` on each draft.

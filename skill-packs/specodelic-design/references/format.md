@@ -1,6 +1,15 @@
 # Format reference
 
-> Interim stub — this reference is rendered in add-skill-pack phase 2
-> (specodelic-ifm7) from the same tables `spk explain` serves: EARS
-> patterns, kind sets, the typed-reference table, the naming law, and
-> the topics line. No table in this file is hand-maintained (design D3).
+Everything below is rendered at generate time from the same in-binary
+tables that serve `spk explain` — no table, kind set, pattern list, or
+naming law in this file is hand-maintained. For the lint rule catalog
+and the remaining topics, run `spk explain lint-rules` and
+`spk explain` (no argument) lists the rest.
+
+<!-- spk:render:topic:format -->
+
+<!-- spk:render:topic:ears -->
+
+<!-- spk:render:topic:kinds -->
+
+<!-- spk:render:topic:references -->
