@@ -21,8 +21,12 @@ use serde::{Deserialize, Serialize};
 use crate::compile;
 use crate::model_check::{self, Outcome, RunReport};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 
 // ---------------------------------------------------------------------------
 // Block metadata (parsed from the generated source's own `// id:` comments)
@@ -993,6 +997,15 @@ impl CargoRunner {
 /// seconds" lines name the hanging block. The caller maps a kill to the
 /// labeled `RunnerError::TimedOut`; a hang is never a silent failure and
 /// never indistinguishable from a block failure.
+///
+/// Both streams are drained concurrently with the poll loop
+/// (specodelic-kbmv): a runner that writes more than the OS pipe buffer
+/// (64 KiB on Linux) would otherwise block mid-write, cargo would wait
+/// on it, and the poll loop would read "still running" until the kill —
+/// a healthy-but-verbose runner can never wedge supervision. On unix the
+/// child gets its own process group and the timeout kill targets the
+/// group, so cargo's children (rustc, the test binary) cannot orphan
+/// past the kill and hold the pipes open past the deadline.
 fn run_bounded(
     command: &mut Command,
     timeout: Option<std::time::Duration>,
@@ -1000,9 +1013,25 @@ fn run_bounded(
     command
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
+    #[cfg(unix)]
+    command.process_group(0);
     let mut child = command
         .spawn()
         .map_err(|e| RunnerError::Spawn(format!("could not spawn the test runner: {e}")))?;
+    // Reader threads own the pipes from here on — draining concurrently
+    // with the try_wait poll is the whole point.
+    let stdout_pipe = child.stdout.take();
+    let stderr_pipe = child.stderr.take();
+    let stdout_thread = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        let _ = stdout_pipe.map(|mut p| p.read_to_end(&mut buf));
+        buf
+    });
+    let stderr_thread = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        let _ = stderr_pipe.map(|mut p| p.read_to_end(&mut buf));
+        buf
+    });
     let started = std::time::Instant::now();
     let mut killed = false;
     loop {
@@ -1010,7 +1039,7 @@ fn run_bounded(
             Ok(Some(_)) => break,
             Ok(None) => {
                 if !killed && timeout.is_some_and(|t| started.elapsed() >= t) {
-                    killed = child.kill().is_ok();
+                    killed = kill_runner_tree(&mut child);
                 }
                 std::thread::sleep(std::time::Duration::from_millis(10));
             }
@@ -1019,9 +1048,22 @@ fn run_bounded(
             }
         }
     }
-    let out = child
-        .wait_with_output()
-        .map_err(|e| RunnerError::Spawn(format!("could not collect the runner's output: {e}")))?;
+    // Reap the direct child, then join the drain threads — after the
+    // group kill every writer is gone, so both reads hit EOF promptly.
+    let status = child
+        .wait()
+        .map_err(|e| RunnerError::Spawn(format!("could not reap the test runner: {e}")))?;
+    let stdout = stdout_thread
+        .join()
+        .map_err(|_| RunnerError::Spawn("stdout drain thread panicked".to_string()))?;
+    let stderr = stderr_thread
+        .join()
+        .map_err(|_| RunnerError::Spawn("stderr drain thread panicked".to_string()))?;
+    let out = std::process::Output {
+        status,
+        stdout,
+        stderr,
+    };
     if killed {
         let mut bytes = out.stdout;
         bytes.extend_from_slice(&out.stderr);
@@ -1031,6 +1073,24 @@ fn run_bounded(
         });
     }
     Ok(out)
+}
+
+/// Kills the runner so the wall-clock bound holds even though the runner
+/// spawned children: on unix the child owns a private process group
+/// (`process_group(0)`), so a group-wide SIGKILL takes out cargo's rustc
+/// and test-binary children too — an orphaned grandchild must never
+/// outlive the deadline or hold the drain pipes open past it. Falls back
+/// to the direct-child kill when the group signal fails.
+fn kill_runner_tree(child: &mut std::process::Child) -> bool {
+    #[cfg(unix)]
+    {
+        let pid = child.id() as i32;
+        // Negative pid == every process in that pid's group.
+        if unsafe { libc::kill(-pid, libc::SIGKILL) } == 0 {
+            return true;
+        }
+    }
+    child.kill().is_ok()
 }
 
 /// The scratch crate lives under the system temp dir (overridable via
@@ -2018,6 +2078,33 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn run_bounded_drains_output_beyond_the_pipe_buffer() {
+        // specodelic-kbmv: a runner writing more than the OS pipe buffer
+        // (64 KiB on Linux) blocks mid-write; a supervisor that only
+        // drains after exit sees "still running" until the wall-clock
+        // kill — CI's 600s properties_timed_out for a cargo test that had
+        // actually finished. The poll loop must drain both streams.
+        let mut cmd = Command::new("sh");
+        cmd.args([
+            "-c",
+            "for i in $(seq 1 40000); do \
+                 echo 'padding line so the runner overflows the pipe buffer'; \
+                 echo 'padding line so the runner overflows the pipe buffer' >&2; \
+             done",
+        ]);
+        let out = run_bounded(&mut cmd, Some(std::time::Duration::from_secs(30))).unwrap();
+        assert!(
+            String::from_utf8_lossy(&out.stdout).contains("overflows the pipe buffer"),
+            "stdout was truncated or lost"
+        );
+        assert!(
+            String::from_utf8_lossy(&out.stderr).contains("overflows the pipe buffer"),
+            "stderr was truncated or lost"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn run_bounded_kills_hanging_process_and_labels_timeout() {
         let mut cmd = Command::new("sleep");
         cmd.arg("30");
@@ -2033,6 +2120,24 @@ mod tests {
             }
             other => panic!("expected TimedOut, got {other:?}"),
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_bounded_kill_takes_down_the_runner_tree_not_just_cargo() {
+        // The timeout kill must reach the runner's children too: sh waits
+        // on a sleeping grandchild, and if only sh were killed the orphan
+        // sleep would hold the drain pipes open for its full 30s — the
+        // elapsed check below would fail. Group kill (kbmv) ends both.
+        let mut cmd = Command::new("sh");
+        cmd.args(["-c", "sleep 30 & sleep 30"]);
+        let started = std::time::Instant::now();
+        let err = run_bounded(&mut cmd, Some(std::time::Duration::from_millis(200))).unwrap_err();
+        assert!(matches!(err, RunnerError::TimedOut { .. }));
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(5),
+            "kill reached only the direct child — the orphan grandchild held the pipes"
+        );
     }
 
     #[cfg(unix)]

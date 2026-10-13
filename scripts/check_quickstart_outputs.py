@@ -231,15 +231,9 @@ def scenario_label(sc):
 def run_scenarios(spk, env, scenarios):
     """Replay each scenario against the binary; count semantic drift."""
     failures = 0
-    skip_verify = os.environ.get("SPECODELIC_DOC_EXAMPLES_SKIP_VERIFY") == "1"
     for sc in scenarios:
         try:
             cmds = sc.get("cmds") or spk_lines(sc["fence"])
-            if skip_verify and any(c.startswith("spk verify") for c in cmds):
-                print(f"doc-examples: SKIPPING {sc['doc']} [{scenario_label(sc)!r}] — "
-                      "SKIP_VERIFY=1 (scratch cargo test never exits on CI — beads)",
-                      file=sys.stderr)
-                continue
             actual = normalize(replay(spk, sc, env))
             # Cold scratch compile can eat verify's 600s wall clock; the
             # shared target/ makes a warm retry honest.
