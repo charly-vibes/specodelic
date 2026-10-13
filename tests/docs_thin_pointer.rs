@@ -26,10 +26,13 @@ const PROTOCOL_MARKERS: &[&str] = &[
 /// (worked-example.md) builds the spec in stages and never reproduces
 /// the finished table contiguously.
 fn example_fingerprint() -> String {
+    // Normalize CRLF: Windows runners check out LF files as CRLF, and
+    // the fingerprint's line anchors must not depend on the platform.
     let text = std::fs::read_to_string(
         Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/src/examples/reservation-order.md"),
     )
-    .expect("the book example exists");
+    .expect("the book example exists")
+    .replace("\r\n", "\n");
     let start = text
         .find("| all_or_nothing")
         .expect("the example carries its first constraint row");
@@ -72,7 +75,8 @@ fn no_book_page_duplicates_the_protocol_prose_or_the_worked_example() {
         if page == canonical_example {
             continue;
         }
-        let Ok(text) = std::fs::read_to_string(&page) else {
+        // CRLF-normalized like the fingerprint source above.
+        let Ok(text) = std::fs::read_to_string(&page).map(|t| t.replace("\r\n", "\n")) else {
             continue;
         };
         for marker in PROTOCOL_MARKERS {
