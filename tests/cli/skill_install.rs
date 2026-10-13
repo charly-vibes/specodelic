@@ -203,3 +203,146 @@ fn invalid_invocation_exits_2() {
         "an unknown skill action is an invalid invocation (exit 2)"
     );
 }
+
+// ---- phase 5 (specodelic-p94h, tasks.md §5): doctor staleness check ----
+
+/// The `managed skill pack` payload row from `spk doctor`.
+fn doctor_pack_row(
+    home: &std::path::Path,
+    state: &std::path::Path,
+    cwd: &std::path::Path,
+) -> (i32, String) {
+    let out = spk()
+        .env("HOME", home)
+        .env("XDG_STATE_HOME", state)
+        .args(["doctor", "--json"])
+        .current_dir(cwd)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let envelope: serde_json::Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("doctor must emit JSON: {e}\n{stdout}"));
+    let row = envelope["data"]["checks"]
+        .as_array()
+        .expect("doctor payload carries checks")
+        .iter()
+        .find(|r| r[0].as_str() == Some("managed skill pack"))
+        .unwrap_or_else(|| panic!("doctor payload carries a managed skill pack row: {envelope}"))
+        [1]
+    .as_str()
+    .unwrap()
+    .to_string();
+    (out.status.code().unwrap_or(-1), row)
+}
+
+#[test]
+fn doctor_reports_missing_when_no_pack_is_installed() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (code, detail) = doctor_pack_row(tmp.path(), &tmp.path().join("state"), tmp.path());
+    assert_eq!(
+        code, 0,
+        "a missing pack must not change the doctor exit code"
+    );
+    assert!(
+        detail.contains("missing"),
+        "the row names the missing state: {detail}"
+    );
+    assert!(
+        detail.contains("spk skill install"),
+        "the missing row carries the install hint: {detail}"
+    );
+}
+
+#[test]
+fn doctor_reports_pass_over_a_fresh_install() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = skill_install(tmp.path(), &tmp.path().join("state"), None)
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let (code, detail) = doctor_pack_row(tmp.path(), &tmp.path().join("state"), tmp.path());
+    assert_eq!(code, 0);
+    assert!(
+        detail.contains("current") || detail.contains("pass"),
+        "a fresh install is current: {detail}"
+    );
+}
+
+#[test]
+fn doctor_reports_stale_with_both_hashes_and_regenerate_command() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = skill_install(tmp.path(), &tmp.path().join("state"), None)
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    // Simulate an older-binary install: mutate the installed pack file.
+    let skill = tmp.path().join(".claude/skills/specodelic-design/SKILL.md");
+    let content = std::fs::read_to_string(&skill).unwrap();
+    std::fs::write(&skill, format!("{content}\nstale mutation\n")).unwrap();
+    let (code, detail) = doctor_pack_row(tmp.path(), &tmp.path().join("state"), tmp.path());
+    assert_eq!(code, 0, "stale is reported but never fails the doctor run");
+    assert!(
+        detail.contains("stale"),
+        "the row names the stale state: {detail}"
+    );
+    assert!(
+        detail.contains("spk skill install"),
+        "the stale row carries the regenerate command: {detail}"
+    );
+    // Both hashes are named and they differ.
+    let hashes: Vec<&str> = detail
+        .split_whitespace()
+        .filter(|w| w.len() == 64 && w.chars().all(|c| c.is_ascii_hexdigit()))
+        .collect();
+    assert!(
+        hashes.len() >= 2,
+        "installed + expected hashes are named: {detail}"
+    );
+    assert_ne!(hashes[0], hashes[1], "the two hashes differ: {detail}");
+}
+
+#[test]
+fn mutated_non_pack_files_do_not_flip_pass_to_stale() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = skill_install(tmp.path(), &tmp.path().join("state"), None)
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    // A foreign file dropped next to the pack must not count.
+    std::fs::write(
+        tmp.path()
+            .join(".claude/skills/specodelic-design/notes.txt"),
+        "unrelated\n",
+    )
+    .unwrap();
+    let (code, detail) = doctor_pack_row(tmp.path(), &tmp.path().join("state"), tmp.path());
+    assert_eq!(code, 0);
+    assert!(
+        detail.contains("current") || detail.contains("pass"),
+        "non-pack files must not flip pass to stale: {detail}"
+    );
+}
+
+#[test]
+fn doctor_rechecks_recorded_dir_targets() {
+    let tmp = tempfile::tempdir().unwrap();
+    let alt = tmp.path().join("alt-skills");
+    let out = skill_install(
+        tmp.path(),
+        &tmp.path().join("state"),
+        Some(alt.to_str().unwrap()),
+    )
+    .output()
+    .unwrap();
+    assert!(out.status.success());
+    let (code, detail) = doctor_pack_row(tmp.path(), &tmp.path().join("state"), tmp.path());
+    assert_eq!(code, 0);
+    assert!(
+        detail.contains(&alt.to_string_lossy().to_string()),
+        "the --dir target is re-checked by the doctor: {detail}"
+    );
+    assert!(
+        detail.contains("current") || detail.contains("pass"),
+        "the recorded install is current: {detail}"
+    );
+}

@@ -67,16 +67,16 @@ beads tickets `specodelic-*` carrying the `add-skill-pack` label.)
 
 ## 5. Doctor staleness check
 
-- [ ] 5.1 **RED**: tests — doctor over a fresh install → `pass`; over an
+- [x] 5.1 **RED**: tests — doctor over a fresh install → `pass`; over an
       older-binary install (mutated installed file) → `stale` with both
       hashes + regenerate command; over no install → `missing` with the
       install hint, doctor exit code unchanged; mutated non-pack files in
       the target dir do not flip `pass` to `stale`.
-- [ ] 5.2 **GREEN**: implement the check (key `spk.managed-skill-pack`)
+- [x] 5.2 **GREEN**: implement the check (key `spk.managed-skill-pack`)
       in the existing doctor report schema; check the default and
       `--dir`-recorded targets (installed envelope carries the target so
       doctor re-checks the right directory).
-- [ ] 5.3 **TIDY**: none expected.
+- [x] 5.3 **TIDY**: none expected.
 
 ## 6. Docs wiring + change completion
 

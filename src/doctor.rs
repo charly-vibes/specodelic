@@ -217,6 +217,40 @@ impl DoctorCheck for BlockCheck {
 
 // ── Runner ────────────────────────────────────────────────────────────
 
+/// The managed skill-pack staleness check (add-skill-pack §5, design
+/// D5/D8): key `spk.managed-skill-pack`. Only `stale` is a finding
+/// (warning, fix `spk skill install`); `missing` is optional-by-design
+/// and `current` is clean — both render through the payload row.
+pub struct SkillPackCheck;
+
+impl DoctorCheck for SkillPackCheck {
+    fn name(&self) -> &'static str {
+        "spk.managed-skill-pack"
+    }
+
+    fn description(&self) -> &'static str {
+        "check that an installed managed skill pack is current"
+    }
+
+    fn run(&self, _root: &Path) -> Result<Vec<LintResult>, Box<dyn std::error::Error>> {
+        Ok(crate::skill_pack::staleness_states()
+            .iter()
+            .filter_map(|(target, state)| match state {
+                crate::skill_pack::PackState::Stale { installed, expected } => {
+                    Some(LintResult::with_fix(
+                        format!(
+                            "managed skill pack stale at {target}: installed {installed} != expected {expected} — regenerate: spk skill install"
+                        ),
+                        Severity::Warning,
+                        "spk skill install",
+                    ))
+                }
+                _ => None,
+            })
+            .collect())
+    }
+}
+
 /// Run the check suite (in the doctor's canonical order). `fix`
 /// dispatches auto-fixable checks (the SPECODELIC block) with the
 /// runner's verify-after-fix — a fix that doesn't cure the finding is
@@ -226,6 +260,7 @@ pub fn run_checks(root: &Path, fix: bool) -> Result<DoctorReport, Box<dyn std::e
         Box::new(SpecsDirCheck),
         Box::new(BeadsCheck),
         Box::new(BlockCheck),
+        Box::new(SkillPackCheck),
     ])
     .with_tool_name("specodelic");
     runner.run(root, fix)
@@ -268,6 +303,10 @@ pub fn payload(root: &Path, report: &DoctorReport) -> serde_json::Value {
         ("beads".into(), beads_row),
         ("SPECODELIC block".into(), block_row),
         ("corpus discovery".into(), discovery_detail(root)),
+        (
+            "managed skill pack".into(),
+            crate::skill_pack::staleness_detail(),
+        ),
     ];
     // Discovered domain packs (specs/packs.md, Revision 14) — surfaced
     // only when at least one `kind: profile` file exists in the
@@ -476,7 +515,10 @@ mod tests {
         assert_eq!(p["mode"], "self_hosting");
         assert_eq!(p["format_revision"], guide::FORMAT_REVISION);
         let checks: Vec<&serde_json::Value> = p["checks"].as_array().unwrap().iter().collect();
-        assert_eq!(checks.len(), 6, "all six rows present");
+        // add-skill-pack §5: the managed skill pack row joins the six
+        // hand-rolled rows — the staleness detail is environment-
+        // dependent, asserted separately in tests/cli/skill_install.rs.
+        assert_eq!(checks.len(), 7, "all seven rows present");
         let rows: Vec<String> = checks
             .iter()
             .map(|c| format!("{}: {}", c[0].as_str().unwrap(), c[1].as_str().unwrap()))

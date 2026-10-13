@@ -550,3 +550,81 @@ fn marked(body: &str) -> String {
         render_body(body).expect("tracked source must render cleanly (see tests/skill_pack.rs)");
     format!("{MANAGED_MARKER}{rendered}")
 }
+
+// ---- doctor staleness check (tasks.md §5, design D5/D8) ----
+
+/// The staleness state of one doctor target.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum PackState {
+    /// No pack installed at this target — optional, a hint not a
+    /// failure (whisper precedent).
+    Missing,
+    /// On-disk hash matches the generated pack.
+    Current,
+    /// Installed from an older binary — the differing hash pair plus
+    /// the regenerate command name the remediation.
+    Stale { installed: String, expected: String },
+}
+
+/// Evaluate every doctor target (default first, then recorded
+/// `--dir` targets): no state file, both hashes recomputed from the
+/// generated pack (design D5).
+pub fn staleness_states() -> Vec<(String, PackState)> {
+    doctor_targets()
+        .iter()
+        .map(|t| {
+            let pack_dir = t.join(PACK_NAME);
+            let state = if !pack_dir.is_dir() {
+                PackState::Missing
+            } else {
+                match disk_content_hash(&pack_dir) {
+                    Ok(disk) => {
+                        let expected = pack_content_hash(
+                            &generate_pack(PACK_NAME).expect("known pack generates"),
+                        );
+                        if disk == expected {
+                            PackState::Current
+                        } else {
+                            PackState::Stale {
+                                installed: disk,
+                                expected,
+                            }
+                        }
+                    }
+                    // A pack dir that lost a file is stale, not missing:
+                    // the installation exists but no longer matches.
+                    Err(_) => PackState::Stale {
+                        installed: "<unreadable>".to_string(),
+                        expected: pack_content_hash(
+                            &generate_pack(PACK_NAME).expect("known pack generates"),
+                        ),
+                    },
+                }
+            };
+            (t.display().to_string(), state)
+        })
+        .collect()
+}
+
+/// The `managed skill pack` payload row detail — the doctor-facing
+/// rendering of [`staleness_states`]. Every state is named: `current`,
+/// `stale` (with both hashes + regenerate command), `missing` (with the
+/// install hint). Absent targets list = missing overall.
+pub fn staleness_detail() -> String {
+    let states = staleness_states();
+    if states.is_empty() || states.iter().all(|(_, s)| matches!(s, PackState::Missing)) {
+        return "missing (optional) — install with: spk skill install".to_string();
+    }
+    let mut parts = Vec::with_capacity(states.len());
+    for (target, state) in &states {
+        match state {
+            PackState::Missing => parts.push(format!("missing at {target}")),
+            PackState::Current => parts.push(format!("current at {target}")),
+            PackState::Stale { installed, expected } => parts.push(format!(
+                "stale at {target}: installed {installed} != expected {expected} — regenerate: spk skill install"
+            )),
+        }
+    }
+    parts.join("; ")
+}
