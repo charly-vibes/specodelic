@@ -88,7 +88,7 @@ category) ships with the later pushout change; nothing here needs it.
 | supersedes_scope_exact | unit | [[acset.core.scope_by_morphism_set]] | `corpus_with_supersedes_and_traces_edges()` | `closure(M == supersedes) contains no traces edge` |
 | no_private_adjacency | unit | [[acset.core.single_traversal_primitive]] | `grep_for_adjacency_map_construction()` | `no adjacency-map construction exists outside acset::query` |
 | closure_on_cycle_terminates | unit | [[acset.core.closure_terminates]] | `cyclic_morphism_set()` | `closure(seed) terminates and visits each node at most once` |
-| closure_laws_hold | unit | [[acset.core.single_traversal_primitive]] | `arbitrary_instance(), arbitrary_seed_set(), arbitrary_morphism_set()` | **contains:** `S ⊆ closure(S)` **idempotence:** `closure(closure(S)) == closure(S)` **monotonicity:** `S ⊆ T implies closure(S) ⊆ closure(T)` |
+| closure_laws_hold | unit | [[acset.core.single_traversal_primitive]] | `arbitrary_instance(), arbitrary_seed_set(), arbitrary_morphism_set()` | the closure over a seed set satisfies its three named cases — **contains:** `S ⊆ closure(S)`, **idempotence:** `closure(closure(S)) == closure(S)`, **monotonicity:** `S ⊆ T implies closure(S) ⊆ closure(T)` |
 | dangling_not_followed_in_traversal | unit | [[acset.core.dangling_not_followed]] | `corpus_with_one_dangling_link()` | `closure(seed) skips the dangling endpoint and the dangling report lists it` |
 | blast_radius_parity | unit | [[acset.core.blast_radius_defined]] | `arbitrary_corpus_with_two_branch_tips()` | `blast_radius(query) == blast_radius(pre-migration merge walk)` |
 | fan_in_matches_preimage | unit | [[acset.core.fan_in_is_preimage_size]] | `corpus_with_one_shared_target()` | `fan_in(shared_target) == 2` |
