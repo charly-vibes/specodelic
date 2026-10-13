@@ -1,0 +1,9 @@
+id = "reverification-failure-label-asserted"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "clean_merge_reports_no_findings"

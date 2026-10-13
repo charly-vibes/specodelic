@@ -1,0 +1,9 @@
+id = "emission-failure-label-asserted"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "compile_corpus_succeeds_and_reports_all_artifacts"

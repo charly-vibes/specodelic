@@ -1,0 +1,9 @@
+id = "kernel-nonmember-labeled"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "broken_kernel_grammar_fails_labeled_at_compile"

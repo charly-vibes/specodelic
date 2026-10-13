@@ -1,266 +1,384 @@
 ---
 id: compile
 kind: intent
-statement: "WHEN an expr cell opts into kernel translation, THE toolchain SHALL extract the expression under the closed kernel grammar per cell, SHALL fail labeled on grammar violations, SHALL compile prose expr cells byte-identically to before, and SHALL extract the kernel.binding cell as an opaque claim carrier the toolchain never interprets."
+checked_against_core: clear
+statement: "THE Compile transition SHALL translate a linted-and-covered spec file's Constraints table, Model section, and Properties table into a TOML document, a TLA+ module, and a set of proptest! blocks respectively, without dropping or altering any id."
 ---
 
-# compile Specification
+# Compile
+
+`specodelic.md` names `compile` as the transition from `linted` to
+`compiled`, gated on `coverage` and `law_requires_cases`, but never
+specifies what compiling actually *produces* (`STATUS.md` §4, P0). This
+file is that specification: `Compile` is the functor `Set^𝒦 → TOML`
+(constraints), `Set^𝒦 → TLA+` (the model), and
+`Set^𝒦 → proptest!` (properties) that `STATUS.md` §1 describes — one
+functor with three target categories, not three unrelated tools that
+happen to run at the same pipeline stage.
 
 ## Purpose
-Extend the compile leg's expr-cell handling with kernel opt-in: an
-expr cell may carry a kernel expression under the closed grammar,
-grammar violations fail labeled (sd1 discipline), prose expr cells
-compile byte-identically (pure widening — nothing valid before this
-Revision is invalidated), and the `kernel.binding` cell extracts as an
-opaque claim carrier so external checkers can claim constraints through
-contract-TOML `flags` without specodelic learning their language.
+
+`specodelic.md` names `compile` as the transition from `linted` to
+`compiled`, gated on `coverage` and `law_requires_cases`, but never
+specifies what compiling actually *produces* (`STATUS.md` §4, P0). This
+file is that specification: `Compile` is the functor `Set^𝒦 → TOML`
+(constraints), `Set^𝒦 → TLA+` (the model), and
+`Set^𝒦 → proptest!` (properties) that `STATUS.md` §1 describes — one
+functor with three target categories, not three unrelated tools that
+happen to run at the same pipeline stage.
 
 ## Constraints
 
-| id                       | kind      | expr                                                                                                                                                                                                                                                              | traces_to |
-|--------------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
-| process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[compile]] |
-| kernel_opt_in_extracted  | invariant | `an expr cell may carry a kernel expression in fragment position per cell — the fragment-position rule (specodelic-sd1) carries over: an occurrence outside fragment position is a mention and never extracts`                                                          | [[compile]]  |
-| kernel_grammar_violation_labeled | invariant | `an expr cell whose kernel expression uses a non-member atomic is a labeled extraction failure naming the atomic and the closed set — never treated as prose, never extracted, never silently ignored`                                                               | [[compile]]  |
-| prose_back_compat        | invariant | `every expr cell that compiled before this Revision compiles to the identical artifact after it — the widening is pure: nothing valid before this Revision is invalidated, and a cell without kernel content compiles exactly as before`                               | [[compile]]  |
-| kernel_binding_extracted | invariant | `an invariant-kind Constraint's kernel.binding cell extracts as an opaque string, surfaced verbatim and never interpreted; the claim path for external checkers is contract-TOML flags, not a toolchain registry`                                                     | [[compile]]  |
+| id                        | kind      | expr                                                                                                                             | traces_to | satisfies |
+|-----------------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------|-----------|-----------|
+| precondition_satisfied       | invariant | `Compile only runs on a file that has passed both lint and coverage` — restates [[specodelic.compile]]'s own guard (transition, not row) | [[compile]] |           |
+| constraint_table_to_toml     | invariant | `every Constraint row compiles to one TOML table entry {id, kind, expr, traces_to}, field-for-field, with no lossy transformation`      | [[compile]] |           |
+| model_to_tla                 | invariant | `the Model section compiles to one TLA+ module — always emitted, regardless of which model_check backend (native stateright or TLC) later runs against the model: the module opens with a single-line TLA+ module header (dashes + MODULE name + dashes — the only form an engine parses); each State becomes a value in the module's state variable's range, each Transition becomes one disjunct of the Next action guarded by its guard field, and one closing stuttering disjunct (`UNCHANGED vpc`) ends Next — guards travel as prose comments, so a terminal state must not read as an engine-side deadlock; a State with an `emits` field additionally becomes one entry in an `Output` function from that state value to the effect-kind Constraint's `expr` — absent for a state with no `emits`, never a default/null entry` | [[compile]] |           |
+| properties_to_proptest       | invariant | `each Property row compiles to one proptest! block: generator becomes the block's input strategy, predicate becomes its assertion body — verbatim as a **rust:** fragment when the row opts in ([[compile.predicate_fragment_opt_in]]), else the un-translated todo_predicate! placeholder that compiles here and fails only at execution; a law-kind property compiles to one block per case enumerated in its predicate's **name:** case labels (the identity and associativity floor is lint-enforced ahead of compile, specodelic.md Revision 13)` | [[compile]] |           |
+| predicate_fragment_opt_in    | invariant | `a Property's predicate cell may opt into executable translation with exactly one **rust:** marker and a non-empty fragment after it — the fragment is a Rust boolean expression emitted verbatim as the block's assertion body, the cell text after the marker — to the cell's end or the code span's closing backtick — is the fragment, binding the block's generated values (v0…, one per generator named in the generator cell, each a String); the marker opts in only in fragment position — starting the cell or immediately opening the fragment's code span, a backtick directly before it — an occurrence anywhere else (mid-span, as in the defining rows of this very table, or in prose between spans) is a mention of the mechanism and never extracts (specodelic-sd1); a cell with no marker compiles exactly as before (the placeholder) — pure widening, nothing valid before this Revision is invalidated` | [[compile]] |           |
+| invariant_fragment_opt_in    | invariant | `a Constraint's expr cell may carry the same **rust:** fragment when the row's kind is invariant, under the same fragment-position rule as [[compile.predicate_fragment_opt_in]] — the fragment becomes an executable invariant model_check's native backend executes (model_check.md Revision 15); a fragment on a Constraint of any other kind (effect, advisory, a pack fiber kind) is a labeled extraction failure, never a silently ignored marker` | [[compile]] |           |
+| fragment_law_rejected        | invariant | `a law-kind Property row's predicate cell must not carry a **rust:** fragment — each required case needs its own assertion body and one fragment cannot honestly serve several named cases; violation is a labeled extraction failure` | [[compile]] |           |
+| fragment_guard_rejected      | invariant | `a Transition's guard cell must not carry a **rust:** fragment in this Revision — the program-counter model has no data binding a guard could constrain, so executable guards have no defined semantics; violation is a labeled extraction failure, never a silently ignored marker (decision of record: deferred to a future Revision alongside a data-carrying state space)` | [[compile]] |           |
+| fragment_language_closed     | invariant | `the executable-fragment tag set is closed: a cell in fragment position may carry exactly one **rust:**, **py:**, or **ts:** marker per the grammar below — the same closed-set discipline as [[specodelic.property_kind_closed]] and [[specodelic.constraint_kind_closed]]; the fragment-position rule and the non-empty-fragment requirement carry over verbatim per tag, and **rust:** remains the fully specified case with byte-identical semantics (widening [[compile.predicate_fragment_opt_in]]/[[compile.invariant_fragment_opt_in]]'s grammar; [[specodelic-lf3]] Revision 16)` | [[compile]] |           |
+| unknown_tag_rejected         | invariant | `a marker in fragment position whose tag is not in the closed set — **go:**, **java:**, any non-member — is a labeled extraction failure naming the unknown tag and the closed set, never a silently ignored marker (sd1's no-silent-markers discipline carried into the widened grammar; [[specodelic-lf3]] Revision 16)` | [[compile]] |           |
+| kernel_expr_opt_in           | invariant | `an expr cell may opt into kernel translation per cell with exactly one **kernel:** marker and a non-empty kernel expression after it, under the same fragment-position rule as [[compile.predicate_fragment_opt_in]] — the expression is parsed against the closed atomic grammar (equality, comparisons, bounded ∀/∃ over the finite instances, ∧/¬, and the reference-typed atomics resolves/unique/acyclic/reachable; the closed set's name is kernel_grammar_closed) and evaluates three-valued per model_check.md; an expression using a non-member atomic fails labeled naming the atomic and the closed set — never prose, never silently ignored; a cell without the marker compiles exactly as before (pure widening, nothing valid before this Revision is invalidated; add-min-expr-kernel Revision 17)` | [[compile]] |           |
+| kernel_binding_opaque        | invariant | `an invariant-kind Constraint's kernel.binding cell extracts as an opaque string surfaced verbatim in the compiled Constraints artifact — no parse, no validation, no interpretation of its internals by the toolchain — and the claim path for an external checker is its contract-TOML flags binding (a test node id, a filter expression, or a shell command payload), not a toolchain registry; a row with no binding column compiles exactly as before (design D4, add-min-expr-kernel Revision 17)` | [[compile]] |           |
+| rust_back_compat             | invariant | `every cell that extracted a **rust:** fragment under Revision 15's grammar extracts a byte-identical fragment under the widened grammar, and a cell without any marker compiles exactly as before — pure widening, nothing valid at Revision 15 is invalidated ([[specodelic-lf3]] Revision 16)` | [[compile]] |           |
+| no_emitter_labeled_failure   | invariant | `a **py:** or **ts:** fragment in fragment position fails compile labeled, with a remediation hint naming the per-language emitter follow-up — executable emission for those languages is deferred of record ([[specodelic-lf3]] Revision 16, follow-ups add-py-fragment-emission/add-ts-fragment-emission); an accepted tag without an emitter would silently fall through to Rust, the vacuous outcome the closed set exists to prevent` | [[compile]] |           |
+| mention_not_extraction       | invariant | `a **rust:**/**py:**/**ts:** occurrence anywhere other than fragment position — mid-span, as in the defining rows of this very table, or in prose between spans — is a mention of the mechanism and never extracts (sd1's rule carried into the widened grammar; [[specodelic-lf3]] Revision 16)` | [[compile]] |           |
+| fragment_hygiene             | invariant | `a fragment's text must not contain unsafe, extern, include!, include_str!, include_bytes!, std::fs, std::process, std::net, std::env, asm!, or Command — defense-in-depth against a fragment escaping its artifact's role (fragments run on the invoking user's machine with the invoking user's privileges, exactly like every other compiled artifact; the Rust compiler is not a sandbox); violation is a labeled extraction failure naming the token` | [[compile]] |           |
+| compile_is_total             | invariant | `∀ file that has passed lint and coverage: Compile either produces all three artifacts or reports, for exactly one of them, which stage failed and why — it never returns a silent partial result` | [[compile]] |           |
+| compile_preserves_ids        | invariant | `every id present in the source file appears, unchanged, in at least one compiled artifact — no id is silently dropped in translation` | [[compile]] |           |
+| no_semantic_drift            | invariant | `re-parsing a compiled artifact and re-emitting it yields output identical to the original compile — Compile is idempotent under its own round trip` | [[compile]] |           |
+| extraction_failure           | effect    | `compile.extraction_failure(row_id, reason) — the extraction stage failed on row row_id because reason` | [[compile]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| emission_failure             | effect    | `compile.emission_failure(detail) — the emission stage failed because detail` | [[compile]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 
 ### States
-- `prose_expr`
-- `kernel_expr`
-- `claimed`
+- `not_started`
+- `extracting`
+- `emitting`
+- `compiled`
+- `extract_failed` (emits: `[[compile.extraction_failure]]`)
+- `emit_failed` (emits: `[[compile.emission_failure]]`)
 
 ### Transitions
 
-| id        | from        | to         | guard                                                                           |
-|-----------|-------------|------------|---------------------------------------------------------------------------------|
-| opt_in    | prose_expr  | kernel_expr | `an expr cell carries a kernel expression per [[compile.kernel_opt_in_extracted]]`  |
-| reject    | prose_expr  | prose_expr | `a non-member atomic fails labeled per [[compile.kernel_grammar_violation_labeled]], cell unchanged`  |
-| claim     | kernel_expr | claimed    | `an external checker claims the constraint per [[compile.kernel_binding_extracted]]`  |
+| id           | from        | to          | guard                                                                                             |
+|--------------|-------------|-------------|--------------------------------------------------------------------------------------------------------|
+| begin        | not_started | extracting  | [[compile.precondition_satisfied]]                                                                     |
+| extract_ok   | extracting  | emitting    | [[compile.constraint_table_to_toml]] ∧ [[compile.model_to_tla]] ∧ [[compile.properties_to_proptest]]     |
+| extract_fail | extracting  | extract_failed | `¬([[compile.constraint_table_to_toml]] ∧ [[compile.model_to_tla]] ∧ [[compile.properties_to_proptest]])` |
+| accept       | emitting    | compiled    | [[compile.compile_preserves_ids]] ∧ [[compile.no_semantic_drift]]                                       |
+| reject       | emitting    | emit_failed | `¬([[compile.compile_preserves_ids]] ∧ [[compile.no_semantic_drift]])`                                    |
 
 ## Properties
 
-| id                        | kind | derives_from                             | generator                              | predicate                                                                  |
-|---------------------------|------|------------------------------------------|----------------------------------------|----------------------------------------------------------------------------|
-| process_lifecycle_checked | unit | [[compile.process_lifecycle]] | `lifecycle_model_present()` | `check(file) == passed` |
-| kernel_expr_extracts      | unit | [[compile.kernel_opt_in_extracted]]         | `expr_cell_with_kernel_expression()`   | `expression extracted under the closed grammar with position rule intact`   |
-| nonmember_atomic_rejects  | unit | [[compile.kernel_grammar_violation_labeled]] | `expr_cell_with_nonmember_atomic()`   | `extraction fails labeled, naming the atomic and the closed set`            |
-| prose_unchanged           | unit | [[compile.prose_back_compat]]               | `pre_revision_prose_fixtures()`        | `compiled artifact identical to the pre-Revision artifact, byte-for-byte`   |
-| midspan_mention_ignored   | unit | [[compile.kernel_opt_in_extracted]]         | `cell_with_midspan_kernel_marker()`    | `no expression extracted; cell compiles exactly as before`                  |
-| binding_extracts_verbatim | unit | [[compile.kernel_binding_extracted]]        | `constraint_with_arbitrary_binding_text()` | `binding cell contents extracted and surfaced verbatim, never interpreted` |
+| id                                | kind | derives_from                             | generator                                              | predicate                                                                     |
+|-------------------------------------|------|-----------------------------------------------|-------------------------------------------------------------|-----------------------------------------------------------------------------------|
+| precondition_violation_rejected      | unit | [[compile.precondition_satisfied]]           | `file_that_has_not_passed_lint()`                            | `check(file) == failed`                                                          |
+| toml_roundtrips                      | unit | [[compile.constraint_table_to_toml]]         | `arbitrary_constraint_row()`                                 | `parse_toml(compile(row)) == row`                                                |
+| tla_disjunct_count_matches           | unit | [[compile.model_to_tla]]                     | `arbitrary_model_section(n_transitions)`                     | `count(disjuncts(compile(model).Next)) == n_transitions + 1` — the closing stuttering disjunct |
+| output_function_covers_emitting_states_only | unit | [[compile.model_to_tla]]              | `arbitrary_model_section(n_states_with_emits, n_states_without)` | `domain(compile(model).Output) == the_states_with_emits` — no entry for the rest |
+| proptest_block_per_property          | unit | [[compile.properties_to_proptest]]           | `arbitrary_property_row()`                                   | `count(compile(row).blocks) ≥ 1`                                                |
+| law_property_compiles_required_cases | unit | [[compile.properties_to_proptest]]           | `law_property_row_with(cases: ["identity", "associativity"])` | `count(compile(row).blocks) == 2`                                               |
+| compile_completes_or_fails_cleanly   | unit | [[compile.compile_is_total]]                 | `arbitrary_linted_and_covered_file()`                         | `compile(file) ∈ {all_three_artifacts, single_labeled_failure}` — never partial |
+| id_preservation_holds                | unit | [[compile.compile_preserves_ids]]            | `arbitrary_linted_and_covered_file()`                         | `ids_in(file) ⊆ ids_in(compile(file))`                                          |
+| roundtrip_stable                     | unit | [[compile.no_semantic_drift]]                | `arbitrary_linted_and_covered_file()`                         | `compile(file) == compile(parse(compile(file)))`                                |
+| extraction_failure_label_asserted    | unit | [[compile.extraction_failure]]               | `extraction_stage_fails_on_row()`                             | `error_label == "compile.extraction_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| emission_failure_label_asserted      | unit | [[compile.emission_failure]]                 | `emission_stage_fails()`                                      | `error_label == "compile.emission_failure"` — same three-site rename rule (EDGE-002) |
+| fragment_body_emitted_verbatim      | unit | [[compile.predicate_fragment_opt_in]]    | `property_row_with_rust_fragment()`                              | `the emitted block body contains the fragment verbatim`  |
+| prose_predicate_stays_placeholder   | unit | [[compile.predicate_fragment_opt_in]]    | `property_row_without_fragment()`                                | `compile(row).body contains todo_predicate!` — no widening of pre-Revision behavior |
+| fragment_values_bind_generators     | unit | [[compile.predicate_fragment_opt_in]]    | `property_row_with_two_generators()`                             | `the emitted block's args are v0, v1 — one per named generator, each a String` |
+| rust_fragment_semantics_unchanged    | unit | [[compile.rust_back_compat]]         | `revision_15_rust_fragment_cell()`                               | `extract(cell) == revision_15_extract(cell)` — byte-identical, pure widening |
+| unknown_tag_labeled                  | unit | [[compile.unknown_tag_rejected]]      | `property_row_with_marker_tag("**go:")`                          | `error_stage == fragment_extraction ∧ message names the tag and the closed set` |
+| non_fragment_tag_is_mention          | unit | [[compile.mention_not_extraction]]    | `property_row_with_mid_span_marker_tag("**py:")`                 | `compile(row) == compile(row_without_marker)` — mid-span occurrence never extracts |
+| one_tag_extracts_per_cell            | unit | [[compile.fragment_language_closed]]  | `property_row_with_marker_tag("**py:")`                          | `extract(cell) == Some(fragment_under("py"))` — a fragment-position cell extracts under exactly one tag from the closed set {rust, py, ts}; acceptance is grammar-level and emitter-independent |
+| missing_emitter_labeled              | unit | [[compile.no_emitter_labeled_failure]] | `property_row_with_marker_tag("**py:")`                         | `error_label == "compile.emission_failure" ∧ the remediation hint names the per-language emitter follow-up` — never a silent fall-through to Rust emission |
+| law_fragment_labeled                | unit | [[compile.fragment_law_rejected]]        | `law_row_with_fragment()`                                        | `error_stage == fragment_extraction` |
+| hygiene_violation_labeled           | unit | [[compile.fragment_hygiene]]             | `fragment_with(banned_token: "std::fs")`                         | `error_stage == fragment_extraction ∧ message names the token` |
+| guard_fragment_labeled              | unit | [[compile.fragment_guard_rejected]]      | `transition_row_with_fragment_guard()`                           | `error_stage == fragment_extraction` |
+| non_invariant_fragment_labeled      | unit | [[compile.invariant_fragment_opt_in]]    | `effect_row_with_fragment()`                                     | `error_stage == fragment_extraction` |
+| kernel_expr_extracts                | unit | [[compile.kernel_expr_opt_in]]           | `invariant_cell_with_kernel_marker()`                            | `the expression extracts under the closed grammar and evaluates to exactly one of verified, counterexample, unknown` |
+| kernel_nonmember_labeled            | unit | [[compile.kernel_expr_opt_in]]           | `invariant_cell_with_nonmember_atomic()`                         | `error_stage == kernel_grammar ∧ the message names the offending atomic and the closed set` |
+| binding_text_surfaces_verbatim      | unit | [[compile.kernel_binding_opaque]]        | `constraint_row_with_arbitrary_binding_text()`                   | `the compiled TOML carries the binding cell text verbatim — no interpretation, no validation of its internals` |
+| claim_path_is_flags                 | unit | [[compile.kernel_binding_opaque]]        | `external_checker_claiming_a_constraint()`                       | `the claim is carried by contract-TOML flags binding; the toolchain builds no registry` |
 
-## ADDED Requirements
+## Notes
 
-### Requirement: Kernel expr opt-in
-An expr cell SHALL accept a kernel expression in fragment position per
-cell under the closed kernel grammar; the fragment-position rule
-carries over (occurrences outside fragment position are mentions and
-never extract); an expression using a non-member atomic SHALL fail
-labeled, naming the atomic and the closed set.
+**This file is what makes `specodelic.md`'s `rename_naturality` law fully
+stated.** That property's **naturality** case reads
+`compile(rename(I)) == rename(compile(I))` — until now that referenced a
+`compile` function with no specification of its own, so the claim was
+unfalsifiable in practice even though it was written down. With
+`constraint_table_to_toml`, `model_to_tla`, and `properties_to_proptest`
+now pinned down field-for-field, `compile(·)` in that law means something
+concrete: three specific, checkable translations, not an unnamed black
+box.
 
-#### Scenario: Opt-in extracts under the closed grammar
-- **WHEN** an expr cell carries a kernel expression in fragment position
-- **THEN** the expression extracts under the closed grammar
+`compile_is_total`'s "never a silent partial result" is the reason
+`extracting`/`emitting` are split into two states rather than one: a
+failure during extraction (a malformed Constraint/Model/Property row) and
+a failure during emission (the three extracted representations don't
+agree well enough to produce one coherent output — e.g. a Transition's
+`guard` references a Constraint id that extraction resolved but the TOML
+and TLA+ passes disagree about its type) are different failure classes,
+and collapsing them into one `failed` transition would have been the same
+God-transition pattern `specodelic.md` Revision 2 already removed from
+`lint`.
 
-#### Scenario: Non-member atomic rejected labeled
-- **WHEN** an expr cell's expression uses an atomic outside the closed set
-- **THEN** extraction fails labeled, naming the atomic and the closed set — the cell is never prose and never silently ignored
+**Updated for `specodelic.md` Revision 6:** `model_to_tla` now also
+compiles a State's optional `emits` field into a small `Output` function
+alongside `Next` — the piece that turns a compiled automaton into a
+compiled *Moore machine*. This is additive to the existing translation,
+not a restructuring of it: a Model with no `emits` fields anywhere
+compiles exactly as before, `Output` is simply empty.
 
-#### Scenario: Kernel mid-span occurrence is a mention
-- **WHEN** a cell mentions kernel syntax mid-span (as the defining rows of this very table do)
-- **THEN** nothing extracts and the cell compiles exactly as before
+`checked_against_core: clear` (see `AGENTS.md`'s convention) — every
+constraint here traces to this file's own intent rather than to a
+top-level invariant, the same shape `linter-frontmatter.md` through
+`linter-coverage.md` use for constraints scoped entirely to one feature.
 
-### Requirement: Pure widening
-The compile change SHALL invalidate nothing that was valid before it:
-every expr cell that compiled before this Revision compiles to the
-identical artifact after it, and cells without kernel content compile
-exactly as before.
+**The `.tla` module is a product of `compile` alone, not of any checker
+choice.** `model_check` may run a native interpreter backend that never
+reads the module (see `model_check.md`'s Notes on backends), but the
+module is still emitted: it is the human-reviewable, engine-portable form
+of the compiled model, and TLC — the opt-in reference engine — consumes it
+directly. Correspondingly the corpus language no longer offers "or
+Alloy": with a native default backend and a reference TLA+ engine it had
+no remaining role, and dropping it keeps `model_to_tla` a single, fully
+specified translation.
 
-#### Scenario: Prose expr cell untouched
-- **WHEN** an expr cell carries no kernel content (the pre-Revision path)
-- **THEN** its compiled artifact is byte-identical to the pre-Revision artifact
+`model_check` and `verify` (`STATUS.md` §4, both now done — see
+`model_check.md` and `verify.md`) both consume this
+file's output directly: `model_check` runs a model-check backend against
+the TLA+ module `model_to_tla` produces, and `verify` runs the
+proptest! blocks `properties_to_proptest` produces — each specified in
+its own checker file.
 
-#### Scenario: Nothing valid is invalidated
-- **WHEN** any pre-Revision artifact is recompiled under the widened grammar
-- **THEN** the artifact is identical to its pre-Revision compilation
+**Executable predicate fragments (specodelic.md Revision 15, specodelic-rjb).**
+Every predicate and expr cell may now opt into executable translation with a
+`**rust:**` marker — the cell text after the marker is a Rust boolean
+expression, emitted verbatim, no mini-language in between. This closes the
+gap the compile functor shipped with: a predicate was compiled to a
+`todo_predicate!` placeholder that compiles and panics at execution, so
+`verify`'s properties gate failed honestly but could never pass. The four
+rejection rows keep the marker honest: a fragment on a law row, a
+non-invariant Constraint, or a Transition guard is a labeled extraction
+failure, not a silently ignored marker (guards have no binding over the
+program-counter model — deferred of record). `fragment_hygiene` is the
+security/totality guard, deliberately defense-in-depth rather than a
+sandbox: fragments run on the invoking user's machine with the invoking
+user's privileges, the same trust every compiled artifact already had —
+the banned-token list catches the escape hatches a table cell should never
+legitimately need. The scaffolding's element type is now `String` (the
+`GenVal` tuple-struct wrapper retired in the same Revision) so fragments
+bind plain generator values — the wrapper existed only to carry the
+placeholder story, and fragments make that story optional.
 
-The grammar change SHALL invalidate nothing that was valid before it:
-every cell that extracted under the pre-change `**rust:**` grammar
-extracts identically after, and cells without tags compile exactly as
-before.
+**The closed language-tag grammar (specodelic.md Revision 16, `specodelic-lf3`).**
+The opt-in marker's tag is drawn from the closed set `{rust, py, ts}`;
+a marker is `**` + a tag-shaped label + `:**` where the tag matches
+`[a-z][a-z0-9_-]*` — the lowercase-initial shape is what separates a
+marker from ordinary bold prose (`**Note:**` stays prose). Acceptance
+is grammar-level and emitter-independent: `**py:**` and `**ts:**`
+extract like `**rust:**`, but gate compile labeled
+(`no_emitter_labeled_failure`) until their emitters land, since an
+accepted tag without an emitter would silently fall through to Rust —
+the vacuous outcome the closed set exists to prevent. A tag-shaped
+marker outside the closed set fails labeled, naming the tag and the
+closed set (`unknown_tag_rejected`). The one grammar collision is
+resolved by row kind: a law-kind predicate's `**label:**` occurrences
+are the law-case grammar (Revision 13), never fragment markers, so the
+fragment grammar exempts law rows; every other fragment-position
+occurrence is checked.
 
-#### Scenario: No-tag cell untouched
-- **WHEN** a Property row's predicate carries no tag (the `todo_predicate!` placeholder path)
-- **THEN** its compiled artifact is byte-identical to the pre-change artifact
-
-#### Scenario: Invariant expr cells share the grammar
-- **WHEN** an invariant-kind Constraint's expr cell carries a `**py:**` fragment
-- **THEN** the same tag grammar and failure modes apply as for predicate cells
-
-### Requirement: Binding column extraction
-An invariant-kind Constraint's `kernel.binding` cell SHALL extract as
-an opaque string surfaced verbatim and never interpreted by the
-toolchain; the claim path for external checkers is contract-TOML
-`flags`, not a toolchain registry.
-
-#### Scenario: Binding extracts verbatim
-- **WHEN** a constraint carries an arbitrary `kernel.binding` text
-- **THEN** the contents extract and surface verbatim; no interpretation, no validation of their internals
-
-#### Scenario: Claim path is contract flags
-- **WHEN** an external checker claims a claimed constraint
-- **THEN** the claim is carried by contract-TOML `flags` binding and the toolchain builds no registry
-
-### Requirement: Closed language-tag fragment opt-in
-The fragment opt-in grammar SHALL accept exactly one tag from the closed
-set `{rust, py, ts}` in fragment position, SHALL reject an unknown tag
-with a labeled extraction failure naming the tag and the closed set, and
-SHALL fail labeled — with a remediation hint naming the missing emitter
-and its follow-up change — when a `py` or `ts` fragment reaches compile.
-
-#### Scenario: Rust opt-in unchanged
-- **WHEN** a predicate cell carries a `**rust:**` fragment under the pre-change grammar
-- **THEN** the extracted fragment is byte-identical to the pre-change extraction
-
-#### Scenario: Unknown tag rejected labeled
-- **WHEN** a predicate cell carries `**go:**` (or any tag outside the closed set)
-- **THEN** extraction fails labeled, naming the tag and the closed set — the cell is never prose and never silently ignored
-
-#### Scenario: Tag without emitter gates compile honestly
-- **WHEN** a fragment tagged `**py:**` reaches compile before the py emitter lands
-- **THEN** compile fails labeled and the remediation hint names the py-emitter follow-up
-
-#### Scenario: Mid-span occurrence is a mention
-- **WHEN** a cell mentions `**py:**` mid-span (as the defining rows of this very table do)
-- **THEN** nothing extracts and the cell compiles exactly as before
-
-### Requirement: Properties table compiles to proptest blocks
-The system SHALL compile each Property row to at least one `proptest!`
-block — generator as input strategy, predicate as assertion body — and
-a law-kind property to exactly one block per case enumerated in the
-row's predicate in machine-findable `**name:**` label form. The
-identity and associativity floor (`law_requires_cases`) is mandatory
-and lint-enforced before compile (the compile precondition gate);
-extra named cases compile as first-class checkable blocks, never prose.
-
-#### Scenario: Law expands to enumerated cases
-- **WHEN** a law-kind property row's predicate carries `**identity:**`,
-  `**associativity:**`, and `**commutativity:**` labels
-- **THEN** exactly three blocks are emitted for that row, one per
-  enumerated case
-
-#### Scenario: Unlabeled floor fails the precondition
-- **WHEN** a law-kind property row's predicate states its cases in
-  prose only (no `**name:**` labels)
-- **THEN** the compile precondition gate reports the `linter.law_cases`
-  finding naming the missing floor cases
-- **AND** no artifact set is reported as compiled
+**Two binding layers, one per tool, never merged** (decision of record
+2026-10-04, `specodelic-lf3` — corrected review finding CORR-001, design
+`openspec/changes/add-language-neutral-property-binding` D3): the
+artifact's `// id:` / `// case:` metadata comments and contract-TOML
+`flags` are *not* two spellings of one neutral ABI. The comments key
+per-block verdicts **inside a specodelic artifact** — properties_to_proptest
+emits them, properties_to_proptest's own metadata comments key them, and
+nothing outside this file's emission consumes them. Contract-TOML `flags`
+bind **existing tests** — pytest node ids, shell escape hatches — to
+scenarios, which is espectacular's layer and stays there. Ownership:
+**compile.md owns fragment extraction and artifact emission** (the
+closed-tag grammar above); **espectacular owns contract binding of
+existing tests** (its `[runners]` config, already shipped — no parallel
+registry is built here, CORR-002); **specodelic.md owns the format
+grammar** (Revision 16's closed set). Nothing in this file consumes or
+produces espectacular contract binding — merging the layers would couple
+scaffold execution policy to contract-binding policy with different
+wall-clock, caching, and toolchain stories.
 
 ## Requirements
 
-### Requirement: Kernel expr opt-in
-An expr cell SHALL accept a kernel expression in fragment position per
-cell under the closed kernel grammar; the fragment-position rule
-carries over (occurrences outside fragment position are mentions and
-never extract); an expression using a non-member atomic SHALL fail
-labeled, naming the atomic and the closed set.
+### Requirement: Property coverage mirror
 
-#### Scenario: Opt-in extracts under the closed grammar
-- **WHEN** an expr cell carries a kernel expression in fragment position
-- **THEN** the expression extracts under the closed grammar
+Every property row SHALL be verified by exactly one dedicated scenario;
+`ah sync` SHALL derive one contract per VERIFIES link.
 
-#### Scenario: Non-member atomic rejected labeled
-- **WHEN** an expr cell's expression uses an atomic outside the closed set
-- **THEN** extraction fails labeled, naming the atomic and the closed set — the cell is never prose and never silently ignored
+#### Scenario: precondition_violation_rejected
 
-#### Scenario: Kernel mid-span occurrence is a mention
-- **WHEN** a cell mentions kernel syntax mid-span (as the defining rows of this very table do)
-- **THEN** nothing extracts and the cell compiles exactly as before
+- **WHEN** `file_that_has_not_passed_lint()`
+- **THEN** `check(file) == failed`
+- **VERIFIES** [[compile.precondition_violation_rejected]]
 
-### Requirement: Pure widening
-The compile change SHALL invalidate nothing that was valid before it:
-every expr cell that compiled before this Revision compiles to the
-identical artifact after it, and cells without kernel content compile
-exactly as before.
+#### Scenario: toml_roundtrips
 
-#### Scenario: Prose expr cell untouched
-- **WHEN** an expr cell carries no kernel content (the pre-Revision path)
-- **THEN** its compiled artifact is byte-identical to the pre-Revision artifact
+- **WHEN** `arbitrary_constraint_row()`
+- **THEN** `parse_toml(compile(row)) == row`
+- **VERIFIES** [[compile.toml_roundtrips]]
 
-#### Scenario: Nothing valid is invalidated
-- **WHEN** any pre-Revision artifact is recompiled under the widened grammar
-- **THEN** the artifact is identical to its pre-Revision compilation
+#### Scenario: tla_disjunct_count_matches
 
-The grammar change SHALL invalidate nothing that was valid before it:
-every cell that extracted under the pre-change `**rust:**` grammar
-extracts identically after, and cells without tags compile exactly as
-before.
+- **WHEN** `arbitrary_model_section(n_transitions)`
+- **THEN** `count(disjuncts(compile(model).Next)) == n_transitions + 1` — the closing stuttering disjunct
+- **VERIFIES** [[compile.tla_disjunct_count_matches]]
 
-#### Scenario: No-tag cell untouched
-- **WHEN** a Property row's predicate carries no tag (the `todo_predicate!` placeholder path)
-- **THEN** its compiled artifact is byte-identical to the pre-change artifact
+#### Scenario: output_function_covers_emitting_states_only
 
-#### Scenario: Invariant expr cells share the grammar
-- **WHEN** an invariant-kind Constraint's expr cell carries a `**py:**` fragment
-- **THEN** the same tag grammar and failure modes apply as for predicate cells
+- **WHEN** `arbitrary_model_section(n_states_with_emits, n_states_without)`
+- **THEN** `domain(compile(model).Output) == the_states_with_emits` — no entry for the rest
+- **VERIFIES** [[compile.output_function_covers_emitting_states_only]]
 
-### Requirement: Binding column extraction
-An invariant-kind Constraint's `kernel.binding` cell SHALL extract as
-an opaque string surfaced verbatim and never interpreted by the
-toolchain; the claim path for external checkers is contract-TOML
-`flags`, not a toolchain registry.
+#### Scenario: proptest_block_per_property
 
-#### Scenario: Binding extracts verbatim
-- **WHEN** a constraint carries an arbitrary `kernel.binding` text
-- **THEN** the contents extract and surface verbatim; no interpretation, no validation of their internals
+- **WHEN** `arbitrary_property_row()`
+- **THEN** `count(compile(row).blocks) ≥ 1`
+- **VERIFIES** [[compile.proptest_block_per_property]]
 
-#### Scenario: Claim path is contract flags
-- **WHEN** an external checker claims a claimed constraint
-- **THEN** the claim is carried by contract-TOML `flags` binding and the toolchain builds no registry
+#### Scenario: law_property_compiles_required_cases
 
-### Requirement: Closed language-tag fragment opt-in
-The fragment opt-in grammar SHALL accept exactly one tag from the closed
-set `{rust, py, ts}` in fragment position, SHALL reject an unknown tag
-with a labeled extraction failure naming the tag and the closed set, and
-SHALL fail labeled — with a remediation hint naming the missing emitter
-and its follow-up change — when a `py` or `ts` fragment reaches compile.
+- **WHEN** `law_property_row_with(cases: ["identity", "associativity"])`
+- **THEN** `count(compile(row).blocks) == 2`
+- **VERIFIES** [[compile.law_property_compiles_required_cases]]
 
-#### Scenario: Rust opt-in unchanged
-- **WHEN** a predicate cell carries a `**rust:**` fragment under the pre-change grammar
-- **THEN** the extracted fragment is byte-identical to the pre-change extraction
+#### Scenario: compile_completes_or_fails_cleanly
 
-#### Scenario: Unknown tag rejected labeled
-- **WHEN** a predicate cell carries `**go:**` (or any tag outside the closed set)
-- **THEN** extraction fails labeled, naming the tag and the closed set — the cell is never prose and never silently ignored
+- **WHEN** `arbitrary_linted_and_covered_file()`
+- **THEN** `compile(file) ∈ {all_three_artifacts, single_labeled_failure}` — never partial
+- **VERIFIES** [[compile.compile_completes_or_fails_cleanly]]
 
-#### Scenario: Tag without emitter gates compile honestly
-- **WHEN** a fragment tagged `**py:**` reaches compile before the py emitter lands
-- **THEN** compile fails labeled and the remediation hint names the py-emitter follow-up
+#### Scenario: id_preservation_holds
 
-#### Scenario: Mid-span occurrence is a mention
-- **WHEN** a cell mentions `**py:**` mid-span (as the defining rows of this very table do)
-- **THEN** nothing extracts and the cell compiles exactly as before
+- **WHEN** `arbitrary_linted_and_covered_file()`
+- **THEN** `ids_in(file) ⊆ ids_in(compile(file))`
+- **VERIFIES** [[compile.id_preservation_holds]]
 
-### Requirement: Properties table compiles to proptest blocks
-The system SHALL compile each Property row to at least one `proptest!`
-block — generator as input strategy, predicate as assertion body — and
-a law-kind property to exactly one block per case enumerated in the
-row's predicate in machine-findable `**name:**` label form. The
-identity and associativity floor (`law_requires_cases`) is mandatory
-and lint-enforced before compile (the compile precondition gate);
-extra named cases compile as first-class checkable blocks, never prose.
+#### Scenario: roundtrip_stable
 
-#### Scenario: Law expands to enumerated cases
-- **WHEN** a law-kind property row's predicate carries `**identity:**`,
-  `**associativity:**`, and `**commutativity:**` labels
-- **THEN** exactly three blocks are emitted for that row, one per
-  enumerated case
+- **WHEN** `arbitrary_linted_and_covered_file()`
+- **THEN** `compile(file) == compile(parse(compile(file)))`
+- **VERIFIES** [[compile.roundtrip_stable]]
 
-#### Scenario: Unlabeled floor fails the precondition
-- **WHEN** a law-kind property row's predicate states its cases in
-  prose only (no `**name:**` labels)
-- **THEN** the compile precondition gate reports the `linter.law_cases`
-  finding naming the missing floor cases
-- **AND** no artifact set is reported as compiled
+#### Scenario: extraction_failure_label_asserted
+
+- **WHEN** `extraction_stage_fails_on_row()`
+- **THEN** `error_label == "compile.extraction_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+- **VERIFIES** [[compile.extraction_failure_label_asserted]]
+
+#### Scenario: emission_failure_label_asserted
+
+- **WHEN** `emission_stage_fails()`
+- **THEN** `error_label == "compile.emission_failure"` — same three-site rename rule (EDGE-002)
+- **VERIFIES** [[compile.emission_failure_label_asserted]]
+
+#### Scenario: fragment_body_emitted_verbatim
+
+- **WHEN** `property_row_with_rust_fragment()`
+- **THEN** `the emitted block body contains the fragment verbatim`
+- **VERIFIES** [[compile.fragment_body_emitted_verbatim]]
+
+#### Scenario: prose_predicate_stays_placeholder
+
+- **WHEN** `property_row_without_fragment()`
+- **THEN** `compile(row).body contains todo_predicate!` — no widening of pre-Revision behavior
+- **VERIFIES** [[compile.prose_predicate_stays_placeholder]]
+
+#### Scenario: fragment_values_bind_generators
+
+- **WHEN** `property_row_with_two_generators()`
+- **THEN** `the emitted block's args are v0, v1 — one per named generator, each a String`
+- **VERIFIES** [[compile.fragment_values_bind_generators]]
+
+#### Scenario: rust_fragment_semantics_unchanged
+
+- **WHEN** `revision_15_rust_fragment_cell()`
+- **THEN** `extract(cell) == revision_15_extract(cell)` — byte-identical, pure widening
+- **VERIFIES** [[compile.rust_fragment_semantics_unchanged]]
+
+#### Scenario: unknown_tag_labeled
+
+- **WHEN** `property_row_with_marker_tag("**go:")`
+- **THEN** `error_stage == fragment_extraction ∧ message names the tag and the closed set`
+- **VERIFIES** [[compile.unknown_tag_labeled]]
+
+#### Scenario: non_fragment_tag_is_mention
+
+- **WHEN** `property_row_with_mid_span_marker_tag("**py:")`
+- **THEN** `compile(row) == compile(row_without_marker)` — mid-span occurrence never extracts
+- **VERIFIES** [[compile.non_fragment_tag_is_mention]]
+
+#### Scenario: one_tag_extracts_per_cell
+
+- **WHEN** `property_row_with_marker_tag("**py:")`
+- **THEN** `extract(cell) == Some(fragment_under("py"))` — a fragment-position cell extracts under exactly one tag from the closed set {rust, py, ts}; acceptance is grammar-level and emitter-independent
+- **VERIFIES** [[compile.one_tag_extracts_per_cell]]
+
+#### Scenario: missing_emitter_labeled
+
+- **WHEN** `property_row_with_marker_tag("**py:")`
+- **THEN** `error_label == "compile.emission_failure" ∧ the remediation hint names the per-language emitter follow-up` — never a silent fall-through to Rust emission
+- **VERIFIES** [[compile.missing_emitter_labeled]]
+
+#### Scenario: law_fragment_labeled
+
+- **WHEN** `law_row_with_fragment()`
+- **THEN** `error_stage == fragment_extraction`
+- **VERIFIES** [[compile.law_fragment_labeled]]
+
+#### Scenario: hygiene_violation_labeled
+
+- **WHEN** `fragment_with(banned_token: "std::fs")`
+- **THEN** `error_stage == fragment_extraction ∧ message names the token`
+- **VERIFIES** [[compile.hygiene_violation_labeled]]
+
+#### Scenario: guard_fragment_labeled
+
+- **WHEN** `transition_row_with_fragment_guard()`
+- **THEN** `error_stage == fragment_extraction`
+- **VERIFIES** [[compile.guard_fragment_labeled]]
+
+#### Scenario: non_invariant_fragment_labeled
+
+- **WHEN** `effect_row_with_fragment()`
+- **THEN** `error_stage == fragment_extraction`
+- **VERIFIES** [[compile.non_invariant_fragment_labeled]]
+
+#### Scenario: kernel_expr_extracts
+
+- **WHEN** `invariant_cell_with_kernel_marker()`
+- **THEN** `the expression extracts under the closed grammar and evaluates to exactly one of verified, counterexample, unknown`
+- **VERIFIES** [[compile.kernel_expr_extracts]]
+
+#### Scenario: kernel_nonmember_labeled
+
+- **WHEN** `invariant_cell_with_nonmember_atomic()`
+- **THEN** `error_stage == kernel_grammar ∧ the message names the offending atomic and the closed set`
+- **VERIFIES** [[compile.kernel_nonmember_labeled]]
+
+#### Scenario: binding_text_surfaces_verbatim
+
+- **WHEN** `constraint_row_with_arbitrary_binding_text()`
+- **THEN** `the compiled TOML carries the binding cell text verbatim — no interpretation, no validation of its internals`
+- **VERIFIES** [[compile.binding_text_surfaces_verbatim]]
+
+#### Scenario: claim_path_is_flags
+
+- **WHEN** `external_checker_claiming_a_constraint()`
+- **THEN** `the claim is carried by contract-TOML flags binding; the toolchain builds no registry`
+- **VERIFIES** [[compile.claim_path_is_flags]]
+

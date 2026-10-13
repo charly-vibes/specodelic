@@ -1,0 +1,9 @@
+id = "dangling-observes-not-doubled"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "observes_cross_file_edge_extracts_and_types_clean"

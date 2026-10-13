@@ -1,0 +1,9 @@
+id = "rust-fragment-semantics-unchanged"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "rust_back_compat_byte_identical"

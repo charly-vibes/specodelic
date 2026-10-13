@@ -1,0 +1,9 @@
+id = "pairing-failure-label-asserted"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "model_family_owns_guard_and_transition_rules"

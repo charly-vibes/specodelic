@@ -1,0 +1,9 @@
+id = "one-tag-extracts-per-cell"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "expr_cell_same_tag_grammar"

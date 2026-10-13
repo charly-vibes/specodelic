@@ -1,0 +1,9 @@
+id = "state-row-emits-accepted"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "made_up_constraint_kind_fires_constraint_kind_closed"

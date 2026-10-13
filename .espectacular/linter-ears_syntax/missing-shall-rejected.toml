@@ -1,0 +1,9 @@
+id = "missing-shall-rejected"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "dangling_ears_pattern_fails_naming_the_identifier"

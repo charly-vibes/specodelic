@@ -1,0 +1,9 @@
+id = "claim-path-is-flags"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "binding_surfaces_in_the_compiled_toml_only"

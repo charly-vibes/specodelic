@@ -1,0 +1,9 @@
+id = "mapping-failure-label-asserted"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "checklist_file_is_never_reported_as_skipped"

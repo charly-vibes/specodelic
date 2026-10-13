@@ -1,0 +1,9 @@
+id = "check-failure-label-asserted"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "failure_terminals_emit_labeled_errors"

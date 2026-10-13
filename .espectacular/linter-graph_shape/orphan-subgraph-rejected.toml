@@ -1,0 +1,9 @@
+id = "orphan-subgraph-rejected"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "graph_real_id_files_resolve_corpus_wide_and_typos_dangle"

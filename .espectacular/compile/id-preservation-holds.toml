@@ -1,0 +1,9 @@
+id = "id-preservation-holds"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "compile_preserves_every_source_id"

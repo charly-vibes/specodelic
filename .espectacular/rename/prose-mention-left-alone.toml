@@ -1,0 +1,9 @@
+id = "prose-mention-left-alone"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "rename_of_a_row_rewrites_definition_and_all_refs"

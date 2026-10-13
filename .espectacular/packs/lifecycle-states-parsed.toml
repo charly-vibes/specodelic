@@ -1,0 +1,9 @@
+id = "lifecycle-states-parsed"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "draft_pack_findings_name_the_draft_status"

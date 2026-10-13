@@ -1,0 +1,9 @@
+id = "rerun-deterministic"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "graph_corpus_is_fully_resolved"

@@ -1,0 +1,9 @@
+id = "compile-completes-or-fails-cleanly"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "clean_compile_stays_a_success_envelope_with_exit_0"

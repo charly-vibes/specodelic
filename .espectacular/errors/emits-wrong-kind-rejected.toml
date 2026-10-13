@@ -1,0 +1,9 @@
+id = "emits-wrong-kind-rejected"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "error_contract_rows_are_published"

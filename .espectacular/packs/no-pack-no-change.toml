@@ -1,0 +1,9 @@
+id = "no-pack-no-change"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "no_profile_files_means_pack_machinery_is_inert"

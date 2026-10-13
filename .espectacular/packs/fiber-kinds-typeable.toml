@@ -1,0 +1,9 @@
+id = "fiber-kinds-typeable"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "fiber_kinds_typeable_when_pack_active_finding_without"

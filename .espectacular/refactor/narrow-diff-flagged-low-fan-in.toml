@@ -1,0 +1,9 @@
+id = "narrow-diff-flagged-low-fan-in"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "refactor_coherent_fan_in_is_clean"

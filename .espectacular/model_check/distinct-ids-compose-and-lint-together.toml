@@ -1,0 +1,9 @@
+id = "distinct-ids-compose-and-lint-together"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "model_check_reports_no_counterexample_after_compile"

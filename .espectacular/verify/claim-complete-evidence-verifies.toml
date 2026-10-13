@@ -1,0 +1,9 @@
+id = "claim-complete-evidence-verifies"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "counterexample_claim_travels_the_whole_chain"

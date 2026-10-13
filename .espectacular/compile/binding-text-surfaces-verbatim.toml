@@ -1,0 +1,9 @@
+id = "binding-text-surfaces-verbatim"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "ordinary_binding_text_preserved_exactly"

@@ -1,0 +1,9 @@
+id = "index-failure-label-asserted"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "constraint_row_derives_from_is_a_typing_violation"

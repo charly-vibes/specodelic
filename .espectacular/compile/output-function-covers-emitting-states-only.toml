@@ -1,0 +1,9 @@
+id = "output-function-covers-emitting-states-only"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "ir_emits_covers_exactly_emitting_states"
