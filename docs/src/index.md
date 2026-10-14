@@ -97,3 +97,8 @@ cargo install specodelic
 
 Then `spk --version --json` (reports the embedded `format_revision`),
 `spk new my.first_spec`, and `spk lint my.first_spec.md`.
+
+## Documentation provenance
+
+Rendered docs are generated artifacts; the repository sources are
+authoritative — edit the repo sources, not the rendered output.

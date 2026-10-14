@@ -192,3 +192,8 @@ beads: `bd list`.
 How specodelic relates to OpenSpec (dual-format delta files) and to the
 read-only `ah`/espectacular spec↔test correspondence companion:
 [docs/src/tool-relationships.md](docs/src/tool-relationships.md).
+
+## Documentation provenance
+
+Rendered docs are generated artifacts; the repository sources are
+authoritative — edit the repo sources, not the rendered output.
