@@ -9,8 +9,9 @@
 //! - parse pack manifests (the six per-facet closed tables) and validate
 //!   their structure (`pack_shape` — the append-only lint rule);
 //! - discover packs by corpus scan anchored at the git repository
-//!   toplevel (the lint target directory's common parent when no git
-//!   root exists) — no config file, no registry outside the corpus;
+//!   toplevels of every linted corpus (the spec directories themselves
+//!   when no git root exists) — no config file, no registry outside the
+//!   corpus, order-independent over the linted paths (specodelic-o5bh);
 //! - activate pack checking advisory-first: vocabulary use triggers the
 //!   pack's advisory (per-pack attribution); a declared `uses` edge
 //!   upgrades to declared enablement and enables the revision-skew
@@ -271,7 +272,8 @@ fn contains_word(haystack: &str, token: &str) -> bool {
 }
 
 /// Discover packs workspace-wide: scan `.md` files under the discovery
-/// root (git toplevel, else the common parent of the linted specs) for
+/// roots (git toplevels of every linted corpus, else the linted spec
+/// directories themselves) for
 /// `kind: profile` frontmatter. No config file, no registry.
 /// The namespace prefix of a pack-qualified (dotted) token —
 /// `data.dataset` → `data`. Identifier-shaped segments only (alphabetic
@@ -313,30 +315,31 @@ pub fn discover(specs: &[Spec]) -> Vec<PackInfo> {
 /// is needed by the fiber-kind walkers — `PackInfo` surfaces only the
 /// joined vocabulary).
 fn scan_workspace(specs: &[Spec]) -> Vec<(PathBuf, Manifest)> {
-    let root = discovery_root(specs);
     let mut packs = vec![];
-    let mut stack = vec![root];
-    while let Some(dir) = stack.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            if path.is_dir() {
-                if name != ".git" && name != "target" && name != "node_modules" {
-                    stack.push(path);
-                }
+    for root in discovery_roots(specs) {
+        let mut stack = vec![root];
+        while let Some(dir) = stack.pop() {
+            let Ok(entries) = std::fs::read_dir(&dir) else {
                 continue;
-            }
-            if name.ends_with(".md")
-                && path.is_file()
-                && let Ok(src) = std::fs::read_to_string(&path)
-                && is_profile_frontmatter(&src)
-                && let Ok(mut spec) = crate::spec::parse_str(&src)
-            {
-                spec.path = Some(path.clone());
-                packs.push((path, parse_manifest(&spec)));
+            };
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if path.is_dir() {
+                    if name != ".git" && name != "target" && name != "node_modules" {
+                        stack.push(path);
+                    }
+                    continue;
+                }
+                if name.ends_with(".md")
+                    && path.is_file()
+                    && let Ok(src) = std::fs::read_to_string(&path)
+                    && is_profile_frontmatter(&src)
+                    && let Ok(mut spec) = crate::spec::parse_str(&src)
+                {
+                    spec.path = Some(path.clone());
+                    packs.push((path, parse_manifest(&spec)));
+                }
             }
         }
     }
@@ -345,41 +348,46 @@ fn scan_workspace(specs: &[Spec]) -> Vec<(PathBuf, Manifest)> {
     packs
 }
 
-/// The discovery anchor: the git repository toplevel when one exists,
-/// else the common parent of the linted spec paths (the lint target
-/// directory's parent in the single-file case).
-fn discovery_root(specs: &[Spec]) -> PathBuf {
-    // probe git AT the linted corpus — the workspace the specs live in,
-    // never the process cwd (a consumer-repo lint from elsewhere must
-    // still anchor correctly)
-    let probe_dir = specs
+/// The discovery anchors: one per distinct linted spec directory — the
+/// git repository toplevel when one exists, else the spec directory
+/// itself. Order-independent (property `discovery_finds_all_packs`,
+/// "order-independent"; specodelic-o5bh): every linted path contributes
+/// its anchor, so pack discovery cannot depend on which corpus comes
+/// last — the old single-anchor `.next_back()` made `lint P C` fail
+/// with `orphan_vocabulary` while `lint C P` passed.
+fn discovery_roots(specs: &[Spec]) -> Vec<PathBuf> {
+    // probe git AT the linted corpora — the workspaces the specs live
+    // in, never the process cwd (a consumer-repo lint from elsewhere
+    // must still anchor correctly)
+    let mut dirs: Vec<PathBuf> = specs
         .iter()
         .filter_map(|s| {
             s.path
                 .as_ref()
                 .and_then(|p| p.parent().map(Path::to_path_buf))
         })
-        .next_back();
-    if let Some(dir) = probe_dir
-        && let Ok(out) = std::process::Command::new("git")
+        .collect();
+    dirs.sort();
+    dirs.dedup();
+    let mut roots: Vec<PathBuf> = Vec::new();
+    for dir in dirs {
+        let anchor = std::process::Command::new("git")
             .args(["-C", &dir.to_string_lossy(), "rev-parse", "--show-toplevel"])
             .output()
-        && out.status.success()
-    {
-        let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        if !s.is_empty() {
-            return PathBuf::from(s);
+            .ok()
+            .filter(|out| out.status.success())
+            .map(|out| PathBuf::from(String::from_utf8_lossy(&out.stdout).trim()))
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or(dir);
+        if !roots.contains(&anchor) {
+            roots.push(anchor);
         }
     }
-    specs
-        .iter()
-        .filter_map(|s| {
-            s.path
-                .as_ref()
-                .and_then(|p| p.parent().map(Path::to_path_buf))
-        })
-        .next_back()
-        .unwrap_or_else(|| PathBuf::from("."))
+    if roots.is_empty() {
+        vec![PathBuf::from(".")]
+    } else {
+        roots
+    }
 }
 
 /// The pack's raw file text — manifest tables and vocabulary scans read
@@ -671,20 +679,21 @@ fn implicit_activation_warnings(spec: &Spec, packs: &[PackInfo], report: &mut Re
 /// The workspace corpus's format revision: the latest Revision heading
 /// in the workspace's specodelic core spec — `openspec/specs/specodelic/spec.md`
 /// (single-tree layout, specodelic-jf1), `openspec/specs/specodelic/spec.md` (two-tree
-/// consumer layout) — under the discovery root, else the embedded
+/// consumer layout) — under any discovery root, else the embedded
 /// FORMAT_REVISION.
 fn corpus_revision(specs: &[Spec]) -> u32 {
-    let root = discovery_root(specs);
-    let candidates = [
-        root.join("openspec/specs/specodelic").join("spec.md"),
-        root.join("specs").join("specodelic.md"),
-        root.join("specodelic.md"),
-    ];
-    for c in candidates {
-        if let Ok(src) = std::fs::read_to_string(&c)
-            && let Some(rev) = guide::latest_revision(&src)
-        {
-            return rev;
+    for root in discovery_roots(specs) {
+        let candidates = [
+            root.join("openspec/specs/specodelic").join("spec.md"),
+            root.join("specs").join("specodelic.md"),
+            root.join("specodelic.md"),
+        ];
+        for c in candidates {
+            if let Ok(src) = std::fs::read_to_string(&c)
+                && let Some(rev) = guide::latest_revision(&src)
+            {
+                return rev;
+            }
         }
     }
     guide::revision_number(guide::FORMAT_REVISION).unwrap_or(0)

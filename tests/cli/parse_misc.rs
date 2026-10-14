@@ -741,7 +741,7 @@ fn parse_accepts_exactly_one_path() {
 
 /// A well-formed `kind: profile` pack file — all six manifest tables,
 /// full lifecycle machine, base pin at the current revision.
-fn write_pack_file(path: &std::path::Path, id: &str, revision: u32) {
+pub(crate) fn write_pack_file(path: &std::path::Path, id: &str, revision: u32) {
     std::fs::write(
         path,
         format!(
@@ -824,7 +824,7 @@ fn write_consumer_spec(path: &std::path::Path, id: &str, uses: &str, vocab: &str
 /// A consumer spec whose Properties and Constraints rows carry a
 /// pack-qualified fiber kind in their base-table `kind` columns
 /// (specodelic-ung).
-fn write_fiber_kind_consumer(path: &std::path::Path, id: &str, uses: &str, fiber: &str) {
+pub(crate) fn write_fiber_kind_consumer(path: &std::path::Path, id: &str, uses: &str, fiber: &str) {
     std::fs::write(
         path,
         format!(
