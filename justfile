@@ -180,6 +180,19 @@ summary-completeness:
 check-explain-topic-docs:
     python3 scripts/check_explain_topic_docs.py .
 
+# Pack-inventory doc guard (specodelic-typ0): README.md,
+# docs/src/{index,faq,commands}.md and llms.txt claim pack counts and
+# name pack ids as hardcoded prose — the inventory drifted twice on the
+# same day (README "four" vs commands.md "three"; fd2fbe0 fixed by
+# hand). Source of truth is packs/*.md frontmatter; the guard fails on
+# any count phrase that matches no derived count, any audited surface
+# missing a required pack id, and a stale llm.txt (regenerated via
+# stamp_llms.py root, never hand-edited). The stdlib unittest for the
+# guard needs no separate recipe: sync-sections-test discovers all
+# scripts/test_*.py, including test_check_pack_doc_counts.py.
+pack-doc-counts:
+    python3 scripts/check_pack_doc_counts.py .
+
 # Tests for the section-sync script itself (stdlib unittest): drift
 # logic + the capability-format check (openspec/specs/<cap>/spec.md
 # must be dual-format — frontmatter-less capability specs fail CI;
@@ -310,7 +323,7 @@ stamp-artifacts:
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs sync-sections sync-sections-test summary-completeness check-explain-topic-docs lint-doc-examples doc-examples lint-baseline pretender-check guard-kernel-agreement guard-siblings guard-drill-lock guard-espectacular
+ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs sync-sections sync-sections-test summary-completeness check-explain-topic-docs pack-doc-counts lint-doc-examples doc-examples lint-baseline pretender-check guard-kernel-agreement guard-siblings guard-drill-lock guard-espectacular
 
 # Structural-quality hard gate (pretender, gate mode — pretender.toml
 # thresholds are a ratchet: entries only move DOWN; never touch .git/hooks,
