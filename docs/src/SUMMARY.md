@@ -70,6 +70,7 @@
 - [worked example — the data.lineage pack, failures included](examples/data-lineage.md)
 - [worked example — the numeric.predicates pack, failures included](examples/numeric-predicates.md)
 - [worked example — the empirical.registry pack, failures included](examples/empirical-registry.md)
+- [worked example — the bioimage.data pack, failures included](examples/bioimage-data.md)
 - [reservation-order — the finished spec](examples/reservation-order.md)
 - [batch-resume — derived parallelism, worked end to end](examples/batch-resume.md)
 
