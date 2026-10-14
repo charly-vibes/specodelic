@@ -48,13 +48,13 @@ $ specodelic archive-companion my-change   # archive with the dual-format layer 
 Domain packs: a workspace extends the format by adding `kind: profile`
 spec files (see the [packs spec](openspec/specs/packs/spec.md)) — no config, no
 registry; vocabulary use activates a pack's checks advisory-first. The
-four standard packs and the bioimage D6 pilot ship in-repo:
+five standard packs and the bioimage D6 pilot ship in-repo:
 [`packs/data-lineage.md`](packs/data-lineage.md) (a typed `## Data`
 table with lineage edges; external data standards are bridged through
 an opaque `binding` column, never absorbed),
 [`packs/numeric-predicates.md`](packs/numeric-predicates.md) (a typed
 `## Quantities` table with tolerance case-label floors; unit systems
-are bridged through opaque `unit`/`domain` columns, never absorbed), and
+are bridged through opaque `unit`/`domain` columns, never absorbed),
 [`packs/empirical-registry.md`](packs/empirical-registry.md) (a typed
 `## StatTests` table with the `empirical.statistic` kind and per-kind
 case-label floors over `alpha`/`window`; statistical tests stay
@@ -62,7 +62,11 @@ authoritative outside the format, never absorbed),
 [`packs/quant-finance.md`](packs/quant-finance.md) (a namespaced
 `## Limits` table with the `quant.risk`/`quant.pricing` kinds and a
 `capped_by` reference field; market-data conventions stay authoritative
-outside the format, never absorbed), and
+outside the format, never absorbed),
+[`packs/svc-contracts.md`](packs/svc-contracts.md) (a typed
+`## Interfaces` table with the `svc.compat` kind and a `published_as`
+reference field for cross-repo service contracts; OpenAPI/AsyncAPI/protobuf
+artifacts stay authoritative outside the format, never absorbed), and
 [`packs/bioimage-data.md`](packs/bioimage-data.md) — the D6 pilot: a
 typed `## Axes` table with the `bioimage.transform` kind, the R2
 data-shaped predicate grammar as named checkers, and the mechanism's

@@ -25,10 +25,10 @@ The CLI binary is `spk` (crate: `specodelic`).
 - **Reference typing** — what a `[[link]]` in each column may point at.
 - **Domain packs** — a workspace extends the format via `kind: profile`
   manifest specs (no config, no registry; lint discovers packs by corpus
-  scan). Five ship in-repo — the four standard packs (`data.lineage`,
-  `numeric.predicates`, `empirical.registry`, `quant.finance`) and the
-  `bioimage.data` D6 pilot (first cross-pack `## Requires`). Contract:
-  [[packs]].
+  scan). Six ship in-repo — the five standard packs (`data.lineage`,
+  `numeric.predicates`, `empirical.registry`, `quant.finance`,
+  `svc.contracts`) and the `bioimage.data` D6 pilot (first cross-pack
+  `## Requires`). Contract: [[packs]].
 - **Pipeline** — lint → compile (TOML + proptest + TLA+) →
   model-check (embedded stateright) → verify (proptest execution).
 
