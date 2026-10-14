@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:epic-orchestrator-2026-10-14-specodelic-ilfx-5, pipeline-step:select-ticket]
+---
+
+TICKET: specodelic-ilfx.5 — next sibling in .2→.7 order; brief authored at .wai/projects/min-expr-kernel/briefs/specodelic-ilfx.5.md
