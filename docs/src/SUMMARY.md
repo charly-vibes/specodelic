@@ -67,6 +67,7 @@
 # Worked Examples
 
 - [worked example — reservation/order, built layer by layer, failures included](examples/worked-example.md)
+- [worked example — the data.lineage pack, failures included](examples/data-lineage.md)
 - [reservation-order — the finished spec](examples/reservation-order.md)
 - [batch-resume — derived parallelism, worked end to end](examples/batch-resume.md)
 
