@@ -72,6 +72,7 @@
 - [worked example — the empirical.registry pack, failures included](examples/empirical-registry.md)
 - [worked example — the bioimage.data pack, failures included](examples/bioimage-data.md)
 - [worked example — the quant.finance pack, failures included](examples/quant-finance.md)
+- [worked example — the svc.contracts pack, failures included](examples/svc-contracts.md)
 - [reservation-order — the finished spec](examples/reservation-order.md)
 - [batch-resume — derived parallelism, worked end to end](examples/batch-resume.md)
 

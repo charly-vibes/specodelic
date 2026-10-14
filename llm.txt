@@ -155,5 +155,6 @@ cargo install specodelic
 - [worked example — the empirical.registry pack, failures included](https://charly-vibes.github.io/specodelic/examples/empirical-registry.html)
 - [worked example — the bioimage.data pack, failures included](https://charly-vibes.github.io/specodelic/examples/bioimage-data.html)
 - [worked example — the quant.finance pack, failures included](https://charly-vibes.github.io/specodelic/examples/quant-finance.html)
+- [worked example — the svc.contracts pack, failures included](https://charly-vibes.github.io/specodelic/examples/svc-contracts.html)
 - [reservation-order — the finished spec](https://charly-vibes.github.io/specodelic/examples/reservation-order.html)
 - [batch-resume — derived parallelism, worked end to end](https://charly-vibes.github.io/specodelic/examples/batch-resume.html)
