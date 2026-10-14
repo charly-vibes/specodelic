@@ -62,7 +62,7 @@ The five in-repo standard packs live in [`packs/`](https://github.com/charly-vib
 consuming file opts in by using the pack's vocabulary, or explicitly
 via a `uses` reference to the pack's frontmatter id.
 
-- Spec: [packs](specs/packs/spec.md)
+- Spec: [packs](specs/packs/spec.md) · Guide: [using packs](using-packs.md)
 
 A `*.checklist.md` file in the linted tree declares an external checklist
 (openspec/specs/linter-external_completeness/spec.md — mp1 row 10's manifest format):

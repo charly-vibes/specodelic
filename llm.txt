@@ -143,6 +143,7 @@ cargo install specodelic
 - [FAQ — the questions a cold read asks](https://charly-vibes.github.io/specodelic/faq.html)
 - [Specs as the design substrate — a canvas for thinking about the system](https://charly-vibes.github.io/specodelic/design-canvas.html)
 - [Design conversations — the specodelic-design skill](https://charly-vibes.github.io/specodelic/design-conversations.html)
+- [using packs — the practical guide](https://charly-vibes.github.io/specodelic/using-packs.html)
 - [conform — external oracle evidence, outside the lifecycle](https://charly-vibes.github.io/specodelic/conform.html)
 - [Graph views — derived diagrams of the corpus](https://charly-vibes.github.io/specodelic/graph-views.html)
 - [Architecture — the four layers and the lint pipeline](https://charly-vibes.github.io/specodelic/architecture.html)

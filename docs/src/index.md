@@ -69,7 +69,8 @@ corpus scan). Six packs ship in-repo — the five standard packs
 (`data.lineage`, `numeric.predicates`, `empirical.registry`,
 `quant.finance`, `svc.contracts` — still `draft`) plus the bioimage
 D6 pilot (`bioimage.data`, the first cross-pack `## Requires`); see
-the [packs spec](specs/packs/spec.md).
+the [packs spec](specs/packs/spec.md) and the
+[using packs guide](using-packs.md).
 
 ## For agents
 
