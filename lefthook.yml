@@ -7,6 +7,14 @@
 
 pre-commit:
   commands:
+    # ddl:managed:start (pre-commit)
+    ddl-ah-check:
+      run: ah check
+    ddl-pretender-gate:
+      run: pretender check --mode gate
+    ddl-spk-lint:
+      run: spk lint openspec
+    # ddl:managed:end (pre-commit)
 # ah:managed:start
     ah-check:
       run: ah check
@@ -31,6 +39,10 @@ pre-commit:
 
 pre-push:
   commands:
+    # ddl:managed:start (pre-push)
+    ddl-ah-check:
+      run: ah check
+    # ddl:managed:end (pre-push)
     sibling-blockers:
       run: scripts/guards/sibling-blockers.sh .
     gate-drill-lock:
