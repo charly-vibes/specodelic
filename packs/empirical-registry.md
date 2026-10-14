@@ -8,9 +8,9 @@ statement: "WHEN a workspace enables the empirical-registry standard pack, THE f
 # empirical.registry
 
 The empirical-registry standard pack: the third standard pack on the
-domain-pack mechanism (`packs.md`) and the Floors facet's first real
-consumer — a floor driven by statistical practice (significance +
-observation window), not algebra. A workspace opts in by declaring a
+domain-pack mechanism (`packs.md`) and another Floors consumer — a
+floor driven by statistical practice (significance + observation
+window), not algebra. A workspace opts in by declaring a
 typed `## StatTests` registry and `empirical.statistic` properties;
 statistical tests stay authoritative outside the format — the pack
 declares the registry, the mechanism (`packs.md`) interprets it.

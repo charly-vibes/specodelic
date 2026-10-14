@@ -9,9 +9,11 @@ for the first domain packs. This page does it for
 `empirical.statistic` fiber property kind, a `tested_by` reference
 field, and a per-kind case-label floor enumerating **`alpha:`** and
 **`window:`** on statistic properties — without a format revision and
-without growing any base closed set. It is also the Floors facet's
-first real consumer: the floor here is driven by statistical practice
-(significance level plus observation window), not algebra. You will see
+without growing any base closed set. It is also another Floors
+consumer: the floor here is driven by statistical practice (significance
+level plus observation window), not algebra — unlike the sibling packs'
+floors, whose case labels are shape-flavored (provenance, bound/against,
+added/removed). You will see
 a small spec use the pack's vocabulary end to end, the pack-activation
 advisory that proves the pack actually engaged, genuinely failing
 variants with their real labeled findings, and — just as important —
@@ -264,7 +266,7 @@ spk graph claim-lift.md
 ```
 
 ```text
-graph: 1 file(s), 19 node(s), 22 edge(s), 0 dangling, 0 typing violation(s), 0 supersedes cycle(s), 0 external boundary(ies)
+graph: 1 file(s), 20 node(s), 23 edge(s), 0 dangling, 0 typing violation(s), 0 supersedes cycle(s), 0 external boundary(ies)
 → Run: specodelic lint
 ```
 
@@ -301,7 +303,13 @@ lint: 1 file(s) linted, 0 finding(s), 0 advisory warning(s)
 
 No advisory, no findings — a spec with no pack vocabulary is markdown
 the pack machinery never interprets, by design: a pack can never gate
-a file that did not opt in. The reliable diagnostic either way: a spec
+a file that did not opt in. Note what quiet means here: with the pack
+gone, the `tested_by` column, the `## StatTests` section, and the
+**`alpha:`**/**`window:`** case labels are all inert decoration —
+linted as ordinary markdown, interpreted by nothing. A pack-less lint
+never errors on pack vocabulary alone; it only errors once a
+pack-qualified *kind* lands in a closed-set column (the fiber kind
+cell, as above). The reliable diagnostic either way: a spec
 you *meant* to be pack-enabled but lint with no activation advisory is
 a spec whose pack was not discovered.
 
