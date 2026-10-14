@@ -1,0 +1,9 @@
+id = "consumer-activates-the-pack-advisory-first"
+description = "a corpus spec using svc.compat/Interfaces/published_as without a uses edge activates the pack advisory-first, naming the pack and its draft status (svc.contracts.pack/interfaces_section_shape)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "vocabulary_use_activates_the_pack_advisory"

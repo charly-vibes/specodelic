@@ -1,0 +1,9 @@
+id = "closure-is-a-declaration-not-an-executed-check"
+description = "a dangling published_as name stays declaration-level: the Checkers facet names the closure rule and the mechanism never claims an executed check it does not run (svc.contracts.pack/published_as_outbound)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "pack_file_linted_alone_is_self_exempt"

@@ -1,0 +1,9 @@
+id = "compat-floor-names-its-case-labels"
+description = "the svc.compat floor names added and removed as the required case labels (svc.contracts.pack/compat_floor_declared)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "missing_manifest_table_is_a_labeled_pack_shape_finding"

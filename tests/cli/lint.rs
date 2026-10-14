@@ -149,9 +149,10 @@ fn lint_corpus_is_fully_clean() {
         .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let data = &json["data"];
-    // 44 = the migrated corpus (22) + the capability specs that were
-    // already deployed before the single-tree migration (jf1).
-    assert_eq!(data["files_linted"], 44);
+    // 45 = the migrated corpus (22) + the capability specs deployed before
+    // the single-tree migration (jf1, 44 at that count) + the
+    // svc-contracts-pack capability (add-svc-contracts-pack, 2026-10-14).
+    assert_eq!(data["files_linted"], 45);
     let issues = data["issues"].as_array().unwrap();
     assert!(issues.is_empty(), "corpus lint findings: {issues:?}");
     assert_eq!(out.status.code(), Some(0));

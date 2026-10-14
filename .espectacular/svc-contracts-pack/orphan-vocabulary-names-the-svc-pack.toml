@@ -1,0 +1,9 @@
+id = "orphan-vocabulary-names-the-svc-pack"
+description = "svc.compat used with no svc-contracts pack discovered reports a labeled orphan failure naming namespace svc and both remediations, non-zero exit (svc.contracts.pack/interfaces_section_shape)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "vocabulary_used_without_any_pack_is_a_labeled_orphan_failure"

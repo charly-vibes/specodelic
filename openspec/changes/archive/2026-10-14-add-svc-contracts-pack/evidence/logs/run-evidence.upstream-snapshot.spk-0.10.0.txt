@@ -1,0 +1,193 @@
+spk: specodelic 0.10.0
+date: 2026-10-14
+
+== E1 provider alone
+exit=0
+lint: 1 file(s) linted, 0 finding(s), 1 advisory warning(s)
+  advisory orders.api [linter.observability] effect `orders.api.order_placed` has no `observes` reference targeting it — a declared output nobody observes (advisory, exit 0) [hint: add an `observes` column on the row that consumes this output, or remove the effect if it is unintentional]
+→ Run: specodelic graph
+
+== E2 consumer alone (dangling = its ports)
+exit=1
+lint: 1 file(s) linted, 2 finding(s), 0 advisory warning(s)
+  billing/specs/billing-client.md [linter.total_refs] dangling reference `[[orders.api.list_orders]]` from constraints.satisfies — target not defined in any spec file
+  billing/specs/billing-client.md [linter.total_refs] dangling reference `[[orders.api.order_placed]]` from constraints.observes — target not defined in any spec file
+→ Run: fix the reported invariants — each rule's semantics: spk explain lint-rules
+
+== E3a combined, provider first
+exit=0
+lint: 2 file(s) linted, 0 finding(s), 0 advisory warning(s)
+→ Run: specodelic graph
+
+== E3b combined, consumer first
+exit=0
+lint: 2 file(s) linted, 0 finding(s), 0 advisory warning(s)
+→ Run: specodelic graph
+
+== E4a wiring view (TSV)
+billing.client	Intent	constraints.satisfies	orders.api	Intent	1
+
+== E4b all edges, satisfies/observes only
+billing.client.sees_placed	Constraint	constraints.observes	orders.api.order_placed	Constraint	
+billing.client.uses_orders	Constraint	constraints.satisfies	orders.api.list_orders	Constraint	
+
+== E5 lint over orders/specs + verbatim duplicate dup/specs
+exit=0
+lint: 2 file(s) linted, 0 finding(s), 2 advisory warning(s)
+  advisory orders.api [linter.observability] effect `orders.api.order_placed` has no `observes` reference targeting it — a declared output nobody observes (advisory, exit 0) [hint: add an `observes` column on the row that consumes this output, or remove the effect if it is unintentional]
+  advisory orders.api [linter.observability] effect `orders.api.order_placed` has no `observes` reference targeting it — a declared output nobody observes (advisory, exit 0) [hint: add an `observes` column on the row that consumes this output, or remove the effect if it is unintentional]
+
+== E5 graph over orders/specs + verbatim duplicate dup/specs
+exit=0
+graph: 2 file(s), 10 node(s), 18 edge(s), 0 dangling, 0 typing violation(s), 0 supersedes cycle(s), 1 external boundary(ies)
+  external boundary: orders.api
+→ Run: specodelic lint
+
+== E5 compile over orders/specs + verbatim duplicate dup/specs
+exit=0
+compile: 2 compiled, 0 failed
+  orders/specs/orders-api.md [orders.api] → specodelic/orders-api.toml, specodelic/orders-api_props.rs, specodelic/orders-api.tla
+  dup/specs/orders-api.md [orders.api] → specodelic/orders-api.toml, specodelic/orders-api_props.rs, specodelic/orders-api.tla
+
+== E5 model-check over orders/specs + verbatim duplicate dup/specs
+exit=2
+duplicate_corpus_identity: intent id `orders.api` is claimed by both orders/specs/orders-api.md and dup/specs/orders-api.md — ordinary corpus intent ids must be unique
+→ Run: rename one file (and its id:) so each ordinary intent id is unique; repeated local row ids across distinct intents are fine and stay file-local
+
+== E6a two repos each with specs/api.md (id: api) — lint
+exit=0
+lint: 2 file(s) linted, 0 finding(s), 2 advisory warning(s)
+  advisory api [linter.observability] effect `api.order_placed` has no `observes` reference targeting it — a declared output nobody observes (advisory, exit 0) [hint: add an `observes` column on the row that consumes this output, or remove the effect if it is unintentional]
+  advisory api [linter.observability] effect `api.order_placed` has no `observes` reference targeting it — a declared output nobody observes (advisory, exit 0) [hint: add an `observes` column on the row that consumes this output, or remove the effect if it is unintentional]
+→ Run: specodelic graph
+
+== E6b same — compile (output names derive from the file stem)
+exit=0
+compile: 2 compiled, 0 failed
+  a/specs/api.md [api] → specodelic/api.toml, specodelic/api_props.rs, specodelic/api.tla
+  b/specs/api.md [api] → specodelic/api.toml, specodelic/api_props.rs, specodelic/api.tla
+→ Run: specodelic verify (consumes the *_props.rs artifacts)
+compile out dir:
+api.tla
+api.toml
+api_props.rs
+
+== E7a consumer repo alone (pack lives in the other repo)
+exit=1
+lint: 1 file(s) linted, 2 finding(s), 1 advisory warning(s)
+  ledger.rows [linter.constraint_kind_closed] constraint `list_orders` has kind `data.dataset` — outside the closed set {invariant, advisory, effect, extension_point} (kinds.md constraint_row_shape)
+  ledger.rows [linter.orphan_vocabulary] orphan vocabulary: pack-qualified token(s) `data.dataset` used by `ledger.rows`, but no `kind: profile` pack in namespace `data` is discovered — candidate pack `data.*` (prefix-derived: only the namespace is known); remediations: add/enable a `kind: profile
+
+== E7b lint P/specs C/specs  (last path = consumer repo)
+exit=1
+lint: 2 file(s) linted, 2 finding(s), 2 advisory warning(s)
+  ledger.rows [linter.constraint_kind_closed] constraint `list_orders` has kind `data.dataset` — outside the closed set {invariant, advisory, effect, extension_point} (kinds.md constraint_row_shape)
+  ledger.rows [linter.orphan_vocabulary] orphan vocabulary: pack-qualified token(s) `data.dataset` used by `ledger.rows`, but no `kind: profile` pack in namespace `data` is discovered — candidate pack `data.*` (prefix-derived: only the namespace is known); remediations: add/enable a `kind: profile
+
+== E7c lint C/specs P/specs  (last path = pack repo)
+exit=0
+lint: 2 file(s) linted, 0 finding(s), 3 advisory warning(s)
+  advisory ledger.rows [linter.observability] effect `ledger.rows.order_placed` has no `observes` reference targeting it — a declared output nobody observes (advisory, exit 0) [hint: add an `observes` column on the row that consumes this output, or remove the effect if it is unintentional]
+  advisory orders.api [linter.observability] effect `orders.api.order_placed` has no `observes` reference targeting it — a declared output nobody observes (advisory, exit 0) [hint: add an `observes` column on the row that consumes this output, or remove the effect if it is unintentional]
+
+== E8 git toplevel seen from inside the submodule: /tmp/tmp.xDxePMM4u5/U/svc-c
+
+== E8 lint the submodule's specs (umbrella holds the pack)
+exit=1
+lint: 1 file(s) linted, 2 finding(s), 1 advisory warning(s)
+  ledger.rows [linter.constraint_kind_closed] constraint `list_orders` has kind `data.dataset` — outside the closed set {invariant, advisory, effect, extension_point} (kinds.md constraint_row_shape)
+  ledger.rows [linter.orphan_vocabulary] orphan vocabulary: pack-qualified token(s) `data.dataset` used by `ledger.rows`, but no `kind: profile` pack in namespace `data` is discovered — candidate pack `data.*` (prefix-derived: only the namespace is known); remediations: add/enable a `kind: profile
+
+== E8b lint from the umbrella root
+exit=1
+lint: 2 file(s) linted, 2 finding(s), 1 advisory warning(s)
+  ledger.rows [linter.constraint_kind_closed] constraint `list_orders` has kind `data.dataset` — outside the closed set {invariant, advisory, effect, extension_point} (kinds.md constraint_row_shape)
+  ledger.rows [linter.orphan_vocabulary] orphan vocabulary: pack-qualified token(s) `data.dataset` used by `ledger.rows`, but no `kind: profile` pack in namespace `data` is discovered — candidate pack `data.*` (prefix-derived: only the namespace is known); remediations: add/enable a `kind: profile
+
+== E9a provider branch removes a contract row a consumer cites
+exit=1
+merge: failed
+  [rename_replay] branch B removed orders.api.list_orders (a rename or a deletion), but branch A's files still reference [[orders.api.list_orders]] in billing/specs/billing-client.md — if the removal was a rename, replay it onto that reference (specodelic rename); if a deletion, drop the stale ref
+  [rename_replay] branch B removed orders.api.list_orders (a rename or a deletion), but branch A's files still reference [[orders.api.list_orders]] in orders/specs/orders-api.md — if the removal was a rename, replay it onto that reference (specodelic rename); if a deletion, drop the stale referenc
+  [relint_failure] merged tree fails linter.total_refs: dangling reference `[[orders.api.list_orders]]` from constraints.satisfies — target not defined in any spec file
+  [relint_failure] dangling reference in merged tree: billing.client.uses_orders (satisfies) → [[orders.api.list_orders]]: no published contract row orders.api.list_orders exists — publish it in the producer's file or fix the id
+
+== E9b provider branch ADDS a row (additive)
+exit=0
+merge: merged — no findings
+→ Run: specodelic graph to confirm zero dangling after joining
+
+== E9c provider branch removes a row NO other repo cites (limits of the claim)
+exit=1
+merge: needs_review
+  [rename_replay] branch B removed orders.api.extra_note (a rename or a deletion), but branch A's files still reference [[orders.api.extra_note]] in orders/specs/orders-api.md — if the removal was a rename, replay it onto that reference (specodelic rename); if a deletion, drop the stale reference
+→ Run: review the flagged blast radii / rename replays, resolve, then re-run spk merge
+
+== E10a the pack file lints clean on its own
+exit=0
+lint: 1 file(s) linted, 0 finding(s), 0 advisory warning(s)
+→ Run: specodelic graph
+
+== E10b pack in same repo: vocabulary activates the pack (draft status named)
+exit=0
+lint: 1 file(s) linted, 0 finding(s), 2 advisory warning(s)
+  advisory orders.api [linter.observability] effect `orders.api.order_placed` has no `observes` reference targeting it — a declared output nobody observes (advisory, exit 0) [hint: add an `observes` column on the row that consumes this output, or remove the effect if it is unintentional]
+  advisory orders.api [linter.observability] pack `svc.contracts` activated for `orders.api` (vocabulary match: svc.compat, Interfaces, published_as) — empty checked-set (no violations to report) — draft status: findings are advisory-first and name it
+
+== E10c RED: pack absent -> property_kind_closed + orphan_vocabulary
+exit=1
+lint: 1 file(s) linted, 2 finding(s), 1 advisory warning(s)
+  orders.api [linter.property_kind_closed] property `p_compat` has kind `svc.compat` — outside the closed set {unit, law} (kinds.md property_row_shape)
+  orders.api [linter.orphan_vocabulary] orphan vocabulary: pack-qualified token(s) `svc.compat` used by `orders.api`, but no `kind: profile` pack in namespace `svc` is discovered — candidate pack `svc.*` (prefix-derived: only the namespace is known); remediations: add/enable a `kind: profile` pack
+  advisory orders.api [linter.observability] effect `orders.api.order_placed` has no `observes` reference targeting it — a declared output nobody observes (advisory, exit 0) [hint: add an `observes` column on the row that consumes this output, or remove the effect if it is unintentional]
+
+== E10d dangling published_as (no_such_row)
+exit=0
+lint: 1 file(s) linted, 0 finding(s), 2 advisory warning(s)
+  advisory orders.api [linter.observability] effect `orders.api.order_placed` has no `observes` reference targeting it — a declared output nobody observes (advisory, exit 0) [hint: add an `observes` column on the row that consumes this output, or remove the effect if it is unintentional]
+  advisory orders.api [linter.observability] pack `svc.contracts` activated for `orders.api` (vocabulary match: svc.compat, Interfaces, published_as) — empty checked-set (no violations to report) — draft status: findings are advisory-first and name it
+
+== E10e svc.compat row WITHOUT the floor's case labels
+exit=0
+lint: 1 file(s) linted, 0 finding(s), 2 advisory warning(s)
+  advisory orders.api [linter.observability] effect `orders.api.order_placed` has no `observes` reference targeting it — a declared output nobody observes (advisory, exit 0) [hint: add an `observes` column on the row that consumes this output, or remove the effect if it is unintentional]
+  advisory orders.api [linter.observability] pack `svc.contracts` activated for `orders.api` (vocabulary match: svc.compat, Interfaces, published_as) — empty checked-set (no violations to report) — draft status: findings are advisory-first and name it
+
+== E10f cross-repo, pack repo first (last path = consumer)
+exit=1
+lint: 2 file(s) linted, 2 finding(s), 0 advisory warning(s)
+  orders.api [linter.property_kind_closed] property `p_compat` has kind `svc.compat` — outside the closed set {unit, law} (kinds.md property_row_shape)
+  orders.api [linter.orphan_vocabulary] orphan vocabulary: pack-qualified token(s) `svc.compat` used by `orders.api`, but no `kind: profile` pack in namespace `svc` is discovered — candidate pack `svc.*` (prefix-derived: only the namespace is known); remediations: add/enable a `kind: profile` pack
+
+== E10g cross-repo, pack repo last
+exit=0
+lint: 2 file(s) linted, 0 finding(s), 1 advisory warning(s)
+  advisory orders.api [linter.observability] pack `svc.contracts` activated for `orders.api` (vocabulary match: svc.compat, Interfaces, published_as) — empty checked-set (no violations to report) — draft status: findings are advisory-first and name it
+→ Run: specodelic graph
+
+== E11 repo corpus lint output with vs without the draft pack (git root present; dirs: openspec)
+openspec: byte-identical (lint: 51 file(s) linted, 0 finding(s), 52 advisory warning(s))
+
+== E11 positive control: a spec using svc vocabulary, linted from a different dir of the same repo, must activate the pack
+exit=0
+lint: 1 file(s) linted, 0 finding(s), 2 advisory warning(s)
+  advisory orders.api [linter.observability] effect `orders.api.order_placed` has no `observes` reference targeting it — a declared output nobody observes (advisory, exit 0) [hint: add an `observes` column on the row that consumes this output, or remove the effect if it is unintentional]
+  advisory orders.api [linter.observability] pack `svc.contracts` activated for `orders.api` (vocabulary match: svc.compat, Interfaces, published_as) — empty checked-set (no violations to report) — draft status: findings are advisory-first and name it
+
+== E12 vocabulary audit over /tmp/sp-git  (ci = case-insensitive files / exact = exact-case files; specs vs openspec/specs)
+Interfaces       ci=1/0 exact=0/0
+Interface        ci=11/1 exact=2/0
+Services         ci=1/0 exact=0/0
+Contracts        ci=28/4 exact=1/0
+Rollout          ci=3/0 exact=0/0
+Peers            ci=0/0 exact=0/0
+Topology         ci=0/0 exact=0/0
+Repos            ci=6/0 exact=0/0
+svc              ci=0/0 exact=0/0
+svc.compat       ci=0/0 exact=0/0
+svc.contracts    ci=0/0 exact=0/0
+published_as     ci=0/0 exact=0/0
+compat           ci=2/0 exact=2/0
+evolution        ci=4/1 exact=4/1
+
+(work dir: /tmp/tmp.xDxePMM4u5)

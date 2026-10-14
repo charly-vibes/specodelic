@@ -1,0 +1,12 @@
+id = "cross-repo-contract-uses-only-base-edges"
+description = "satisfies to an extension_point and observes to an effect resolve corpus-wide with no pack involved; the provider's file names no consumer (svc.contracts.pack/no_new_cross_repo_edge)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "observes_cross_file_edge_extracts_and_types_clean"
+
+[[tests.cargo]]
+flags = "satisfies_dangling_message_is_interface_shaped"

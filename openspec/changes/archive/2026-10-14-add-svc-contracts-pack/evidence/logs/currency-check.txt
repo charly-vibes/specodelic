@@ -1,0 +1,61 @@
+checked at (UTC): 2026-10-14T11:20Z
+== C1 remote refs
+0798533e183bf638c69bf3e1ccf6fede3e652a33	HEAD
+031be368f02ac716f52fdad6e1b70991a0ea003e	refs/tags/v0.10.0
+48936549803a9d3935c4efb7aabfb6b8c0d8f804	refs/tags/v0.10.0^{}
+494be0a1c61d47e73609693a5e44d38c62c39b73	refs/tags/v0.8.0
+50391188d3800d07cdfa8af27bee2acbca576706	refs/tags/v0.8.0^{}
+
+== C2 relationship of the zip commit
+zip commit exists upstream:        commit
+v0.8.0 tag commit:                 50391188d3800d07cdfa8af27bee2acbca576706
+upstream default-branch tip (fetched): 0798533e183bf638c69bf3e1ccf6fede3e652a33
+analysed upstream snapshot:           49e1a2e06255df8ec50840fa8eff5e9e96347b99
+tag is ancestor of zip commit:     yes   (commits tag..zip: 7)
+zip commit is ancestor of tip:     yes   (commits zip..tip: 43)
+
+== C3 files changed under src/ packs/ specs/ openspec/specs/ between tag and zip commit
+(empty = none)
+
+== C4 upstream tip: do the paths the proposals cite still exist?
+specs/USAGE.md                           MISSING
+specs/AGENTS.md                          MISSING
+specs/theory.md                          MISSING
+specs/CHANGELOG.md                       MISSING
+specs/specodelic.md                      MISSING
+specs/packs.md                           MISSING
+openspec/USAGE.md                        present
+openspec/AGENTS.md                       present
+openspec/theory.md                       present
+openspec/CHANGELOG.md                    present
+openspec/specs/specodelic/spec.md        present
+src/acset/query.rs                       present
+src/merge.rs                             present
+src/citation_corpus.rs                   present
+src/packs.rs                             present
+openspec/specs/packs/spec.md             present
+
+== C5 upstream tip: code anchors the design cites
+183:pub fn blast_radius(
+132:    let reached = acset::query::blast_radius(&instance, &existing, &instance.morphism_names())
+discovery anchor (next_back) lines in src/packs.rs:
+259:        let before = haystack[..abs].chars().next_back();
+351:fn discovery_root(specs: &[Spec]) -> PathBuf {
+362:        .next_back();
+381:        .next_back()
+
+== C6 upstream tip: any workspace/affected verb, svc pack, or related capability?
+(empty above = none in src/main.rs)
+(empty above = none)
+upstream packs: packs/bioimage-data.md packs/data-lineage.md packs/empirical-registry.md packs/numeric-predicates.md packs/quant-finance.md 
+upstream version: version = "0.10.0"
+upstream ci pin:          run: npm install -g @fission-ai/openspec@0.19.0
+
+== C7 binary vs analysed upstream snapshot, and snapshot vs fetched tip
+v0.10.0 tag commit:                48936549803a9d3935c4efb7aabfb6b8c0d8f804  (ancestor of snapshot: yes; commits tag..snapshot: 3)
+files changed under src/ packs/ openspec/specs/ between v0.10.0 tag and snapshot:
+(empty = none)
+commits snapshot..fetched tip: 4
+relevant files changed snapshot..tip (src/packs.rs merge.rs query.rs citation_corpus.rs, openspec/specs/packs, openspec/changes, justfile, .github):
+ .github/workflows/ci.yml | 4 ++++
+ 1 file changed, 4 insertions(+)

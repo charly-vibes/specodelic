@@ -1,0 +1,9 @@
+id = "honest-empty-closure-with-no-interfaces-rows"
+description = "with the pack active and no Interfaces rows, the closure checker reports an empty checked-set with no fabricated findings (svc.contracts.pack/published_as_outbound)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "vocabulary_use_activates_the_pack_advisory"

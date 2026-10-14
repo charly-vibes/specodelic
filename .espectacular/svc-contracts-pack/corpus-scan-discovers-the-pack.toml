@@ -1,0 +1,12 @@
+id = "corpus-scan-discovers-the-pack"
+description = "spk lint over a workspace subdirectory discovers packs/svc-contracts.md without configuration; files using none of the vocabulary keep byte-identical findings (svc.contracts.pack/pack_file_declared)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "well_formed_pack_lints_clean_and_is_discovered"
+
+[[tests.cargo]]
+flags = "subdirectory_lint_discovers_workspace_packs"

@@ -93,3 +93,4 @@
 - [bioimage-data-pack — capability](specs/bioimage-data-pack/spec.md)
 - [quant-finance-pack — capability](specs/quant-finance-pack/spec.md)
 - [skill-pack — capability](specs/skill-pack/spec.md)
+- [svc-contracts-pack — capability](specs/svc-contracts-pack/spec.md)

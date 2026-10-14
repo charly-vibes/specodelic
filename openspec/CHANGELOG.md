@@ -1,5 +1,20 @@
 # Changelog
 
+## #132 — add-svc-contracts-pack: fifth standard pack (svc.contracts, draft) — no base change, no format revision
+
+Maintainer decision `specodelic-kjzh` (OQ-P1): adopt the external bundle's
+svc-contracts pack proposal — single-requester demand, landed conservatively
+at `draft` lifecycle (`packs/svc-contracts.md`, id `svc.contracts`). The
+pack declares an `## Interfaces` registry row (name, kind, repo, opaque
+binding, evolution), the namespaced `svc.compat` law kind with an
+`added`/`removed` compatibility floor, and the `published_as` outbound
+leaf. Checkers are declaration-only (honest-empty); no `src/` change, no
+base closed-set growth, no format revision. Vocabulary audit re-run against
+the post-jf1 corpus: zero exact-case hits for every scanned token.
+Promotion to `published` awaits a second independent consumer; open
+questions OQ-P2 (repo normalization) and OQ-P7 (column rename) remain
+recorded in the change's design.md.
+
 ## #131 — v0.10.0: single-tree corpus release — `specs/` retired, two panic-class fixes
 
 Release entry for the thread shipped since #130:

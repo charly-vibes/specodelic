@@ -1,0 +1,34 @@
+openspec: 0.19.0   spk: specodelic 0.10.0   rebase-variant: no
+
+== V1 openspec validate --strict, each new change
+Change 'add-svc-contracts-pack' is valid
+Change 'add-workspace-scope' is valid
+
+== V2 openspec validate --all --strict (the repo's openspec-validate recipe)
+exit=0
+Totals: 52 passed, 0 failed (52 items)
+
+== V3 spk lint openspec (the repo's lint-deltas recipe): baseline vs with overlay (both copies without .git, so pack discovery is the same)
+lint: 51 file(s) linted, 0 finding(s), 41 advisory warning(s)
+lint: 54 file(s) linted, 0 finding(s), 41 advisory warning(s)
+
+== V4 section sync (the repo's sync-sections recipe)
+exit=0
+
+== V5 summary completeness
+summary-completeness: all spec files are linked (0 missing)
+
+== V6 packs directory lints clean with the draft pack
+lint: 6 file(s) linted, 0 finding(s), 0 advisory warning(s)
+
+== V7 openspec archive add-svc-contracts-pack (throwaway copy)
+exit=0
+Applying changes to openspec/specs/svc-contracts-pack/spec.md:
+  + 5 added
+Change 'add-svc-contracts-pack' archived as '2026-10-14-add-svc-contracts-pack'.
+
+== V7 openspec archive add-workspace-scope (throwaway copy)
+exit=0
+packs MODIFIED failed for header "### Requirement: Pack artifact is a declared profile file" - not found
+
+(not run: cargo build/test, just ci, pretender, guards — no Rust toolchain in this environment)

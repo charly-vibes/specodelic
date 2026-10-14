@@ -1,0 +1,9 @@
+id = "pack-lints-clean-under-pack-shape"
+description = "the pack file parsed in its landing lifecycle state reports zero pack_shape findings over its declared vocabulary (svc.contracts.pack/interfaces_section_shape)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "draft_pack_findings_name_the_draft_status"
