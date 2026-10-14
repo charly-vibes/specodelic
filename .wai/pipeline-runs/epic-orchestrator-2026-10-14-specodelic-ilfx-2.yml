@@ -1,0 +1,11 @@
+run_id: epic-orchestrator-2026-10-14-specodelic-ilfx-2
+pipeline: epic-orchestrator
+topic: specodelic-ilfx.2
+created_at: '2026-10-14T16:41:10.405521934+00:00'
+current_step: 3
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
+bypasses: []
