@@ -67,9 +67,9 @@ fan-in/out and dangling detection), `spk rename` / `spk merge` /
 reference fields for a domain (no config file — lint discovers packs by
 corpus scan). Six packs ship in-repo — the five standard packs
 (`data.lineage`, `numeric.predicates`, `empirical.registry`,
-`quant.finance`, `svc.contracts`) plus the bioimage D6 pilot
-(`bioimage.data`, the first cross-pack `## Requires`); see the
-[packs spec](specs/packs/spec.md).
+`quant.finance`, `svc.contracts` — still `draft`) plus the bioimage
+D6 pilot (`bioimage.data`, the first cross-pack `## Requires`); see
+the [packs spec](specs/packs/spec.md).
 
 ## For agents
 

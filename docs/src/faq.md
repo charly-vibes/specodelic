@@ -170,5 +170,5 @@ Through a [domain pack](specs/packs/spec.md): a `kind: profile` manifest
 declaring typed sections, fiber kinds, and reference fields — discovered
 by corpus scan, no config file. Six packs ship in-repo — five standard
 packs (`data.lineage`, `numeric.predicates`, `empirical.registry`,
-`quant.finance`, `svc.contracts`) plus the first cross-pack `## Requires`
-pilot (`bioimage.data`).
+`quant.finance`, `svc.contracts` — the last still `draft`) plus the
+first cross-pack `## Requires` pilot (`bioimage.data`).

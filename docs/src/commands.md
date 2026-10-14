@@ -58,7 +58,8 @@ activates them when a file's vocabulary matches, and reports:
 
 The five in-repo standard packs live in [`packs/`](https://github.com/charly-vibes/specodelic/tree/main/packs)
 (`data.lineage`, `numeric.predicates`, `empirical.registry`,
-`quant.finance`, `svc.contracts`); a consuming file opts in explicitly
+`quant.finance`, `svc.contracts` — the last still `draft`); a
+consuming file opts in by using the pack's vocabulary, or explicitly
 via a `uses` reference to the pack's frontmatter id.
 
 - Spec: [packs](specs/packs/spec.md)

@@ -65,8 +65,9 @@ authoritative outside the format, never absorbed),
 outside the format, never absorbed),
 [`packs/svc-contracts.md`](packs/svc-contracts.md) (a typed
 `## Interfaces` table with the `svc.compat` kind and a `published_as`
-reference field for cross-repo service contracts; OpenAPI/AsyncAPI/protobuf
-artifacts stay authoritative outside the format, never absorbed), and
+reference field for cross-repo service contracts; OpenAPI/AsyncAPI/protobuf/
+JSON-Schema artifacts stay authoritative outside the format, never
+absorbed; still `draft` — activates advisory-first), and
 [`packs/bioimage-data.md`](packs/bioimage-data.md) — the D6 pilot: a
 typed `## Axes` table with the `bioimage.transform` kind, the R2
 data-shaped predicate grammar as named checkers, and the mechanism's
