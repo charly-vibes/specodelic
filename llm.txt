@@ -152,5 +152,6 @@ cargo install specodelic
 - [worked example — reservation/order, built layer by layer, failures included](https://charly-vibes.github.io/specodelic/examples/worked-example.html)
 - [worked example — the data.lineage pack, failures included](https://charly-vibes.github.io/specodelic/examples/data-lineage.html)
 - [worked example — the numeric.predicates pack, failures included](https://charly-vibes.github.io/specodelic/examples/numeric-predicates.html)
+- [worked example — the empirical.registry pack, failures included](https://charly-vibes.github.io/specodelic/examples/empirical-registry.html)
 - [reservation-order — the finished spec](https://charly-vibes.github.io/specodelic/examples/reservation-order.html)
 - [batch-resume — derived parallelism, worked end to end](https://charly-vibes.github.io/specodelic/examples/batch-resume.html)
