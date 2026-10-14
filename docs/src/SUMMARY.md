@@ -71,6 +71,7 @@
 - [worked example — the numeric.predicates pack, failures included](examples/numeric-predicates.md)
 - [worked example — the empirical.registry pack, failures included](examples/empirical-registry.md)
 - [worked example — the bioimage.data pack, failures included](examples/bioimage-data.md)
+- [worked example — the quant.finance pack, failures included](examples/quant-finance.md)
 - [reservation-order — the finished spec](examples/reservation-order.md)
 - [batch-resume — derived parallelism, worked end to end](examples/batch-resume.md)
 
