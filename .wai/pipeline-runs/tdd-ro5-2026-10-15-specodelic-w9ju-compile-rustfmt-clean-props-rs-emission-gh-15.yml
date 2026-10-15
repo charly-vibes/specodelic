@@ -1,0 +1,11 @@
+run_id: tdd-ro5-2026-10-15-specodelic-w9ju-compile-rustfmt-clean-props-rs-emission-gh-15
+pipeline: tdd-ro5
+topic: 'specodelic-w9ju: compile rustfmt-clean *_props.rs emission (gh-15)'
+created_at: '2026-10-15T20:09:50.218880661+00:00'
+current_step: 8
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
+bypasses: []
