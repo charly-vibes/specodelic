@@ -624,7 +624,7 @@ pub(crate) fn cmd_migrate(
             let out: Output<serde_json::Value> = Output::failure(format!(
                 "{file}: unreadable ({e})"
             ))
-            .with_next_step("pass a readable UTF-8 markdown file containing ## ADDED Requirements");
+            .with_next_step("pass a readable UTF-8 markdown file containing ## ADDED and/or ## MODIFIED Requirements");
             emit_report(out, None, format, verbosity, stdout, stderr);
             return 2;
         }
@@ -656,7 +656,7 @@ pub(crate) fn cmd_migrate(
                 migrate::MigrateError::BareDeltaHeading => {
                     "the delta heading must be a complete line — write the section body (### Requirement: …) after ## ADDED Requirements, then re-run: spk migrate <file>"
                 }
-                _ => "a delta must carry an ## ADDED Requirements section",
+                _ => "a delta must carry an ## ADDED and/or ## MODIFIED Requirements section",
             };
             let out: Output<serde_json::Value> =
                 Output::failure(format!("{file}: {e}")).with_next_step(hint);

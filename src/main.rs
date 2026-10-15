@@ -296,7 +296,8 @@ enum Commands {
     /// With --rekey, instead rewrite an `id: spec` dual-format file to its
     /// Revision 18 real id (naming law; idempotent no-op when already real)
     Migrate {
-        /// Delta file to wrap in place (must contain ## ADDED Requirements)
+        /// Delta file to wrap in place (must contain ## ADDED and/or ##
+        /// MODIFIED Requirements)
         file: String,
         /// Print the resulting content without writing the file
         #[arg(long)]
