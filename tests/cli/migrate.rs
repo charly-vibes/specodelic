@@ -29,6 +29,56 @@ fn migrate_mixed_delta_lints_clean() {
         .stdout(contains("\"issues\":[]"));
 }
 
+/// (specodelic-nvs9, gh-16) A MODIFIED-only delta — no ## ADDED
+/// Requirements section — migrates like any other delta: frontmatter,
+/// scaffold layers, and a mirror holding the MODIFIED body in its
+/// modified form (the same body linter.requirement_drift compares).
+/// Regression: migrate refused every MODIFIED-only delta with
+/// NoDeltaSection, leaving them plain so lint keeps skipping them.
+#[test]
+fn migrate_modified_only_delta_lints_clean() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("spec.md");
+    let original = "## MODIFIED Requirements\n\n### Requirement: One\nmodified holds\n";
+    std::fs::write(&file, original).unwrap();
+    spk().arg("migrate").arg(&file).assert().success();
+    let migrated = std::fs::read_to_string(&file).unwrap();
+    // The delta body is preserved byte-for-byte.
+    assert!(migrated.contains(original), "{migrated}");
+    // The mirror holds the MODIFIED text (in its modified form).
+    assert!(
+        migrated.contains("## Requirements\n\n### Requirement: One\nmodified holds\n"),
+        "{migrated}"
+    );
+    // The freshly migrated file must not immediately fail lint.
+    spk()
+        .arg("lint")
+        .arg(&file)
+        .assert()
+        .success()
+        .stdout(contains("\"issues\":[]"));
+}
+
+/// (specodelic-nvs9) A file with NEITHER an ADDED nor a MODIFIED section
+/// is still refused NoDeltaSection — and the message names both accepted
+/// delta sections so the remediation hint matches the widened contract.
+#[test]
+fn migrate_no_delta_section_refusal_names_both_sections() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("spec.md");
+    let original = "# Just prose\n\nSome text.\n";
+    std::fs::write(&file, original).unwrap();
+    spk()
+        .arg("migrate")
+        .arg(&file)
+        .assert()
+        .failure()
+        .stdout(contains(
+            "## ADDED Requirements or ## MODIFIED Requirements",
+        ));
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+}
+
 /// (specodelic-54v) The same requirement heading in both ADDED and
 /// MODIFIED cannot be mirrored faithfully (one heading, two texts) —
 /// migrate refuses labeled with a remediation hint, file untouched.

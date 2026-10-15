@@ -12,7 +12,10 @@
 //! ADDED and MODIFIED requirements, and the mirror must aggregate every
 //! requirement from every carried delta section or
 //! `linter.requirement_drift` (per-requirement comparison across all
-//! carried sections) fails the freshly migrated file.
+//! carried sections) fails the freshly migrated file. Extended again for
+//! specodelic-nvs9 (gh-16): a delta carrying only `## MODIFIED Requirements`
+//! wraps too — the mirror holds the MODIFIED body in its modified form, the
+//! same text requirement_drift compares for that section.
 
 use std::fmt;
 
@@ -21,9 +24,10 @@ use std::fmt;
 pub enum MigrateError {
     /// Frontmatter + `## Requirements` both present — already dual-format.
     AlreadyMigrated,
-    /// `## Requirements` without `## ADDED Requirements` — a plain spec.
+    /// `## Requirements` without a delta section — a plain spec.
     NotADelta,
-    /// Neither section present — nothing to wrap.
+    /// Neither `## ADDED Requirements` nor `## MODIFIED Requirements`
+    /// present — nothing to wrap.
     NoDeltaSection,
     /// The same requirement heading appears in both the ADDED and the
     /// MODIFIED sections (specodelic-54v): the mirror can hold only one
@@ -49,12 +53,12 @@ impl fmt::Display for MigrateError {
             ),
             MigrateError::NotADelta => write!(
                 f,
-                "file has ## Requirements but no ## ADDED Requirements — a plain spec, not an openspec delta"
+                "file has ## Requirements but no ## ADDED Requirements or ## MODIFIED Requirements — a plain spec, not an openspec delta"
             ),
             MigrateError::NoDeltaSection => {
                 write!(
                     f,
-                    "no ## ADDED Requirements section found — nothing to wrap"
+                    "no ## ADDED Requirements or ## MODIFIED Requirements section found — nothing to wrap"
                 )
             }
             MigrateError::NoDerivableId => write!(
@@ -169,6 +173,12 @@ pub const SCAFFOLD_PREFIX: &str = "scaffold_";
 /// (specodelic-54v): the `## ADDED Requirements` body byte-exact (D6),
 /// plus the `## MODIFIED Requirements` body in its modified form — the
 /// same per-requirement comparison `linter.requirement_drift` performs.
+/// A MODIFIED-only delta (specodelic-nvs9) wraps too: no ADDED body exists
+/// to mirror, so the mirror is the MODIFIED body — the single builder, not
+/// a fork. A file with neither delta section is still refused
+/// ([`MigrateError::NoDeltaSection`]); REMOVED-only deltas are refused as
+/// such (a mirror cannot hold text for requirements the capability no
+/// longer carries).
 pub fn migrate(text: &str, path: &std::path::Path) -> Result<MigrateOutcome, MigrateError> {
     // Revision 18 (specodelic-mcy): generated frontmatter carries the
     // REAL id derived by the naming law — spec.md from its parent
@@ -181,14 +191,17 @@ pub fn migrate(text: &str, path: &std::path::Path) -> Result<MigrateOutcome, Mig
         return Err(MigrateError::BareDeltaHeading);
     }
     let has_added = section_span(text, "## ADDED Requirements").is_some();
+    // specodelic-nvs9 (gh-16): a MODIFIED section alone is a wrappable
+    // delta — the triage below accepts ADDED, MODIFIED, or both.
+    let has_modified = section_span(text, "## MODIFIED Requirements").is_some();
     let has_mirror = section_span(text, "## Requirements").is_some();
     let has_frontmatter = text.starts_with("---\n") || text.starts_with("---\r\n");
-    match (has_frontmatter, has_added, has_mirror) {
+    match (has_frontmatter, has_added || has_modified, has_mirror) {
         // Already migrated (D2): frontmatter + mirror ⇒ refuse.
         (true, _, true) => return Err(MigrateError::AlreadyMigrated),
-        // Plain spec: mirror without the delta heading ⇒ refuse.
+        // Plain spec: mirror without a delta heading ⇒ refuse.
         (_, false, true) => return Err(MigrateError::NotADelta),
-        // Nothing to wrap.
+        // Nothing to wrap (neither ADDED nor MODIFIED present).
         (_, false, false) => return Err(MigrateError::NoDeltaSection),
         _ => {}
     }
@@ -237,31 +250,65 @@ pub fn migrate(text: &str, path: &std::path::Path) -> Result<MigrateOutcome, Mig
         }
     }
 
-    // The delta sections, verbatim through their bodies. MODIFIED is
-    // located over the whole body (it may sit before the layers, between
-    // them and ADDED, or in the trailing region — all copied verbatim
-    // below, never destroyed).
-    let (added_start, added_end) =
-        section_span_from(body, "## ADDED Requirements", cursor).expect("has_added checked above");
-    let added_body = section_body(body, added_start, added_end).to_string();
-    out.push_str(&body[cursor..added_end]);
-    cursor = added_end;
+    // The delta sections, verbatim through their bodies. The copy anchor
+    // is ADDED when present, else MODIFIED (specodelic-nvs9); everything
+    // from the cursor through the anchor's end is copied, never
+    // destroyed. MODIFIED is located over the whole body for the mirror
+    // (it may sit before the layers, between them and ADDED, or in the
+    // trailing region — all copied verbatim below, never destroyed).
+    let anchor_heading = if has_added {
+        "## ADDED Requirements"
+    } else {
+        "## MODIFIED Requirements"
+    };
+    let (anchor_start, anchor_end) = match section_span_from(body, anchor_heading, cursor) {
+        Some(span) => {
+            out.push_str(&body[cursor..span.1]);
+            cursor = span.1;
+            span
+        }
+        // The delta section sits before the cursor — already copied
+        // verbatim within an earlier layer span; never destroy, never
+        // re-copy. Its span is still needed for the mirror below.
+        None => section_span(body, anchor_heading).expect("delta presence checked above"),
+    };
+    let added_body = if has_added {
+        section_body(body, anchor_start, anchor_end).to_string()
+    } else {
+        String::new()
+    };
     // Trailing content after the delta section (rare, but never destroy).
     out.push_str(&body[cursor..]);
 
-    // Mirror (D6 byte-exact slice, extended specodelic-54v): every
-    // requirement from every carried delta section, under the Requirements
-    // heading — the ADDED body byte-exact, the MODIFIED body in its
-    // modified form, so the fresh file satisfies linter.requirement_drift's
-    // per-requirement comparison. Trimmed to exactly one trailing newline;
-    // sections joined by one blank line.
-    let mut mirror_parts = vec![added_body.trim_end_matches(['\r', '\n'])];
+    // Mirror (D6 byte-exact slice, extended specodelic-54v and again
+    // specodelic-nvs9): every requirement from every carried delta
+    // section, under the Requirements heading — the ADDED body byte-exact
+    // (absent for a MODIFIED-only delta), plus the MODIFIED body in its
+    // modified form, so the fresh file satisfies
+    // linter.requirement_drift's per-requirement comparison. Trimmed to
+    // exactly one trailing newline; sections joined by one blank line.
+    let mut mirror_parts: Vec<&str> = Vec::new();
+    if has_added {
+        mirror_parts.push(added_body.trim_end_matches(['\r', '\n']));
+    }
     if let Some((modified_start, modified_end)) =
         section_span_from(body, "## MODIFIED Requirements", 0)
     {
         let modified_body = section_body(body, modified_start, modified_end);
-        let modified = modified_body.trim_matches(['\r', '\n']);
+        // Same treatment as the ADDED body (specodelic-nvs9): when the
+        // MODIFIED body is the mirror's only part, its own leading newline
+        // supplies the blank line under the ## Requirements heading (a
+        // byte-exact slice, trailing trimmed). When it joins an ADDED part,
+        // 54v trims it and the join separator supplies the blank line.
+        let modified = if mirror_parts.is_empty() {
+            modified_body.trim_end_matches(['\r', '\n'])
+        } else {
+            modified_body.trim_matches(['\r', '\n'])
+        };
         let modified_headings = requirement_headings(modified_body);
+        // Conflict check only has teeth when an ADDED body exists to
+        // collide with (specodelic-54v); a MODIFIED-only delta cannot
+        // self-conflict.
         for heading in requirement_headings(&added_body) {
             if modified_headings.contains(&heading) {
                 return Err(MigrateError::ConflictingDelta { heading });
@@ -617,6 +664,88 @@ mod tests {
                 .contains("### Requirement: Two\r\ntwo holds\r\n")
         );
         assert!(!out.content.contains("### Requirement: Two\ntwo holds"));
+    }
+
+    // --- MODIFIED-only delta (specodelic-nvs9, gh-16): no ADDED body
+    // exists to mirror, so the mirror is the MODIFIED body itself ---
+
+    #[test]
+    fn modified_only_delta_wraps_with_modified_body_mirror() {
+        let delta = "## MODIFIED Requirements\n\n### Requirement: One\nmodified holds\n";
+        let out = migrate(delta, &spec_path()).expect("migrates");
+        assert!(out.inserted_frontmatter);
+        assert_eq!(out.inserted_layers.len(), 3, "all three layers inserted");
+        assert!(out.inserted_mirror);
+        // Delta body preserved byte-for-byte.
+        assert!(out.content.contains(delta), "{}", out.content);
+        // Mirror is the MODIFIED body, under the Requirements heading,
+        // same shape as the ADDED convention (blank line included).
+        assert!(
+            out.content
+                .contains("## Requirements\n\n### Requirement: One\nmodified holds\n"),
+            "mirror: {}",
+            out.content
+        );
+        assert_eq!(
+            out.content.matches("## Requirements").count(),
+            1,
+            "exactly one mirror"
+        );
+    }
+
+    #[test]
+    fn modified_only_delta_lints_clean_through_the_real_linter() {
+        let delta = "## MODIFIED Requirements\n\n### Requirement: One\nmodified holds\n";
+        let out = migrate(delta, &spec_path()).expect("migrates");
+        let spec = crate::spec::parse_str(&out.content).expect("migrated file parses");
+        let report = crate::lint::lint_corpus(&[spec]);
+        assert!(
+            report.issues.is_empty(),
+            "migrated MODIFIED-only delta must lint clean: {:?}",
+            report.issues.iter().map(|i| &i.message).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn modified_only_crlf_uses_file_eol_in_mirror() {
+        let delta = "## MODIFIED Requirements\r\n\r\n### Requirement: One\r\nmodified holds\r\n";
+        let out = migrate(delta, &spec_path()).expect("migrates");
+        assert!(out.content.contains("## Requirements\r\n"));
+        assert!(
+            out.content
+                .contains("## Requirements\r\n\r\n### Requirement: One\r\nmodified holds\r\n"),
+            "{}",
+            out.content
+        );
+    }
+
+    #[test]
+    fn modified_only_with_existing_frontmatter_keeps_it_verbatim() {
+        let delta = "---\nid: demo.cap\nkind: intent\nstatement: \"THE demo SHALL hold.\"\n---\n\n## MODIFIED Requirements\n\n### Requirement: One\nmodified holds\n";
+        let out = migrate(delta, &spec_path()).expect("migrates");
+        assert!(!out.inserted_frontmatter, "frontmatter kept, not generated");
+        assert!(
+            out.content.starts_with(
+                "---\nid: demo.cap\nkind: intent\nstatement: \"THE demo SHALL hold.\"\n---\n"
+            ),
+            "{}",
+            out.content
+        );
+        assert!(
+            out.content
+                .contains("## Requirements\n\n### Requirement: One")
+        );
+    }
+
+    #[test]
+    fn no_delta_section_message_names_both_accepted_sections() {
+        let err = migrate("# Just prose\n\nSome text.\n", &spec_path()).unwrap_err();
+        assert_eq!(err, MigrateError::NoDeltaSection);
+        assert!(
+            err.to_string()
+                .contains("## ADDED Requirements or ## MODIFIED Requirements"),
+            "message must name both accepted sections: {err}"
+        );
     }
 
     #[test]
