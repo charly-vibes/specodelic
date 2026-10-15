@@ -35,7 +35,7 @@ phase: design
 ### git_status
 
 ```
- M .wai/pipeline-runs/epic-orchestrator-2026-10-15-specodelic-yl39-orchestrate-stem-collision-namespaced-per-file-artifacts-gh-13.yml
+ M .wai/pipeline-runs/epic-orchestrator-2026-10-15-specodelic-1v30-conform-gate-corpus-scope-unknown-flooding-gh-17.yml
  M .wai/resources/pipelines/.last-run
 ```
 
@@ -44,7 +44,6 @@ phase: design
 ```
 ○ specodelic-04c P2 Decide kernel.binding vocabulary enablement: orphan_vocabulary labels files with the kernel.binding column until a kind:profile pack in namespace 'kernel' is discovered (src/packs.rs scans column headers). Found by specodelic-bf5 — its CLI fixture needed a minimal kernel pack as the rule's sanctioned remediation. Decide at §6 corpus migration / archive: ship kernel vocabulary enablement in specs/, or a linter carve-out. Out of specodelic-bf5 scope.
 ○ specodelic-1ey4 P2 verify: route verify stage artifact_paths through citation_corpus::artifact_dir — flat-path residual after yl39
-○ specodelic-1v30 P2 [bug] conform: single-file lint gate dangles corpus-wide refs; prose-dominated unknowns; undocumented trace schema (gh-17)
 ○ specodelic-39w P2 [bug] acset instance builder panics on model.state anchor links — uninterned pseudo-node
 ○ specodelic-523w P2 [bug] compile: commands/corpus.rs (spk compile over a corpus) has no scope guard — later same-stem file silently wins
 ○ specodelic-6aj0 P2 follow-up: archive add-conform via dual-format recipe + author per-scenario contract TOMLs (conform spec, 17 no-toml) + RO5U M2 single-rendering-path tidy
@@ -93,7 +92,7 @@ phase: design
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 49 issues (49 open, 0 in progress)
+Total: 48 issues (48 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
