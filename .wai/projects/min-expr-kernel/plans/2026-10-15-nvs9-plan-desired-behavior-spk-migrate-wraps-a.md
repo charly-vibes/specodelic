@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-10-15-specodelic-nvs9-migrate-wraps-modified-only-deltas-gh-16, pipeline-step:plan]
+---
+
+NVS9 plan — Desired behavior: spk migrate wraps a delta carrying ## MODIFIED Requirements (with or without ## ADDED), producing frontmatter + scaffold layers + byte-exact mirror where the mirror holds the MODIFIED body in modified form (reused 54v aggregation; one mirror builder, not a fork). Out of scope: REMOVED-only deltas (stay refused, labeled — mirror cannot hold deleted requirements), no openspec/ edits, no error-enum reshuffle. Tests (red first in tests/cli/migrate.rs + unit in src/migrate.rs): (1) MODIFIED-only delta migrate → success, mirror holds MODIFIED text, spk lint exit 0 with empty issues; (2) MODIFIED-only delta lints clean through real linter in-process; (3) plain-prose file still refused NoDeltaSection with message naming both ADDED and MODIFIED sections; (4) existing ADDED/mixed/conflict/7i7 tests stay green. Narrow: cargo test --test cli_migrate migrate_modified_only. Full: just test. Files: src/migrate.rs (triage match, delta-anchor selection, mirror parts), tests/cli/migrate.rs.
