@@ -35,15 +35,18 @@ phase: design
 ### git_status
 
 ```
- M .wai/pipeline-runs/epic-orchestrator-2026-10-15-specodelic-w9ju-compile-rustfmt-clean-props-rs-emission-gh-15.yml
+ M .wai/pipeline-runs/epic-orchestrator-2026-10-15-specodelic-yl39-orchestrate-stem-collision-namespaced-per-file-artifacts-gh-13.yml
+ M .wai/resources/pipelines/.last-run
 ```
 
 ### open_issues
 
 ```
 ○ specodelic-04c P2 Decide kernel.binding vocabulary enablement: orphan_vocabulary labels files with the kernel.binding column until a kind:profile pack in namespace 'kernel' is discovered (src/packs.rs scans column headers). Found by specodelic-bf5 — its CLI fixture needed a minimal kernel pack as the rule's sanctioned remediation. Decide at §6 corpus migration / archive: ship kernel vocabulary enablement in specs/, or a linter carve-out. Out of specodelic-bf5 scope.
+○ specodelic-1ey4 P2 verify: route verify stage artifact_paths through citation_corpus::artifact_dir — flat-path residual after yl39
 ○ specodelic-1v30 P2 [bug] conform: single-file lint gate dangles corpus-wide refs; prose-dominated unknowns; undocumented trace schema (gh-17)
 ○ specodelic-39w P2 [bug] acset instance builder panics on model.state anchor links — uninterned pseudo-node
+○ specodelic-523w P2 [bug] compile: commands/corpus.rs (spk compile over a corpus) has no scope guard — later same-stem file silently wins
 ○ specodelic-6aj0 P2 follow-up: archive add-conform via dual-format recipe + author per-scenario contract TOMLs (conform spec, 17 no-toml) + RO5U M2 single-rendering-path tidy
 ○ specodelic-6bq2 P2 [bug] ci: pretender version drift — local 0.7.0 reports reds at ratchet-max files (parse_typing_table cyclo 20, cmd_model_check 17, graph build 26, kernel atomic 16, lint family fns, section_sync check 28) that CI's pinned pretender passes; pin pretender version in repo (like the CI matrix) or document the sanctioned local pin
 ○ specodelic-7c7 P2 lint: model_present 'empty-but-present beats absent' wording promises a differential that does not exist
@@ -54,7 +57,6 @@ phase: design
 ○ specodelic-q596 P2 [epic] gh-bug backlog implementation — 4 verified bug fixes via epic-orchestrator (nvs9, w9ju, yl39, 1v30)
 ○ specodelic-t0aj P2 conform: add spk explain conform topic — oracle JSONL schema, verdict taxonomy, permitted-requires-executable-claims (gh-18)
 ○ specodelic-xci P2 lint: advisory warnings for placeholder and tautology content (TODO cells, trivially-true predicates)
-○ specodelic-yl39 P2 [bug] orchestrate: stem collision collapses corpus-wide compile into one out-dir; model_check reports stale_artifact for 29/30 files (gh-13)
 ○ specodelic-0mn1 P3 [bug] ah sync refuses self-hosting corpora: per-file lint can never be clean (total_refs is corpus-wide)
 ○ specodelic-18mt P3 conform: optional expect field on scenario records — negative probes classify as agreements (gh-18 item 7)
 ○ specodelic-3a8 P3 refactor: decouple dual-format (openspec) metadata from core Spec parse — adapter layer
@@ -91,7 +93,7 @@ phase: design
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 48 issues (48 open, 0 in progress)
+Total: 49 issues (49 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
