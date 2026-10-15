@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -53,7 +55,6 @@ pub mod spec_gen {
     pub fn parser_audit_failure_raised() -> impl Strategy<Value = String> {
         Just("parser_audit_failure_raised".into())
     }
-
 }
 
 // id: shrunk_id_set_rejected
@@ -61,7 +62,7 @@ pub mod spec_gen {
 // predicate: `check(revisions) == failed` — one generator, parametrized over which of the three id-sets it targets
 #[test]
 fn shrunk_id_set_rejected() {
-        todo_predicate!("`check(revisions) == failed` — one generator, parametrized over which of the three id-sets it targets");
+    todo_predicate!("`check(revisions) == failed` — one generator, parametrized over which of the three id-sets it targets");
 }
 
 // id: reordered_id_set_rejected
@@ -69,7 +70,7 @@ fn shrunk_id_set_rejected() {
 // predicate: `check(revisions) == failed`
 #[test]
 fn reordered_id_set_rejected() {
-        todo_predicate!("`check(revisions) == failed`");
+    todo_predicate!("`check(revisions) == failed`");
 }
 
 // id: silent_narrowing_rejected
@@ -77,7 +78,7 @@ fn reordered_id_set_rejected() {
 // predicate: `check(revisions) == failed`
 #[test]
 fn silent_narrowing_rejected() {
-        todo_predicate!("`check(revisions) == failed`");
+    todo_predicate!("`check(revisions) == failed`");
 }
 
 proptest! {
@@ -116,7 +117,7 @@ proptest! {
 // predicate: `check(revisions) == passed`
 #[test]
 fn appended_id_set_member_passes() {
-        todo_predicate!("`check(revisions) == passed`");
+    todo_predicate!("`check(revisions) == passed`");
 }
 
 proptest! {
@@ -170,4 +171,3 @@ proptest! {
         todo_predicate!("`error_label == \"linter.schema_shape.parser_audit_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
-

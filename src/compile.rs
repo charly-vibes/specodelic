@@ -893,7 +893,7 @@ pub fn properties_to_proptest(spec: &Spec) -> String {
          /// panics when executed — execution is `verify`'s job. A predicate\n\
          /// opting in with **rust:** compiles as a real assertion instead\n\
          /// (executable predicate fragment, specodelic.md Revision 15).\n\
-         macro_rules! todo_predicate {\n    ($reason:expr) => { todo!(\"{}\", $reason) };\n}\n\n",
+         macro_rules! todo_predicate {\n    ($reason:expr) => {\n        todo!(\"{}\", $reason)\n    };\n}\n\n",
     );
 
     // spec_gen helpers: one per distinct generator referenced anywhere.
@@ -1334,32 +1334,99 @@ pub fn artifact_stem(spec: &Spec) -> String {
         .unwrap_or_else(|| spec.intent.id.replace('.', "-"))
 }
 
+/// The outcome of `write_artifacts`: the written artifact paths plus any
+/// non-fatal warnings — the rustfmt fallback fact rides these so callers
+/// surface it on their existing warning channel.
+pub struct Written {
+    /// Written artifact paths (`<stem>.toml`, `<stem>_props.rs`, `<stem>.tla`).
+    pub paths: Vec<String>,
+    /// Non-fatal warnings (e.g. rustfmt unavailable — unformatted bytes
+    /// written, command still succeeded).
+    pub warnings: Vec<String>,
+}
+
 /// Write a compiled spec's three artifacts (`<stem>.toml`,
 /// `<stem>_props.rs`, `<stem>.tla`) into `out_dir` (created on demand).
-/// Returns the written paths; a write failure is a labeled error, never
-/// a silent partial on disk.
-pub fn write_artifacts(
-    spec: &Spec,
-    compiled: &Compiled,
-    out_dir: &str,
-) -> Result<Vec<String>, String> {
+/// Returns the written paths plus non-fatal warnings; a write failure is
+/// a labeled error, never a silent partial on disk.
+///
+/// The `*.rs` artifact is made rustfmt-clean here (gh-15): the write
+/// choke point formats it with rustfmt (edition 2021) before writing, so
+/// every emitter of `*.rs` artifacts — the `spk compile` command path and
+/// orchestrate alike — writes fmt-clean bytes and no downstream
+/// `cargo fmt --check` gate churns on formatting-only diffs. The
+/// `.toml`/`.tla` companions are not rustfmt's business. A missing or
+/// failing rustfmt is a graceful labeled fallback: the unformatted bytes
+/// are written, the command still succeeds, and the fallback fact is
+/// carried in `Written::warnings` — never a hard failure.
+pub fn write_artifacts(spec: &Spec, compiled: &Compiled, out_dir: &str) -> Result<Written, String> {
     let stem = artifact_stem(spec);
     std::fs::create_dir_all(out_dir)
         .map_err(|e| format!("could not create out-dir {out_dir}: {e}"))?;
     let toml_path = std::path::Path::new(out_dir).join(format!("{stem}.toml"));
     let props_path = std::path::Path::new(out_dir).join(format!("{stem}_props.rs"));
     let tla_path = std::path::Path::new(out_dir).join(format!("{stem}.tla"));
+    let (props, warnings) = match rustfmt_clean(compiled.props.clone()) {
+        Ok(formatted) => (formatted, Vec::new()),
+        Err(e) => (
+            compiled.props.clone(),
+            vec![format!(
+                "wrote unformatted {} ({e}) — install rustfmt so compile emits fmt-clean artifacts",
+                props_path.display()
+            )],
+        ),
+    };
     std::fs::write(&toml_path, &compiled.toml)
         .map_err(|e| format!("could not write {}: {e}", toml_path.display()))?;
-    std::fs::write(&props_path, &compiled.props)
+    std::fs::write(&props_path, &props)
         .map_err(|e| format!("could not write {}: {e}", props_path.display()))?;
     std::fs::write(&tla_path, &compiled.tla)
         .map_err(|e| format!("could not write {}: {e}", tla_path.display()))?;
-    Ok(vec![
-        toml_path.display().to_string(),
-        props_path.display().to_string(),
-        tla_path.display().to_string(),
-    ])
+    Ok(Written {
+        paths: vec![
+            toml_path.display().to_string(),
+            props_path.display().to_string(),
+            tla_path.display().to_string(),
+        ],
+        warnings,
+    })
+}
+
+/// Format generated Rust source with rustfmt (edition 2021) via stdin.
+/// `Ok(formatted)` on success; `Err(reason)` when rustfmt is unavailable
+/// or rejects the source — the caller falls back to the unformatted
+/// bytes (gh-15: a missing rustfmt must never turn compile into a hard
+/// failure).
+fn rustfmt_clean(source: String) -> Result<String, String> {
+    use std::io::Write as _;
+    use std::process::{Command, Stdio};
+    let mut child = Command::new("rustfmt")
+        .args(["--edition", "2021", "--emit", "stdout"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("rustfmt unavailable: {e}"))?;
+    let mut stdin = child.stdin.take().expect("stdin is piped");
+    // Write stdin from a thread (the std::process::Child docs pattern) so
+    // a chatty rustfmt can never deadlock against a large source: the
+    // writer proceeds independently and drops the handle at EOF.
+    let writer = std::thread::spawn(move || {
+        stdin
+            .write_all(source.as_bytes())
+            .map_err(|e| format!("rustfmt stdin: {e}"))
+    });
+    let fed = writer.join().expect("stdin writer thread");
+    let out = child.wait_with_output().expect("rustfmt child runs");
+    fed?;
+    if !out.status.success() {
+        return Err(format!(
+            "rustfmt failed ({}): {}",
+            out.status,
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    String::from_utf8(out.stdout).map_err(|e| format!("rustfmt output: {e}"))
 }
 
 /// Compile one spec file through the full contract. Idempotent and

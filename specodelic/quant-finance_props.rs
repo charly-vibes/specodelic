@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -25,7 +27,6 @@ pub mod spec_gen {
     pub fn pack_file_linted_in_each_state() -> impl Strategy<Value = String> {
         Just("pack_file_linted_in_each_state".into())
     }
-
 }
 
 proptest! {
@@ -37,4 +38,3 @@ proptest! {
         todo_predicate!("`pack_shape reports zero findings`");
     }
 }
-

@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -26,22 +28,28 @@ pub mod spec_gen {
         Just("node_with_precomputed_blast_radius_in_graph".into())
     }
 
-    pub fn node_referenced_by_dependents_in_three_disjoint_top_level_namespaces() -> impl Strategy<Value = String> {
+    pub fn node_referenced_by_dependents_in_three_disjoint_top_level_namespaces(
+    ) -> impl Strategy<Value = String> {
         Just("node_referenced_by_dependents_in_three_disjoint_top_level_namespaces".into())
     }
 
-    pub fn node_referenced_only_by_dependents_within_its_own_namespace_subtree() -> impl Strategy<Value = String> {
+    pub fn node_referenced_only_by_dependents_within_its_own_namespace_subtree(
+    ) -> impl Strategy<Value = String> {
         Just("node_referenced_only_by_dependents_within_its_own_namespace_subtree".into())
     }
 
-    pub fn changeset_touching_one_of_five_constraints_owned_by_a_node_with_fan_in() -> impl Strategy<Value = String> {
+    pub fn changeset_touching_one_of_five_constraints_owned_by_a_node_with_fan_in(
+    ) -> impl Strategy<Value = String> {
         Just("changeset_touching_one_of_five_constraints_owned_by_a_node_with_fan_in".into())
     }
 
-    pub fn same_node_same_changeset_under_two_repo_configs_with_different_high_fan_in_values() -> impl Strategy<Value = String> {
-        Just("same_node_same_changeset_under_two_repo_configs_with_different_high_fan_in_values".into())
+    pub fn same_node_same_changeset_under_two_repo_configs_with_different_high_fan_in_values(
+    ) -> impl Strategy<Value = String> {
+        Just(
+            "same_node_same_changeset_under_two_repo_configs_with_different_high_fan_in_values"
+                .into(),
+        )
     }
-
 }
 
 proptest! {
@@ -80,7 +88,7 @@ proptest! {
 // predicate: `emits(found) == {node_id: N, dependent_count: 4, unrelated_namespace_count: 2, suggested_split: true}`
 #[test]
 fn emitted_finding_shape() {
-        todo_predicate!("`emits(found) == {node_id: N, dependent_count: 4, unrelated_namespace_count: 2, suggested_split: true}`");
+    todo_predicate!("`emits(found) == {node_id: N, dependent_count: 4, unrelated_namespace_count: 2, suggested_split: true}`");
 }
 
 proptest! {
@@ -92,4 +100,3 @@ proptest! {
         todo_predicate!("`flagged(config_A) != flagged(config_B)` — the decision follows the repo's configured threshold, never a constant embedded in this file");
     }
 }
-

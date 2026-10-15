@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -38,7 +40,8 @@ pub mod spec_gen {
         Just("corpus_linted_before_and_after_mechanism".into())
     }
 
-    pub fn two_packs_declare_identical_vocabulary_and_a_file_uses_it() -> impl Strategy<Value = String> {
+    pub fn two_packs_declare_identical_vocabulary_and_a_file_uses_it(
+    ) -> impl Strategy<Value = String> {
         Just("two_packs_declare_identical_vocabulary_and_a_file_uses_it".into())
     }
 
@@ -85,7 +88,6 @@ pub mod spec_gen {
     pub fn base_table_kind_column_with_active_fiber_kind() -> impl Strategy<Value = String> {
         Just("base_table_kind_column_with_active_fiber_kind".into())
     }
-
 }
 
 proptest! {
@@ -202,4 +204,3 @@ proptest! {
         todo_predicate!("`the base closed-set walkers accept the pack-qualified kind when the pack is active; the same token without the pack fires the labeled finding (base ∪ active-pack-fiber, never narrower)`");
     }
 }
-

@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -46,7 +48,8 @@ pub mod spec_gen {
         Just("edit_one_reference_field_without_re_extracting".into())
     }
 
-    pub fn graph_artifact_with_a_manually_inserted_edge_absent_from_any_file() -> impl Strategy<Value = String> {
+    pub fn graph_artifact_with_a_manually_inserted_edge_absent_from_any_file(
+    ) -> impl Strategy<Value = String> {
         Just("graph_artifact_with_a_manually_inserted_edge_absent_from_any_file".into())
     }
 
@@ -61,7 +64,6 @@ pub mod spec_gen {
     pub fn extraction_failure_raised() -> impl Strategy<Value = String> {
         Just("extraction_failure_raised".into())
     }
-
 }
 
 proptest! {
@@ -136,4 +138,3 @@ proptest! {
         todo_predicate!("`error_label == \"graph.extraction_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
-

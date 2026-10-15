@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -65,7 +67,6 @@ pub mod spec_gen {
     pub fn docs_built_for_a_release() -> impl Strategy<Value = String> {
         Just("docs_built_for_a_release".into())
     }
-
 }
 
 proptest! {
@@ -83,7 +84,7 @@ proptest! {
 // predicate: `properties_pass(file) == false` — until re-run
 #[test]
 fn cached_result_rejected() {
-        todo_predicate!("`properties_pass(file) == false` — until re-run");
+    todo_predicate!("`properties_pass(file) == false` — until re-run");
 }
 
 proptest! {
@@ -122,7 +123,7 @@ proptest! {
 // predicate: `outcome(run_1) == outcome(run_2)`
 #[test]
 fn rerun_matches_prior_outcome() {
-        todo_predicate!("`outcome(run_1) == outcome(run_2)`");
+    todo_predicate!("`outcome(run_1) == outcome(run_2)`");
 }
 
 proptest! {
@@ -175,7 +176,9 @@ proptest! {
 // predicate: `check(file) == failed naming the rerun command — the report is never rewritten`
 #[test]
 fn stale_report_rejected_with_rerun_hint() {
-        todo_predicate!("`check(file) == failed naming the rerun command — the report is never rewritten`");
+    todo_predicate!(
+        "`check(file) == failed naming the rerun command — the report is never rewritten`"
+    );
 }
 
 proptest! {
@@ -201,4 +204,3 @@ proptest! {
         todo_predicate!("`version derives from Cargo metadata ∧ pending capabilities not advertised as implemented`");
     }
 }
-

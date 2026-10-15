@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -57,7 +59,6 @@ pub mod spec_gen {
     pub fn law_property_with_extra_case() -> impl Strategy<Value = String> {
         Just("law_property_with_extra_case".into())
     }
-
 }
 
 proptest! {
@@ -149,4 +150,3 @@ proptest! {
         todo_predicate!("`compile(file) emits one block per enumerated case` — an extra named case is a first-class checkable declaration, never prose");
     }
 }
-

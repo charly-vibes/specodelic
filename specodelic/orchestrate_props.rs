@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -30,7 +32,8 @@ pub mod spec_gen {
         Just("run_orchestrator_twice_against_unchanged_repo".into())
     }
 
-    pub fn arbitrary_repo_that_independently_passes_lint_compile_model_check_verify() -> impl Strategy<Value = String> {
+    pub fn arbitrary_repo_that_independently_passes_lint_compile_model_check_verify(
+    ) -> impl Strategy<Value = String> {
         Just("arbitrary_repo_that_independently_passes_lint_compile_model_check_verify".into())
     }
 
@@ -49,7 +52,6 @@ pub mod spec_gen {
     pub fn verify_stage_failure_raised() -> impl Strategy<Value = String> {
         Just("verify_stage_failure_raised".into())
     }
-
 }
 
 proptest! {
@@ -131,4 +133,3 @@ proptest! {
         todo_predicate!("`error_label == \"orchestrate.verify_stage_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
-

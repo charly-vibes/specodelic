@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -46,7 +48,8 @@ pub mod spec_gen {
         Just("arbitrary_model_with_no_violation_within_bound".into())
     }
 
-    pub fn model_with_only_prose_invariants_exhausted_within_bound() -> impl Strategy<Value = String> {
+    pub fn model_with_only_prose_invariants_exhausted_within_bound() -> impl Strategy<Value = String>
+    {
         Just("model_with_only_prose_invariants_exhausted_within_bound".into())
     }
 
@@ -86,10 +89,10 @@ pub mod spec_gen {
         Just("two_parsed_files_claiming_the_same_intent_id".into())
     }
 
-    pub fn several_dual_format_files_with_distinct_ids_linted_and_checked_together() -> impl Strategy<Value = String> {
+    pub fn several_dual_format_files_with_distinct_ids_linted_and_checked_together(
+    ) -> impl Strategy<Value = String> {
         Just("several_dual_format_files_with_distinct_ids_linted_and_checked_together".into())
     }
-
 }
 
 proptest! {
@@ -142,7 +145,7 @@ proptest! {
 // predicate: `no_counterexample(file) == false` — until re-run
 #[test]
 fn stale_result_invalidated_by_edit() {
-        todo_predicate!("`no_counterexample(file) == false` — until re-run");
+    todo_predicate!("`no_counterexample(file) == false` — until re-run");
 }
 
 proptest! {
@@ -252,4 +255,3 @@ proptest! {
         todo_predicate!("`check(lint) == valid` — files with distinct real ids compose like any corpus (Revision 18)");
     }
 }
-

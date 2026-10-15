@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -45,7 +47,6 @@ pub mod spec_gen {
     pub fn observes_pointing_at_an_absent_row() -> impl Strategy<Value = String> {
         Just("observes_pointing_at_an_absent_row".into())
     }
-
 }
 
 proptest! {
@@ -99,4 +100,3 @@ proptest! {
         todo_predicate!("`the warning fires regardless of any claimed-waiver text — no waiver channel exists`");
     }
 }
-

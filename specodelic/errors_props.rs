@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -34,15 +36,20 @@ pub mod spec_gen {
         Just("failure_state_emitting_an_invariant_constraint".into())
     }
 
-    pub fn failed_state_with_inbound_failure_transitions_citing_different_constraint_sets() -> impl Strategy<Value = String> {
-        Just("failed_state_with_inbound_failure_transitions_citing_different_constraint_sets".into())
+    pub fn failed_state_with_inbound_failure_transitions_citing_different_constraint_sets(
+    ) -> impl Strategy<Value = String> {
+        Just(
+            "failed_state_with_inbound_failure_transitions_citing_different_constraint_sets".into(),
+        )
     }
 
-    pub fn failure_transition_whose_citation_set_differs_from_its_success_transition() -> impl Strategy<Value = String> {
+    pub fn failure_transition_whose_citation_set_differs_from_its_success_transition(
+    ) -> impl Strategy<Value = String> {
         Just("failure_transition_whose_citation_set_differs_from_its_success_transition".into())
     }
 
-    pub fn failure_transition_citing_zero_intrafile_constraints_not_on_carveout_list() -> impl Strategy<Value = String> {
+    pub fn failure_transition_citing_zero_intrafile_constraints_not_on_carveout_list(
+    ) -> impl Strategy<Value = String> {
         Just("failure_transition_citing_zero_intrafile_constraints_not_on_carveout_list".into())
     }
 
@@ -66,7 +73,8 @@ pub mod spec_gen {
         Just("error_report_with_empty_remediation_hint".into())
     }
 
-    pub fn error_constraint_with_property_predicating_a_different_label() -> impl Strategy<Value = String> {
+    pub fn error_constraint_with_property_predicating_a_different_label(
+    ) -> impl Strategy<Value = String> {
         Just("error_constraint_with_property_predicating_a_different_label".into())
     }
 
@@ -77,7 +85,6 @@ pub mod spec_gen {
     pub fn tool_file_with_satisfies_pointing_at_contract_row() -> impl Strategy<Value = String> {
         Just("tool_file_with_satisfies_pointing_at_contract_row".into())
     }
-
 }
 
 proptest! {
@@ -180,4 +187,3 @@ proptest! {
         todo_predicate!("`extraction yields exactly one satisfies edge and lint passes` — the satisfies precedent's shape");
     }
 }
-

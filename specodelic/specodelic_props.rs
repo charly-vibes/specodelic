@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -113,7 +115,6 @@ pub mod spec_gen {
     pub fn property_row_with() -> impl Strategy<Value = String> {
         Just("property_row_with".into())
     }
-
 }
 
 proptest! {
@@ -162,7 +163,7 @@ proptest! {
 // predicate: `check(id, filename) == failed`
 #[test]
 fn filename_convention() {
-        todo_predicate!("`check(id, filename) == failed`");
+    todo_predicate!("`check(id, filename) == failed`");
 }
 
 proptest! {
@@ -334,7 +335,7 @@ proptest! {
 // predicate: `check(revisions) == failed`
 #[test]
 fn silently_shrunk_id_set_rejected() {
-        todo_predicate!("`check(revisions) == failed`");
+    todo_predicate!("`check(revisions) == failed`");
 }
 
 proptest! {
@@ -353,4 +354,3 @@ proptest! {
         todo_predicate!("`check(file) == failed`");
     }
 }
-

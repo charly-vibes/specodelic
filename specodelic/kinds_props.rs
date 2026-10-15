@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -46,7 +48,8 @@ pub mod spec_gen {
         Just("property_row_with".into())
     }
 
-    pub fn diff_adding_subkind_value_with_no_new_Revision_heading() -> impl Strategy<Value = String> {
+    pub fn diff_adding_subkind_value_with_no_new_Revision_heading() -> impl Strategy<Value = String>
+    {
         Just("diff_adding_subkind_value_with_no_new_Revision_heading".into())
     }
 
@@ -69,7 +72,6 @@ pub mod spec_gen {
     pub fn shape_check_failure_raised() -> impl Strategy<Value = String> {
         Just("shape_check_failure_raised".into())
     }
-
 }
 
 proptest! {
@@ -202,4 +204,3 @@ proptest! {
         todo_predicate!("`error_label == \"kinds.shape_check_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
-

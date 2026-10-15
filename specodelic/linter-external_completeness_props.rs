@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -34,7 +36,8 @@ pub mod spec_gen {
         Just("two_mapping_rows_targeting_the_same_checklist_item".into())
     }
 
-    pub fn checklist_where_every_item_has_a_covered_or_waived_mapping() -> impl Strategy<Value = String> {
+    pub fn checklist_where_every_item_has_a_covered_or_waived_mapping(
+    ) -> impl Strategy<Value = String> {
         Just("checklist_where_every_item_has_a_covered_or_waived_mapping".into())
     }
 
@@ -65,7 +68,6 @@ pub mod spec_gen {
     pub fn resolution_failure_raised() -> impl Strategy<Value = String> {
         Just("resolution_failure_raised".into())
     }
-
 }
 
 proptest! {
@@ -164,4 +166,3 @@ proptest! {
         todo_predicate!("`error_label == \"linter.external_completeness.resolution_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
-

@@ -306,7 +306,10 @@ fn run_compile_stage(specs: &[Spec], out_dir: &str) -> Stage {
             .unwrap_or_else(|| format!("<{}>", spec.intent.id));
         match compile::compile_spec(spec) {
             Ok(c) => match compile::write_artifacts(spec, &c, out_dir) {
-                Ok(written) => {
+                Ok(result) => {
+                    // The rustfmt fallback fact rides the existing warning
+                    // channel (write_artifacts stays soft).
+                    warnings.extend(result.warnings);
                     let stem = compile::artifact_stem(spec);
                     if let Some(first) = seen_stems.get(&stem) {
                         warnings.push(format!(
@@ -317,7 +320,7 @@ fn run_compile_stage(specs: &[Spec], out_dir: &str) -> Stage {
                     compiled.push(serde_json::json!({
                         "file": file,
                         "id": spec.intent.id,
-                        "written": written,
+                        "written": result.paths,
                     }));
                 }
                 Err(message) => failed.push(serde_json::json!({

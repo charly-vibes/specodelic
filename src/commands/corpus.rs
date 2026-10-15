@@ -495,7 +495,10 @@ pub(crate) fn cmd_compile(
             Ok(c) => {
                 let written = compile::write_artifacts(spec, &c, out_dir);
                 match written {
-                    Ok(files) => {
+                    Ok(result) => {
+                        // The rustfmt fallback fact rides the existing
+                        // warning channel (write_artifacts stays soft).
+                        warnings.extend(result.warnings);
                         // Two files with the same stem (different dirs)
                         // would silently overwrite each other's artifacts.
                         let stem = compile::artifact_stem(spec);
@@ -505,6 +508,10 @@ pub(crate) fn cmd_compile(
                             ));
                         }
                         seen_stems.insert(stem, file.clone());
+                        // Envelope/disk note (gh-15): the payload carries
+                        // the semantic artifact string while the on-disk
+                        // _props.rs is the rustfmt-clean version — same
+                        // semantics, formatting-only byte difference.
                         compiled.push(serde_json::json!({
                             "file": file,
                             "id": spec.intent.id,
@@ -515,7 +522,7 @@ pub(crate) fn cmd_compile(
                                 "tla": c.tla,
                             },
                             "model_ir": c.model_ir,
-                            "written": files,
+                            "written": result.paths,
                         }));
                     }
                     Err(e) => {

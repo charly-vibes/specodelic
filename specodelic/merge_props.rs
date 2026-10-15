@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -26,7 +28,8 @@ pub mod spec_gen {
         Just("two_branches_each_independently_defining_new_id".into())
     }
 
-    pub fn id_defined_in_common_ancestor_unchanged_in_both_branches() -> impl Strategy<Value = String> {
+    pub fn id_defined_in_common_ancestor_unchanged_in_both_branches(
+    ) -> impl Strategy<Value = String> {
         Just("id_defined_in_common_ancestor_unchanged_in_both_branches".into())
     }
 
@@ -38,11 +41,13 @@ pub mod spec_gen {
         Just("branch_B".into())
     }
 
-    pub fn two_branches_touching_disjoint_namespaces_with_disjoint_blast_radii() -> impl Strategy<Value = String> {
+    pub fn two_branches_touching_disjoint_namespaces_with_disjoint_blast_radii(
+    ) -> impl Strategy<Value = String> {
         Just("two_branches_touching_disjoint_namespaces_with_disjoint_blast_radii".into())
     }
 
-    pub fn both_branches_add_a_CHANGELOG_entry_claiming_the_same_next_number() -> impl Strategy<Value = String> {
+    pub fn both_branches_add_a_CHANGELOG_entry_claiming_the_same_next_number(
+    ) -> impl Strategy<Value = String> {
         Just("both_branches_add_a_CHANGELOG_entry_claiming_the_same_next_number".into())
     }
 
@@ -54,7 +59,8 @@ pub mod spec_gen {
         Just("_radii_were_recorded".into())
     }
 
-    pub fn merge_invoked_with_the_markdown_walker_patched_to_panic() -> impl Strategy<Value = String> {
+    pub fn merge_invoked_with_the_markdown_walker_patched_to_panic() -> impl Strategy<Value = String>
+    {
         Just("merge_invoked_with_the_markdown_walker_patched_to_panic".into())
     }
 
@@ -69,7 +75,6 @@ pub mod spec_gen {
     pub fn merge_aborted_raised() -> impl Strategy<Value = String> {
         Just("merge_aborted_raised".into())
     }
-
 }
 
 proptest! {
@@ -101,7 +106,9 @@ proptest! {
 // predicate: `post_merge_repo has zero occurrences of [[x]]; branch_B's new reference now reads [[y]]`
 #[test]
 fn rename_replay_repairs_dangling_ref() {
-        todo_predicate!("`post_merge_repo has zero occurrences of [[x]]; branch_B's new reference now reads [[y]]`");
+    todo_predicate!(
+        "`post_merge_repo has zero occurrences of [[x]]; branch_B's new reference now reads [[y]]`"
+    );
 }
 
 proptest! {
@@ -162,4 +169,3 @@ proptest! {
         todo_predicate!("`error_label == \"merge.merge_aborted\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
-

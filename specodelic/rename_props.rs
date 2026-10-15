@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -30,11 +32,13 @@ pub mod spec_gen {
         Just("arbitrary_id_rename".into())
     }
 
-    pub fn rename_of_a_files_own_intent_id_without_a_matching_filename_change() -> impl Strategy<Value = String> {
+    pub fn rename_of_a_files_own_intent_id_without_a_matching_filename_change(
+    ) -> impl Strategy<Value = String> {
         Just("rename_of_a_files_own_intent_id_without_a_matching_filename_change".into())
     }
 
-    pub fn apply_interrupted_after_definition_row_updated_but_before_all_refs_rewritten() -> impl Strategy<Value = String> {
+    pub fn apply_interrupted_after_definition_row_updated_but_before_all_refs_rewritten(
+    ) -> impl Strategy<Value = String> {
         Just("apply_interrupted_after_definition_row_updated_but_before_all_refs_rewritten".into())
     }
 
@@ -42,7 +46,8 @@ pub mod spec_gen {
         Just("_occurrence".into())
     }
 
-    pub fn row_whose_rationale_prose_contains_the_old_id_as_a_word() -> impl Strategy<Value = String> {
+    pub fn row_whose_rationale_prose_contains_the_old_id_as_a_word() -> impl Strategy<Value = String>
+    {
         Just("row_whose_rationale_prose_contains_the_old_id_as_a_word".into())
     }
 
@@ -69,7 +74,6 @@ pub mod spec_gen {
     pub fn post_check_failure_raised() -> impl Strategy<Value = String> {
         Just("post_check_failure_raised".into())
     }
-
 }
 
 proptest! {
@@ -104,7 +108,7 @@ proptest! {
 // predicate: `check(request) == failed`
 #[test]
 fn collision_rejected() {
-        todo_predicate!("`check(request) == failed`");
+    todo_predicate!("`check(request) == failed`");
 }
 
 proptest! {
@@ -172,4 +176,3 @@ proptest! {
         todo_predicate!("`error_label == \"rename.post_check_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
-

@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -45,7 +47,6 @@ pub mod spec_gen {
     pub fn check_failure_raised() -> impl Strategy<Value = String> {
         Just("check_failure_raised".into())
     }
-
 }
 
 proptest! {
@@ -92,4 +93,3 @@ proptest! {
         todo_predicate!("`error_label == \"linter.frontmatter.check_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
-

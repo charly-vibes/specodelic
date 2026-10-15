@@ -7,6 +7,34 @@
 // envelopes; see also tests/cli/model_check.rs for the model-check side.
 use super::*;
 
+/// A lint-clean spec with a Properties table whose predicate carries no
+/// `**rust:` marker — the todo_predicate! placeholder path (gh-15).
+fn write_props_spec(path: &std::path::Path, id: &str) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE {id} SHALL compile to proptest scaffolding\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | c1 | invariant | `holds` | [[{id}]] |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1\n\
+             - s2\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s2 | [[{id}.c1]] |\n\
+             \n## Properties\n\
+             \n| id | kind | derives_from | generator | predicate |\n\
+             |----|------|--------------|-----------|------------|\n\
+             | p | unit | [[{id}.c1]] | `g()` | `x` |\n"
+        ),
+    )
+    .unwrap();
+}
+
 /// A lint-clean-shaped spec whose one kernel row uses a nonmember
 /// kernel function — compile's precondition (lint) fails on it, a
 /// labeled kernel-grammar failure.
@@ -111,4 +139,65 @@ fn clean_compile_stays_a_success_envelope_with_exit_0() {
     assert_eq!(json["ok"], serde_json::json!(true));
     assert_eq!(json["envelope_kind"], serde_json::json!("ok"));
     assert_eq!(json["data"]["files_failed"], serde_json::json!(0));
+}
+
+#[test]
+fn emitted_props_artifacts_are_rustfmt_clean() {
+    // gh-15 (specodelic-w9ju): the generator's *_props.rs emission must be
+    // rustfmt-clean by itself — recompiling after a spec amendment must not
+    // churn ~14 files of pure formatting that trips downstream
+    // `cargo fmt --check` gates. Emitted .rs artifacts pass
+    // `rustfmt --check --edition 2021` as written; no post-pass needed.
+    let td = tempfile::tempdir().unwrap();
+    let spec = td.path().join("rfc.md");
+    write_props_spec(&spec, "rfc");
+    let out = td.path().join("out");
+    let result = spk()
+        .args([
+            "compile",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(result.status.code(), Some(0), "compile must succeed");
+    let props_path = std::fs::read_dir(&out)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .find(|p| p.extension().is_some_and(|x| x == "rs"))
+        .expect("compile emits a *_props.rs artifact");
+
+    // Byte-stable across a re-run: same input, byte-identical artifacts.
+    let first = std::fs::read(&props_path).unwrap();
+    let rerun = spk()
+        .args([
+            "compile",
+            spec.to_str().unwrap(),
+            "--json",
+            "--out-dir",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(rerun.status.code(), Some(0));
+    assert_eq!(
+        first,
+        std::fs::read(&props_path).unwrap(),
+        "emission must be byte-stable across a re-run"
+    );
+
+    let fmt = std::process::Command::new("rustfmt")
+        .args(["--check", "--edition", "2021", props_path.to_str().unwrap()])
+        .output()
+        .expect("rustfmt must be available to assert the fmt-clean contract");
+    assert!(
+        fmt.status.success(),
+        "emitted {} is not rustfmt-clean:\n{}{}",
+        props_path.display(),
+        String::from_utf8_lossy(&fmt.stdout),
+        String::from_utf8_lossy(&fmt.stderr)
+    );
 }

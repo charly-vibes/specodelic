@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -26,11 +28,13 @@ pub mod spec_gen {
         Just("tool_file_with_failure_terminal_and_no_emits_edge".into())
     }
 
-    pub fn file_with_two_error_constraints_sharing_a_variant_head() -> impl Strategy<Value = String> {
+    pub fn file_with_two_error_constraints_sharing_a_variant_head() -> impl Strategy<Value = String>
+    {
         Just("file_with_two_error_constraints_sharing_a_variant_head".into())
     }
 
-    pub fn failure_transition_citing_nothing_off_the_carveout_list() -> impl Strategy<Value = String> {
+    pub fn failure_transition_citing_nothing_off_the_carveout_list() -> impl Strategy<Value = String>
+    {
         Just("failure_transition_citing_nothing_off_the_carveout_list".into())
     }
 
@@ -38,7 +42,8 @@ pub mod spec_gen {
         Just("orchestrate_stage_fail_transition".into())
     }
 
-    pub fn failure_transition_whose_citations_differ_from_its_siblings() -> impl Strategy<Value = String> {
+    pub fn failure_transition_whose_citations_differ_from_its_siblings(
+    ) -> impl Strategy<Value = String> {
         Just("failure_transition_whose_citations_differ_from_its_siblings".into())
     }
 
@@ -49,7 +54,6 @@ pub mod spec_gen {
     pub fn failure_shape_violation_found() -> impl Strategy<Value = String> {
         Just("failure_shape_violation_found".into())
     }
-
 }
 
 proptest! {
@@ -103,4 +107,3 @@ proptest! {
         todo_predicate!("`error_label == \"linter.failure_shape.check_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
     }
 }
-

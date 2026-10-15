@@ -13,7 +13,9 @@ use proptest::prelude::*;
 /// opting in with **rust:** compiles as a real assertion instead
 /// (executable predicate fragment, specodelic.md Revision 15).
 macro_rules! todo_predicate {
-    ($reason:expr) => { todo!("{}", $reason) };
+    ($reason:expr) => {
+        todo!("{}", $reason)
+    };
 }
 
 /// Generated strategies — one per generator named in the spec rows.
@@ -109,7 +111,6 @@ pub mod spec_gen {
     pub fn external_checker_claiming_a_constraint() -> impl Strategy<Value = String> {
         Just("external_checker_claiming_a_constraint".into())
     }
-
 }
 
 proptest! {
@@ -303,4 +304,3 @@ proptest! {
         todo_predicate!("`the claim is carried by contract-TOML flags binding; the toolchain builds no registry`");
     }
 }
-
