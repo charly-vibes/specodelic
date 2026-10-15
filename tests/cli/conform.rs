@@ -336,6 +336,367 @@ fn conform_empty_corpus_yields_valid_empty_report_exit_0() {
     );
 }
 
+// ---- specodelic-1v30: gate corpus scope + structural-only mode ----
+
+/// The conformed target of the sibling corpus: a property derives from
+/// the SIBLING file's constraint row — a corpus-wide `[[ref]]` that a
+/// single-spec lint slice would dangle (gh-17 friction 1).
+const SIBLING_TARGET_TEXT: &str = r#"---
+id: demo.cli_one
+kind: intent
+statement: "THE system SHALL conform to the recorded oracle traces"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| locked | invariant | `**rust:** status != "open"` | [[demo.cli_one]] |
+
+## Model
+
+### States
+
+- held
+- confirmed
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| confirm | held | confirmed | [[demo.cli_one.locked]] |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|------------|
+| p | unit | [[demo.cli_one.locked]] | `g()` | `x` |
+| p2 | unit | [[demo.cli_two.locked]] | `g()` | `y` |
+"#;
+
+/// The same target with its own REAL lint finding: a dangling ref to a
+/// row that exists nowhere in the corpus — the gate must still refuse
+/// (no false green from the corpus-widened scope).
+fn sibling_target_dangling_text() -> String {
+    SIBLING_TARGET_TEXT.replace(
+        "| p2 | unit | [[demo.cli_two.locked]] | `g()` | `y` |",
+        "| p2 | unit | [[demo.cli_absent.gone]] | `g()` | `y` |",
+    )
+}
+
+/// The sibling spec declaring the referenced row — lint-clean on its own.
+const SIBLING_OTHER_TEXT: &str = r#"---
+id: demo.cli_two
+kind: intent
+statement: "THE sibling SHALL define the shared contract row"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| locked | invariant | `**rust:** status != "open"` | [[demo.cli_two]] |
+
+## Model
+
+### States
+
+- held
+- confirmed
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| confirm | held | confirmed | [[demo.cli_two.locked]] |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|------------|
+| p | unit | [[demo.cli_two.locked]] | `g()` | `x` |
+"#;
+
+/// A prose-guarded spec: the covering claim's expr is prose, so a
+/// conforming trace is `unknown` by default (closed-world honesty) and
+/// `agree` only under the explicit `--structural-only` mode.
+const PROSE_SPEC_TEXT: &str = r#"---
+id: demo.cli_prose
+kind: intent
+statement: "THE system SHALL conform to the recorded oracle traces"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| healthy | invariant | the service stays healthy | [[demo.cli_prose]] |
+
+## Model
+
+### States
+
+- held
+- confirmed
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| confirm | held | confirmed | [[demo.cli_prose.healthy]] |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|------------|
+| p | unit | [[demo.cli_prose.healthy]] | `g()` | `x` |
+"#;
+
+/// A sibling file that FAILS to parse (no statement) — the corpus lint
+/// then runs over a partial corpus, which must be surfaced as a labeled
+/// warning, never a silent partial-corpus verdict (invariant 3).
+const SIBLING_BROKEN_TEXT: &str = "---\nid: demo.cli_two\nkind: intent\n---\n";
+
+/// Write the openspec corpus layout under `dir`: the target at
+/// `openspec/specs/demo.cli_one/spec.md`, the sibling at
+/// `openspec/specs/demo.cli_two/spec.md`.
+fn write_corpus(dir: &std::path::Path, target_text: &str, sibling_text: &str) {
+    let one = dir.join("openspec/specs/demo.cli_one");
+    let two = dir.join("openspec/specs/demo.cli_two");
+    std::fs::create_dir_all(&one).unwrap();
+    std::fs::create_dir_all(&two).unwrap();
+    std::fs::write(one.join("spec.md"), target_text).unwrap();
+    std::fs::write(two.join("spec.md"), sibling_text).unwrap();
+}
+
+/// Run conform with cwd = `dir` (the corpus root's parent), compiling
+/// `compile_path` into `out` first when given — compile's own gate is
+/// single-file, so a corpus fixture must compile the CORPUS root — and
+/// exercising cwd-anchored discovery like a real invocation.
+fn conform_json_in(
+    dir: &std::path::Path,
+    spec_path: &str,
+    corpus: &std::path::Path,
+    compile_path: Option<&str>,
+    extra: &[&str],
+) -> (Option<i32>, serde_json::Value, String) {
+    if let Some(compile_path) = compile_path {
+        let out = spk()
+            .current_dir(dir)
+            .args([
+                "compile",
+                compile_path,
+                "--json",
+                "--out-dir",
+                dir.join("out").to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "fixture target must compile: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+    let out = spk()
+        .current_dir(dir)
+        .args([
+            "conform",
+            spec_path,
+            "--oracle",
+            corpus.to_str().unwrap(),
+            "--out-dir",
+            dir.join("out").to_str().unwrap(),
+            "--json",
+        ])
+        .args(extra)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    (out.status.code(), json, stdout)
+}
+
+/// The meter's green (gh-17 friction 1): a `[[ref]]` target living in a
+/// SIBLING spec no longer dangles conform's input gate — the gate lints
+/// the corpus the file belongs to, and the run exits 0.
+#[test]
+fn conform_sibling_ref_corpus_gate_green() {
+    let dir = tempfile::tempdir().unwrap();
+    write_corpus(dir.path(), SIBLING_TARGET_TEXT, SIBLING_OTHER_TEXT);
+    let corpus = dir.path().join("scenarios.jsonl");
+    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap();
+
+    let (code, json, _stdout) = conform_json_in(
+        dir.path(),
+        "openspec/specs/demo.cli_one/spec.md",
+        &corpus,
+        Some("openspec"),
+        &[],
+    );
+    assert_eq!(
+        code,
+        Some(0),
+        "corpus-resolved sibling ref must not dangle the gate: {json}"
+    );
+    assert_eq!(json["ok"], serde_json::json!(true));
+    assert_eq!(json["data"]["records"][0]["verdict"], "permitted");
+}
+
+/// No false green: the TARGET's own lint findings still refuse with the
+/// same artifact_gate shape — even when the rest of the corpus is clean.
+#[test]
+fn conform_target_own_findings_still_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    write_corpus(
+        dir.path(),
+        &sibling_target_dangling_text(),
+        SIBLING_OTHER_TEXT,
+    );
+    let corpus = dir.path().join("scenarios.jsonl");
+    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap();
+
+    // No compile: the lint gate refuses before the artifact check (the
+    // same stage order orchestrate applies: parse → lint → compile).
+    let (code, json, _stdout) = conform_json_in(
+        dir.path(),
+        "openspec/specs/demo.cli_one/spec.md",
+        &corpus,
+        None,
+        &[],
+    );
+    assert_eq!(code, Some(2), "own dangling ref refuses: {json}");
+    assert_eq!(json["ok"], serde_json::json!(false));
+    assert!(json["data"]["records"].is_null(), "zero records: {json}");
+    let rendered = serde_json::to_string(&json).unwrap();
+    assert!(rendered.contains("artifact_gate"), "{json}");
+    assert!(rendered.contains("lint findings"), "{json}");
+    assert!(rendered.contains("spk lint"), "{json}");
+}
+
+/// A SIBLING file that fails to PARSE makes the corpus lint partial —
+/// surfaced as a labeled warning on the existing warnings channel, never
+/// a silent partial-corpus verdict (invariant 3). The target itself is
+/// clean and refs nothing cross-file, so the run still succeeds.
+#[test]
+fn conform_partial_corpus_surfaces_labeled_warning() {
+    let dir = tempfile::tempdir().unwrap();
+    write_corpus(dir.path(), SIBLING_TARGET_TEXT, SIBLING_BROKEN_TEXT);
+    // Make the target corpus-self-contained: drop the cross-file ref so
+    // the partial corpus is the ONLY defect in play.
+    let target = SIBLING_TARGET_TEXT.replace(
+        "| p2 | unit | [[demo.cli_two.locked]] | `g()` | `y` |",
+        "| p2 | unit | [[demo.cli_one.locked]] | `g()` | `y` |",
+    );
+    std::fs::write(
+        dir.path().join("openspec/specs/demo.cli_one/spec.md"),
+        target,
+    )
+    .unwrap();
+    let corpus = dir.path().join("scenarios.jsonl");
+    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap();
+
+    let (code, json, stdout) = conform_json_in(
+        dir.path(),
+        "openspec/specs/demo.cli_one/spec.md",
+        &corpus,
+        Some("openspec"),
+        &[],
+    );
+    assert_eq!(code, Some(0), "clean target still conforms: {json}");
+    let rendered = format!("{stdout}{json}");
+    assert!(
+        rendered.to_lowercase().contains("partial corpus"),
+        "partial-corpus lint must be a labeled warning, never silent: {rendered}"
+    );
+}
+
+/// Friction 2, option (a): `--structural-only` flips the prose-guard
+/// `unknown` to `agree` — the trace conforms to the declared transition
+/// relation — while the reason STILL names the uninterpretable guard
+/// (the record never claims the prose invariant was checked).
+#[test]
+fn conform_structural_only_agrees_on_prose_guard() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("demo.cli_prose.md"), PROSE_SPEC_TEXT).unwrap();
+    let corpus = dir.path().join("scenarios.jsonl");
+    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap();
+
+    let (code, json, _stdout) = conform_json_in(
+        dir.path(),
+        "demo.cli_prose.md",
+        &corpus,
+        Some("demo.cli_prose.md"),
+        &["--structural-only"],
+    );
+    assert_eq!(code, Some(0), "agree never fails the run: {json}");
+    let records = json["data"]["records"].as_array().unwrap();
+    assert_eq!(records[0]["verdict"], "agree");
+    let reason = records[0]["reason"].as_str().unwrap();
+    assert!(
+        reason.contains("healthy"),
+        "the reason still names the uninterpretable guard: {reason}"
+    );
+    assert!(
+        reason.contains("--structural-only"),
+        "the reason states the mode's effect: {reason}"
+    );
+    assert!(
+        reason.contains("never checked"),
+        "the record never claims the prose invariant was checked: {reason}"
+    );
+}
+
+/// The DEFAULT verdict space is unchanged: without the flag, the same
+/// prose-guarded trace is still `unknown` (closed-world honesty).
+#[test]
+fn conform_default_mode_still_unknown_on_prose_guard() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("demo.cli_prose.md"), PROSE_SPEC_TEXT).unwrap();
+    let corpus = dir.path().join("scenarios.jsonl");
+    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap();
+
+    let (code, json, _stdout) = conform_json_in(
+        dir.path(),
+        "demo.cli_prose.md",
+        &corpus,
+        Some("demo.cli_prose.md"),
+        &[],
+    );
+    assert_eq!(code, Some(0), "unknown never fails the run: {json}");
+    let records = json["data"]["records"].as_array().unwrap();
+    assert_eq!(records[0]["verdict"], "unknown");
+    assert!(
+        records[0]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("prose_claim_not_interpretable"),
+        "{json}"
+    );
+}
+
+/// The isolated-file fallback: with no corpus root discoverable, the
+/// gate keeps today's single-spec slice — a cross-file ref dangles and
+/// the gate refuses, the labeled documented behavior for an isolated
+/// file (never an error).
+#[test]
+fn conform_isolated_file_fallback_unchanged() {
+    // A bare temp dir with NO openspec ancestor: discovery falls back.
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap();
+    std::fs::write(
+        dir.path().join("demo.cli_one.md"),
+        sibling_target_dangling_text(),
+    )
+    .unwrap();
+    let corpus = dir.path().join("scenarios.jsonl");
+    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap();
+
+    let (code, json, _stdout) = conform_json_in(dir.path(), "demo.cli_one.md", &corpus, None, &[]);
+    assert_eq!(code, Some(2), "isolated dangling ref refuses: {json}");
+    let rendered = serde_json::to_string(&json).unwrap();
+    assert!(rendered.contains("lint findings"), "{json}");
+}
+
 // ---- task 4.2: the help contract — READ-ONLY, stated up front ----
 
 #[test]
@@ -345,4 +706,13 @@ fn conform_help_states_read_only_evaluation() {
         .assert()
         .success()
         .stdout(contains("READ-ONLY"));
+}
+
+#[test]
+fn conform_help_declares_structural_only() {
+    spk()
+        .args(["conform", "--help"])
+        .assert()
+        .success()
+        .stdout(contains("--structural-only"));
 }

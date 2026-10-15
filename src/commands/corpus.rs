@@ -1,9 +1,9 @@
 // Command handlers (split from main.rs — specodelic-g17 file_lines ratchet).
-use crate::commands::as_failure;
+use crate::commands::{self, as_failure};
 use crate::{MAX_INPUT_BYTES, collect_specs, emit_report, openspec_tree_present, parse_batch};
 
 use genesis::guide::{Output, OutputFormat, Verbosity};
-use specodelic::{compile, graph, human, lint, merge, rename};
+use specodelic::{compile, conform, graph, human, lint, merge, rename};
 
 pub(crate) fn cmd_lint(
     paths: &[String],
@@ -586,4 +586,241 @@ pub(crate) fn cmd_compile(
         stderr,
     );
     if failed.is_empty() { 0 } else { 1 }
+}
+
+// ---------------------------------------------------------------------------
+// conform (moved from main.rs — specodelic-1v30: the handler grows the
+// gate's corpus discovery and the --structural-only mode; the CLI-side
+// corpus context lives beside the other corpus-walking handlers)
+// ---------------------------------------------------------------------------
+
+/// The conform invocation parameters beyond the spec path — the oracle
+/// corpus path, the recorded closed-world declaration, the artifact
+/// directory, and the opt-in structural-only mode (gh-17 friction 2),
+/// grouped to keep the shared emit plumbing (cli/format/verbosity/
+/// streams) within the arg lint (the CheckTarget precedent).
+pub(crate) struct ConformTarget {
+    pub(crate) oracle: String,
+    pub(crate) closed_world: bool,
+    pub(crate) structural_only: bool,
+    pub(crate) out_dir: String,
+}
+
+/// Discover the openspec corpus root the spec file belongs to (gh-17
+/// friction 1): walk UP from the file's own location and stop at the
+/// first ancestor directory carrying an `openspec` tree — the corpus
+/// context `spk lint <openspec-root>` sees. Deterministic per file
+/// location, no env dependence; `None` is the labeled isolated-file
+/// fallback (the gate lints the single-spec slice, never an error).
+fn discover_openspec_root(spec_path: &str) -> Option<std::path::PathBuf> {
+    let file = std::path::Path::new(spec_path);
+    let start = std::fs::canonicalize(file).unwrap_or_else(|_| {
+        std::env::current_dir()
+            .map(|cwd| cwd.join(file))
+            .unwrap_or_else(|_| file.to_path_buf())
+    });
+    let mut dir = start.parent()?.to_path_buf();
+    loop {
+        let candidate = dir.join("openspec");
+        if candidate.is_dir() {
+            return Some(candidate);
+        }
+        dir = dir.parent()?.to_path_buf();
+    }
+}
+
+/// `spk conform <spec-path> --oracle <scenarios.jsonl>` (add-conform
+/// phase 4): the READ-ONLY external-oracle evaluation over
+/// `conform::run_with` — the artifact gate (design D5) linted in the
+/// DISCOVERED corpus context (gh-17 friction 1), mechanical
+/// classification (D3, with the opt-in structural-only mode, gh-17
+/// friction 2), and the persisted report. Exit codes follow the
+/// delta's exit_code_verdict_mapping over openspec/specs/errors/spec.md
+/// `exit_code_mapping`: 0 when no verdict is forbidden or unsupported
+/// (unknown/underspecified/agree never fail — their counts surface in
+/// both views), 1 when any forbidden/unsupported verdict fails the run
+/// (an error-kind envelope — the published ok:false contract,
+/// envelope_error_kind), 2 on invocation errors and gate refusals —
+/// with ZERO verdict records emitted from any refusal path.
+pub(crate) fn cmd_conform(
+    spec_path: &str,
+    target: ConformTarget,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let ConformTarget {
+        oracle,
+        closed_world,
+        structural_only,
+        out_dir,
+    } = target;
+    // Invocation errors precede everything: zero verdict records.
+    let corpus_bytes = match std::fs::read(&oracle) {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            let out: Output<serde_json::Value> =
+                Output::failure(format!("cannot read the scenario corpus {oracle}: {e}")).with_next_step(
+                    "pass an existing JSONL scenario corpus file — one {id, setup?, trace} object per line (--oracle)",
+                );
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            return 2;
+        }
+    };
+    let paths = vec![spec_path.to_string()];
+    let (specs, _checklists, notes, parse_errors) = parse_batch(&paths, verbosity);
+    if !parse_errors.is_empty() {
+        // An unparsed spec never reaches the gate (the same discipline
+        // orchestrate applies before lint) — labeled, exit 2, no records.
+        let mut out: Output<serde_json::Value> = Output::failure(
+            "the spec file failed to parse — verdicts are never derived from an unparsed file",
+        );
+        for e in &parse_errors {
+            out = out.with_warning(e.clone());
+        }
+        out = out.with_next_step("fix the frontmatter/tables named above");
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
+    if specs.is_empty() {
+        let mut out: Output<serde_json::Value> =
+            Output::failure("no spec file to conform — nothing was evaluated");
+        // Hostile-input/parse notes name themselves even here (suz).
+        for n in &notes {
+            out = out.with_warning(n.clone());
+        }
+        out = out.with_next_step("pass exactly one spec file (*.md with YAML frontmatter)");
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
+    if specs.len() > 1 {
+        let out: Output<serde_json::Value> = Output::failure(format!(
+            "conform evaluates exactly one spec file — the given path named {}",
+            specs.len()
+        ))
+        .with_next_step("pass a single spec file path");
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
+    // The gate's corpus context (gh-17 friction 1): discover the corpus
+    // root the file belongs to and parse it with the SAME batch
+    // machinery the lint command uses — never a second walker. The gate
+    // verdict keys on THIS file's findings within that corpus lint.
+    let (corpus_ctx, gate_warnings): (Option<conform::CorpusContext>, Vec<String>) =
+        match discover_openspec_root(spec_path) {
+            Some(root) => {
+                let root_str = root.to_string_lossy().to_string();
+                let (corpus_specs, _cl, _notes, corpus_parse_errors) =
+                    parse_batch(std::slice::from_ref(&root_str), verbosity);
+                let mut warnings = Vec::new();
+                if !corpus_parse_errors.is_empty() {
+                    // Labeled partial-corpus fact (invariant 3): the
+                    // corpus lint resolves refs against a partial corpus,
+                    // so referential findings may be false — surfaced on
+                    // the existing warnings channel, never silent.
+                    warnings.push(format!(
+                        "conform's input gate linted a PARTIAL corpus: {} sibling file(s) failed to parse — referential findings may be false ({})",
+                        corpus_parse_errors.len(),
+                        corpus_parse_errors.join("; ")
+                    ));
+                }
+                (
+                    Some(conform::CorpusContext {
+                        specs: corpus_specs,
+                        parse_error_notes: corpus_parse_errors,
+                    }),
+                    warnings,
+                )
+            }
+            None => {
+                // The labeled isolated-file fallback (gh-17): the gate
+                // lints the single-spec slice — cross-file refs may
+                // dangle; labeled, never an error.
+                (
+                    None,
+                    vec![
+                        "no corpus root discovered — the input gate linted the file in ISOLATION; cross-file references may dangle (pass the file inside its openspec tree, or run: spk lint <corpus-root>)"
+                            .to_string(),
+                    ],
+                )
+            }
+        };
+    match conform::run_with(
+        &specs[0],
+        std::path::Path::new(&out_dir),
+        &corpus_bytes,
+        closed_world,
+        structural_only,
+        corpus_ctx.as_ref(),
+    ) {
+        Ok(report) => {
+            // The exit mapping keys off the taxonomy's own spellings —
+            // never a string literal that could drift from
+            // conform::Verdict's serde form.
+            let violation_count =
+                |v: conform::Verdict| report.verdict_counts.get(v.as_str()).copied().unwrap_or(0);
+            let forbidden = violation_count(conform::Verdict::Forbidden);
+            let unsupported = violation_count(conform::Verdict::Unsupported);
+            if forbidden + unsupported > 0 {
+                // Findings-or-failure (exit 1): the error-kind envelope
+                // is the published contract (openspec/specs/errors/spec.md
+                // envelope_error_kind) — a failed conformance run never
+                // rides a success-shaped envelope. The human view is the
+                // same one the success branch renders.
+                let out = commands::as_failure(
+                    Output::success(report.clone()),
+                    format!(
+                        "{forbidden} forbidden and {unsupported} unsupported verdict(s) — the oracle disagrees with the declared model"
+                    ),
+                );
+                let mut out = out;
+                for w in &gate_warnings {
+                    out = out.with_warning(w.clone());
+                }
+                emit_report(
+                    out,
+                    Some(conform::human_view(&report)),
+                    format,
+                    verbosity,
+                    stdout,
+                    stderr,
+                );
+                1
+            } else {
+                conform::emit_report_with_warnings(
+                    &report,
+                    &gate_warnings,
+                    format,
+                    verbosity,
+                    stdout,
+                    stderr,
+                )
+                .ok();
+                0
+            }
+        }
+        Err(e) => {
+            // Gate refusals and corpus refusals stay exit 2 (delta
+            // exit_code_verdict_mapping) with zero verdict records; the
+            // message already carries the failing stage, the hint names
+            // its remediation command.
+            let hint = if e.message.contains("spk lint") {
+                "run: spk lint <file>"
+            } else if e.message.contains("spk compile") {
+                "run: spk compile <file>"
+            } else if e.stage == "corpus_parse" {
+                "fix the scenario record — one JSON object per line: {id, setup?, trace}"
+            } else {
+                "address the labeled refusal above"
+            };
+            let mut out: Output<serde_json::Value> =
+                Output::failure(format!("{}: {}", e.stage, e.message)).with_next_step(hint);
+            for w in &gate_warnings {
+                out = out.with_warning(w.clone());
+            }
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            2
+        }
+    }
 }

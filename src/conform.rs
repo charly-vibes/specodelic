@@ -11,7 +11,11 @@
 //! fixed evidence_scope (D6), scope digest binding structured content and
 //! the consumed scenario corpus bytes, and genesis envelope emit
 //! plumbing, plus the command-path input gate (D5): lint-clean file,
-//! current compiled artifacts, and a fully validated scenario corpus.
+//! current compiled artifacts, and a fully validated scenario corpus —
+//! linted in the CORPUS context the file belongs to when one is supplied
+//! (gh-17 friction 1), with an explicit opt-in structural-only mode
+//! (gh-17 friction 2) whose `agree` verdict never claims a prose
+//! invariant was checked.
 //! Read-only: it evaluates, it never generates.
 //! Rationale: no CLI wiring yet — the `spk conform` command lands in
 //! phase 4; the gate and emit layers here are the testable API surface
@@ -31,10 +35,14 @@ use crate::spec::Spec;
 // collapsed to pass/fail)
 // ---------------------------------------------------------------------------
 
-/// One oracle trace's verdict. The set is closed: `permitted`,
+/// One oracle trace's verdict. The default set is closed: `permitted`,
 /// `forbidden`, `underspecified`, `unknown`, `unsupported` — distinct
 /// values with distinct remediations, never coerced into a binary
 /// pass/fail (report §13: never collapse the ladder into one PASS label).
+/// The sixth value, `agree`, exists ONLY under the explicitly declared
+/// structural-only mode (gh-17 friction 2): the trace conforms to the
+/// declared transition relation while a covering guard's prose expr was
+/// never interpreted — the default mode keeps the honest `unknown`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Verdict {
@@ -54,6 +62,11 @@ pub enum Verdict {
     /// The covering claim's evaluator kind exists in the format but is
     /// not executable in this run (e.g. `**py:**` — no emitter yet).
     Unsupported,
+    /// Structural-only mode: the trace conforms to the declared
+    /// transition relation, but a covering guard's expr is prose and was
+    /// NEVER interpreted — the reason names the guard, so the record
+    /// never claims the prose invariant was checked (gh-17 friction 2).
+    Agree,
 }
 
 impl Verdict {
@@ -66,6 +79,7 @@ impl Verdict {
             Verdict::Underspecified => "underspecified",
             Verdict::Unknown => "unknown",
             Verdict::Unsupported => "unsupported",
+            Verdict::Agree => "agree",
         }
     }
 }
@@ -334,6 +348,21 @@ pub fn parse_corpus(jsonl: &str) -> Result<Vec<ScenarioTrace>, ConformError> {
 // The input gate (design D5 — lint-clean file, current compiled artifacts)
 // ---------------------------------------------------------------------------
 
+/// The corpus context conform's input gate lints the target file within
+/// (gh-17 friction 1): the same parsed corpus the lint command sees, so
+/// corpus-wide `[[ref]]` resolution (`linter.total_refs`) sees the
+/// sibling specs the target references. Built by the CLI's corpus
+/// discovery — reusing `parse_batch`'s machinery, never a second walker.
+pub struct CorpusContext {
+    /// The corpus's parsed specs (the target file among them).
+    pub specs: Vec<Spec>,
+    /// Sibling files that FAILED to parse: the corpus lint then runs
+    /// over a partial corpus, so referential findings may be false. The
+    /// caller surfaces this as a labeled warning on the existing
+    /// warnings channel — never a silent partial-corpus verdict.
+    pub parse_error_notes: Vec<String>,
+}
+
 /// The command-path input gate (design D5, delta `artifact_gate`): the
 /// target file must lint clean and its compiled artifacts must be
 /// current before any classification runs. The checks reuse the exact
@@ -349,19 +378,73 @@ pub fn parse_corpus(jsonl: &str) -> Result<Vec<ScenarioTrace>, ConformError> {
 /// (`spk lint` / `spk compile`) per the error contract; the caller emits
 /// zero verdict records on an Err.
 pub fn gate(spec: &Spec, out_dir: &std::path::Path) -> Result<(), ConformError> {
+    gate_in_corpus(spec, out_dir, None)
+}
+
+/// The gate with the corpus context the CLI discovered from the file's
+/// own location (gh-17 friction 1): the lint stage runs over the
+/// discovered corpus so corpus-wide ref resolution sees the siblings —
+/// but the gate verdict keys on THIS file's findings within that lint
+/// (a sibling's finding never fails this file's gate). With no corpus
+/// (None, or a corpus whose specs all failed to parse) the gate falls
+/// back to the single-spec slice — the labeled, documented behavior for
+/// an isolated file, never an error.
+pub fn gate_in_corpus(
+    spec: &Spec,
+    out_dir: &std::path::Path,
+    corpus: Option<&CorpusContext>,
+) -> Result<(), ConformError> {
     // Lint stage first — a lint-dirty file must be refused with the lint
     // remediation even if its artifacts are also missing/stale (the same
     // stage order orchestrate applies: parse → lint → compile).
-    let stage = crate::orchestrate::run_lint_stage(std::slice::from_ref(spec), &[]);
-    if stage.status != "passed" {
-        let findings = lint_findings_of(&stage);
+    let mut lint_specs_owned: Vec<Spec>;
+    let lint_specs: &[Spec] = match corpus {
+        // An all-siblings-unparsed corpus resolves nothing extra — the
+        // single-spec slice is the honest floor (the caller warns).
+        Some(c) if !c.specs.is_empty() => {
+            // The corpus lint must evaluate the target itself: when the
+            // target file sits OUTSIDE the discovered corpus (a stray
+            // file in a repo that carries an openspec tree), the corpus
+            // run would never lint it — a silent skip is a false green.
+            // Intent ids are unique corpus-wide (the format's law), so
+            // id identity is the membership test.
+            if c.specs.iter().any(|s| s.intent.id == spec.intent.id) {
+                &c.specs
+            } else {
+                lint_specs_owned = c.specs.clone();
+                lint_specs_owned.push(spec.clone());
+                &lint_specs_owned
+            }
+        }
+        _ => std::slice::from_ref(spec),
+    };
+    let stage = crate::orchestrate::run_lint_stage(lint_specs, &[]);
+    // The verdict keys on THIS file's findings within the corpus lint:
+    // findings carry a file label (the path when parsed from disk, the
+    // intent id otherwise) — match either against the target.
+    if let Some(own_findings) = lint_findings_of_in(&stage, spec) {
         return Err(ConformError {
             stage: "artifact_gate".into(),
             message: format!(
                 "the file has lint findings — conform requires a lint-clean spec, verdicts are never derived from invalid artifacts ({}; run: spk lint)",
-                findings
+                own_findings
             ),
         });
+    }
+    if stage.status != "passed" {
+        // Failed with zero target-attributable findings: the findings
+        // belong to sibling files (this file is clean per every checker
+        // that ran) — never a refusal for THIS file (gh-17 invariant 2).
+        if stage_has_skipped_checkers(&stage) {
+            // A sibling failed a gate dependency, so downstream checkers
+            // were skipped and THIS file's status in them is unknown —
+            // refusing is the no-false-green choice (never a silent
+            // partial-corpus pass).
+            return Err(ConformError {
+                stage: "artifact_gate".into(),
+                message: "the corpus lint cannot vouch for this file: a sibling file failed a gate dependency so downstream checkers were skipped and this file's lint status there is unknown — verdicts are never derived from an unresolved lint status (run: spk lint)".into(),
+            });
+        }
     }
     // Artifact currency: the on-disk `<stem>.tla` must equal the current
     // spec's compile emission — the same regenerate-and-compare discipline
@@ -399,10 +482,31 @@ pub fn gate(spec: &Spec, out_dir: &std::path::Path) -> Result<(), ConformError> 
     Ok(())
 }
 
-/// The failed lint stage's finding summary: the stage detail nests
-/// issues per checker (`checkers[].issues[].message`); the refusal names
-/// the count and the first finding so the author can go straight to it.
-fn lint_findings_of(stage: &crate::orchestrate::Stage) -> String {
+/// True when any checker in the stage detail was SKIPPED (a dependency
+/// failed) — the stage then says nothing about the skipped checkers'
+/// subject matter for any file.
+fn stage_has_skipped_checkers(stage: &crate::orchestrate::Stage) -> bool {
+    stage
+        .detail
+        .as_ref()
+        .and_then(|d| d.get("checkers"))
+        .and_then(|v| v.as_array())
+        .map(|checkers| {
+            checkers
+                .iter()
+                .any(|c| c.get("status").and_then(|s| s.as_str()) == Some("skipped"))
+        })
+        .unwrap_or(false)
+}
+
+/// The failed lint stage's finding summary, restricted to the findings
+/// that belong to THIS spec (gh-17 invariant 2): the stage detail nests
+/// issues per checker (`checkers[].issues[]`, each carrying a `file`
+/// label and a `message`); a finding belongs to the target when its
+/// label matches the spec's path or intent id. `None` when nothing
+/// targets this file. The refusal names the count and the first finding
+/// so the author can go straight to it.
+fn lint_findings_of_in(stage: &crate::orchestrate::Stage, spec: &Spec) -> Option<String> {
     let issues: Vec<String> = stage
         .detail
         .as_ref()
@@ -414,6 +518,11 @@ fn lint_findings_of(stage: &crate::orchestrate::Stage) -> String {
                 .filter_map(|c| c.get("issues"))
                 .filter_map(|v| v.as_array())
                 .flatten()
+                .filter(|i| {
+                    i.get("file")
+                        .and_then(|f| f.as_str())
+                        .is_some_and(|f| finding_targets_file(f, spec))
+                })
                 .filter_map(|i| i.get("message"))
                 .filter_map(|m| m.as_str())
                 .map(String::from)
@@ -421,10 +530,33 @@ fn lint_findings_of(stage: &crate::orchestrate::Stage) -> String {
         })
         .unwrap_or_default();
     let first = issues.first().map(String::as_str).unwrap_or("");
-    if first.is_empty() {
-        format!("{} checker issue(s)", issues.len())
+    if issues.is_empty() {
+        None
+    } else if first.is_empty() {
+        Some(format!("{} checker issue(s)", issues.len()))
     } else {
-        format!("{} checker issue(s): {first}", issues.len())
+        Some(format!("{} checker issue(s): {first}", issues.len()))
+    }
+}
+
+/// Whether a lint finding's file label names this spec: the label is the
+/// parsed path when on disk (paths from the corpus walk may differ from
+/// the invocation's spelling — relative vs absolute), the `<intent-id>`
+/// marker when parsed without a path. Mechanical identity: raw string
+/// equality first, then canonicalized-path equality.
+fn finding_targets_file(label: &str, spec: &Spec) -> bool {
+    if label == spec.intent.id {
+        return true;
+    }
+    let Some(path) = &spec.path else {
+        return false;
+    };
+    if label == path.display().to_string() {
+        return true;
+    }
+    match (std::fs::canonicalize(label), std::fs::canonicalize(path)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
     }
 }
 
@@ -439,7 +571,23 @@ pub fn run(
     corpus_bytes: &[u8],
     closed_world: bool,
 ) -> Result<ConformReport, ConformError> {
-    gate(spec, out_dir)?;
+    run_with(spec, out_dir, corpus_bytes, closed_world, false, None)
+}
+
+/// [`run`] with the invocation mode and the gate's corpus context
+/// selected: `structural_only` opts into the agree-on-conforming-trace
+/// mode (gh-17 friction 2); `corpus` supplies the discovered corpus the
+/// input gate lints the target within (gh-17 friction 1) — None is the
+/// labeled isolated-file fallback (single-spec slice).
+pub fn run_with(
+    spec: &Spec,
+    out_dir: &std::path::Path,
+    corpus_bytes: &[u8],
+    closed_world: bool,
+    structural_only: bool,
+    corpus: Option<&CorpusContext>,
+) -> Result<ConformReport, ConformError> {
+    gate_in_corpus(spec, out_dir, corpus)?;
     let corpus = std::str::from_utf8(corpus_bytes).map_err(|e| ConformError {
         stage: "corpus_parse".into(),
         message: format!(
@@ -447,7 +595,13 @@ pub fn run(
         ),
     })?;
     let scenarios = parse_corpus(corpus)?;
-    Ok(build_report(spec, corpus_bytes, &scenarios, closed_world))
+    Ok(build_report_mode(
+        spec,
+        corpus_bytes,
+        &scenarios,
+        closed_world,
+        structural_only,
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -502,11 +656,28 @@ pub fn classify_traces(
     corpus: &[ScenarioTrace],
     closed_world: bool,
 ) -> Vec<VerdictRecord> {
+    classify_traces_mode(spec, corpus, closed_world, false)
+}
+
+/// [`classify_traces`] with the invocation mode selected: the default
+/// (false) keeps the closed five-value verdict space — prose guards are
+/// `unknown`, never implied permitted or forbidden. The explicit
+/// structural-only mode (gh-17 friction 2, `--structural-only`) reports
+/// `agree` for traces whose step sequence conforms to the declared
+/// transition relation even when a covering guard's expr is prose — with
+/// a reason that STILL names the uninterpretable guard, so the record
+/// never claims the prose invariant was checked.
+pub fn classify_traces_mode(
+    spec: &Spec,
+    corpus: &[ScenarioTrace],
+    closed_world: bool,
+    structural_only: bool,
+) -> Vec<VerdictRecord> {
     let ir = extract_ir(spec);
     let claims = classify_claims(spec);
     corpus
         .iter()
-        .map(|scenario| classify_trace(spec, &ir, &claims, scenario, closed_world))
+        .map(|scenario| classify_trace(spec, &ir, &claims, scenario, closed_world, structural_only))
         .collect()
 }
 
@@ -525,6 +696,7 @@ fn classify_trace(
     claims: &ClaimClassification,
     scenario: &ScenarioTrace,
     closed_world: bool,
+    structural_only: bool,
 ) -> VerdictRecord {
     // Declared vocabulary, trimmed — string identity is the only
     // normalization (design D3, mechanical never semantic).
@@ -653,8 +825,19 @@ fn classify_trace(
         );
     }
     // Rule 4: a prose-only covering claim is not interpretable — unknown,
-    // naming the claim; prose never implies a judgment.
+    // naming the claim; prose never implies a judgment. In the explicit
+    // structural-only mode the trace DOES conform to the declared
+    // transition relation at this point, so the verdict is `agree` — but
+    // the reason still names the uninterpretable guard (the record never
+    // claims the prose invariant was checked; gh-17 friction 2).
     if let Some(claim) = covering.iter().find(|c| c.evaluator == Evaluator::Prose) {
+        if structural_only {
+            return record(
+                Verdict::Agree,
+                reason::structural_agree(claim),
+                covering_ids(&covering),
+            );
+        }
         return record(
             Verdict::Unknown,
             reason::prose_not_interpretable(claim),
@@ -872,6 +1055,18 @@ pub mod reason {
         )
     }
 
+    /// `structural_agree_prose_guard_unchecked` — the structural-only
+    /// mode's agree reason (gh-17 friction 2): the trace conforms to the
+    /// declared transition relation, but the prose guard was never
+    /// interpreted; the reason STILL names the claim so the record never
+    /// claims the prose invariant was checked, and names the mode flag.
+    pub fn structural_agree(claim: &ClassifiedClaim) -> String {
+        format!(
+            "structural_agree_prose_guard_unchecked: claim `{}` covers this trace but its expr is prose — not interpretable by this run, never checked; the trace conforms to the declared transition relation (--structural-only)",
+            claim.id
+        )
+    }
+
     /// `permitted` — the walk explains the trace through the declared
     /// transition relation, with the executable covering claims named.
     pub fn permitted(
@@ -984,7 +1179,19 @@ pub fn build_report(
     corpus: &[ScenarioTrace],
     closed_world: bool,
 ) -> ConformReport {
-    let mut records = classify_traces(spec, corpus, closed_world);
+    build_report_mode(spec, corpus_bytes, corpus, closed_world, false)
+}
+
+/// [`build_report`] with the invocation mode selected (see
+/// [`classify_traces_mode`] for the structural-only semantics).
+pub fn build_report_mode(
+    spec: &Spec,
+    corpus_bytes: &[u8],
+    corpus: &[ScenarioTrace],
+    closed_world: bool,
+    structural_only: bool,
+) -> ConformReport {
+    let mut records = classify_traces_mode(spec, corpus, closed_world, structural_only);
     records.sort_by(|a, b| a.scenario_id.cmp(&b.scenario_id));
     let mut verdict_counts: BTreeMap<String, usize> = BTreeMap::new();
     for record in &records {
@@ -1048,21 +1255,43 @@ pub fn emit_report(
     stdout: &mut impl Write,
     stderr: &mut impl Write,
 ) -> std::io::Result<()> {
+    emit_report_with_warnings(report, &[], format, verbosity, stdout, stderr)
+}
+
+/// [`emit_report`] with labeled warnings attached (gh-17 invariant 3:
+/// a partial corpus — siblings that failed to parse — is surfaced on
+/// the existing warnings channel, never silent; same for the labeled
+/// isolated-file fallback). The report values are unchanged — the
+/// warnings ride the envelope's warnings channel.
+pub fn emit_report_with_warnings(
+    report: &ConformReport,
+    warnings: &[String],
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl Write,
+    stderr: &mut impl Write,
+) -> std::io::Result<()> {
     if format == OutputFormat::Human {
         writeln!(stdout, "{}", human_view(report))?;
         // Suppress the Debug data line (verbosity above the ceiling) so the
         // human view is not followed by a Rust dump — the same convention
         // as main.rs's emit_report.
-        Output::success(report.clone())
-            .with_verbosity(Verbosity::MAX + 1)
-            .emit(env!("CARGO_PKG_VERSION"), format, verbosity, stdout, stderr)
-    } else {
-        Output::success(report.clone()).emit(
+        let mut out = Output::success(report.clone());
+        for w in warnings {
+            out = out.with_warning(w.clone());
+        }
+        out.with_verbosity(Verbosity::MAX + 1).emit(
             env!("CARGO_PKG_VERSION"),
             format,
             verbosity,
             stdout,
             stderr,
         )
+    } else {
+        let mut out = Output::success(report.clone());
+        for w in warnings {
+            out = out.with_warning(w.clone());
+        }
+        out.emit(env!("CARGO_PKG_VERSION"), format, verbosity, stdout, stderr)
     }
 }
