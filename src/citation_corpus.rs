@@ -11,7 +11,9 @@
 //! `id: spec` isolated-scope rule with `id: spec` itself).
 //!
 //! Responsibilities: `check_corpus_scope` (the pre-write scope guard);
-//! `resolve_corpus_citations` (whole-corpus status resolution over
+//! `artifact_dir` (the ONE shared per-file artifact routing decision —
+//! compile stage, backend pass and persisted report all resolve through
+//! it); `resolve_corpus_citations` (whole-corpus status resolution over
 //! same-run evidence only — no filesystem discovery, never a suffix
 //! match); `statuses_with_reasons` (the command-output shape).
 //! Rationale: the command path (native CLI and orchestrate) must publish
@@ -26,6 +28,61 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::compile::{self, CitationExpr, ThreeValued};
 use crate::model_check::{self, InvariantStatus, RunReport, TlcPaths};
 use crate::spec::Spec;
+
+/// Percent-encode a routing key into one path segment — injective (`%`
+/// itself encodes), so distinct source paths never fold onto one dir.
+pub(crate) fn encode_routing_key(key: &str) -> String {
+    let mut out = String::with_capacity(key.len());
+    for b in key.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' => out.push(b as char),
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
+}
+
+/// The directory under `out_dir` where ONE spec's artifacts live — THE
+/// shared per-file routing decision (gh-13, specodelic-yl39): the
+/// orchestrate compile stage, the model-check backend pass, and the
+/// persisted `.check.json` report all resolve locations HERE, one
+/// derivation, so the stages can never disagree (the stale_artifact
+/// class was exactly independent re-derivations). Collide-only:
+/// corpus-unique stems keep the flat layout (per-file behavior
+/// unchanged); duplicate stems route under
+/// `out_dir/<stem>/<encoded source path>` — the path is the honest
+/// identity (the id is exactly what collides). Keyed on the path only:
+/// byte-stable re-runs, no content hashes, no iteration order;
+/// injective encoding means same-stem files never share an artifact
+/// path. A pathless spec (library callers only; CLI parses always
+/// carry paths) uses its ordinal among pathless same-stem specs —
+/// stable for an unchanged corpus.
+pub fn artifact_dir(spec: &Spec, corpus: &[Spec], out_dir: &str) -> std::path::PathBuf {
+    let stem = compile::artifact_stem(spec);
+    if corpus
+        .iter()
+        .filter(|s| compile::artifact_stem(s) == stem)
+        .count()
+        <= 1
+    {
+        return std::path::PathBuf::from(out_dir);
+    }
+    let key = match spec.path.as_ref() {
+        Some(p) => p.display().to_string(),
+        None => format!(
+            "<{}>#{}",
+            spec.intent.id,
+            corpus
+                .iter()
+                .filter(|s| s.path.is_none() && compile::artifact_stem(s) == stem)
+                .position(|s| std::ptr::eq(s, spec))
+                .unwrap_or(0)
+        ),
+    };
+    std::path::Path::new(out_dir)
+        .join(stem)
+        .join(encode_routing_key(&key))
+}
 
 /// One file's backend run in a command invocation: identity (display
 /// path, intent id, artifact stem) plus the run result.
@@ -54,7 +111,11 @@ pub fn run_backend_pass(
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| format!("<{}>", spec.intent.id));
         let stem = compile::artifact_stem(spec);
-        let tla_path = std::path::Path::new(out_dir).join(format!("{stem}.tla"));
+        // ONE shared routing decision (gh-13, specodelic-yl39): the
+        // backend pass resolves the module through citation_corpus::artifact_dir
+        // — never a private re-derivation — so it reads exactly the
+        // `.tla` the compile stage wrote for THIS file.
+        let tla_path = artifact_dir(spec, specs, out_dir).join(format!("{stem}.tla"));
         // The compiled module is the run's input — a missing artifact is
         // a labeled error with a remediation hint, never a run.
         let tla_artifact = match std::fs::read(&tla_path) {

@@ -297,7 +297,6 @@ fn run_compile_stage(specs: &[Spec], out_dir: &str) -> Stage {
     let mut compiled: Vec<serde_json::Value> = vec![];
     let mut failed: Vec<serde_json::Value> = vec![];
     let mut warnings: Vec<String> = vec![];
-    let mut seen_stems: std::collections::BTreeMap<String, String> = Default::default();
     for spec in specs {
         let file = spec
             .path
@@ -305,31 +304,34 @@ fn run_compile_stage(specs: &[Spec], out_dir: &str) -> Stage {
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| format!("<{}>", spec.intent.id));
         match compile::compile_spec(spec) {
-            Ok(c) => match compile::write_artifacts(spec, &c, out_dir) {
-                Ok(result) => {
-                    // The rustfmt fallback fact rides the existing warning
-                    // channel (write_artifacts stays soft).
-                    warnings.extend(result.warnings);
-                    let stem = compile::artifact_stem(spec);
-                    if let Some(first) = seen_stems.get(&stem) {
-                        warnings.push(format!(
-                            "stem collision: `{stem}` artifacts from {first} and {file} share one out-dir — the later file wins",
-                        ));
+            Ok(c) => {
+                // ONE shared per-file routing decision (gh-13,
+                // specodelic-yl39): artifacts land where
+                // citation_corpus::artifact_dir says — duplicate stems get
+                // deterministic per-file dirs keyed by source path, so
+                // the former flat out-dir "later file wins" collapse
+                // (and with it the stem-collision warning, retired
+                // here) is unreachable by construction.
+                let dir = citation_corpus::artifact_dir(spec, specs, out_dir);
+                match compile::write_artifacts_into(&dir, spec, &c) {
+                    Ok(result) => {
+                        // The rustfmt fallback fact rides the existing
+                        // warning channel (write_artifacts stays soft).
+                        warnings.extend(result.warnings);
+                        compiled.push(serde_json::json!({
+                            "file": file,
+                            "id": spec.intent.id,
+                            "written": result.paths,
+                        }));
                     }
-                    seen_stems.insert(stem, file.clone());
-                    compiled.push(serde_json::json!({
+                    Err(message) => failed.push(serde_json::json!({
                         "file": file,
                         "id": spec.intent.id,
-                        "written": result.paths,
-                    }));
+                        "stage": "write_artifacts",
+                        "message": message,
+                    })),
                 }
-                Err(message) => failed.push(serde_json::json!({
-                    "file": file,
-                    "id": spec.intent.id,
-                    "stage": "write_artifacts",
-                    "message": message,
-                })),
-            },
+            }
             Err(e) => failed.push(serde_json::json!({
                 "file": file,
                 "id": spec.intent.id,
@@ -480,8 +482,11 @@ pub fn run_claim_gated_model_check(
                         &unchecked_claim_ids,
                         &scope_sha256,
                     );
-                    let report_path =
-                        std::path::Path::new(out_dir).join(format!("{}.check.json", run.stem));
+                    // The persisted report follows the SAME shared
+                    // routing decision (gh-13): next to the `.tla` the
+                    // compile stage wrote for THIS file.
+                    let report_path = citation_corpus::artifact_dir(&specs[idx], specs, out_dir)
+                        .join(format!("{}.check.json", run.stem));
                     let report_json =
                         serde_json::to_string_pretty(&report_value).expect("run report serializes");
                     match std::fs::write(&report_path, &report_json) {

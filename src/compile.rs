@@ -1346,26 +1346,35 @@ pub struct Written {
 }
 
 /// Write a compiled spec's three artifacts (`<stem>.toml`,
-/// `<stem>_props.rs`, `<stem>.tla`) into `out_dir` (created on demand).
-/// Returns the written paths plus non-fatal warnings; a write failure is
-/// a labeled error, never a silent partial on disk.
+/// `<stem>_props.rs`, `<stem>.tla`) into `out_dir` (created on demand);
+/// returns written paths plus non-fatal warnings; a write failure is a
+/// labeled error. Flat-layout form shared with the `spk compile`
+/// command path — orchestrate routes through `write_artifacts_into`.
 ///
-/// The `*.rs` artifact is made rustfmt-clean here (gh-15): the write
-/// choke point formats it with rustfmt (edition 2021) before writing, so
-/// every emitter of `*.rs` artifacts — the `spk compile` command path and
-/// orchestrate alike — writes fmt-clean bytes and no downstream
-/// `cargo fmt --check` gate churns on formatting-only diffs. The
+/// The `*.rs` artifact is made rustfmt-clean here (gh-15): formatted
+/// with rustfmt (edition 2021) before writing, so no downstream
+/// `cargo fmt --check` gate churns on formatting-only diffs; the
 /// `.toml`/`.tla` companions are not rustfmt's business. A missing or
-/// failing rustfmt is a graceful labeled fallback: the unformatted bytes
-/// are written, the command still succeeds, and the fallback fact is
-/// carried in `Written::warnings` — never a hard failure.
+/// failing rustfmt is a graceful labeled fallback — unformatted bytes
+/// written, command succeeds, fact carried in `Written::warnings`.
 pub fn write_artifacts(spec: &Spec, compiled: &Compiled, out_dir: &str) -> Result<Written, String> {
+    write_artifacts_into(std::path::Path::new(out_dir), spec, compiled)
+}
+
+/// Write into an EXPLICIT artifact dir — the `artifact_dir` routing
+/// decision (gh-13) — so orchestrate's written paths and every later
+/// consumer of the layout agree.
+pub fn write_artifacts_into(
+    dir: &std::path::Path,
+    spec: &Spec,
+    compiled: &Compiled,
+) -> Result<Written, String> {
     let stem = artifact_stem(spec);
-    std::fs::create_dir_all(out_dir)
-        .map_err(|e| format!("could not create out-dir {out_dir}: {e}"))?;
-    let toml_path = std::path::Path::new(out_dir).join(format!("{stem}.toml"));
-    let props_path = std::path::Path::new(out_dir).join(format!("{stem}_props.rs"));
-    let tla_path = std::path::Path::new(out_dir).join(format!("{stem}.tla"));
+    std::fs::create_dir_all(dir)
+        .map_err(|e| format!("could not create out-dir {}: {e}", dir.display()))?;
+    let toml_path = dir.join(format!("{stem}.toml"));
+    let props_path = dir.join(format!("{stem}_props.rs"));
+    let tla_path = dir.join(format!("{stem}.tla"));
     let (props, warnings) = match rustfmt_clean(compiled.props.clone()) {
         Ok(formatted) => (formatted, Vec::new()),
         Err(e) => (

@@ -873,3 +873,177 @@ fn orchestrate_succeeded_stays_a_success_envelope_with_exit_0() {
     assert_eq!(json["envelope_kind"], serde_json::json!("ok"));
     assert_eq!(json["data"]["overall"], "succeeded");
 }
+
+// ---- specodelic-yl39 (gh-13): corpus-wide orchestrate with duplicate stems ----
+
+/// A lint-clean fixture whose filename stem matches its intent id
+/// (naming law) with a distinct Model section — state/transition names
+/// are parameters, so each file's `.tla` describes a different
+/// automaton and a collapsed artifact set is observable.
+fn same_stem_fixture(id: &str, s1: &str, s2: &str, t: &str) -> String {
+    format!(
+        "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL be a same-stem fixture\"\n---\n\
+         \n## Constraints\n\
+         \n| id | kind | expr | traces_to |\n\
+         |----|------|------|-----------|\n\
+         | c1 | invariant | `holds` | [[{id}]] |\n\
+         \n## Model\n\
+         \n### States\n\
+         \n- {s1}\n\
+         - {s2}\n\
+         \n### Transitions\n\
+         \n| id | from | to | guard |\n\
+         |----|------|----|-------|\n\
+         | {t} | {s1} | {s2} | [[{id}.c1]] |\n\
+         \n## Properties\n\
+         \n| id | kind | derives_from | generator | predicate |\n\
+         |----|------|--------------|-----------|------------|\n\
+         | p | unit | [[{id}.c1]] | `g()` | `x` |\n"
+    )
+}
+
+#[test]
+fn orchestrate_duplicate_stems_route_per_file_never_share_never_stale() {
+    // gh-13: corpus files whose artifact stems collide (same file stem
+    // in different dirs) used to compile into ONE flat out-dir — later
+    // file wins, stem-collision warnings — and model_check then read
+    // the single surviving `.tla` for every file → stale_artifact for
+    // all but the last file. (The CLI refuses duplicate INTENT ids
+    // up-front — duplicate_corpus_identity — so the collision class
+    // that remains is the library path and any future law relaxation;
+    // this test pins the structural guarantee there.) The routing
+    // decision is shared (compile stage + backend pass + persisted
+    // report), collide-only: duplicate stems get deterministic per-file
+    // dirs keyed by source path.
+    use specodelic::model_check;
+    use specodelic::orchestrate::{Backends, ParseInput, orchestrate};
+    use specodelic::spec::parse_str;
+
+    let td = tempfile::tempdir().unwrap();
+    let corpus = td.path().join("corpus");
+    std::fs::create_dir_all(corpus.join("alpha")).unwrap();
+    std::fs::create_dir_all(corpus.join("beta")).unwrap();
+    std::fs::write(
+        corpus.join("alpha/pipeline.md"),
+        same_stem_fixture("pipeline", "s1", "s2", "t"),
+    )
+    .unwrap();
+    std::fs::write(
+        corpus.join("beta/pipeline.md"),
+        same_stem_fixture("pipeline", "m1", "m2", "u"),
+    )
+    .unwrap();
+    let specs: Vec<specodelic::spec::Spec> = [
+        (
+            "alpha/pipeline.md",
+            same_stem_fixture("pipeline", "s1", "s2", "t"),
+        ),
+        (
+            "beta/pipeline.md",
+            same_stem_fixture("pipeline", "m1", "m2", "u"),
+        ),
+    ]
+    .iter()
+    .map(|(rel, body)| {
+        let mut s = parse_str(body).unwrap();
+        s.path = Some(std::path::PathBuf::from(corpus.join(rel)));
+        s
+    })
+    .collect();
+    let out_dir = td.path().join("out");
+
+    let run = || {
+        orchestrate(
+            &specs,
+            &[],
+            &ParseInput::default(),
+            out_dir.to_str().unwrap(),
+            &model_check::Bound::default(),
+            &Backends::default(),
+        )
+    };
+    let first = run();
+    let stage = |o: &specodelic::orchestrate::Orchestration, name: &str| -> serde_json::Value {
+        serde_json::to_value(
+            o.stages
+                .iter()
+                .find(|s| s.stage == name)
+                .unwrap_or_else(|| panic!("stage {name} missing")),
+        )
+        .unwrap()
+    };
+
+    // Invariant 1+2: zero stem collisions — the compile stage routes
+    // duplicates into per-file dirs; the "later file wins" warning is
+    // unreachable by construction.
+    let compile_stage = stage(&first, "compile");
+    assert_eq!(compile_stage["status"], "passed", "{compile_stage}");
+    let warnings = compile_stage["detail"]["warnings"].as_array().unwrap();
+    assert!(
+        !warnings
+            .iter()
+            .any(|w| w.as_str().unwrap().contains("stem collision")),
+        "no stem-collision warnings: {warnings:?}"
+    );
+    // The written paths are real, distinct, and both files' `.tla`
+    // artifacts coexist with their own Model content.
+    let compiled = compile_stage["detail"]["compiled"].as_array().unwrap();
+    assert_eq!(compiled.len(), 2, "{compile_stage}");
+    let collect_written = |c: &serde_json::Value| -> Vec<String> {
+        c["written"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p.as_str().unwrap().to_string())
+            .collect()
+    };
+    let mut tla_paths: Vec<String> = vec![];
+    for c in compiled {
+        let written = collect_written(c);
+        assert_eq!(written.len(), 3, "{c}");
+        for p in &written {
+            assert!(std::path::Path::new(p).exists(), "artifact {p} not written");
+        }
+        tla_paths.push(written[2].clone());
+    }
+    assert_ne!(tla_paths[0], tla_paths[1], "artifact paths must differ");
+    let tla_a = std::fs::read(&tla_paths[0]).unwrap();
+    let tla_b = std::fs::read(&tla_paths[1]).unwrap();
+    assert_ne!(tla_a, tla_b, "both files' modules must coexist");
+
+    // gh-13 symptom 2: the backend pass reads each file's OWN module —
+    // no stale_artifact, no missing_artifact (the stages agree on
+    // routing; verdict-vs-CLAR-003 exploration_only is out of scope).
+    let mc_stage = stage(&first, "model_check");
+    let failures = mc_stage["detail"]["failed"].as_array().unwrap();
+    assert!(
+        failures
+            .iter()
+            .all(|f| f["stage"] != "stale_artifact" && f["stage"] != "missing_artifact"),
+        "no stale/missing artifacts: {failures:?}"
+    );
+    // The persisted `.check.json` reports follow the same routing: one
+    // per file, each next to its own module.
+    let reports: Vec<String> = compiled
+        .iter()
+        .map(|c| {
+            collect_written(c)
+                .iter()
+                .find(|p| p.ends_with(".tla"))
+                .unwrap()
+                .replace(".tla", ".check.json")
+        })
+        .collect();
+    for r in &reports {
+        assert!(std::path::Path::new(r).exists(), "report {r} not persisted");
+    }
+    assert_ne!(reports[0], reports[1]);
+
+    // Invariant 3: byte-stable re-run — same routing every run.
+    let second = run();
+    let compile_stage2 = stage(&second, "compile");
+    let compiled2 = compile_stage2["detail"]["compiled"].as_array().unwrap();
+    let written_again: Vec<Vec<String>> = compiled2.iter().map(|c| collect_written(c)).collect();
+    let written_first: Vec<Vec<String>> = compiled.iter().map(|c| collect_written(c)).collect();
+    assert_eq!(written_first, written_again, "routing must be stable");
+}
