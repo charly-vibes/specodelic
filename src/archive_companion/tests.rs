@@ -29,6 +29,10 @@ fn tree_owned(entries: &[(String, &str)]) -> tempfile::TempDir {
 
 const DUAL_DELTA: &str = "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n# c\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n";
 
+/// The archived delta shape AFTER post-deploy normalization (the
+/// openspec-archival shape the corpus linter expects: frontmatter-less).
+const STRIPPED_DELTA: &str = "# c\n\n## Requirements\n";
+
 /// An archive dir with one dual-format delta for capability `c`.
 fn archived_fixtures(id: &str) -> Vec<(String, &'static str)> {
     vec![(
@@ -168,9 +172,101 @@ fn run_archives_active_change_then_restores() {
         vec![root_path.join("openspec/specs/c/spec.md")]
     );
     assert_eq!(
-        fs::read(outcome.restored[0].clone()).unwrap(),
-        fs::read(root_path.join("openspec/changes/archive/2026-10-01-live/specs/c/spec.md"))
-            .unwrap()
+        fs::read_to_string(outcome.restored[0].clone()).unwrap(),
+        DUAL_DELTA,
+        "the deployed spec keeps the dual-format layer"
+    );
+    assert_eq!(
+        outcome.stripped,
+        vec![root_path.join("openspec/changes/archive/2026-10-01-live/specs/c/spec.md")]
+    );
+    assert!(
+        !fs::read_to_string(
+            root_path.join("openspec/changes/archive/2026-10-01-live/specs/c/spec.md")
+        )
+        .unwrap()
+        .starts_with("---"),
+        "the archived delta is frontmatter-less after the run"
+    );
+}
+
+#[test]
+fn run_strips_archived_delta_after_deploy() {
+    let root = tree_owned(&archived_fixtures("norm"));
+    let outcome = run(root.path(), "norm", false, &mut panicking_runner()).unwrap();
+    let archived = root
+        .path()
+        .join("openspec/changes/archive/2026-10-01-norm/specs/c/spec.md");
+    let deployed = root.path().join("openspec/specs/c/spec.md");
+    assert_eq!(outcome.stripped, vec![archived.clone()]);
+    let text = fs::read_to_string(&archived).unwrap();
+    assert!(
+        !text.starts_with("---"),
+        "archived delta must be frontmatter-less after the run"
+    );
+    assert!(
+        text.contains("# c"),
+        "the delta body must survive the strip"
+    );
+    assert_eq!(
+        fs::read_to_string(&deployed).unwrap(),
+        DUAL_DELTA,
+        "the deployed spec keeps its dual-format layer verbatim"
+    );
+}
+
+#[test]
+fn run_rerun_after_strip_is_noop_success() {
+    let root = tree_owned(&archived_fixtures("rerun"));
+    let deployed = root.path().join("openspec/specs/c/spec.md");
+    run(root.path(), "rerun", false, &mut panicking_runner()).unwrap();
+    assert_eq!(fs::read_to_string(&deployed).unwrap(), DUAL_DELTA);
+    let outcome = run(root.path(), "rerun", false, &mut panicking_runner()).unwrap();
+    assert!(!outcome.openspec_ran);
+    assert!(
+        outcome.restored.is_empty(),
+        "re-run must not re-copy the stripped delta"
+    );
+    assert!(outcome.stripped.is_empty());
+    assert_eq!(
+        fs::read_to_string(&deployed).unwrap(),
+        DUAL_DELTA,
+        "re-run must recognize the already-deployed spec, never overwrite it with the stripped delta"
+    );
+}
+
+#[test]
+fn restore_recognizes_already_deployed_stripped_delta() {
+    let root = tree(&[
+        (
+            "openspec/changes/archive/2026-10-01-r2/specs/c/spec.md",
+            STRIPPED_DELTA,
+        ),
+        ("openspec/specs/c/spec.md", DUAL_DELTA),
+    ]);
+    let archive = resolve_archive_dir(root.path(), "r2").unwrap();
+    let restored = restore(root.path(), &archive).unwrap();
+    assert!(restored.is_empty());
+    assert_eq!(
+        fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap(),
+        DUAL_DELTA
+    );
+}
+
+#[test]
+fn restore_refuses_stripped_delta_without_deployed_target() {
+    let root = tree(&[(
+        "openspec/changes/archive/2026-10-01-r3/specs/c/spec.md",
+        STRIPPED_DELTA,
+    )]);
+    let archive = resolve_archive_dir(root.path(), "r3").unwrap();
+    assert!(matches!(
+        restore(root.path(), &archive),
+        Err(CompanionError::UnverifiableDeltas { .. })
+    ));
+    assert!(
+        !root.path().join("openspec/specs").exists(),
+        "a refusal must not create deployed spec paths"
     );
 }
 

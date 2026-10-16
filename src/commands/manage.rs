@@ -386,6 +386,7 @@ pub(crate) fn cmd_archive_companion(
                 "openspec_ran": outcome.openspec_ran,
                 "archive_dir": rel(&outcome.archive_dir),
                 "restored": outcome.restored.iter().map(|p| rel(p)).collect::<Vec<_>>(),
+                "stripped": outcome.stripped.iter().map(|p| rel(p)).collect::<Vec<_>>(),
                 "dry_run": outcome.dry_run,
             });
             let next_step = if outcome.dry_run {

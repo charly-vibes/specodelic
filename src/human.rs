@@ -482,11 +482,22 @@ pub fn archive_companion(payload: &serde_json::Value) -> String {
         .iter()
         .filter_map(|p| p.as_str().map(str::to_string))
         .collect();
-    if paths.is_empty() {
-        format!("archive-companion: {change_id} — {ran}, {verb}: nothing (no spec deltas)")
+    let stripped = payload["stripped"].as_array().cloned().unwrap_or_default();
+    let stripped_note = if stripped.is_empty() || payload["dry_run"].as_bool().unwrap_or(false) {
+        String::new()
     } else {
         format!(
-            "archive-companion: {change_id} — {ran}, {verb} {} file(s):\n{}",
+            "; stripped frontmatter from {} archived delta(s)",
+            stripped.len()
+        )
+    };
+    if paths.is_empty() {
+        format!(
+            "archive-companion: {change_id} — {ran}, {verb}: nothing (no spec deltas){stripped_note}"
+        )
+    } else {
+        format!(
+            "archive-companion: {change_id} — {ran}, {verb} {} file(s):\n{}{stripped_note}",
             paths.len(),
             paths
                 .iter()

@@ -20,6 +20,18 @@
 //! (D4); idempotent re-run (D5); newest archive dir wins, named in the
 //! envelope (D6); dry-run resolves, never mutates (D7); zero deltas is
 //! a success, not an error (D8).
+//!
+//! Single-tree redefinition (specodelic-bhp, D9): after a successful
+//! deploy the companion strips the frontmatter block from each ARCHIVED
+//! delta copy, returning it to the openspec-archival shape — the
+//! frontmatter-less form the corpus linter expects (a frontmattered
+//! archived `spec.md` collides with the deployed spec's id; the
+//! manual-strip step that every archive since the quant pack had to
+//! redo by hand). The deployed spec keeps its dual-format layer
+//! verbatim (D4 unchanged). Re-run recognition replaces blind re-copy:
+//! a layer-less archived delta whose deployed target already carries
+//! the dual-format layer is recognized as already deployed (skip,
+//! success); anything else stays fail-closed (D3).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -84,6 +96,18 @@ pub enum CompanionError {
         /// IO error detail.
         read_detail: String,
     },
+    /// Post-deploy normalization failed: the frontmatter block could
+    /// not be stripped from the archived delta copy (design D9). The
+    /// deployed spec is already intact; fix the delta file, then re-run.
+    #[error(
+        "could not strip frontmatter from archived delta {path}: {detail} — the deployed spec is already written; fix the delta file's permissions, then re-run: spk archive-companion"
+    )]
+    StripFailed {
+        /// The delta path.
+        path: PathBuf,
+        /// IO error detail.
+        detail: String,
+    },
 }
 
 /// Result of a companion run (real or dry-run).
@@ -100,6 +124,9 @@ pub struct RestoreOutcome {
     /// Deployed spec paths written — or, for a dry-run, the paths that
     /// WOULD be written.
     pub restored: Vec<PathBuf>,
+    /// Archived delta copies whose frontmatter block was stripped after
+    /// deployment (design D9; empty for dry-runs and no-op re-runs).
+    pub stripped: Vec<PathBuf>,
     /// Whether this run mutated anything (always false when set).
     pub dry_run: bool,
 }
@@ -166,6 +193,12 @@ pub fn verify_dual_format(delta: &Path) -> Result<(), CompanionError> {
 /// Deploy every verified delta from `archive_dir` verbatim to its
 /// deployed spec path. Empty delta sets are a success with an empty
 /// list (design D8) — nothing to restore is a stated outcome.
+///
+/// Re-run recognition (D9): a delta lacking the dual-format layer is
+/// skipped (not copied, not reported) when its deployed target already
+/// exists and carries the layer — the post-normalization state a prior
+/// run left behind. Any other unverifiable delta is still refused
+/// before any copy (D3).
 pub fn restore(root: &Path, archive_dir: &Path) -> Result<Vec<PathBuf>, CompanionError> {
     let specs_dir = archive_dir.join("specs");
     let mut deltas: Vec<PathBuf> = match fs::read_dir(&specs_dir) {
@@ -179,16 +212,27 @@ pub fn restore(root: &Path, archive_dir: &Path) -> Result<Vec<PathBuf>, Companio
     deltas.sort();
 
     // Fail closed BEFORE any copy (design D3): verify everything first,
-    // then deploy. A refusal never leaves a half-restored tree.
+    // then deploy. A refusal never leaves a half-restored tree. A
+    // layer-less delta is recognized as already deployed (D9) only when
+    // its deployed target carries the dual-format layer.
+    let mut to_copy = Vec::new();
     for delta in &deltas {
-        verify_dual_format(delta).map_err(|_| CompanionError::UnverifiableDeltas {
-            deltas: deltas.clone(),
-            count: deltas.len(),
-        })?;
+        if verify_dual_format(delta).is_ok() {
+            to_copy.push(delta.clone());
+            continue;
+        }
+        let target = deployed_target(root, delta);
+        let recognized = target.is_file() && verify_dual_format(&target).is_ok();
+        if !recognized {
+            return Err(CompanionError::UnverifiableDeltas {
+                deltas: deltas.clone(),
+                count: deltas.len(),
+            });
+        }
     }
 
     let mut restored = Vec::new();
-    for delta in &deltas {
+    for delta in &to_copy {
         let cap = delta.parent().and_then(|p| p.file_name()).ok_or_else(|| {
             CompanionError::UnreadableDelta {
                 path: delta.clone(),
@@ -240,7 +284,8 @@ pub fn run(
 
     if dry_run {
         openspec_ran = false;
-        // D7: resolve + verify, never invoke, never write.
+        // D7: resolve + verify, never invoke, never write (and never
+        // strip — the archived copy stays untouched).
         let deltas = list_deltas(&source_dir);
         for delta in &deltas {
             verify_dual_format(delta)?;
@@ -251,6 +296,7 @@ pub fn run(
             openspec_ran,
             archive_dir: source_dir,
             restored,
+            stripped: Vec::new(),
             dry_run: true,
         });
     }
@@ -273,23 +319,29 @@ pub fn run(
         // Re-resolve: openspec just created `<date>-<change_id>`.
         let archive_dir = resolve_archive_dir(root, change_id)?;
         let restored = restore(root, &archive_dir)?;
+        let stripped = strip_archived_deltas(&archive_dir)?;
         return Ok(RestoreOutcome {
             change_id: change_id.to_string(),
             openspec_ran,
             archive_dir,
             restored,
+            stripped,
             dry_run: false,
         });
     }
 
-    // Already archived (design D5): skip the invocation, re-run restore.
+    // Already archived (design D5): skip the invocation, re-run
+    // restore — which recognizes the post-strip state as a no-op
+    // success (D9) instead of re-copying a stripped delta.
     let archive_dir = archived_dir.unwrap();
     let restored = restore(root, &archive_dir)?;
+    let stripped = strip_archived_deltas(&archive_dir)?;
     Ok(RestoreOutcome {
         change_id: change_id.to_string(),
         openspec_ran: false,
         archive_dir,
         restored,
+        stripped,
         dry_run: false,
     })
 }
@@ -309,6 +361,57 @@ pub fn openspec_archive_runner(root: &Path, change_id: &str) -> Result<(), Strin
     } else {
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
+}
+
+/// Strip the frontmatter block from every archived delta copy under
+/// `archive_dir` (design D9). Idempotent: an already-frontmatter-less
+/// delta is left untouched and unreported. Returns the paths actually
+/// stripped (sorted, mirroring `list_deltas`).
+pub fn strip_archived_deltas(archive_dir: &Path) -> Result<Vec<PathBuf>, CompanionError> {
+    let mut stripped = Vec::new();
+    for delta in list_deltas(archive_dir) {
+        let text = fs::read_to_string(&delta).map_err(|source| CompanionError::StripFailed {
+            path: delta.clone(),
+            detail: source.to_string(),
+        })?;
+        if let Some(rest) = strip_frontmatter_block(&text) {
+            fs::write(&delta, &rest).map_err(|source| CompanionError::StripFailed {
+                path: delta.clone(),
+                detail: source.to_string(),
+            })?;
+            stripped.push(delta);
+        }
+    }
+    Ok(stripped)
+}
+
+/// Remove a leading frontmatter block (`---` … `---`) from `text`,
+/// returning the body. `None` when there is no well-formed block:
+/// a first non-empty line that is not `---`, or an unclosed fence
+/// (left untouched — malformed frontmatter is not silently consumed).
+fn strip_frontmatter_block(text: &str) -> Option<String> {
+    let mut offset = 0usize;
+    let mut in_frontmatter = false;
+    for line in text.split_inclusive('\n') {
+        let trimmed = line.trim_end();
+        if !in_frontmatter {
+            if trimmed.is_empty() {
+                offset += line.len();
+                continue;
+            }
+            if trimmed == "---" {
+                in_frontmatter = true;
+                offset += line.len();
+                continue;
+            }
+            return None;
+        }
+        if trimmed == "---" {
+            return Some(text[offset + line.len()..].to_string());
+        }
+        offset += line.len();
+    }
+    None
 }
 
 /// List the `specs/*/spec.md` deltas under a directory (sorted).
