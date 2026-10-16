@@ -367,7 +367,8 @@ fn explain_bare_lists_topics_append_only() {
         .map(|t| t["id"].as_str().unwrap())
         .collect();
     // append-only topic list: graph-views appended at the end
-    // (add-graph-views task 3.4) — existing topics keep their order
+    // (add-graph-views task 3.4), then conform appended after it
+    // (specodelic-t0aj, gh-18) — existing topics keep their order
     assert_eq!(
         ids,
         [
@@ -379,7 +380,8 @@ fn explain_bare_lists_topics_append_only() {
             "lint-rules",
             "dual-format",
             "packs",
-            "graph-views"
+            "graph-views",
+            "conform"
         ]
     );
 }
@@ -2065,4 +2067,78 @@ fn prose_only_cell_edit_stays_unchecked_not_labeled() {
         unchecked.iter().any(|u| u == "kc"),
         "the edited prose cell stays explicitly unchecked: {unchecked:?}"
     );
+}
+
+// ---- conform explain topic (specodelic-t0aj, gh-18) ----
+
+#[test]
+fn explain_conform_topic_carries_the_conform_semantics() {
+    // The conform topic must document the reverse-engineered semantics
+    // (gh-18): the oracle JSONL schema with the deliberate
+    // `observations`-not-`observes` naming rationale, the closed verdict
+    // taxonomy WITH its decision rules, the
+    // permitted-requires-executable-claims consequence, the no-emits
+    // sentence, the setup.state anchor, and the --structural-only
+    // opt-in. Every marker below is grep-verified against the engine
+    // (src/conform.rs) before being pinned here.
+    let out = spk()
+        .args(["explain", "conform", "--json"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+    assert_eq!(json["data"]["topic"], "conform");
+    let body = json["data"]["body"].as_str().unwrap();
+    // Oracle JSONL schema + the naming rationale surfaced from
+    // src/conform.rs's TraceStep doc comment.
+    assert!(body.contains("deny_unknown_fields"), "schema: {body}");
+    assert!(body.contains("`observations`"), "schema: {body}");
+    assert!(
+        body.contains("never `observes`"),
+        "naming rationale: {body}"
+    );
+    assert!(body.contains("free-variable"), "setup/obs keys: {body}");
+    assert!(body.contains("States list"), "setup.state anchor: {body}");
+    // The closed verdict taxonomy with decision rules (every verdict
+    // name, plus the engine's reason markers).
+    for verdict in [
+        "permitted",
+        "forbidden",
+        "underspecified",
+        "unknown",
+        "unsupported",
+        "agree",
+    ] {
+        assert!(body.contains(verdict), "verdict `{verdict}`: {body}");
+    }
+    for reason in [
+        "contradiction_forbidden_any_mode",
+        "uncovered_trace_never_forbidden",
+        "prose_claim_not_interpretable",
+        "structural_agree_prose_guard_unchecked",
+    ] {
+        assert!(body.contains(reason), "reason marker `{reason}`: {body}");
+    }
+    // permitted-requires-executable-claims: the evaluator kinds.
+    for marker in ["**rust:**", "**kernel:**", "**py:**", "**ts:**"] {
+        assert!(body.contains(marker), "evaluator `{marker}`: {body}");
+    }
+    // The structural-only opt-in and the closed-world declaration.
+    assert!(body.contains("--structural-only"), "mode flag: {body}");
+    assert!(body.contains("--closed-world"), "mode flag: {body}");
+    // The folded kernel-grammar subsection names the closed atomic set.
+    for atomic in ["resolves", "unique", "acyclic", "reachable"] {
+        assert!(body.contains(atomic), "kernel atomic `{atomic}`: {body}");
+    }
+    assert!(body.contains("kernel_grammar_closed"), "grammar: {body}");
+}
+
+#[test]
+fn explain_conform_topic_reachable_in_human_mode() {
+    // The meter: `spk explain conform` exits 0 and prints the primer.
+    let out = spk().args(["explain", "conform"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(0));
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    assert!(stdout.contains("conform"), "human body: {stdout}");
 }

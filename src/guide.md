@@ -258,3 +258,111 @@ rule is the append-only `pack_shape` lint finding. The corpus spec is
   vocabulary is pack-qualified (`bioimage.tolerance`), never global —
   two packs claiming the same mechanism is legitimate; collision exists
   only at vocabulary level.
+
+<!-- topic: conform -->
+# conform
+
+`spk conform <file> --oracle <corpus.jsonl>` evaluates an EXTERNAL
+oracle's recorded traces against a spec — the compiled Model's declared
+transition relation and the executable claims cited by its guards. It
+is READ-ONLY: conform classifies, it never generates, never writes
+artifacts, and never advances the lifecycle. The command-path input
+gate applies: the file must be lint-clean with current compiled
+artifacts (conform never re-compiles), and the scenario corpus must
+fully parse — a refused invocation emits ZERO verdict records.
+
+## The oracle corpus — JSONL schema
+
+One JSON object per line, each `{id, setup?, trace}`; unknown fields
+are refused, never silently ignored (`deny_unknown_fields` — the
+refusal names the offending field and line, e.g. a misspelled
+`observes` comes back as "unknown field `observes`, expected `action`
+or `observations`"). Missing `id` and duplicate ids are refused too
+(the report is keyed by scenario id).
+
+```json
+{"id": "confirm-happy", "setup": {"state": "held"},
+ "trace": [{"action": "confirm", "observations": {"status": "confirmed"}}]}
+```
+
+- `id` — unique across the corpus.
+- `setup` — opaque EXCEPT its `state` entry: the value must name a
+  declared Model state — the initial state anchoring the trace to the
+  States list. No `setup`, or a `state` value no declared Model state
+  declares, leaves no Model element anchoring the trace →
+  `underspecified` (the no-anchor reason). Every other `setup` key is
+  a free-variable name, opaque to conform.
+- `trace` — the ordered steps, each `{action, observations?}`:
+  - `action` — a declared transition id/name; matching is string
+    identity after trimming (mechanical, never semantic).
+  - `observations` — a MAP of free-variable name → declared state or
+    effect id; each value is a string or an array of strings. The
+    field is deliberately named `observations` — never `observes` —
+    to avoid colliding with the format's typed reference field of the
+    same name (design D3 of add-conform).
+
+## The verdict taxonomy — closed values with decision rules
+
+Every trace receives exactly one verdict (totality); the values are
+never coerced into a binary pass/fail. Rules, in evaluation order per
+step:
+
+| Verdict | Decision rule |
+|---------|---------------|
+| `forbidden` | Positive contradiction: a declared transition exercised from a state it is not declared from, or a state observation naming a state other than the transition's declared target — the compiled Model forbids the step/outcome (`contradiction_forbidden_any_mode`, in ANY invocation mode). Also absence of coverage when `--closed-world` was declared (`closed_world_forbidden_recorded`). |
+| `underspecified` | No declared Model element or claim covers the trace: an undeclared action, an observation naming no declared state or effect, or no/undeclared initial state. Open world by default (`uncovered_trace_never_forbidden`) — absence of coverage is never forbidden without the explicit `--closed-world` declaration. |
+| `unsupported` | A covering claim's evaluator kind exists in the format but has no emitter in this run (`**py:**`/`**ts:**`) — the reason names the kind (`unsupported_evaluator_kind`). |
+| `unknown` | A covering claim's expr is prose — not interpretable by this run; prose never implies a permitted/forbidden judgment (`prose_claim_not_interpretable`, naming the claim). |
+| `permitted` | The walk explains the trace through declared transitions AND every covering claim is executable (`**rust:**` fragment, `**kernel:**` expression, or a pure citation expression like `[[a]] ∧ [[b]]`) with its guard enabled each step. An empty trace from a declared state is explainable: `permitted` with no steps. |
+| `agree` | Structural-only mode ONLY (`--structural-only`): the step sequence conforms to the declared transition relation while a covering guard's expr is prose — the reason STILL names the uninterpretable guard (`structural_agree_prose_guard_unchecked`), so the record never claims the prose invariant was checked. Default mode is unchanged: prose guards stay `unknown`. |
+
+Order matters: the first prose or unsupported covering claim decides —
+a trace covered by BOTH a prose claim and an executable claim is
+`unknown` (or `agree` under `--structural-only`), never `permitted`.
+
+## `permitted` requires executable claims
+
+Out of the box, a fully prose spec can never yield `permitted`: every
+guard's cited invariant is prose, so every fully-covered trace is
+`unknown` and the run validates only Model-relation explainability.
+The path to `permitted` opts each cited invariant into an executable
+evaluator — a `**rust:**` fragment, a `**kernel:**` expression, or a
+pure citation expression resolved by the citation algebra. That is a
+cross-feature interaction (conform × kernel markers × citation
+algebra): citation-expr constraints are NOT "just prose with links" —
+they are executable. `**py:**`/`**ts:**` do not count: no emitter
+exists in this run, so a covering claim of those kinds yields
+`unsupported`.
+
+## No `emits` column → non-target observations are `underspecified`
+
+A Model without an `emits` column declares no effects, so an
+observation value that is not the exercised transition's target state
+names no declared state or effect → `underspecified`. Declaring
+`emits` on states (citing `effect` constraints — topic `kinds`) is
+what makes non-target observations coverable.
+
+## The kernel grammar (folded summary)
+
+A `**kernel:**` marker opts a claim into the min-expr kernel — the
+closed, decidable bounded logic over acset instances I(k):
+
+```text
+expr    := unary ('∧' unary)*
+unary   := '¬' unary | primary
+primary := '∀' var '∈' Object ':' expr
+         | '∃' var '∈' Object ':' expr
+         | '(' expr ')'
+         | 'resolves(m)' | 'unique(m)' | 'acyclic(m)'
+         | 'reachable(a, b, m)'
+         | term ('==' | '<' | '<=' | '>' | '>=') term
+term    := '|' Object '|' | Int | '⊥' | var | Id | var.morphism
+```
+
+Quantifier objects are the schema's objects (`Constraint`, `Intent`,
+`Property`, `State`, `Transition`); anything outside the closed set is
+refused with `kernel_grammar_closed`, naming the offending token and
+the full closed atomic set. Every atomic names its proven grounding
+(graph traversal, acset traversal, model_check bounded evaluation),
+so evaluation is total over finite instances and `unknown` never
+coerces to pass.

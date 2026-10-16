@@ -136,6 +136,10 @@ pub const TOPICS: &[(&str, &str)] = &[
         "graph-views",
         "Graph views — derived diagrams and one-pipe render recipes",
     ),
+    (
+        "conform",
+        "conform — external-oracle trace conformance: oracle JSONL schema, verdict taxonomy, permitted-requires-executable-claims",
+    ),
 ];
 
 /// The graph-views primer body (add-graph-views task 3.4, D8) — appended
@@ -406,8 +410,9 @@ mod tests {
     fn topic_bodies_render_for_all_topics() {
         // every declared topic renders non-empty (design Decision 2's
         // prose-drift test) — the count bumps with each append-only topic
-        // (9th = graph-views, add-graph-views task 3.4)
-        assert_eq!(TOPICS.len(), 9);
+        // (9th = graph-views, add-graph-views task 3.4; 10th = conform,
+        // specodelic-t0aj, gh-18)
+        assert_eq!(TOPICS.len(), 10);
         for (id, _title) in TOPICS {
             let body = topic_body(id).unwrap_or_else(|| panic!("topic `{id}` missing"));
             assert!(!body.trim().is_empty(), "topic `{id}` body is empty");
@@ -928,15 +933,22 @@ mod tests {
     /// last, never renumbered (the TOPICS append-only law).
     #[test]
     fn graph_views_topic_is_appended_last() {
+        // append-only order: graph-views is the 9th topic; conform
+        // (specodelic-t0aj, gh-18) appended after it — never renumbered
         assert_eq!(
-            TOPICS.last().unwrap().0,
-            "graph-views",
-            "graph-views must be the last topic — append-only, never renumbered"
+            TOPICS.iter().position(|(id, _)| *id == "graph-views"),
+            Some(8),
+            "graph-views keeps its position — append-only, never renumbered"
         );
         assert_eq!(
             TOPICS.iter().position(|(id, _)| *id == "graph-views"),
-            Some(TOPICS.len() - 1),
-            "graph-views must appear exactly once, at the end"
+            Some(TOPICS.iter().count() - 2),
+            "graph-views appears exactly once, before the appended conform topic"
+        );
+        assert_eq!(
+            TOPICS.last().unwrap().0,
+            "conform",
+            "conform is the newest appended topic"
         );
     }
 
