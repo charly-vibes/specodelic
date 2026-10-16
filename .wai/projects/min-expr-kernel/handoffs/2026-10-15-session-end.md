@@ -35,7 +35,7 @@ phase: design
 ### git_status
 
 ```
- M .wai/pipeline-runs/epic-orchestrator-2026-10-15-specodelic-1v30-conform-gate-corpus-scope-unknown-flooding-gh-17.yml
+ M .wai/pipeline-runs/epic-orchestrator-2026-10-16-specodelic-t0aj-spk-explain-conform-topic-gh-18.yml
  M .wai/resources/pipelines/.last-run
 ```
 
@@ -54,7 +54,6 @@ phase: design
 ○ specodelic-dlf P2 openspec: MODIFIED change for migrate mirror_byte_identical — mixed-delta aggregation supersedes ADDED-only mirror (follow-up to specodelic-54v)
 ○ specodelic-oeuz P2 docs: no gate on format-summary prose — 'four tables'/'Frontmatter'-for-'Intent' drift shipped to the site
 ○ specodelic-q596 P2 [epic] gh-bug backlog implementation — 4 verified bug fixes via epic-orchestrator (nvs9, w9ju, yl39, 1v30)
-○ specodelic-t0aj P2 conform: add spk explain conform topic — oracle JSONL schema, verdict taxonomy, permitted-requires-executable-claims (gh-18)
 ○ specodelic-xci P2 lint: advisory warnings for placeholder and tautology content (TODO cells, trivially-true predicates)
 ○ specodelic-0mn1 P3 [bug] ah sync refuses self-hosting corpora: per-file lint can never be clean (total_refs is corpus-wide)
 ○ specodelic-18mt P3 conform: optional expect field on scenario records — negative probes classify as agreements (gh-18 item 7)
@@ -92,7 +91,7 @@ phase: design
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 48 issues (48 open, 0 in progress)
+Total: 47 issues (47 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
