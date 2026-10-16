@@ -365,6 +365,53 @@ fn ci_installs_pinned_pytest_runner_deps() {
     );
 }
 
+/// Pretender's metric counting drifts between versions: 0.7.0 reds files
+/// (parse_typing_table, graph build, lint family fns, section_sync check)
+/// that CI's pinned 0.6.0 passes — same class as the MSRV drift above
+/// (specodelic-6bq2). So the version is a PIN, not a floor:
+/// scripts/guards/pretender-pin.sh carries the pin and hard-fails with a
+/// remediation hint on mismatch; ci.yml's install pin and the justfile's
+/// pretender-check recipe must derive from it, never free-hand a version.
+#[test]
+fn pretender_version_is_pinned_and_single_sourced() {
+    let guard = read("scripts/guards/pretender-pin.sh");
+    let pin = guard
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("PIN=\""))
+        .map(|s| s.trim_end_matches('"').to_string())
+        .filter(|s| {
+            !s.is_empty()
+                && s.split('.')
+                    .all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
+        })
+        .expect(
+            "scripts/guards/pretender-pin.sh must declare PIN=\"x.y.z\" — \
+             it is the single source of truth for the pretender pin",
+        );
+
+    let ci = read(".github/workflows/ci.yml");
+    assert!(
+        ci.contains(&format!("pretender@{pin}")),
+        "ci.yml must install pretender@{pin} (the pin from pretender-pin.sh); \
+         bump the script and this file together"
+    );
+    assert!(
+        ci.contains("scripts/guards/pretender-pin.sh"),
+        "ci.yml smoke step must run the pin guard, so a drifted CI pin \
+         fails loudly instead of passing against a ratchet set for another \
+         version"
+    );
+
+    let justfile = read("justfile");
+    assert!(
+        justfile.contains("scripts/guards/pretender-pin.sh"),
+        "justfile pretender-check must run scripts/guards/pretender-pin.sh \
+         before `pretender check` — locals on an unpinned version get a \
+         remediation hint instead of ratchet reds from another version's \
+         metric counting"
+    );
+}
+
 #[test]
 fn release_scratch_dirs_are_gitignored() {
     let gitignore = read(".gitignore");

@@ -24,6 +24,10 @@ pre-commit:
       run: spk lint openspec
     # <!-- SPK:END -->
     # <!-- PRETENDER:START --> gate mode; pretender.toml ratchets only DOWN
+    # pin guard first (specodelic-6bq2) — mismatched versions false-red the
+    # ratchet; the pin lives in scripts/guards/pretender-pin.sh
+    pretender-pin:
+      run: scripts/guards/pretender-pin.sh .
     pretender-gate:
       run: pretender check --staged --mode gate
     # <!-- PRETENDER:END -->

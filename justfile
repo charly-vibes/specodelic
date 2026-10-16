@@ -328,7 +328,11 @@ ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-
 # Structural-quality hard gate (pretender, gate mode — pretender.toml
 # thresholds are a ratchet: entries only move DOWN; never touch .git/hooks,
 # the gate runs here and via lefthook pre-commit instead)
+# The pin guard runs first (specodelic-6bq2): the ratchet-max values were
+# recorded under the pinned pretender's metric counting — another version
+# reports false reds. Pin lives in scripts/guards/pretender-pin.sh.
 pretender-check:
+    scripts/guards/pretender-pin.sh .
     pretender check
 
 # Backend-agreement property (add-min-expr-kernel D2, specodelic-36n): the

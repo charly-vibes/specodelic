@@ -72,6 +72,7 @@ jobs:
           bd --version >/dev/null
           ddl status >/dev/null
           wai status >/dev/null
+          scripts/guards/pretender-pin.sh .
           pretender check >/dev/null
       # DDL-43g: smoke our own live Pages URL — a 404'd book must fail this
       # repo's CI immediately, not wait for the next hub conformance run.
