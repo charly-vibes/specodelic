@@ -183,6 +183,12 @@ the tool never shells out to a renderer:
 
     spk graph specs --format dot | dot -Tsvg > graph.svg
     spk graph specs --format dot | graph-easy --from dot   # ASCII, in-terminal
+    spk graph specs --format dot | gently --as ascii      # the family's native
+                                                          # Graph::Easy port:
+                                                          # parses DOT, renders
+                                                          # ascii/html (see the
+                                                          # boundary decision,
+                                                          # 2026-10-16)
     spk graph specs --format mermaid > graph.mmd           # paste into mmdc,
                                                            # mermaid.live, or a
                                                            # GitHub mermaid fence
@@ -967,6 +973,7 @@ mod tests {
             "guide --schema --json",
             "| dot -Tsvg",
             "graph-easy",
+            "gently --as ascii",
         ] {
             assert!(
                 body.contains(fragment),

@@ -105,7 +105,10 @@ edges emits a labeled `no_wiring` element, never a silently clean
 diagram. Derived diagrams of this repo's own corpus (wiring, states,
 trace, schema) live in [graph views](graph-views.md); `spk explain
 graph-views` carries the same taxonomy and one-pipe recipes for your
-own corpora.
+own corpora. The DOT projection renders externally — including through
+`gently`, the family's native Graph::Easy port (`spk graph <corpus>
+--format dot | gently --as ascii`); rendering stays a pipe, never a
+built-in flag.
 
 - Spec: [graph](specs/graph/spec.md)
 

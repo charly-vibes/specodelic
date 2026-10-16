@@ -71,5 +71,18 @@ python3 scripts/graph_views.py trace edges.tsv --graph graph.json
 spk graph specs --view wiring --format mermaid > wiring.md
 ```
 
+The DOT projections render externally (add-graph-views D8) — into
+Graphviz, or into the family's native Graph::Easy port:
+
+```bash
+spk graph openspec/specs --format dot | dot -Tsvg > graph.svg
+spk graph openspec/specs --format dot | gently --as ascii   # in-terminal diagram
+spk graph openspec/specs --format dot | gently --as html    # styled table markup
+```
+
+`gently` parses the DOT projection natively (`--as` picks the format);
+rendering stays a user-chosen pipe — `spk` never shells out to a
+renderer (decision record: `openspec/decisions/2026-10-16-gently-render-boundary.md`).
+
 For your own corpora, the one-pipe render recipes are in
 `spk explain graph-views`.
