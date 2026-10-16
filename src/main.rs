@@ -36,9 +36,9 @@ pub(crate) const VERSION: &str = env!("CARGO_PKG_VERSION");
     name = "specodelic",
     version = VERSION,
     about = "Specodelic — lint, compile, verify, and refactor the four-layer markdown spec format",
-    // Without an explicit long_about, clap promotes the flattened
-    // genesis CliFormat struct's doc comment above Usage in `--help`
-    // (gh#6.3: internal dev docs leaked into user help).
+    // Explicit long_about (gh#6.3): the flattened genesis Cli* structs
+    // leaked their doc comments into user `--help` before genesis 0.13.2
+    // gave them explicit about/long_about — kept as belt-and-braces.
     long_about = "Specodelic — lint, compile, verify, and refactor the four-layer markdown spec format",
     after_help = exit_code_footer(),
 )]
