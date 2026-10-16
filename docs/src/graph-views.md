@@ -22,6 +22,17 @@ never a silently clean diagram.
 {{#include views/wiring.md}}
 ```
 
+The same wiring, as the terminal sees it — rendered at docs build time
+through the family's external renderer (`spk graph --format dot | gently
+--as ascii`, the D8 pipe; see the boundary decision,
+`openspec/decisions/2026-10-16-gently-render-boundary.md`). ASCII needs
+no JavaScript and survives `llms.txt`, `cat`, and every plain-text
+consumer:
+
+```text
+{{#include views/wiring.ascii}}
+```
+
 ## Per-file state machines
 
 `graph_views.py states`: one Mermaid flowchart per owning file,
@@ -54,12 +65,24 @@ labeled `Revision 17` was rendered from a `Revision 17` binary.
 {{#include views/schema.md}}
 ```
 
+## Whole-corpus terminal view
+
+The complete corpus projection — every typed reference edge, same visual
+grammar (solid = state machine, dashed = guards, dotted =
+traceability) — rendered through `gently --as ascii` at build time:
+
+```text
+{{#include views/graph.ascii}}
+```
+
 ## Rebuilding the views
 
 The views live in `docs/src/views/` (gitignored — build-time artifacts,
 never committed; if they disagree with the corpus, the corpus wins and
-they get regenerated). `just docs-graphs` regenerates all four before
-the docs build; the same commands by hand:
+they get regenerated). `just docs-graphs` regenerates all four — plus
+the two ASCII renderings (`wiring.ascii`, `graph.ascii`; a missing
+`gently` degrades to a labeled note, never a silently clean artifact) —
+before the docs build; the same commands by hand:
 
 ```bash
 spk graph specs --format edges > edges.tsv

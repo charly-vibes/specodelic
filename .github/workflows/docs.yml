@@ -44,6 +44,14 @@ jobs:
       - name: Install mdbook-mermaid
         run: cargo install mdbook-mermaid --locked
 
+      - name: Install gently
+        # The external renderer for the ASCII graph views (D8 pipe;
+        # decision 2026-10-16-gently-render-boundary.md) — gently, the
+        # family's Graph::Easy port, published as gently-cli. Local
+        # `just docs-graphs` degrades to a labeled note when it is
+        # missing; CI installs it so the book ships the real diagrams.
+        run: cargo install gently-cli --locked
+
       - name: Install just
         uses: extractions/setup-just@v2
 

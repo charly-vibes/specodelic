@@ -245,6 +245,28 @@ docs-graphs:
         > "$OUT/trace.md"
     cargo run -q -- graph openspec/specs --view wiring --format mermaid \
         > "$OUT/wiring.md"
+    # ASCII renderings — external renderer through the D8 pipe (decision
+    # record openspec/decisions/2026-10-16-gently-render-boundary.md):
+    # gently, the family's Graph::Easy port, parses the DOT projection
+    # natively. A missing renderer degrades to a labeled note, never a
+    # silently clean artifact (specodelic-f7yi). Whole-corpus only —
+    # per-file/state-machine ASCII is blocked upstream (gently-hpd).
+    if command -v gently >/dev/null 2>&1; then
+        if ! cargo run -q -- graph openspec/specs --view wiring --format dot \
+            | gently --as ascii > "$OUT/wiring.ascii" 2>/dev/null; then
+            printf 'gently could not render the wiring projection — a labeled note, never a silently clean artifact; regenerate once upstream layout fixes land (repro: spk graph openspec/specs --view wiring --format dot | gently --as ascii)\n' \
+                > "$OUT/wiring.ascii"
+        fi
+        if ! cargo run -q -- graph openspec/specs --format dot \
+            | gently --as ascii > "$OUT/graph.ascii" 2>/dev/null; then
+            printf 'gently could not render the whole-corpus projection — a labeled note, never a silently clean artifact; regenerate once upstream layout fixes land (repro: spk graph openspec/specs --format dot | gently --as ascii)\n' \
+                > "$OUT/graph.ascii"
+        fi
+    else
+        printf 'gently not installed — ASCII views skipped (cargo install gently-cli)\n' \
+            > "$OUT/wiring.ascii"
+        cp -f "$OUT/wiring.ascii" "$OUT/graph.ascii"
+    fi
     # Clean-tree assertion (task 3.1): after a full build, git status
     # scoped to the output dir must stay empty — the views are gitignored
     # (D6), so any entry here is a leak into the tracked tree.
@@ -253,7 +275,7 @@ docs-graphs:
         git status --porcelain --untracked-files=all -- "$OUT" >&2
         exit 1
     fi
-    echo "graph views regenerated: $OUT/{schema,states,trace,wiring}.md"
+    echo "graph views regenerated: $OUT/{schema,states,trace,wiring}.md{,.ascii}"
 
 # Build the docs book locally, mirroring the docs.yml workflow steps
 # (specodelic-2m7: the shared scripts/stamp_llms.py keeps both paths in

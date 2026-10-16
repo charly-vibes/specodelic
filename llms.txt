@@ -35,7 +35,9 @@ The CLI binary is `spk` (crate: `specodelic`).
 ## Command surface
 
 - `spk lint` — the gate; findings self-describe (rule_id + semantics)
-- `spk graph` — reference graph, dangling detection, fan-in/out
+- `spk graph` — reference graph, dangling detection, fan-in/out;
+  DOT/mermaid text projections render externally (ASCII graph views via
+  `gently`, the family's Graph::Easy port — see the book's graph-views page)
 - `spk new` — scaffold that teaches its own tables
 - `spk compile` — three artifacts, total or labeled failure
 - `spk model-check` — bounded exhaustive model checking
