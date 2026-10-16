@@ -946,7 +946,7 @@ fn orchestrate_duplicate_stems_route_per_file_never_share_never_stale() {
     .iter()
     .map(|(rel, body)| {
         let mut s = parse_str(body).unwrap();
-        s.path = Some(std::path::PathBuf::from(corpus.join(rel)));
+        s.path = Some(corpus.join(rel));
         s
     })
     .collect();
@@ -1043,7 +1043,7 @@ fn orchestrate_duplicate_stems_route_per_file_never_share_never_stale() {
     let second = run();
     let compile_stage2 = stage(&second, "compile");
     let compiled2 = compile_stage2["detail"]["compiled"].as_array().unwrap();
-    let written_again: Vec<Vec<String>> = compiled2.iter().map(|c| collect_written(c)).collect();
-    let written_first: Vec<Vec<String>> = compiled.iter().map(|c| collect_written(c)).collect();
+    let written_again: Vec<Vec<String>> = compiled2.iter().map(collect_written).collect();
+    let written_first: Vec<Vec<String>> = compiled.iter().map(collect_written).collect();
     assert_eq!(written_first, written_again, "routing must be stable");
 }

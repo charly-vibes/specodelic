@@ -942,7 +942,7 @@ mod tests {
         );
         assert_eq!(
             TOPICS.iter().position(|(id, _)| *id == "graph-views"),
-            Some(TOPICS.iter().count() - 2),
+            Some(TOPICS.len() - 2),
             "graph-views appears exactly once, before the appended conform topic"
         );
         assert_eq!(
