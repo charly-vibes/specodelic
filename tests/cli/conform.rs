@@ -697,6 +697,80 @@ fn conform_isolated_file_fallback_unchanged() {
     assert!(rendered.contains("lint findings"), "{json}");
 }
 
+// ---- RO5U M2 (eczv.4 tidy): ONE rendering path for both exit classes ----
+
+/// The exit-1 failure envelope renders the report through the SAME
+/// single conform renderer as the exit-0 success envelope
+/// (conform::emit_output): ok flips to false and the failure message
+/// leads the warnings channel, but the data payload is the full report
+/// and the human view is unchanged — the two exit classes cannot
+/// drift into two renderers.
+#[test]
+fn conform_exit1_renders_the_report_through_the_single_path() {
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("demo.cli_conform.md");
+    std::fs::write(&spec, SPEC_TEXT).unwrap();
+    let corpus = dir.path().join("scenarios.jsonl");
+    std::fs::write(&corpus, format!("{CONTRADICTION_LINE}\n")).unwrap();
+
+    let (code, json) = conform_json(&spec, &corpus, &[]);
+    assert_eq!(code, Some(1));
+    assert_eq!(json["ok"], serde_json::json!(false), "{json}");
+    let data = &json["data"];
+    // The data payload IS the report — full records, not a stub.
+    assert_eq!(data["report_schema_version"], 1);
+    assert_eq!(data["verdict_counts"]["forbidden"], 1);
+    let records = data["records"].as_array().unwrap();
+    assert_eq!(records[0]["verdict"], "forbidden");
+    assert_eq!(records[0]["closed_world"], serde_json::json!(false));
+    // The failure message leads the warnings channel (genesis failure
+    // convention), followed by the labeled gate notes.
+    let warnings = json["warnings"].as_array().unwrap();
+    assert!(
+        warnings[0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("the oracle disagrees with the declared model"),
+        "{json}"
+    );
+}
+
+/// The exit-1 human view is the same human_view text the success
+/// branch prints (same single renderer) — verdict summary, the fixed
+/// evidence_scope statement, and the forbidden record.
+#[test]
+fn conform_exit1_human_view_matches_the_single_path() {
+    let dir = tempfile::tempdir().unwrap();
+    let spec = dir.path().join("demo.cli_conform.md");
+    std::fs::write(&spec, SPEC_TEXT).unwrap();
+    let corpus = dir.path().join("scenarios.jsonl");
+    std::fs::write(&corpus, format!("{CONTRADICTION_LINE}\n")).unwrap();
+
+    let out_dir = compiled_out_dir(dir.path(), &spec);
+    let out = spk()
+        .args([
+            "conform",
+            spec.to_str().unwrap(),
+            "--oracle",
+            corpus.to_str().unwrap(),
+            "--out-dir",
+            &out_dir,
+            "--human",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        text.starts_with("conform: 1 trace(s) — forbidden 1"),
+        "{text}"
+    );
+    assert!(text.contains("evidence_scope: "), "{text}");
+    // No Rust Debug dump after the human view — the data line stays
+    // suppressed on the failure path too (same suppression as exit 0).
+    assert!(!text.contains("ConformReport {"), "{text}");
+}
+
 // ---- task 4.2: the help contract — READ-ONLY, stated up front ----
 
 #[test]

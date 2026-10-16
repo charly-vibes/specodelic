@@ -768,24 +768,20 @@ pub(crate) fn cmd_conform(
                 // envelope_error_kind) — a failed conformance run never
                 // rides a success-shaped envelope. The human view is the
                 // same one the success branch renders.
-                let out = commands::as_failure(
+                let mut out = commands::as_failure(
                     Output::success(report.clone()),
                     format!(
                         "{forbidden} forbidden and {unsupported} unsupported verdict(s) — the oracle disagrees with the declared model"
                     ),
                 );
-                let mut out = out;
                 for w in &gate_warnings {
                     out = out.with_warning(w.clone());
                 }
-                emit_report(
-                    out,
-                    Some(conform::human_view(&report)),
-                    format,
-                    verbosity,
-                    stdout,
-                    stderr,
-                );
+                // RO5U M2 (eczv.4 tidy): the failure envelope renders
+                // through the SAME path as the success envelope —
+                // conform's single report renderer — never the generic
+                // main.rs emit_report. One path; the bytes are unchanged.
+                conform::emit_output(out, format, verbosity, stdout, stderr).ok();
                 1
             } else {
                 conform::emit_report_with_warnings(

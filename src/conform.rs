@@ -1258,28 +1258,27 @@ pub fn emit_report(
     emit_report_with_warnings(report, &[], format, verbosity, stdout, stderr)
 }
 
-/// [`emit_report`] with labeled warnings attached (gh-17 invariant 3:
-/// a partial corpus — siblings that failed to parse — is surfaced on
-/// the existing warnings channel, never silent; same for the labeled
-/// isolated-file fallback). The report values are unchanged — the
-/// warnings ride the envelope's warnings channel.
-pub fn emit_report_with_warnings(
-    report: &ConformReport,
-    warnings: &[String],
+/// THE single rendering path for conform report outputs (RO5U M2, eczv.4
+/// tidy): both the exit-0 success envelope and the exit-1
+/// findings-or-failure envelope render here. The caller builds the
+/// [`Output<ConformReport>`] — including its error kind, failure message,
+/// and warnings — and this renders it through the envelope conventions
+/// (delta `verdict_report_schema`): the human view printed above the
+/// suppressed data dump for `--human`, the JSON envelope via
+/// [`Output::emit`] otherwise. One path means the two views and the two
+/// exit classes cannot drift: the human text IS the report in both.
+pub fn emit_output(
+    out: Output<ConformReport>,
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl Write,
     stderr: &mut impl Write,
 ) -> std::io::Result<()> {
     if format == OutputFormat::Human {
-        writeln!(stdout, "{}", human_view(report))?;
+        writeln!(stdout, "{}", human_view(&out.data))?;
         // Suppress the Debug data line (verbosity above the ceiling) so the
         // human view is not followed by a Rust dump — the same convention
         // as main.rs's emit_report.
-        let mut out = Output::success(report.clone());
-        for w in warnings {
-            out = out.with_warning(w.clone());
-        }
         out.with_verbosity(Verbosity::MAX + 1).emit(
             env!("CARGO_PKG_VERSION"),
             format,
@@ -1288,10 +1287,27 @@ pub fn emit_report_with_warnings(
             stderr,
         )
     } else {
-        let mut out = Output::success(report.clone());
-        for w in warnings {
-            out = out.with_warning(w.clone());
-        }
         out.emit(env!("CARGO_PKG_VERSION"), format, verbosity, stdout, stderr)
     }
+}
+
+/// [`emit_report`] with labeled warnings attached (gh-17 invariant 3:
+/// a partial corpus — siblings that failed to parse — is surfaced on
+/// the existing warnings channel, never silent; same for the labeled
+/// isolated-file fallback). The report values are unchanged — the
+/// warnings ride the envelope's warnings channel. Renders through
+/// [`emit_output`] — the single conform rendering path.
+pub fn emit_report_with_warnings(
+    report: &ConformReport,
+    warnings: &[String],
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl Write,
+    stderr: &mut impl Write,
+) -> std::io::Result<()> {
+    let mut out = Output::success(report.clone());
+    for w in warnings {
+        out = out.with_warning(w.clone());
+    }
+    emit_output(out, format, verbosity, stdout, stderr)
 }
