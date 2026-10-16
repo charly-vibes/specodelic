@@ -1,5 +1,49 @@
 # Changelog
 
+## #133 — v0.11.0: archive-companion owns the archive recipe end-to-end, conformance modes, pack-discovery fix
+
+Release entry for the thread shipped since #132:
+
+- **feat(archive-companion)** (specodelic-bhp, design D9,
+  [decision note](decisions/2026-10-16-archive-companion-single-tree.md)):
+  the companion now owns the archive recipe end-to-end — after the
+  verbatim deploy it strips the frontmatter block from each archived
+  delta copy, mechanizing the manual post-step every archive since the
+  quant pack redid by hand (the archived `spec.md` id-collision trap).
+  Re-run recognition replaces blind re-copy: a layer-less archived
+  delta whose deployed target already carries the dual-format layer is
+  a no-op success; anything else stays fail-closed. The `spk
+  archive-companion` envelope gains a `stripped` list.
+- **feat(conform)** (gh-17, specodelic-1v30): corpus-scoped input gate
+  + `--structural-only` agree mode — structural-only claims agree
+  without executing executable fragments.
+- **feat(docs)** (gh-18, specodelic-4543b81): `spk explain conform` —
+  oracle JSONL schema, verdict taxonomy,
+  permitted-requires-executable-claims.
+- **fix(packs)** (specodelic-o5bh): order-independent pack discovery —
+  every linted corpus is anchored, so pack activation no longer
+depends on directory traversal order.
+- **fix(migrate)** (gh-16, specodelic-nvs9): MODIFIED-only deltas are
+  wrapped too — the ADDED-only mirror assumption is retired.
+- **fix(orchestrate)** (gh-13, specodelic-yl39): shared collide-only
+  per-file artifact routing.
+- **fix(compile)** (gh-15, specodelic-w9ju): emitted `*_props.rs`
+  artifacts are rustfmt-clean.
+- **new pack** (specodelic-kjzh, #132): fifth standard pack
+  `svc.contracts` at draft lifecycle.
+- **docs**: "Using packs" guide + six pack worked examples
+  (specodelic-ilfx epic); graph-views page with ASCII renderings
+  through the gently pipe (specodelic-4al1/qzw8/f7yi — D8-sanctioned
+  external renderer, `--render` parked).
+- **chore(deps)**: genesis-vibes 0.11.1 → 0.13.2 (update-check
+  downgrade-suggestion fix; lefthook wiring compatible — this repo is
+  the donor implementation); rustls 0.23.46 for RUSTSEC-2026-0349.
+- **ci**: pretender version pin (single-source guard script), CI
+  auto-retry for runner-acquisition failures, pack-count prose gate.
+- FORMAT_REVISION unchanged at 18.
+
+Gates: just ci green; ah check --run-tests 0 findings.
+
 ## #132 — add-svc-contracts-pack: fifth standard pack (svc.contracts, draft) — no base change, no format revision
 
 Maintainer decision `specodelic-kjzh` (OQ-P1): adopt the external bundle's

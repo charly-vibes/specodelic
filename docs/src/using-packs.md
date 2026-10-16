@@ -9,7 +9,7 @@ what it adds, and the CLI loop you run against a pack-enabled spec.
 The machine truth lives in the [packs spec](specs/packs/spec.md); this
 page explains how to *use* the mechanism, not how it is specified.
 
-Everything shown below is real output from `specodelic 0.10.0` (on a
+Everything shown below is real output from `specodelic 0.11.0` (on a
 TTY `spk` prints human-readable text; piped, it emits a JSON envelope).
 
 ## What a pack is

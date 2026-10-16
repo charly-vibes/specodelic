@@ -1,6 +1,6 @@
 # Status
 
-**experimental** — early-stage; surface may be renamed or sunset. Version 0.10.0.
+**experimental** — early-stage; surface may be renamed or sunset. Version 0.11.0.
 
 ## Implemented
 
