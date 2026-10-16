@@ -35,18 +35,18 @@ phase: design
 ### git_status
 
 ```
- M .wai/pipeline-runs/epic-orchestrator-2026-10-16-specodelic-t0aj-spk-explain-conform-topic-gh-18.yml
+ M .wai/pipeline-runs/epic-orchestrator-2026-10-16-specodelic-6aj0-archive-add-conform-dual-format-contract-tomls-ro5u-m2-render-tidy.yml
  M .wai/resources/pipelines/.last-run
 ```
 
 ### open_issues
 
 ```
+○ specodelic-xvv4 P1 [bug] tidy: clippy 1.98.0 drift — cargo clippy --all-targets -- -D warnings red at clean HEAD
 ○ specodelic-04c P2 Decide kernel.binding vocabulary enablement: orphan_vocabulary labels files with the kernel.binding column until a kind:profile pack in namespace 'kernel' is discovered (src/packs.rs scans column headers). Found by specodelic-bf5 — its CLI fixture needed a minimal kernel pack as the rule's sanctioned remediation. Decide at §6 corpus migration / archive: ship kernel vocabulary enablement in specs/, or a linter carve-out. Out of specodelic-bf5 scope.
 ○ specodelic-1ey4 P2 verify: route verify stage artifact_paths through citation_corpus::artifact_dir — flat-path residual after yl39
 ○ specodelic-39w P2 [bug] acset instance builder panics on model.state anchor links — uninterned pseudo-node
 ○ specodelic-523w P2 [bug] compile: commands/corpus.rs (spk compile over a corpus) has no scope guard — later same-stem file silently wins
-○ specodelic-6aj0 P2 follow-up: archive add-conform via dual-format recipe + author per-scenario contract TOMLs (conform spec, 17 no-toml) + RO5U M2 single-rendering-path tidy
 ○ specodelic-6bq2 P2 [bug] ci: pretender version drift — local 0.7.0 reports reds at ratchet-max files (parse_typing_table cyclo 20, cmd_model_check 17, graph build 26, kernel atomic 16, lint family fns, section_sync check 28) that CI's pinned pretender passes; pin pretender version in repo (like the CI matrix) or document the sanctioned local pin
 ○ specodelic-7c7 P2 lint: model_present 'empty-but-present beats absent' wording promises a differential that does not exist
 ○ specodelic-bhp P2 Rollout: tambor/espectacular contract re-key + archive-companion write-path decision (mcy steps 4+6)
