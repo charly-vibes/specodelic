@@ -1,0 +1,9 @@
+id = "violation-class-verdict-fails-the-run"
+description = "At least one forbidden or unsupported verdict in the report makes conform exit 1 (conform/exit_codes_match_verdicts)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "conform_closed_world_recorded_and_uncovered_forbidden"

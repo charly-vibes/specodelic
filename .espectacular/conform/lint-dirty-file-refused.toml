@@ -1,0 +1,9 @@
+id = "lint-dirty-file-refused"
+description = "A target file with lint findings is refused with a hint naming lint; no verdict records are emitted (conform/lint_dirty_refused)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "lint_dirty_refused"

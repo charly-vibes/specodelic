@@ -1,0 +1,9 @@
+id = "contradiction-forbidden-in-any-mode"
+description = "A trace violating an executable claim is forbidden even without --closed-world; the record carries closed_world: false and names the contradicted claim (conform/contradiction_forbidden_any_mode)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "conform_contradiction_forbidden_in_any_mode"

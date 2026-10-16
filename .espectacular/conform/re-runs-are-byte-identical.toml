@@ -1,0 +1,9 @@
+id = "re-runs-are-byte-identical"
+description = "Two conform runs over unchanged inputs produce byte-identical reports — records sorted by scenario id, no timestamps (conform/rerun_byte_identical)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "rerun_byte_identical"

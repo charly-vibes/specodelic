@@ -1,0 +1,9 @@
+id = "no-declared-claim-covers-a-trace"
+description = "A trace no declared Model element or claim covers is underspecified in the default open-world mode (conform/uncovered_trace_never_forbidden)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "undeclared_action_is_underspecified"

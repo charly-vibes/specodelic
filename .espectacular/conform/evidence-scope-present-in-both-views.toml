@@ -1,0 +1,9 @@
+id = "evidence-scope-present-in-both-views"
+description = "JSON and --human views both carry the same evidence_scope statement — no view can omit it (conform/report_schema_roundtrip)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "evidence_scope_present_in_both_views"

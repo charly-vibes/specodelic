@@ -1,0 +1,9 @@
+id = "scope-digest-binds-inputs"
+description = "Scenario corpora differing by one byte yield different scope digests; identical inputs yield identical digests (conform/digest_binds_scenarios)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "digest_binds_scenarios"

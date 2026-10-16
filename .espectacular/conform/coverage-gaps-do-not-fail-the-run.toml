@@ -1,0 +1,9 @@
+id = "coverage-gaps-do-not-fail-the-run"
+description = "Only permitted/unknown/underspecified verdicts exit 0 with the unknown and underspecified counts visible in the report (conform/exit_codes_match_verdicts)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "conform_emits_report_envelope_open_world_never_forbidden"

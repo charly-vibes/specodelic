@@ -1,0 +1,9 @@
+id = "uncovered-trace-forbidden-under-the-declaration"
+description = "Under --closed-world an uncovered trace is forbidden with closed_world: true and the exhaustiveness declaration named in the reason (conform/closed_world_forbidden_recorded)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "closed_world_forbidden_recorded"

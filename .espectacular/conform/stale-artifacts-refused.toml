@@ -1,0 +1,9 @@
+id = "stale-artifacts-refused"
+description = "Structured content changed after the last compile is refused with a hint naming compile; no verdict records are emitted (conform/stale_artifacts_refused)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "stale_artifacts_refused"

@@ -1,0 +1,9 @@
+id = "conform-does-not-advance-lifecycle"
+description = "A conform run over a model_checked artifact leaves the artifact's lifecycle stage unchanged (conform/outside_lifecycle)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "conform_run_leaves_stage_unchanged"

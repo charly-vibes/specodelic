@@ -1,0 +1,9 @@
+id = "prose-only-claim-covers-a-trace"
+description = "A trace covered only by a prose-only claim is unknown with the prose claim named in the reason — never permitted or forbidden (conform/prose_yields_unknown)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "prose_only_covering_claim_is_unknown_naming_the_claim"

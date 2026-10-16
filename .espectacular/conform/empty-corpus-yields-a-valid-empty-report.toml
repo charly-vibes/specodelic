@@ -1,0 +1,9 @@
+id = "empty-corpus-yields-a-valid-empty-report"
+description = "A zero-trace oracle file yields a valid report with zero verdict records and the evidence_scope intact, exit 0 (conform/report_schema_roundtrip)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "conform_empty_corpus_yields_valid_empty_report_exit_0"

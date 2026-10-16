@@ -1,0 +1,9 @@
+id = "uncovered-trace-underspecified-without-the-declaration"
+description = "The same uncovered trace without --closed-world is underspecified, never forbidden (conform/uncovered_trace_never_forbidden)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "uncovered_trace_never_forbidden_without_declaration"

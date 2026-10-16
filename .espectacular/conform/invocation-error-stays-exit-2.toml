@@ -1,0 +1,9 @@
+id = "invocation-error-stays-exit-2"
+description = "A missing spec path or a gate-refused corpus exits 2 without emitting verdict records (conform/exit_codes_match_verdicts)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "conform_invocation_error_exits_2_without_records"

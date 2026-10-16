@@ -1,0 +1,9 @@
+id = "executable-claim-contradicts-a-trace"
+description = "A corpus trace violating an executable invariant claim over the compiled model is forbidden with the contradicted claim id named in the reason (conform/contradiction_forbidden_any_mode)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "executable_claim_contradiction_is_forbidden_naming_the_claim"

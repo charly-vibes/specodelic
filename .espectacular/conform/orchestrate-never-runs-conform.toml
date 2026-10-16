@@ -1,0 +1,9 @@
+id = "orchestrate-never-runs-conform"
+description = "spk orchestrate runs lint → compile → model_check → verify and never invokes conform (conform/outside_lifecycle)."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.11.0"
+
+[[tests.cargo]]
+flags = "outside_lifecycle_orchestrate_never_invokes_conform"
