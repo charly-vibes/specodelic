@@ -1,3 +1,21 @@
+<!-- TURU:START -->
+# Whisper knowledge workspace (managed by turu — regenerate with `turu sync`)
+
+- Workspace root: `/var/home/sasha/.whisper`
+- Repo key: `cv/charly-vibes/specodelic` · Branch slug: `main` · Worktree slot: `.git`
+- Deterministic routing (resolve, never guess):
+- global → `/var/home/sasha/.whisper/rules.md`
+- repo → `/var/home/sasha/para/areas/dev/gh/charly/specodelic/.whisper/env.md`
+- branch → `/var/home/sasha/para/areas/dev/gh/charly/specodelic/.whisper/branches/main/notes.md`
+- worktree → `/var/home/sasha/.whisper/repos/cv/charly-vibes/specodelic/worktrees/.git/env.md`
+  - append/resolve default: repo → `/var/home/sasha/para/areas/dev/gh/charly/specodelic/.whisper/env.md`, branch → `/var/home/sasha/para/areas/dev/gh/charly/specodelic/.whisper/branches/main/notes.md`
+  - `--global` escape hatch: repo → `/var/home/sasha/.whisper/repos/cv/charly-vibes/specodelic/env.md`, branch → `/var/home/sasha/.whisper/repos/cv/charly-vibes/specodelic/branches/main/notes.md`
+  - `--private` zone (never pushed): repo → `/var/home/sasha/para/areas/dev/gh/charly/specodelic/.whisper/private/env.md`, branch → `/var/home/sasha/para/areas/dev/gh/charly/specodelic/.whisper/private/branches/main/notes.md`
+- Commands: `turu resolve <scope>` · `turu append <scope> [--global] --text ... [--topic k] [--supersedes id]` · `turu recall <scope> [--topic k] [--budget bytes]` · `turu distill <scope> --begin|--commit` · `turu bundle pack|unpack` · `turu status` · `turu doctor` · `turu feedback <kind>`
+
+<!-- TURU:END -->
+
+
 <!-- SPECODELIC:START -->
 ## Specodelic — spec format rules (managed block)
 
