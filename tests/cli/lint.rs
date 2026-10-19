@@ -151,11 +151,13 @@ fn lint_corpus_is_fully_clean() {
         .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let data = &json["data"];
-    // 46 = the migrated corpus (22) + the capability specs deployed before
+    // 47 = the migrated corpus (22) + the capability specs deployed before
     // the single-tree migration (jf1, 44 at that count) + the
     // svc-contracts-pack capability (add-svc-contracts-pack, 2026-10-14)
-    // + the conform capability (add-conform, 2026-10-16).
-    assert_eq!(data["files_linted"], 46);
+    // + the conform capability (add-conform, 2026-10-16)
+    // + the graph-views capability (add-graph-views, s8fg task 7.1
+    // companion archive, 2026-10-19).
+    assert_eq!(data["files_linted"], 47);
     let issues = data["issues"].as_array().unwrap();
     assert!(issues.is_empty(), "corpus lint findings: {issues:?}");
     assert_eq!(out.status.code(), Some(0));
