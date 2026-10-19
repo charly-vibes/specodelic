@@ -85,13 +85,16 @@
 
 ## 7. Archive the pending plain-shaped changes
 
-- [ ] 7.0 Reconcile the cross-change MODIFIED conflict: the pending
+- [x] 7.0 Reconcile the cross-change MODIFIED conflict: the pending
       `update-id-derivation-spec-md` delta for spec-integration restates
       "Dual-format delta" with the RETIRED mirror-pairing wording ("pairing
       its carried delta sections with a sibling `## Requirements` mirror");
       if it archives after this change, openspec apply would deploy that
       wording over the new one. Rewrite its delta block to the Revision 19
       wording (or fold it into this change's delta) before it archives.
+      DONE: the spec-integration delta now carries the Revision 19 blocks
+      byte-identical to this change's own delta — openspec apply at either
+      archive lands the same text; the retired mirror wording is gone.
 - [ ] 7.1 Land `update-id-derivation-spec-md` and `add-migrate-rekey`
       through the new companion (their deltas are already Stage-2 shaped);
       post-archive `openspec validate --all --strict` + `spk lint openspec`
