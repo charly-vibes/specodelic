@@ -1,5 +1,14 @@
 //! Tests for the archive-companion module (tempdirs, no openspec
 //! process ever spawned — the runner seam, design D2/D7).
+//!
+//! Stage-2 shape (specodelic-s8fg, Revision 19): openspec applies the
+//! plain delta (the native merge), the companion re-attaches the
+//! dual-format layer from the archived `layer.md` sidecar. The dual-era
+//! guards (self-containedness, existing-target coverage, post-strip
+//! shape) are retired with their subject; the fail-closed guards here
+//! protect the NEW failure shapes: sidecar-less/unlintable refusal
+//! BEFORE the destructive archive, and the post-attach shape + lint
+//! assertion with revert.
 
 use std::fs;
 use std::path::Path;
@@ -27,41 +36,90 @@ fn tree_owned(entries: &[(String, &str)]) -> tempfile::TempDir {
     root
 }
 
-const DUAL_DELTA: &str = "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n# c\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n";
+/// A plain openspec delta (Revision 19): `## Purpose` + delta section,
+/// no frontmatter, no layer tables — openspec's native merge input.
+const PLAIN_DELTA: &str = concat!(
+    "## Purpose\nKeep the c capability thinkable-with.\n\n",
+    "## ADDED Requirements\n\n",
+    "### Requirement: One holds\nThe system SHALL hold one.\n\n",
+    "#### Scenario: One\n- **WHEN** x\n- **THEN** y\n"
+);
 
-/// A full dual-format delta: frontmatter + tables + a delta section and
-/// its byte-identical mirror (the corpus's self-contained convention).
-/// 1.x flags the delta sections in a deployed copy; Stage 1 strips them
-/// at deploy time (specodelic-s8fg) while the mirror stays as the
-/// deployed Requirements section.
-const FULL_DELTA: &str = concat!(
-    "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n# c\n\n",
-    "## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n",
-    "\n## ADDED Requirements\n\n",
-    "### Requirement: One holds\nThe system SHALL hold one.\n\n#### Scenario: One\n- **WHEN** x\n- **THEN** y\n\n",
+/// The deployed spec openspec's archive apply writes from that delta
+/// (1.x shape: heading + Purpose + applied Requirements).
+const APPLIED_DEPLOY: &str = concat!(
+    "# c Specification\n\n",
+    "## Purpose\nKeep the c capability thinkable-with.\n\n",
     "## Requirements\n\n",
-    "### Requirement: One holds\nThe system SHALL hold one.\n\n#### Scenario: One\n- **WHEN** x\n- **THEN** y\n"
+    "### Requirement: One holds\nThe system SHALL hold one.\n\n",
+    "#### Scenario: One\n- **WHEN** x\n- **THEN** y\n"
 );
 
-/// The expected deployed shape after the Stage-1 strip: delta sections
-/// gone, frontmatter + tables + mirror intact.
-const STRIPPED_DEPLOY: &str = concat!(
-    "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n# c\n\n",
-    "## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n",
-    "\n## Requirements\n\n",
-    "### Requirement: One holds\nThe system SHALL hold one.\n\n#### Scenario: One\n- **WHEN** x\n- **THEN** y\n"
+/// A lint-clean `layer.md` sidecar: frontmatter (`id: c.layer`) + the
+/// three specodelic tables. Rows cite the sidecar's own intent (the
+/// refs the companion re-keys to the deployed id at attach time).
+pub const SIDECAR: &str = concat!(
+    "---\nid: c.layer\nkind: intent\n",
+    "statement: \"WHEN the c layer is elaborated, THE author SHALL write the real requirement.\"\n",
+    "---\n\n",
+    "## Constraints\n\n",
+    "| id | kind | expr | traces_to |\n",
+    "|----|------|------|-----------|\n",
+    "| k1 | invariant | `true` | [[c.layer]] |\n\n",
+    "## Model\n\n",
+    "### States\n\n",
+    "- `draft`\n\n",
+    "### Transitions\n\n",
+    "| id | from | to | guard |\n",
+    "|----|------|----|-------|\n",
+    "| t1 | draft | draft | [[c.layer.k1]] |\n\n",
+    "## Properties\n\n",
+    "| id | kind | derives_from | generator | predicate |\n",
+    "|----|------|--------------|-----------|-----------|\n",
+    "| p1 | unit | [[c.layer.k1]] | `todo()` | `true` |\n"
 );
 
-/// The archived delta shape AFTER post-deploy normalization (the
-/// openspec-archival shape the corpus linter expects: frontmatter-less).
-const STRIPPED_DELTA: &str = "# c\n\n## Requirements\n";
+/// The expected deployed dual-format spec: sidecar frontmatter (id
+/// re-keyed to `c`) + applied heading/Purpose + sidecar tables (refs
+/// re-keyed) + applied Requirements.
+const ASSEMBLED_DEPLOY: &str = concat!(
+    "---\nid: c\nkind: intent\n",
+    "statement: \"WHEN the c layer is elaborated, THE author SHALL write the real requirement.\"\n",
+    "---\n\n",
+    "# c Specification\n\n",
+    "## Purpose\nKeep the c capability thinkable-with.\n\n",
+    "## Constraints\n\n",
+    "| id | kind | expr | traces_to |\n",
+    "|----|------|------|-----------|\n",
+    "| k1 | invariant | `true` | [[c]] |\n\n",
+    "## Model\n\n",
+    "### States\n\n",
+    "- `draft`\n\n",
+    "### Transitions\n\n",
+    "| id | from | to | guard |\n",
+    "|----|------|----|-------|\n",
+    "| t1 | draft | draft | [[c.k1]] |\n\n",
+    "## Properties\n\n",
+    "| id | kind | derives_from | generator | predicate |\n",
+    "|----|------|--------------|-----------|-----------|\n",
+    "| p1 | unit | [[c.k1]] | `todo()` | `true` |\n\n",
+    "## Requirements\n\n",
+    "### Requirement: One holds\nThe system SHALL hold one.\n\n",
+    "#### Scenario: One\n- **WHEN** x\n- **THEN** y\n"
+);
 
-/// An archive dir with one dual-format delta for capability `c`.
+/// An archive dir with one plain delta + sidecar pair for capability `c`.
 fn archived_fixtures(id: &str) -> Vec<(String, &'static str)> {
-    vec![(
-        format!("openspec/changes/archive/2026-10-01-{id}/specs/c/spec.md"),
-        DUAL_DELTA,
-    )]
+    vec![
+        (
+            format!("openspec/changes/archive/2026-10-01-{id}/specs/c/spec.md"),
+            PLAIN_DELTA,
+        ),
+        (
+            format!("openspec/changes/archive/2026-10-01-{id}/specs/c/layer.md"),
+            SIDECAR,
+        ),
+    ]
 }
 
 fn noop_runner() -> impl FnMut(&Path, &str) -> Result<(), String> {
@@ -72,16 +130,31 @@ fn panicking_runner() -> impl FnMut(&Path, &str) -> Result<(), String> {
     |_root, _id| panic!("openspec must not be invoked in this scenario")
 }
 
+/// Simulate openspec archive WITH spec application (Revision 19
+/// default): the change dir moves to the archive and the applied
+/// deployed spec is written — exactly what the real CLI does.
+fn applying_runner() -> impl FnMut(&Path, &str) -> Result<(), String> {
+    move |root: &Path, id: &str| -> Result<(), String> {
+        let src = root.join("openspec/changes").join(id);
+        let dst = root.join(format!("openspec/changes/archive/2026-10-01-{id}"));
+        fs::create_dir_all(dst.parent().unwrap()).unwrap();
+        fs::rename(&src, &dst).unwrap();
+        fs::create_dir_all(root.join("openspec/specs/c")).unwrap();
+        fs::write(root.join("openspec/specs/c/spec.md"), APPLIED_DEPLOY).unwrap();
+        Ok(())
+    }
+}
+
 #[test]
 fn resolve_archive_dir_newest_wins() {
     let root = tree(&[
         (
             "openspec/changes/archive/2026-09-29-x/specs/c/spec.md",
-            DUAL_DELTA,
+            PLAIN_DELTA,
         ),
         (
             "openspec/changes/archive/2026-10-01-x/specs/c/spec.md",
-            DUAL_DELTA,
+            PLAIN_DELTA,
         ),
     ]);
     let dir = resolve_archive_dir(root.path(), "x").unwrap();
@@ -102,97 +175,92 @@ fn resolve_archive_dir_none_is_labeled_error() {
     }
 }
 
-#[test]
-fn verify_accepts_dual_format_delta() {
-    let root = tree(&[("d/spec.md", DUAL_DELTA)]);
-    verify_dual_format(&root.path().join("d/spec.md")).unwrap();
-}
+// === 4.1: apply + re-attach assembly ===
 
 #[test]
-fn verify_refuses_frontmatterless_delta() {
-    let root = tree(&[("d/spec.md", "# plain openspec delta\n\n## Requirements\n")]);
-    assert!(verify_dual_format(&root.path().join("d/spec.md")).is_err());
-}
+fn restore_assembles_dual_format_from_sidecar_and_applied_spec() {
+    let root = tree_owned(&archived_fixtures("asm"));
+    let archive = resolve_archive_dir(root.path(), "asm").unwrap();
+    // openspec's apply already wrote the deployed spec from the delta
+    fs::create_dir_all(root.path().join("openspec/specs/c")).unwrap();
+    fs::write(root.path().join("openspec/specs/c/spec.md"), APPLIED_DEPLOY).unwrap();
 
-#[test]
-fn verify_refuses_tableless_delta() {
-    let root = tree(&[(
-        "d/spec.md",
-        "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n# c\n",
-    )]);
-    assert!(verify_dual_format(&root.path().join("d/spec.md")).is_err());
-}
-
-// === Stage 1: deployed-copy delta-section strip (specodelic-s8fg) ===
-
-#[test]
-fn restore_strips_delta_sections_from_deployed_copy() {
-    let root = tree(&[(
-        "openspec/changes/archive/2026-10-01-s1/specs/c/spec.md",
-        FULL_DELTA,
-    )]);
-    let archive = resolve_archive_dir(root.path(), "s1").unwrap();
     let restored = restore(root.path(), &archive).unwrap();
-    assert_eq!(restored.len(), 1);
+    assert_eq!(restored, vec![root.path().join("openspec/specs/c/spec.md")]);
+
     let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap();
-    assert_eq!(deployed, STRIPPED_DEPLOY);
-    // the archived delta itself keeps the full dual-format layer (D4
-    // lives on for the ARCHIVED copy; only the DEPLOYED copy is cleaned)
+    assert_eq!(deployed, ASSEMBLED_DEPLOY);
+    // the archived delta stays byte-plain (openspec moved it verbatim;
+    // the companion never rewrites it)
     assert_eq!(
         fs::read_to_string(archive.join("specs/c/spec.md")).unwrap(),
-        FULL_DELTA
+        PLAIN_DELTA
+    );
+    // the sidecar rides along in the archive, untouched
+    assert_eq!(
+        fs::read_to_string(archive.join("specs/c/layer.md")).unwrap(),
+        SIDECAR
     );
 }
 
 #[test]
-fn restore_strips_all_four_delta_section_titles() {
-    let delta = concat!(
-        "## ADDED Requirements\n\n### Requirement: A\na.\n\n",
-        "## MODIFIED Requirements\n\n### Requirement: B\nb.\n\n",
-        "## REMOVED Requirements\n\n### Requirement: C\n\n",
-        "## RENAMED Requirements\n\n### Requirement: D\n- FROM: D\n- TO: E\n\n",
-        "## Requirements\n\n### Requirement: A\na.\n"
-    );
-    let out = strip_delta_sections(delta);
-    for title in ["ADDED", "MODIFIED", "REMOVED", "RENAMED"] {
-        assert!(
-            !out.contains(&format!("## {title}")),
-            "title {title} survived"
-        );
-    }
-    assert!(out.contains("## Requirements"));
-    assert!(out.contains("### Requirement: A"));
+fn restore_new_capability_deploys_from_sidecar_tables() {
+    // a cap with no pre-existing deployed spec at attach time: the
+    // assembly is the sidecar layer alone (defensive; openspec's apply
+    // normally writes the deployed file first)
+    let root = tree_owned(&[
+        (
+            "openspec/changes/archive/2026-10-01-new/specs/c/spec.md".to_string(),
+            PLAIN_DELTA,
+        ),
+        (
+            "openspec/changes/archive/2026-10-01-new/specs/c/layer.md".to_string(),
+            SIDECAR,
+        ),
+    ]);
+    let archive = resolve_archive_dir(root.path(), "new").unwrap();
+    let restored = restore(root.path(), &archive).unwrap();
+    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap();
+    assert!(restored.len() == 1);
+    // frontmatter + the three tables, no delta headers
+    assert!(deployed.starts_with("---\nid: c\n"));
+    assert!(deployed.contains("## Constraints"));
+    assert!(deployed.contains("## Model"));
+    assert!(deployed.contains("## Properties"));
+    assert!(!deployed.contains("## ADDED Requirements"));
 }
 
 #[test]
-fn restore_strip_ignores_fenced_delta_headers() {
-    let delta = "## Requirements\n\n### Requirement: One holds\nExample:\n\n```md\n## ADDED Requirements\n```\n";
-    let out = strip_delta_sections(delta);
+fn restore_rekeys_sidecar_id_and_refs() {
+    let root = tree_owned(&archived_fixtures("rekey"));
+    let archive = resolve_archive_dir(root.path(), "rekey").unwrap();
+    restore(root.path(), &archive).unwrap();
+    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap();
+    assert!(deployed.contains("id: c\n"), "{deployed}");
     assert!(
-        out.contains("## ADDED Requirements"),
-        "a delta header inside a code fence is content, not structure"
+        !deployed.contains("c.layer"),
+        "stale layer id must be re-keyed: {deployed}"
     );
+    assert!(deployed.contains("[[c]]"));
+    assert!(deployed.contains("[[c.k1]]"));
 }
 
+// === 4.2: fail-closed guards ===
+
 #[test]
-fn restore_refuses_delta_missing_mirror_coverage() {
-    // self-containedness (corpus constraint delta_self_contained): every
-    // ADDED/MODIFIED requirement must appear in the mirror
-    let delta = concat!(
-        "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n## Constraints\n\n",
-        "## ADDED Requirements\n\n### Requirement: One holds\nBody.\n\n",
-        "## Requirements\n\n### Requirement: Something else\nBody.\n"
-    );
+fn restore_refuses_sidecarless_delta_before_any_write() {
     let root = tree(&[(
-        "openspec/changes/archive/2026-10-01-g1/specs/c/spec.md",
-        delta,
+        "openspec/changes/archive/2026-10-01-s/specs/c/spec.md",
+        PLAIN_DELTA,
     )]);
-    let archive = resolve_archive_dir(root.path(), "g1").unwrap();
+    let archive = resolve_archive_dir(root.path(), "s").unwrap();
     match restore(root.path(), &archive) {
-        Err(CompanionError::DeltaNotSelfContained { missing, .. }) => {
-            assert_eq!(missing, vec!["One holds".to_string()]);
+        Err(CompanionError::SidecarRefusal { refused, .. }) => {
+            assert_eq!(refused.len(), 1);
+            assert!(refused[0].0.ends_with("specs/c/spec.md"));
+            assert!(refused[0].1.contains("layer.md"), "{}", refused[0].1);
         }
-        other => panic!("expected DeltaNotSelfContained, got {other:?}"),
+        other => panic!("expected SidecarRefusal, got {other:?}"),
     }
     assert!(
         !root.path().join("openspec/specs").exists(),
@@ -201,261 +269,276 @@ fn restore_refuses_delta_missing_mirror_coverage() {
 }
 
 #[test]
-fn restore_refuses_narrowing_existing_deployed_spec() {
-    // the deployed target has a requirement the delta's full requirement
-    // set (mirror ∪ REMOVED ∪ RENAMED) does not restate — verbatim deploy
-    // would silently narrow the spec
-    let existing = concat!(
-        "## Requirements\n\n### Requirement: One holds\nOld.\n\n",
-        "### Requirement: Two holds\nOld.\n"
+fn run_refuses_sidecarless_active_change_before_invocation() {
+    // a dual-format (not-yet-migrated) delta: no sidecar beside it —
+    // the refusal must fire BEFORE the destructive openspec archive
+    let root = tree(&[(
+        "openspec/changes/live/specs/c/spec.md",
+        "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n## Constraints\n",
+    )]);
+    let outcome = run(root.path(), "live", false, &mut panicking_runner());
+    match outcome {
+        Err(CompanionError::SidecarRefusal { refused, .. }) => {
+            assert_eq!(refused.len(), 1);
+            assert!(refused[0].0.ends_with("specs/c/spec.md"));
+        }
+        other => panic!("expected SidecarRefusal, got {other:?}"),
+    }
+    assert!(
+        root.path().join("openspec/changes/live").is_dir(),
+        "the change dir must NOT be moved by a pre-invocation refusal"
     );
+    assert!(
+        !root.path().join("openspec/specs").exists(),
+        "a refusal must not write any deployed spec"
+    );
+}
+
+#[test]
+fn run_refuses_unlintable_sidecar_before_invocation() {
+    // sidecar parses as garbage (broken frontmatter): refused with the
+    // findings, before anything moves
+    let root = tree(&[
+        ("openspec/changes/live/specs/c/spec.md", PLAIN_DELTA),
+        (
+            "openspec/changes/live/specs/c/layer.md",
+            "not frontmatter at all",
+        ),
+    ]);
+    match run(root.path(), "live", false, &mut panicking_runner()) {
+        Err(CompanionError::SidecarRefusal { refused, .. }) => {
+            assert_eq!(refused.len(), 1);
+            assert!(refused[0].0.ends_with("layer.md"), "{:?}", refused[0].0);
+            assert!(
+                !refused[0].1.is_empty(),
+                "the refusal must carry the findings"
+            );
+        }
+        other => panic!("expected SidecarRefusal, got {other:?}"),
+    }
+    assert!(
+        root.path().join("openspec/changes/live").is_dir(),
+        "the change dir must NOT be moved by a pre-invocation refusal"
+    );
+}
+
+#[test]
+fn restore_refuses_sidecar_missing_a_table() {
+    // parses, but no ## Properties table: it cannot restore the
+    // three-table layer — refused as unlintable
+    let root = tree_owned(&[
+        (
+            "openspec/changes/archive/2026-10-01-partial/specs/c/spec.md".to_string(),
+            PLAIN_DELTA,
+        ),
+        (
+            "openspec/changes/archive/2026-10-01-partial/specs/c/layer.md".to_string(),
+            "---\nid: c.layer\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n",
+        ),
+    ]);
+    let archive = resolve_archive_dir(root.path(), "partial").unwrap();
+    match restore(root.path(), &archive) {
+        Err(CompanionError::SidecarRefusal { refused, .. }) => {
+            assert!(refused[0].1.contains("Properties"), "{}", refused[0].1);
+        }
+        other => panic!("expected SidecarRefusal, got {other:?}"),
+    }
+}
+
+#[test]
+fn restore_post_attach_shape_assertion_refuses_delta_headers() {
+    // if the deployed body still carries a delta header (e.g. openspec
+    // did not apply the delta), the assembly would deploy a shape 1.x
+    // strict rejects — refused, the write reverted
     let root = tree(&[
         (
-            "openspec/changes/archive/2026-10-01-g2/specs/c/spec.md",
-            FULL_DELTA,
+            "openspec/changes/archive/2026-10-01-raw/specs/c/spec.md",
+            PLAIN_DELTA,
         ),
-        ("openspec/specs/c/spec.md", existing),
+        (
+            "openspec/changes/archive/2026-10-01-raw/specs/c/layer.md",
+            SIDECAR,
+        ),
+        ("openspec/specs/c/spec.md", PLAIN_DELTA),
     ]);
-    let archive = resolve_archive_dir(root.path(), "g2").unwrap();
+    let archive = resolve_archive_dir(root.path(), "raw").unwrap();
     match restore(root.path(), &archive) {
-        Err(CompanionError::UncoveredDeployedRequirements { missing, .. }) => {
-            assert_eq!(missing, vec!["Two holds".to_string()]);
+        Err(CompanionError::AttachViolation { cap, detail, .. }) => {
+            assert_eq!(cap, "c");
+            assert!(detail.contains("ADDED"), "detail: {detail}");
         }
-        other => panic!("expected UncoveredDeployedRequirements, got {other:?}"),
+        other => panic!("expected AttachViolation, got {other:?}"),
+    }
+    assert!(
+        !fs::read_to_string(root.path().join("openspec/specs/c/spec.md"))
+            .unwrap()
+            .contains("## Constraints"),
+        "the reverted deployed tree must not carry the assembled layer"
+    );
+}
+
+#[test]
+fn restore_post_attach_lint_failure_reverts_write() {
+    // a sidecar whose tables violate coverage (constraint without a
+    // deriving property): pre-guard passes (it parses, three tables),
+    // the post-attach corpus lint catches it — revert + labeled error
+    let dirty_sidecar = concat!(
+        "---\nid: c.layer\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n",
+        "## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| k1 | invariant | `true` | [[c.layer]] |\n\n",
+        "## Model\n\n### States\n\n- `draft`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t1 | draft | draft | [[c.layer.k1]] |\n\n",
+        "## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n"
+    );
+    let prior = "# c Specification\n\n## Requirements\n\n### Requirement: Old\nOld.\n";
+    let root = tree(&[
+        (
+            "openspec/changes/archive/2026-10-01-dirty/specs/c/spec.md",
+            PLAIN_DELTA,
+        ),
+        (
+            "openspec/changes/archive/2026-10-01-dirty/specs/c/layer.md",
+            dirty_sidecar,
+        ),
+        ("openspec/specs/c/spec.md", prior),
+    ]);
+    let archive = resolve_archive_dir(root.path(), "dirty").unwrap();
+    match restore(root.path(), &archive) {
+        Err(CompanionError::AttachViolation { cap, detail, .. }) => {
+            assert_eq!(cap, "c");
+            assert!(
+                detail.contains("coverage") || detail.contains("derives"),
+                "detail must name the lint findings: {detail}"
+            );
+        }
+        other => panic!("expected AttachViolation, got {other:?}"),
     }
     assert_eq!(
         fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap(),
-        existing,
-        "a refusal must leave the deployed spec untouched"
+        prior,
+        "the violated write must be reverted to the prior deployed bytes"
     );
 }
 
 #[test]
-fn restore_accepts_full_restatement_over_existing_spec() {
-    // corpus convention: the delta restates the capability's FULL
-    // requirement set — every deployed name appears in the delta
-    let existing = "## Requirements\n\n### Requirement: One holds\nOld.\n";
-    let root = tree(&[
-        (
-            "openspec/changes/archive/2026-10-01-g3/specs/c/spec.md",
-            FULL_DELTA,
-        ),
-        ("openspec/specs/c/spec.md", existing),
-    ]);
-    let archive = resolve_archive_dir(root.path(), "g3").unwrap();
-    restore(root.path(), &archive).unwrap();
-    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap();
-    assert_eq!(deployed, STRIPPED_DEPLOY);
-}
-
-#[test]
-fn restore_strip_output_must_be_1x_clean() {
-    // post-strip shape assertion (EDGE-001): a requirement header
-    // outside the mirror and outside any delta section would survive the
-    // strip as an invisible-to-openspec requirement — refuse
-    let delta = concat!(
-        "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n## Constraints\n\n",
-        "### Requirement: Stray holds\nBody.\n\n",
-        "## Requirements\n\n### Requirement: Stray holds\nBody.\n"
-    );
-    let root = tree(&[(
-        "openspec/changes/archive/2026-10-01-g4/specs/c/spec.md",
-        delta,
-    )]);
-    let archive = resolve_archive_dir(root.path(), "g4").unwrap();
-    match restore(root.path(), &archive) {
-        Err(CompanionError::DeployedShapeViolation { detail, .. }) => {
-            assert!(detail.contains("Stray holds"), "detail: {detail}");
-        }
-        other => panic!("expected DeployedShapeViolation, got {other:?}"),
-    }
-}
-
-#[test]
-fn restore_copies_verbatim_and_creates_dirs() {
-    let root = tree_owned(&archived_fixtures("a"));
-    let archive = resolve_archive_dir(root.path(), "a").unwrap();
-    let restored = restore(root.path(), &archive).unwrap();
-    let target = root.path().join("openspec/specs/c/spec.md");
-    assert_eq!(restored, vec![target.clone()]);
-    assert_eq!(
-        fs::read(&target).unwrap(),
-        fs::read(archive.join("specs/c/spec.md")).unwrap(),
-        "deployed spec must be byte-identical to the archived delta"
-    );
-}
-
-#[test]
-fn restore_empty_delta_set_is_success() {
-    let root = tree(&[(
-        "openspec/changes/archive/2026-10-01-b/proposal.md",
-        "# docs",
-    )]);
-    let archive = resolve_archive_dir(root.path(), "b").unwrap();
-    let restored = restore(root.path(), &archive).unwrap();
-    assert!(restored.is_empty());
-}
-
-#[test]
-fn restore_refuses_stripped_delta_before_any_copy() {
-    let root = tree(&[
-        (
-            "openspec/changes/archive/2026-10-01-s/specs/c/spec.md",
-            "# plain — no frontmatter\n",
-        ),
-        // A deployed spec that must NOT be touched by the refusal.
-        ("openspec/specs/c/spec.md", "deployed original"),
-    ]);
-    // tree(&[…]) above takes &str entries; keep as-is
-    let archive = resolve_archive_dir(root.path(), "s").unwrap();
-    match restore(root.path(), &archive) {
-        Err(CompanionError::UnverifiableDeltas { deltas, count }) => {
-            assert_eq!(count, 1);
-            assert!(deltas[0].ends_with("specs/c/spec.md"));
-        }
-        other => panic!("expected UnverifiableDeltas, got {other:?}"),
-    }
-    assert_eq!(
-        fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap(),
-        "deployed original",
-        "a refusal must not modify any deployed spec"
-    );
-}
-
-#[test]
-fn run_archives_active_change_then_restores() {
-    let root = tree(&[("openspec/changes/live/specs/c/spec.md", DUAL_DELTA)]);
-    // The fake runner simulates openspec: moves the change into the
-    // archive dir, exactly what --skip-specs leaves behind.
+fn run_reverts_archive_move_on_attach_violation() {
+    // the destructive openspec archive ran, then attach failed: the
+    // change dir must move BACK out of changes/archive (best-effort
+    // restore of the pre-archive state)
+    let root = tree(&[("openspec/changes/broken/specs/c/spec.md", PLAIN_DELTA)]);
     let root_path = root.path().to_path_buf();
+    // runner moves the change but writes NO applied spec (deployed stays
+    // a raw delta → attach shape violation)
     let mut runner = move |root: &Path, id: &str| -> Result<(), String> {
         let src = root.join("openspec/changes").join(id);
-        let dst = root.join("openspec/changes/archive/2026-10-01-live");
+        let dst = root.join(format!("openspec/changes/archive/2026-10-01-{id}"));
         fs::create_dir_all(dst.parent().unwrap()).unwrap();
         fs::rename(src, dst).unwrap();
         Ok(())
     };
-    let outcome = run(root_path.as_path(), "live", false, &mut runner).unwrap();
-    assert!(outcome.openspec_ran);
-    assert!(!outcome.dry_run);
-    assert_eq!(
-        outcome.restored,
-        vec![root_path.join("openspec/specs/c/spec.md")]
-    );
-    assert_eq!(
-        fs::read_to_string(outcome.restored[0].clone()).unwrap(),
-        DUAL_DELTA,
-        "the deployed spec keeps the dual-format layer"
-    );
-    assert_eq!(
-        outcome.stripped,
-        vec![root_path.join("openspec/changes/archive/2026-10-01-live/specs/c/spec.md")]
+    assert!(run(root_path.as_path(), "broken", false, &mut runner).is_err());
+    assert!(
+        root_path.join("openspec/changes/broken").is_dir(),
+        "the change dir must be moved back out of the archive"
     );
     assert!(
-        !fs::read_to_string(
-            root_path.join("openspec/changes/archive/2026-10-01-live/specs/c/spec.md")
-        )
-        .unwrap()
-        .starts_with("---"),
-        "the archived delta is frontmatter-less after the run"
+        !root_path
+            .join("openspec/changes/archive/2026-10-01-broken")
+            .exists(),
+        "the archive dir must not linger after the revert"
     );
 }
 
 #[test]
-fn run_strips_archived_delta_after_deploy() {
-    let root = tree_owned(&archived_fixtures("norm"));
-    let outcome = run(root.path(), "norm", false, &mut panicking_runner()).unwrap();
-    let archived = root
-        .path()
-        .join("openspec/changes/archive/2026-10-01-norm/specs/c/spec.md");
-    let deployed = root.path().join("openspec/specs/c/spec.md");
-    assert_eq!(outcome.stripped, vec![archived.clone()]);
-    let text = fs::read_to_string(&archived).unwrap();
-    assert!(
-        !text.starts_with("---"),
-        "archived delta must be frontmatter-less after the run"
-    );
-    assert!(
-        text.contains("# c"),
-        "the delta body must survive the strip"
-    );
-    assert_eq!(
-        fs::read_to_string(&deployed).unwrap(),
-        DUAL_DELTA,
-        "the deployed spec keeps its dual-format layer verbatim"
-    );
-}
-
-#[test]
-fn run_rerun_after_strip_is_noop_success() {
-    let root = tree_owned(&archived_fixtures("rerun"));
-    let deployed = root.path().join("openspec/specs/c/spec.md");
-    run(root.path(), "rerun", false, &mut panicking_runner()).unwrap();
-    assert_eq!(fs::read_to_string(&deployed).unwrap(), DUAL_DELTA);
-    let outcome = run(root.path(), "rerun", false, &mut panicking_runner()).unwrap();
-    assert!(!outcome.openspec_ran);
-    assert!(
-        outcome.restored.is_empty(),
-        "re-run must not re-copy the stripped delta"
-    );
-    assert!(outcome.stripped.is_empty());
-    assert_eq!(
-        fs::read_to_string(&deployed).unwrap(),
-        DUAL_DELTA,
-        "re-run must recognize the already-deployed spec, never overwrite it with the stripped delta"
-    );
-}
-
-#[test]
-fn restore_recognizes_already_deployed_stripped_delta() {
+fn restore_recognizes_already_deployed_sidecarless_archive() {
+    // Stage-1-era archive (plain delta, no sidecar) whose deployed
+    // target already carries the dual-format layer: recognized as
+    // converged, no-op success — never clobbered
     let root = tree(&[
         (
             "openspec/changes/archive/2026-10-01-r2/specs/c/spec.md",
-            STRIPPED_DELTA,
+            PLAIN_DELTA,
         ),
-        ("openspec/specs/c/spec.md", DUAL_DELTA),
+        ("openspec/specs/c/spec.md", ASSEMBLED_DEPLOY),
     ]);
     let archive = resolve_archive_dir(root.path(), "r2").unwrap();
     let restored = restore(root.path(), &archive).unwrap();
     assert!(restored.is_empty());
     assert_eq!(
         fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap(),
-        DUAL_DELTA
+        ASSEMBLED_DEPLOY
+    );
+}
+
+// === 4.3: idempotent rerun + newest-archive-wins + dry-run ===
+
+#[test]
+fn run_rerun_converges_to_identical_deployed_bytes() {
+    let root = tree(&[("openspec/changes/live/specs/c/spec.md", PLAIN_DELTA)]);
+    // add the sidecar to the active change
+    fs::write(
+        root.path().join("openspec/changes/live/specs/c/layer.md"),
+        SIDECAR,
+    )
+    .unwrap();
+    let root_path = root.path().to_path_buf();
+
+    let outcome = run(root_path.as_path(), "live", false, &mut applying_runner()).unwrap();
+    assert!(outcome.openspec_ran);
+    let deployed = root_path.join("openspec/specs/c/spec.md");
+    let first = fs::read(&deployed).unwrap();
+    assert_eq!(fs::read_to_string(&deployed).unwrap(), ASSEMBLED_DEPLOY);
+
+    // rerun: openspec is NOT invoked (already archived); the re-attach
+    // re-resolves from the archive and converges to identical bytes
+    let outcome2 = run(root_path.as_path(), "live", false, &mut panicking_runner()).unwrap();
+    assert!(!outcome2.openspec_ran);
+    assert_eq!(
+        fs::read(&deployed).unwrap(),
+        first,
+        "rerun must converge byte-identically"
+    );
+    assert_eq!(
+        fs::read_to_string(&deployed).unwrap(),
+        ASSEMBLED_DEPLOY,
+        "rerun must still produce the fully assembled dual-format spec"
     );
 }
 
 #[test]
-fn restore_refuses_stripped_delta_without_deployed_target() {
-    let root = tree(&[(
-        "openspec/changes/archive/2026-10-01-r3/specs/c/spec.md",
-        STRIPPED_DELTA,
-    )]);
-    let archive = resolve_archive_dir(root.path(), "r3").unwrap();
-    assert!(matches!(
-        restore(root.path(), &archive),
-        Err(CompanionError::UnverifiableDeltas { .. })
-    ));
+fn restore_newest_archive_wins() {
+    let old_sidecar = SIDECAR.replace(
+        "WHEN the c layer is elaborated",
+        "OLDER MARKER: WHEN the c layer is elaborated",
+    );
+    let root = tree_owned(&[
+        (
+            "openspec/changes/archive/2026-09-29-n/specs/c/spec.md".to_string(),
+            PLAIN_DELTA,
+        ),
+        (
+            "openspec/changes/archive/2026-09-29-n/specs/c/layer.md".to_string(),
+            old_sidecar.as_str(),
+        ),
+        (
+            "openspec/changes/archive/2026-10-01-n/specs/c/spec.md".to_string(),
+            PLAIN_DELTA,
+        ),
+        (
+            "openspec/changes/archive/2026-10-01-n/specs/c/layer.md".to_string(),
+            SIDECAR,
+        ),
+        ("openspec/specs/c/spec.md".to_string(), APPLIED_DEPLOY),
+    ]);
+    let outcome = run(root.path(), "n", false, &mut panicking_runner()).unwrap();
+    assert_eq!(
+        outcome.archive_dir,
+        root.path().join("openspec/changes/archive/2026-10-01-n"),
+        "the newest archive directory must win"
+    );
+    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap();
     assert!(
-        !root.path().join("openspec/specs").exists(),
-        "a refusal must not create deployed spec paths"
+        !deployed.contains("OLDER MARKER"),
+        "the stale archive's layer must not leak into the deploy: {deployed}"
     );
-}
-
-#[test]
-fn run_already_archived_skips_openspec() {
-    let root = tree_owned(&archived_fixtures("done"));
-    let outcome = run(root.path(), "done", false, &mut panicking_runner()).unwrap();
-    assert!(!outcome.openspec_ran);
-    assert_eq!(outcome.restored.len(), 1);
-}
-
-#[test]
-fn run_unknown_change_is_labeled_error() {
-    let root = tree(&[]);
-    assert!(matches!(
-        run(root.path(), "ghost", false, &mut noop_runner()),
-        Err(CompanionError::ChangeNotFound { .. })
-    ));
 }
 
 #[test]
@@ -473,6 +556,13 @@ fn run_dry_run_never_invokes_or_writes() {
         outcome.restored,
         vec![root.path().join("openspec/specs/c/spec.md")]
     );
+    assert_eq!(
+        outcome.sidecars,
+        vec![
+            root.path()
+                .join("openspec/changes/archive/2026-10-01-dry/specs/c/layer.md")
+        ]
+    );
     assert!(
         !root.path().join("openspec/specs").exists(),
         "dry-run must not create deployed spec paths"
@@ -489,42 +579,96 @@ fn run_dry_run_never_invokes_or_writes() {
 
 #[test]
 fn run_dry_run_over_active_change_reports_plan() {
-    let root = tree(&[("openspec/changes/fresh/specs/c/spec.md", DUAL_DELTA)]);
+    let root = tree(&[("openspec/changes/fresh/specs/c/spec.md", PLAIN_DELTA)]);
+    fs::write(
+        root.path().join("openspec/changes/fresh/specs/c/layer.md"),
+        SIDECAR,
+    )
+    .unwrap();
     let outcome = run(root.path(), "fresh", true, &mut panicking_runner()).unwrap();
     assert!(outcome.dry_run);
     assert_eq!(
         outcome.restored,
         vec![root.path().join("openspec/specs/c/spec.md")]
     );
+    assert_eq!(
+        outcome.sidecars,
+        vec![root.path().join("openspec/changes/fresh/specs/c/layer.md")]
+    );
+    assert!(
+        !root.path().join("openspec/specs").exists(),
+        "dry-run must not write the deployed spec"
+    );
 }
 
 #[test]
-fn run_dry_run_refuses_stripped_delta() {
+fn run_dry_run_refuses_sidecarless_delta() {
     let root = tree(&[(
         "openspec/changes/stripped/specs/c/spec.md",
-        "# no frontmatter\n",
+        "# no sidecar\n",
     )]);
     assert!(matches!(
         run(root.path(), "stripped", true, &mut panicking_runner()),
-        Err(CompanionError::UnverifiableDeltas { .. })
+        Err(CompanionError::SidecarRefusal { .. })
+    ));
+}
+
+#[test]
+fn run_already_archived_skips_openspec() {
+    let root = tree_owned(&archived_fixtures("done"));
+    fs::create_dir_all(root.path().join("openspec/specs/c")).unwrap();
+    fs::write(root.path().join("openspec/specs/c/spec.md"), APPLIED_DEPLOY).unwrap();
+    let outcome = run(root.path(), "done", false, &mut panicking_runner()).unwrap();
+    assert!(!outcome.openspec_ran);
+    assert_eq!(outcome.restored.len(), 1);
+}
+
+#[test]
+fn restore_empty_delta_set_is_success() {
+    let root = tree(&[(
+        "openspec/changes/archive/2026-10-01-b/proposal.md",
+        "# docs",
+    )]);
+    let archive = resolve_archive_dir(root.path(), "b").unwrap();
+    let restored = restore(root.path(), &archive).unwrap();
+    assert!(restored.is_empty());
+}
+
+#[test]
+fn run_unknown_change_is_labeled_error() {
+    let root = tree(&[]);
+    assert!(matches!(
+        run(root.path(), "ghost", false, &mut noop_runner()),
+        Err(CompanionError::ChangeNotFound { .. })
     ));
 }
 
 #[test]
 fn run_open_spec_failure_is_labeled() {
-    let root = tree(&[("openspec/changes/broken/specs/c/spec.md", DUAL_DELTA)]);
+    let root = tree(&[("openspec/changes/broken2/specs/c/spec.md", PLAIN_DELTA)]);
+    fs::write(
+        root.path()
+            .join("openspec/changes/broken2/specs/c/layer.md"),
+        SIDECAR,
+    )
+    .unwrap();
     let mut failing = |_root: &Path, _id: &str| -> Result<(), String> {
         Err("openspec: validation failed".to_string())
     };
     assert!(matches!(
-        run(root.path(), "broken", false, &mut failing),
+        run(root.path(), "broken2", false, &mut failing),
         Err(CompanionError::OpenSpecFailed { .. })
     ));
 }
 
 #[test]
 fn run_open_spec_missing_is_labeled() {
-    let root = tree(&[("openspec/changes/nobin/specs/c/spec.md", DUAL_DELTA)]);
+    let root = tree(&[("openspec/changes/nobin/specs/c/spec.md", PLAIN_DELTA)]);
+    fs::write(
+        root.path().join("openspec/changes/nobin/specs/c/layer.md"),
+        SIDECAR,
+    )
+    .unwrap();
     let mut missing = |_root: &Path, _id: &str| -> Result<(), String> {
         Err("spawn failed: No such file or directory".to_string())
     };

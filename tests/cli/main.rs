@@ -45,6 +45,7 @@ fn write_model_check_spec(path: &std::path::Path, id: &str) {
 #[path = "../common/mod.rs"]
 mod common;
 
+mod archive_companion;
 mod citation_resolution;
 mod compile;
 mod conform;
