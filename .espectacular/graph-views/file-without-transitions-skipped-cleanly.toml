@@ -1,0 +1,12 @@
+id = "file-without-transitions-skipped-cleanly"
+description = ""
+# Provenance (specodelic-s8fg task 7.1, 2026-10-19): authored at the
+# companion archive of add-graph-views — binds the shared mechanism
+# tests for this scenario (loose binding, data-lineage precedent).
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.pytest]]
+flags = "scripts/state_view_cases.py::TestStateViewRendering::test_no_transitions_view_is_labeled_not_silently_clean"
