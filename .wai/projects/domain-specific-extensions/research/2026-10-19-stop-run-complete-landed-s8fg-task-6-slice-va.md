@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:epic-orchestrator-2026-10-19-delta-sidecar-task6, pipeline-step:stop]
+---
+
+STOP: run complete. Landed: s8fg task-6 slice — validate-pin retired (3c2bad1): plain 1.x gate (no version guard, no npx fallback), ci.yml pinned to @fission-ai/openspec@1.14.2, decision record 2026-10-19-validate-pin-retired.md supersedes the pin record, GH-20 landing note posted (comment 6278059771), tasks 6.1-6.2 ticked. Verified: just ci fully green (564 ah-check passed), plain gate 52/52 under both 1.14.2 shim and global 0.19.0. Pushed 7c6a7d0..80e1f68. NEXT RUN CANDIDATE: task 7 — the FINAL slice: 7.0 reconcile update-id-derivation-spec-md's spec-integration delta (retired mirror wording -> Rev 19), 7.1 archive update-id-derivation-spec-md + add-migrate-rekey through the new companion (just archive-change id=<id>), 7.2 mirror-wording residue sweep (hooks spec advisory, verification-claims deploy transition guard, docs tool-relationships + commands pages), 7.3 close s8fg/dlf/3le9 + spk init --force AGENTS.md managed-block refresh.
