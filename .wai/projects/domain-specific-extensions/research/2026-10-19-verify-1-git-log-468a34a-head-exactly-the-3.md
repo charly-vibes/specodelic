@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:epic-orchestrator-2026-10-19-delta-sidecar-task5, pipeline-step:verify-subagent]
+---
+
+VERIFY: (1) git log 468a34a..HEAD -> exactly the 3 reported commits + my gate adjudication d6e69ef; 94e2699 diff confirms 257+/769- (pure deletion pattern: mirrors stripped, sidecars added verbatim); spot-checked: zero ## Requirements mirrors remain in the 3 change dirs; sidecar ids parent-dir-derived (graph.views.layer etc.); scenario headers untouched. (2) just ci full (TMPDIR=/var/tmp/delta-sidecar-task5) -> all recipes green INCLUDING guard-espectacular after my d6e69ef contract rebind; ah check --run-tests OK 564 passed 0 findings. (3) ah check findings vs pre-spawn: no NEW findings (2pcd red pre-existing since 378058b, adjudicated + closed as d6e69ef rebind with provenance comment; reopening→rebind path). (4) openspec validate --all --strict -> 52 passed 0 failed. (5) spk lint openspec -> 0 issues, baseline warnings only. (6) Subagent ran direct TDD, no pipeline run file. (7) specodelic/ compiled artifacts unchanged by the slice (git clean).

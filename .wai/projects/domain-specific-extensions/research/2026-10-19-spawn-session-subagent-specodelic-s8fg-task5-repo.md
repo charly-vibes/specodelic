@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:epic-orchestrator-2026-10-19-delta-sidecar-task5, pipeline-step:spawn-subagent]
+---
+
+SPAWN: session=subagent:specodelic-s8fg:task5 report=task-5 slice landed in 3 commits: 94e2699 (3 dual deltas -> plain + layer.md sidecars; 6 delta files; frontmatter/tables moved verbatim into sidecars, ids = parent-dir stem + .layer; mirrors deleted, own-row refs re-keyed; 763- 0+, requirement text + scenario headers byte-identical), 5fdf08b (1.14.2 shape fixture checked in at tests/fixtures/os1x-shape/ + scripts/test_os1x_shape_fixture.py wired via just sync-sections-test; gate pin untouched), 48c4aee (tasks 5.1-5.3 ticked + bd issue import for pre-existing guard-espectacular red specodelic-2pcd). Meters: 1.14.x strict 52/52 0 warnings AND pinned 0.19.0 gate 52/52; spk lint 0 issues 53 warnings (baseline, stash-verified); spk binary was stale at ~/.cargo/bin, subagent reinstalled from source. Deviations: /tmp/os1x dual delta is 1.14.x-strict-INVALID so fixture shows it post-conversion (documented in fixture README); test seam moved to scripts/test_os1x_shape_fixture.py (CI unittest discover pattern). s8fg not closed, not pushed.
