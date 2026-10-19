@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:epic-orchestrator-2026-10-19-delta-sidecar-task7, pipeline-step:select-ticket]
+---
+
+TICKET: specodelic-s8fg (task 7 slice — FINAL: archive pending plain-shaped changes + close). s8fg already in_progress, no re-claim. Tasks 1-6 landed (head 366dcbb). This run does tasks.md 7.0-7.3: (7.0) reconcile update-id-derivation-spec-md's spec-integration delta — its Dual-format delta requirement block still carries the RETIRED mirror-pairing wording; rewrite to Rev 19 plain-delta + sidecar wording (or fold into this change's delta); (7.1) archive update-id-derivation-spec-md and add-migrate-rekey through the NEW companion (just archive-change id=<id>) with post-archive strict validate + spk lint green; (7.2) mirror-wording residue sweep in hooks spec, verification-claims spec, docs tool-relationships.md + commands.md; (7.3) close s8fg with meter trail, note dlf/3le9 folded-in and close them, spk init --force AGENTS.md managed-block refresh. Rebind note: contract modified-delta-is-dual-format was rebound (d6e69ef) to the retirement test with provenance pointing at this task — re-author it against the Rev 19 wording at this archive.
