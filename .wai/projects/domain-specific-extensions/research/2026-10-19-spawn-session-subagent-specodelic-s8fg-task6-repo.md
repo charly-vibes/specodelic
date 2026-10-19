@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:epic-orchestrator-2026-10-19-delta-sidecar-task6, pipeline-step:spawn-subagent]
+---
+
+SPAWN: session=subagent:specodelic-s8fg:task6 report=task-6 slice landed in 3c2bad1: scripts/spec_validate.py collapsed to plain openspec validate --all --strict --no-interactive (no version sniff, no npx fallback, no PINNED_VERSION const; expected validator @fission-ai/openspec@1.14.2 in docstring + remediation hint); scripts/test_spec_validate.py rewritten TDD-first (RED 4F+5E on old script); ci.yml install bumped to @fission-ai/openspec@1.14.2; justfile comment updated; decision record 2026-10-19-validate-pin-retired.md supersedes the pin record (pointer added); tasks 6.1-6.2 ticked; GH-20 comment posted (6278059771). Gates: just ci exit 0 (564 ah-check passed), spk lint 0 findings, plain gate 52/52 under 1.14.2 via PATH shim AND under global 0.19.0. Deviations: tests/ci_wiring.rs needed no changes (no 0.19 assertions there); local 1.x verification used PATH shim not global install.
