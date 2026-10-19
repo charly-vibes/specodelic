@@ -2,16 +2,16 @@
 
 ## 1. Format Revision 19 (specodelic layer of record)
 
-- [ ] 1.1 Extend the naming law in `openspec/specs/specodelic/spec.md`
+- [x] 1.1 Extend the naming law in `openspec/specs/specodelic/spec.md`
       (`id_matches_file` constraint + new `## Revision 19` section): a
       file named `layer.md` derives its expected id from its PARENT
       DIRECTORY name plus a `.layer` suffix (`specs/cap-a/layer.md` →
       `id: cap.a.layer`); the change-delta shape statement (plain delta +
       sidecar) records the dual-format delta class as retired.
-- [ ] 1.2 Bump `FORMAT_REVISION` in the embedded guide (drift guard test
+- [x] 1.2 Bump `FORMAT_REVISION` in the embedded guide (drift guard test
       fails first — RED); refresh the guide primer text that teaches the
       dual-format delta (wrap recipe → wrap-into-sidecar recipe).
-- [ ] 1.3 Refresh the repo-root `AGENTS.md` managed block (`spk init
+- [x] 1.3 Refresh the repo-root `AGENTS.md` managed block (`spk init
       --force`) and update the espectacular sibling-constraint bullet (the
       sanctioned write path for capability specs becomes: openspec archive
       with spec application + companion layer re-attachment); update the
@@ -19,26 +19,26 @@
 
 ## 2. Lint-rule retirement (TDD: the retired shapes must be unwritable)
 
-- [ ] 2.1 RED: fixture files carrying a delta-section + `## Requirements`
+- [x] 2.1 RED: fixture files carrying a delta-section + `## Requirements`
       mirror pairing report NO `requirement_drift`/`dual_format_valid`
       findings after retirement; GREEN: remove the delta-pairing arms of
       `dual_format_valid` and `requirement_drift` from the linter (deployed
       dual-format capability specs keep every other rule — corpus lint
       stays 0 findings).
-- [ ] 2.2 Update the embedded `spk explain` topic bodies that describe the
+- [x] 2.2 Update the embedded `spk explain` topic bodies that describe the
       retired rules; membership gates (`check_membership`, skill-pack
       topics) updated to the new rule set.
 
 ## 3. migrate: wrap into sidecar
 
-- [ ] 3.1 RED: `tests/migrate.rs` — wrap of a plain delta writes a
+- [x] 3.1 RED: `tests/migrate.rs` — wrap of a plain delta writes a
       sibling `layer.md` (parent-dir-derived `.layer` id, scaffold rows)
       and leaves the delta byte-unchanged; GREEN: rework `src/migrate.rs`
       wrap path (mirror generation removed, sidecar generation added).
-- [ ] 3.2 Refusal classes updated: frontmatter-carrying files, deployed
+- [x] 3.2 Refusal classes updated: frontmatter-carrying files, deployed
       specs, and heading-less files refuse with exit 2; partially-migrated
       pairs pass existing sidecars through verbatim.
-- [ ] 3.3 `--dry-run` envelope carries the sidecar content; `--rekey`
+- [x] 3.3 `--dry-run` envelope carries the sidecar content; `--rekey`
       behavior unchanged (existing tests stay green).
 
 ## 4. archive-companion: apply + re-attach
