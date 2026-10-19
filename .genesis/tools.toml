@@ -1,9 +1,9 @@
-[tools.wai]
-description = "Workflow manager for AI-assisted development"
+[tools.specodelic]
+description = "Specodelic spec format linter + pipeline (spk)"
 
-[tools.wai.detector]
-type = "directory"
-path = ".wai"
+[tools.specodelic.detector]
+type = "file"
+path = "AGENTS.md"
 
 [tools.testaruda]
 description = "Language-agnostic test selection engine"
@@ -18,3 +18,10 @@ description = "Spec-test correspondence enforcer"
 [tools.espectacular.detector]
 type = "directory"
 path = ".espectacular"
+
+[tools.wai]
+description = "Workflow manager for AI-assisted development"
+
+[tools.wai.detector]
+type = "directory"
+path = ".wai"
