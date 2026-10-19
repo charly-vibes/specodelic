@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:epic-orchestrator-2026-10-19-delta-sidecar-task5, pipeline-step:stop]
+---
+
+STOP: run complete. Landed: s8fg task-5 slice — 3 dual deltas migrated to plain + layer.md sidecars (94e2699), 1.14.2 shape fixture checked in with npx strict gate (5fdf08b), tasks 5.1-5.3 ticked (48c4aee); gate adjudication d6e69ef closed the pre-existing guard-espectacular red (specodelic-2pcd) via retirement-semantics rebind. Verified: just ci fully green (564 ah-check passed), 1.14.x strict 52/52 0 warnings, pinned 0.19 gate 52/52, spk lint 0 issues. Pushed 99f69eb..13c6929. NEXT RUN CANDIDATE: task 6 (validate-gate retirement: scripts/spec_validate.py -> plain 1.x invocation, ci.yml npm pin 0.19.0 -> pinned 1.x with dev-machine install doc, decision record superseding 2026-10-19-openspec-validate-pin, GH-20 note; TDD gate test names 1.x first). Then task 7 (7.0 update-id-derivation conflict reconcile -> 7.1 archive through new companion -> 7.2 residue sweep -> 7.3 close s8fg/dlf/3le9 + spk init --force refresh).
