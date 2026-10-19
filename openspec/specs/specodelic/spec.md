@@ -39,7 +39,7 @@ the project/format/tool/subject terminology).
 | model_present            | invariant | `[[model.state]] and [[model.transition]] sections both exist`             | [[specodelic]]  |
 | no_counterexample        | invariant | `the selected model-check backend (see [[model_check]]) finds no violated invariant`                    | [[specodelic]]  |
 | properties_pass          | invariant | `all compiled proptest! blocks pass`                                       | [[specodelic]]  |
-| id_matches_file          | invariant | `frontmatter.id == expected_id_from_path(path)` — a file named `spec.md` derives its id from its PARENT DIRECTORY name; any other file from its own stem; `-` maps only to the namespace dot, `_` is preserved literally within a segment; a bare `spec.md` with no parent directory falls back to the stem. E.g. `linter-graph_shape.md` declares `id: linter.graph_shape`; `openspec/specs/ge-cli/spec.md` declares `id: ge.cli` (Revision 18) | [[specodelic]]  |
+| id_matches_file          | invariant | `frontmatter.id == expected_id_from_path(path)` — a file named `spec.md` derives its id from its PARENT DIRECTORY name; a file named `layer.md` derives the parent-directory id plus a `.layer` suffix (Revision 19); any other file from its own stem; `-` maps only to the namespace dot, `_` is preserved literally within a segment; a bare `spec.md` with no parent directory falls back to the stem. E.g. `linter-graph_shape.md` declares `id: linter.graph_shape`; `openspec/specs/ge-cli/spec.md` declares `id: ge.cli` (Revision 18); `openspec/changes/<id>/specs/cap-a/layer.md` declares `id: cap.a.layer` (Revision 19) | [[specodelic]]  |
 | ref_kind_compatible      | invariant | `∀ ref: target.kind ∈ allowed_targets(field)` — see Reference Typing below | [[specodelic]]  |
 | single_root_reachable    | invariant | `∀ constraint/property/state/transition row in file: the row reaches the file's own intent row through own-file primary linkage (traces_to/derives_from chains resolved within the file)` — cross-file typed edges (`guard` citations of foreign constraints, `satisfies`, `observes`) are outbound leaves, never reachability paths | [[specodelic]]  |
 | every_state_used         | invariant | `∀ state: state appears as from or to in ≥ 1 transition`                   | [[specodelic]]  |
@@ -934,6 +934,46 @@ ids, which the old law rejected — but no corpus content at Revision 17
 depended on that rejection being the only legal reading). The
 `rename` tool's filename law (`rename.md`'s
 `new_id_matches_filename`) inherits `expected_id_from_path` verbatim.
+
+## Revision 19 — 2026-10-24
+
+**Change deltas go plain; the layer rides beside**
+(`add-delta-layer-sidecar`, specodelic-s8fg Stage 2). Stage 1
+(2026-10-19) made deployed capability specs 1.x-strict-valid by
+stripping delta sections at deploy; the remaining 1.x rejections were the
+dual-format change deltas themselves — the byte-identical `## Requirements`
+mirror and the layer tables in the same file. This Revision retires the
+dual-format delta class with one rule:
+
+- **Plain deltas + sidecar.** A change delta under
+  `openspec/changes/<id>/specs/<cap>/` is a plain openspec file —
+  `## ADDED/MODIFIED/REMOVED Requirements` (plus `## Purpose`), no
+  frontmatter, no layer tables, no mirror; openspec validate is its gate.
+  The specodelic layer (frontmatter + Constraints/Model/Properties) is
+  carried by a sibling `layer.md` sidecar — a real, corpus-linted
+  specodelic file whose `traces_to` citations resolve corpus-wide.
+- **The id law gains the sidecar arm.** `expected_id_from_path`: a file
+  named `layer.md` derives its expected id from its PARENT DIRECTORY name
+  plus a `.layer` suffix (`specs/cap-a/layer.md` → `id: cap.a.layer`) —
+  the sibling of the `spec.md` rule, keeping sidecars per-capability
+  unique and co-archived with their delta. `id: spec`'s retirement logic
+  (Revision 18) is untouched.
+- **The mirror retires by construction.** `requirement_drift` and
+  `dual_format_valid`'s delta-pairing arm police the pairing of a delta
+  section with a same-file `## Requirements` mirror — a shape plain
+  deltas can no longer produce without failing openspec validation. Both
+  retire; the dual-format *capability spec* class (deployed
+  `openspec/specs/<cap>/spec.md`) keeps every other rule unchanged.
+  `migrate`'s mirror generation retires with it — the wrap path now
+  scaffolds the sidecar.
+
+The retirement narrows exactly the shape the corpus already stopped
+authoring: spec-integration's intent of record (Revision 18 era) already
+declared "change deltas stay plain openspec files", and no deployed
+capability spec is invalidated — the capability-spec class keeps every
+rule it had. `archive-companion`'s deploy re-assembly (openspec applies,
+the companion re-attaches the layer from the archived sidecar) is
+tool semantics, recorded in `archive-companion.md` — not a format law.
 
 ## Requirements
 

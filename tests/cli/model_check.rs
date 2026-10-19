@@ -400,15 +400,22 @@ fn explain_dual_format_topic_serves_the_migration_recipe() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     let body = json["data"]["body"].as_str().unwrap();
     assert!(body.contains("id: spec"), "naming law: {body}");
-    assert!(body.contains("## ADDED Requirements"), "delta half: {body}");
+    assert!(
+        body.contains("## ADDED/MODIFIED/REMOVED Requirements"),
+        "delta half: {body}"
+    );
     assert!(body.contains("## Requirements"), "capability half: {body}");
     assert!(
         body.to_lowercase().contains("migration"),
         "migration path: {body}"
     );
     assert!(
-        body.contains("dual_format_valid"),
-        "enforcing rule named: {body}"
+        body.contains("layer.md"),
+        "sidecar shape taught: {body}"
+    );
+    assert!(
+        body.contains("requirement_drift"),
+        "retired rule named: {body}"
     );
     assert!(
         !body.contains("{{"),
@@ -431,7 +438,7 @@ fn explain_known_topic_works_offline_in_consumer_dir() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["ok"], true);
     assert_eq!(json["data"]["topic"], "format");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 18");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 19");
     let body = json["data"]["body"].as_str().unwrap();
     assert!(body.contains("## Constraints"));
     assert!(body.contains("## Properties"));
@@ -501,7 +508,7 @@ fn version_json_reports_format_revision() {
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["envelope_kind"], "version");
     assert_eq!(json["data"]["name"], "specodelic");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 18");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 19");
 }
 
 #[test]
@@ -535,7 +542,7 @@ fn doctor_consumer_with_corpus_reports_format_revision() {
     let json: serde_json::Value =
         serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
     assert_eq!(json["data"]["mode"], "consumer");
-    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 18");
+    assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 19");
 }
 
 #[test]

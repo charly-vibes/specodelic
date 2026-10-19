@@ -172,56 +172,64 @@ binary can emit.
 
 Where specodelic meets **OpenSpec**: this repo manages its engineering
 change workflow in openspec (proposals → tasks → archive), and every
-change delta is also a lint-clean specodelic file. One markdown file,
-two parsers, requirement text authored once.
+deployed capability spec is also a lint-clean specodelic file. One
+markdown file, two parsers, requirement text authored once — while
+change deltas stay plain openspec files with their layer beside them.
 
 A **dual-format file** carries both grammars:
 
 - Specodelic half: YAML frontmatter (a real `id` from the naming law,
   `kind: intent`, an EARS `statement`) plus the `## Constraints`,
   `## Model`, and `## Properties` tables.
-- Openspec half: `## Purpose`, `## ADDED Requirements`, and a sibling
-  `## Requirements` section with identical text. A `## MODIFIED
-  Requirements` delta is dual-format the same way — same id law, same
-  mirror. A file carrying both delta kinds mirrors every delta
-  requirement in `## Requirements`: `linter.requirement_drift`
-  compares per requirement, so the natural mirror (all delta
-  requirements, delta order) satisfies the rule.
+- Openspec half: `## Purpose` and the single `## Requirements`
+  section — written by openspec's own archive apply, never a
+  hand-maintained mirror.
 
-**Naming law** (Revision 18): openspec hard-requires the filename
-`spec.md`, and the id law derives a `spec.md` file's expected id from
-its PARENT DIRECTORY name — `openspec/specs/ge-cli/spec.md` declares
-`id: ge.cli` (the `-` ⇔ `.` mapping). There is no `id: spec`: every
-dual-format file carries its real id, wiki-refs resolve corpus-wide
-(deltas compose like any corpus), and two files claiming the same
-intent id are refused on command paths (`duplicate_corpus_identity`).
+**Change deltas are plain (Revision 19).** A delta under
+`openspec/changes/<id>/specs/<cap>/` carries the openspec grammar only
+— `## ADDED/MODIFIED/REMOVED Requirements`, no frontmatter, no layer
+tables, no mirror — and `openspec validate` is its gate. The
+specodelic layer is carried by a sibling `layer.md` **sidecar**: a
+real, lint-clean specodelic file whose id derives from the parent
+directory plus a `.layer` suffix
+(`specs/cap-a/layer.md` → `id: cap.a.layer`). The retired
+`## Requirements` mirror needed two per-requirement linter rules
+(`linter.requirement_drift`, `linter.dual_format_valid`'s pairing
+arm) — retired with the mirror itself; plain deltas cannot carry the
+shape they policed.
 
-**Enforcement**: `linter.dual_format_valid` — a file carrying
-`## ADDED Requirements` or `## MODIFIED Requirements` must pair it
-with the sibling `## Requirements` section (the id is the naming
-law's business); a capability spec under
-`openspec/specs/` must be dual-format or CI fails.
-`linter.requirement_drift` (enforced by `spk lint` itself) fails when
-the two requirement sections drift apart (blank lines and trailing
-space ignored). Dual-format files trace to their own intent with
-the file's real id: `traces_to: [[<file-id>]]` is the intended
-constraint → intent edge.
+**Naming law** (Revision 18 + the Revision 19 sidecar arm):
+`spec.md` derives its expected id from its PARENT DIRECTORY name —
+`openspec/specs/ge-cli/spec.md` declares `id: ge.cli` (the `-` ⇔ `.`
+mapping); `layer.md` derives the parent-directory id plus `.layer`.
+There is no `id: spec`: every specodelic file carries its real id,
+wiki-refs resolve corpus-wide, and two files claiming the same intent
+id are refused on command paths (`duplicate_corpus_identity`).
 
-**Migration** (plain openspec file → compliant):
+**Enforcement**: a deployed capability spec under `openspec/specs/`
+must be dual-format or CI fails; a change delta must be plain —
+openspec validate (1.x) fails any delta carrying frontmatter-era
+shapes (a mirror is "ignored", layer tables are "not carried").
+Dual-format files trace to their own intent with the file's real id:
+`traces_to: [[<file-id>]]` is the intended constraint → intent edge;
+a sidecar traces the same way with its `<cap>.layer` id.
 
-1. Add the frontmatter: the real id derived by the naming law
-   (`spec.md` under its capability directory → parent-dir name;
-   anything else → stem), `kind: intent`, one EARS `SHALL` statement
-   condensing the requirements.
-2. Derive the tables: one `invariant` Constraint per MUST the
-   requirements imply, a Model covering the scenarios, one unit
-   Property deriving from each constraint (the coverage rule).
-3. Mirror `## Requirements` (identical text to every carried delta
-   section's requirements — `## ADDED Requirements` and, when
-   present, `## MODIFIED Requirements` alike); a plain capability
-   spec keeps only `## Requirements`.
-4. Gates: `spk lint <file>`, `openspec validate --all --strict`, and
-   the section-sync check must all pass.
+**Migration** (plain openspec capability spec → compliant, or plain
+delta → the sidecar pair):
+
+1. Capability spec: add the frontmatter (the real id derived by the
+   naming law — `spec.md` under its capability directory → parent-dir
+   name), `kind: intent`, one EARS `SHALL` statement condensing the
+   requirements, then derive the tables: one `invariant` Constraint
+   per MUST the requirements imply, a Model covering the scenarios,
+   one unit Property deriving from each constraint (the coverage
+   rule). The `## Requirements` section stays as openspec wrote it.
+2. Change delta: leave the delta plain and run
+   `spk migrate <delta>.md` — it creates the sibling `layer.md`
+   sidecar with generated frontmatter (parent-dir id + `.layer`) and
+   wired scaffold layers, byte-preserving the delta text.
+3. Gates: `spk lint <file>` (or the sidecar pair),
+   `openspec validate --all --strict` (1.x) — both must pass.
 
 <!-- topic: packs -->
 ## Domain packs — first-class vocabulary extension (Revision 14)
