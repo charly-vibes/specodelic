@@ -60,23 +60,29 @@ pub(crate) fn file_label(spec: &Spec) -> String {
 }
 
 /// The expected frontmatter id for a file path (Revision 18,
-/// specodelic-mcy): a file named `spec.md` derives its id from the
-/// PARENT DIRECTORY name (`-` maps to `.`, `_` literal) — single-tree
-/// spec authoring needs no `id: spec`; any other file derives from its
-/// own stem. A bare `spec.md` with no parent directory falls back to
-/// the stem (`spec`).
+/// specodelic-mcy; Revision 19 sidecar arm, add-delta-layer-sidecar): a
+/// file named `spec.md` derives its id from the PARENT DIRECTORY name
+/// (`-` maps to `.`, `_` literal) — single-tree spec authoring needs no
+/// `id: spec`; a file named `layer.md` derives the parent-directory id
+/// plus a `.layer` suffix (the change-delta layer sidecar); any other
+/// file derives from its own stem. A bare `spec.md` with no parent
+/// directory falls back to the stem (`spec`).
 pub(crate) fn expected_id_from_path(path: &std::path::Path) -> String {
     let stem = path
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or_default();
-    if stem == "spec"
-        && let Some(dir) = path
-            .parent()
-            .and_then(|p| p.file_name())
-            .and_then(|s| s.to_str())
+    if let Some(dir) = path
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|s| s.to_str())
     {
-        return dir.replace('-', ".");
+        if stem == "spec" {
+            return dir.replace('-', ".");
+        }
+        if stem == "layer" {
+            return format!("{}.layer", dir.replace('-', "."));
+        }
     }
     stem.replace('-', ".")
 }

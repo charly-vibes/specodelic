@@ -200,41 +200,45 @@ mod tempfixture {
     }
 }
 
-/// End-to-end (task 4.1): plain delta → migrate → rewritten; second run refuses.
+/// End-to-end (Revision 19): plain delta → migrate → delta byte-plain +
+/// sibling layer.md; second run refuses (sidecar exists).
 #[test]
 fn migrate_wraps_delta_then_refuses_second_run() {
     let dir = tempdir();
     let cap = dir.path().join("demo-cap");
     std::fs::create_dir_all(&cap).unwrap();
     let file = cap.join("spec.md");
-    std::fs::write(
-        &file,
-        "## ADDED Requirements\n\n### Requirement: Widget\nThe system SHALL wiget.\n",
-    )
-    .unwrap();
+    let original =
+        "## ADDED Requirements\n\n### Requirement: Widget\nThe system SHALL wiget.\n";
+    std::fs::write(&file, original).unwrap();
     spk()
         .arg("migrate")
         .arg(&file)
         .assert()
         .success()
-        .stdout(contains("\"inserted_frontmatter\":true"))
-        .stdout(contains("\"inserted_mirror\":true"));
-    let migrated = std::fs::read_to_string(&file).unwrap();
-    // Revision 18: the generated id is the REAL id derived by the
-    // naming law — spec.md under demo-cap/ derives id `demo.cap`.
-    assert!(migrated.starts_with("---\nid: demo.cap\nkind: intent\n"));
-    assert!(migrated.contains("## Requirements\n\n### Requirement: Widget"));
-    // Idempotence: the second run is a refusal, file untouched.
+        .stdout(contains("\"sidecar_id\":\"demo.cap.layer\""))
+        .stdout(contains("\"inserted_layers\":[\"Constraints\",\"Model\",\"Properties\"]"));
+    // The delta stays byte-plain (Revision 19: never rewritten).
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+    // The sidecar exists beside it.
+    let sidecar = std::fs::read_to_string(cap.join("layer.md")).unwrap();
+    assert!(sidecar.starts_with("---\nid: demo.cap.layer\nkind: intent\n"));
+    // Idempotence: the second run is a refusal, disk untouched.
     spk()
         .arg("migrate")
         .arg(&file)
         .assert()
         .failure()
-        .stdout(contains("already dual-format"));
-    assert_eq!(std::fs::read_to_string(&file).unwrap(), migrated);
+        .stdout(contains("already migrated"));
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+    assert_eq!(
+        std::fs::read_to_string(cap.join("layer.md")).unwrap(),
+        sidecar
+    );
 }
 
-/// (task 4.2) The migrated scaffold lints clean through the real binary.
+/// (task 4.2) The migrated sidecar scaffold lints clean through the
+/// real binary; the plain delta is parse-skipped by lint.
 #[test]
 fn migrated_scaffold_lints_clean() {
     let dir = tempdir();
@@ -247,13 +251,13 @@ fn migrated_scaffold_lints_clean() {
     spk().arg("migrate").arg(&file).assert().success();
     spk()
         .arg("lint")
-        .arg(&file)
+        .arg(dir.path().join("layer.md"))
         .assert()
         .success()
         .stdout(contains("\"issues\":[]"));
 }
 
-/// (task 4.3) --dry-run prints the content, writes nothing.
+/// (task 4.3) --dry-run prints the sidecar content, writes nothing.
 #[test]
 fn dry_run_leaves_disk_untouched() {
     let dir = tempdir();
@@ -266,8 +270,11 @@ fn dry_run_leaves_disk_untouched() {
         .arg(&file)
         .assert()
         .success()
-        .stdout(contains("## Requirements"));
+        .stdout(contains("## Constraints"))
+        .stdout(contains("layer.md"))
+        .stdout(contains("\"dry_run\":true"));
     assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+    assert!(!dir.path().join("layer.md").exists());
 }
 
 /// Naming law: a generated id `spec` only lints when the file is named

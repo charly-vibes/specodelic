@@ -1,43 +1,39 @@
-//! `spk migrate` — wrap an existing openspec delta file in place into the
-//! dual-format four-layer skeleton (gh#6 item 1, beads specodelic-c32).
+//! `spk migrate` — wrap an existing plain openspec delta into the
+//! Revision 19 pair: the delta stays byte-plain, the specodelic layer is
+//! scaffolded into a sibling `layer.md` sidecar (gh#6 item 1, beads
+//! specodelic-c32; reworked by add-delta-layer-sidecar / Revision 19).
 //!
-//! The pure seam: [`migrate`] transforms in-memory text, the CLI arm
-//! (src/main.rs) does file IO and envelope emission. Design decisions live
-//! in openspec/changes/add-spk-migrate/design.md — notably D2 (the mirror
-//! is the migration marker: refuse anything that already has it), D3
-//! (merge adds only missing pieces), D4 (the scaffold is wired so it
-//! lints clean as written), D5 (no backup files — `--dry-run` is the
-//! preview path), D6 (byte fidelity: the mirror is a byte-exact slice,
-//! CRLF preserved) — extended for specodelic-54v: a delta may carry both
-//! ADDED and MODIFIED requirements, and the mirror must aggregate every
-//! requirement from every carried delta section or
-//! `linter.requirement_drift` (per-requirement comparison across all
-//! carried sections) fails the freshly migrated file. Extended again for
-//! specodelic-nvs9 (gh-16): a delta carrying only `## MODIFIED Requirements`
-//! wraps too — the mirror holds the MODIFIED body in its modified form, the
-//! same text requirement_drift compares for that section.
+//! The pure seam: [`migrate`] returns the sidecar content, the CLI arm
+//! (src/commands/manage.rs) does file IO and envelope emission. The old
+//! dual-format wrap — frontmatter + layers + `## Requirements` mirror
+//! inserted into the delta itself — retired with the mirror: plain
+//! deltas cannot carry the mirror without failing openspec validation.
+//! Design decisions now live in openspec/changes/add-delta-layer-sidecar/
+//! design.md; the carried-over decisions keep their force: D3 (merge
+//! adds only missing pieces — an existing sidecar passes through
+//! untouched, enforced at the CLI layer), D4 (the scaffold is wired so
+//! it lints clean as written), D5 (no backup files — `--dry-run` is the
+//! preview path). `--rekey` (add-migrate-rekey) keeps the Revision 18
+//! semantics unchanged: an `id: spec` dual-format file re-keyed in
+//! place, every `[[spec.*]]` ref re-keyed, every other byte untouched.
 
 use std::fmt;
 
-/// Why a file cannot be migrated (specs/migrate, refuse_already_migrated).
+/// Why a file (or pair) cannot be migrated (specs/migrate,
+/// refuse_already_migrated).
 #[derive(Debug, PartialEq, Clone)]
 pub enum MigrateError {
-    /// Frontmatter + `## Requirements` both present — already dual-format.
+    /// The file already carries frontmatter — it is a specodelic file,
+    /// not a plain delta (the dual-format wrap retired with the mirror).
     AlreadyMigrated,
     /// `## Requirements` without a delta section — a plain spec.
     NotADelta,
     /// Neither `## ADDED Requirements` nor `## MODIFIED Requirements`
     /// present — nothing to wrap.
     NoDeltaSection,
-    /// The same requirement heading appears in both the ADDED and the
-    /// MODIFIED sections (specodelic-54v): the mirror can hold only one
-    /// text per requirement, so aggregating both sections faithfully is
-    /// impossible — migrating would guarantee a
-    /// `linter.requirement_drift` failure.
-    ConflictingDelta { heading: String },
     /// A `## ADDED Requirements` heading with no trailing newline and no
     /// body — the degenerate one-line delta (specodelic-7i7): a bare
-    /// heading is not a section, so there is nothing to wrap or mirror.
+    /// heading is not a section, so there is nothing to wrap.
     BareDeltaHeading,
     /// `--rekey` on a bare `spec.md` with no parent directory: the
     /// naming law has nothing to derive the real id from (Revision 18).
@@ -49,7 +45,7 @@ impl fmt::Display for MigrateError {
         match self {
             MigrateError::AlreadyMigrated => write!(
                 f,
-                "file already carries frontmatter and a ## Requirements mirror — already dual-format"
+                "file already carries frontmatter — a specodelic file, not a plain delta"
             ),
             MigrateError::NotADelta => write!(
                 f,
@@ -65,10 +61,6 @@ impl fmt::Display for MigrateError {
                 f,
                 "the real id cannot be derived (bare spec.md, or parent dir named `spec`) — move the file under its capability directory"
             ),
-            MigrateError::ConflictingDelta { heading } => write!(
-                f,
-                "requirement `{heading}` appears in both ## ADDED Requirements and ## MODIFIED Requirements — the Requirements mirror cannot hold two different texts for one requirement, so migrating would guarantee a linter.requirement_drift failure"
-            ),
             MigrateError::BareDeltaHeading => write!(
                 f,
                 "the ## ADDED Requirements heading has no trailing newline or body — a bare heading is not a section"
@@ -76,6 +68,38 @@ impl fmt::Display for MigrateError {
         }
     }
 }
+
+/// Outcome of a wrap migration: the sibling `layer.md` sidecar content
+/// to create beside the delta — which the transform never touches.
+#[derive(Debug, PartialEq, Clone)]
+pub struct WrapOutcome {
+    /// The sidecar's frontmatter id (parent-directory id + `.layer`).
+    pub sidecar_id: String,
+    /// The full `layer.md` content.
+    pub content: String,
+    /// Names of the layer sections generated (the scaffold for a fresh
+    /// sidecar carries all three).
+    pub inserted_layers: Vec<&'static str>,
+}
+
+/// Outcome of a `--rekey` migration: the new content plus what was done.
+#[derive(Debug, PartialEq, Clone)]
+pub struct MigrateOutcome {
+    /// The full rewritten file content.
+    pub content: String,
+    /// True when the id/refs were rewritten (false = idempotent no-op).
+    pub rekeyed: Option<bool>,
+    /// Always false for a rekey (kept for envelope continuity).
+    pub inserted_frontmatter: bool,
+    /// Always empty for a rekey (kept for envelope continuity).
+    pub inserted_layers: Vec<&'static str>,
+    /// Always false for a rekey (kept for envelope continuity).
+    pub inserted_mirror: bool,
+}
+
+/// Inserted scaffold rows carry this prefix — the author's hand-finish
+/// checklist is "replace every scaffold_* id with the real thing".
+pub const SCAFFOLD_PREFIX: &str = "scaffold_";
 
 /// `--rekey` transform (add-migrate-rekey): rewrite an `id: spec`
 /// dual-format file to its Revision 18 real id. The naming law derives
@@ -86,13 +110,7 @@ impl fmt::Display for MigrateError {
 /// refused, never rewritten.
 pub fn rekey(text: &str, path: &std::path::Path) -> Result<MigrateOutcome, MigrateError> {
     // Shape refusals first — mirror the wrap path's triage.
-    if !text.starts_with(
-        "---
-",
-    ) && !text.starts_with(
-        "---
-",
-    ) {
+    if !text.starts_with("---\n") && !text.starts_with("---\r\n") {
         return Err(MigrateError::NotADelta);
     }
     let derived = crate::lint::expected_id_from_path(path);
@@ -103,11 +121,7 @@ pub fn rekey(text: &str, path: &std::path::Path) -> Result<MigrateOutcome, Migra
         return Err(MigrateError::NoDerivableId);
     }
     let fm_close = text[4..]
-        .find(
-            "
----
-",
-        )
+        .find("\n---\n")
         .map(|i| i + 4)
         .map(|i| i + 5)
         .ok_or(MigrateError::NotADelta)?;
@@ -145,205 +159,83 @@ pub fn rekey(text: &str, path: &std::path::Path) -> Result<MigrateOutcome, Migra
     })
 }
 
-/// Outcome of a migration: the new content plus what was inserted.
-#[derive(Debug, PartialEq, Clone)]
-pub struct MigrateOutcome {
-    /// The full rewritten file content.
-    pub content: String,
-    /// True when the transform was a rekey (id/refs rewritten, layers
-    /// and mirror untouched); false for a wrap migration.
-    pub rekeyed: Option<bool>,
-    /// True when frontmatter was generated (vs kept verbatim).
-    pub inserted_frontmatter: bool,
-    /// Names of the layer sections inserted (empty when all present).
-    pub inserted_layers: Vec<&'static str>,
-    /// True when the `## Requirements` mirror was appended.
-    pub inserted_mirror: bool,
-}
-
-/// Inserted scaffold rows carry this prefix — the author's hand-finish
-/// checklist is "replace every scaffold_* id with the real thing".
-pub const SCAFFOLD_PREFIX: &str = "scaffold_";
-
-/// Wrap an openspec delta into the dual-format skeleton.
+/// Wrap a plain openspec delta into the Revision 19 pair: the delta text
+/// is returned untouched in spirit (the transform never rewrites it —
+/// the CLI writes nothing back to the delta file) and the specodelic
+/// layer is scaffolded into the sibling `layer.md` sidecar content.
 ///
-/// Merge semantics (D3): existing frontmatter and existing layer sections
-/// pass through verbatim; only missing pieces are inserted. The mirror
-/// aggregates every carried delta section's requirements per-requirement
-/// (specodelic-54v): the `## ADDED Requirements` body byte-exact (D6),
-/// plus the `## MODIFIED Requirements` body in its modified form — the
-/// same per-requirement comparison `linter.requirement_drift` performs.
-/// A MODIFIED-only delta (specodelic-nvs9) wraps too: no ADDED body exists
-/// to mirror, so the mirror is the MODIFIED body — the single builder, not
-/// a fork. A file with neither delta section is still refused
-/// ([`MigrateError::NoDeltaSection`]); REMOVED-only deltas are refused as
-/// such (a mirror cannot hold text for requirements the capability no
-/// longer carries).
-pub fn migrate(text: &str, path: &std::path::Path) -> Result<MigrateOutcome, MigrateError> {
-    // Revision 18 (specodelic-mcy): generated frontmatter carries the
-    // REAL id derived by the naming law — spec.md from its parent
-    // directory, anything else from its stem. `id: spec` retired.
-    let generated_id = crate::lint::expected_id_from_path(path);
+/// Refusal triage (D3's missing-half form): a file already carrying
+/// frontmatter is a specodelic file, not a plain delta
+/// ([`MigrateError::AlreadyMigrated`]); a `## Requirements` section
+/// without a delta heading is a plain spec, not a delta
+/// ([`MigrateError::NotADelta`]); neither delta section present is
+/// nothing to wrap ([`MigrateError::NoDeltaSection`]); a bare
+/// `## ADDED Requirements` heading at EOF (specodelic-7i7) is not a
+/// section ([`MigrateError::BareDeltaHeading`]).
+pub fn migrate(text: &str, path: &std::path::Path) -> Result<WrapOutcome, MigrateError> {
     // specodelic-7i7: a bare `## ADDED Requirements` heading at EOF (no
-    // trailing newline) is not a section — refuse labeled instead of
-    // panicking on the out-of-bounds body index in section_span_from.
-    if has_bare_heading(text, "## ADDED Requirements") {
+    // trailing newline) is not a section — refuse labeled.
+    if has_bare_heading(text, "## ADDED Requirements")
+        || has_bare_heading(text, "## MODIFIED Requirements")
+    {
         return Err(MigrateError::BareDeltaHeading);
     }
     let has_added = section_span(text, "## ADDED Requirements").is_some();
     // specodelic-nvs9 (gh-16): a MODIFIED section alone is a wrappable
-    // delta — the triage below accepts ADDED, MODIFIED, or both.
+    // delta — the triage accepts ADDED, MODIFIED, or both.
     let has_modified = section_span(text, "## MODIFIED Requirements").is_some();
-    let has_mirror = section_span(text, "## Requirements").is_some();
+    let has_requirements = section_span(text, "## Requirements").is_some();
     let has_frontmatter = text.starts_with("---\n") || text.starts_with("---\r\n");
-    match (has_frontmatter, has_added || has_modified, has_mirror) {
-        // Already migrated (D2): frontmatter + mirror ⇒ refuse.
-        (true, _, true) => return Err(MigrateError::AlreadyMigrated),
-        // Plain spec: mirror without a delta heading ⇒ refuse.
+    match (has_frontmatter, has_added || has_modified, has_requirements) {
+        // Already a specodelic file: frontmatter present ⇒ refuse.
+        (true, _, _) => return Err(MigrateError::AlreadyMigrated),
+        // Plain spec: Requirements without a delta heading ⇒ refuse.
         (_, false, true) => return Err(MigrateError::NotADelta),
         // Nothing to wrap (neither ADDED nor MODIFIED present).
         (_, false, false) => return Err(MigrateError::NoDeltaSection),
         _ => {}
     }
 
+    // The sidecar id: the parent-directory id (the capability dir the
+    // delta sits in) plus a `.layer` suffix — the naming law's sidecar
+    // arm (Revision 19). A bare delta file (no parent dir) falls back to
+    // the stem law, matching expected_id_from_path.
+    let parent_id = path
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|s| s.to_str())
+        .map(|d| d.replace('-', "."))
+        .unwrap_or_else(|| {
+            path.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("spec")
+                .replace('-', ".")
+        });
+    let sidecar_id = format!("{parent_id}.layer");
+
     let eol = if text.contains("\r\n") { "\r\n" } else { "\n" };
     let mut inserted_layers: Vec<&'static str> = Vec::new();
-    let mut out = String::new();
-
-    // Frontmatter (D3: keep existing verbatim; generate only when absent).
-    let body_start = if has_frontmatter {
-        let close = if eol == "\r\n" {
-            "\r\n---\r\n"
-        } else {
-            "\n---\n"
-        };
-        let end = text
-            .find(close)
-            .map(|i| i + close.len())
-            .expect("frontmatter opening checked above");
-        out.push_str(&text[..end]);
-        end
-    } else {
-        out.push_str(&generated_frontmatter(eol, &generated_id));
-        0
-    };
-    let body = &text[body_start..];
-
-    // Layer sections in canonical order; insert the scaffold for any
-    // missing one (D4 wired scaffold). Each present section is copied
-    // verbatim up to the next `## ` heading (or EOF).
-    let mut cursor = 0usize;
-    for (layer, name) in [
-        ("## Constraints", "Constraints"),
-        ("## Model", "Model"),
-        ("## Properties", "Properties"),
-    ] {
-        match section_span_from(body, layer, cursor) {
-            Some((_, end)) => {
-                out.push_str(&body[cursor..end]);
-                cursor = end;
-            }
-            None => {
-                out.push_str(&scaffold_layer(layer, eol, &generated_id));
-                inserted_layers.push(name);
-            }
-        }
+    let mut content = generated_frontmatter(eol, &sidecar_id);
+    for layer in ["## Constraints", "## Model", "## Properties"] {
+        content.push_str(&scaffold_layer(layer, eol, &sidecar_id));
+        inserted_layers.push(match layer {
+            "## Constraints" => "Constraints",
+            "## Model" => "Model",
+            _ => "Properties",
+        });
     }
 
-    // The delta sections, verbatim through their bodies. The copy anchor
-    // is ADDED when present, else MODIFIED (specodelic-nvs9); everything
-    // from the cursor through the anchor's end is copied, never
-    // destroyed. MODIFIED is located over the whole body for the mirror
-    // (it may sit before the layers, between them and ADDED, or in the
-    // trailing region — all copied verbatim below, never destroyed).
-    let anchor_heading = if has_added {
-        "## ADDED Requirements"
-    } else {
-        "## MODIFIED Requirements"
-    };
-    let (anchor_start, anchor_end) = match section_span_from(body, anchor_heading, cursor) {
-        Some(span) => {
-            out.push_str(&body[cursor..span.1]);
-            cursor = span.1;
-            span
-        }
-        // The delta section sits before the cursor — already copied
-        // verbatim within an earlier layer span; never destroy, never
-        // re-copy. Its span is still needed for the mirror below.
-        None => section_span(body, anchor_heading).expect("delta presence checked above"),
-    };
-    let added_body = if has_added {
-        section_body(body, anchor_start, anchor_end).to_string()
-    } else {
-        String::new()
-    };
-    // Trailing content after the delta section (rare, but never destroy).
-    out.push_str(&body[cursor..]);
-
-    // Mirror (D6 byte-exact slice, extended specodelic-54v and again
-    // specodelic-nvs9): every requirement from every carried delta
-    // section, under the Requirements heading — the ADDED body byte-exact
-    // (absent for a MODIFIED-only delta), plus the MODIFIED body in its
-    // modified form, so the fresh file satisfies
-    // linter.requirement_drift's per-requirement comparison. Trimmed to
-    // exactly one trailing newline; sections joined by one blank line.
-    let mut mirror_parts: Vec<&str> = Vec::new();
-    if has_added {
-        mirror_parts.push(added_body.trim_end_matches(['\r', '\n']));
-    }
-    if let Some((modified_start, modified_end)) =
-        section_span_from(body, "## MODIFIED Requirements", 0)
-    {
-        let modified_body = section_body(body, modified_start, modified_end);
-        // Same treatment as the ADDED body (specodelic-nvs9): when the
-        // MODIFIED body is the mirror's only part, its own leading newline
-        // supplies the blank line under the ## Requirements heading (a
-        // byte-exact slice, trailing trimmed). When it joins an ADDED part,
-        // 54v trims it and the join separator supplies the blank line.
-        let modified = if mirror_parts.is_empty() {
-            modified_body.trim_end_matches(['\r', '\n'])
-        } else {
-            modified_body.trim_matches(['\r', '\n'])
-        };
-        let modified_headings = requirement_headings(modified_body);
-        // Conflict check only has teeth when an ADDED body exists to
-        // collide with (specodelic-54v); a MODIFIED-only delta cannot
-        // self-conflict.
-        for heading in requirement_headings(&added_body) {
-            if modified_headings.contains(&heading) {
-                return Err(MigrateError::ConflictingDelta { heading });
-            }
-        }
-        mirror_parts.push(modified);
-    }
-    let separator = format!("{eol}{eol}");
-    out.push_str(eol);
-    out.push_str("## Requirements");
-    out.push_str(eol);
-    out.push_str(&mirror_parts.join(&separator));
-    out.push_str(eol);
-
-    Ok(MigrateOutcome {
-        rekeyed: None,
-        content: out,
-        inserted_frontmatter: !has_frontmatter,
+    Ok(WrapOutcome {
+        sidecar_id,
+        content,
         inserted_layers,
-        inserted_mirror: true,
     })
-}
-
-/// The body text of a section span: everything after the heading line
-/// (works for both LF and CRLF files).
-fn section_body(text: &str, start: usize, end: usize) -> &str {
-    let heading_len = text[start..end].find('\n').map(|i| i + 1).unwrap_or(0);
-    &text[start + heading_len..end]
 }
 
 /// True when a `## <heading>` line occurs at a line start but is not
 /// terminated by a newline (LF or CRLF) — a bare heading at EOF, the
 /// degenerate one-line delta (specodelic-7i7). Such a heading opens no
-/// section; `migrate` refuses labeled instead of panicking on the
-/// out-of-bounds body index in `section_span_from`.
+/// section; `migrate` refuses labeled instead of misreading it.
 fn has_bare_heading(text: &str, heading: &str) -> bool {
     let mut from = 0;
     while let Some(i) = text[from..].find(heading) {
@@ -357,37 +249,24 @@ fn has_bare_heading(text: &str, heading: &str) -> bool {
     false
 }
 
-/// The requirement headings (`### Requirement: X`) carried by a delta
-/// section body, in order.
-fn requirement_headings(body: &str) -> Vec<String> {
-    body.lines()
-        .filter_map(|l| l.trim().strip_prefix("### Requirement:"))
-        .map(|h| h.trim().to_string())
-        .collect()
-}
-
 /// Byte span of a `## <name>` section: from the heading line's start to
 /// the next `## ` heading (exclusive) or EOF. Indices are relative to
 /// `text`.
 fn section_span(text: &str, heading: &str) -> Option<(usize, usize)> {
-    section_span_from(text, heading, 0)
-}
-
-fn section_span_from(text: &str, heading: &str, from: usize) -> Option<(usize, usize)> {
-    let hay = &text[from..];
+    let hay = text;
     // Heading at a line start: either the very beginning or after \n.
     // A heading must be a complete line (terminated by \n or \r\n) to
     // open a section — a bare heading not terminated by a newline (the
     // degenerate one-line delta, specodelic-7i7) falls through to the
     // needle search, which can never match it: the caller refuses
-    // labeled instead of panicking on the out-of-bounds body index.
+    // labeled instead of misreading it.
     let start = if hay.starts_with(heading)
         && (hay[heading.len()..].starts_with('\n') || hay[heading.len()..].starts_with("\r\n"))
     {
-        from
+        0
     } else {
         let needle = format!("\n{heading}\n");
-        from + hay.find(&needle)? + 1
+        hay.find(&needle)? + 1
     };
     let body_after = start + heading.len() + 1; // past heading + its newline
     let end = text[body_after..]
@@ -397,9 +276,9 @@ fn section_span_from(text: &str, heading: &str, from: usize) -> Option<(usize, u
     Some((start, end))
 }
 
-/// Generated frontmatter: the real id derived by the naming law
-/// (Revision 18, specodelic-mcy), EARS scaffold statement (D4) — the
-/// author replaces it.
+/// Generated sidecar frontmatter: the parent-dir + `.layer` id (the
+/// naming law's sidecar arm, Revision 19), EARS scaffold statement (D4)
+/// — the author replaces it.
 fn generated_frontmatter(eol: &str, id: &str) -> String {
     format!(
         "---{eol}\
@@ -410,8 +289,9 @@ fn generated_frontmatter(eol: &str, id: &str) -> String {
     )
 }
 
-/// Wired scaffold for one missing layer (D4): rows reference each other
-/// so the file lints clean before the author writes anything real.
+/// Wired scaffold for one layer (D4): rows reference each other and the
+/// sidecar's own intent so the file lints clean before the author writes
+/// anything real.
 fn scaffold_layer(layer: &str, eol: &str, id: &str) -> String {
     let p = SCAFFOLD_PREFIX;
     let self_ref = format!("[[{id}.{p}constraint]]");
@@ -448,17 +328,17 @@ mod tests {
         "## ADDED Requirements\n\n### Requirement: Widget\nThe system SHALL wiget.\n".to_string()
     }
 
-    /// Fixture path: a spec.md under a capability directory — the id
-    /// derives from the parent dir (Revision 18).
+    /// Fixture path: a spec.md under a capability directory — the
+    /// sidecar id derives from the parent dir plus `.layer` (Revision 19).
     fn spec_path() -> std::path::PathBuf {
         std::path::PathBuf::from("demo-cap/spec.md")
     }
 
-    // --- D2 refusals ---
+    // --- refusals ---
 
     #[test]
-    fn already_migrated_is_refused() {
-        let dual = "---\nid: spec\nkind: intent\nstatement: \"THE x SHALL x.\"\n---\n\n## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n\n## Requirements\n\n### Requirement: W\nThe system SHALL w.\n";
+    fn frontmatter_carrying_file_is_refused() {
+        let dual = "---\nid: spec\nkind: intent\nstatement: \"THE x SHALL x.\"\n---\n\n## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n";
         assert_eq!(
             migrate(dual, &spec_path()),
             Err(MigrateError::AlreadyMigrated)
@@ -468,321 +348,90 @@ mod tests {
     #[test]
     fn plain_spec_is_refused() {
         let plain = "# Title\n\n## Requirements\n\n### Requirement: R\nThe system SHALL r.\n";
-        assert_eq!(migrate(plain, &spec_path()), Err(MigrateError::NotADelta));
+        assert_eq!(
+            migrate(plain, &spec_path()),
+            Err(MigrateError::NotADelta)
+        );
     }
 
     #[test]
     fn no_delta_section_is_refused() {
+        let prose = "# Title\n\nSome prose, no sections at all.\n";
         assert_eq!(
-            migrate("# Just prose\n\nSome text.\n", &spec_path()),
+            migrate(prose, &spec_path()),
             Err(MigrateError::NoDeltaSection)
         );
     }
 
-    /// (specodelic-7i7) A bare `## ADDED Requirements` heading — no
-    /// trailing newline, no body — is not a section: migrate must refuse
-    /// labeled instead of panicking on the out-of-bounds body index
-    /// (section_span_from used to slice past EOF).
     #[test]
     fn degenerate_one_line_delta_is_refused_labeled() {
+        let bare = "## ADDED Requirements";
         assert_eq!(
-            migrate("## ADDED Requirements", &spec_path()),
+            migrate(bare, &spec_path()),
+            Err(MigrateError::BareDeltaHeading)
+        );
+        let bare_modified = "## MODIFIED Requirements\n\n### Requirement: W\nThe system SHALL w.\n\n## ADDED Requirements";
+        assert_eq!(
+            migrate(bare_modified, &spec_path()),
             Err(MigrateError::BareDeltaHeading)
         );
     }
 
-    // --- D1/D4 wrap ---
+    // --- the wrap ---
 
     #[test]
-    fn wraps_plain_delta_with_frontmatter_and_mirror() {
+    fn wraps_plain_delta_into_a_sidecar_leaving_the_delta_alone() {
         let delta = plain_delta();
         let out = migrate(&delta, &spec_path()).expect("migrates");
-        assert!(out.inserted_frontmatter);
-        assert_eq!(out.inserted_layers.len(), 3, "all three layers inserted");
-        assert!(out.inserted_mirror);
-        assert!(out.content.starts_with("---\nid: demo.cap\nkind: intent\n"));
-        // Delta text preserved byte-for-byte.
-        assert!(
-            out.content.contains(
-                "## ADDED Requirements\n\n### Requirement: Widget\nThe system SHALL wiget.\n"
-            ),
-            "ADDED body preserved: {}",
-            out.content
-        );
-        // Mirror is the byte-exact slice under the Requirements heading.
-        let body = "### Requirement: Widget\nThe system SHALL wiget.\n";
-        assert!(
-            out.content.contains(&format!("## Requirements\n\n{body}")),
-            "mirror present: {}",
-            out.content
-        );
-        assert_eq!(
-            out.content.matches("## Requirements").count(),
-            1,
-            "exactly one mirror"
-        );
+        // The sidecar id is the parent-dir id + .layer (Revision 19).
+        assert_eq!(out.sidecar_id, "demo.cap.layer");
+        assert!(out.content.contains("id: demo.cap.layer\n"), "{}", out.content);
+        // The sidecar carries the layer skeleton — and no mirror, no
+        // delta grammar.
+        assert!(out.content.contains("## Constraints"));
+        assert!(out.content.contains("## Model"));
+        assert!(out.content.contains("## Properties"));
+        assert!(!out.content.contains("## ADDED Requirements"));
+        assert!(!out.content.contains("## Requirements"));
+        // The transform never touches the delta text.
+        assert_eq!(delta, plain_delta(), "delta bytes unchanged");
+        assert_eq!(out.inserted_layers, vec!["Constraints", "Model", "Properties"]);
     }
 
-    // --- D3 merge ---
+    #[test]
+    fn sidecar_id_ignores_the_delta_filename() {
+        // A non-spec.md delta still sits in the capability directory —
+        // the sidecar id derives from the PARENT DIRECTORY, not the stem.
+        let out = migrate(&plain_delta(), std::path::Path::new("specs/cap-a/delta.md"))
+            .expect("migrates");
+        assert_eq!(out.sidecar_id, "cap.a.layer");
+    }
 
     #[test]
-    fn merge_keeps_existing_frontmatter_verbatim() {
-        let delta = "---\nid: spec\nkind: intent\nstatement: \"THE real SHALL hold.\"\n---\n\n## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n";
+    fn crlf_delta_gets_crlf_sidecar() {
+        let delta = "## ADDED Requirements\r\n\r\n### Requirement: Widget\r\nThe system SHALL wiget.\r\n";
         let out = migrate(delta, &spec_path()).expect("migrates");
-        assert!(!out.inserted_frontmatter, "frontmatter kept, not generated");
-        assert!(
-            out.content.starts_with(
-                "---\nid: spec\nkind: intent\nstatement: \"THE real SHALL hold.\"\n---\n"
-            ),
-            "existing frontmatter verbatim: {}",
-            out.content
-        );
-        assert!(
-            out.content
-                .contains("## Requirements\n\n### Requirement: W")
-        );
-    }
-
-    #[test]
-    fn merge_keeps_existing_constraints_layer() {
-        let constraints = "## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| real | invariant | `x > 0` | |\n\n";
-        let delta = format!(
-            "{constraints}## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n"
-        );
-        let out = migrate(&delta, &spec_path()).expect("migrates");
-        assert_eq!(out.inserted_layers, vec!["Model", "Properties"]);
-        assert!(
-            out.content.contains("| real | invariant | `x > 0` | |"),
-            "existing constraints verbatim: {}",
-            out.content
-        );
-        assert!(
-            !out.content.contains("| scaffold_constraint |"),
-            "no row injected into existing layer"
-        );
-        assert!(out.content.contains("scaffold_transition"));
-        assert!(out.content.contains("scaffold_property"));
-    }
-
-    // --- D6 byte fidelity ---
-
-    #[test]
-    fn mirror_is_byte_exact_when_delta_is_last_section() {
-        let delta = "## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n";
-        let out = migrate(delta, &spec_path()).expect("migrates");
-        assert!(
-            out.content
-                .ends_with("## Requirements\n\n### Requirement: W\nThe system SHALL w.\n")
-        );
-    }
-
-    #[test]
-    fn mirror_is_byte_exact_when_trailing_section_follows() {
-        let delta = "## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n\n## Notes\n\nSome notes.\n";
-        let out = migrate(delta, &spec_path()).expect("migrates");
-        let added = out
-            .content
-            .split("## ADDED Requirements\n")
-            .nth(1)
-            .and_then(|s| s.split("\n## Notes").next())
-            .expect("split");
-        let mirror = out
-            .content
-            .split("## Requirements\n")
-            .nth(1)
-            .and_then(|s| s.split("\n## Notes").next())
-            .expect("split");
-        assert_eq!(mirror, added, "mirror == ADDED body");
-    }
-
-    #[test]
-    fn crlf_is_preserved() {
-        let delta = "## ADDED Requirements\r\n\r\n### Requirement: W\r\nThe system SHALL w.\r\n";
-        let out = migrate(delta, &spec_path()).expect("migrates");
-        assert!(out.content.contains("## Requirements\r\n"));
-        assert!(
-            out.content.contains("\r\n- `draft`\r\n"),
-            "scaffold uses the file's CRLF: {}",
-            out.content
-        );
-        assert!(
-            !out.content.contains("\n- `draft`\n"),
-            "no LF scaffold leaked in"
-        );
-    }
-
-    #[test]
-    fn missing_trailing_newline_is_normalized() {
-        let delta = "## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.";
-        let out = migrate(delta, &spec_path()).expect("migrates");
-        assert!(out.content.ends_with('\n'), "single trailing newline");
-        assert!(!out.content.ends_with("\n\n"));
-    }
-
-    // --- mixed delta (specodelic-54v): the mirror aggregates ADDED +
-    // MODIFIED per-requirement, matching linter.requirement_drift ---
-
-    #[test]
-    fn mixed_delta_mirror_holds_both_sections_requirements() {
-        let delta = "## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n";
-        let out = migrate(delta, &spec_path()).expect("migrates");
-        let mirror = out
-            .content
-            .split("## Requirements\n")
-            .nth(1)
-            .expect("mirror present");
-        assert!(
-            mirror.contains("### Requirement: One\none holds"),
-            "ADDED requirement in mirror: {mirror}"
-        );
-        assert!(
-            mirror.contains("### Requirement: Two\ntwo holds"),
-            "MODIFIED requirement in mirror: {mirror}"
-        );
-    }
-
-    #[test]
-    fn mixed_delta_lints_clean_through_the_real_linter() {
-        let delta = "## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n";
-        let out = migrate(delta, &spec_path()).expect("migrates");
-        let spec = crate::spec::parse_str(&out.content).expect("migrated file parses");
-        let report = crate::lint::lint_corpus(&[spec]);
-        assert!(
-            report.issues.is_empty(),
-            "migrated mixed delta must lint clean: {:?}",
-            report.issues.iter().map(|i| &i.message).collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
-    fn mixed_delta_crlf_uses_file_eol_in_mirror() {
-        let delta = "## ADDED Requirements\r\n\r\n### Requirement: One\r\none holds\r\n\r\n## MODIFIED Requirements\r\n\r\n### Requirement: Two\r\ntwo holds\r\n";
-        let out = migrate(delta, &spec_path()).expect("migrates");
-        assert!(out.content.contains("## Requirements\r\n"));
-        assert!(
-            out.content
-                .contains("### Requirement: Two\r\ntwo holds\r\n")
-        );
-        assert!(!out.content.contains("### Requirement: Two\ntwo holds"));
-    }
-
-    // --- MODIFIED-only delta (specodelic-nvs9, gh-16): no ADDED body
-    // exists to mirror, so the mirror is the MODIFIED body itself ---
-
-    #[test]
-    fn modified_only_delta_wraps_with_modified_body_mirror() {
-        let delta = "## MODIFIED Requirements\n\n### Requirement: One\nmodified holds\n";
-        let out = migrate(delta, &spec_path()).expect("migrates");
-        assert!(out.inserted_frontmatter);
-        assert_eq!(out.inserted_layers.len(), 3, "all three layers inserted");
-        assert!(out.inserted_mirror);
-        // Delta body preserved byte-for-byte.
-        assert!(out.content.contains(delta), "{}", out.content);
-        // Mirror is the MODIFIED body, under the Requirements heading,
-        // same shape as the ADDED convention (blank line included).
-        assert!(
-            out.content
-                .contains("## Requirements\n\n### Requirement: One\nmodified holds\n"),
-            "mirror: {}",
-            out.content
-        );
-        assert_eq!(
-            out.content.matches("## Requirements").count(),
-            1,
-            "exactly one mirror"
-        );
-    }
-
-    #[test]
-    fn modified_only_delta_lints_clean_through_the_real_linter() {
-        let delta = "## MODIFIED Requirements\n\n### Requirement: One\nmodified holds\n";
-        let out = migrate(delta, &spec_path()).expect("migrates");
-        let spec = crate::spec::parse_str(&out.content).expect("migrated file parses");
-        let report = crate::lint::lint_corpus(&[spec]);
-        assert!(
-            report.issues.is_empty(),
-            "migrated MODIFIED-only delta must lint clean: {:?}",
-            report.issues.iter().map(|i| &i.message).collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
-    fn modified_only_crlf_uses_file_eol_in_mirror() {
-        let delta = "## MODIFIED Requirements\r\n\r\n### Requirement: One\r\nmodified holds\r\n";
-        let out = migrate(delta, &spec_path()).expect("migrates");
-        assert!(out.content.contains("## Requirements\r\n"));
-        assert!(
-            out.content
-                .contains("## Requirements\r\n\r\n### Requirement: One\r\nmodified holds\r\n"),
-            "{}",
-            out.content
-        );
-    }
-
-    #[test]
-    fn modified_only_with_existing_frontmatter_keeps_it_verbatim() {
-        let delta = "---\nid: demo.cap\nkind: intent\nstatement: \"THE demo SHALL hold.\"\n---\n\n## MODIFIED Requirements\n\n### Requirement: One\nmodified holds\n";
-        let out = migrate(delta, &spec_path()).expect("migrates");
-        assert!(!out.inserted_frontmatter, "frontmatter kept, not generated");
-        assert!(
-            out.content.starts_with(
-                "---\nid: demo.cap\nkind: intent\nstatement: \"THE demo SHALL hold.\"\n---\n"
-            ),
-            "{}",
-            out.content
-        );
-        assert!(
-            out.content
-                .contains("## Requirements\n\n### Requirement: One")
-        );
+        assert!(out.content.contains("\r\n"), "CRLF preserved in sidecar");
+        assert!(!out.content.contains("\n\n"), "no LF blank lines leak");
     }
 
     #[test]
     fn no_delta_section_message_names_both_accepted_sections() {
-        let err = migrate("# Just prose\n\nSome text.\n", &spec_path()).unwrap_err();
-        assert_eq!(err, MigrateError::NoDeltaSection);
-        assert!(
-            err.to_string()
-                .contains("## ADDED Requirements or ## MODIFIED Requirements"),
-            "message must name both accepted sections: {err}"
-        );
+        let err = migrate("# nothing\n", &spec_path()).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("## ADDED Requirements") && msg.contains("## MODIFIED Requirements"));
     }
-
-    #[test]
-    fn modified_section_between_layers_and_added_is_mirrored() {
-        let delta = "## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n";
-        let out = migrate(delta, &spec_path()).expect("migrates");
-        let mirror = out
-            .content
-            .split("## Requirements\n")
-            .nth(1)
-            .expect("mirror present");
-        assert!(mirror.contains("### Requirement: One"));
-        assert!(mirror.contains("### Requirement: Two"));
-    }
-
-    #[test]
-    fn duplicate_requirement_heading_across_sections_is_refused() {
-        let delta = "## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: One\nmodified holds\n";
-        match migrate(delta, &spec_path()) {
-            Err(MigrateError::ConflictingDelta { heading }) => {
-                assert_eq!(heading, "One");
-            }
-            other => panic!("expected ConflictingDelta, got {other:?}"),
-        }
-    }
-
-    // --- D4 scaffold lints clean (through the real linter, in-process) ---
 
     #[test]
     fn scaffold_lints_clean_through_the_real_linter() {
         let delta = plain_delta();
         let out = migrate(&delta, &spec_path()).expect("migrates");
-        let spec = crate::spec::parse_str(&out.content).expect("scaffold parses as a spec");
+        let spec = crate::spec::parse_str(&out.content).expect("sidecar parses as a spec");
+        assert_eq!(spec.intent.id, "demo.cap.layer");
         let report = crate::lint::lint_corpus(&[spec]);
         assert!(
             report.issues.is_empty(),
-            "scaffold must lint clean: {:?}",
+            "sidecar scaffold must lint clean: {:?}",
             report.issues.iter().map(|i| &i.message).collect::<Vec<_>>()
         );
     }

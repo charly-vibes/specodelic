@@ -633,26 +633,30 @@ pub(crate) fn cmd_migrate(
     if rekey {
         return cmd_migrate_rekey(file, &text, dry_run, format, verbosity, stdout, stderr);
     }
-    // Generated frontmatter carries the real id derived by the naming
-    // law (Revision 18, specodelic-mcy): a spec.md file derives from its
-    // parent directory. openspec still requires the delta filename
-    // spec.md for `openspec validate`, so a differently-named delta file
-    // is warned about — the scaffold's id derives from its stem, which
-    // lints clean but openspec will not accept as a delta.
-    let stem = std::path::Path::new(file)
-        .file_stem()
-        .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or_default();
+    // The sidecar lands beside the delta (Revision 19): the delta file
+    // itself is never rewritten.
+    let sidecar_path = std::path::Path::new(file)
+        .parent()
+        .map(|p| p.join("layer.md"))
+        .unwrap_or_else(|| std::path::PathBuf::from("layer.md"));
+    if sidecar_path.exists() {
+        // D3's pair form: an existing sidecar passes through untouched —
+        // the pair is already migrated, never rewritten.
+        let out: Output<serde_json::Value> = Output::failure(format!(
+            "{}: already migrated — the sibling layer.md exists (the delta text is never rewritten; delete the sidecar to re-scaffold)",
+            sidecar_path.display()
+        ))
+        .with_next_step("run: spk lint <sidecar> — the pair must lint clean");
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
     match migrate::migrate(&text, std::path::Path::new(file)) {
         Err(e) => {
             // Refusals are invocation errors, never tool failures
             // (specodelic-7rr precedent) — the file is never rewritten.
             let hint = match e {
                 migrate::MigrateError::AlreadyMigrated => {
-                    "run: spk lint <file> to verify the migrated file"
-                }
-                migrate::MigrateError::ConflictingDelta { .. } => {
-                    "rename the requirement in one delta section (or hand-mirror the file), then re-run: spk migrate <file>"
+                    "a migrate target is a PLAIN delta (no frontmatter); a frontmatter-carrying file is already specodelic"
                 }
                 migrate::MigrateError::BareDeltaHeading => {
                     "the delta heading must be a complete line — write the section body (### Requirement: …) after ## ADDED Requirements, then re-run: spk migrate <file>"
@@ -665,42 +669,45 @@ pub(crate) fn cmd_migrate(
             2
         }
         Ok(outcome) => {
+            let sidecar_display = sidecar_path.display().to_string();
             let write_result = if !dry_run {
-                std::fs::write(file, &outcome.content)
+                std::fs::write(&sidecar_path, &outcome.content)
             } else {
                 Ok(())
             };
             if let Err(e) = write_result {
                 let out: Output<serde_json::Value> =
-                    Output::failure(format!("{file}: write failed ({e})"))
+                    Output::failure(format!("{}: write failed ({e})", sidecar_display))
                         .with_next_step("check file permissions");
                 emit_report(out, None, format, verbosity, stdout, stderr);
                 return 2;
             }
             // Hand-finish checklist (D4): the scaffold is a marked
             // skeleton, the author derives the real content.
+            #[allow(unused_mut)]
             let mut steps = vec![
                 "replace every scaffold_* id with the real row id".to_string(),
                 "replace the scaffold intent statement with the real requirement".to_string(),
+                "the delta file stays byte-plain — openspec validates it; the sidecar carries the layer".to_string(),
             ];
-            if outcome.inserted_frontmatter {
-                steps
-                    .push("the generated id is a scaffold — the naming law derives it from the parent directory (spec.md) or the stem; adjust if the capability has a canonical id".to_string());
-            }
             let mut out: Output<serde_json::Value> = Output::success(serde_json::json!({
                 "file": file,
+                "sidecar": sidecar_display,
+                "sidecar_id": outcome.sidecar_id,
                 "dry_run": dry_run,
-                "inserted_frontmatter": outcome.inserted_frontmatter,
                 "inserted_layers": outcome.inserted_layers,
-                "inserted_mirror": outcome.inserted_mirror,
                 "content": outcome.content,
             }))
-            .with_next_step(
-                "run: spk lint <file> — the scaffold lints clean; keep it green as you fill it in",
-            );
-            if outcome.inserted_frontmatter && stem != "spec" {
+            .with_next_step(format!(
+                "run: spk lint {sidecar_display} — the scaffold lints clean; keep it green as you fill it in"
+            ));
+            let stem = std::path::Path::new(file)
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_default();
+            if stem != "spec" {
                 out = out.with_warning(format!(
-                    "openspec requires the delta filename spec.md — rename {file} to spec.md before `openspec validate` (the lint-clean id derives from the parent directory)"
+                    "openspec requires the delta filename spec.md — rename {file} to spec.md before `openspec validate` (the sidecar id derives from the parent directory)"
                 ));
             }
             for s in &steps {

@@ -298,10 +298,10 @@ enum Commands {
         #[arg(long)]
         tlc_jar: Option<String>,
     },
-    /// Wrap an existing openspec delta file in place into the dual-format
-    /// four-layer skeleton (frontmatter + scaffold layers + byte-identical
-    /// ## Requirements mirror); already-migrated files are refused.
-    /// With --rekey, instead rewrite an `id: spec` dual-format file to its
+    /// Wrap an existing plain openspec delta: the delta stays byte-plain
+    /// and the specodelic layer is scaffolded into a sibling `layer.md`
+    /// sidecar (Revision 19); an already-migrated pair is refused. With
+    /// --rekey, instead rewrite an `id: spec` dual-format file to its
     /// Revision 18 real id (naming law; idempotent no-op when already real)
     Migrate {
         /// Delta file to wrap in place (must contain ## ADDED and/or ##

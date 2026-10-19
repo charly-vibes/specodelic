@@ -2,58 +2,56 @@
 // file_lines ratchet; mixed-delta coverage specodelic-54v).
 use super::*;
 
-/// (specodelic-54v) A mixed delta (ADDED + MODIFIED) migrates and the
-/// migrated file lints clean — the mirror aggregates both bodies
-/// per-requirement, matching linter.requirement_drift (CHANGELOG #93).
-/// Regression: migrate used to mirror the ADDED body only, so the fresh
-/// file failed lint immediately (migrate exit 0 → lint exit 1).
+/// (Revision 19, add-delta-layer-sidecar) A mixed delta (ADDED +
+/// MODIFIED) wraps into the pair: the delta stays byte-plain, the
+/// sibling layer.md carries the layer, and the SIDECAIR lints clean.
+/// Regression: migrate used to rewrite the delta with a mirror — the
+/// mirror retired with the dual-delta class.
 #[test]
-fn migrate_mixed_delta_lints_clean() {
+fn migrate_mixed_delta_wraps_sidecar_pair() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("spec.md");
-    std::fs::write(
-        &file,
-        "## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n",
-    )
-    .unwrap();
+    let original =
+        "## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n";
+    std::fs::write(&file, original).unwrap();
     spk().arg("migrate").arg(&file).assert().success();
-    let migrated = std::fs::read_to_string(&file).unwrap();
-    assert!(migrated.contains("## Requirements\n\n### Requirement: One"));
-    assert!(migrated.contains("### Requirement: Two"));
-    // The freshly migrated file must not immediately fail lint.
+    // The delta file is untouched.
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+    // The sibling sidecar exists with the parent-dir + .layer id and the
+    // layer skeleton (no mirror, no delta grammar).
+    let sidecar = std::fs::read_to_string(dir.path().join("layer.md")).unwrap();
+    assert!(sidecar.contains("id: .layer") || sidecar.contains("id: "), "{sidecar}");
+    assert!(!sidecar.contains("## Requirements"));
+    // The freshly generated sidecar must not immediately fail lint.
     spk()
         .arg("lint")
-        .arg(&file)
+        .arg(dir.path().join("layer.md"))
         .assert()
         .success()
         .stdout(contains("\"issues\":[]"));
 }
 
 /// (specodelic-nvs9, gh-16) A MODIFIED-only delta — no ## ADDED
-/// Requirements section — migrates like any other delta: frontmatter,
-/// scaffold layers, and a mirror holding the MODIFIED body in its
-/// modified form (the same body linter.requirement_drift compares).
-/// Regression: migrate refused every MODIFIED-only delta with
-/// NoDeltaSection, leaving them plain so lint keeps skipping them.
+/// Requirements section — wraps like any other delta: the delta stays
+/// byte-plain, the sidecar carries the layer (Revision 19 — there is no
+/// mirror to hold the MODIFIED body).
 #[test]
-fn migrate_modified_only_delta_lints_clean() {
+fn migrate_modified_only_delta_wraps_sidecar() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("spec.md");
     let original = "## MODIFIED Requirements\n\n### Requirement: One\nmodified holds\n";
     std::fs::write(&file, original).unwrap();
     spk().arg("migrate").arg(&file).assert().success();
-    let migrated = std::fs::read_to_string(&file).unwrap();
     // The delta body is preserved byte-for-byte.
-    assert!(migrated.contains(original), "{migrated}");
-    // The mirror holds the MODIFIED text (in its modified form).
-    assert!(
-        migrated.contains("## Requirements\n\n### Requirement: One\nmodified holds\n"),
-        "{migrated}"
-    );
-    // The freshly migrated file must not immediately fail lint.
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+    // The sidecar exists; the delta grammar stays in the delta.
+    let sidecar = std::fs::read_to_string(dir.path().join("layer.md")).unwrap();
+    assert!(sidecar.contains("## Constraints"));
+    assert!(!sidecar.contains("## MODIFIED Requirements"));
+    // The freshly generated sidecar must not immediately fail lint.
     spk()
         .arg("lint")
-        .arg(&file)
+        .arg(dir.path().join("layer.md"))
         .assert()
         .success()
         .stdout(contains("\"issues\":[]"));
@@ -79,23 +77,18 @@ fn migrate_no_delta_section_refusal_names_both_sections() {
     assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
 }
 
-/// (specodelic-54v) The same requirement heading in both ADDED and
-/// MODIFIED cannot be mirrored faithfully (one heading, two texts) —
-/// migrate refuses labeled with a remediation hint, file untouched.
+/// (Revision 19) The old mirror-conflict refusal retired with the
+/// mirror: the same requirement heading in both ADDED and MODIFIED is
+/// now just a delta that carries both — the pair wraps cleanly.
 #[test]
-fn migrate_duplicate_requirement_heading_is_refused() {
+fn migrate_duplicate_requirement_heading_wraps_cleanly() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("spec.md");
     let original = "## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: One\nmodified holds\n";
     std::fs::write(&file, original).unwrap();
-    spk()
-        .arg("migrate")
-        .arg(&file)
-        .assert()
-        .failure()
-        .stdout(contains("requirement `One` appears in both"))
-        .stdout(contains("linter.requirement_drift"));
+    spk().arg("migrate").arg(&file).assert().success();
     assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+    assert!(dir.path().join("layer.md").exists());
 }
 
 /// (specodelic-7i7) A bare `## ADDED Requirements` heading — no
