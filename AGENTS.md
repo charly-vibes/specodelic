@@ -21,7 +21,7 @@
 
 This repo's `specs/`-style markdown spec files (YAML frontmatter +
 fixed-schema tables) are linted by `spk` (crates.io: specodelic).
-Write specs so `spk lint` passes; embedded format revision: specodelic.md Revision 18
+Write specs so `spk lint` passes; embedded format revision: specodelic.md Revision 19
 
 ### Lint rules (every violation names its `rule_id`)
 
@@ -37,8 +37,6 @@ Write specs so `spk lint` passes; embedded format revision: specodelic.md Revisi
 - `linter.coverage` — every constraint must have a deriving property (`∃ property.derives_from == <constraint>`)
 - `linter.no_orphan_property` — every property must derive from at least one constraint
 - `linter.law_cases` — every law-kind property must enumerate its required cases as **name:** labels in its own predicate — the identity and associativity floor is mandatory, extra named cases are checkable declarations
-- `linter.requirement_drift` — a dual-format file's ## Requirements mirror must hold every delta requirement (ADDED and MODIFIED sections alike) with identical requirement text, compared per requirement so mixed-delta files are satisfiable (blank lines and trailing space ignored)
-- `linter.dual_format_valid` — a file carrying `## ADDED Requirements` must be a dual-format file — pair it with a sibling `## Requirements` section (Revision 18: the id is the naming law's business, not this rule's)
 - `linter.terminal_states_emit` — every failure terminal state must emit exactly one file-owned effect Constraint — a mute failure terminal is a finding (openspec/specs/linter-failure_shape/spec.md; timed_out/exploration_only are the stated v1 non-goal)
 - `linter.error_labels_unique` — within one file, no two error Constraints may share a variant head — the label is file-id-namespaced (errors.md error_expr_shape), so collisions are a per-file property
 - `linter.guard_negation_total` — every failure transition must cite exactly the union of its success siblings' citation sets, or be on the recorded carve-out list (orchestrate.md's stage-fail transitions) — a zero-citation failure guard off the list is a finding
