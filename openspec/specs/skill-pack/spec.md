@@ -65,23 +65,14 @@ git, and the docs stay thin pointers to the single authoring surfaces.
 
 ### Requirement: Pack content is embedded from single tracked sources
 
-The `specodelic-design` skill pack SHALL be generated from content
-embedded in the binary via `include_str!` over tracked files in this
+The `specodelic-design` skill pack SHALL be generated from
+binary-embedded `include_str!` content over tracked files in this
 repository (`skill-packs/specodelic-design/SKILL.md` for the protocol
 prose, `docs/src/examples/reservation-order.md` for the worked-example
-reference), and the format reference SHALL be rendered by the same
-in-binary machinery that serves the `spk explain` topics it summarizes.
-The pack SHALL NOT contain a hand-copied copy of any explain table, lint
-rule list, or worked example. Generation SHALL be deterministic: two
-generations without an intervening source change produce byte-identical
-files.
-
-#### Scenario: Deterministic regeneration
-
-- **WHEN** the pack generator runs twice without an intervening source
-  or binary change
-- **THEN** the two generated file sets are byte-identical, including the
-  embedded example and the rendered topic and rule-name lists
+reference), with the format reference rendered by the same in-binary
+machinery that serves the `spk explain` topics it summarizes. It SHALL NOT
+contain a hand-copied copy of any explain table, lint rule list, or
+worked example.
 
 #### Scenario: No drift class in the pack
 
@@ -91,14 +82,26 @@ files.
   to the skill source, because the list is rendered from the served
   tables rather than restated in them
 
+### Requirement: Pack generation is deterministic
+
+Pack generation SHALL be deterministic: two generations without an
+intervening source change produce byte-identical files.
+
+#### Scenario: Deterministic regeneration
+
+- **WHEN** the pack generator runs twice without an intervening source
+  or binary change
+- **THEN** the two generated file sets are byte-identical, including the
+  embedded example and the rendered topic and rule-name lists
+
 ### Requirement: Mentioned identifiers are membership-tested
 
-Every identifier mentioned in a generated pack file SHALL resolve against the in-binary tables that serve it. Specifically: every `spk explain` topic name, lint rule id, and EARS pattern name
-mentioned in a generated pack file SHALL resolve against the in-binary
-tables the `spk explain` command serves (topic list, lint rule catalog,
-EARS grammar). This SHALL be enforced by an in-binary test that fails the
-build when a generated mention does not resolve — a hand-maintained list
-may be stale, a generated one cannot.
+Every identifier mentioned in a generated pack file SHALL resolve against
+the in-binary tables the `spk explain` command serves: every `spk explain`
+topic name, lint rule id, and EARS pattern name (topic list, lint rule
+catalog, EARS grammar). This SHALL be enforced by an in-binary test
+that fails the build when a generated mention does not resolve — a
+hand-maintained list may be stale, a generated one cannot.
 
 #### Scenario: Unresolvable rule mention fails the build
 
@@ -138,17 +141,27 @@ file is a verbatim embedding of a repo source that lacks it.
 - **THEN** the installed file starts with the managed marker block while
   the repository source remains marker-free
 
-### Requirement: Install verb writes the pack and reports its hash
+### Requirement: Install verb writes the pack and refuses overwrites
 
 `spk skill install [--dir <dir>]` SHALL write the generated pack files
 under the given directory (default `~/.claude/skills`, creating parent
-directories), SHALL refuse to overwrite pre-existing non-marker-bearing
-files at a target path instead of silently replacing them, and SHALL emit
-a JSON envelope (human-readable on TTYs) listing the written paths and a
-deterministic `pack_content_hash` computed as SHA-256 over the pack
-files sorted by relative path, each hashed as `path` + NUL + `content`.
-Exit codes follow the error contract: 0 installed, 1 write failure, 2
-invalid invocation or overwrite refusal.
+directories), and SHALL refuse to overwrite pre-existing
+non-marker-bearing files at a target path instead of silently replacing
+them. Exit codes follow the error contract: 0 installed, 1 write
+failure, 2 invalid invocation or overwrite refusal.
+
+#### Scenario: Overwrite refusal
+
+- **WHEN** a target path already holds a file without the managed marker
+- **THEN** the verb refuses with exit 2 and a remediation hint naming the
+  conflicting path, leaving the file untouched
+
+### Requirement: Install reports a deterministic pack hash
+
+The install SHALL emit a JSON envelope (human-readable on TTYs) listing
+the written paths and a deterministic `pack_content_hash` computed as
+SHA-256 over the pack files sorted by relative path, each hashed as
+`path` + NUL + `content`.
 
 #### Scenario: Install into an empty directory
 
@@ -157,22 +170,13 @@ invalid invocation or overwrite refusal.
 - **THEN** the pack files are written, the envelope lists exactly those
   paths with the managed marker files' hashes, and the exit code is 0
 
-#### Scenario: Overwrite refusal
-
-- **WHEN** a target path already holds a file without the managed marker
-- **THEN** the verb refuses with exit 2 and a remediation hint naming the
-  conflicting path, leaving the file untouched
-
 ### Requirement: Doctor reports managed-pack staleness
 
 `spk doctor` SHALL include a managed-skill-pack check that recomputes the
 generated pack hash and compares it against the on-disk installation under
 each configured target directory: `pass` when the hashes match, `stale`
 when an installed pack's hash differs from the generated one, and
-`missing` when no pack is installed. The check SHALL be optional: a
-missing pack is reported `missing` with a regenerate hint and SHALL NOT
-fail the doctor run, while a `stale` pack SHALL be reported with the
-regenerate command and the differing hash pair.
+`missing` when no pack is installed.
 
 #### Scenario: Stale installed pack is flagged
 
@@ -181,6 +185,13 @@ regenerate command and the differing hash pair.
 - **THEN** the report contains a `stale` entry naming the target
   directory, the installed hash, the expected hash, and the regenerate
   command `spk skill install`
+
+### Requirement: Managed-pack staleness is advisory
+
+The managed-skill-pack check SHALL be optional: a missing pack is
+reported `missing` with a regenerate hint and SHALL NOT fail the doctor
+run, while a `stale` pack SHALL be reported with the regenerate command
+and the differing hash pair.
 
 #### Scenario: Absent pack is not a failure
 

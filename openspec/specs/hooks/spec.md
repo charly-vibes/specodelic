@@ -55,13 +55,11 @@ lefthook) keeps flowing untouched.
 The system SHALL provide `spk hooks install` that injects a
 marker-guarded managed block wiring the command `spk lint openspec`
 into the `pre-commit:` stage of the repository's lefthook config
-(`lefthook.yml` or `lefthook.yaml`), idempotently — and when the stage
-already has a `commands:` mapping, the entry SHALL be inserted inside
-that mapping rather than as a second `commands:` key. Indentation
-SHALL be inferred from the stage's own child entries (2 spaces for an
-empty stage), never assumed. The install SHALL run the wired gate
-command once as a dry-run and report its outcome over the envelope —
-warning, never failing, when the gate would fail immediately.
+(`lefthook.yml` or `lefthook.yaml`) — and when the stage already has a
+`commands:` mapping, the entry SHALL be inserted inside that mapping
+rather than as a second `commands:` key, with indentation inferred from
+the stage's own child entries (2 spaces for an empty stage), never
+assumed.
 
 #### Scenario: entry added inside an existing commands mapping
 - **WHEN** the repo's `lefthook.yml` has a `pre-commit:` stage whose
@@ -82,6 +80,11 @@ warning, never failing, when the gate would fail immediately.
 - **THEN** the full `commands:` wrapper containing the marker-guarded
   gate entry is injected into the stage, formatted at the stage's own
   children indentation
+
+### Requirement: spk hooks install is idempotent with a dry-run gate report
+The install SHALL be idempotent, and it SHALL run the wired gate
+command once as a dry-run and report its outcome over the envelope —
+warning, never failing, when the gate would fail immediately.
 
 #### Scenario: install is idempotent
 - **WHEN** `spk hooks install` runs on a repo whose config already

@@ -64,18 +64,22 @@ The format SHALL ship the numeric-predicates standard pack as an in-repo
 `numeric.predicates`) whose manifest declares the `## Quantities`
 section, the `numeric.quantity`, `numeric.bound`, and
 `numeric.tolerance` kinds, the `measured_by` reference field, the
-`numeric.quantity_closed` and `numeric.tolerance_labels` checkers, the
-tolerance case-label floor, and the `specodelic.md Revision 14` base pin
-— discovered by corpus scan alone, with no config file and no registry.
+`numeric.quantity_closed` and `numeric.tolerance_labels` checkers, and
+the tolerance case-label floor.
+
+#### Scenario: Pack lints clean under pack_shape in every lifecycle state
+- **WHEN** the pack file is parsed in draft, published, or deprecated state
+- **THEN** pack_shape reports zero findings over the pack's declared vocabulary
+
+### Requirement: The numeric-predicates pack is discovered by corpus scan with a pinned base
+The pack's manifest SHALL pin the `specodelic.md Revision 14` base, and
+the pack SHALL be discovered by corpus scan alone — with no config file
+and no registry.
 
 #### Scenario: Corpus scan discovers the pack
 - **WHEN** `spk lint` runs over any workspace subdirectory of a repository containing `packs/numeric-predicates.md`
 - **THEN** the pack is discovered without configuration and reported in the lint envelope
 - **AND** files using none of the pack's vocabulary keep byte-identical lint findings
-
-#### Scenario: Pack lints clean under pack_shape in every lifecycle state
-- **WHEN** the pack file is parsed in draft, published, or deprecated state
-- **THEN** pack_shape reports zero findings over the pack's declared vocabulary
 
 ### Requirement: Quantity vocabulary is namespaced and per-pack closed
 The pack SHALL declare a `## Quantities` section with row shape

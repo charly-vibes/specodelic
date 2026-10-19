@@ -58,19 +58,23 @@ The format SHALL ship the quant-finance standard pack as an in-repo
 `kind: profile` spec file (`packs/quant-finance.md`, id
 `quant.finance`) whose manifest declares the `## Limits` section, the
 `quant.risk` and `quant.pricing` kinds, the `capped_by` reference
-field, the `quant.limit_closed` and `quant.risk_labels` checkers, the
-risk case-label floor, and the `specodelic.md Revision 18` base pin
-plus `numeric.predicates` and `data.lineage` pack deps — discovered by
-corpus scan alone, with no config file and no registry.
+field, the `quant.limit_closed` and `quant.risk_labels` checkers, and
+the risk case-label floor.
+
+#### Scenario: Pack lints clean under pack_shape in every lifecycle state
+- **WHEN** the pack file is parsed in draft, published, or deprecated state
+- **THEN** pack_shape reports zero findings over the pack's declared vocabulary
+
+### Requirement: The quant-finance pack is discovered by corpus scan with pinned deps
+The pack's manifest SHALL pin the `specodelic.md Revision 18` base plus
+the `numeric.predicates` and `data.lineage` pack deps in a `## Requires`
+table, and the pack SHALL be discovered by corpus scan alone — with no
+config file and no registry.
 
 #### Scenario: Corpus scan discovers the pack
 - **WHEN** `spk lint` runs over any workspace subdirectory of a repository containing `packs/quant-finance.md`
 - **THEN** the pack is discovered without configuration and reported in the lint envelope
 - **AND** files using none of the pack's vocabulary keep byte-identical lint findings
-
-#### Scenario: Pack lints clean under pack_shape in every lifecycle state
-- **WHEN** the pack file is parsed in draft, published, or deprecated state
-- **THEN** pack_shape reports zero findings over the pack's declared vocabulary
 
 ### Requirement: Limits vocabulary is namespaced and per-pack closed
 The pack SHALL declare a `## Limits` section with row shape
@@ -119,12 +123,20 @@ tolerance vocabulary).
 - **WHEN** a quant spec file states a tolerance claim on a quantity
 - **THEN** the claim is declared as a `numeric.tolerance` row under the required `numeric.predicates` pack, with no second tolerance kind from this pack
 
-### Requirement: Fixtures stay in the data-lineage pack and vocabulary is prose-safe
-The pack SHALL NOT declare a fixtures section or any vocabulary token
-that is a bare English word appearing in corpus prose: backtest
-fixtures and datasets are the required `data.lineage` pack's `## Data`
-rows, and the `limit`, `confidence`, and `Fixtures` audit excludes them
-from the Sections, Kinds, and References facets — `horizon` and
+### Requirement: Fixtures stay in the data-lineage pack
+The pack SHALL NOT declare a fixtures section: backtest fixtures and
+datasets are the required `data.lineage` pack's `## Data` rows, and the
+`Fixtures` audit excludes them from the pack's Sections, Kinds, and
+References facets.
+
+#### Scenario: Backtest fixtures are Data rows
+- **WHEN** a quant spec file declares a backtest fixture or dataset
+- **THEN** it is a `data.dataset` or `data.artifact` row of the declaring file's `## Data` table under the required `data.lineage` pack
+
+### Requirement: Pack vocabulary is prose-safe
+The pack SHALL NOT declare any vocabulary token that is a bare English
+word appearing in corpus prose: `limit` and `confidence` are prose-heavy
+and excluded from the Kinds and References facets, while `horizon` and
 `confidence` survive only as the risk floor's case labels, which the
 activation scanner never reads — corpus lint warnings stay
 byte-identical with the pack discovered.
@@ -132,7 +144,3 @@ byte-identical with the pack discovered.
 #### Scenario: Corpus prose does not falsely activate the pack
 - **WHEN** the corpus lints with the pack discovered and again with it removed
 - **THEN** issues and warnings are byte-identical — no vocabulary-match activations from prose words
-
-#### Scenario: Backtest fixtures are Data rows
-- **WHEN** a quant spec file declares a backtest fixture or dataset
-- **THEN** it is a `data.dataset` or `data.artifact` row of the declaring file's `## Data` table under the required `data.lineage` pack

@@ -111,29 +111,26 @@ executed remains `exploration_only` and is explicitly not clean.
 The model-check command and orchestrator SHALL evaluate every accepted
 kernel invariant over the complete explicit input corpus and SHALL publish
 one status per opted-in kernel or citation invariant in both CLI output
-and persisted reports. Qualified citations SHALL resolve exact invariant
-IDs; bare citations SHALL resolve within the citing file. Citation chains
-SHALL resolve in dependency order. Cycles, missing targets, and property
-rows without same-run evidence SHALL report unknown with a reason.
-An incapable backend SHALL report labeled unsupported claims, never omit
-them. This requirement supplies statuses; aggregate acceptance is specified
-by the separate verification-claims capability.
-Ordinary corpus intent IDs SHALL be unique; duplicates SHALL fail as
-duplicate_corpus_identity. Dual-format id: spec files SHALL retain local
-identity and SHALL run only as the sole parsed input to model-check,
-verify or orchestrate. Combined scopes SHALL fail as isolated_scope_required
-before compilation, evaluation or report writes, with a hint to run each
-file separately using separate artifact/report directories. Single-file
-spec.row citations SHALL resolve locally; multi-file dual-format lint SHALL
-remain valid. Report freshness follows verification-claims.
-
-#### Scenario: File-local identities do not merge into a corpus
-- **WHEN** two parsed inputs claim the same intent id (the transitional pair: an active change's delta and its deployed capability spec), or distinct real-id files compose
-- **THEN** the same-identity combined command evaluation refuses the scope as duplicate_corpus_identity before writes; files with distinct ids run independently with their own outcomes and multi-file lint keeps accepting them
+and persisted reports. This requirement supplies statuses; aggregate
+acceptance is specified by the separate verification-claims capability.
+Report freshness follows verification-claims.
 
 #### Scenario: Mixed inputs cannot hide a false kernel claim
 - **WHEN** a two-state corpus contains a kernel claim asserting 999 states and a passing Rust invariant
 - **THEN** both claim IDs appear in CLI and persisted output and the kernel claim is counterexample
+
+#### Scenario: Property execution is not invented
+- **WHEN** a citation targets a Property row without same-run invariant evidence
+- **THEN** its status is unknown and model-check does not invoke a property runner
+
+### Requirement: Citation resolution is file-scoped and dependency-ordered
+Qualified citations SHALL resolve exact invariant IDs; bare citations
+SHALL resolve within the citing file. Citation chains SHALL resolve in
+dependency order. Cycles, missing targets, and property rows without
+same-run evidence SHALL report unknown with a reason. An incapable
+backend SHALL report labeled unsupported claims, never omit them.
+Single-file spec.row citations SHALL resolve locally; multi-file
+dual-format lint SHALL remain valid.
 
 #### Scenario: Qualified and bare citations agree locally
 - **WHEN** a local passing invariant is cited by its local name and its qualified name
@@ -143,9 +140,17 @@ remain valid. Report freshness follows verification-claims.
 - **WHEN** the same multi-file corpus with a citation chain is supplied in either file order
 - **THEN** the same statuses result from the full corpus and a cycle or absent target remains unknown with a reason
 
-#### Scenario: Property execution is not invented
-- **WHEN** a citation targets a Property row without same-run invariant evidence
-- **THEN** its status is unknown and model-check does not invoke a property runner
+### Requirement: Dual-format files run under an isolated scope
+Ordinary corpus intent IDs SHALL be unique; duplicates SHALL fail as
+duplicate_corpus_identity. Dual-format id: spec files SHALL retain local
+identity and SHALL run only as the sole parsed input to model-check,
+verify or orchestrate. Combined scopes SHALL fail as isolated_scope_required
+before compilation, evaluation or report writes, with a hint to run each
+file separately using separate artifact/report directories.
+
+#### Scenario: File-local identities do not merge into a corpus
+- **WHEN** two parsed inputs claim the same intent id (the transitional pair: an active change's delta and its deployed capability spec), or distinct real-id files compose
+- **THEN** the same-identity combined command evaluation refuses the scope as duplicate_corpus_identity before writes; files with distinct ids run independently with their own outcomes and multi-file lint keeps accepting them
 
 ### Requirement: Model check runs a real backend against the compiled artifact
 The system SHALL provide a `spk model-check <files>` step that runs a

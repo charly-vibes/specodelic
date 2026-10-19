@@ -73,20 +73,24 @@ The format SHALL ship the bioimage-data domain pack as an in-repo
 `kind: profile` spec file (`packs/bioimage-data.md`, id `bioimage.data`)
 whose manifest declares the `## Axes` section, the `bioimage.transform`
 kind, the `same_shape_as` reference field, the `bioimage.dtype_is`,
-`bioimage.shape_eq`, and `bioimage.units_convertible` checkers, the
-transform case-label floor, and the `## Requires` table pinning the
+`bioimage.shape_eq`, and `bioimage.units_convertible` checkers, and the
+transform case-label floor.
+
+#### Scenario: Pack lints clean under pack_shape in every lifecycle state
+- **WHEN** the pack file is parsed in draft, published, or deprecated state
+- **THEN** pack_shape reports zero findings over the pack's declared vocabulary
+
+### Requirement: The bioimage-data pack is discovered by corpus scan with a pinned Requires table
+The pack's manifest SHALL declare a `## Requires` table pinning the
 `specodelic.md Revision 14` base plus the `data.lineage`,
-`numeric.predicates`, and `empirical.registry` pack deps — discovered by
-corpus scan alone, with no config file and no registry.
+`numeric.predicates`, and `empirical.registry` pack deps, and the pack
+SHALL be discovered by corpus scan alone — with no config file and no
+registry.
 
 #### Scenario: Corpus scan discovers the pack
 - **WHEN** `spk lint` runs over any workspace subdirectory of a repository containing `packs/bioimage-data.md`
 - **THEN** the pack is discovered without configuration and reported in the lint envelope
 - **AND** files using none of the pack's vocabulary keep byte-identical lint findings
-
-#### Scenario: Pack lints clean under pack_shape in every lifecycle state
-- **WHEN** the pack file is parsed in draft, published, or deprecated state
-- **THEN** pack_shape reports zero findings over the pack's declared vocabulary
 
 ### Requirement: The Axes registry is namespaced with opaque scale and unit
 The pack SHALL declare a `## Axes` section with row shape
@@ -190,17 +194,20 @@ pack is a labeled advisory, never silent.
 The pack SHALL NOT declare any vocabulary token that is a bare English
 word appearing in corpus prose: bare `bioimage` appears in corpus prose
 as documented asymmetry (dotted tokens cannot match prose words),
-`pipeline` is prose-heavy and rejected from this release, the predicate
-names ride pack-qualified checker rule names, `Axes`, `same_shape_as`,
-and `preserves` are verified absent from the corpus, and `dtype`
-survives only as the `## Axes` row's opaque column header and the
-transform floor's case label, which the activation scanner never reads —
+`pipeline` is prose-heavy and rejected from this release, and `Axes`,
+`same_shape_as`, and `preserves` are verified absent from the corpus —
 corpus lint warnings stay byte-identical with the pack discovered.
-
-#### Scenario: Corpus prose does not falsely activate the pack
-- **WHEN** the corpus lints with the pack discovered and again with it removed
-- **THEN** issues and warnings are byte-identical — no vocabulary-match activations from prose words
 
 #### Scenario: Prose bioimage mentions stay inert
 - **WHEN** a corpus doc's prose mentions the word `bioimage` (the packs paragraph in USAGE)
 - **THEN** the pack is not activated by that word — no warning, no finding
+
+### Requirement: Pack-only vocabulary rides opaque scanner-invisible positions
+The pack's remaining vocabulary SHALL survive only in positions the
+activation scanner never reads: the predicate names ride pack-qualified
+checker rule names, and `dtype` survives only as the `## Axes` row's
+opaque column header and the transform floor's case label.
+
+#### Scenario: Corpus prose does not falsely activate the pack
+- **WHEN** the corpus lints with the pack discovered and again with it removed
+- **THEN** issues and warnings are byte-identical — no vocabulary-match activations from prose words

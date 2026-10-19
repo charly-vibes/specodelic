@@ -95,15 +95,18 @@ the existence of a deriving Property.
 ### Requirement: Closed-world gate
 The system SHALL separate the two prohibition evidence classes: a trace
 that violates a declared, executable claim SHALL be `forbidden` in any
-invocation mode; a trace no declared Model element or claim covers SHALL
-be `forbidden` only when the invocation explicitly declared closed-world
-mode via `--closed-world`; the closed-world declaration SHALL be recorded
-in every verdict record and the report header; absence of coverage in the
-default open-world mode SHALL yield `underspecified`, never `forbidden`.
+invocation mode, and the closed-world declaration SHALL be recorded in
+every verdict record and the report header.
 
 #### Scenario: Contradiction forbidden in any mode
 - **WHEN** a trace violates an executable claim and the run was invoked without `--closed-world`
 - **THEN** the verdict is `forbidden` and its record carries `closed_world: false` with the contradicted claim id in the reason
+
+### Requirement: Uncovered traces follow the closed-world declaration
+A trace no declared Model element or claim covers SHALL be `forbidden`
+only when the invocation explicitly declared closed-world mode via
+`--closed-world`; in the default open-world mode, absence of coverage
+SHALL yield `underspecified`, never `forbidden`.
 
 #### Scenario: Uncovered trace forbidden under the declaration
 - **WHEN** a trace no declared claim or Model element covers and the run was invoked with `--closed-world`
@@ -117,22 +120,25 @@ default open-world mode SHALL yield `underspecified`, never `forbidden`.
 The system SHALL emit the verdict report through the standard envelope
 conventions (JSON default for pipes, `--human` for TTYs), carrying a
 conform-local `report_schema_version`, per-trace verdict records (scenario
-id, verdict, reason, evaluated claim ids, closed_world flag), an
+id, verdict, reason, evaluated claim ids, closed_world flag), and an
 `evidence_scope` field stating that the report establishes agreement on
-the supplied corpus and not behavioral equality, and a scope digest
-binding the parsed structured content and the consumed scenario corpus
-bytes. Re-running conform over unchanged inputs SHALL produce
-byte-identical reports — verdict records sorted by scenario id, no
-timestamps, no iteration-order leakage. A corpus with zero traces SHALL
-yield a valid report with zero records and the evidence_scope intact.
-
-#### Scenario: Scope digest binds inputs
-- **WHEN** two runs consume identical spec content but scenario corpora differing by one byte
-- **THEN** the two reports carry different scope digests; identical inputs yield identical digests
+the supplied corpus and not behavioral equality.
 
 #### Scenario: Evidence scope present in both views
 - **WHEN** the report is rendered as JSON and as `--human`
 - **THEN** both views carry the same `evidence_scope` statement — no view can omit it
+
+### Requirement: Scope digest and deterministic re-runs
+The report SHALL carry a scope digest binding the parsed structured
+content and the consumed scenario corpus bytes. Re-running conform over
+unchanged inputs SHALL produce byte-identical reports — verdict records
+sorted by scenario id, no timestamps, no iteration-order leakage — and a
+corpus with zero traces SHALL yield a valid report with zero records and
+the evidence_scope intact.
+
+#### Scenario: Scope digest binds inputs
+- **WHEN** two runs consume identical spec content but scenario corpora differing by one byte
+- **THEN** the two reports carry different scope digests; identical inputs yield identical digests
 
 #### Scenario: Re-runs are byte-identical
 - **WHEN** conform runs twice over unchanged spec and corpus inputs

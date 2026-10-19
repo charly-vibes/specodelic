@@ -61,18 +61,21 @@ The format SHALL ship the data/lineage standard pack as an in-repo
 whose manifest declares the `## Data` section, the `data.dataset`,
 `data.artifact`, and `data.environment` kinds, the `produces`,
 `produced_by`, and `consumed_by` reference fields, the
-`data.lineage.closure` checker, the artifact provenance floor, and the
-`specodelic.md Revision 14` base pin — discovered by corpus scan alone,
-with no config file and no registry.
+`data.lineage.closure` checker, and the artifact provenance floor.
+
+#### Scenario: Pack lints clean under pack_shape in every lifecycle state
+- **WHEN** the pack file is parsed in draft, published, or deprecated state
+- **THEN** pack_shape reports zero findings over the pack's declared vocabulary
+
+### Requirement: The data/lineage pack is discovered by corpus scan with a pinned base
+The pack's manifest SHALL pin the `specodelic.md Revision 14` base, and
+the pack SHALL be discovered by corpus scan alone — with no config file
+and no registry.
 
 #### Scenario: Corpus scan discovers the pack
 - **WHEN** `spk lint` runs over any workspace subdirectory of a repository containing `packs/data-lineage.md`
 - **THEN** the pack is discovered without configuration and reported in the lint envelope
 - **AND** files using none of the pack's vocabulary keep byte-identical lint findings
-
-#### Scenario: Pack lints clean under pack_shape in every lifecycle state
-- **WHEN** the pack file is parsed in draft, published, or deprecated state
-- **THEN** pack_shape reports zero findings over the pack's declared vocabulary
 
 ### Requirement: Data vocabulary is namespaced and per-pack closed
 The pack SHALL declare a `## Data` section with row shape

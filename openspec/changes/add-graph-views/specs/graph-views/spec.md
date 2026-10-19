@@ -127,33 +127,40 @@ fields as typed edges with allowed targets) from the acset `Schema`
 value (`acset::schema::canonical()` — the Reference Typing table as
 data, lint-gated against `openspec/specs/specodelic/spec.md` by
 `schema_matches_typing_table`) and the format revision marker, labeled
-with the revision it was derived from. `spk guide --schema --json` SHALL
-provide this value through a genesis envelope whose data contains
-schema_version 1, format_revision, sorted object names, and morphisms sorted
-by source/name. Each morphism SHALL carry name, column, source, target,
-refinements (side/kind pairs sorted by side/kind), source_rule
-(unchecked, appears_on or same_kind), and endo_acyclic (boolean or null).
-The export SHALL derive directly from canonical Schema; guide typing
-constants SHALL NOT supply its rows. Ordinary guide --json SHALL expose
-kinds, row shapes and revision independently.
-
-The schema renderer SHALL consume the serialized export, display refinement
-labels and reject unsuccessful envelopes, missing fields, unknown versions,
-duplicate identities and absent endpoints with schema_export_invalid and a
-regeneration hint before writing output. It SHALL neither parse Rust source
-nor reconstruct schema structure from corpus edges.
+with the revision it was derived from.
 
 #### Scenario: Schema from the Schema value
 - **WHEN** the schema view is rendered
 - **THEN** its nodes and typed edges match the `Schema` value's objects and morphisms, and the format revision is named in the output
 
+### Requirement: The schema export is a typed genesis envelope
+`spk guide --schema --json` SHALL provide the schema view through a
+genesis envelope whose data contains schema_version 1, format_revision,
+sorted object names, and morphisms sorted by source/name. Each morphism
+SHALL carry name, column, source, target, refinements (side/kind pairs
+sorted by side/kind), source_rule (unchecked, appears_on or same_kind),
+and endo_acyclic (boolean or null).
+
 #### Scenario: Schema export connects producer and renderer
 - **WHEN** the production exporter serializes canonical Schema and two valid constructed schemas differing in one morphism
 - **THEN** its canonical payload matches the source rows and rendering the two constructed exports changes the corresponding edge without a renderer edit
 
+### Requirement: The schema renderer validates the export
+The schema renderer SHALL consume the serialized export, display
+refinement labels and reject unsuccessful envelopes, missing fields,
+unknown versions, duplicate identities and absent endpoints with
+schema_export_invalid and a regeneration hint before writing output.
+It SHALL neither parse Rust source nor reconstruct schema structure
+from corpus edges.
+
 #### Scenario: Invalid schema export is refused
 - **WHEN** the renderer receives an unsuccessful envelope or schema data with a missing field, unknown version, duplicate identity or absent endpoint
 - **THEN** it fails as schema_export_invalid with a regeneration hint before writing a diagram
+
+### Requirement: The schema export derives from canonical Schema alone
+The export SHALL derive directly from canonical Schema; guide typing
+constants SHALL NOT supply its rows. Ordinary guide --json SHALL expose
+kinds, row shapes and revision independently.
 
 #### Scenario: Revision bump changes the view
 - **WHEN** a new Revision adds a Reference Typing field (Schema + corpus doc updated together under the lint gate)
@@ -249,33 +256,40 @@ fields as typed edges with allowed targets) from the acset `Schema`
 value (`acset::schema::canonical()` — the Reference Typing table as
 data, lint-gated against `openspec/specs/specodelic/spec.md` by
 `schema_matches_typing_table`) and the format revision marker, labeled
-with the revision it was derived from. `spk guide --schema --json` SHALL
-provide this value through a genesis envelope whose data contains
-schema_version 1, format_revision, sorted object names, and morphisms sorted
-by source/name. Each morphism SHALL carry name, column, source, target,
-refinements (side/kind pairs sorted by side/kind), source_rule
-(unchecked, appears_on or same_kind), and endo_acyclic (boolean or null).
-The export SHALL derive directly from canonical Schema; guide typing
-constants SHALL NOT supply its rows. Ordinary guide --json SHALL expose
-kinds, row shapes and revision independently.
-
-The schema renderer SHALL consume the serialized export, display refinement
-labels and reject unsuccessful envelopes, missing fields, unknown versions,
-duplicate identities and absent endpoints with schema_export_invalid and a
-regeneration hint before writing output. It SHALL neither parse Rust source
-nor reconstruct schema structure from corpus edges.
+with the revision it was derived from.
 
 #### Scenario: Schema from the Schema value
 - **WHEN** the schema view is rendered
 - **THEN** its nodes and typed edges match the `Schema` value's objects and morphisms, and the format revision is named in the output
 
+### Requirement: The schema export is a typed genesis envelope
+`spk guide --schema --json` SHALL provide the schema view through a
+genesis envelope whose data contains schema_version 1, format_revision,
+sorted object names, and morphisms sorted by source/name. Each morphism
+SHALL carry name, column, source, target, refinements (side/kind pairs
+sorted by side/kind), source_rule (unchecked, appears_on or same_kind),
+and endo_acyclic (boolean or null).
+
 #### Scenario: Schema export connects producer and renderer
 - **WHEN** the production exporter serializes canonical Schema and two valid constructed schemas differing in one morphism
 - **THEN** its canonical payload matches the source rows and rendering the two constructed exports changes the corresponding edge without a renderer edit
 
+### Requirement: The schema renderer validates the export
+The schema renderer SHALL consume the serialized export, display
+refinement labels and reject unsuccessful envelopes, missing fields,
+unknown versions, duplicate identities and absent endpoints with
+schema_export_invalid and a regeneration hint before writing output.
+It SHALL neither parse Rust source nor reconstruct schema structure
+from corpus edges.
+
 #### Scenario: Invalid schema export is refused
 - **WHEN** the renderer receives an unsuccessful envelope or schema data with a missing field, unknown version, duplicate identity or absent endpoint
 - **THEN** it fails as schema_export_invalid with a regeneration hint before writing a diagram
+
+### Requirement: The schema export derives from canonical Schema alone
+The export SHALL derive directly from canonical Schema; guide typing
+constants SHALL NOT supply its rows. Ordinary guide --json SHALL expose
+kinds, row shapes and revision independently.
 
 #### Scenario: Revision bump changes the view
 - **WHEN** a new Revision adds a Reference Typing field (Schema + corpus doc updated together under the lint gate)

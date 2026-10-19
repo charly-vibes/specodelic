@@ -51,13 +51,16 @@ artifacts using the shared generator IR. Integer and collection bounds,
 Unicode scalar string lengths, named definitions, and explicit singleton
 domains SHALL match the established Rust/Python domains. Predicate inputs
 SHALL map Int/String/List(T) to number/string/Array<T> recursively, with
-identical choice branch types after named expansion and no coercion.
-Ill-typed choices SHALL fail before emission, even inside empty lists. Unsupported
-fragment positions SHALL fail labeled rather than silently compile.
+no coercion.
 
 #### Scenario: Unicode and integers agree across emitters
 - **WHEN** shared fixtures include non-BMP strings and signed 32-bit endpoints
 - **THEN** emitted TypeScript strategies obey the same declared domains without UTF-16 length substitution
+
+### Requirement: TypeScript choice typing and unsupported positions fail closed
+Choice branch types SHALL be identical after named expansion. Ill-typed
+choices SHALL fail before emission, even inside empty lists. Unsupported
+fragment positions SHALL fail labeled rather than silently compile.
 
 #### Scenario: Choice typing stays shared
 - **WHEN** the shared conformance fixtures contain homogeneous choices and mixed choices hidden in aliases or nested lists
@@ -94,13 +97,16 @@ artifacts using the shared generator IR. Integer and collection bounds,
 Unicode scalar string lengths, named definitions, and explicit singleton
 domains SHALL match the established Rust/Python domains. Predicate inputs
 SHALL map Int/String/List(T) to number/string/Array<T> recursively, with
-identical choice branch types after named expansion and no coercion.
-Ill-typed choices SHALL fail before emission, even inside empty lists. Unsupported
-fragment positions SHALL fail labeled rather than silently compile.
+no coercion.
 
 #### Scenario: Unicode and integers agree across emitters
 - **WHEN** shared fixtures include non-BMP strings and signed 32-bit endpoints
 - **THEN** emitted TypeScript strategies obey the same declared domains without UTF-16 length substitution
+
+### Requirement: TypeScript choice typing and unsupported positions fail closed
+Choice branch types SHALL be identical after named expansion. Ill-typed
+choices SHALL fail before emission, even inside empty lists. Unsupported
+fragment positions SHALL fail labeled rather than silently compile.
 
 #### Scenario: Choice typing stays shared
 - **WHEN** the shared conformance fixtures contain homogeneous choices and mixed choices hidden in aliases or nested lists

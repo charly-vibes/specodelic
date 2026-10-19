@@ -45,24 +45,22 @@ THE compiler SHALL generate typed bounded values from explicitly declared genera
 
 ## ADDED Requirements
 
-### Requirement: Explicit bounded generator vocabulary
+### Requirement: Generator opt-in is an explicit bounded vocabulary
 Generator cells SHALL opt in at fragment position with **gen:** and the
 closed grammar int(lo,hi), string(min,max), list(G,min,max), one_of(G,G,...),
-or named(identifier). After named expansion, types SHALL be Int, String,
-or recursively List(T). A choice SHALL require identical branch types;
-no coercion or heterogeneous values are allowed, including inside lists.
-Empty lists SHALL retain their generator's element type. Type mismatches
-SHALL fail labeled before emitting any artifacts. Predicate v0 SHALL use
-i32, String, Vec<T> in Rust; int, str, list[T] in Python; and number, string,
-Array<T> in TypeScript, with the same recursively declared domains.
-Integer endpoints SHALL be inclusive signed 32-bit
-values; lengths SHALL be inclusive integers from 0 through 1024; strings
-SHALL contain Unicode scalar values. Invalid bounds, arity, names, or syntax
-SHALL fail labeled. Unmarked legacy cells SHALL retain emitted bytes.
+or named(identifier). Predicate v0 SHALL use i32, String, Vec<T> in Rust;
+int, str, list[T] in Python; and number, string, Array<T> in TypeScript,
+with the same recursively declared domains.
 
 #### Scenario: Real integer inputs replace name strings
 - **WHEN** a unit Property uses a marked int(-2,2) generator
 - **THEN** its Rust and Python strategies yield integers in the inclusive range rather than the generator name
+
+### Requirement: Choice typing is closed and homogeneous
+A choice SHALL require identical branch types; no coercion or
+heterogeneous values are allowed, including inside lists. Empty lists
+SHALL retain their generator's element type. Type mismatches SHALL fail
+labeled before emitting any artifacts.
 
 #### Scenario: Choice types are checked recursively
 - **WHEN** a choice mixes integer and string branches directly, through named aliases, or as list element types
@@ -71,6 +69,12 @@ SHALL fail labeled. Unmarked legacy cells SHALL retain emitted bytes.
 #### Scenario: Homogeneous choices preserve their predicate type
 - **WHEN** a choice contains only integer branches or only lists of integers, including named aliases
 - **THEN** its predicate receives the corresponding integer or list-of-integer type in every supported emitter
+
+### Requirement: Generator bounds and failures are closed
+Integer endpoints SHALL be inclusive signed 32-bit values; lengths SHALL
+be inclusive integers from 0 through 1024; strings SHALL contain Unicode
+scalar values. Invalid bounds, arity, names, or syntax SHALL fail
+labeled. Unmarked legacy cells SHALL retain emitted bytes.
 
 #### Scenario: Malformed opt-in fails before emission
 - **WHEN** a marked generator has reversed bounds or unknown syntax
@@ -103,24 +107,22 @@ No successful run SHALL be described as exhaustive input coverage.
 
 ## Requirements
 
-### Requirement: Explicit bounded generator vocabulary
+### Requirement: Generator opt-in is an explicit bounded vocabulary
 Generator cells SHALL opt in at fragment position with **gen:** and the
 closed grammar int(lo,hi), string(min,max), list(G,min,max), one_of(G,G,...),
-or named(identifier). After named expansion, types SHALL be Int, String,
-or recursively List(T). A choice SHALL require identical branch types;
-no coercion or heterogeneous values are allowed, including inside lists.
-Empty lists SHALL retain their generator's element type. Type mismatches
-SHALL fail labeled before emitting any artifacts. Predicate v0 SHALL use
-i32, String, Vec<T> in Rust; int, str, list[T] in Python; and number, string,
-Array<T> in TypeScript, with the same recursively declared domains.
-Integer endpoints SHALL be inclusive signed 32-bit
-values; lengths SHALL be inclusive integers from 0 through 1024; strings
-SHALL contain Unicode scalar values. Invalid bounds, arity, names, or syntax
-SHALL fail labeled. Unmarked legacy cells SHALL retain emitted bytes.
+or named(identifier). Predicate v0 SHALL use i32, String, Vec<T> in Rust;
+int, str, list[T] in Python; and number, string, Array<T> in TypeScript,
+with the same recursively declared domains.
 
 #### Scenario: Real integer inputs replace name strings
 - **WHEN** a unit Property uses a marked int(-2,2) generator
 - **THEN** its Rust and Python strategies yield integers in the inclusive range rather than the generator name
+
+### Requirement: Choice typing is closed and homogeneous
+A choice SHALL require identical branch types; no coercion or
+heterogeneous values are allowed, including inside lists. Empty lists
+SHALL retain their generator's element type. Type mismatches SHALL fail
+labeled before emitting any artifacts.
 
 #### Scenario: Choice types are checked recursively
 - **WHEN** a choice mixes integer and string branches directly, through named aliases, or as list element types
@@ -129,6 +131,12 @@ SHALL fail labeled. Unmarked legacy cells SHALL retain emitted bytes.
 #### Scenario: Homogeneous choices preserve their predicate type
 - **WHEN** a choice contains only integer branches or only lists of integers, including named aliases
 - **THEN** its predicate receives the corresponding integer or list-of-integer type in every supported emitter
+
+### Requirement: Generator bounds and failures are closed
+Integer endpoints SHALL be inclusive signed 32-bit values; lengths SHALL
+be inclusive integers from 0 through 1024; strings SHALL contain Unicode
+scalar values. Invalid bounds, arity, names, or syntax SHALL fail
+labeled. Unmarked legacy cells SHALL retain emitted bytes.
 
 #### Scenario: Malformed opt-in fails before emission
 - **WHEN** a marked generator has reversed bounds or unknown syntax
