@@ -27,8 +27,9 @@ content through the **dual-format protocol**:
   alongside `## Purpose` + `## Requirements` (openspec). Requirement
   text is authored once, validated by both parsers, and linted by
   `spk lint` throughout the lifecycle. Deployed specs carry no delta
-  sections — the archive applies them into `## Requirements`
-  (archive-companion strips them at deploy; Stage 1, 2026-10-19).
+  sections — openspec's apply writes the `## Requirements` section and
+  the companion re-attaches the layer (Stage 2 companion: openspec
+  applies, the companion re-attaches; 2026-10-19).
 - Dual-format files carry their REAL id, derived by the naming law: a
   `spec.md` file takes its id from its PARENT DIRECTORY name
   (`openspec/specs/ge-cli/spec.md` → `id: ge.cli`; `-` ⇔ `.`; Revision

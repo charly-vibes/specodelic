@@ -59,11 +59,13 @@ it.
 **Why not plain `openspec archive`?** The stock archive command
 regenerates spec files and destroys the specodelic layer (frontmatter
 and the three tables). specodelic ships `spk archive-companion` — it
-runs `openspec archive --skip-specs` and deploys the archived deltas
-verbatim, fail-closed on any delta lacking the layer. `spk hooks
-install` wires the dual-format gate (`spk lint openspec`) into the
-repo's pre-commit chain, so an unmirrored or unconverted delta is
-caught before commit, not after archive.
+runs `openspec archive` with default spec application (plain deltas
+are openspec's native merge), then re-attaches the dual-format layer
+from the change's archived `layer.md` sidecar; a change whose deltas
+lack restorable sidecars is refused before the destructive archive.
+`spk hooks install` wires the dual-format gate (`spk lint openspec`)
+into the repo's pre-commit chain, so an unwrapped delta is caught
+before commit, not after archive.
 
 ## The `ah` companion (espectacular)
 
@@ -95,7 +97,7 @@ this repo's [AGENTS.md](../../AGENTS.md) sibling-tool rules:
 > correspondence, and reports — it never edits, regenerates, or
 > archives spec files.
 
-That is why the dual-format archive recipe above exists as the *only*
+That is why the companion archive recipe above exists as the *only*
 sanctioned write path for capability specs: the two tools split the
 work cleanly, with specodelic owning content and espectacular owning
 the correspondence check. Nothing in `ah`'s enforcement is

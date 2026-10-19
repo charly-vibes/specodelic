@@ -33,7 +33,7 @@ THE verifier SHALL accept only complete current evidence for every required inva
 |----|------|----|-------|
 | approve | proposed | approved | [[verification.claims.process_lifecycle]] ∧ maintainer approves this proposal  |
 | implement | approved | implemented | [[verification.claims.process_lifecycle]] ∧ every constraint has passing behavioral evidence  |
-| deploy | implemented | deployed | [[verification.claims.process_lifecycle]] ∧ required gates pass and dual-format archive preserves every requirement  |
+| deploy | implemented | deployed | [[verification.claims.process_lifecycle]] ∧ required gates pass and the companion re-attachment preserves every requirement  |
 
 ## Properties
 

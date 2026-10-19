@@ -233,9 +233,11 @@ Violations are bugs, not preferences. Established 2026-09-28.
 
 - **READ-ONLY over `openspec/specs/` and `openspec/changes/`**: never
   edit, regenerate, or run `openspec archive` from espectacular.
-- The only sanctioned write path for capability specs is the dual-format
-  archive recipe (`openspec archive <id> --skip-specs` + verbatim cp):
-  default archive **destroys** the specodelic layer (frontmatter +
+- The only sanctioned write path for capability specs is the companion
+  archive recipe (`just archive-change id=<id>` — Revision 19, Stage 2:
+  openspec applies the plain deltas, the companion re-attaches the
+  layer from the archived `layer.md` sidecar): the stock archive
+  **destroys** the specodelic layer (frontmatter +
   Constraints/Model/Properties tables) — see the spike findings under
   `openspec/changes/archive/2026-09-28-spike-dual-format/`.
 - Spec files here are dual-format; espectacular may only read the

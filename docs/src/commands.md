@@ -137,24 +137,25 @@ or — with `--rekey` — a 0.6.0-era dual-format file still carrying
 `id: spec` that must be re-keyed to its real parent-dir-derived id for
 the 0.6.0 → 0.7.0 corpus migration (`spk lint <tree>` finds them).
 
-Wraps an existing openspec delta file in place into the dual-format
-four-layer skeleton: generated frontmatter (the real id derived by the
-naming law — a `spec.md` file from its parent directory, Revision 18 —
-plus an EARS scaffold statement), wired scaffold layers (`scaffold_*` placeholder rows —
-constraint, one-state model, deriving property), and a byte-identical
-`## Requirements` mirror of `## ADDED Requirements`. Existing sections
-pass through verbatim; only missing pieces are inserted. A file that
-already carries the mirror is refused, never rewritten — re-running is
-safe. The scaffold lints clean as written; keep it green while you
-replace the placeholders. Files not named `spec.md` get a naming-law
-warning (openspec requires the delta filename `spec.md`). `--dry-run`
-prints the resulting content without writing. `--rekey` instead rewrites
-an `id: spec` dual-format file (0.6.0-era) to its Revision 18 real id —
-derived from the parent directory — re-keying every `[[spec.*]]` ref;
-a file already carrying its real id is an idempotent no-op, and a plain
-delta or undeducible id is refused without rewriting. This is the
-sanctioned 0.6.0 → 0.7.0 corpus migration path: `spk lint <tree>` finds
-the files, `spk migrate <file> --rekey` per file.
+Wraps an existing openspec delta file in place into the Revision 19
+pair: the plain delta stays byte-untouched and the generated sibling
+`layer.md` sidecar carries the specodelic layer — frontmatter (the
+parent-directory-derived id with a `.layer` suffix plus an EARS
+scaffold statement) and wired scaffold layers (`scaffold_*`
+placeholder rows — constraint, one-state model, deriving property).
+Existing sidecar pieces pass through verbatim; only missing pieces are
+inserted. A file that already carries frontmatter is refused, never
+rewritten — re-running is safe. The scaffold lints clean as written;
+keep it green while you replace the placeholders. Files not named
+`spec.md` get a naming-law warning (openspec requires the delta
+filename `spec.md`). `--dry-run` prints the resulting content without
+writing. `--rekey` instead rewrites an `id: spec` dual-format file
+(0.6.0-era) to its Revision 18 real id — derived from the parent
+directory — re-keying every `[[spec.*]]` ref; a file already carrying
+its real id is an idempotent no-op, and a plain delta or undeducible id
+is refused without rewriting. This is the sanctioned 0.6.0 → 0.7.0
+corpus migration path: `spk lint <tree>` finds the files,
+`spk migrate <file> --rekey` per file.
 
 ## `spk compile <files> --out-dir <dir>`
 
@@ -472,23 +473,25 @@ uninstall` strips only the managed block.
 ## `spk archive-companion <CHANGE_ID>`
 
 **Use when:** archiving an openspec change whose deltas carry the
-dual-format layer — the default `openspec archive` would strip it
-(`spk explain dual-format` has the migration recipe).
+dual-format layer in sibling `layer.md` sidecars — the stock `openspec
+archive` regenerates deployed specs and strips the layer (`spk explain
+dual-format` has the wrap recipe).
 
 `spk archive-companion` archives an openspec change while preserving
-its dual-format layer (specodelic-fzo, GH#7): default `openspec
-archive` regenerates deployed specs from parsed deltas and strips
-frontmatter + the Constraints/Model/Properties tables — the companion
-invokes the archiver with spec application skipped, verifies each
-archived delta still carries the layer, and deploys it verbatim to
-`openspec/specs/<cap>/spec.md`. Fail-closed: a delta lacking the layer
-is refused before any copy, with the `spk explain dual-format`
-migration recipe as the hint — the tool never deploys a stripped spec.
-Re-running on an already-archived change skips the openspec invocation
-and re-restores; a change with no spec deltas succeeds with an empty
-restored list; `--dry-run` resolves and verifies the plan without
-invoking openspec or writing anything. `just archive-change` delegates
-to this command.
+its dual-format layer (specodelic-fzo, GH#7; reworked for Revision 19,
+add-delta-layer-sidecar): the companion invokes `openspec archive`
+with default spec application — plain deltas are openspec's native
+merge — then re-attaches the layer to each regenerated deployed spec
+from the change's archived `layer.md` sidecar. Fail-closed: a delta
+without a restorable sidecar is refused BEFORE the destructive
+archive, with the `spk migrate` wrap path as the hint, and the
+assembled deployed spec is shape-asserted (no delta headers,
+frontmatter + the three tables) before anything lands — the tool never
+deploys a stripped spec. Re-running on an already-archived change
+skips the openspec invocation and re-attaches to identical deployed
+bytes; a change with no spec deltas succeeds with an empty restored
+list; `--dry-run` resolves the plan without invoking openspec or
+writing anything. `just archive-change` delegates to this command.
 
 ## `spk rename <old_id> <new_id> [files|dirs]`
 

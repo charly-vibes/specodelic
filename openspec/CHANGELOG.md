@@ -1,5 +1,32 @@
 # Changelog
 
+## #134 (unreleased) — Revision 19: plain deltas + layer.md sidecars (add-delta-layer-sidecar)
+
+Landing entry for the Rev 19 change (tasks 1–7):
+
+- **feat(format)!:** Revision 19 retires the dual-format delta class —
+  a change's deltas are plain openspec files and the specodelic layer
+  rides in a sibling `layer.md` sidecar (`id: <cap>.layer`, the
+  naming-law arm added to `id_matches_file`). The delta-pairing lint
+  rules (`linter.dual_format_valid`'s pairing arm,
+  `linter.requirement_drift`) retire by construction: the shapes they
+  policed are unwritable (1.x strict rejects a mirror).
+- **feat(migrate):** the wrap path now scaffolds the sidecar pair — the
+  plain delta stays byte-untouched, the generated `layer.md` carries
+  frontmatter + scaffold layers; mirror generation removed.
+- **feat(archive-companion):** openspec applies, the companion
+  re-attaches (design D2) — `openspec archive` runs with default spec
+  application and the layer is re-attached from the archived sidecar;
+  fail-closed guards moved to sidecar-less refusal before the
+  destructive archive, plus a post-attach shape assertion. The
+  verbatim-deploy flow and `delta_self_contained` retire with their
+  subject.
+- **chore(gates):** the openspec-validate 0.19.0 pin is retired — the
+  gate is a plain `openspec validate --all --strict` 1.x invocation
+  (`@fission-ai/openspec@1.14.2`, decision
+  2026-10-19-validate-pin-retired); the corpus migrates (task 5) and
+  archives (task 7) keep it 0-findings.
+
 ## #133 — v0.11.0: archive-companion owns the archive recipe end-to-end, conformance modes, pack-discovery fix
 
 Release entry for the thread shipped since #132:

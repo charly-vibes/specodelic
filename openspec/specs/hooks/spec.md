@@ -94,8 +94,8 @@ warning, never failing, when the gate would fail immediately.
 
 #### Scenario: gate that would fail immediately is a warning, not a trap
 - **WHEN** `spk hooks install` runs in a repo whose openspec tree does
-  not yet pass the gate (for example, deltas not yet migrated to dual
-  format)
+  not yet pass the gate (for example, a change's deltas whose sidecars
+  are not yet written)
 - **THEN** the install succeeds and the envelope reports the dry-run
   outcome on the warnings channel
 - **AND** the warning carries the failure summary and an
