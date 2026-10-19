@@ -1,13 +1,16 @@
 // (split from tests/cli.rs — specodelic-g17 file_lines ratchet)
 use super::*;
 
-// ---- specodelic-zo9: dual_format_valid lint rule ----
+// ---- specodelic-zo9: dual_format_valid lint rule (retired by
+// Revision 19, add-delta-layer-sidecar — the mirror it policed is
+// unwritable in a plain delta, so the half-format shape is no longer a
+// finding; the CLI test keeps checking the retirement end to end) ----
 
 #[test]
-fn lint_flags_half_format_dual_file_via_cli() {
+fn lint_no_longer_flags_half_format_dual_file_via_cli() {
     // A file with frontmatter + ## ADDED Requirements but no sibling
-    // ## Requirements is half a dual-format file — the rule fires so the
-    // spec-integration protocol is tool-enforced, not convention.
+    // ## Requirements used to fire dual_format_valid; Revision 19
+    // retired the rule with the mirror.
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join("spec.md"),
@@ -20,10 +23,9 @@ fn lint_flags_half_format_dual_file_via_cli() {
         .unwrap();
     let stdout = String::from_utf8(out.stdout).unwrap();
     assert!(
-        stdout.contains("dual_format_valid"),
-        "half-format file flagged: {stdout}"
+        !stdout.contains("dual_format_valid"),
+        "the rule is retired: {stdout}"
     );
-    assert_eq!(out.status.code(), Some(1));
 }
 
 // ---- specodelic-6pi: recursive spec collection, no silent empty success ----

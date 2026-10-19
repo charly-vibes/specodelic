@@ -178,7 +178,7 @@ The workflow SHALL accept a delta file that is simultaneously a valid openspec d
 
 /// A file carrying `## ADDED Requirements` WITHOUT `id: spec` and without
 /// the sibling `## Requirements` — the half-format shape
-/// `dual_format_valid` exists to reject.
+/// `dual_format_valid` used to reject (rule retired by Revision 19).
 const DUAL_INVALID: &str = r#"---
 id: plain
 kind: intent
@@ -818,16 +818,20 @@ fn cases_failure_and_completeness() -> Vec<Case> {
     };
 
     vec![
-        // -- dual-format file rules -----------------------------------------------------------------
+        // -- dual-format file rules (retired by Revision 19,
+        // add-delta-layer-sidecar: the pairing and drift rules are gone
+        // with the mirror they policed — the retirement cases assert the
+        // absence, and DUAL_INVALID/DUAL_DRIFT keep covering the
+        // no-longer-firing shapes) ----------------------------------
         f(
-            "dual_format_invalid",
+            "dual_format_invalid_no_longer_fires",
             vec![("plain.md", DUAL_INVALID.to_string())],
-            &["find:linter.dual_format_valid", "find:linter.model_present"],
+            &["find:linter.model_present"],
         ),
         f(
-            "requirement_drift",
+            "requirement_drift_retired",
             vec![("spec.md", DUAL_DRIFT.to_string())],
-            &["find:linter.requirement_drift"],
+            &["clean"],
         ),
         // -- linter-failure_shape family ----------------------------------------------------------------
         f(

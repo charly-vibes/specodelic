@@ -116,14 +116,6 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
         "every law-kind property must enumerate its required cases as **name:** labels in its own predicate — the identity and associativity floor is mandatory, extra named cases are checkable declarations",
     ),
     (
-        "requirement_drift",
-        "a dual-format file's ## Requirements mirror must hold every delta requirement (ADDED and MODIFIED sections alike) with identical requirement text, compared per requirement so mixed-delta files are satisfiable (blank lines and trailing space ignored)",
-    ),
-    (
-        "dual_format_valid",
-        "a file carrying `## ADDED Requirements` must be a dual-format file — pair it with a sibling `## Requirements` section (Revision 18: the id is the naming law's business, not this rule's)",
-    ),
-    (
         "terminal_states_emit",
         "every failure terminal state must emit exactly one file-owned effect Constraint — a mute failure terminal is a finding (openspec/specs/linter-failure_shape/spec.md; timed_out/exploration_only are the stated v1 non-goal)",
     ),
@@ -641,18 +633,6 @@ mod tests {
             spec_at(
                 "---\nid: bare_spec\nkind: intent\nstatement: \"THE system SHALL exist\"\n---\n",
                 "bare-spec.md",
-            ),
-            // fires dual_format_valid (## ADDED Requirements without the
-            // sibling ## Requirements section)
-            spec_at(
-                "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## Purpose\nHalf a dual-format file.\n\n## ADDED Requirements\n\n### Requirement: Something\nThe system SHALL do the thing.\n",
-                "spec.md",
-            ),
-            // fires requirement_drift (mirrored ## Requirements drifted
-            // from ## ADDED Requirements — gh#4)
-            spec_at(
-                "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds BUT THE MIRROR DRIFTED\n",
-                "spec.md",
             ),
             // fires every_state_used (s2 unused) AND single_root_reachable
             // (s2 is an island — no transition, no link touches it)
@@ -1208,96 +1188,30 @@ mod tests {
     }
 
     #[test]
-    fn requirement_drift_fires_on_mirrored_section_drift() {
-        // gh#4: explain dual-format promises a drift check; the mirror
-        // must match the ADDED section (normalized like
-        // scripts/check_section_sync.py: per-line trailing space and
-        // blank lines ignored).
+    fn mirror_rules_retired_by_construction() {
+        // Revision 19 (add-delta-layer-sidecar): the dual-format delta
+        // class retires — plain deltas cannot carry a mirror without
+        // failing openspec validation, so requirement_drift and
+        // dual_format_valid's pairing arm have no subject left. The
+        // rules are gone from the catalog, and the shapes they policed
+        // lint clean.
+        assert!(
+            rule_semantics("requirement_drift").is_none(),
+            "requirement_drift retired from the catalog"
+        );
+        assert!(
+            rule_semantics("dual_format_valid").is_none(),
+            "dual_format_valid retired from the catalog"
+        );
         let drifted = spec_at(
-            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds BUT THE MIRROR DRIFTED\n",
+            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds BUT THE MIRROR DRIFTED\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[spec]] |\n",
             "spec.md",
         );
         let report = lint_corpus(&[drifted]);
-        let drift = report
-            .issues
-            .iter()
-            .find(|i| i.rule_id == "linter.requirement_drift")
-            .expect("drift finding fires on mismatched mirrors");
         assert!(
-            drift.message.contains("## Requirements"),
-            "finding must name the mirror section: {}",
-            drift.message
-        );
-        // Identical mirrors (differing only in blank lines / trailing
-        // space) stay clean.
-        let clean = spec_at(
-            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds  \n\n\n",
-            "spec.md",
-        );
-        let report = lint_corpus(&[clean]);
-        assert!(
-            !report
-                .issues
-                .iter()
-                .any(|i| i.rule_id == "linter.requirement_drift"),
-            "blank-line/trailing-space-only differences must not fire: {:?}",
+            report.issues.is_empty(),
+            "the retired shapes are no longer findings: {:?}",
             report.issues
-        );
-    }
-
-    #[test]
-    fn requirement_drift_allows_mixed_added_and_modified_deltas() {
-        // gh#8 (specodelic-eh0): a dual-format file carrying BOTH delta
-        // sections was unsatisfiable — whole-section equality can never
-        // match a mirror that holds both sections' requirements. The rule
-        // is per-requirement: every delta requirement must appear in the
-        // mirror with identical normalized text.
-        let satisfiable = spec_at(
-            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n\n## Requirements\n\n### Requirement: One\none holds\n\n### Requirement: Two\ntwo holds\n",
-            "spec.md",
-        );
-        let report = lint_corpus(&[satisfiable]);
-        assert!(
-            !report
-                .issues
-                .iter()
-                .any(|i| i.rule_id == "linter.requirement_drift"),
-            "a mirror holding both delta sections' requirements must be clean: {:?}",
-            report.issues
-        );
-
-        // Mirror missing one delta requirement → fires, naming it.
-        let missing = spec_at(
-            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n\n## Requirements\n\n### Requirement: One\none holds\n",
-            "spec.md",
-        );
-        let report = lint_corpus(&[missing]);
-        let drift = report
-            .issues
-            .iter()
-            .find(|i| i.rule_id == "linter.requirement_drift")
-            .expect("mirror missing a delta requirement must fire");
-        assert!(
-            drift.message.contains("Two") && drift.message.contains("## MODIFIED Requirements"),
-            "finding must name the missing requirement and its delta section: {}",
-            drift.message
-        );
-
-        // One requirement's text drifted in the mirror → fires, naming it.
-        let drifted = spec_at(
-            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds BUT THE MIRROR DRIFTED\n",
-            "spec.md",
-        );
-        let report = lint_corpus(&[drifted]);
-        let drift = report
-            .issues
-            .iter()
-            .find(|i| i.rule_id == "linter.requirement_drift")
-            .expect("drifted requirement text must fire");
-        assert!(
-            drift.message.contains("One"),
-            "finding must name the drifted requirement: {}",
-            drift.message
         );
     }
 
@@ -1370,22 +1284,22 @@ mod tests {
     }
 
     #[test]
-    fn dual_format_added_without_requirements_section_fires() {
+    fn delta_without_requirements_section_is_no_longer_a_finding() {
+        // Revision 19: a delta half without the mirror used to fire
+        // dual_format_valid — the mirror it demanded retired with the
+        // dual-delta class, so the shape lints clean.
         let spec = spec_at(
             "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: Something\nThe system SHALL do the thing.\n",
             "spec.md",
         );
         let report = lint_corpus(&[spec]);
-        let issues: Vec<_> = report
-            .issues
-            .iter()
-            .filter(|i| i.rule_id == "linter.dual_format_valid")
-            .collect();
-        assert_eq!(issues.len(), 1, "missing ## Requirements: {:?}", issues);
         assert!(
-            issues[0].message.contains("## Requirements"),
-            "message names the missing half: {}",
-            issues[0].message
+            !report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.dual_format_valid"),
+            "the pairing rule is retired: {:?}",
+            report.issues
         );
     }
 
@@ -1543,23 +1457,22 @@ mod tests {
     }
 
     #[test]
-    fn modified_delta_with_drifted_mirror_fires_requirement_drift() {
-        // update-law-named-cases 4.1: the repo's first ## MODIFIED
-        // delta must be mirror-checked exactly like an ADDED one.
+    fn modified_delta_with_drifted_mirror_is_no_longer_a_finding() {
+        // update-law-named-cases 4.1 retired by Revision 19: the MODIFIED
+        // mirror check was requirement_drift — the mirror retired with the
+        // dual-delta class, so the shape lints clean.
         let spec = spec_at(
             "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## MODIFIED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds BUT THE MIRROR DRIFTED\n",
             "spec.md",
         );
         let report = lint_all(&[spec], &checklist_fixtures());
-        let finding = report
-            .issues
-            .iter()
-            .find(|i| i.rule_id == "linter.requirement_drift")
-            .expect("a drifted MODIFIED mirror must fire requirement_drift");
         assert!(
-            finding.message.contains("## MODIFIED Requirements"),
-            "the finding names the delta section: {:?}",
-            finding.message
+            !report
+                .issues
+                .iter()
+                .any(|i| i.rule_id == "linter.requirement_drift"),
+            "the rule is retired: {:?}",
+            report.issues
         );
     }
 

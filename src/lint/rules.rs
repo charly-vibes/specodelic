@@ -83,9 +83,10 @@ pub(crate) fn expected_id_from_path(path: &std::path::Path) -> String {
 
 /// Checker-family slice of [`lint_one`]: the file-structure gate
 /// (openspec/specs/specodelic/spec.md Checker Ownership, `linter-frontmatter.md`).
-/// Attribution note: `dual_format_valid`/`requirement_drift` postdate
-/// the ownership table and ride this family — they are file-structure
-/// rules (frontmatter id + section shape) enforced with the first gate.
+/// Attribution note: `dual_format_valid`/`requirement_drift` rode this
+/// family until Revision 19 retired them with the mirror they policed
+/// (add-delta-layer-sidecar) — the family keeps frontmatter_valid +
+/// id_matches_file only.
 pub(crate) fn lint_frontmatter_family(spec: &Spec, report: &mut Report) {
     let file = file_label(spec);
 
@@ -115,110 +116,13 @@ pub(crate) fn lint_frontmatter_family(spec: &Spec, report: &mut Report) {
         }
     }
 
-    // dual_format_valid — a file carrying `## ADDED Requirements` or
-    // `## MODIFIED Requirements` (the openspec delta halves;
-    // update-law-named-cases widened the mirror rules to MODIFIED
-    // additively — the repo's first MODIFIED delta must be gated
-    // exactly like an ADDED one) must be a dual-format file: pair
-    // each delta section with a sibling `## Requirements` section (the
-    // capability half that survives archiving). Plain corpus specs (no
-    // delta section) are exempt. Revision 18 (specodelic-mcy): the id
-    // requirement retired — dual-format files carry REAL ids derived
-    // by the naming law (spec.md from parent dir), not `id: spec`;
-    // id_matches_file is the only id gate a dual-format file answers to.
-    let delta_sections: Vec<(&str, &str)> = [
-        (
-            spec.has_added_requirements,
-            "## ADDED Requirements",
-            spec.added_requirements_body.as_str(),
-        ),
-        (
-            spec.has_modified_requirements,
-            "## MODIFIED Requirements",
-            spec.modified_requirements_body.as_str(),
-        ),
-    ]
-    .into_iter()
-    .filter(|(present, _, _)| *present)
-    .map(|(_, name, body)| (name, body))
-    .collect();
-    if !delta_sections.is_empty() {
-        if !spec.has_requirements_section {
-            report.issues.push(Issue::new(
-                "dual_format_valid",
-                file.clone(),
-                format!(
-                    "file carries {} without a sibling `## Requirements` section — not a dual-format file (the capability half is missing; migrate per the recipe in openspec/project.md: mirror the requirement content into ## Requirements, keep the specodelic tables alongside, then gates: spk lint + openspec validate + scripts/check_section_sync.py for drift)",
-                    delta_sections.iter().map(|(n, _)| *n).collect::<Vec<_>>().join(" and ")
-                ),
-            ));
-        }
-
-        // requirement_drift — when both halves of a dual-format file are
-        // present, the mirror must match (gh#4: the migration recipe has
-        // agents hand-create the mirror, so drift is easy and was previously
-        // only caught by this repo's local section-sync script, never by
-        // `spk lint`), for every delta section the file carries.
-        // Comparison is PER-REQUIREMENT (gh#8 / specodelic-eh0): whole-section
-        // equality is unsatisfiable for a file carrying both `## ADDED` and
-        // `## MODIFIED Requirements` — no mirror matches both sections at
-        // once. Every requirement in each delta section must appear in the
-        // mirror with identical normalized text instead. Normalization
-        // mirrors scripts/check_section_sync.py: per-line trailing space
-        // and blank lines are ignored.
-        if spec.has_requirements_section {
-            // Split a requirements-section body into (heading, normalized
-            // text) pairs at `### Requirement:` headings.
-            let parse = |body: &str| -> Vec<(String, String)> {
-                let mut reqs: Vec<(String, Vec<&str>)> = vec![];
-                for line in body.lines() {
-                    let t = line.trim();
-                    if let Some(h) = t.strip_prefix("### Requirement:") {
-                        reqs.push((h.trim().to_string(), vec![]));
-                    } else if let Some((_, lines)) = reqs.last_mut() {
-                        lines.push(t);
-                    }
-                }
-                reqs.into_iter()
-                    .map(|(h, lines)| {
-                        (
-                            h,
-                            lines
-                                .iter()
-                                .filter(|l| !l.trim().is_empty())
-                                .copied()
-                                .collect::<Vec<_>>()
-                                .join("\n"),
-                        )
-                    })
-                    .collect()
-            };
-            let mirror = parse(&spec.requirements_body);
-            for (section, body) in &delta_sections {
-                for (heading, text) in parse(body) {
-                    match mirror.iter().find(|(h, _)| *h == heading) {
-                        None => report.issues.push(Issue::new(
-                            "requirement_drift",
-                            file.clone(),
-                            format!(
-                                "{heading} from {section} is missing from ## Requirements — the mirror must hold identical requirement text for every delta requirement (blank lines and trailing space ignored); regenerate it from the delta section"
-                            ),
-                        )),
-                        Some((_, mirror_text)) if *mirror_text != text => {
-                            report.issues.push(Issue::new(
-                                "requirement_drift",
-                                file.clone(),
-                                format!(
-                                    "{heading} in ## Requirements does not match {section} — the mirror must hold identical requirement text (blank lines and trailing space ignored); regenerate it from the delta section"
-                                ),
-                            ));
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
-    }
+    // Revision 19 (add-delta-layer-sidecar): the dual-format delta class
+    // retired — `dual_format_valid` and `requirement_drift` (this family's
+    // former pairing/drift arms) are gone with the `## Requirements`
+    // mirror they policed; plain deltas carry the openspec grammar only
+    // and the layer rides beside them in a `layer.md` sidecar. The family
+    // keeps its file-structure core: frontmatter_valid + id_matches_file
+    // (now with the `layer.md` sidecar arm).
 }
 
 /// Checker-family slice: `linter-referential_integrity.md`'s per-file
