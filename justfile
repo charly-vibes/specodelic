@@ -99,9 +99,14 @@ graph-specs:
     cargo run -q -- graph openspec/specs
 
 # Validate every active change and every capability spec (openspec, strict,
-# non-interactive — CI safe)
+# non-interactive — CI safe). Version-guarded (specodelic-uv3v): the
+# org-wide openspec sweep installs 1.x, whose --strict flags the dual-format
+# layer (Requirements mirror + Specodelic tables — GH-20) that the ratified
+# 0.19.0 pin accepts; the script runs 0.19.x directly and falls back to the
+# pinned npx invocation otherwise, so the gate tracks corpus content, never
+# the ambient npm state.
 openspec-validate:
-    openspec validate --all --strict --no-interactive
+    python3 scripts/spec_validate.py
 
 # Lint the openspec tree with the freshly built spk: dual-format files
 # (frontmatter + tables) are checked; plain prose files are exempt
