@@ -4,12 +4,14 @@ description = ""
 # lint_flags_half_format_dual_file_via_cli was deleted with the
 # dual_format_valid rule by 378058b (Rev 19 rule retirement, design
 # Decision 3 of add-delta-layer-sidecar). Rebound to the
-# retirement-semantics test the rule retirement landed: the old shape
-# no longer fires. The scenario text in the deployed spec-integration
-# requirement 'Dual-format delta' is rewritten by the pending change
-# update-id-derivation-spec-md (task 7.0/7.1 of that change), which
-# re-authors this contract against the Revision 19 wording at its
-# archive.
+# retirement-semantics test the rule retirement landed.
+# FULFILLED (specodelic-s8fg task 7.1, 2026-10-19): the scenario text in
+# the deployed spec-integration requirement 'Dual-format delta' is now
+# the Revision 19 subject (deployed by the update-id-derivation
+# reconciliation and restated by add-delta-layer-sidecar's own archive)
+# — the retired dual shape is unwritable: 1.x strict fails it and the
+# companion's post-attach shape assertion refuses the deploy. This
+# contract re-authors against that wording as its provenance promised.
 archetype = "PF"
 status = "active"
 superseded_by = ""

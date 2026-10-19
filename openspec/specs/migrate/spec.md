@@ -1,7 +1,7 @@
 ---
 id: migrate
 kind: intent
-statement: "WHEN an openspec delta file is migrated, THE migrate capability SHALL wrap it in place into the dual-format four-layer skeleton — preserving the delta text byte-for-byte, mirroring the ADDED Requirements section into a byte-identical Requirements mirror, and refusing any file that already carries the mirror."
+statement: "WHEN an openspec delta file is migrated, THE migrate capability SHALL wrap it in place into the Revision 19 pair — leaving the plain delta byte-untouched and creating the sibling layer.md sidecar with generated frontmatter and wired scaffold layers — while refusing any file that is not a plain delta in need of a sidecar and supporting --rekey for id: spec legacy files."
 ---
 
 # migrate Specification
@@ -19,12 +19,12 @@ author's job.
 | id                      | kind      | expr                                                                                                                                                                    | traces_to |
 |-------------------------|-----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
 | process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[migrate]] |
-| delta_text_preserved    | invariant | `∀ migrated file: the ADDED Requirements section body and any pre-existing frontmatter appear in the result byte-for-byte — no rewrite, no reflow, no dropped heading` | [[migrate]]  |
-| mirror_byte_identical   | invariant | `the generated Requirements mirror section body == the ADDED Requirements section body (byte-exact slice)`                                                                | [[migrate]]  |
-| refuse_already_migrated | invariant | `a file carrying both frontmatter and a Requirements mirror is refused (exit 2), never rewritten; a file with neither section, or with a mirror but no ADDED, is refused as not-a-delta` | [[migrate]]  |
-| merge_adds_only_missing | invariant | `only missing pieces are inserted — generated frontmatter, missing layer skeletons, missing mirror; existing sections pass through untouched`                             | [[migrate]]  |
-| scaffold_lints_clean    | invariant | `the generated scaffold (frontmatter + wired scaffold_* placeholder rows + one-state model) exits spk lint 0 with zero findings as written — the author starts from a green baseline` | [[migrate]]  |
-| dry_run_writes_nothing  | invariant | `--dry-run emits the resulting content as data and never writes the file; the on-disk bytes are unchanged`                                                               | [[migrate]]  |
+| delta_text_preserved    | invariant | `∀ migrated pair: the given delta file's text is preserved byte-for-byte — the plain delta stays untouched; the wrap creates the sibling layer.md sidecar rather than rewriting the delta (Revision 19: the dual-format wrap and its ## Requirements mirror are retired)` | [[migrate]]  |
+| sidecar_generated       | invariant | `the wrap produces the pair — the byte-unchanged plain delta plus the generated sibling layer.md carrying frontmatter (the parent-directory-derived id with a .layer suffix, kind intent, an EARS scaffold statement) and the wired scaffold layers; no mirror exists to maintain`                                                                | [[migrate]]  |
+| refuse_already_migrated | invariant | `a file that is not a plain delta in need of a sidecar is refused (exit 2), never rewritten: a file carrying frontmatter (already a specodelic file), a file whose only Requirements heading is a deployed spec's ## Requirements section, and a file carrying no Requirements heading at all` | [[migrate]]  |
+| merge_adds_only_missing | invariant | `only missing pieces are inserted when migrating a partially migrated pair — an existing sidecar passes through untouched and no scaffold statement is inserted; only missing sidecar pieces are generated (Revision 19: the mirror is no longer a piece that can be missing)`                             | [[migrate]]  |
+| scaffold_lints_clean    | invariant | `the generated sidecar (frontmatter + wired scaffold_* placeholder rows + one-state model) exits spk lint 0 with zero findings as written — the author starts from a green baseline` | [[migrate]]  |
+| dry_run_writes_nothing  | invariant | `--dry-run emits the resulting pair content as data and never writes a file; the on-disk bytes are unchanged`                                                               | [[migrate]]  |
 | rekey_derives_real_id   | invariant | `--rekey derives the real id by the naming law — the parent directory name for a spec.md file (- ⇔ ., _ literal) — and replaces the frontmatter `id: spec` line with it; every [[spec]] ref re-keys to [[<derived-id>]] and every [[spec. prefix to [[<derived-id>.; every other byte stays untouched` | [[migrate]] |
 | rekey_refusals          | invariant | `--rekey on a file without frontmatter is refused (a plain delta takes the wrap path); on a spec.md with no derivable id (bare, or parent dir named `spec`) it is refused; on a file whose id is already not `spec` it is an idempotent no-op with a warning, never rewritten` | [[migrate]] |
 
@@ -43,7 +43,7 @@ author's job.
 | id           | from       | to        | guard                                    |
 |--------------|------------|-----------|-------------------------------------------|
 | begin_wrap   | unwrapping | wrapping  | [[migrate.delta_text_preserved]]  |
-| write_result | wrapping   | written   | [[migrate.mirror_byte_identical]]  |
+| write_result | wrapping   | written   | [[migrate.sidecar_generated]]  |
 | dry_run_pass | wrapping   | wrapping  | [[migrate.dry_run_writes_nothing]]  |
 | refuse       | unwrapping | refused   | [[migrate.refuse_already_migrated]]  |
 | merge_only   | wrapping   | written   | [[migrate.merge_adds_only_missing]]  |
@@ -56,11 +56,11 @@ author's job.
 | id                        | kind | derives_from                     | generator                        | predicate                                        |
 |---------------------------|------|----------------------------------|----------------------------------|--------------------------------------------------|
 | process_lifecycle_checked | unit | [[migrate.process_lifecycle]] | `lifecycle_model_present()` | `check(file) == passed` |
-| p_delta_text_preserved    | unit | [[migrate.delta_text_preserved]]    | `delta_with(frontmatter: any)`   | `migrate(file).added_body == original.added_body` |
-| p_mirror_byte_identical   | unit | [[migrate.mirror_byte_identical]]   | `delta_with(sections: any)`      | `result.mirror_body == result.added_body`         |
-| p_refuse_already_migrated | unit | [[migrate.refuse_already_migrated]] | `dual_format_file()`             | `migrate(file) == refused ∧ disk_unchanged`       |
-| p_merge_adds_only_missing | unit | [[migrate.merge_adds_only_missing]] | `delta_with(partial_layers: any)`| `existing_sections(result) == existing_sections(original)` |
-| p_scaffold_lints_clean    | unit | [[migrate.scaffold_lints_clean]]    | `any_plain_delta()`              | `lint(migrate(file)) == zero_findings`            |
+| p_delta_text_preserved    | unit | [[migrate.delta_text_preserved]]    | `delta_with(frontmatter: any)`   | `migrate(file).delta_body == original.delta_body` |
+| p_sidecar_generated       | unit | [[migrate.sidecar_generated]]   | `delta_with(sections: any)`      | `result.sidecar present with .layer-derived frontmatter ∧ result.delta byte-unchanged`         |
+| p_refuse_already_migrated | unit | [[migrate.refuse_already_migrated]] | `file_with_frontmatter_or_non_delta()`             | `migrate(file) == refused ∧ disk_unchanged`       |
+| p_merge_adds_only_missing | unit | [[migrate.merge_adds_only_missing]] | `pair_with(partial_sidecar: any)`| `existing_pieces(result) == existing_pieces(original)` |
+| p_scaffold_lints_clean    | unit | [[migrate.scaffold_lints_clean]]    | `any_plain_delta()`              | `lint(migrate(file).sidecar) == zero_findings`            |
 | p_dry_run_writes_nothing  | unit | [[migrate.dry_run_writes_nothing]]  | `any_plain_delta()`              | `dry_run(file).disk_bytes == original.disk_bytes` |
 | p_rekey_derives_real_id   | unit | [[migrate.rekey_derives_real_id]] | `legacy_id_spec_dual_format_file()` | `rekey(file).id == parent_dir_derived ∧ refs re-keyed ∧ rest byte-identical` |
 | p_rekey_refusals          | unit | [[migrate.rekey_refusals]] | `plain_delta_or_bare_spec_md()` | `rekey(file) == refused ∧ disk_unchanged ∧ second_run_is_noop` |
@@ -68,38 +68,64 @@ author's job.
 ## Requirements
 
 ### Requirement: In-place wrap of a plain delta
-The system SHALL rewrite the given delta file in place — inserting generated
-frontmatter (`id: spec`, kind `intent`, an EARS scaffold statement), the
-wired scaffold layers, and the Requirements mirror — while preserving the
-ADDED Requirements text byte-for-byte.
+The system SHALL rewrite the given delta file pair in place — leaving the
+plain delta untouched and creating the sibling `layer.md` sidecar with
+generated frontmatter (the parent-directory-derived id with a `.layer`
+suffix, kind `intent`, an EARS scaffold statement) and the wired scaffold
+layers — while preserving the delta text byte-for-byte (Revision 19: the
+dual-format wrap and its `## Requirements` mirror are retired).
 
 #### Scenario: Plain delta becomes dual-format
-- **WHEN** `spk migrate delta.md` runs on a file with an ADDED Requirements section and no frontmatter
-- **THEN** the file gains frontmatter, scaffold layers, and the mirror, and the ADDED body is unchanged
+- **WHEN** `spk migrate delta.md` runs on a file with an ADDED Requirements
+  section and no frontmatter
+- **THEN** the delta file is byte-unchanged, a sibling `layer.md` is
+  created with frontmatter and scaffold layers (the retired dual wrap is
+  gone — the delta itself stays plain), and `spk lint` over the pair
+  exits 0 with zero findings
+
+#### Scenario: Plain delta gains a sidecar
+- **WHEN** the wrap completes on a plain delta
+- **THEN** the change directory holds the pair — the byte-unchanged delta
+  plus the generated sidecar — and no mirror exists to maintain
 
 #### Scenario: Scaffold lints clean
 - **WHEN** the migration completes
-- **THEN** `spk lint <file>` exits 0 with zero findings
+- **THEN** `spk lint <layer.md>` exits 0 with zero findings as written —
+  the author starts from a green baseline
 
 ### Requirement: Merge adds only missing pieces
-The system SHALL keep every already-present section (frontmatter, layers)
-verbatim when migrating a partially migrated file, inserting only the
-missing frontmatter, layers, or mirror.
+The system SHALL keep every already-present piece verbatim when migrating
+a partially migrated pair — an existing sidecar passes through untouched
+and no scaffold statement is inserted — generating only the missing
+sidecar pieces (Revision 19: the mirror is no longer a piece that can be
+missing).
 
 #### Scenario: Frontmatter kept verbatim
-- **WHEN** the file already carries frontmatter
-- **THEN** it appears unchanged in the result and no scaffold statement is inserted
+- **WHEN** the pair already carries a `layer.md` with frontmatter
+- **THEN** it appears unchanged in the result and no scaffold statement is
+  inserted
+
+#### Scenario: Existing sidecar kept verbatim
+- **WHEN** the merge runs over a partially migrated pair
+- **THEN** every already-present piece (delta text, sidecar tables) passes
+  through verbatim and only missing sidecar pieces are generated
 
 ### Requirement: Refuse already migrated or non-delta files
-The system SHALL refuse (exit 2) any file that already carries both
-frontmatter and a Requirements mirror, any file whose only Requirements
-heading is the mirror (a plain spec), and any file carrying neither
-section.
+The system SHALL refuse (exit 2) any file that is not a plain delta in
+need of a sidecar — a file carrying frontmatter (already a specodelic
+file), a file whose only Requirements heading is a deployed spec's
+`## Requirements` section, and a file carrying no Requirements heading at
+all.
+
+#### Scenario: Frontmatter-carrying file is a refusal
+- **WHEN** `spk migrate` runs on a file that already carries frontmatter
+- **THEN** the command fails with an already-migrated message and no file
+  is changed
 
 #### Scenario: Second run is a refusal
-- **WHEN** `spk migrate` runs on an already migrated file
-- **THEN** the command fails with an already-migrated message and the file is unchanged
-
+- **WHEN** `spk migrate` runs twice over the same change directory
+- **THEN** the second run fails with an already-migrated message and both
+  files are unchanged
 
 ### Requirement: Rekey an id:spec dual-format file to its real id
 The system SHALL support `--rekey` on the migrate command: a file

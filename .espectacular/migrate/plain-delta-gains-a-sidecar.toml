@@ -1,0 +1,12 @@
+id = "plain-delta-gains-a-sidecar"
+description = ""
+# Provenance (specodelic-s8fg task 7.1, 2026-10-19): authored at the
+# companion archive of add-delta-layer-sidecar — Revision 19 wrap
+# semantics (delta byte-plain, sibling layer.md carries the layer).
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "migrate_modified_only_delta_wraps_sidecar"

@@ -1,0 +1,12 @@
+id = "unlintable-sidecar-is-refused"
+description = ""
+# Provenance (specodelic-s8fg task 7.1, 2026-10-19): authored at the
+# companion archive of add-delta-layer-sidecar — the Revision 19
+# companion semantics (openspec applies, the companion re-attaches).
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "restore_refuses_sidecar_missing_a_table"

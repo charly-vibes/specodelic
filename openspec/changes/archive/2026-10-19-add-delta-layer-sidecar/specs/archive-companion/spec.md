@@ -1,14 +1,13 @@
 ## MODIFIED Requirements
 
 ### Requirement: Archive with dual-format preservation
-The system SHALL provide `spk archive-companion <CHANGE_ID>` that archives
-the named openspec change via the openspec CLI with spec application ON
-(plain deltas are openspec's native merge — Revision 19), then re-attaches
-the dual-format layer to each regenerated deployed spec from the change's
-archived `layer.md` sidecar, so every deployed
-`openspec/specs/<cap>/spec.md` ends up frontmatter-plus-tables dual-format
-again: the archived delta stays plain, the sidecar stays archived beside
-it, and the deployed spec is the layer-preserving re-assembly of the two.
+The system SHALL provide `spk archive-companion <CHANGE_ID>` that
+archives the named openspec change via the openspec CLI with spec
+application ON (plain deltas are openspec's native merge — Revision 19),
+then re-attaches the dual-format layer from the change's archived
+`layer.md` sidecar, so every deployed `openspec/specs/<cap>/spec.md`
+ends up frontmatter-plus-tables again: the archived delta stays plain
+and the deployed spec is the layer-preserving re-assembly of the two.
 
 #### Scenario: Dual-format delta survives archiving
 - **WHEN** an active change carries a plain delta plus a `layer.md`

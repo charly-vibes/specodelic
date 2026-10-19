@@ -102,6 +102,15 @@
       DONE: both archived via `just archive-change` (sidecars authored as
       verbatim re-keyed copies of the current deployed layers);
       migrate deployed bytes converged unchanged. Gates green after each.
+      ALSO LANDED: add-graph-views (implemented, tasks complete — new
+      capability deployed from scratch, 16 contracts authored).
+      NOT LANDED (deviation, documented in the run report):
+      add-py-fragment-emission (0/16 tasks, epic specodelic-l8l open) and
+      add-ts-fragment-emission (0/9) are UNIMPLEMENTED proposals — a trial
+      archive of py was reverted; both stay active pending their
+      implementation epic. Their deltas were pre-flighted (MODIFIED→ADDED
+      for the jf1-lost requirement blocks, <500-char texts, de-duplicated
+      scenario slug, py sidecar rebuilt as the full post-py layer).
 - [ ] 7.2 Mirror-wording residue sweep: `openspec/specs/hooks/spec.md`
       ("deltas not yet migrated to dual" advisory),
       `openspec/specs/verification-claims/spec.md` deploy transition guard
