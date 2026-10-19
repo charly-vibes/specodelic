@@ -71,7 +71,7 @@
 
 ## 6. Validate-gate retirement (the pin was only for the dual shape)
 
-- [ ] 6.1 Collapse `scripts/spec_validate.py` to a plain 1.x invocation
+- [x] 6.1 Collapse `scripts/spec_validate.py` to a plain 1.x invocation
       (no version guard, no 0.19 npx fallback); justfile `openspec-validate`
       target and ci.yml wiring updated; `tests/ci_wiring.rs` and
       `tests/test_spec_validate.py` updated (TDD: gate test names 1.x as
@@ -79,7 +79,7 @@
       line 49 installs `@fission-ai/openspec@0.19.0` globally; bump that
       install to the pinned 1.x version (and document the dev-machine
       install requirement) so the gate runs the same validator everywhere.
-- [ ] 6.2 Decision record `openspec/decisions/2026-10-DD-validate-pin-retired.md`
+- [x] 6.2 Decision record `openspec/decisions/2026-10-DD-validate-pin-retired.md`
       superseding 2026-10-19-openspec-validate-pin.md; GH-20 updated with
       the landing note (org-wide sweep unblocked).
 

@@ -1,5 +1,10 @@
 # Decision: openspec-validate gate is version-guarded on the 0.19.0 pin
 
+> **SUPERSEDED** by `2026-10-19-validate-pin-retired.md` (specodelic-s8fg
+> task 6): Revision 19 retired the dual-format delta shape this pin
+> existed for; the gate is now a plain 1.x invocation
+> (`@fission-ai/openspec@1.14.2`). Kept verbatim as the historical record.
+
 - **Date**: 2026-10-19
 - **Status**: Accepted
 - **Tickets**: beads specodelic-uv3v · GH-20
