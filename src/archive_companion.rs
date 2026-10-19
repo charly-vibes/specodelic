@@ -7,11 +7,21 @@
 //! --skip-specs --yes` (skipped when the change is already archived —
 //! idempotent re-run), locate the newest archive directory matching the
 //! change id, verify each archived delta still carries the specodelic
-//! layer (frontmatter + `## Constraints`), and deploy it verbatim to
+//! layer (frontmatter + `## Constraints`), and deploy it to
 //! `openspec/specs/<cap>/spec.md`. Fail-closed: a delta lacking the
-//! layer is refused before any copy — the tool must never be the thing
+//! layer is refused before any write — the tool must never be the thing
 //! that deploys a stripped spec (the exact failure this module exists
 //! to prevent).
+//!
+//! Stage-1 deployed-copy shape (specodelic-s8fg, decision record
+//! openspec/decisions/2026-10-19-delta-section-strip.md): the DEPLOYED
+//! copy is the delta minus its delta sections (the `## ADDED/MODIFIED/
+//! REMOVED/RENAMED Requirements` headers) — the `## Requirements`
+//! mirror stays as the deployed Requirements section, so the deployed
+//! spec is a clean openspec 1.x main spec. The ARCHIVED delta keeps the
+//! full dual-format layer (D4 lives on for the archived copy); the
+//! deployed copy is the layer-preserving re-assembly of the same
+//! content, no longer byte-identical to it.
 //!
 //! Design decisions (openspec/changes/add-archive-companion/design.md):
 //! companion flow over post-hoc restore (D1); openspec stays external,
@@ -108,6 +118,44 @@ pub enum CompanionError {
         /// IO error detail.
         detail: String,
     },
+    /// The delta's ADDED/MODIFIED requirements are not all restated in
+    /// its own `## Requirements` mirror — the corpus's self-contained
+    /// convention (constraint `delta_self_contained`) is violated.
+    /// Deploying would narrow the spec; nothing was written.
+    #[error(
+        "delta {path} is not self-contained: ADDED/MODIFIED requirement(s) {missing:?} missing from its own ## Requirements mirror — restate every requirement in the mirror (the corpus convention: every delta restates the capability's full requirement set), then re-run: spk archive-companion"
+    )]
+    DeltaNotSelfContained {
+        /// The delta path.
+        path: PathBuf,
+        /// Requirement names the mirror does not carry.
+        missing: Vec<String>,
+    },
+    /// The existing deployed spec carries requirement(s) the delta's
+    /// full requirement set (mirror ∪ REMOVED ∪ RENAMED) does not
+    /// restate — a deploy would silently narrow the spec. Nothing was
+    /// written (fail-closed coverage guard, specodelic-s8fg Stage 1).
+    #[error(
+        "refusing to deploy {path}: the existing deployed spec carries requirement(s) {missing:?} that the delta does not restate (the corpus convention: every delta restates the capability's full requirement set — restate them in the delta's mirror or REMOVED section), then re-run: spk archive-companion"
+    )]
+    UncoveredDeployedRequirements {
+        /// The delta path.
+        path: PathBuf,
+        /// Deployed requirement names the delta does not carry.
+        missing: Vec<String>,
+    },
+    /// The stripped deployed copy would still carry a delta header or a
+    /// requirement header outside `## Requirements` — the two shapes
+    /// openspec 1.x rejects in main specs. Nothing was written.
+    #[error(
+        "stripped deployed copy of {path} would still be structurally invalid: {detail} — fix the delta (every requirement must live in its ## Requirements mirror or a delta section), then re-run: spk archive-companion"
+    )]
+    DeployedShapeViolation {
+        /// The delta path.
+        path: PathBuf,
+        /// What survived the strip and where.
+        detail: String,
+    },
 }
 
 /// Result of a companion run (real or dry-run).
@@ -190,15 +238,24 @@ pub fn verify_dual_format(delta: &Path) -> Result<(), CompanionError> {
     }
 }
 
-/// Deploy every verified delta from `archive_dir` verbatim to its
-/// deployed spec path. Empty delta sets are a success with an empty
-/// list (design D8) — nothing to restore is a stated outcome.
+/// Deploy every verified delta to its deployed spec path. Empty delta
+/// sets are a success with an empty list (design D8) — nothing to
+/// restore is a stated outcome.
 ///
 /// Re-run recognition (D9): a delta lacking the dual-format layer is
 /// skipped (not copied, not reported) when its deployed target already
 /// exists and carries the layer — the post-normalization state a prior
 /// run left behind. Any other unverifiable delta is still refused
 /// before any copy (D3).
+///
+/// Stage-1 deployed-copy shape (specodelic-s8fg): the deployed copy is
+/// the delta minus its delta sections (`## ADDED/MODIFIED/REMOVED/
+/// RENAMED Requirements`) — the mirror stays as the deployed
+/// Requirements section, so the deployed spec is a clean openspec 1.x
+/// main spec (no delta headers, no requirement headers outside
+/// `## Requirements`). Guards run fail-closed before any write:
+/// self-containedness, existing-target coverage, and a post-strip
+/// shape assertion.
 pub fn restore(root: &Path, archive_dir: &Path) -> Result<Vec<PathBuf>, CompanionError> {
     let specs_dir = archive_dir.join("specs");
     let mut deltas: Vec<PathBuf> = match fs::read_dir(&specs_dir) {
@@ -211,14 +268,20 @@ pub fn restore(root: &Path, archive_dir: &Path) -> Result<Vec<PathBuf>, Companio
     };
     deltas.sort();
 
-    // Fail closed BEFORE any copy (design D3): verify everything first,
-    // then deploy. A refusal never leaves a half-restored tree. A
-    // layer-less delta is recognized as already deployed (D9) only when
-    // its deployed target carries the dual-format layer.
-    let mut to_copy = Vec::new();
+    // Fail closed BEFORE any write (design D3, now covering the shape
+    // guards too): verify everything first, then deploy. A refusal never
+    // leaves a half-restored tree. A layer-less delta is recognized as
+    // already deployed (D9) only when its deployed target carries the
+    // dual-format layer.
+    let mut to_deploy: Vec<(PathBuf, String)> = Vec::new();
     for delta in &deltas {
         if verify_dual_format(delta).is_ok() {
-            to_copy.push(delta.clone());
+            let text =
+                fs::read_to_string(delta).map_err(|source| CompanionError::UnreadableDelta {
+                    path: delta.clone(),
+                    read_detail: source.to_string(),
+                })?;
+            to_deploy.push((delta.clone(), text));
             continue;
         }
         let target = deployed_target(root, delta);
@@ -231,8 +294,53 @@ pub fn restore(root: &Path, archive_dir: &Path) -> Result<Vec<PathBuf>, Companio
         }
     }
 
+    // Coverage guards before any write: a refusal never leaves a
+    // half-restored tree.
+    for (delta, text) in &to_deploy {
+        // Self-containedness (corpus constraint delta_self_contained):
+        // every ADDED/MODIFIED requirement must be restated in the
+        // delta's own mirror.
+        let added = requirement_names_in_delta_sections(text);
+        let mirror = requirement_names_under_requirements(text);
+        let missing_self: Vec<String> = added
+            .iter()
+            .filter(|n| !mirror.contains(n))
+            .cloned()
+            .collect();
+        if !missing_self.is_empty() {
+            return Err(CompanionError::DeltaNotSelfContained {
+                path: delta.clone(),
+                missing: missing_self,
+            });
+        }
+        // Existing-target coverage: a deploy replaces the target, so
+        // every requirement it already carries must be restated by the
+        // delta's full requirement set (mirror ∪ REMOVED ∪ RENAMED).
+        // `### Requirement:` headers anywhere in the delta cover all
+        // four sections plus the mirror in one scan.
+        let target = deployed_target(root, delta);
+        if target.is_file() {
+            let old =
+                fs::read_to_string(&target).map_err(|source| CompanionError::UnreadableDelta {
+                    path: target.clone(),
+                    read_detail: source.to_string(),
+                })?;
+            let covered = requirement_names(text);
+            let missing: Vec<String> = requirement_names(&old)
+                .into_iter()
+                .filter(|n| !covered.contains(n))
+                .collect();
+            if !missing.is_empty() {
+                return Err(CompanionError::UncoveredDeployedRequirements {
+                    path: delta.clone(),
+                    missing,
+                });
+            }
+        }
+    }
+
     let mut restored = Vec::new();
-    for delta in &to_copy {
+    for (delta, text) in &to_deploy {
         let cap = delta.parent().and_then(|p| p.file_name()).ok_or_else(|| {
             CompanionError::UnreadableDelta {
                 path: delta.clone(),
@@ -246,13 +354,196 @@ pub fn restore(root: &Path, archive_dir: &Path) -> Result<Vec<PathBuf>, Companio
                 read_detail: source.to_string(),
             })?;
         }
-        fs::copy(delta, &target).map_err(|source| CompanionError::UnreadableDelta {
+        let deployed_text = strip_delta_sections(text);
+        assert_deployed_shape(delta, &deployed_text)?;
+        fs::write(&target, &deployed_text).map_err(|source| CompanionError::UnreadableDelta {
             path: target.clone(),
             read_detail: source.to_string(),
         })?;
         restored.push(target);
     }
     Ok(restored)
+}
+
+/// Code-fence tracker shared by the structural scanners: a line inside
+/// a fence is content (a `## ` header there is prose, not structure).
+/// `feed` returns whether the line is OUTSIDE any fence after the
+/// update (call it once per line, in order).
+struct FenceTracker {
+    marker: Option<String>,
+}
+
+impl FenceTracker {
+    fn new() -> Self {
+        Self { marker: None }
+    }
+
+    fn feed(&mut self, line: &str) -> bool {
+        let trimmed = line.trim_start();
+        if self.marker.is_none() && (trimmed.starts_with("```") || trimmed.starts_with("~~~")) {
+            self.marker = Some(trimmed.chars().take(3).collect());
+            return false;
+        }
+        if let Some(marker) = &self.marker {
+            if trimmed.starts_with(marker.as_str()) {
+                self.marker = None;
+            }
+            return false;
+        }
+        true
+    }
+}
+
+/// Strip the delta sections (`## ADDED/MODIFIED/REMOVED/RENAMED
+/// Requirements`) from `text`, leaving everything else byte-identical
+/// (specodelic-s8fg Stage 1). Fence-aware: a `## ` header inside a code
+/// fence is content, not structure. Case-insensitive on the title,
+/// permissive on trailing whitespace.
+pub fn strip_delta_sections(text: &str) -> String {
+    let is_delta_header = |line: &str| {
+        let trimmed = line.trim_end();
+        if let Some(rest) = trimmed.strip_prefix("## ") {
+            let title = rest.trim().to_ascii_lowercase();
+            matches!(
+                title.as_str(),
+                "added requirements"
+                    | "modified requirements"
+                    | "removed requirements"
+                    | "renamed requirements"
+            )
+        } else {
+            false
+        }
+    };
+    let mut out = String::with_capacity(text.len());
+    let mut in_delta_section = false;
+    let mut fence = FenceTracker::new();
+    for line in text.split_inclusive('\n') {
+        let trimmed = line.trim_start();
+        let structural = fence.feed(line);
+        if structural && is_delta_header(line) {
+            in_delta_section = true;
+            continue;
+        }
+        if structural && in_delta_section && trimmed.starts_with("## ") {
+            in_delta_section = false;
+        }
+        if !in_delta_section {
+            out.push_str(line);
+        }
+    }
+    out
+}
+
+/// The `### Requirement:` header names in `text` (fence-aware, order
+/// preserved, duplicates kept — callers dedupe by membership).
+fn requirement_names(text: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut fence = FenceTracker::new();
+    for line in text.split_inclusive('\n') {
+        if !fence.feed(line) {
+            continue;
+        }
+        if let Some(rest) = line.trim_start().strip_prefix("### Requirement:") {
+            names.push(rest.trim().to_string());
+        }
+    }
+    names
+}
+
+/// Requirement names inside the delta sections only (ADDED/MODIFIED —
+/// the sections a mirror must restate for self-containedness).
+fn requirement_names_in_delta_sections(text: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut in_delta = false;
+    let mut fence = FenceTracker::new();
+    for line in text.split_inclusive('\n') {
+        if !fence.feed(line) {
+            continue;
+        }
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("## ") {
+            let title = trimmed[2..].trim().to_ascii_lowercase();
+            in_delta = matches!(
+                title.as_str(),
+                "added requirements" | "modified requirements"
+            );
+        }
+        if let (true, Some(rest)) = (in_delta, trimmed.strip_prefix("### Requirement:")) {
+            names.push(rest.trim().to_string());
+        }
+    }
+    names
+}
+
+/// Requirement names under the `## Requirements` section (the mirror).
+fn requirement_names_under_requirements(text: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut in_requirements = false;
+    let mut fence = FenceTracker::new();
+    for line in text.split_inclusive('\n') {
+        if !fence.feed(line) {
+            continue;
+        }
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("## ") {
+            in_requirements = trimmed[2..].trim().eq_ignore_ascii_case("requirements");
+        }
+        if let (true, Some(rest)) = (in_requirements, trimmed.strip_prefix("### Requirement:")) {
+            names.push(rest.trim().to_string());
+        }
+    }
+    names
+}
+
+/// Post-strip shape assertion (specodelic-s8fg Stage 1, EDGE-001): the
+/// deployed copy must carry no delta headers and no requirement headers
+/// outside `## Requirements` — the two shapes openspec 1.x rejects in
+/// main specs (spec-structure.js's only file-level ERROR classes).
+/// Fail-closed before the write.
+fn assert_deployed_shape(delta: &Path, text: &str) -> Result<(), CompanionError> {
+    let mut problems: Vec<String> = Vec::new();
+    let mut in_requirements = false;
+    let mut fence = FenceTracker::new();
+    for (i, line) in text.split_inclusive('\n').enumerate() {
+        if !fence.feed(line) {
+            continue;
+        }
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("## ") {
+            let title = trimmed[2..].trim().to_ascii_lowercase();
+            if matches!(
+                title.as_str(),
+                "added requirements"
+                    | "modified requirements"
+                    | "removed requirements"
+                    | "renamed requirements"
+            ) {
+                problems.push(format!(
+                    "line {}: delta header `## {}` survived the strip",
+                    i + 1,
+                    title
+                ));
+                continue;
+            }
+            in_requirements = title == "requirements";
+        }
+        if trimmed.starts_with("### Requirement:") && !in_requirements {
+            let name = trimmed["### Requirement:".len()..].trim();
+            problems.push(format!(
+                "line {}: requirement `{name}` outside ## Requirements",
+                i + 1
+            ));
+        }
+    }
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(CompanionError::DeployedShapeViolation {
+            path: delta.to_path_buf(),
+            detail: problems.join("; "),
+        })
+    }
 }
 
 /// Run the full companion flow. `dry_run` resolves and verifies without

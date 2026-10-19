@@ -29,6 +29,29 @@ fn tree_owned(entries: &[(String, &str)]) -> tempfile::TempDir {
 
 const DUAL_DELTA: &str = "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n# c\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n";
 
+/// A full dual-format delta: frontmatter + tables + a delta section and
+/// its byte-identical mirror (the corpus's self-contained convention).
+/// 1.x flags the delta sections in a deployed copy; Stage 1 strips them
+/// at deploy time (specodelic-s8fg) while the mirror stays as the
+/// deployed Requirements section.
+const FULL_DELTA: &str = concat!(
+    "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n# c\n\n",
+    "## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n",
+    "\n## ADDED Requirements\n\n",
+    "### Requirement: One holds\nThe system SHALL hold one.\n\n#### Scenario: One\n- **WHEN** x\n- **THEN** y\n\n",
+    "## Requirements\n\n",
+    "### Requirement: One holds\nThe system SHALL hold one.\n\n#### Scenario: One\n- **WHEN** x\n- **THEN** y\n"
+);
+
+/// The expected deployed shape after the Stage-1 strip: delta sections
+/// gone, frontmatter + tables + mirror intact.
+const STRIPPED_DEPLOY: &str = concat!(
+    "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n# c\n\n",
+    "## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n",
+    "\n## Requirements\n\n",
+    "### Requirement: One holds\nThe system SHALL hold one.\n\n#### Scenario: One\n- **WHEN** x\n- **THEN** y\n"
+);
+
 /// The archived delta shape AFTER post-deploy normalization (the
 /// openspec-archival shape the corpus linter expects: frontmatter-less).
 const STRIPPED_DELTA: &str = "# c\n\n## Requirements\n";
@@ -98,6 +121,154 @@ fn verify_refuses_tableless_delta() {
         "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n# c\n",
     )]);
     assert!(verify_dual_format(&root.path().join("d/spec.md")).is_err());
+}
+
+// === Stage 1: deployed-copy delta-section strip (specodelic-s8fg) ===
+
+#[test]
+fn restore_strips_delta_sections_from_deployed_copy() {
+    let root = tree(&[(
+        "openspec/changes/archive/2026-10-01-s1/specs/c/spec.md",
+        FULL_DELTA,
+    )]);
+    let archive = resolve_archive_dir(root.path(), "s1").unwrap();
+    let restored = restore(root.path(), &archive).unwrap();
+    assert_eq!(restored.len(), 1);
+    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap();
+    assert_eq!(deployed, STRIPPED_DEPLOY);
+    // the archived delta itself keeps the full dual-format layer (D4
+    // lives on for the ARCHIVED copy; only the DEPLOYED copy is cleaned)
+    assert_eq!(
+        fs::read_to_string(archive.join("specs/c/spec.md")).unwrap(),
+        FULL_DELTA
+    );
+}
+
+#[test]
+fn restore_strips_all_four_delta_section_titles() {
+    let delta = concat!(
+        "## ADDED Requirements\n\n### Requirement: A\na.\n\n",
+        "## MODIFIED Requirements\n\n### Requirement: B\nb.\n\n",
+        "## REMOVED Requirements\n\n### Requirement: C\n\n",
+        "## RENAMED Requirements\n\n### Requirement: D\n- FROM: D\n- TO: E\n\n",
+        "## Requirements\n\n### Requirement: A\na.\n"
+    );
+    let out = strip_delta_sections(delta);
+    for title in ["ADDED", "MODIFIED", "REMOVED", "RENAMED"] {
+        assert!(
+            !out.contains(&format!("## {title}")),
+            "title {title} survived"
+        );
+    }
+    assert!(out.contains("## Requirements"));
+    assert!(out.contains("### Requirement: A"));
+}
+
+#[test]
+fn restore_strip_ignores_fenced_delta_headers() {
+    let delta = "## Requirements\n\n### Requirement: One holds\nExample:\n\n```md\n## ADDED Requirements\n```\n";
+    let out = strip_delta_sections(delta);
+    assert!(
+        out.contains("## ADDED Requirements"),
+        "a delta header inside a code fence is content, not structure"
+    );
+}
+
+#[test]
+fn restore_refuses_delta_missing_mirror_coverage() {
+    // self-containedness (corpus constraint delta_self_contained): every
+    // ADDED/MODIFIED requirement must appear in the mirror
+    let delta = concat!(
+        "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n## Constraints\n\n",
+        "## ADDED Requirements\n\n### Requirement: One holds\nBody.\n\n",
+        "## Requirements\n\n### Requirement: Something else\nBody.\n"
+    );
+    let root = tree(&[(
+        "openspec/changes/archive/2026-10-01-g1/specs/c/spec.md",
+        delta,
+    )]);
+    let archive = resolve_archive_dir(root.path(), "g1").unwrap();
+    match restore(root.path(), &archive) {
+        Err(CompanionError::DeltaNotSelfContained { missing, .. }) => {
+            assert_eq!(missing, vec!["One holds".to_string()]);
+        }
+        other => panic!("expected DeltaNotSelfContained, got {other:?}"),
+    }
+    assert!(
+        !root.path().join("openspec/specs").exists(),
+        "a refusal must not create deployed spec paths"
+    );
+}
+
+#[test]
+fn restore_refuses_narrowing_existing_deployed_spec() {
+    // the deployed target has a requirement the delta's full requirement
+    // set (mirror ∪ REMOVED ∪ RENAMED) does not restate — verbatim deploy
+    // would silently narrow the spec
+    let existing = concat!(
+        "## Requirements\n\n### Requirement: One holds\nOld.\n\n",
+        "### Requirement: Two holds\nOld.\n"
+    );
+    let root = tree(&[
+        (
+            "openspec/changes/archive/2026-10-01-g2/specs/c/spec.md",
+            FULL_DELTA,
+        ),
+        ("openspec/specs/c/spec.md", existing),
+    ]);
+    let archive = resolve_archive_dir(root.path(), "g2").unwrap();
+    match restore(root.path(), &archive) {
+        Err(CompanionError::UncoveredDeployedRequirements { missing, .. }) => {
+            assert_eq!(missing, vec!["Two holds".to_string()]);
+        }
+        other => panic!("expected UncoveredDeployedRequirements, got {other:?}"),
+    }
+    assert_eq!(
+        fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap(),
+        existing,
+        "a refusal must leave the deployed spec untouched"
+    );
+}
+
+#[test]
+fn restore_accepts_full_restatement_over_existing_spec() {
+    // corpus convention: the delta restates the capability's FULL
+    // requirement set — every deployed name appears in the delta
+    let existing = "## Requirements\n\n### Requirement: One holds\nOld.\n";
+    let root = tree(&[
+        (
+            "openspec/changes/archive/2026-10-01-g3/specs/c/spec.md",
+            FULL_DELTA,
+        ),
+        ("openspec/specs/c/spec.md", existing),
+    ]);
+    let archive = resolve_archive_dir(root.path(), "g3").unwrap();
+    restore(root.path(), &archive).unwrap();
+    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap();
+    assert_eq!(deployed, STRIPPED_DEPLOY);
+}
+
+#[test]
+fn restore_strip_output_must_be_1x_clean() {
+    // post-strip shape assertion (EDGE-001): a requirement header
+    // outside the mirror and outside any delta section would survive the
+    // strip as an invisible-to-openspec requirement — refuse
+    let delta = concat!(
+        "---\nid: spec\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n## Constraints\n\n",
+        "### Requirement: Stray holds\nBody.\n\n",
+        "## Requirements\n\n### Requirement: Stray holds\nBody.\n"
+    );
+    let root = tree(&[(
+        "openspec/changes/archive/2026-10-01-g4/specs/c/spec.md",
+        delta,
+    )]);
+    let archive = resolve_archive_dir(root.path(), "g4").unwrap();
+    match restore(root.path(), &archive) {
+        Err(CompanionError::DeployedShapeViolation { detail, .. }) => {
+            assert!(detail.contains("Stray holds"), "detail: {detail}");
+        }
+        other => panic!("expected DeployedShapeViolation, got {other:?}"),
+    }
 }
 
 #[test]
