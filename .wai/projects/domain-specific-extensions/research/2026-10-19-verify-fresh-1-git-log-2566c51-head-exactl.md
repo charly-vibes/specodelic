@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:epic-orchestrator-2026-10-19-delta-sidecar-task7, pipeline-step:verify-subagent]
+---
+
+VERIFY(fresh): (1) git log 2566c51..HEAD -> exactly the 11 reported commits; diffs inspected: 2ba13a3 deploys spec-integration rewritten + verification-claims layer.md (sidecar rides into deployed tree per companion re-attach), 0473962 deploys graph-views from scratch (frontmatter id graph.views + 10 requirements, docs SUMMARY wired); archived deltas frontmatter-less (verified in archive tree). (2) just ci full (TMPDIR shimmed) -> all recipes green, ah check --run-tests OK 588 passed 0 findings. (3) python3 scripts/spec_validate.py -> No issues found, exit 0 (the INFO line about add-py's stale compile MODIFIED is a pre-flight advisory on a PENDING unimplemented delta, exit code unaffected). (4) spk lint openspec -> 0 error findings. (5) bd: s8fg/dlf/3le9 all CLOSED with resolutions; 0 in_progress. (6) openspec/changes/ = py + ts + archive/ (deviation honest and consistent with tasks.md 7.1 naming only two). Ship.
