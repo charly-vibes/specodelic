@@ -1,9 +1,19 @@
 id = "modified-delta-is-dual-format"
 description = ""
+# Provenance (specodelic-2pcd, 2026-10-19): the original binding
+# lint_flags_half_format_dual_file_via_cli was deleted with the
+# dual_format_valid rule by 378058b (Rev 19 rule retirement, design
+# Decision 3 of add-delta-layer-sidecar). Rebound to the
+# retirement-semantics test the rule retirement landed: the old shape
+# no longer fires. The scenario text in the deployed spec-integration
+# requirement 'Dual-format delta' is rewritten by the pending change
+# update-id-derivation-spec-md (task 7.0/7.1 of that change), which
+# re-authors this contract against the Revision 19 wording at its
+# archive.
 archetype = "PF"
 status = "active"
 superseded_by = ""
 authored_with = "0.9.2"
 
 [[tests.cargo]]
-flags = "lint_flags_half_format_dual_file_via_cli"
+flags = "lint_no_longer_flags_half_format_dual_file_via_cli"
