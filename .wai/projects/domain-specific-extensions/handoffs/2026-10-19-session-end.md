@@ -45,12 +45,10 @@ phase: design
 ○ specodelic-04c P2 Decide kernel.binding vocabulary enablement: orphan_vocabulary labels files with the kernel.binding column until a kind:profile pack in namespace 'kernel' is discovered (src/packs.rs scans column headers). Found by specodelic-bf5 — its CLI fixture needed a minimal kernel pack as the rule's sanctioned remediation. Decide at §6 corpus migration / archive: ship kernel vocabulary enablement in specs/, or a linter carve-out. Out of specodelic-bf5 scope.
 ○ specodelic-1ey4 P2 verify: route verify stage artifact_paths through citation_corpus::artifact_dir — flat-path residual after yl39
 ○ specodelic-39w P2 [bug] acset instance builder panics on model.state anchor links — uninterned pseudo-node
-○ specodelic-3le9 P2 openspec: MODIFIED change for archive-companion verbatim-deploy wording — deployed copy is now the delta-section-stripped main spec (follow-up to s8fg Stage 1)
 ○ specodelic-523w P2 [bug] compile: commands/corpus.rs (spk compile over a corpus) has no scope guard — later same-stem file silently wins
 ○ specodelic-5iez P2 conform: no explain topic — oracle JSONL schema, verdict taxonomy, permitted-requires-executable-claims rule undocumented (gh-18)
 ○ specodelic-7c7 P2 lint: model_present 'empty-but-present beats absent' wording promises a differential that does not exist
 ○ specodelic-d8c P2 lint: Reference Typing (ref_kind_compatible) is declared but enforced by no rule
-○ specodelic-dlf P2 openspec: MODIFIED change for migrate mirror_byte_identical — mixed-delta aggregation supersedes ADDED-only mirror (follow-up to specodelic-54v)
 ○ specodelic-f4sx P2 [bug] conform: single-file lint gate dangles corpus-wide refs; prose-dominated unknowns; undocumented trace schema (gh-17)
 ○ specodelic-l54a P2 docs: per-file ASCII state-machine views — unblocked by gently-hpd closure
 ○ specodelic-oeuz P2 docs: no gate on format-summary prose — 'four tables'/'Frontmatter'-for-'Intent' drift shipped to the site
@@ -92,7 +90,7 @@ phase: design
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 49 issues (49 open, 0 in progress)
+Total: 47 issues (47 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
