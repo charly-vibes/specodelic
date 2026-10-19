@@ -43,17 +43,17 @@
 
 ## 4. archive-companion: apply + re-attach
 
-- [ ] 4.1 RED: `tests/archive_companion.rs` — a plain delta + sidecar
+- [x] 4.1 RED: `tests/archive_companion.rs` — a plain delta + sidecar
       change deploys a dual-format spec (applied `## Requirements` +
       sidecar frontmatter/tables) and the archived delta stays plain;
       GREEN: rework `src/archive_companion.rs` — invoke `openspec archive`
       with spec application, then re-attach the layer from the archived
       sidecar.
-- [ ] 4.2 Fail-closed guards: sidecar-less or unlintable sidecar refuses
+- [x] 4.2 Fail-closed guards: sidecar-less or unlintable sidecar refuses
       BEFORE the openspec invocation (destructive); post-attach shape
       assertion (no delta headers, frontmatter + tables present, lints
       clean) reverts and fails on violation.
-- [ ] 4.3 Idempotent rerun + newest-archive-wins + `--dry-run` re-verified
+- [x] 4.3 Idempotent rerun + newest-archive-wins + `--dry-run` re-verified
       against the new assembly (convergence to identical deployed bytes).
 
 ## 5. Corpus migration (the 3 remaining dual deltas)
