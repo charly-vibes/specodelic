@@ -111,7 +111,7 @@
       implementation epic. Their deltas were pre-flighted (MODIFIED→ADDED
       for the jf1-lost requirement blocks, <500-char texts, de-duplicated
       scenario slug, py sidecar rebuilt as the full post-py layer).
-- [ ] 7.2 Mirror-wording residue sweep: `openspec/specs/hooks/spec.md`
+- [x] 7.2 Mirror-wording residue sweep: `openspec/specs/hooks/spec.md`
       ("deltas not yet migrated to dual" advisory),
       `openspec/specs/verification-claims/spec.md` deploy transition guard
       ("dual-format archive preserves every requirement"), and the docs
@@ -119,5 +119,10 @@
       archive?", `docs/src/commands.md` archive section) reworded to the
       plain-delta + sidecar shape; `ah check` stays green (contract TOMLs
       bind scenario slugs, not constraint prose).
-- [ ] 7.3 Close specodelic-s8fg with the meter trail; note
+- [x] 7.3 Close specodelic-s8fg with the meter trail; note
       specodelic-dlf/3le9 as folded-in (close them).
+      DONE (2026-10-19): all three closed via bd with the meter trail
+      (openspec validate --all --strict 49/49 plain 1.x, spk lint
+      openspec 0 findings, just ci green incl. ah check --run-tests 588
+      passed / 0 findings, pretender check pass) and the py/ts
+      non-archive deviation of record; export committed (a491a6c).
