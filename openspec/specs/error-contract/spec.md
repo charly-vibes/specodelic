@@ -77,56 +77,6 @@ pipeline.
 | routing_matches_reality             | unit | [[error.contract.enforcement_routed]]         | `each_rule_checked_against_its_stated_tier()`                | `every scenario's tool claim agrees with its tier — no scenario claims today's spk lint for a tier-2 rule` |
 | contract_satisfied_from_consumer    | unit | [[error.contract.contract_published]]         | `tool_file_with_satisfies_pointing_at_contract_row()`        | `extraction yields exactly one satisfies edge and lint passes` — the satisfies precedent's shape   |
 
-## ADDED Requirements
-
-### Requirement: Namespaced labeled errors
-The system SHALL require every error Constraint in the corpus to carry a file-id-namespaced variant-head label (`<owning-file-id>.<variant_head>(field, …)`), and SHALL reject any error Constraint whose label lacks the owning file's id prefix or whose variant head collides within one file.
-
-#### Scenario: Bare label rejected
-- **WHEN** an error Constraint's expr is `extraction_failure(row_id)` without the owning file's id prefix
-- **THEN** the tier-2 check fails the file, naming the label and the expected `<file-id>.` prefix — until `linter-failure_shape` lands, enforcement is the property fixture plus review, never a claim about today's `spk lint`
-
-#### Scenario: Namespaced label accepted
-- **WHEN** an error Constraint in `compile.md` declares expr `compile.extraction_failure(row_id, reason)`
-- **THEN** the file lints clean and the label is unique corpus-wide by construction
-
-### Requirement: Failure states emit labeled errors
-The system SHALL require every failure terminal state in a tool file's Model to carry an `emits` edge to that file's labeled error Constraint, and SHALL require a distinct failure state per distinct failure class, where classes are distinguished by differing guard citation sets.
-
-#### Scenario: Mute failure state rejected
-- **WHEN** a tool file's Model contains a failure terminal state with no `emits` edge
-- **THEN** the tier-2 check fails the file with a remediation hint pointing at the missing emits target; the emits-typing half (wrong target kind) is enforced today by `ref_kind_compatible`
-
-#### Scenario: Split failure states carry distinct labels
-- **WHEN** `compile.md`'s Model distinguishes extraction and emission failure classes as `extract_failed` and `emit_failed`
-- **THEN** each state emits its own labeled error Constraint and `every_state_used` passes
-
-### Requirement: Typed failure guards
-The system SHALL require a failure transition whose guard cites ≥1 [[id]] to cite exactly the citation set of the success transition(s) it negates — a negated disjunction cites the union of its branches' sets — and SHALL require failure transitions citing no ids at all to be on a recorded carve-out list.
-
-#### Scenario: Citation-set mismatch rejected
-- **WHEN** a failure transition's guard cites a citation set different from the success transition(s) it negates — or cites nothing at all while absent from the carve-out list
-- **THEN** the tier-2 check fails the file, since the citation sets are graph-decidable and the carve-out is a checked list
-
-#### Scenario: Carve-out file passes
-- **WHEN** `orchestrate.md`'s stage-fail transitions keep their prose guards per that file's own Notes
-- **THEN** the tier-2 check passes — `orchestrate.md` is on the recorded carve-out list in `linter-failure_shape.md`, not silent
-
-### Requirement: Output contract published and satisfied
-The system SHALL publish the cross-cutting output contract — envelope kind `ok:false` ↔ `"error"`, exit codes 0/1/2, exactly one labeled failure per failing stage, and a non-empty remediation hint — as `extension_point` rows in `openspec/specs/errors/spec.md`, with each tool file pointing `satisfies` at them from its own file.
-
-#### Scenario: Consumer satisfies the contract
-- **WHEN** a tool file carries a `satisfies` edge pointing at a contract row in `openspec/specs/errors/spec.md`
-- **THEN** extraction yields exactly one cross-file edge and lint passes — no edit to the contract file
-
-#### Scenario: Property-less constraint rejected
-- **WHEN** an error Constraint has no unit property at all
-- **THEN** the tier-1 coverage check fails the file — coverage over every constraint is enforced today; a named-but-unfalsifiable label is not a specced error
-
-#### Scenario: Mismatched label predicate rejected
-- **WHEN** an error Constraint's unit property predicate asserts a different label string than the constraint's own
-- **THEN** the tier-2 check fails the file — exact-label assertion waits for `linter-failure_shape`; today's coverage cannot see the predicate text, so no tier-1 claim is made
-
 ## Requirements
 
 ### Requirement: Namespaced labeled errors

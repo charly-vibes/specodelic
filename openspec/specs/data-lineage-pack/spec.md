@@ -53,68 +53,6 @@ first real instance and the prerequisite for the bioimage D6 pilot.
 | no_base_set_absorption         | unit | [[data.lineage.pack.binding_stays_external]]  | `guide_sets_compared_with_and_without_data_pack()` | `INTENT_KINDS and Reference Typing sets identical with the pack discovered or not` |
 | binding_opaque_to_lint         | unit | [[data.lineage.pack.binding_stays_external]]  | `data_row_binds_to_ome_zarr_vs_parquet()`       | `lint findings byte-identical across different binding targets`               |
 
-## ADDED Requirements
-
-### Requirement: The data/lineage standard pack is a declared profile file
-The format SHALL ship the data/lineage standard pack as an in-repo
-`kind: profile` spec file (`packs/data-lineage.md`, id `data.lineage`)
-whose manifest declares the `## Data` section, the `data.dataset`,
-`data.artifact`, and `data.environment` kinds, the `produces`,
-`produced_by`, and `consumed_by` reference fields, the
-`data.lineage.closure` checker, the artifact provenance floor, and the
-`specodelic.md Revision 14` base pin — discovered by corpus scan alone,
-with no config file and no registry.
-
-#### Scenario: Corpus scan discovers the pack
-- **WHEN** `spk lint` runs over any workspace subdirectory of a repository containing `packs/data-lineage.md`
-- **THEN** the pack is discovered without configuration and reported in the lint envelope
-- **AND** files using none of the pack's vocabulary keep byte-identical lint findings
-
-#### Scenario: Pack lints clean under pack_shape in every lifecycle state
-- **WHEN** the pack file is parsed in draft, published, or deprecated state
-- **THEN** pack_shape reports zero findings over the pack's declared vocabulary
-
-### Requirement: Data vocabulary is namespaced and per-pack closed
-The pack SHALL declare a `## Data` section with row shape
-`| name | kind | dtype | units | binding |`, kind closed to `dataset`,
-`artifact`, `environment`, and namespaced kinds `data.dataset`,
-`data.artifact`, `data.environment` — pack-fiber-relative vocabulary that
-grows no base closed set and narrows no existing base set entry.
-
-#### Scenario: Consumer activates the pack advisory-first
-- **WHEN** a corpus spec uses `data.dataset` vocabulary without a declared `uses` edge
-- **THEN** the pack's declared checking activates advisory-first for that file, naming the pack
-
-#### Scenario: Orphan vocabulary names the lineage pack
-- **WHEN** a workspace uses `data.dataset` vocabulary with no data/lineage pack discovered or declared
-- **THEN** the orphan finding names the candidate pack `data.lineage` and both remediations, with non-zero exit
-
-### Requirement: Lineage edges are typed outbound leaves resolving to declared rows
-The pack SHALL add `produces`, `produced_by`, and `consumed_by` reference
-fields, each resolving to a `## Data` row of the declaring file and
-joining no reachability path and no acyclic edge set, and SHALL declare a
-`data.lineage.closure` checker that reports an empty checked-set honestly
-when no `## Data` rows exist.
-
-#### Scenario: Dangling lineage reference is labeled
-- **WHEN** a constraint row references a `## Data` row id via `produced_by` that no `## Data` row in the file declares
-- **THEN** the finding is labeled, names the row id and both remediations, and is never a generic dangling message
-
-#### Scenario: Honest-empty closure with no data rows
-- **WHEN** the pack is active in a workspace whose specs declare no `## Data` rows
-- **THEN** the closure checker reports an empty checked-set with no fabricated findings
-
-### Requirement: External binding stays external
-The pack SHALL bridge, never absorb, external data standards: the
-`binding` column carries a typed pointer to a schema, URI, or standard
-reference that the format never parses, and no dtype enum, shape
-convention, or URI scheme ever joins a base closed set — lint behavior
-is identical regardless of the binding target.
-
-#### Scenario: Any external standard binds without lint change
-- **WHEN** a `## Data` row binds to OME-Zarr, Parquet, or any other external standard
-- **THEN** lint findings are byte-identical across the different binding targets
-
 ## Requirements
 
 ### Requirement: The data/lineage standard pack is a declared profile file

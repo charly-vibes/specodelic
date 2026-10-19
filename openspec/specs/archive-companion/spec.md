@@ -61,51 +61,6 @@ a stripped spec.
 | missing_openspec_labeled  | unit | [[archive.companion.openspec_not_forked]]        | `path_without_openspec_binary()`             | `labeled error with an install/PATH remediation hint`                                             |
 | partial_delta_narrows     | unit | [[archive.companion.delta_self_contained]]       | `archive_dir_with_partial_delta()`           | `deployed spec retains exactly the requirements the delta restates — narrowing is deployable and detectable only by the convention, so self-containment is load-bearing` |
 
-## ADDED Requirements
-
-### Requirement: Archive with dual-format preservation
-The system SHALL provide `spk archive-companion <CHANGE_ID>` that
-archives the named openspec change via the openspec CLI with spec
-application skipped, then deploys each archived `specs/<cap>/spec.md`
-delta verbatim to `openspec/specs/<cap>/spec.md`, leaving every deployed
-spec byte-identical to its archived delta.
-
-#### Scenario: Dual-format delta survives archiving
-- **WHEN** an active change carries a dual-format delta for capability `c`
-- **THEN** after `spk archive-companion <id>`, `openspec/specs/c/spec.md`
-  is byte-identical to the archived delta and retains frontmatter and
-  all three tables
-
-#### Scenario: Already-archived change re-runs cleanly
-- **WHEN** the change directory no longer exists but its archive does
-- **THEN** the openspec invocation is skipped and the restore re-runs to
-  a byte-identical result
-
-### Requirement: Fail closed on stripped deltas
-The system SHALL refuse to deploy any archived delta lacking the
-dual-format layer — no frontmatter opener or no `## Constraints`
-section — failing the whole command with a listing of every refused
-delta and a remediation hint naming the `spk explain dual-format`
-migration recipe, and writing no deployed spec.
-
-#### Scenario: Frontmatterless delta is refused
-- **WHEN** an archived delta is plain openspec grammar
-- **THEN** the command fails, the delta is listed, and no
-  `openspec/specs/<cap>/spec.md` is modified
-
-### Requirement: Observable resolution and preview
-The system SHALL emit an envelope naming the archive directory used,
-whether the openspec invocation ran, and the restored paths — and SHALL
-support `--dry-run` producing that same resolution without invoking
-openspec or writing any file.
-
-#### Scenario: Dry-run reports the plan
-- **WHEN** `spk archive-companion <id> --dry-run` runs over a
-  resolvable change
-- **THEN** the envelope lists the planned restores and no file is
-  written and no openspec invocation occurs
-
-
 ## Requirements
 
 ### Requirement: Archive with dual-format preservation

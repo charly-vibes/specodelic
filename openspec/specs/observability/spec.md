@@ -57,45 +57,6 @@ no hand-maintained tags that can drift from the edges.
 | plain_file_not_boundary        | unit | [[observability.boundary_derived]]        | `file_with_no_extension_point_rows()`                  | `graph does not classify the file as an external boundary`             |
 | stale_boundary_impossible      | unit | [[observability.boundary_derived]]        | `file_whose_extension_points_are_all_removed()`        | `boundary classification disappears — no authored tag left to clean`   |
 
-## ADDED Requirements
-
-### Requirement: Typed one-directional observes reference
-The system SHALL accept an optional `observes` reference on Constraint rows, typed as a one-directional outbound pointer from any Constraint to a Constraint with kind == `effect` on any file — mirroring the `satisfies` precedent — and SHALL reject any `observes` pointing at a non-effect row.
-
-#### Scenario: Cross-file observation resolves
-- **WHEN** a Constraint row in file A carries `observes` pointing at an effect Constraint in file B
-- **THEN** graph extraction yields exactly one cross-file edge and `spk lint` reports no typing violation
-
-#### Scenario: Wrong target kind rejected
-- **WHEN** a Constraint row carries `observes` pointing at a Constraint with kind == `invariant`
-- **THEN** `spk lint` fails the file with a remediation hint naming the target's actual kind
-
-#### Scenario: Mutual observation is not a cycle violation
-- **WHEN** two files' Constraint rows each `observes` an effect in the other file
-- **THEN** the acyclic check passes — `observes` is a claim, not a dependency edge
-
-### Requirement: Unobserved effects are reported, never silent
-The system SHALL report, with rule id `linter.observability`, on the lint output's warnings channel (advisory severity — exit 0, never counted as a lint failure; design D5), every effect Constraint within the lint invocation's file set that is the target of no `observes` edge (corpus-wide lint is the canonical run) — and SHALL NOT gate any lifecycle transition on this finding in v1.
-
-#### Scenario: Effect with no observer reported
-- **WHEN** a linted spec declares an effect Constraint that no `observes` reference targets
-- **THEN** the lint output carries an advisory `linter.observability` warning on the warnings channel, naming the unobserved row id, with exit 0
-
-#### Scenario: Observed effect produces no finding
-- **WHEN** every effect Constraint in the corpus is targeted by at least one `observes` edge
-- **THEN** no `linter.observability` finding is emitted and the lifecycle gate outcomes are unchanged
-
-### Requirement: External boundaries are derived, not tagged
-The system SHALL classify a file as an external boundary in `spk graph` output iff it hosts at least one `extension_point` Constraint, deriving the classification from existing reference structure — and SHALL NOT introduce any authored boundary tag.
-
-#### Scenario: Boundary derived from published contract
-- **WHEN** `spk graph --json` runs on a corpus where file B hosts an `extension_point` Constraint
-- **THEN** B is classified as an external boundary without any authored tag
-
-#### Scenario: No tag drift
-- **WHEN** a file's `extension_point` rows are all removed in a revision
-- **THEN** the file's external-boundary classification disappears — there is no stale tag to clean up
-
 ## Requirements
 ### Requirement: Typed one-directional observes reference
 The system SHALL accept an optional `observes` reference on Constraint rows, typed as a one-directional outbound pointer from any Constraint to a Constraint with kind == `effect` on any file — mirroring the `satisfies` precedent — and SHALL reject any `observes` pointing at a non-effect row.

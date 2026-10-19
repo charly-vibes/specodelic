@@ -60,31 +60,6 @@ Expose the typed Spec IR through the CLI so external fleet tools consume the
 structured layer without reimplementing the format parser, keeping the
 versioned binary as the single integration boundary.
 
-## ADDED Requirements
-
-### Requirement: Structured Parse Export
-`spk parse <file>` SHALL emit the parsed Spec IR — intent, constraints rows, states, transitions, properties rows, and structured links — as a `--json`-conformant envelope, SHALL succeed independently of lint status without embedding it, and SHALL fail with a labeled error envelope and non-zero exit on unparseable or missing input.
-
-#### Scenario: Export full IR
-- **GIVEN** a well-formed four-layer spec file with three Properties rows
-- **WHEN** `spk parse <file> --json` runs
-- **THEN** the envelope is `ok` and `data` carries intent, constraints, states, transitions, all three property rows, and the structured links
-
-#### Scenario: Lint-dirty file still parses
-- **GIVEN** a file that parses but fails `spk lint`
-- **WHEN** `spk parse <file> --json` runs
-- **THEN** it exits zero with the full IR and the envelope embeds no lint status
-
-#### Scenario: Unparseable input errors with label
-- **GIVEN** a file that violates the format's parse rules, and separately a nonexistent path
-- **WHEN** `spk parse` runs on each
-- **THEN** each yields a labeled error envelope with a remediation hint and non-zero exit
-
-#### Scenario: Single file per invocation
-- **GIVEN** zero or two or more path arguments
-- **WHEN** `spk parse` runs
-- **THEN** the invocation is rejected with usage guidance
-
 ## Requirements
 
 ### Requirement: Structured Parse Export
