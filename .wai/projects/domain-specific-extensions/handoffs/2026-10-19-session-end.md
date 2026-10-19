@@ -41,6 +41,7 @@ phase: design
 ### open_issues
 
 ```
+○ specodelic-2pcd P1 [bug] guard-espectacular red: deployed-spec contract modified-delta-is-dual-format binds test retired by 378058b
 ○ specodelic-04c P2 Decide kernel.binding vocabulary enablement: orphan_vocabulary labels files with the kernel.binding column until a kind:profile pack in namespace 'kernel' is discovered (src/packs.rs scans column headers). Found by specodelic-bf5 — its CLI fixture needed a minimal kernel pack as the rule's sanctioned remediation. Decide at §6 corpus migration / archive: ship kernel vocabulary enablement in specs/, or a linter carve-out. Out of specodelic-bf5 scope.
 ○ specodelic-1ey4 P2 verify: route verify stage artifact_paths through citation_corpus::artifact_dir — flat-path residual after yl39
 ○ specodelic-39w P2 [bug] acset instance builder panics on model.state anchor links — uninterned pseudo-node
@@ -91,7 +92,7 @@ phase: design
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 48 issues (48 open, 0 in progress)
+Total: 49 issues (49 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
