@@ -95,10 +95,13 @@
       DONE: the spec-integration delta now carries the Revision 19 blocks
       byte-identical to this change's own delta — openspec apply at either
       archive lands the same text; the retired mirror wording is gone.
-- [ ] 7.1 Land `update-id-derivation-spec-md` and `add-migrate-rekey`
+- [x] 7.1 Land `update-id-derivation-spec-md` and `add-migrate-rekey`
       through the new companion (their deltas are already Stage-2 shaped);
       post-archive `openspec validate --all --strict` + `spk lint openspec`
       stay green.
+      DONE: both archived via `just archive-change` (sidecars authored as
+      verbatim re-keyed copies of the current deployed layers);
+      migrate deployed bytes converged unchanged. Gates green after each.
 - [ ] 7.2 Mirror-wording residue sweep: `openspec/specs/hooks/spec.md`
       ("deltas not yet migrated to dual" advisory),
       `openspec/specs/verification-claims/spec.md` deploy transition guard
