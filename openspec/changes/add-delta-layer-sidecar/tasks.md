@@ -58,15 +58,15 @@
 
 ## 5. Corpus migration (the 3 remaining dual deltas)
 
-- [ ] 5.1 Convert `add-graph-views`, `add-py-fragment-emission`,
+- [x] 5.1 Convert `add-graph-views`, `add-py-fragment-emission`,
       `add-ts-fragment-emission` deltas to plain deltas + `layer.md`
       sidecars (layer content = existing delta frontmatter/tables
       verbatim; requirement text byte-preserved from the current mirror);
       scenario headers stay verbatim (ah contract bindings).
-- [ ] 5.2 Check in the 1.14.2 shape fixture (recreate the `/tmp/os1x`
+- [x] 5.2 Check in the 1.14.2 shape fixture (recreate the `/tmp/os1x`
       matrix: deployed dual spec, plain delta + Purpose, sidecar layer) as
       a checked-in fixture asserting 1.x-strict-validity of all three.
-- [ ] 5.3 `openspec validate --all --strict` (1.14.x): 51/51 items pass
+- [x] 5.3 `openspec validate --all --strict` (1.14.x): 51/51 items pass
       with zero warnings; `spk lint openspec`: 0 findings; `just ci` green.
 
 ## 6. Validate-gate retirement (the pin was only for the dual shape)
