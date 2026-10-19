@@ -409,10 +409,7 @@ fn explain_dual_format_topic_serves_the_migration_recipe() {
         body.to_lowercase().contains("migration"),
         "migration path: {body}"
     );
-    assert!(
-        body.contains("layer.md"),
-        "sidecar shape taught: {body}"
-    );
+    assert!(body.contains("layer.md"), "sidecar shape taught: {body}");
     assert!(
         body.contains("requirement_drift"),
         "retired rule named: {body}"

@@ -11,8 +11,7 @@ use super::*;
 fn migrate_mixed_delta_wraps_sidecar_pair() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("spec.md");
-    let original =
-        "## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n";
+    let original = "## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n";
     std::fs::write(&file, original).unwrap();
     spk().arg("migrate").arg(&file).assert().success();
     // The delta file is untouched.
@@ -20,7 +19,10 @@ fn migrate_mixed_delta_wraps_sidecar_pair() {
     // The sibling sidecar exists with the parent-dir + .layer id and the
     // layer skeleton (no mirror, no delta grammar).
     let sidecar = std::fs::read_to_string(dir.path().join("layer.md")).unwrap();
-    assert!(sidecar.contains("id: .layer") || sidecar.contains("id: "), "{sidecar}");
+    assert!(
+        sidecar.contains("id: .layer") || sidecar.contains("id: "),
+        "{sidecar}"
+    );
     assert!(!sidecar.contains("## Requirements"));
     // The freshly generated sidecar must not immediately fail lint.
     spk()

@@ -348,10 +348,7 @@ mod tests {
     #[test]
     fn plain_spec_is_refused() {
         let plain = "# Title\n\n## Requirements\n\n### Requirement: R\nThe system SHALL r.\n";
-        assert_eq!(
-            migrate(plain, &spec_path()),
-            Err(MigrateError::NotADelta)
-        );
+        assert_eq!(migrate(plain, &spec_path()), Err(MigrateError::NotADelta));
     }
 
     #[test]
@@ -385,7 +382,11 @@ mod tests {
         let out = migrate(&delta, &spec_path()).expect("migrates");
         // The sidecar id is the parent-dir id + .layer (Revision 19).
         assert_eq!(out.sidecar_id, "demo.cap.layer");
-        assert!(out.content.contains("id: demo.cap.layer\n"), "{}", out.content);
+        assert!(
+            out.content.contains("id: demo.cap.layer\n"),
+            "{}",
+            out.content
+        );
         // The sidecar carries the layer skeleton — and no mirror, no
         // delta grammar.
         assert!(out.content.contains("## Constraints"));
@@ -395,7 +396,10 @@ mod tests {
         assert!(!out.content.contains("## Requirements"));
         // The transform never touches the delta text.
         assert_eq!(delta, plain_delta(), "delta bytes unchanged");
-        assert_eq!(out.inserted_layers, vec!["Constraints", "Model", "Properties"]);
+        assert_eq!(
+            out.inserted_layers,
+            vec!["Constraints", "Model", "Properties"]
+        );
     }
 
     #[test]
@@ -409,7 +413,8 @@ mod tests {
 
     #[test]
     fn crlf_delta_gets_crlf_sidecar() {
-        let delta = "## ADDED Requirements\r\n\r\n### Requirement: Widget\r\nThe system SHALL wiget.\r\n";
+        let delta =
+            "## ADDED Requirements\r\n\r\n### Requirement: Widget\r\nThe system SHALL wiget.\r\n";
         let out = migrate(delta, &spec_path()).expect("migrates");
         assert!(out.content.contains("\r\n"), "CRLF preserved in sidecar");
         assert!(!out.content.contains("\n\n"), "no LF blank lines leak");
