@@ -1,0 +1,13 @@
+id = "no-delta-sections-reach-the-deployed-spec"
+description = ""
+# Provenance (specodelic-s8fg task 7.1, 2026-10-19): the scenario is the
+# Revision 19 rewrite of the retired mirror-pairing rules — the deployed
+# capability spec carries no delta headers and no mirror; the companion's
+# post-attach shape assertion is the enforcing mechanism.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "restore_post_attach_shape_assertion_refuses_delta_headers"

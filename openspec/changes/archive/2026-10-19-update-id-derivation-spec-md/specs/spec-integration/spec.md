@@ -1,14 +1,13 @@
 ## MODIFIED Requirements
 
 ### Requirement: Dual-format delta
-Every deployed capability spec under `openspec/specs/<cap>/spec.md` SHALL
-be simultaneously a valid openspec capability spec and a lint-clean
-specodelic spec file (frontmatter plus Constraints, Model, and Properties
-sections), carrying the REAL id derived by the naming law — a `spec.md`
-file takes its id from its parent directory name (`-` ⇔ `.`; Revision 18)
-— and SHALL carry no delta sections and no `## Requirements` mirror: with
-change deltas plain (Revision 19), the mirror pairing rules retire by
-construction.
+Every deployed capability spec under `openspec/specs/<cap>/spec.md`
+SHALL be simultaneously a valid openspec capability spec and a lint-
+clean specodelic spec file (frontmatter plus Constraints, Model, and
+Properties sections) carrying its real naming-law id — a `spec.md` file
+takes its id from its parent directory name — and SHALL carry no delta
+sections and no `## Requirements` mirror: with change deltas plain
+(Revision 19), the mirror pairing rules retire by construction.
 
 #### Scenario: Both parsers accept
 - **WHEN** `openspec validate --specs --strict` and `spk lint <file>` run

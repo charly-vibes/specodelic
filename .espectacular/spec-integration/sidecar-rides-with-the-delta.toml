@@ -1,0 +1,12 @@
+id = "sidecar-rides-with-the-delta"
+description = ""
+# Provenance (specodelic-s8fg task 7.1, 2026-10-19): Revision 19 shape —
+# the delta carries delta sections only, the sibling layer.md carries the
+# frontmatter and tables; the migrate wrap path generates the pair.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "migrate_modified_only_delta_wraps_sidecar"
