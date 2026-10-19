@@ -31,7 +31,7 @@ labeled, naming the atomic and the closed set.
 - **WHEN** an expr cell's expression uses an atomic outside the closed set
 - **THEN** extraction fails labeled, naming the atomic and the closed set — the cell is never prose and never silently ignored
 
-#### Scenario: Mid-span occurrence is a mention
+#### Scenario: Mid-span kernel syntax is a mention
 - **WHEN** a cell mentions kernel syntax mid-span (as the defining rows of this very table do)
 - **THEN** nothing extracts and the cell compiles exactly as before
 
@@ -80,12 +80,12 @@ toolchain; the claim path for external checkers is contract-TOML
 
 ### Requirement: Closed language-tag fragment opt-in
 The fragment opt-in grammar SHALL accept exactly one tag from the closed
-set `{rust, py, ts}` in fragment position, SHALL reject an unknown tag
-with a labeled extraction failure naming the tag and the closed set, and
-SHALL emit supported Python and TypeScript unit Property predicates through
-their language emitters while preserving Rust fragment extraction; Rust artifact byte
-preservation follows the Pure widening requirement. A fragment in an
-unsupported position SHALL fail labeled with remediation.
+set `{rust, py, ts}` in fragment position and SHALL reject an unknown
+tag with a labeled extraction failure naming the tag and the closed set.
+Supported Python and TypeScript unit Property predicates SHALL emit
+through their language emitters; Rust artifact byte preservation follows
+the Pure widening requirement. A fragment in an unsupported position
+SHALL fail labeled with remediation.
 
 #### Scenario: Rust opt-in unchanged
 - **WHEN** a predicate cell carries a `**rust:**` fragment under the pre-change grammar
@@ -104,14 +104,13 @@ unsupported position SHALL fail labeled with remediation.
 - **THEN** nothing extracts and the cell compiles exactly as before
 
 ### Requirement: Properties table compiles to proptest blocks
-The system SHALL compile each supported Property row to at least one
-language-appropriate test block (Rust proptest, Python Hypothesis/pytest, or TypeScript fast-check)
-with its declared generator and predicate, and
-a law-kind property to exactly one block per case enumerated in the
-row's predicate in machine-findable `**name:**` label form. The
-identity and associativity floor (`law_requires_cases`) is mandatory
-and lint-enforced before compile (the compile precondition gate);
-extra named cases compile as first-class checkable blocks, never prose.
+Each supported Property row SHALL compile to at least one language-
+appropriate test block (Rust proptest, Python Hypothesis/pytest, or
+TypeScript fast-check) with its declared generator and predicate, and a
+law-kind property to exactly one block per case enumerated in the row's
+predicate in machine-findable `**name:**` label form. The identity and
+associativity floor is mandatory and lint-enforced before compile; extra
+named cases compile as first-class checkable blocks, never prose.
 
 #### Scenario: Law expands to enumerated cases
 - **WHEN** a law-kind property row's predicate carries `**identity:**`,
