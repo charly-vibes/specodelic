@@ -1,5 +1,11 @@
 # Change: Execute TypeScript properties with shared generator semantics
 
+> **PARKED (2026-10-20, deferred of record):**
+> [decisions/2026-10-20-park-py-ts-fragment-emission.md](../../decisions/2026-10-20-park-py-ts-fragment-emission.md).
+> No consumer exists; `**ts:**` fragments keep failing compile labeled
+> (`no_emitter_labeled_failure`). This proposal stays as written for a
+> future demand-gated re-activation.
+
 ## Why
 
 Existing ticket specodelic-aby names a TypeScript follow-up but has no

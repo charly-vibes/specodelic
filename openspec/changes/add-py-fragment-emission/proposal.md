@@ -1,5 +1,13 @@
 # Change: Execute Python properties with real generated inputs
 
+> **PARKED (2026-10-20, demand-gated):**
+> [decisions/2026-10-20-park-py-ts-fragment-emission.md](../../decisions/2026-10-20-park-py-ts-fragment-emission.md).
+> No consumer exists yet; `**py:**` fragments keep failing compile
+> labeled (`no_emitter_labeled_failure`). The D5 kernel agreement slice
+> is split out as specodelic-y5x8 and NOT parked. This proposal stays
+> as written for a future re-activation (gate: a real corpus consumer
+> first, one `gen:` migration as demand-side proof).
+
 ## Why
 
 The format accepts py intent but compile deliberately rejects it until an
