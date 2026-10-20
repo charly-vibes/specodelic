@@ -1,8 +1,8 @@
 # Changelog
 
-## #134 (unreleased) — Revision 19: plain deltas + layer.md sidecars (add-delta-layer-sidecar)
+## #134 — v0.12.0: Revision 19 — plain deltas + layer.md sidecars (add-delta-layer-sidecar)
 
-Landing entry for the Rev 19 change (tasks 1–7):
+Release entry for the Rev 19 epic and its companion thread (tasks 1–7):
 
 - **feat(format)!:** Revision 19 retires the dual-format delta class —
   a change's deltas are plain openspec files and the specodelic layer
