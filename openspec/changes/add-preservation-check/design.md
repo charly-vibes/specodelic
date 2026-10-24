@@ -28,10 +28,16 @@ evidence-scope labeling — the exact machinery a preservation report needs.
     prose-encoding-coupled — rejected); embedding examples in the spec and
     re-validating them (that is A3's scope, separate change — rejected here).
 - **Decision: undeclared verdict changes are findings; declared ones are not.**
-  The delta's declaration channel is the oracle record's optional
-  `expect_change: true` field — matching conform's
-  `deny_unknown_fields` style, so a typo'd field fails loudly rather than
-  silently meaning nothing.
+  The declaration channel is preserve-owned, NOT conform's oracle record:
+  conform's record schema is closed (`deny_unknown_fields`,
+  src/conform.rs:245,257 — unknown fields are refused, never ignored), so a
+  new field there would be refused and the proposal's "no existing capability
+  requirements modified" claim would be false. Instead:
+  `spk preserve --declarations <changes.json>` consumes a separate file of
+  `{scenario_id, expect_change}` records with its own
+  `deny_unknown_fields` struct — a typo'd field fails loudly there,
+  conform's schema stays untouched, and an undeclared verdict difference
+  remains a finding.
 - **Decision: evidence_scope copied verbatim from conform's envelope.**
   "agreement on the supplied corpus; not a proof of behavioral equality" —
   the anti-over-claiming lesson from the corpus (review CORR-001).
@@ -49,3 +55,7 @@ evidence-scope labeling — the exact machinery a preservation report needs.
 
 - Should `preserve` gate a lifecycle transition (archive/rename) later?
   Deferred — v1 is read-only classification, exactly like conform.
+- Could the declarations file instead ride inside the oracle corpus under a
+  preserve-specific top-level key? Rejected for v1: it would require
+  extending conform's parse of the same file, reintroducing the coupling
+  this design avoids.

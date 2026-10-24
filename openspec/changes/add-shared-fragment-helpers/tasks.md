@@ -11,6 +11,11 @@
       byte-identically before/after the change.
 - [ ] 1.4 Hygiene test: a helper body containing a banned token fails labeled
       with the same rule as fragments.
+- [ ] 1.5 Cycle test: two mutually referencing helpers fail labeled naming
+      the cycle; a transitive (acyclic) chain inlines fully.
+- [ ] 1.6 Linter-interaction check: a fixture with `## Fragments` lints
+      clean under `just lint-specs` rules — the section is opaque prose,
+      no gating rule disturbed.
 
 ## 2. Green — make the tests pass
 

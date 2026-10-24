@@ -7,6 +7,12 @@ share a helper is to paste it into every row (3× growth observed; two full
 copies of the model table in the bowling study). The format has no
 composition construct.
 
+Sidecar strategy: unlike add-preservation-check (a NEW capability, which
+ships a complete compact layer now), this change modifies the deployed
+`compile` capability whose post-change layer is large — so the full
+`compile.layer` sidecar is authored at implementation and validated by the
+fail-closed archive companion (tasks §4).
+
 ## Goals / Non-Goals
 
 - Goals: named, per-file shared definitions usable from any fragment in the
@@ -47,5 +53,5 @@ composition construct.
 ## Open Questions
 
 - Should `## Fragments` definitions be visible to invariant fragments and
-  property fragments alike in v1? Proposed: yes — both are `**rust:**
-`  bodies with identical hygiene.
+  property fragments alike in v1? Proposed: yes — both are `**rust:**`
+  bodies with identical hygiene.

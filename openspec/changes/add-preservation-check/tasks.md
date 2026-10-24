@@ -12,6 +12,14 @@
 - [ ] 1.3 Labeling test: every record + the report header carry
       `evidence_scope: "agreement on the supplied corpus; not a proof of
       behavioral equality"`; absence fails.
+- [ ] 1.4 Exit-code test: undeclared_change ⇒ 1; preserved/unchecked-only ⇒ 0;
+      gate refusal ⇒ 2 with zero records.
+- [ ] 1.5 Empty-evidence test: empty corpus and zero-matching ids both fail
+      labeled with no report.
+- [ ] 1.6 Declarations-file test: `{scenario_id, expect_change}` parses;
+      unknown field refused labeled; conform's oracle record rejects
+      `expect_change` (schema stays closed — pin it).
+- [ ] 1.7 Identical-input pin: before == after ⇒ all preserved.
 
 ## 2. Green — make the tests pass
 

@@ -31,5 +31,8 @@ single highest-leverage size fix the evidence names.
 
 - Affected specs: `compile` (ADDED requirement; no existing requirement
   modified).
+- Dependencies: none — independent of the other three proposals; the
+  Wave 1 case-study page (specodelic-uyfi) is where its size before/after
+  lands, but landing order is free.
 - Affected code: `src/compile.rs` (extraction + emission), lint advisory
   (unused-helper warning on the warnings channel), docs.

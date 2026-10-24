@@ -2,11 +2,13 @@
 
 ### Requirement: Shared fragment definitions
 
-A spec file MAY carry an optional `## Fragments` section whose rows define
-named helper bodies (`def <name>:` + a fenced rust body); any fragment cell
-in the same file MAY reference a definition by name, and compile SHALL inline
-each referenced definition's body at every use site, applying the fragment
-hygiene rule to helper bodies exactly as to fragment bodies.
+A spec file MAY carry an optional `## Fragments` section of def-lines
+(`def <name>:` followed by a fenced rust body); any fragment cell in the same
+file MAY reference a definition by name, and compile SHALL inline each
+referenced definition's body at every use site. The linter treats the
+section as opaque prose — it carries no frontmatter, tables, or typed
+references. Referencing, hygiene, and termination behaviors are specified in
+the scenarios.
 
 #### Scenario: Helper inlines at each use site
 
@@ -24,6 +26,18 @@ hygiene rule to helper bodies exactly as to fragment bodies.
 
 - **WHEN** a definition's name collides with a generated symbol
 - **THEN** compile fails labeled, naming both symbols — never a silent shadow
+
+#### Scenario: Helper cycle fails labeled
+
+- **WHEN** definitions reference each other in a cycle (`def a:` uses `b`,
+  `def b:` uses `a`)
+- **THEN** compile fails labeled naming the cycle — inlining terminates by
+  construction
+
+#### Scenario: Transitive reference inlines fully
+
+- **WHEN** a fragment references a helper that references another helper
+- **THEN** both bodies are inlined at the use site
 
 #### Scenario: Unused definition warns
 

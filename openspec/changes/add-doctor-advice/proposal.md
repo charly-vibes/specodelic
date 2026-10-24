@@ -28,5 +28,8 @@ which side of that line their file is on before they invest.
 
 - Affected specs: `doctor` (ADDED requirement; existing doctor requirements
   unmodified).
+- Dependencies: none hard; the advice text cites the same sweet-spot
+  evidence the Wave 1 decision-guide table (specodelic-f046) documents —
+  landing the docs first avoids citing an empty page.
 - Affected code: `src/doctor.rs` (advice subcommand/flag), docs
   (decision-guide cross-link).

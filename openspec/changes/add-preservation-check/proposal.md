@@ -23,12 +23,22 @@ Red→green→refactor presumes regression detection; spec revisions have none.
   example/oracle-level only; trace-level refinement claims are out of scope
   and are future work).
 - No new checking machinery: reuse conform's artifact gate (lint-clean,
-  current compiled artifacts) and its verdict taxonomy unchanged.
+  current compiled artifacts) and its verdict taxonomy unchanged. Change
+  declarations live in a preserve-owned `--declarations` file
+  (`{scenario_id, expect_change}`), NOT in conform's oracle record —
+  conform's record schema is closed (`deny_unknown_fields`,
+  src/conform.rs:245,257) and stays untouched.
+- Exit-code contract mirroring conform's: 0 unless an `undeclared_change`
+  exists (then 1); gate refusals 2 with zero verdict records.
 
 ## Impact
 
 - Affected specs: new capability `preservation`; no existing capability
   requirements are modified.
+- Dependencies: complements the Wave 2 A3 ticket (specodelic-fqte,
+  stale-example revalidation) — same example-regression direction,
+  different layer (embedded legality vs external oracle verdicts); no
+  ordering constraint between them.
 - Affected code: new `src/preserve.rs` (+ `src/commands/` wiring) reusing
   `src/conform.rs` walk machinery; CLI registration; docs.
 - Provenance: catitas corpus findings item A4; conversations

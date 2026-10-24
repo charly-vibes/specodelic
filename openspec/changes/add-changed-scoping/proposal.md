@@ -30,5 +30,9 @@ inputs are single files — only lint must stay corpus-wide.
 
 - Affected specs: `orchestrate` (ADDED requirement; existing orchestrate
   requirements unmodified).
+- Dependencies: **blocked by specodelic-523w** (compile corpus-runner scope
+  guard — the later-same-stem shadowing bug this command's scoped path would
+  otherwise inherit); consumes Wave 2 B2 (specodelic-4m3y) as the summary
+  presentation layer once that lands.
 - Affected code: `src/orchestrate.rs` (path filter), `src/compile.rs`
   scope-guard prerequisite (523w), docs (decision-guide row).

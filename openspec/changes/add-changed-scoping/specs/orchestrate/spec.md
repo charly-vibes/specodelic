@@ -25,3 +25,10 @@ scoped or corpus-wide.
 - **WHEN** two same-stem files fall inside the changed scope
 - **THEN** the run fails labeled per the compile scope guard — a later file
   never silently wins
+
+#### Scenario: Unresolvable path refused
+
+- **WHEN** a `--changed` path does not exist inside the corpus or names a
+  non-spec file
+- **THEN** the run fails labeled naming the unresolvable path — a
+  zero-work silent success is impossible
