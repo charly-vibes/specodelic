@@ -6,19 +6,18 @@
 computable from the file itself and SHALL emit advisory routing guidance
 derived from those signals on the information/warnings channel, with exit 0
 and without gating any lifecycle transition or writing to the corpus. The
-signals are: absolute state count against a documented threshold, the share
-of guard-cited claims whose expr carries no executable fragment
-(`**rust:**`/`**kernel:**`), and fan-in concentration (reusing the graph
-capability's existing fan-in signal). "Data-dominated" guidance is a
-heuristic named as such — the format declares no data dimensions, so
-growth-over-revisions is not computable here.
+signals and their heuristic character are specified in the scenarios; the
+format declares no data dimensions, so growth-over-revisions is not
+computable here.
 
 #### Scenario: Control-dominated model gets the loop advice
 
-- **WHEN** a file's model sits under the state-count threshold with a high
-  executable-guard share and low fan-in
+- **WHEN** a file's model sits under the documented state-count threshold
+  with a high executable-guard share (few guard-cited claims lacking
+  `**rust:**`/`**kernel:**` fragments) and low fan-in (reusing the graph
+  capability's existing fan-in signal)
 - **THEN** the advice recommends the lint → compile → model-check loop and
-  names the signals that support it
+  names those signals with their values
 
 #### Scenario: Data-heavy signals get the oracle advice
 
