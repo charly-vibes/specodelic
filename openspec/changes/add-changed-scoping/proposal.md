@@ -1,5 +1,12 @@
 # Change: Changed-path scoping for orchestrate's artifact-local stages
 
+> **PARKED (2026-10-25, meter-first — simplification review):** the 642s
+> datum behind this proposal is espectacular's `ah check` gate, NOT
+> `spk orchestrate` — no measured specodelic slowness exists. Gate:
+> the orchestrate-metering decision ticket. If metering shows wall-clock
+> pain on this corpus, un-park as written (specodelic-523w remains the
+> prerequisite).
+
 ## Why
 
 The mistral Beck-critique study metered the verification-queue cost

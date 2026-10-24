@@ -1,5 +1,14 @@
 # Change: Spec revision preservation checks via oracle diffing
 
+> **PARKED (2026-10-25, demand-gated — simplification review):** the v1
+> here (example-level verdict diff between two revisions) is achievable
+> TODAY with zero code: run `spk conform` twice and diff the verdict
+> records. Near-term home is the preservation-recipe docs ticket instead.
+> Re-activate this proposal if the recipe proves insufficient in practice,
+> or once add-evidence-audit lands and a first-class diff verb is still
+> wanted. The proposal/design/tasks remain the implementation plan of
+> record — incl. the declarations-file fix from the Rule-of-5 review.
+
 ## Why
 
 The catitas kata studies (Claude bundle v3, O4; mistral mandate §3D) identified

@@ -1,5 +1,13 @@
 # Change: Shared fragment definitions per file
 
+> **GATED (2026-10-25 — simplification review):** experiment E2
+> (kernel-coverage-of-fragments, ticket filed) decides this proposal's
+> scope BEFORE implementation: pure citation expressions and kernel atoms
+> (`reachable`, `unique`, `acyclic`, cardinality, bounded quantifiers) are
+> already executable without fragments — if they cover the structural-helper
+> share the studies duplicated, this proposal rescopes to data-helpers only
+> or is superseded. Do not implement until E2 lands.
+
 ## Why
 
 The catitas kata studies (O15, bundle v2) showed fragments cannot share

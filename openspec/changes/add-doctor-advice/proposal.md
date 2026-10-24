@@ -1,5 +1,12 @@
 # Change: Doctor sweet-spot advice profiler
 
+> **PARKED (2026-10-25, demand-gated — simplification review):** the advice
+> content is decision-guide knowledge parameterized by numbers, and those
+> numbers are exactly the evidence-audit aggregate (add-evidence-audit).
+> Near-term home: the Wave-1 decision-guide detection-class table
+> (specodelic-f046). Re-activate as doctor output only if the docs prove
+> insufficient and the audit aggregate exists to profile against.
+
 ## Why
 
 The mistral kata study located specodelic's value in a narrow sweet spot —
