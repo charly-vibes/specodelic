@@ -377,12 +377,11 @@ fn assemble(
     let sidecar_body = strip_frontmatter_block(&rekeyed).unwrap_or_default();
 
     // Sidecar tables in canonical order.
-    let mut tables: Vec<String> = Vec::new();
-    for heading in ["## Constraints", "## Model", "## Properties"] {
-        if let Some((s, e)) = section_span(&sidecar_body, heading) {
-            tables.push(sidecar_body[s..e].trim_end().to_string());
-        }
-    }
+    let tables: Vec<String> = ["## Constraints", "## Model", "## Properties"]
+        .iter()
+        .filter_map(|h| section_span(&sidecar_body, h))
+        .map(|(s, e)| sidecar_body[s..e].trim_end().to_string())
+        .collect();
 
     let mut parts: Vec<String> = vec![fm.trim_end().to_string()];
     if let Some(deployed) = deployed_text {
@@ -405,9 +404,7 @@ fn assemble(
         parts.extend(tables);
     }
 
-    let mut out = parts.join("\n\n");
-    out.push('\n');
-    out
+    format!("{}\n", parts.join("\n\n"))
 }
 
 /// Pre-attach verification of one sidecar (design Decision 2 step 1):
@@ -433,12 +430,11 @@ fn verify_sidecar(path: &Path) -> Result<Spec, CompanionError> {
         }
     };
     let body = strip_frontmatter_block(&text).unwrap_or_default();
-    let mut missing: Vec<&str> = Vec::new();
-    for heading in ["## Constraints", "## Model", "## Properties"] {
-        if section_span(&body, heading).is_none() {
-            missing.push(&heading[3..]);
-        }
-    }
+    let missing: Vec<&str> = ["## Constraints", "## Model", "## Properties"]
+        .iter()
+        .filter(|h| section_span(&body, h).is_none())
+        .map(|h| &h[3..])
+        .collect();
     if !missing.is_empty() {
         return Err(CompanionError::SidecarRefusal {
             refused: vec![(
@@ -583,14 +579,16 @@ pub fn restore(root: &Path, archive_dir: &Path) -> Result<Vec<PathBuf>, Companio
     }
 
     // Write, then lint the deployed corpus (fail-closed, design step 4).
-    let mut written: Vec<PathBuf> = Vec::new();
-    for (target, text, _) in &assembled {
-        fs::write(target, text).map_err(|source| CompanionError::UnreadableFile {
-            path: target.clone(),
-            read_detail: source.to_string(),
-        })?;
-        written.push(target.clone());
-    }
+    let written: Vec<PathBuf> = assembled
+        .iter()
+        .map(|(target, text, _)| {
+            fs::write(target, text).map_err(|source| CompanionError::UnreadableFile {
+                path: target.clone(),
+                read_detail: source.to_string(),
+            })?;
+            Ok(target.clone())
+        })
+        .collect::<Result<Vec<_>, CompanionError>>()?;
     if let Err(detail) = lint_deployed_corpus(root) {
         revert(&saved);
         return Err(CompanionError::AttachViolation {

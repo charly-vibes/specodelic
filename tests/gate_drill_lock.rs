@@ -19,6 +19,9 @@
 //! is WSL's stub — the contract is exercised on the ubuntu CI leg.
 #![cfg(unix)]
 
+#[path = "common/mod.rs"]
+mod common;
+use common::UnwrapPanic;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -41,9 +44,9 @@ fn read(rel: &str) -> String {
 
 /// A pid that is definitively dead: spawned, waited (reaped), and gone.
 fn dead_pid() -> u32 {
-    let mut child = Command::new("true").spawn().expect("spawn true");
+    let mut child = Command::new("true").spawn().unwrap_p();
     let pid = child.id();
-    child.wait().expect("reap true");
+    child.wait().unwrap_p();
     pid
 }
 
@@ -53,43 +56,34 @@ fn dead_pid() -> u32 {
 #[allow(dead_code)]
 struct LiveChild(std::process::Child);
 fn live_pid() -> (u32, LiveChild) {
-    let child = Command::new("sleep")
-        .arg("30")
-        .spawn()
-        .expect("spawn sleep");
+    let child = Command::new("sleep").arg("30").spawn().unwrap_p();
     let pid = child.id();
     (pid, LiveChild(child))
 }
 
 fn hostname() -> String {
-    String::from_utf8_lossy(
-        &Command::new("uname")
-            .arg("-n")
-            .output()
-            .expect("uname")
-            .stdout,
-    )
-    .trim()
-    .to_string()
+    String::from_utf8_lossy(&Command::new("uname").arg("-n").output().unwrap_p().stdout)
+        .trim()
+        .to_string()
 }
 
 fn fixture_repo(name: &str) -> (tempfile::TempDir, PathBuf) {
-    let dir = tempfile::tempdir_in(std::env::temp_dir()).expect("tempdir");
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
     let repo = dir.path().join(name);
-    fs::create_dir_all(&repo).unwrap();
-    let repo = repo.canonicalize().unwrap();
+    fs::create_dir_all(&repo).unwrap_p();
+    let repo = repo.canonicalize().unwrap_p();
     Command::new("git")
-        .args(["-C", repo.to_str().unwrap(), "init", "-q"])
+        .args(["-C", repo.to_str().unwrap_p(), "init", "-q"])
         .status()
-        .expect("git init");
+        .unwrap_p();
     (dir, repo)
 }
 
 /// Write a drill lock owner file with the given fields.
 fn write_lock(repo: &Path, host: &str, pid: u32, epoch: u64, note: &str) {
     let lock = repo.join(".beads/gate-drill.lock");
-    fs::create_dir_all(&lock).unwrap();
-    fs::write(lock.join("owner"), format!("{host}|{pid}|{epoch}|{note}\n")).unwrap();
+    fs::create_dir_all(&lock).unwrap_p();
+    fs::write(lock.join("owner"), format!("{host}|{pid}|{epoch}|{note}\n")).unwrap_p();
 }
 
 /// Run gate-drill-lock.sh `args` against `repo`.
@@ -100,7 +94,7 @@ fn run_lock(args: &[&str], repo: &Path, extra_env: &[(&str, &str)]) -> (bool, St
         .arg(repo)
         .envs(extra_env.iter().copied())
         .output()
-        .expect("gate-drill-lock.sh should be runnable");
+        .unwrap_p();
     let combined = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
@@ -117,7 +111,7 @@ fn run_drill(repo: &Path, cmd: &[&str], extra_env: &[(&str, &str)]) -> (Option<i
         .current_dir(repo)
         .envs(extra_env.iter().copied())
         .output()
-        .expect("gate-drill.sh should be runnable");
+        .unwrap_p();
     let combined = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
@@ -182,8 +176,8 @@ fn dead_pid_lock_is_stale_and_passes_check() {
 fn unparsable_lock_is_stale_and_passes_check() {
     let (_dir, repo) = fixture_repo("unparsable");
     let lock = repo.join(".beads/gate-drill.lock");
-    fs::create_dir_all(&lock).unwrap();
-    fs::write(lock.join("owner"), "garbage-without-pipes").unwrap();
+    fs::create_dir_all(&lock).unwrap_p();
+    fs::write(lock.join("owner"), "garbage-without-pipes").unwrap_p();
     let (ok, out) = run_lock(&["check"], &repo, &[]);
     assert!(ok, "unparsable lock must NOT block commits, got: {out}");
     assert!(out.to_lowercase().contains("stale"), "got: {out}");
@@ -258,15 +252,15 @@ fn drill_runs_bare_in_linked_worktree() {
     let (_dir, repo) = fixture_repo("drill-main");
     let git = |args: &[&str]| {
         let st = Command::new("git")
-            .args(["-C", repo.to_str().unwrap()])
+            .args(["-C", repo.to_str().unwrap_p()])
             .args(args)
             .status()
-            .expect("git");
+            .unwrap_p();
         assert!(st.success(), "git {:?} failed", args);
     };
     git(&["config", "user.email", "t@example.com"]);
     git(&["config", "user.name", "t"]);
-    fs::write(repo.join("seed.txt"), "seed").unwrap();
+    fs::write(repo.join("seed.txt"), "seed").unwrap_p();
     git(&["add", "seed.txt"]);
     git(&["commit", "-q", "-m", "seed"]);
 
@@ -280,7 +274,7 @@ fn drill_runs_bare_in_linked_worktree() {
         "worktree",
         "add",
         "-q",
-        wt.to_str().unwrap(),
+        wt.to_str().unwrap_p(),
         "-b",
         "drill-wt",
     ]);
@@ -308,9 +302,7 @@ fn lefthook_checks_drill_lock_on_commit_and_push() {
     let cfg = read("lefthook.yml");
     // Split into the pre-commit block (up to pre-push) and the pre-push
     // block (rest of file); both must carry the guard.
-    let (_, after_pre_commit) = cfg
-        .split_once("pre-commit:")
-        .expect("lefthook.yml pre-commit block");
+    let (_, after_pre_commit) = cfg.split_once("pre-commit:").unwrap_p();
     let (pre_commit_block, pre_push_block) = after_pre_commit
         .split_once("pre-push:")
         .unwrap_or((after_pre_commit, ""));
@@ -332,10 +324,7 @@ fn just_ci_runs_the_drill_lock_guard() {
         jf.contains("guard-drill-lock:"),
         "justfile must define a guard-drill-lock recipe (specodelic-do8)"
     );
-    let ci = jf
-        .lines()
-        .find(|l| l.starts_with("ci:"))
-        .expect("justfile ci recipe");
+    let ci = jf.lines().find(|l| l.starts_with("ci:")).unwrap_p();
     assert!(
         ci.contains("guard-drill-lock"),
         "just ci must run guard-drill-lock (specodelic-do8)"
@@ -346,7 +335,7 @@ fn just_ci_runs_the_drill_lock_guard() {
 fn guard_does_not_touch_beads_hooks_or_claim_hookspath() {
     // House constraint (AGENTS.md): the interlock must chain via
     // lefthook.yml, never edit .beads/hooks shims or claim core.hooksPath.
-    let guard = fs::read_to_string(guard_path()).unwrap();
+    let guard = fs::read_to_string(guard_path()).unwrap_p();
     assert!(
         !guard.contains("git config"),
         "gate-drill-lock.sh must not touch git config (core.hooksPath claims are the pretender-class violation)"
@@ -365,6 +354,6 @@ fn guard_does_not_touch_beads_hooks_or_claim_hookspath() {
 fn epoch_now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .unwrap_p()
         .as_secs()
 }

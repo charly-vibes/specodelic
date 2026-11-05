@@ -59,60 +59,90 @@ pub(crate) struct GraphEdges {
 pub(crate) fn graph_edges(specs: &[Spec]) -> GraphEdges {
     let full = Index::build(specs);
     // (source node, target node, field, column) per resolved link.
-    let mut edges: Vec<(String, String, String, String)> = vec![];
+    let (edges, intent_nodes) = typed_edges_of(specs, &full);
     // transition → state edges (structural: from/to are plain row ids,
     // not [[wiki-links]]) for the connectivity graph only.
-    let mut conn_edges: Vec<(String, String)> = vec![];
-    let mut intent_nodes: BTreeSet<String> = BTreeSet::new();
-    for spec in specs {
-        // Revision 18 (specodelic-mcy): every file resolves corpus-wide —
-        // the former `id: spec` file-scoped index retired with `id: spec`
-        // itself.
-        let index = &full;
-        let file_id = spec.intent.id.clone();
-        intent_nodes.insert(file_id.clone());
-        for t in &spec.transitions {
-            let t_node = format!("{file_id}.{}", t.id);
-            // from/to resolve within the file's own states (validated
-            // separately by every_transition_valid — a ghost endpoint
-            // creates no edge here).
-            for endpoint in [&t.from, &t.to] {
-                if spec.states.iter().any(|s| s.id == *endpoint) {
-                    conn_edges.push((t_node.clone(), format!("{file_id}.{endpoint}")));
-                }
-            }
-        }
-        for link in &spec.links {
-            // Same skip rules as total_refs (Revision 18: dotless
-            // targets are metasyntactic in every file — the id:spec
-            // bare-local arm retired with `id: spec`).
-            if is_metasyntactic(&link.target, index) {
-                continue;
-            }
-            let Some(target) = resolve_node(index, &file_id, &link.target) else {
-                continue; // dangling — total_refs already reported it
-            };
-            // Frontmatter links anchor on the intent (no row source);
-            // they join the connectivity graph but never the typed
-            // acyclic edge set.
-            let source = if link.source == file_id {
-                file_id.clone()
-            } else {
-                format!("{file_id}.{}", link.source)
-            };
-            edges.push((
-                source,
-                target,
-                link.field.to_string(),
-                link.column.to_string(),
-            ));
-        }
-    }
+    let conn_edges = conn_edges_of(specs);
     GraphEdges {
         edges,
         conn_edges,
         intent_nodes,
     }
+}
+
+/// The typed edges — (source, target, field, column) per resolved
+/// link — plus the intent-node set. Functional over `specs`: no
+/// mutable accumulators (mut_ratio ratchet, pretender).
+/// A typed link edge: (source node, target node, field, column).
+pub(crate) type TypedEdge = (String, String, String, String);
+
+fn typed_edges_of(specs: &[Spec], full: &Index) -> (Vec<TypedEdge>, BTreeSet<String>) {
+    let intent_nodes = specs
+        .iter()
+        .map(|s| s.intent.id.clone())
+        .collect::<BTreeSet<_>>();
+    let edges = specs
+        .iter()
+        .flat_map(|spec| {
+            let file_id = spec.intent.id.clone();
+            spec.links.iter().filter_map(move |link| {
+                // Same skip rules as total_refs (Revision 18: dotless
+                // targets are metasyntactic in every file).
+                if is_metasyntactic(&link.target, full) {
+                    return None;
+                }
+                let target = resolve_node(full, &file_id, &link.target)?;
+                // Frontmatter links anchor on the intent (no row source);
+                // they join the connectivity graph but never the typed
+                // acyclic edge set.
+                let source = if link.source == file_id {
+                    file_id.clone()
+                } else {
+                    format!("{file_id}.{}", link.source)
+                };
+                Some((
+                    source,
+                    target,
+                    link.field.to_string(),
+                    link.column.to_string(),
+                ))
+            })
+        })
+        .collect();
+    (edges, intent_nodes)
+}
+
+/// The connectivity-graph transition → state edges (structural:
+/// from/to are plain row ids, not [[wiki-links]]). Functional over
+/// `specs`: no mutable accumulators (mut_ratio ratchet, pretender).
+fn conn_edges_of(specs: &[Spec]) -> Vec<(String, String)> {
+    specs
+        .iter()
+        .flat_map(|spec| {
+            let file_id = spec.intent.id.clone();
+            let states: Vec<String> = spec.states.iter().map(|s| s.id.clone()).collect();
+            spec.transitions.iter().flat_map(move |t| {
+                let file_id = file_id.clone();
+                let states = states.clone();
+                let t_node = format!("{file_id}.{}", t.id);
+                // from/to resolve within the file's own states (validated
+                // separately by every_transition_valid — a ghost endpoint
+                // creates no edge here).
+                let endpoints = [t.from.clone(), t.to.clone()];
+                let edges: Vec<(String, String)> = endpoints
+                    .iter()
+                    .filter_map(move |endpoint| {
+                        if states.iter().any(|s| s == endpoint) {
+                            Some((t_node.clone(), format!("{file_id}.{endpoint}")))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                edges
+            })
+        })
+        .collect()
 }
 
 /// no_self_ref — a row referencing itself via traces_to or
@@ -139,24 +169,25 @@ pub(crate) fn self_ref_findings(edges: &[(String, String, String, String)], repo
 /// guard-as-edge has no cycle (openspec/specs/linter-graph_shape/spec.md). Self-loops
 /// are `no_self_ref`'s beat and excluded here.
 pub(crate) fn cycle_findings(edges: &[(String, String, String, String)], report: &mut Report) {
-    let mut ref_edges: BTreeSet<(String, String)> = BTreeSet::new();
-    for (source, target, field, column) in edges {
-        let is_ref_edge = matches!(
-            (field.as_str(), column.as_str()),
-            ("constraints", "traces_to")
-                | ("properties", "derives_from")
-                | ("transitions", "guard")
-        );
-        if is_ref_edge && source != target {
-            ref_edges.insert((source.clone(), target.clone()));
-        }
-    }
+    let ref_edges: BTreeSet<(String, String)> = edges
+        .iter()
+        .filter(|(source, _t, field, column)| {
+            matches!(
+                (field.as_str(), column.as_str()),
+                ("constraints", "traces_to")
+                    | ("properties", "derives_from")
+                    | ("transitions", "guard")
+            ) && source != _t
+        })
+        .map(|(source, target, _, _)| (source.clone(), target.clone()))
+        .collect();
     for cycle in find_cycles(&ref_edges) {
         // Close the walk for display: the last element steps back to the first.
-        let mut display = cycle.clone();
-        if let Some(first) = cycle.first() {
-            display.push(first.clone());
-        }
+        let display: Vec<String> = cycle
+            .clone()
+            .into_iter()
+            .chain(cycle.first().cloned())
+            .collect();
         let path = display.join(" → ");
         report.issues.push(Issue::new(
             "acyclic",
@@ -280,18 +311,21 @@ pub(crate) fn reachability_findings(specs: &[Spec], g: &GraphEdges, report: &mut
 /// (intent nodes are bare file ids; rows and transitions are
 /// `file.row`-qualified).
 pub(crate) fn node_ownership(specs: &[Spec]) -> BTreeMap<String, String> {
-    let mut node_file: BTreeMap<String, String> = BTreeMap::new();
-    for spec in specs {
+    let pairs = specs.iter().flat_map(|spec| {
         let file_id = spec.intent.id.clone();
-        node_file.insert(file_id.clone(), file_id.clone());
-        for r in rows(spec) {
-            node_file.insert(format!("{file_id}.{}", r.1.id), file_id.clone());
-        }
-        for t in &spec.transitions {
-            node_file.insert(format!("{file_id}.{}", t.id), file_id.clone());
-        }
-    }
-    node_file
+        let file_id_rows = file_id.clone();
+        let file_id_tx = file_id.clone();
+        let intent = (file_id.clone(), file_id.clone());
+        let rows_owned = rows(spec)
+            .into_iter()
+            .map(move |(_, r)| (format!("{file_id_rows}.{}", r.id), file_id_rows.clone()));
+        let transitions = spec
+            .transitions
+            .iter()
+            .map(move |t| (format!("{file_id_tx}.{}", t.id), file_id_tx.clone()));
+        std::iter::once(intent).chain(rows_owned).chain(transitions)
+    });
+    pairs.collect()
 }
 
 /// Emit the reachability tiers: cross-file-only rows are advisory
@@ -368,9 +402,8 @@ pub(crate) fn resolve_node(index: &Index, source_file: &str, target: &str) -> Op
     }
     // Every split point, last dot first (algorithm: specodelic-njh).
     // Section anchors name no row at ANY split point — no edge.
-    let mut dots: Vec<usize> = target.match_indices('.').map(|(i, _)| i).collect();
-    dots.reverse();
-    for i in dots {
+    let dots = target.match_indices('.').map(|(i, _)| i);
+    for i in dots.rev() {
         let (file_id, rest) = (&target[..i], &target[i + 1..]);
         if rest == "model.state" || rest == "model.transition" {
             continue;
@@ -417,17 +450,10 @@ pub(crate) fn find_cycles(edges: &BTreeSet<(String, String)>) -> Vec<Vec<String>
 }
 
 pub(crate) fn rows(spec: &Spec) -> Vec<(&'static str, &crate::spec::Row)> {
-    let mut out: Vec<(&'static str, &crate::spec::Row)> = vec![];
-    for r in &spec.constraints {
-        out.push(("constraints", r));
-    }
-    for r in &spec.properties {
-        out.push(("properties", r));
-    }
-    for r in &spec.states {
-        out.push(("states", r));
-    }
-    out
+    let constraints = spec.constraints.iter().map(|r| ("constraints", r));
+    let properties = spec.properties.iter().map(|r| ("properties", r));
+    let states = spec.states.iter().map(|r| ("states", r));
+    constraints.chain(properties).chain(states).collect()
 }
 
 /// Corpus-wide id index for reference resolution.
@@ -445,13 +471,14 @@ impl Index {
     /// but scopes `id: spec` files to their own rows (self-contained
     /// deltas — #42).
     pub(crate) fn build(specs: &[Spec]) -> Index {
-        let mut files: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-        for spec in specs {
-            files
-                .entry(spec.intent.id.clone())
-                .or_default()
-                .extend(spec.defined_ids());
-        }
+        let files: BTreeMap<String, BTreeSet<String>> =
+            specs.iter().fold(BTreeMap::new(), |mut files, spec| {
+                files
+                    .entry(spec.intent.id.clone())
+                    .or_default()
+                    .extend(spec.defined_ids());
+                files
+            });
         Index { files }
     }
 
@@ -490,9 +517,8 @@ impl Index {
         }
         // Every split point, last dot first: dotted file ids are the
         // common case, dotted row ids still resolve via the member arm.
-        let mut dots: Vec<usize> = target.match_indices('.').map(|(i, _)| i).collect();
-        dots.reverse();
-        for i in dots {
+        let dots = target.match_indices('.').map(|(i, _)| i);
+        for i in dots.rev() {
             let (file_id, rest) = (&target[..i], &target[i + 1..]);
             if let Some(rows) = self.files.get(file_id) {
                 if rows.contains(rest) || rest == "model.state" || rest == "model.transition" {
@@ -547,28 +573,30 @@ pub(crate) fn lint_references(specs: &[Spec], report: &mut Report) {
                 continue;
             }
             if !index.resolves(&spec.intent.id, &link.target) {
-                let mut msg = format!(
-                    "dangling reference `[[{}]]` from {}{} — target not defined in any spec file",
-                    link.target,
-                    link.field,
-                    if link.column.is_empty() {
-                        String::new()
-                    } else {
-                        format!(".{}", link.column)
-                    }
-                );
+                let column_suffix = if link.column.is_empty() {
+                    String::new()
+                } else {
+                    format!(".{}", link.column)
+                };
                 // gh#5: when the unresolved target names a row that lives
                 // in this very file, the fix is local — say so and show
                 // the file-qualified form instead of sending the author
                 // corpus-hunting.
-                if let Some(rows) = index.files.get(&spec.intent.id)
-                    && rows.contains(&link.target)
-                {
-                    msg.push_str(&format!(
-                        " — hint: row `{}` is defined in this file; refs must be file-qualified: `[[{}.{}]]`",
-                        link.target, spec.intent.id, link.target
-                    ));
-                }
+                let local_hint = index
+                    .files
+                    .get(&spec.intent.id)
+                    .filter(|rows| rows.contains(&link.target))
+                    .map(|_| {
+                        format!(
+                            " — hint: row `{}` is defined in this file; refs must be file-qualified: `[[{}.{}]]`",
+                            link.target, spec.intent.id, link.target
+                        )
+                    })
+                    .unwrap_or_default();
+                let msg = format!(
+                    "dangling reference `[[{}]]` from {}{} — target not defined in any spec file{}",
+                    link.target, link.field, column_suffix, local_hint
+                );
                 report
                     .issues
                     .push(Issue::new("total_refs", file.clone(), msg));
@@ -606,10 +634,8 @@ pub(crate) fn dfs_cycles(
             // nodes; the closing step back to `start` is implied. The
             // live DFS path is left untouched.
             let mut cycle = path.clone();
-            if let Some(pos) = cycle
-                .iter()
-                .position(|p| p == &cycle.iter().min().cloned().unwrap_or_default())
-            {
+            let anchor = cycle.iter().min().cloned().unwrap_or_default();
+            if let Some(pos) = cycle.iter().position(|p| *p == anchor) {
                 cycle.rotate_left(pos);
             }
             if seen.insert(cycle.clone()) {

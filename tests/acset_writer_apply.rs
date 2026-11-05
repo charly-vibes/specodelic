@@ -18,6 +18,8 @@
 //! - `text_realizes_instance` — `from_specs(apply(f, x))` equals the edit
 //! - `apply_failure_label_asserted` — edits no recorded span can realize
 
+#[path = "common/mod.rs"]
+mod common;
 use std::path::{Path, PathBuf};
 
 use specodelic::acset::writer::{self, Edit};
@@ -48,7 +50,7 @@ fn intent_rename(old: &str, new: &str) -> Edit {
 }
 
 fn parse_ok(source: &str) -> specodelic::spec::Spec {
-    parse_str(source).expect("fixture parses")
+    parse_str(source).unwrap_p()
 }
 
 /// Row rename: the id cell, the state-bullet emits link, the transition
@@ -63,7 +65,7 @@ fn row_rename_rewrites_cells_and_links_through_spans() {
         &source,
         &spec,
     )
-    .expect("row rename applies");
+    .unwrap_p();
     assert!(out.removals.is_empty(), "row rename never moves a file");
     assert_eq!(out.writes.len(), 1, "one write: the edited file");
     assert_eq!(out.writes[0].0, PathBuf::from("fam-a.md"));
@@ -90,7 +92,7 @@ fn bare_derives_from_cell_follows_local_rename() {
         &source,
         &spec,
     )
-    .expect("row rename applies");
+    .unwrap_p();
     assert_eq!(out.writes.len(), 1);
     assert!(
         out.writes[0].1.contains("| p2 | unit | c2 | `g()` | `x` |"),
@@ -112,7 +114,7 @@ fn crlf_survives_edit() {
         &source,
         &spec,
     )
-    .expect("row rename applies");
+    .unwrap_p();
     assert_eq!(out.writes.len(), 1);
     let emitted = &out.writes[0].1;
     assert_eq!(
@@ -143,8 +145,7 @@ fn prose_survives_edit() {
         row_rename("c1", "c2", "fam.a"),
         intent_rename("fam.a", "fam.z"),
     ] {
-        let out =
-            writer::apply(&edit, Path::new("fam-a.md"), &source, &spec).expect("edit applies");
+        let out = writer::apply(&edit, Path::new("fam-a.md"), &source, &spec).unwrap_p();
         let (_, text) = &out.writes[0];
         assert!(
             text.contains(prose_line),
@@ -167,7 +168,7 @@ fn padding_not_realigned() {
         &source,
         &spec,
     )
-    .expect("row rename applies");
+    .unwrap_p();
     assert_eq!(out.writes.len(), 1);
     assert!(
         out.writes[0]
@@ -190,7 +191,7 @@ fn intent_rename_moves_file() {
         &source,
         &spec,
     )
-    .expect("intent rename applies");
+    .unwrap_p();
     assert_eq!(
         out.removals,
         vec![PathBuf::from("some/dir/fam-a.md")],
@@ -228,7 +229,7 @@ fn edit_missing_from_file_is_a_no_op() {
         &source,
         &spec,
     )
-    .expect("unrelated edit applies");
+    .unwrap_p();
     assert!(out.writes.is_empty() && out.removals.is_empty());
 }
 
@@ -239,8 +240,7 @@ fn writer_does_no_io() {
     let source = full_family_spec("fam.a");
     let spec = parse_ok(&source);
     let nowhere = Path::new("/nonexistent/dir/fam-a.md");
-    let out = writer::apply(&intent_rename("fam.a", "fam.z"), nowhere, &source, &spec)
-        .expect("apply must not touch the filesystem");
+    let out = writer::apply(&intent_rename("fam.a", "fam.z"), nowhere, &source, &spec).unwrap_p();
     assert_eq!(out.writes[0].0, PathBuf::from("/nonexistent/dir/fam-z.md"));
 }
 
@@ -257,7 +257,7 @@ fn text_realizes_instance() {
         &source,
         &spec,
     )
-    .expect("applies");
+    .unwrap_p();
     let renamed = parse_ok(&out.writes[0].1);
     assert_eq!(renamed.constraints[0].id, "c2");
     assert!(
@@ -276,7 +276,7 @@ fn text_realizes_instance() {
         &source,
         &spec,
     )
-    .expect("applies");
+    .unwrap_p();
     let renamed = parse_ok(&out.writes[0].1);
     assert_eq!(renamed.intent.id, "fam.z");
     assert!(
@@ -298,7 +298,7 @@ fn apply_failure_label_asserted_on_unspanned_intent_id() {
         &source,
         &spec,
     )
-    .expect_err("an unspanned intent id cannot realize the edit");
+    .unwrap_p_err();
     assert_eq!(err.label, "spec.apply_failure");
     assert!(
         !err.remediation.is_empty(),
@@ -318,7 +318,7 @@ fn apply_failure_label_asserted_on_unspanned_bullet() {
         &source,
         &spec,
     )
-    .expect_err("an unspanned bullet cannot realize the edit");
+    .unwrap_p_err();
     assert_eq!(err.label, "spec.apply_failure");
     assert!(!err.remediation.is_empty());
 }
@@ -330,6 +330,8 @@ fn apply_failure_label_asserted_on_unspanned_bullet() {
 // other than the edit's target.
 // ---------------------------------------------------------------------------
 
+use common::UnwrapPanic;
+use common::UnwrapPanicErr;
 use proptest::prelude::*;
 
 /// rename_naturality at the writer: apply(id, x) == x — an edit whose
@@ -348,7 +350,7 @@ fn identity_edit_is_a_no_op() {
         &source,
         &spec,
     )
-    .expect("identity edit applies");
+    .unwrap_p();
     assert!(out.writes.is_empty() && out.removals.is_empty());
 }
 
@@ -363,13 +365,12 @@ fn edits_compose() {
     let f = row_rename("c1", "c2", "fam.a");
     let g = row_rename("c2", "c3", "fam.a");
     let composed = row_rename("c1", "c3", "fam.a");
-    let step1 = writer::apply(&f, Path::new("fam-a.md"), &source, &spec).expect("f applies");
+    let step1 = writer::apply(&f, Path::new("fam-a.md"), &source, &spec).unwrap_p();
     let (p1, t1) = &step1.writes[0];
     let mid_spec = parse_ok(t1);
-    let step2 = writer::apply(&g, p1, t1, &mid_spec).expect("g applies");
+    let step2 = writer::apply(&g, p1, t1, &mid_spec).unwrap_p();
     let (p2, t2) = &step2.writes[0];
-    let one_shot =
-        writer::apply(&composed, Path::new("fam-a.md"), &source, &spec).expect("composed applies");
+    let one_shot = writer::apply(&composed, Path::new("fam-a.md"), &source, &spec).unwrap_p();
     assert_eq!(one_shot.writes[0].0, *p2, "the same file is written");
     assert_eq!(
         one_shot.writes[0].1, *t2,
@@ -392,7 +393,7 @@ fn roundtrip_failure_label_asserted() {
         &source,
         &spec,
     )
-    .expect_err("a corrupting replacement must not be emitted");
+    .unwrap_p_err();
     assert_eq!(err.label, "spec.roundtrip_failure");
     assert!(
         !err.remediation.is_empty(),

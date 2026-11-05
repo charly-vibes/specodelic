@@ -1522,6 +1522,9 @@ fn ir_contains_id(ir: &ModelIr, id: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_panic::UnwrapPanic;
+    use crate::test_panic::UnwrapPanicErr;
+
     use super::*;
     use crate::spec::parse_str;
 
@@ -1536,8 +1539,8 @@ mod tests {
                 "| t1 | s1 | s2 | `**rust:** v0.len() >= 1` |",
             )
             .replace("`word()`", "`word(), num()`");
-        let spec = parse_str(&text).expect("parses");
-        let e = compile_spec(&spec).expect_err("rust guard fragment must fail");
+        let spec = parse_str(&text).unwrap_p();
+        let e = compile_spec(&spec).unwrap_p_err();
         assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
         assert!(e.message.contains("guard"), "{}", e.message);
     }
@@ -1556,7 +1559,7 @@ mod tests {
                 "| b | effect | `y fires` |",
                 "| b | invariant | `x holds` |",
             );
-        let spec = parse_str(&text).expect("parses");
+        let spec = parse_str(&text).unwrap_p();
         let ir = extract_model_ir(&spec);
         assert_eq!(
             ir.guard_citations.get("a").map(String::as_str),
@@ -1578,7 +1581,7 @@ mod tests {
         assert_eq!(sanitize_ident("9lives"), "_9lives");
         assert_eq!(sanitize_ident("café"), "caf_");
         for s in [sanitize_ident("9lives"), sanitize_ident("café")] {
-            let first = s.chars().next().unwrap();
+            let first = s.chars().next().unwrap_p();
             assert!(first == '_' || first.is_ascii_alphabetic());
             assert!(s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'));
         }
@@ -1614,7 +1617,7 @@ mod tests {
     const SAMPLE: &str = "---\nid: demo.thing\nkind: intent\nstatement: \"THE system SHALL work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x holds` | [[demo.thing]] |\n| b | effect | `y fires` | [[demo.thing]] |\n\n## Model\n\n### States\n\n- s1\n- s2 (emits: `[[demo.thing.b]]`)\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t1 | s1 | s2 | [[demo.thing.a]] |\n| t2 | s2 | s1 | `done` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p1 | unit | [[demo.thing.a]] | `arbitrary_row()` | `check(x) == ok` |\n| p2 | law | [[demo.thing.a]] | `arbitrary_row(), other()` | **identity:** `f(a) == a` **associativity:** `f(f(a)) == f(a)` |\n";
 
     fn sample() -> Spec {
-        parse_str(SAMPLE).expect("sample parses")
+        parse_str(SAMPLE).unwrap_p()
     }
 
     // --- 1.2 / 1.3 Constraints → TOML ---
@@ -1623,7 +1626,7 @@ mod tests {
     fn toml_roundtrips_field_for_field() {
         let spec = sample();
         let toml = constraints_to_toml(&spec);
-        let doc: ConstraintsDoc = toml::from_str(&toml).expect("re-parses");
+        let doc: ConstraintsDoc = toml::from_str(&toml).unwrap_p();
         assert_eq!(doc.source, "demo.thing");
         assert_eq!(doc.constraints.len(), 2);
         let a = &doc.constraints[0];
@@ -1690,7 +1693,7 @@ mod tests {
         let spec = parse_str(
             "---\nid: demo.law\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[demo.law]] |\n\n## Model\n\n### States\n\n- s\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s | s | [[demo.law.a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p | law | [[demo.law.a]] | `g()` | `f holds` |\n",
         )
-        .unwrap();
+        .unwrap_p();
         let src = properties_to_proptest(&spec);
         // floor: identity + associativity
         assert_eq!(src.matches("#[test]").count(), 2);
@@ -1721,7 +1724,7 @@ mod tests {
         // a parse error that left the scratch crate properties_uncompilable.
         // The block goes outside the macro as a plain #[test] fn, honest via
         // todo_predicate!, with the metadata comments verify fingerprints.
-        let spec = parse_str(PARAMETERLESS_SAMPLE).expect("parses");
+        let spec = parse_str(PARAMETERLESS_SAMPLE).unwrap_p();
         let src = properties_to_proptest(&spec);
         // No proptest! macro at all: every block in this fixture is
         // parameterless.
@@ -1762,7 +1765,7 @@ mod tests {
             "| p | unit | [[demo.par.a]] | `(a, b)` where one was removed | `x holds` |",
             "| p | unit | [[demo.par.a]] | `(a, b)` where one was removed | `**rust:** state != \"blackhole\"` |",
         );
-        let spec = parse_str(&text).expect("parses");
+        let spec = parse_str(&text).unwrap_p();
         let src = properties_to_proptest(&spec);
         assert!(src.contains("#[test]\nfn p("), "plain fn: {src}");
         assert!(!src.contains("proptest!"), "no macro fn: {src}");
@@ -1794,7 +1797,7 @@ mod tests {
         // TLA+ module header.
         let spec = sample();
         let src = model_to_tla(&spec);
-        let header = src.lines().next().unwrap();
+        let header = src.lines().next().unwrap_p();
         assert!(header.starts_with("---- MODULE demothing ----"));
         assert!(header.trim_end().ends_with("----"));
         assert!(!src.contains("\nMODULE"));
@@ -1815,7 +1818,7 @@ mod tests {
         let spec = parse_str(
             "---\nid: demo.quiet\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[demo.quiet]] |\n\n## Model\n\n### States\n\n- s\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s | s | [[demo.quiet.a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[demo.quiet.a]] | `g()` | `x` |\n",
         )
-        .unwrap();
+        .unwrap_p();
         let src = model_to_tla(&spec);
         assert!(src.contains("Output == << >>"));
     }
@@ -1846,8 +1849,8 @@ mod tests {
         let spec = parse_str(
             "---\nid: demo.bare\nkind: intent\nstatement: \"THE system SHALL work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[demo.bare]] |\n",
         )
-        .unwrap();
-        let err = compile_spec(&spec).expect_err("stateless spec must fail");
+        .unwrap_p();
+        let err = compile_spec(&spec).unwrap_p_err();
         assert_eq!(err.stage, "model_to_tla");
     }
 
@@ -1858,7 +1861,7 @@ mod tests {
         let spec = parse_str(
             "---\nid: demo.coll\nkind: intent\nstatement: \"THE system SHALL work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[demo.coll]] |\n\n## Model\n\n### States\n\n- s\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s | s | [[demo.coll.a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p.1 | unit | [[demo.coll.a]] | `g()` | `x` |\n| p_1 | unit | [[demo.coll.a]] | `g()` | `x` |\n",
         )
-        .unwrap();
+        .unwrap_p();
         let src = properties_to_proptest(&spec);
         assert!(src.contains("fn p_1("));
         assert!(src.contains("fn p_1_2("));
@@ -1868,7 +1871,7 @@ mod tests {
     #[test]
     fn compile_preserves_every_source_id() {
         let spec = sample();
-        let compiled = compile_spec(&spec).expect("compiles");
+        let compiled = compile_spec(&spec).unwrap_p();
         let text = format!("{}{}{:?}", compiled.toml, compiled.props, compiled.model_ir);
         for id in spec.defined_ids() {
             assert!(
@@ -1883,7 +1886,7 @@ mod tests {
     const FRAGMENT_SAMPLE: &str = "---\nid: demo.frags\nkind: intent\nstatement: \"THE system SHALL work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `**rust:** state != \"blackhole\"` | [[demo.frags]] |\n| b | effect | `y fires` | [[demo.frags]] |\n\n## Model\n\n### States\n\n- s1\n- s2\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t1 | s1 | s2 | [[demo.frags.a]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p1 | unit | [[demo.frags.a]] | `word()` | `**rust:** v0.len() >= 1` |\n| p2 | unit | [[demo.frags.a]] | `word(), num()` | `**rust:** v0.len() >= 1 && v1.len() >= 1` |\n";
 
     fn fragment_sample() -> Spec {
-        parse_str(FRAGMENT_SAMPLE).expect("fragment sample parses")
+        parse_str(FRAGMENT_SAMPLE).unwrap_p()
     }
 
     #[test]
@@ -1929,8 +1932,8 @@ mod tests {
             "| p1 | unit | [[demo.frags.a]] | `word()` | `**rust:** v0.len() >= 1` |",
             "| p1 | law | [[demo.frags.a]] | `word()` | `**rust:** v0.len() >= 1` |",
         );
-        let spec = parse_str(&text).expect("parses");
-        let e = compile_spec(&spec).expect_err("law fragment must fail");
+        let spec = parse_str(&text).unwrap_p();
+        let e = compile_spec(&spec).unwrap_p_err();
         assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
         assert!(e.message.contains("law"), "{}", e.message);
     }
@@ -1944,8 +1947,8 @@ mod tests {
         ] {
             let text = FRAGMENT_SAMPLE
                 .replace("`**rust:** v0.len() >= 1`", &format!("`**rust:** {frag}`"));
-            let spec = parse_str(&text).expect("parses");
-            let e = compile_spec(&spec).expect_err("banned token must fail");
+            let spec = parse_str(&text).unwrap_p();
+            let e = compile_spec(&spec).unwrap_p_err();
             assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
             assert!(
                 e.message.contains(token),
@@ -1961,8 +1964,8 @@ mod tests {
             "| t1 | s1 | s2 | [[demo.frags.a]] |",
             "| t1 | s1 | s2 | `**rust:** true` |",
         );
-        let spec = parse_str(&text).expect("parses");
-        let e = compile_spec(&spec).expect_err("guard fragment must fail");
+        let spec = parse_str(&text).unwrap_p();
+        let e = compile_spec(&spec).unwrap_p_err();
         assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
         assert!(e.message.contains("t1"), "{}", e.message);
     }
@@ -1973,8 +1976,8 @@ mod tests {
             "| b | effect | `y fires` | [[demo.frags]] |",
             "| b | effect | `**rust:** true` | [[demo.frags]] |",
         );
-        let spec = parse_str(&text).expect("parses");
-        let e = compile_spec(&spec).expect_err("effect fragment must fail");
+        let spec = parse_str(&text).unwrap_p();
+        let e = compile_spec(&spec).unwrap_p_err();
         assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
         assert!(e.message.contains("b"), "{}", e.message);
     }
@@ -1988,16 +1991,16 @@ mod tests {
             "`**rust:** v0.len() >= 1`",
             "`**rust:** v0.len() >= 1`, `**rust:** v0.len() >= 2`",
         );
-        let spec = parse_str(&text).expect("parses");
-        let e = compile_spec(&spec).expect_err("two fragment-position markers must fail");
+        let spec = parse_str(&text).unwrap_p();
+        let e = compile_spec(&spec).unwrap_p_err();
         assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
     }
 
     #[test]
     fn empty_fragment_rejected_labeled() {
         let text = FRAGMENT_SAMPLE.replace("`**rust:** v0.len() >= 1`", "`**rust:**`");
-        let spec = parse_str(&text).expect("parses");
-        let e = compile_spec(&spec).expect_err("empty fragment must fail");
+        let spec = parse_str(&text).unwrap_p();
+        let e = compile_spec(&spec).unwrap_p_err();
         assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
     }
 
@@ -2009,8 +2012,8 @@ mod tests {
         // extraction failure naming the tag AND the closed set — never
         // prose, never silence, never a Rust fall-through.
         let text = FRAGMENT_SAMPLE.replace("`**rust:** v0.len() >= 1`", "`**go:** len(v0) >= 1`");
-        let spec = parse_str(&text).expect("parses");
-        let e = compile_spec(&spec).expect_err("unknown tag must fail");
+        let spec = parse_str(&text).unwrap_p();
+        let e = compile_spec(&spec).unwrap_p_err();
         assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
         assert!(e.message.contains("go"), "names the tag: {}", e.message);
         assert!(
@@ -2027,9 +2030,7 @@ mod tests {
         // though compile later gates it (missing_emitter_labeled is the
         // compile-stage failure, not the extraction).
         let cell = "`**py:** len(v0) >= 1`";
-        let f = fragment_of_strict(cell)
-            .expect("py marker in fragment position extracts")
-            .expect("one fragment");
+        let f = fragment_of_strict(cell).unwrap_p().unwrap_p();
         assert_eq!(f.lang.tag(), "py");
         assert_eq!(f.text, "len(v0) >= 1");
     }
@@ -2041,8 +2042,8 @@ mod tests {
         // remediation naming the py-emitter follow-up — never a silent
         // fall-through to Rust emission, never a vacuous artifact.
         let text = FRAGMENT_SAMPLE.replace("`**rust:** v0.len() >= 1`", "`**py:** len(v0) >= 1`");
-        let spec = parse_str(&text).expect("parses");
-        let e = compile_spec(&spec).expect_err("py fragment must gate compile");
+        let spec = parse_str(&text).unwrap_p();
+        let e = compile_spec(&spec).unwrap_p_err();
         assert_eq!(e.stage, "compile.emission_failure", "{}", e.message);
         assert!(
             e.message.contains("add-py-fragment-emission"),
@@ -2062,8 +2063,8 @@ mod tests {
             "`**rust:** v0.len() >= 1 && v1.len() >= 1`",
             "`**ts:** v0.length >= 1 && v1.length >= 1`",
         );
-        let spec = parse_str(&text).expect("parses");
-        let e = compile_spec(&spec).expect_err("ts fragment must gate compile");
+        let spec = parse_str(&text).unwrap_p();
+        let e = compile_spec(&spec).unwrap_p_err();
         assert_eq!(e.stage, "compile.emission_failure", "{}", e.message);
         assert!(
             e.message.contains("add-ts-fragment-emission"),
@@ -2081,8 +2082,8 @@ mod tests {
             "`**rust:** state != \"blackhole\"`",
             "`**py:** state != \"blackhole\"`",
         );
-        let spec = parse_str(&text).expect("parses");
-        let e = compile_spec(&spec).expect_err("py expr fragment must gate compile");
+        let spec = parse_str(&text).unwrap_p();
+        let e = compile_spec(&spec).unwrap_p_err();
         assert_eq!(e.stage, "compile.emission_failure", "{}", e.message);
     }
 
@@ -2097,8 +2098,8 @@ mod tests {
                 "| t1 | s1 | s2 | `**py:** v0.len() >= 1` |",
             )
             .replace("`word()`", "`word(), num()`");
-        let spec = parse_str(&text).expect("parses");
-        let e = compile_spec(&spec).expect_err("py guard marker must fail");
+        let spec = parse_str(&text).unwrap_p();
+        let e = compile_spec(&spec).unwrap_p_err();
         assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
         assert!(e.message.contains("guard"), "{}", e.message);
     }
@@ -2111,8 +2112,8 @@ mod tests {
                 "| t1 | s1 | s2 | `**go:** v0.len() >= 1` |",
             )
             .replace("`word()`", "`word(), num()`");
-        let spec = parse_str(&text).expect("parses");
-        let e = compile_spec(&spec).expect_err("unknown-tag guard marker must fail");
+        let spec = parse_str(&text).unwrap_p();
+        let e = compile_spec(&spec).unwrap_p_err();
         assert_eq!(e.stage, "fragment_extraction", "{}", e.message);
     }
 
@@ -2135,13 +2136,13 @@ mod tests {
                 "`state != \"blackhole\"`",
             );
         let text_without = text_with.replace(predicate_with, predicate_without);
-        let spec_with = parse_str(&text_with).expect("parses");
-        let spec_without = parse_str(&text_without).expect("parses");
+        let spec_with = parse_str(&text_with).unwrap_p();
+        let spec_without = parse_str(&text_without).unwrap_p();
         assert!(
             fragment_of_strict("a row mentioning **py:** mid-span").is_ok_and(|f| f.is_none()),
             "mid-span occurrence never extracts"
         );
-        compile_spec(&spec_with).expect("mid-span mention compiles");
+        compile_spec(&spec_with).unwrap_p();
         let src_with = properties_to_proptest(&spec_with);
         let src_without = properties_to_proptest(&spec_without);
         assert_eq!(
@@ -2158,15 +2159,11 @@ mod tests {
         // fragment for the canonical fixtures, and every Revision 15 test
         // above must pass unchanged (CI proves the rest).
         let cell = "`**rust:** v0.len() >= 1`";
-        let f = fragment_of_strict(cell)
-            .expect("rust marker extracts")
-            .expect("one fragment");
+        let f = fragment_of_strict(cell).unwrap_p().unwrap_p();
         assert_eq!(f.lang.tag(), "rust");
         assert_eq!(f.text, "v0.len() >= 1");
         let bare = "**rust:** v0.len() >= 1";
-        let f = fragment_of_strict(bare)
-            .expect("rust marker extracts at cell start")
-            .expect("one fragment");
+        let f = fragment_of_strict(bare).unwrap_p().unwrap_p();
         assert_eq!(f.text, "v0.len() >= 1");
     }
 
@@ -2200,7 +2197,7 @@ mod tests {
         // corpus rows that DEFINE the marker carry such mentions in their
         // own cells; before this fix the defining-row prose was extracted
         // as Rust and the scratch runs hard-failed.
-        let spec = parse_str(MENTION_SAMPLE).expect("parses");
+        let spec = parse_str(MENTION_SAMPLE).unwrap_p();
         // Mid-span mention → no executable invariant in the IR.
         let ir = extract_model_ir(&spec);
         assert!(
@@ -2225,7 +2222,7 @@ mod tests {
             "`**rust:** v0.len() >= 1`",
             "`**rust:** v0.len() >= 1` — mentioned again as a **rust:** fragment in prose",
         );
-        let spec = parse_str(&text).expect("parses");
+        let spec = parse_str(&text).unwrap_p();
         let src = properties_to_proptest(&spec);
         assert!(
             src.contains("assert!(\n            v0.len() >= 1,"),
@@ -2262,12 +2259,12 @@ mod tests {
     #[test]
     fn no_semantic_drift_roundtrip_is_byte_identical() {
         let spec = sample();
-        let first = compile_spec(&spec).expect("compiles");
-        let second = compile_spec(&spec).expect("compiles");
+        let first = compile_spec(&spec).unwrap_p();
+        let second = compile_spec(&spec).unwrap_p();
         assert_eq!(first.toml, second.toml);
         assert_eq!(first.props, second.props);
         // re-parse + re-emit == original
-        let doc: ConstraintsDoc = toml::from_str(&first.toml).unwrap();
-        assert_eq!(toml::to_string(&doc).unwrap(), first.toml);
+        let doc: ConstraintsDoc = toml::from_str(&first.toml).unwrap_p();
+        assert_eq!(toml::to_string(&doc).unwrap_p(), first.toml);
     }
 }

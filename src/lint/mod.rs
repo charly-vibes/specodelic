@@ -583,12 +583,14 @@ fn lint_one(spec: &Spec, corpus: &[Spec], report: &mut Report) {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_panic::UnwrapPanic;
+
     use super::graph::{is_metasyntactic, resolve_node};
     use super::*;
     use std::collections::BTreeSet;
 
     fn spec_at(text: &str, path: &str) -> Spec {
-        let mut spec = crate::spec::parse_str(text).expect("fixture parses");
+        let mut spec = crate::spec::parse_str(text).unwrap_p();
         spec.path = Some(std::path::PathBuf::from(path));
         spec
     }
@@ -935,12 +937,7 @@ mod tests {
             .issues
             .iter()
             .chain(report.warnings.iter())
-            .map(|i| {
-                i.rule_id
-                    .strip_prefix("linter.")
-                    .expect("rule_id prefix")
-                    .to_string()
-            })
+            .map(|i| i.rule_id.strip_prefix("linter.").unwrap_p().to_string())
             .collect();
         let catalog: BTreeSet<&str> = RULE_TABLE
             .iter()
@@ -980,13 +977,13 @@ mod tests {
             .warnings
             .iter()
             .find(|w| w.rule_id == "linter.observability")
-            .expect("the unobserved effect must be warned");
+            .unwrap_p();
         assert!(
             w.message.contains("obs.solo.eff"),
             "warning names the row: {}",
             w.message
         );
-        assert_eq!(w.rule_semantics, rule_semantics("observability").unwrap());
+        assert_eq!(w.rule_semantics, rule_semantics("observability").unwrap_p());
     }
 
     #[test]
@@ -1075,7 +1072,7 @@ mod tests {
             .issues
             .iter()
             .find(|i| i.rule_id == "linter.no_orphan_property")
-            .expect("deriving from a non-law Property is not coverage");
+            .unwrap_p();
         assert!(
             orphan.message.contains("extra"),
             "the finding names the offending property: {}",
@@ -1152,7 +1149,7 @@ mod tests {
             .issues
             .iter()
             .find(|i| i.rule_id == "linter.no_orphan_property")
-            .expect("orphan finding fires for the bare-text cell");
+            .unwrap_p();
         assert!(
             orphan.message.contains("[[spec."),
             "hint must show the self-file wiki-link form: {}",
@@ -1179,7 +1176,7 @@ mod tests {
             .issues
             .iter()
             .find(|i| i.rule_id == "linter.coverage")
-            .expect("coverage finding fires — wrong target");
+            .unwrap_p();
         assert!(
             cov.message.contains("[[spec.c]]") || cov.message.contains("[[t.c]]"),
             "coverage hint must show the wiki-link form of the required target: {}",
@@ -1229,7 +1226,7 @@ mod tests {
             .issues
             .iter()
             .find(|i| i.rule_id == "linter.total_refs")
-            .expect("bare dotted row ref dangles");
+            .unwrap_p();
         assert!(
             dangling.message.contains("[[spec.thing.one]]"),
             "hint must show the file-qualified fix: {}",
@@ -1255,7 +1252,7 @@ mod tests {
             .issues
             .iter()
             .find(|i| i.rule_id == "linter.total_refs")
-            .expect("unknown row dangles");
+            .unwrap_p();
         assert!(
             !dangling.message.contains("defined in this file"),
             "no hint for a target that exists nowhere: {}",
@@ -1329,7 +1326,7 @@ mod tests {
         for issue in &report.issues {
             assert_eq!(
                 issue.rule_id,
-                rule_id(issue.rule_id.strip_prefix("linter.").unwrap()),
+                rule_id(issue.rule_id.strip_prefix("linter.").unwrap_p()),
                 "rule_id must be the stable linter.<name> identifier"
             );
             assert!(
@@ -1339,7 +1336,7 @@ mod tests {
             );
             assert_eq!(
                 issue.rule_semantics,
-                rule_semantics(issue.rule_id.strip_prefix("linter.").unwrap()).unwrap(),
+                rule_semantics(issue.rule_id.strip_prefix("linter.").unwrap_p()).unwrap_p(),
                 "rule_semantics must come from the rule table"
             );
         }
@@ -1359,7 +1356,7 @@ mod tests {
             .issues
             .iter()
             .find(|i| i.rule_id == "linter.law_cases")
-            .expect("prose-only law predicate must fire linter.law_cases");
+            .unwrap_p();
         assert!(
             finding
                 .message
@@ -1382,7 +1379,7 @@ mod tests {
             .issues
             .iter()
             .find(|i| i.rule_id == "linter.law_cases")
-            .expect("missing associativity must fire");
+            .unwrap_p();
         assert!(
             finding.message.contains("[\"associativity\"]"),
             "only the missing case is named: {:?}",
@@ -1425,7 +1422,7 @@ mod tests {
             .issues
             .iter()
             .find(|i| i.rule_id == "linter.law_cases")
-            .expect("a misspelled floor label is not the floor");
+            .unwrap_p();
         assert!(
             finding
                 .message
@@ -1893,8 +1890,10 @@ mod checker_tests {
 
     use super::*;
 
+    use crate::test_panic::UnwrapPanic;
+
     fn spec_from(text: &str, path: &str) -> Spec {
-        let mut s = crate::spec::parse_str(text).unwrap();
+        let mut s = crate::spec::parse_str(text).unwrap_p();
         s.path = Some(std::path::PathBuf::from(path));
         s
     }
@@ -2064,7 +2063,7 @@ statement: "maybe works"
         let issue = issues
             .iter()
             .find(|i| i.rule_id == "linter.constraint_kind_closed")
-            .expect("kind made_up is outside the closed set");
+            .unwrap_p();
         assert!(
             issue.message.contains("made_up"),
             "the finding names the offending kind: {}",
@@ -2089,7 +2088,7 @@ statement: "maybe works"
         let issue = issues
             .iter()
             .find(|i| i.rule_id == "linter.property_kind_closed")
-            .expect("kind audit is outside the closed set");
+            .unwrap_p();
         assert!(
             issue.message.contains("audit") && issue.message.contains("law"),
             "the finding names the kind and the closed set: {}",

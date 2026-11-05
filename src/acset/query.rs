@@ -85,18 +85,19 @@ pub fn run(query: &Query, instance: &Instance) -> Result<BTreeSet<String>, Vec<Q
     // The adjacency over the named morphisms, in the query's direction —
     // built from the instance's stored values; `None` (dangling) values
     // contribute no edge.
-    let mut adjacency: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-    for name in &query.morphisms {
-        for (from, to) in instance.morphism_values(name) {
-            if let Some(to) = to {
-                let (from, to) = match query.direction {
-                    Direction::Forward => (from, to),
-                    Direction::Backward => (to, from),
-                };
-                adjacency.entry(from).or_default().push(to);
-            }
-        }
-    }
+    let adjacency: BTreeMap<usize, Vec<usize>> = query
+        .morphisms
+        .iter()
+        .flat_map(|name| instance.morphism_values(name))
+        .filter_map(|(from, to)| to.map(|to| (from, to)))
+        .map(|(from, to)| match query.direction {
+            Direction::Forward => (from, to),
+            Direction::Backward => (to, from),
+        })
+        .fold(BTreeMap::new(), |mut acc, (from, to)| {
+            acc.entry(from).or_default().push(to);
+            acc
+        });
     // Worklist closure over the interned indices — each node enters the
     // queue at most once (`closure_terminates`, including cyclic M).
     let mut seen: BTreeSet<usize> = query
@@ -208,10 +209,16 @@ pub fn cyclic_nodes(
     instance: &Instance,
     morphisms: &[&str],
 ) -> Result<BTreeSet<String>, Vec<QueryError>> {
-    let mut cyclic = BTreeSet::new();
-    for name in morphisms {
-        for (from, to) in instance.morphism_values(name) {
-            let Some(to) = to else { continue };
+    let candidates: Vec<Result<Option<String>, Vec<QueryError>>> = morphisms
+        .iter()
+        .flat_map(|name| {
+            instance
+                .morphism_values(name)
+                .into_iter()
+                .map(move |(from, to)| (name, from, to))
+        })
+        .map(|(_name, from, to)| {
+            let Some(to) = to else { return Ok(None) };
             let seed = BTreeSet::from([instance.id_of(to).to_string()]);
             let reached = run(
                 &Query {
@@ -221,30 +228,37 @@ pub fn cyclic_nodes(
                 },
                 instance,
             )?;
-            if reached.contains(instance.id_of(from)) {
-                cyclic.insert(instance.id_of(from).to_string());
-            }
-        }
-    }
+            Ok(reached
+                .contains(instance.id_of(from))
+                .then(|| instance.id_of(from).to_string()))
+        })
+        .collect();
+    let cyclic: BTreeSet<String> = candidates
+        .into_iter()
+        .collect::<Result<Vec<Option<String>>, Vec<QueryError>>>()?
+        .into_iter()
+        .flatten()
+        .collect();
     Ok(cyclic)
 }
 
 /// `fan_in` — the number of pairs (source, morphism) whose defined value
 /// is the node (`fan_in_is_preimage_size`), keyed by file-qualified id.
 pub fn fan_in(instance: &Instance) -> BTreeMap<String, usize> {
-    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
-    for edge in instance.edges() {
-        *counts.entry(edge.to.clone()).or_default() += 1;
-    }
-    counts
+    tally(instance.edges().iter().map(|e| e.to.clone()))
 }
 
 /// `fan_out` — the number of defined morphism values whose source is the
 /// node, keyed by file-qualified id.
 pub fn fan_out(instance: &Instance) -> BTreeMap<String, usize> {
-    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
-    for edge in instance.edges() {
-        *counts.entry(edge.from.clone()).or_default() += 1;
-    }
-    counts
+    tally(instance.edges().iter().map(|e| e.from.clone()))
+}
+
+/// Key occurrence counts in BTree order — the deterministic aggregation
+/// behind fan-in/fan-out (no `let mut` accumulators).
+fn tally<I: Iterator<Item = String>>(keys: I) -> BTreeMap<String, usize> {
+    keys.fold(BTreeMap::new(), |mut acc, k| {
+        *acc.entry(k).or_default() += 1;
+        acc
+    })
 }

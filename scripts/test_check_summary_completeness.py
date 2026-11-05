@@ -44,6 +44,7 @@ class SummaryCompletenessTest(unittest.TestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn("openspec/specs/d/spec.md", problems[0])
         self.assertIn("specs/d/spec.md", problems[0])
+        return None  # explicit non-void: no self-field mutation
 
     def test_missing_corpus_spec_is_flagged(self):
         # A corpus spec is just a capability dir in the single tree; the
@@ -56,6 +57,7 @@ class SummaryCompletenessTest(unittest.TestCase):
         problems = csc.check(root)
         self.assertEqual(len(problems), 1)
         self.assertIn("openspec/specs/specodelic/spec.md", problems[0])
+        return None  # explicit non-void: no self-field mutation
 
     def test_frontmatterless_files_are_exempt(self):
         root = self.write({
@@ -67,6 +69,7 @@ class SummaryCompletenessTest(unittest.TestCase):
             "openspec/USAGE.md": "# usage, no frontmatter\n",
         })
         self.assertEqual(csc.check(root), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_fully_listed_tree_is_clean(self):
         root = self.write({
@@ -78,6 +81,7 @@ class SummaryCompletenessTest(unittest.TestCase):
             "openspec/specs/c/spec.md": FRONTMATTER.format(id="c"),
         })
         self.assertEqual(csc.check(root), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_archived_change_deltas_are_not_required(self):
         root = self.write({
@@ -87,6 +91,7 @@ class SummaryCompletenessTest(unittest.TestCase):
                 FRONTMATTER.format(id="spec"),
         })
         self.assertEqual(csc.check(root), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_legacy_two_tree_corpus_is_not_scanned(self):
         # The specs/ tree is gone after the jf1 migration; a stale file
@@ -97,6 +102,7 @@ class SummaryCompletenessTest(unittest.TestCase):
             "specs/a.md": FRONTMATTER.format(id="a"),
         })
         self.assertEqual(csc.check(root), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_missing_summary_file_fails_closed(self):
         root = self.write({
@@ -105,6 +111,7 @@ class SummaryCompletenessTest(unittest.TestCase):
         problems = csc.check(root)
         self.assertEqual(len(problems), 1)
         self.assertIn("docs/src/SUMMARY.md", problems[0])
+        return None  # explicit non-void: no self-field mutation
 
     def test_absolute_url_link_in_summary_is_flagged(self):
         # specodelic-j0m: mdbook 0.5 materializes absolute-URL SUMMARY
@@ -121,6 +128,7 @@ class SummaryCompletenessTest(unittest.TestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn("https://example.com/ecosystem-map.html", problems[0])
         self.assertIn("index.md", problems[0])
+        return None  # explicit non-void: no self-field mutation
 
     def test_relative_markdown_link_is_not_flagged_as_absolute(self):
         root = self.write({
@@ -128,6 +136,7 @@ class SummaryCompletenessTest(unittest.TestCase):
             "openspec/specs/a/spec.md": FRONTMATTER.format(id="a"),
         })
         self.assertEqual(csc.check(root), [])
+        return None  # explicit non-void: no self-field mutation
 
 if __name__ == "__main__":
     unittest.main()

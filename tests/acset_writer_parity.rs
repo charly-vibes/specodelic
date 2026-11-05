@@ -17,8 +17,11 @@
 //!   assertions — the snapshot compare is line-ending-agnostic, which
 //!   alone could NOT catch a CRLF→LF flip; see task 4.1)
 
+#[path = "common/mod.rs"]
+mod common;
 use std::path::PathBuf;
 
+use common::UnwrapPanic;
 use specodelic::rename;
 
 /// Canonical byte form of a rename outcome — the snapshot oracle.
@@ -81,16 +84,16 @@ fn baseline_write_set_snapshots() {
         (PathBuf::from("fam-a.md"), def.clone()),
         (PathBuf::from("fam-b.md"), other.to_string()),
     ];
-    let out = rename::run(&files, "fam.a.c1", "fam.a.c2").expect("row rename succeeds");
+    let out = rename::run(&files, "fam.a.c1", "fam.a.c2").unwrap_p();
     oracle_snapshot(CRATE, "rename_row_family", &oracle_bytes(&out));
 
     // Family 5: the file's own Intent id — write-set carries the new
     // path, one removal for the old path.
-    let out = rename::run(&files, "fam.a", "fam.z").expect("intent rename succeeds");
+    let out = rename::run(&files, "fam.a", "fam.z").unwrap_p();
     oracle_snapshot(CRATE, "rename_intent_family", &oracle_bytes(&out));
 
     // No-op guard: identity rename writes nothing (rename_naturality).
-    let out = rename::run(&files, "fam.a", "fam.a").expect("identity rename succeeds");
+    let out = rename::run(&files, "fam.a", "fam.a").unwrap_p();
     assert!(out.writes.is_empty() && out.remove.is_none());
 }
 
@@ -101,7 +104,7 @@ fn baseline_crlf_row_family() {
     let lf = full_family_spec("crlf.a");
     let crlf = lf.replace('\n', "\r\n");
     let files = vec![(PathBuf::from("crlf-a.md"), crlf.clone())];
-    let out = rename::run(&files, "crlf.a.c1", "crlf.a.c2").expect("rename succeeds");
+    let out = rename::run(&files, "crlf.a.c1", "crlf.a.c2").unwrap_p();
     oracle_snapshot(CRATE, "rename_crlf_row_family", &oracle_bytes(&out));
     assert_crlf_preserved(&crlf, &out);
 }
@@ -111,12 +114,12 @@ fn baseline_crlf_row_family() {
 /// out with CRLF — same convention as tests/acset_parity.rs).
 fn oracle_snapshot(crate_dir: &str, name: &str, bytes: &str) {
     let dir = std::path::Path::new(crate_dir).join("tests/snapshots/rename_baseline");
-    std::fs::create_dir_all(&dir).expect("snapshot dir");
+    std::fs::create_dir_all(&dir).unwrap_p();
     let path = dir.join(format!("{name}.txt"));
     if std::env::var("RENAME_SNAPSHOT_UPDATE").is_ok() {
         // Store normalized: the compare is line-ending-agnostic, and CRLF
         // preservation is pinned by the explicit assertion, not here.
-        std::fs::write(&path, bytes.replace("\r\n", "\n")).expect("write snapshot");
+        std::fs::write(&path, bytes.replace("\r\n", "\n")).unwrap_p();
         return;
     }
     let expected = std::fs::read_to_string(&path).unwrap_or_else(|e| {

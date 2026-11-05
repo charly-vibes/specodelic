@@ -1,6 +1,7 @@
 // `spk migrate` CLI integration tests (split from parse_misc.rs — the
 // file_lines ratchet; mixed-delta coverage specodelic-54v).
 use super::*;
+use crate::common::UnwrapPanic;
 
 /// (Revision 19, add-delta-layer-sidecar) A mixed delta (ADDED +
 /// MODIFIED) wraps into the pair: the delta stays byte-plain, the
@@ -9,16 +10,16 @@ use super::*;
 /// mirror retired with the dual-delta class.
 #[test]
 fn migrate_mixed_delta_wraps_sidecar_pair() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let file = dir.path().join("spec.md");
     let original = "## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: Two\ntwo holds\n";
-    std::fs::write(&file, original).unwrap();
+    std::fs::write(&file, original).unwrap_p();
     spk().arg("migrate").arg(&file).assert().success();
     // The delta file is untouched.
-    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+    assert_eq!(std::fs::read_to_string(&file).unwrap_p(), original);
     // The sibling sidecar exists with the parent-dir + .layer id and the
     // layer skeleton (no mirror, no delta grammar).
-    let sidecar = std::fs::read_to_string(dir.path().join("layer.md")).unwrap();
+    let sidecar = std::fs::read_to_string(dir.path().join("layer.md")).unwrap_p();
     assert!(
         sidecar.contains("id: .layer") || sidecar.contains("id: "),
         "{sidecar}"
@@ -39,15 +40,15 @@ fn migrate_mixed_delta_wraps_sidecar_pair() {
 /// mirror to hold the MODIFIED body).
 #[test]
 fn migrate_modified_only_delta_wraps_sidecar() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let file = dir.path().join("spec.md");
     let original = "## MODIFIED Requirements\n\n### Requirement: One\nmodified holds\n";
-    std::fs::write(&file, original).unwrap();
+    std::fs::write(&file, original).unwrap_p();
     spk().arg("migrate").arg(&file).assert().success();
     // The delta body is preserved byte-for-byte.
-    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+    assert_eq!(std::fs::read_to_string(&file).unwrap_p(), original);
     // The sidecar exists; the delta grammar stays in the delta.
-    let sidecar = std::fs::read_to_string(dir.path().join("layer.md")).unwrap();
+    let sidecar = std::fs::read_to_string(dir.path().join("layer.md")).unwrap_p();
     assert!(sidecar.contains("## Constraints"));
     assert!(!sidecar.contains("## MODIFIED Requirements"));
     // The freshly generated sidecar must not immediately fail lint.
@@ -64,10 +65,10 @@ fn migrate_modified_only_delta_wraps_sidecar() {
 /// delta sections so the remediation hint matches the widened contract.
 #[test]
 fn migrate_no_delta_section_refusal_names_both_sections() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let file = dir.path().join("spec.md");
     let original = "# Just prose\n\nSome text.\n";
-    std::fs::write(&file, original).unwrap();
+    std::fs::write(&file, original).unwrap_p();
     spk()
         .arg("migrate")
         .arg(&file)
@@ -76,7 +77,7 @@ fn migrate_no_delta_section_refusal_names_both_sections() {
         .stdout(contains(
             "## ADDED Requirements or ## MODIFIED Requirements",
         ));
-    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+    assert_eq!(std::fs::read_to_string(&file).unwrap_p(), original);
 }
 
 /// (Revision 19) The old mirror-conflict refusal retired with the
@@ -84,12 +85,12 @@ fn migrate_no_delta_section_refusal_names_both_sections() {
 /// now just a delta that carries both — the pair wraps cleanly.
 #[test]
 fn migrate_duplicate_requirement_heading_wraps_cleanly() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let file = dir.path().join("spec.md");
     let original = "## ADDED Requirements\n\n### Requirement: One\none holds\n\n## MODIFIED Requirements\n\n### Requirement: One\nmodified holds\n";
-    std::fs::write(&file, original).unwrap();
+    std::fs::write(&file, original).unwrap_p();
     spk().arg("migrate").arg(&file).assert().success();
-    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+    assert_eq!(std::fs::read_to_string(&file).unwrap_p(), original);
     assert!(dir.path().join("layer.md").exists());
 }
 
@@ -98,10 +99,10 @@ fn migrate_duplicate_requirement_heading_wraps_cleanly() {
 /// hint (never a panic), and the file is untouched.
 #[test]
 fn migrate_degenerate_one_line_delta_is_refused_labeled() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let file = dir.path().join("spec.md");
     let original = "## ADDED Requirements";
-    std::fs::write(&file, original).unwrap();
+    std::fs::write(&file, original).unwrap_p();
     spk()
         .arg("migrate")
         .arg(&file)
@@ -109,7 +110,7 @@ fn migrate_degenerate_one_line_delta_is_refused_labeled() {
         .failure()
         .stdout(contains("no trailing newline or body"))
         .stdout(contains("### Requirement:"));
-    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+    assert_eq!(std::fs::read_to_string(&file).unwrap_p(), original);
 }
 
 // ---------- --rekey (add-migrate-rekey) ----------
@@ -118,9 +119,9 @@ fn migrate_degenerate_one_line_delta_is_refused_labeled() {
 /// parent-dir-derived id; refs re-key; the file lints clean after.
 #[test]
 fn rekey_rewrites_legacy_dual_format_file() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let cap = dir.path().join("ge-cli");
-    std::fs::create_dir_all(&cap).unwrap();
+    std::fs::create_dir_all(&cap).unwrap_p();
     let file = cap.join("spec.md");
     let legacy = "---\nid: spec\nkind: intent\nstatement: \"THE ge cli SHALL hold\"\n---\n\n\
          ## Constraints\n\n\
@@ -141,13 +142,13 @@ fn rekey_rewrites_legacy_dual_format_file() {
          | p2 | unit | [[spec.c2]] | `g()` | `y` |\n\n\
          ## Requirements\n\n\
          ### Requirement: Ge cli\nThe ge cli SHALL hold.\n";
-    std::fs::write(&file, legacy).unwrap();
+    std::fs::write(&file, legacy).unwrap_p();
     spk()
-        .args(["migrate", file.to_str().unwrap(), "--rekey"])
+        .args(["migrate", file.to_str().unwrap_p(), "--rekey"])
         .assert()
         .success()
         .stdout(contains("\"rekeyed\":true"));
-    let rekeyed = std::fs::read_to_string(&file).unwrap();
+    let rekeyed = std::fs::read_to_string(&file).unwrap_p();
     assert!(rekeyed.contains("id: ge.cli\n"), "{rekeyed}");
     assert!(rekeyed.contains("[[ge.cli]]") && rekeyed.contains("[[ge.cli.c1]]"));
     assert!(!rekeyed.contains("[[spec"));
@@ -155,60 +156,60 @@ fn rekey_rewrites_legacy_dual_format_file() {
     spk().arg("lint").arg(&file).assert().success();
     // Idempotence: second run is a warning no-op, disk unchanged.
     spk()
-        .args(["migrate", file.to_str().unwrap(), "--rekey"])
+        .args(["migrate", file.to_str().unwrap_p(), "--rekey"])
         .assert()
         .success()
         .stdout(contains("\"rekeyed\":false"))
         .stdout(contains("nothing to re-key"));
-    assert_eq!(std::fs::read_to_string(&file).unwrap(), rekeyed);
+    assert_eq!(std::fs::read_to_string(&file).unwrap_p(), rekeyed);
 }
 
 /// Refusals never rewrite: a plain delta takes the wrap path; a bare
 /// spec.md has no derivable id.
 #[test]
 fn rekey_refusals_never_rewrite() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     // Plain delta (no frontmatter) → wrap path's job.
     let plain = dir.path().join("plain.md");
     let delta = "## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n";
-    std::fs::write(&plain, delta).unwrap();
+    std::fs::write(&plain, delta).unwrap_p();
     spk()
-        .args(["migrate", plain.to_str().unwrap(), "--rekey"])
+        .args(["migrate", plain.to_str().unwrap_p(), "--rekey"])
         .assert()
         .failure()
         .stdout(contains("must already be dual-format"))
         .stdout(contains("the wrap path"));
-    assert_eq!(std::fs::read_to_string(&plain).unwrap(), delta);
+    assert_eq!(std::fs::read_to_string(&plain).unwrap_p(), delta);
     // A spec.md under a directory literally named `spec`: the derived id
     // would still be `spec` — nothing to re-key to, refusal beats a
     // self-referential rewrite.
     let spec_dir = dir.path().join("spec");
-    std::fs::create_dir_all(&spec_dir).unwrap();
+    std::fs::create_dir_all(&spec_dir).unwrap_p();
     let bare = spec_dir.join("spec.md");
     let legacy = "---\nid: spec\nkind: intent\nstatement: \"THE x SHALL hold\"\n---\n";
-    std::fs::write(&bare, legacy).unwrap();
+    std::fs::write(&bare, legacy).unwrap_p();
     spk()
-        .args(["migrate", bare.to_str().unwrap(), "--rekey"])
+        .args(["migrate", bare.to_str().unwrap_p(), "--rekey"])
         .assert()
         .failure()
         .stdout(contains("cannot be derived"));
-    assert_eq!(std::fs::read_to_string(&bare).unwrap(), legacy);
+    assert_eq!(std::fs::read_to_string(&bare).unwrap_p(), legacy);
 }
 
 /// --dry-run emits the would-be content, disk untouched.
 #[test]
 fn rekey_dry_run_writes_nothing() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let cap = dir.path().join("demo-cap");
-    std::fs::create_dir_all(&cap).unwrap();
+    std::fs::create_dir_all(&cap).unwrap_p();
     let file = cap.join("spec.md");
     let legacy = "---\nid: spec\nkind: intent\nstatement: \"THE demo SHALL hold\"\n---\n";
-    std::fs::write(&file, legacy).unwrap();
+    std::fs::write(&file, legacy).unwrap_p();
     spk()
-        .args(["migrate", file.to_str().unwrap(), "--rekey", "--dry-run"])
+        .args(["migrate", file.to_str().unwrap_p(), "--rekey", "--dry-run"])
         .assert()
         .success()
         .stdout(contains("\"dry_run\":true"))
         .stdout(contains("id: demo.cap"));
-    assert_eq!(std::fs::read_to_string(&file).unwrap(), legacy);
+    assert_eq!(std::fs::read_to_string(&file).unwrap_p(), legacy);
 }

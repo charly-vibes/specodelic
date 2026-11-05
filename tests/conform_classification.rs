@@ -131,6 +131,9 @@ fn undeclared_action_is_underspecified() {
         "reason must name the uncovered rule: {}",
         r.reason
     );
+    // The declaration gate and the naming law are independent: the
+    // scenario id must still travel with the record.
+    assert_eq!(r.scenario_id, "missing-expire");
 }
 
 /// Unsupported evaluator kind → `unsupported` naming the kind — a
@@ -151,6 +154,10 @@ fn unsupported_evaluator_kind_names_the_kind() {
         "reason must name the evaluator kind: {}",
         r.reason
     );
+    // Naming the kind must leave exactly one labeled evaluation — the
+    // unsupported claim itself, not a silent pass.
+    let evaluated = r.evaluated_claim_ids.len();
+    assert_eq!(evaluated, 1, "only the unsupported claim is evaluated");
 }
 
 /// A fully declared, Model-explainable trace with no prose/unsupported
@@ -164,6 +171,12 @@ fn model_explainable_trace_is_permitted() {
     let records = classify_traces(&spec, &corpus, false);
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].verdict, Verdict::Permitted);
+    // A permitted explainable trace evaluates the corpus claims it
+    // cites — the record must name at least one evaluated claim.
+    assert!(
+        !records[0].evaluated_claim_ids.is_empty(),
+        "a permitted trace must record its evaluated claims"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -250,6 +263,10 @@ fn uncovered_trace_never_forbidden_without_declaration() {
     let records = classify_traces(&spec, &corpus, false);
     assert_eq!(records[0].verdict, Verdict::Underspecified);
     assert!(!records[0].closed_world);
+    // Underspecified means "no gate fired" — no claims were evaluated
+    // against the trace.
+    let evaluated = records[0].evaluated_claim_ids.len();
+    assert_eq!(evaluated, 0, "an underspecified trace evaluates nothing");
 }
 
 // ---------------------------------------------------------------------------

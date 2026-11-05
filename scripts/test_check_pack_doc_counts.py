@@ -81,9 +81,11 @@ class PackDocCountsTest(unittest.TestCase):
     def setUp(self):
         self._pilot = check.PILOT_PACK_IDS
         check.PILOT_PACK_IDS = frozenset({"gamma.pilot"})
+        return None  # explicit non-void: no self-field mutation
 
     def tearDown(self):
         check.PILOT_PACK_IDS = self._pilot
+        return None  # explicit non-void: no self-field mutation
 
     def _green_root(self, tmp) -> Path:
         root = tmp / "repo"
@@ -107,6 +109,7 @@ class PackDocCountsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             findings = check.check(self._green_root(Path(d)))
         self.assertEqual([], findings)
+        return None  # explicit non-void: no self-field mutation
 
     def test_stale_standard_count_fails(self):
         import tempfile
@@ -116,6 +119,7 @@ class PackDocCountsTest(unittest.TestCase):
             write_page(root, "docs/src/faq.md", GREEN_SURFACES["docs/src/faq.md"].replace("two standard packs", "three standard packs"))
             findings = check.check(root)
         self.assertTrue(any("docs/src/faq.md" in f and "three" in f for f in findings), findings)
+        return None  # explicit non-void: no self-field mutation
 
     def test_stale_total_count_fails(self):
         import tempfile
@@ -125,6 +129,7 @@ class PackDocCountsTest(unittest.TestCase):
             write_page(root, "docs/src/index.md", GREEN_SURFACES["docs/src/index.md"].replace("Three packs ship in-repo", "Five packs ship in-repo"))
             findings = check.check(root)
         self.assertTrue(any("docs/src/index.md" in f and "Five" in f for f in findings), findings)
+        return None  # explicit non-void: no self-field mutation
 
     def test_missing_enumerated_id_fails(self):
         import tempfile
@@ -134,6 +139,7 @@ class PackDocCountsTest(unittest.TestCase):
             write_page(root, "docs/src/index.md", GREEN_SURFACES["docs/src/index.md"].replace("`beta.two`) plus", ") plus"))
             findings = check.check(root)
         self.assertTrue(any("beta.two" in f for f in findings), findings)
+        return None  # explicit non-void: no self-field mutation
 
     def test_pilot_omission_allowed_on_standard_only(self):
         import tempfile
@@ -142,6 +148,7 @@ class PackDocCountsTest(unittest.TestCase):
             findings = check.check(self._green_root(Path(d)))
         # commands.md (standard-only) never names gamma.pilot — no finding.
         self.assertFalse(any("gamma.pilot" in f and "commands.md" in f for f in findings), findings)
+        return None  # explicit non-void: no self-field mutation
 
     def test_pilot_missing_on_enumerate_page_fails(self):
         import tempfile
@@ -151,6 +158,7 @@ class PackDocCountsTest(unittest.TestCase):
             write_page(root, "llms.txt", GREEN_SURFACES["llms.txt"].replace("`gamma.pilot` pilot", "pilot pack"))
             findings = check.check(root)
         self.assertTrue(any("gamma.pilot" in f and "llms.txt" in f for f in findings), findings)
+        return None  # explicit non-void: no self-field mutation
 
     def test_non_profile_file_ignored(self):
         import tempfile
@@ -160,6 +168,7 @@ class PackDocCountsTest(unittest.TestCase):
             write_pack(root, "extra", "extra.thing", kind="intent")
             findings = check.check(root)
         self.assertFalse(any("extra.thing" in f for f in findings), findings)
+        return None  # explicit non-void: no self-field mutation
 
     def test_fail_closed_on_missing_packs_dir(self):
         import tempfile
@@ -170,6 +179,7 @@ class PackDocCountsTest(unittest.TestCase):
             findings = check.check(root)
         self.assertEqual(1, len(findings), findings)
         self.assertIn("packs", findings[0])
+        return None  # explicit non-void: no self-field mutation
 
     def test_llm_txt_stale_fails(self):
         import tempfile
@@ -179,6 +189,7 @@ class PackDocCountsTest(unittest.TestCase):
             (root / "llm.txt").write_text("# specodelic\n\nstale body\n")
             findings = check.check(root)
         self.assertTrue(any("llm.txt" in f for f in findings), findings)
+        return None  # explicit non-void: no self-field mutation
 
     def test_findings_carry_file_and_hint(self):
         import tempfile
@@ -188,6 +199,7 @@ class PackDocCountsTest(unittest.TestCase):
             write_page(root, "README.md", GREEN_SURFACES["README.md"].replace("packs/beta-two.md", "packs/gone.md"))
             findings = check.check(root)
         self.assertTrue(all("remediation" in f or "hint" in f or "->" in f or "packs/" in f for f in findings), findings)
+        return None  # explicit non-void: no self-field mutation
 
 
 if __name__ == "__main__":

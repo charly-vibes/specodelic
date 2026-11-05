@@ -11,6 +11,9 @@
 //! contract is exercised on the ubuntu CI leg, where `just ci` runs it.
 #![cfg(unix)]
 
+#[path = "common/mod.rs"]
+mod common;
+use common::UnwrapPanic;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -21,10 +24,10 @@ fn script_path() -> std::path::PathBuf {
 
 fn git(dir: &Path, args: &[&str]) {
     let out = Command::new("git")
-        .args(["-C", dir.to_str().unwrap()])
+        .args(["-C", dir.to_str().unwrap_p()])
         .args(args)
         .output()
-        .expect("git should be available");
+        .unwrap_p();
     assert!(
         out.status.success(),
         "git {:?} failed: {}",
@@ -44,7 +47,7 @@ fn run_guard(dir: &Path) -> (bool, String) {
         .env("GIT_CONFIG_GLOBAL", "/dev/null")
         .env("GIT_CONFIG_SYSTEM", "/dev/null")
         .output()
-        .expect("guard script should be runnable");
+        .unwrap_p();
     let combined = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
@@ -54,10 +57,10 @@ fn run_guard(dir: &Path) -> (bool, String) {
 }
 
 fn fixture_repo(name: &str) -> (tempfile::TempDir, std::path::PathBuf) {
-    let dir = tempfile::tempdir_in(std::env::temp_dir()).expect("tempdir");
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
     let repo = dir.path().join(name);
-    fs::create_dir_all(&repo).unwrap();
-    let repo = repo.canonicalize().unwrap();
+    fs::create_dir_all(&repo).unwrap_p();
+    let repo = repo.canonicalize().unwrap_p();
     git(&repo, &["init", "-q"]);
     git(&repo, &["config", "user.email", "test@example.com"]);
     git(&repo, &["config", "user.name", "test"]);
@@ -69,14 +72,14 @@ fn fixture_repo(name: &str) -> (tempfile::TempDir, std::path::PathBuf) {
 /// (only .sample files), workflows have no espectacular/vampiro references.
 fn make_compliant(repo: &Path) {
     git(repo, &["config", "core.hooksPath", ".beads/hooks"]);
-    fs::create_dir_all(repo.join(".git/hooks")).unwrap();
-    fs::write(repo.join(".git/hooks/pre-commit.sample"), "# sample").unwrap();
-    fs::create_dir_all(repo.join(".github/workflows")).unwrap();
+    fs::create_dir_all(repo.join(".git/hooks")).unwrap_p();
+    fs::write(repo.join(".git/hooks/pre-commit.sample"), "# sample").unwrap_p();
+    fs::create_dir_all(repo.join(".github/workflows")).unwrap_p();
     fs::write(
         repo.join(".github/workflows/ci.yml"),
         "name: CI\njobs:\n  ci:\n",
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 #[test]
@@ -105,7 +108,7 @@ fn claimed_hookspath_fails() {
 fn unguarded_git_hooks_write_fails() {
     let (_dir, repo) = fixture_repo("unguarded");
     make_compliant(&repo);
-    fs::write(repo.join(".git/hooks/pre-commit"), "#!/bin/sh\n").unwrap();
+    fs::write(repo.join(".git/hooks/pre-commit"), "#!/bin/sh\n").unwrap_p();
     let (ok, out) = run_guard(&repo);
     assert!(!ok, "non-.sample file in .git/hooks must fail");
     assert!(
@@ -125,7 +128,7 @@ fn espectacular_in_ci_allowed() {
         repo.join(".github/workflows/ci.yml"),
         "jobs:\n  scenario-conformance:\n    run: espectacular check\n",
     )
-    .unwrap();
+    .unwrap_p();
     let (ok, out) = run_guard(&repo);
     assert!(
         ok,
@@ -141,7 +144,7 @@ fn vampiro_in_ci_fails() {
         repo.join(".github/workflows/ci.yml"),
         "jobs:\n  seam-checks:\n    run: vampiro check src\n",
     )
-    .unwrap();
+    .unwrap_p();
     let (ok, out) = run_guard(&repo);
     assert!(!ok, "vampiro wired into CI must fail");
     assert!(
@@ -160,7 +163,7 @@ fn comment_mention_in_ci_passes() {
         repo.join(".github/workflows/publish.yml"),
         "# follow-up — see the pretender/espectacular notes\njobs:\n  publish:\n    run: cargo publish\n",
     )
-    .unwrap();
+    .unwrap_p();
     let (ok, out) = run_guard(&repo);
     assert!(ok, "comment-only mention must pass, got: {out}");
 }

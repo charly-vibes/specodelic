@@ -1,5 +1,6 @@
 // (split from tests/cli.rs — specodelic-g17 file_lines ratchet)
 use super::*;
+use crate::common::UnwrapPanic;
 
 // ---- specodelic-ug3: the opt-in TLC backend ----
 
@@ -14,9 +15,9 @@ fn tlc_seam(dir: &tempfile::TempDir, run_output: &str, exit_code: i32) {
     let script = format!(
         "#!/bin/sh\nfor arg in \"$@\"; do case \"$arg\" in -version) echo 'TLC2 version 1.20.0 of 12 May 2024'; exit 0;; esac; done\ncat <<'TLCOUT'\n{run_output}\nTLCOUT\nexit {exit_code}\n"
     );
-    std::fs::write(&shim, script).unwrap();
-    std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap();
-    std::fs::write(dir.path().join("tla2tools.jar"), b"placeholder").unwrap();
+    std::fs::write(&shim, script).unwrap_p();
+    std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap_p();
+    std::fs::write(dir.path().join("tla2tools.jar"), b"placeholder").unwrap_p();
 }
 
 #[cfg(unix)]
@@ -24,10 +25,10 @@ fn write_tlc_module_and_report(spec: &std::path::Path, out_dir: &std::path::Path
     spk()
         .args([
             "compile",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out_dir.to_str().unwrap(),
+            out_dir.to_str().unwrap_p(),
         ])
         .assert()
         .success();
@@ -36,7 +37,7 @@ fn write_tlc_module_and_report(spec: &std::path::Path, out_dir: &std::path::Path
 #[cfg(unix)]
 #[test]
 fn model_check_tlc_backend_without_jar_is_an_invocation_error() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("mc_demo.md");
     write_model_check_spec(&spec, "mc_demo");
     let out_dir = dir.path().join("specodelic");
@@ -44,21 +45,21 @@ fn model_check_tlc_backend_without_jar_is_an_invocation_error() {
     let out = spk()
         .args([
             "model-check",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out_dir.to_str().unwrap(),
+            out_dir.to_str().unwrap_p(),
             "--backend",
             "tlc",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     // Invocation error (specodelic-7rr): invalid invocations exit 2.
     assert_eq!(out.status.code(), Some(2));
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(json["envelope_kind"], "error");
     // Failure messages ride the warnings channel (genesis convention).
-    let message = json["warnings"][0]["message"].as_str().unwrap();
+    let message = json["warnings"][0]["message"].as_str().unwrap_p();
     assert!(
         message.contains("--tlc-jar"),
         "the remediation must name the flag: {message}"
@@ -70,35 +71,38 @@ fn model_check_tlc_backend_without_jar_is_an_invocation_error() {
 fn model_check_tlc_backend_missing_checker_binary_is_a_labeled_error() {
     // MUST (specodelic-ug3): a missing checker binary is an ERROR — never
     // a no_counterexample result.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("mc_demo.md");
     write_model_check_spec(&spec, "mc_demo");
     let out_dir = dir.path().join("specodelic");
     write_tlc_module_and_report(&spec, &out_dir);
-    std::fs::write(dir.path().join("tla2tools.jar"), b"placeholder").unwrap();
+    std::fs::write(dir.path().join("tla2tools.jar"), b"placeholder").unwrap_p();
     let out = spk()
         .args([
             "model-check",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out_dir.to_str().unwrap(),
+            out_dir.to_str().unwrap_p(),
             "--backend",
             "tlc",
             "--tlc-jar",
-            dir.path().join("tla2tools.jar").to_str().unwrap(),
+            dir.path().join("tla2tools.jar").to_str().unwrap_p(),
         ])
         .env(
             "SPK_TLC_JAVA",
-            dir.path().join("no-such-java").to_str().unwrap(),
+            dir.path().join("no-such-java").to_str().unwrap_p(),
         )
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     let failed = &json["data"]["failed"][0];
     assert_eq!(failed["stage"], "missing_checker");
     assert!(
-        failed["message"].as_str().unwrap().contains("SPK_TLC_JAVA"),
+        failed["message"]
+            .as_str()
+            .unwrap_p()
+            .contains("SPK_TLC_JAVA"),
         "the remediation must name the JVM seam: {}",
         failed["message"]
     );
@@ -107,7 +111,7 @@ fn model_check_tlc_backend_missing_checker_binary_is_a_labeled_error() {
 #[cfg(unix)]
 #[test]
 fn model_check_tlc_backend_reports_a_comparable_run_report() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("mc_demo.md");
     write_model_check_spec(&spec, "mc_demo");
     let out_dir = dir.path().join("specodelic");
@@ -120,26 +124,26 @@ fn model_check_tlc_backend_reports_a_comparable_run_report() {
     let out = spk()
         .args([
             "model-check",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out_dir.to_str().unwrap(),
+            out_dir.to_str().unwrap_p(),
             "--backend",
             "tlc",
             "--tlc-jar",
-            dir.path().join("tla2tools.jar").to_str().unwrap(),
+            dir.path().join("tla2tools.jar").to_str().unwrap_p(),
         ])
         .env(
             "SPK_TLC_JAVA",
-            dir.path().join("fake-java.sh").to_str().unwrap(),
+            dir.path().join("fake-java.sh").to_str().unwrap_p(),
         )
         .output()
-        .unwrap();
+        .unwrap_p();
     // specodelic-4v1 boundary: exploration_only is a NON-failure
     // outcome — exit 0, success envelope, while the report stays
     // comparable across backends.
     assert_eq!(out.status.code(), Some(0));
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(json["ok"], serde_json::json!(true));
     let checked = &json["data"]["checked"][0];
     assert_eq!(checked["backend"]["engine"], "tlc");
@@ -151,8 +155,8 @@ fn model_check_tlc_backend_reports_a_comparable_run_report() {
     assert_eq!(checked["states_explored"], 7);
     // The persisted report carries the same attribution.
     let report: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(out_dir.join("mc_demo.check.json")).unwrap())
-            .unwrap();
+        serde_json::from_slice(&std::fs::read(out_dir.join("mc_demo.check.json")).unwrap_p())
+            .unwrap_p();
     assert_eq!(report["backend"]["engine"], "tlc");
     assert_eq!(report["artifact_sha256"], checked["artifact_sha256"]);
 }
@@ -160,7 +164,7 @@ fn model_check_tlc_backend_reports_a_comparable_run_report() {
 #[cfg(unix)]
 #[test]
 fn model_check_tlc_backend_depth_cutoff_reports_timed_out() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("mc_demo.md");
     write_model_check_spec(&spec, "mc_demo");
     let out_dir = dir.path().join("specodelic");
@@ -173,25 +177,25 @@ fn model_check_tlc_backend_depth_cutoff_reports_timed_out() {
     let out = spk()
         .args([
             "model-check",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out_dir.to_str().unwrap(),
+            out_dir.to_str().unwrap_p(),
             "--backend",
             "tlc",
             "--tlc-jar",
-            dir.path().join("tla2tools.jar").to_str().unwrap(),
+            dir.path().join("tla2tools.jar").to_str().unwrap_p(),
         ])
         .env(
             "SPK_TLC_JAVA",
-            dir.path().join("fake-java.sh").to_str().unwrap(),
+            dir.path().join("fake-java.sh").to_str().unwrap_p(),
         )
         .output()
-        .unwrap();
+        .unwrap_p();
     // specodelic-4v1 boundary: timed_out is a NON-failure outcome —
     // exit 0, success envelope.
     assert_eq!(out.status.code(), Some(0));
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(json["ok"], serde_json::json!(true));
     assert_eq!(json["data"]["outcome"], "timed_out");
 }
@@ -227,21 +231,21 @@ fn consumer_repo_spec(id: &str) -> String {
 /// openspec/changes/<change>/specs/<cap>/spec.md.
 fn openspec_consumer_repo(dir: &std::path::Path) {
     let spec = dir.join("openspec/changes/add-x/specs/x").join("spec.md");
-    std::fs::create_dir_all(spec.parent().unwrap()).unwrap();
-    std::fs::write(&spec, consumer_repo_spec("spec")).unwrap();
+    std::fs::create_dir_all(spec.parent().unwrap_p()).unwrap_p();
+    std::fs::write(&spec, consumer_repo_spec("spec")).unwrap_p();
 }
 
 #[test]
 fn bare_lint_in_an_openspec_consumer_repo_hints_at_the_tree() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     openspec_consumer_repo(dir.path());
     let out = spk()
         .args(["lint", "--json"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(2));
-    let stdout = String::from_utf8(out.stdout).unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(
         stdout.contains("openspec"),
         "the zero-files failure names the openspec tree: {stdout}"
@@ -250,15 +254,15 @@ fn bare_lint_in_an_openspec_consumer_repo_hints_at_the_tree() {
 
 #[test]
 fn bare_graph_in_an_openspec_consumer_repo_hints_at_the_tree() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     openspec_consumer_repo(dir.path());
     let out = spk()
         .args(["graph", "--json"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(2));
-    let stdout = String::from_utf8(out.stdout).unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(
         stdout.contains("openspec"),
         "the zero-files failure names the openspec tree: {stdout}"
@@ -267,15 +271,15 @@ fn bare_graph_in_an_openspec_consumer_repo_hints_at_the_tree() {
 
 #[test]
 fn doctor_names_the_openspec_corpus_in_a_consumer_repo() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     openspec_consumer_repo(dir.path());
     let out = spk()
         .args(["doctor", "--json"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let stdout = String::from_utf8(out.stdout).unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(
         stdout.contains("corpus discovery") && stdout.contains("lint openspec"),
         "doctor discovers the openspec corpus: {stdout}"
@@ -284,14 +288,14 @@ fn doctor_names_the_openspec_corpus_in_a_consumer_repo() {
 
 #[test]
 fn doctor_reports_a_missing_corpus_with_the_discovery_rule() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let out = spk()
         .args(["doctor", "--json"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let stdout = String::from_utf8(out.stdout).unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(
         stdout.contains("corpus discovery"),
         "doctor carries the discovery check: {stdout}"
@@ -335,7 +339,7 @@ fn dual_file_with_bare_refs() -> String {
 
 fn write_dual(dir: &std::path::Path, body: &str) -> std::path::PathBuf {
     let path = dir.join("spec.md");
-    std::fs::write(&path, body).unwrap();
+    std::fs::write(&path, body).unwrap_p();
     path
 }
 
@@ -345,14 +349,14 @@ fn bare_row_ref_is_skipped_metasyntactic_in_every_file() {
     // with `id: spec` — a dotless [[c1]] is metasyntactic in EVERY file,
     // so it produces no edge, no dangling, and no typing violation; the
     // file-qualified spelling is the one that resolves.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let f = write_dual(dir.path(), &dual_file_with_bare_refs());
     let out = spk()
-        .args(["graph", f.to_str().unwrap(), "--json"])
+        .args(["graph", f.to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let edges = json["data"]["edges"].as_array().unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let edges = json["data"]["edges"].as_array().unwrap_p();
     assert!(
         !edges.iter().any(|e| e["kind"] == "transitions.guard"),
         "the bare guard [[c1]] must mint no reference edge: {edges:?}",
@@ -364,7 +368,7 @@ fn bare_row_ref_is_skipped_metasyntactic_in_every_file() {
         "the file-qualified [[spec.c1]] resolves to an edge: {edges:?}",
     );
     assert!(
-        json["data"]["dangling"].as_array().unwrap().is_empty(),
+        json["data"]["dangling"].as_array().unwrap_p().is_empty(),
         "the bare form skips silently (metasyntactic): {}",
         json["data"]["dangling"]
     );
@@ -375,14 +379,14 @@ fn qualified_row_ref_typing_violation_is_reported_not_swallowed() {
     // Revision 10 (specodelic-cxq) shape, now on the only spelling that
     // resolves: a traces_to edge pointing at a Constraint (an invariant)
     // resolves and then violates typing — never silently skipped.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let f = write_dual(dir.path(), &dual_file_with_bare_refs());
     let out = spk()
-        .args(["graph", f.to_str().unwrap(), "--json"])
+        .args(["graph", f.to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let violations = json["data"]["violations"].as_array().unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let violations = json["data"]["violations"].as_array().unwrap_p();
     assert!(
         violations
             .iter()
@@ -398,21 +402,21 @@ fn qualified_row_ref_typing_violation_is_reported_not_swallowed() {
 /// `specodelic.rename_naturality`). Must NOT be a typing violation.
 #[test]
 fn law_derives_from_law_is_allowed() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     std::fs::write(
         dir.path().join("t.md"),
         "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `x` | [[t]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| law1 | law | [[t.c1]] | `g()` | **identity:** `f(a,a)==a` **naturality:** `f == f` |\n| law2 | law | [[t.law1]] | `g()` | **identity:** `f(a,a)==a` **naturality:** `f == f` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let violations = json["data"]["violations"].as_array().unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let violations = json["data"]["violations"].as_array().unwrap_p();
     let law_edges: Vec<&serde_json::Value> = json["data"]["edges"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .filter(|e| e["kind"] == "properties.derives_from" && e["to"] == "t.law1")
         .collect();
@@ -432,25 +436,25 @@ fn law_derives_from_law_is_allowed() {
 /// `refactor.md` analyze, `orchestrate.md` start_lint).
 #[test]
 fn guard_to_state_is_allowed() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     std::fs::write(
         dir.path().join("t.md"),
         "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `x` | [[t]] |\n\n## Model\n\n### States\n\n- `s1`\n- `ready`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| go | s1 | ready | [[t.ready]] |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let violations = json["data"]["violations"].as_array().unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let violations = json["data"]["violations"].as_array().unwrap_p();
     assert!(
         violations.iter().all(|v| v["from"] != "t.go"),
         "guard→State must not violate typing: {violations:?}"
     );
     let guard_edges: Vec<&serde_json::Value> = json["data"]["edges"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .filter(|e| e["kind"] == "transitions.guard" && e["to"] == "t.ready")
         .collect();
@@ -464,18 +468,18 @@ fn guard_to_state_is_allowed() {
 /// Constraint stays a violation (typing did not loosen).
 #[test]
 fn guard_to_advisory_constraint_still_violates() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     std::fs::write(
         dir.path().join("t.md"),
         "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | advisory | `x` | [[t]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| go | s1 | s1 | [[t.c1]] |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let violations = json["data"]["violations"].as_array().unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let violations = json["data"]["violations"].as_array().unwrap_p();
     assert!(
         violations
             .iter()
@@ -488,18 +492,18 @@ fn guard_to_advisory_constraint_still_violates() {
 /// deriving from another Property stays a violation.
 #[test]
 fn unit_derives_from_property_still_violates() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     std::fs::write(
         dir.path().join("t.md"),
         "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `x` | [[t]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p1 | unit | [[t.c1]] | `g()` | `x` |\n| p2 | unit | [[t.p1]] | `g()` | `x` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let violations = json["data"]["violations"].as_array().unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let violations = json["data"]["violations"].as_array().unwrap_p();
     assert!(
         violations
             .iter()
@@ -513,20 +517,20 @@ fn unknown_bare_targets_still_skip_as_metasyntactic() {
     // Option A is narrow: bare targets that name NO own row keep the
     // metasyntactic skip (template placeholders like [[...]] and docs
     // examples like [[x]] stay invisible).
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let body = dual_file_with_bare_refs()
         .replace("[[c1]]", "[[nope]]")
         .replace("[[spec.c1]]", "[[nope]]");
     let f = write_dual(dir.path(), &body);
     let out = spk()
-        .args(["graph", f.to_str().unwrap(), "--json"])
+        .args(["graph", f.to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert!(json["data"]["dangling"].as_array().unwrap().is_empty());
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    assert!(json["data"]["dangling"].as_array().unwrap_p().is_empty());
     let link_edges: Vec<&serde_json::Value> = json["data"]["edges"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .filter(|e| e["kind"] == "properties.derives_from" || e["kind"] == "constraints.traces_to")
         .collect();
@@ -541,16 +545,16 @@ fn unknown_bare_targets_still_skip_as_metasyntactic() {
 fn bare_row_ref_lints_clean_in_a_dual_format_file() {
     // lint and graph agree: the bare form resolves — no dangling finding,
     // and the guard (a structured traces_to cell) resolves too.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let f = write_dual(dir.path(), &dual_file_with_bare_refs());
     let out = spk()
-        .args(["lint", f.to_str().unwrap(), "--json"])
+        .args(["lint", f.to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     let dangling: Vec<&serde_json::Value> = json["data"]["issues"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .filter(|i| i["rule_id"] == "linter.total_refs")
         .collect();
@@ -573,8 +577,8 @@ const OBSERVABILITY_CON: &str = "---\nid: con\nkind: intent\nstatement: \"THE co
 
 fn write_observability_pair(dir: &std::path::Path, consumer_observes: &str) {
     let con = OBSERVABILITY_CON.replace("[[pub.eff_out]] |", consumer_observes);
-    std::fs::write(dir.join("pub.md"), OBSERVABILITY_PUB).unwrap();
-    std::fs::write(dir.join("con.md"), con).unwrap();
+    std::fs::write(dir.join("pub.md"), OBSERVABILITY_PUB).unwrap_p();
+    std::fs::write(dir.join("con.md"), con).unwrap_p();
 }
 
 #[test]
@@ -582,24 +586,24 @@ fn observes_cross_file_edge_extracts_and_types_clean() {
     // The observes column is a typed outbound reference: cross-file
     // observation extracts exactly one edge and types clean (no
     // violation, no dangling).
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_observability_pair(dir.path(), "[[pub.eff_out]] |");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let violations = json["data"]["violations"].as_array().unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let violations = json["data"]["violations"].as_array().unwrap_p();
     assert!(
         violations.is_empty(),
         "observes → effect must type clean: {violations:?}"
     );
     let edge = json["data"]["edges"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .find(|e| e["kind"] == "constraints.observes")
-        .expect("the observes edge must be extracted");
+        .unwrap_p();
     assert_eq!(edge["from"], "con.watch");
     assert_eq!(edge["to"], "pub.eff_out");
 }
@@ -608,20 +612,23 @@ fn observes_cross_file_edge_extracts_and_types_clean() {
 fn observes_wrong_target_rejected_with_hint() {
     // observes must resolve to an effect Constraint — pointing it at an
     // invariant row is a labeled typing violation, never a recorded edge.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_observability_pair(dir.path(), "[[pub.inv_ok]] |");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let violations = json["data"]["violations"].as_array().unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let violations = json["data"]["violations"].as_array().unwrap_p();
     let v = violations
         .iter()
         .find(|v| v["edge_kind"] == "constraints.observes")
-        .expect("observes → invariant must be a labeled violation");
+        .unwrap_p();
     assert!(
-        v["reason"].as_str().unwrap().contains("effect Constraint"),
+        v["reason"]
+            .as_str()
+            .unwrap_p()
+            .contains("effect Constraint"),
         "the reason must name the rule and the actual target kind: {v:?}"
     );
 }
@@ -632,23 +639,23 @@ fn observes_wrong_target_rejected_with_hint() {
 /// remediations (publish the row / fix the id) without claiming which applies.
 #[test]
 fn satisfies_dangling_message_is_interface_shaped() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let producer = "---\nid: producer\nkind: intent\nstatement: \"THE producer SHALL publish the hook contract\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| hook_shape | extension_point | `hook fn` | [[producer]] |\n\n## Model\n\n### States\n\n- `s`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s | s | [[producer.hook_shape]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[producer.hook_shape]] | `g()` | `x` |\n";
     // Spike p2a shape: the consumer satisfies a row the producer never
     // published (`producer.nope`).
     let consumer = "---\nid: consumer\nkind: intent\nstatement: \"THE consumer SHALL install hooks\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | satisfies |\n|----|------|------|-----------|-----------|\n| hooks_installed | effect | `hooks ok` | [[consumer]] | [[producer.nope]] |\n\n## Model\n\n### States\n\n- `s`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s | s | [[consumer.hooks_installed]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[consumer.hooks_installed]] | `g()` | `x` |\n";
-    std::fs::write(dir.path().join("producer.md"), producer).unwrap();
-    std::fs::write(dir.path().join("consumer.md"), consumer).unwrap();
+    std::fs::write(dir.path().join("producer.md"), producer).unwrap_p();
+    std::fs::write(dir.path().join("consumer.md"), consumer).unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     let dangling = json["data"]["dangling"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
-        .map(|d| d.as_str().unwrap())
+        .map(|d| d.as_str().unwrap_p())
         .collect::<Vec<_>>()
         .join("\n");
     for part in [
@@ -669,20 +676,20 @@ fn satisfies_dangling_message_is_interface_shaped() {
 /// interface-shaped treatment as a dangling `satisfies`.
 #[test]
 fn observes_dangling_message_is_interface_shaped() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     // The pair fixture with the observes cell pointed at a row nobody
     // published — the observes ghost-row case.
     write_observability_pair(dir.path(), "[[ghost.row]] |");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     let dangling = json["data"]["dangling"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
-        .map(|d| d.as_str().unwrap())
+        .map(|d| d.as_str().unwrap_p())
         .collect::<Vec<_>>()
         .join("\n");
     for part in [
@@ -703,27 +710,27 @@ fn observes_dangling_message_is_interface_shaped() {
 fn mutual_observation_is_not_a_cycle() {
     // observes is a claim, not a dependency — two files mutually
     // observing each other's effects stay acyclic (D4).
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     // pub's eff_out is observed by con.watch; con's eff_back is observed
     // by pub.watch — a crossed mutual pair. Acyclic's edge set
     // (traces_to ∪ derives_from ∪ guard) never sees it.
     let a = "---\nid: pub\nkind: intent\nstatement: \"THE publisher SHALL emit output\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | observes |\n|----|------|------|-----------|----------|\n| inv_ok | invariant | `value is finite` | [[pub]] | |\n| eff_out | effect | `output == {value}` | [[pub]] | [[con.eff_back]] |\n\n## Model\n\n### States\n\n- `idle`\n- `emitting` `emits: [[pub.eff_out]]`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| emit | idle | emitting | [[pub.inv_ok]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[pub.inv_ok]] | `g()` | `x` |\n| p_eff | unit | [[pub.eff_out]] | `g()` | `x` |\n";
     let b = "---\nid: con\nkind: intent\nstatement: \"THE consumer SHALL observe the publisher output\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | observes |\n|----|------|------|-----------|----------|\n| inv_seen | invariant | `output seen` | [[con]] | |\n| eff_back | effect | `ack == {value}` | [[con]] | [[pub.eff_out]] |\n\n## Model\n\n### States\n\n- `idle`\n- `acking` `emits: [[con.eff_back]]`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| ack | idle | acking | [[con.inv_seen]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[con.inv_seen]] | `g()` | `x` |\n| p_eff | unit | [[con.eff_back]] | `g()` | `x` |\n";
-    std::fs::write(dir.path().join("pub.md"), a).unwrap();
-    std::fs::write(dir.path().join("con.md"), b).unwrap();
+    std::fs::write(dir.path().join("pub.md"), a).unwrap_p();
+    std::fs::write(dir.path().join("con.md"), b).unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert!(
-        json["data"]["issues"].as_array().unwrap().is_empty(),
+        json["data"]["issues"].as_array().unwrap_p().is_empty(),
         "mutual observation must not trip acyclic: {}",
         json["data"]["issues"]
     );
     assert!(
-        json["warnings"].as_array().unwrap().is_empty(),
+        json["warnings"].as_array().unwrap_p().is_empty(),
         "both effects are observed — no warnings either: {}",
         json["warnings"]
     );
@@ -734,19 +741,19 @@ fn unobserved_effect_warns_exit_zero() {
     // A declared output nobody observes is an advisory warning on the
     // warnings channel — exit 0, never a failure (design D5; the doctor
     // knowledge-currency precedent).
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("pub.md"), OBSERVABILITY_PUB).unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
+    std::fs::write(dir.path().join("pub.md"), OBSERVABILITY_PUB).unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(
         out.status.code(),
         Some(0),
         "an unobserved effect is advisory, never a failure"
     );
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let warnings = json["warnings"].as_array().unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let warnings = json["warnings"].as_array().unwrap_p();
     assert!(
         warnings.iter().any(|w| {
             let m = w["message"].as_str().unwrap_or_default();
@@ -755,7 +762,7 @@ fn unobserved_effect_warns_exit_zero() {
         "the unobserved effect must be warned with rule id + row id: {warnings:?}"
     );
     assert!(
-        json["data"]["issues"].as_array().unwrap().is_empty(),
+        json["data"]["issues"].as_array().unwrap_p().is_empty(),
         "the warning must not ride the issues channel: {}",
         json["data"]["issues"]
     );
@@ -765,20 +772,18 @@ fn unobserved_effect_warns_exit_zero() {
 fn graph_classifies_extension_point_host_as_external_boundary() {
     // A file hosting ≥1 extension_point Constraint is an external
     // boundary — derived from published contracts, never authored.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let pub_ext = OBSERVABILITY_PUB.replace(
         "| eff_out | effect | `output == {value}` | [[pub]] |",
         "| contract | extension_point | `interface == Output` | [[pub]] |\n| eff_out | effect | `output == {value}` | [[pub]] |",
     );
-    std::fs::write(dir.path().join("pub.md"), pub_ext).unwrap();
+    std::fs::write(dir.path().join("pub.md"), pub_ext).unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let boundaries = json["data"]["external_boundaries"]
-        .as_array()
-        .expect("external_boundaries must be in the graph payload");
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let boundaries = json["data"]["external_boundaries"].as_array().unwrap_p();
     assert!(
         boundaries.iter().any(|b| b == "pub"),
         "pub hosts an extension_point row — it is an external boundary: {boundaries:?}"
@@ -791,17 +796,15 @@ fn graph_classifies_extension_point_host_as_external_boundary() {
 /// is no stale tag left to clean up.
 #[test]
 fn graph_no_extension_point_rows_yield_no_external_boundary() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     // OBSERVABILITY_PUB declares only an effect row — no extension_point.
-    std::fs::write(dir.path().join("pub.md"), OBSERVABILITY_PUB).unwrap();
+    std::fs::write(dir.path().join("pub.md"), OBSERVABILITY_PUB).unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let boundaries = json["data"]["external_boundaries"]
-        .as_array()
-        .expect("external_boundaries must be in the graph payload");
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let boundaries = json["data"]["external_boundaries"].as_array().unwrap_p();
     assert!(
         boundaries.is_empty(),
         "no extension_point rows → no external boundary, no stale tag: {boundaries:?}"

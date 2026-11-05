@@ -440,6 +440,8 @@ fn rewrite_links(line: &str, old_id: &str, new_id: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_panic::UnwrapPanic;
+
     use super::*;
 
     /// A minimal spec whose constraint/property rows a checklist can
@@ -470,7 +472,7 @@ mod tests {
             std::path::PathBuf::from("a.md"),
             "---\nid: a\nkind: intent\nstatement: \"THE system SHALL x\"\n---\n".to_string(),
         )];
-        let out = run(&files, "a", "a").unwrap();
+        let out = run(&files, "a", "a").unwrap_p();
         assert!(out.writes.is_empty() && out.remove.is_none());
     }
 
@@ -484,12 +486,12 @@ mod tests {
             mapped_spec_file(),
             checklist_file("[[x.file.c1]], x.file.p1"),
         ];
-        let out = run(&files, "x.file.c1", "x.file.c2").unwrap();
+        let out = run(&files, "x.file.c1", "x.file.c2").unwrap_p();
         let cl = out
             .writes
             .iter()
             .find(|(p, _)| p == &std::path::PathBuf::from("ship.checklist.md"))
-            .expect("checklist must be rewritten");
+            .unwrap_p();
         assert!(
             cl.1.contains("[[x.file.c2]], x.file.p1"),
             "mapped cell follows the rename: {:?}",
@@ -512,12 +514,12 @@ mod tests {
     #[test]
     fn mapped_ids_follow_intent_rename() {
         let files = vec![mapped_spec_file(), checklist_file("[[x.file.c1]]")];
-        let out = run(&files, "x.file", "y.file2").unwrap();
+        let out = run(&files, "x.file", "y.file2").unwrap_p();
         let cl = out
             .writes
             .iter()
             .find(|(p, _)| p == &std::path::PathBuf::from("ship.checklist.md"))
-            .expect("checklist must be rewritten");
+            .unwrap_p();
         assert!(
             cl.1.contains("[[y.file2.c1]]"),
             "child mapped id follows the file rename: {:?}",
@@ -530,7 +532,7 @@ mod tests {
     #[test]
     fn checklist_without_matching_ids_is_not_written() {
         let files = vec![mapped_spec_file(), checklist_file("[[x.file.p1]]")];
-        let out = run(&files, "x.file.c1", "x.file.c2").unwrap();
+        let out = run(&files, "x.file.c1", "x.file.c2").unwrap_p();
         assert!(
             !out.writes
                 .iter()
@@ -582,7 +584,7 @@ mod tests {
     fn crlf_files_keep_their_terminators() {
         let raw = "---\r\nid: a\r\nkind: intent\r\nstatement: \"THE system SHALL x\"\r\n---\r\n\r\nprose line\r\n";
         let files = vec![(std::path::PathBuf::from("a.md"), raw.to_string())];
-        let out = run(&files, "a", "b").unwrap();
+        let out = run(&files, "a", "b").unwrap_p();
         assert_eq!(out.writes.len(), 1, "one write: the moved file");
         let text = &out.writes[0].1;
         assert!(

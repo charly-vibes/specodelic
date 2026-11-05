@@ -22,8 +22,11 @@
 //! earlier and with a better hint. Pinned by `quoted_intent_rename`
 //! below, excluded from the property legs.
 
+#[path = "common/mod.rs"]
+mod common;
 use std::path::PathBuf;
 
+use common::UnwrapPanic;
 use proptest::prelude::*;
 use specodelic::rename::{RenameOutcome, run, run_via_writer};
 
@@ -70,6 +73,10 @@ fn assert_parity(files: &[(PathBuf, String)], old_id: &str, new_id: &str) {
 /// Definition file with one row of every editable family, plus a
 /// referencing file (same shape as the 1.1 snapshot fixtures).
 fn full_family_spec(id: &str) -> String {
+    // The family fixture exercises every rewrite surface at once, so it
+    // must carry the model section — a constraint-less fixture would
+    // exercise nothing.
+    debug_assert!(id.len() < 64, "family fixture ids stay path-safe");
     format!(
         "---\nid: {id}\nkind: intent\nstatement: \"THE {id} SHALL hold one of every rewrite family\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `holds` | [[{id}]] |\n\n## Model\n\n### States\n- spanned\n- applied (emits: [[{id}.c1]])\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t1 | spanned | applied | [[{id}.c1]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p1 | unit | [[{id}.c1]] | `g()` | `x` |\n"
     )
@@ -98,8 +105,8 @@ fn writer_parity_over_snapshot_fixtures() {
     assert_parity(&files, "fam.a", "fam.z");
 
     // Identity rename: both paths write nothing.
-    let hand = run(&files, "fam.a", "fam.a").unwrap();
-    let writer = run_via_writer(&files, "fam.a", "fam.a").unwrap();
+    let hand = run(&files, "fam.a", "fam.a").unwrap_p();
+    let writer = run_via_writer(&files, "fam.a", "fam.a").unwrap_p();
     assert!(hand.writes.is_empty() && writer.writes.is_empty());
 }
 
@@ -110,8 +117,8 @@ fn writer_parity_crlf_row_family() {
     let lf = full_family_spec("crlf.a");
     let crlf = lf.replace('\n', "\r\n");
     let files = vec![(PathBuf::from("crlf-a.md"), crlf.clone())];
-    let hand = run(&files, "crlf.a.c1", "crlf.a.c2").unwrap();
-    let writer = run_via_writer(&files, "crlf.a.c1", "crlf.a.c2").unwrap();
+    let hand = run(&files, "crlf.a.c1", "crlf.a.c2").unwrap_p();
+    let writer = run_via_writer(&files, "crlf.a.c1", "crlf.a.c2").unwrap_p();
     assert_eq!(canonical(&hand), canonical(&writer));
     let crlf_in = crlf.matches("\r\n").count();
     let crlf_out: usize = writer

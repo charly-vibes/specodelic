@@ -45,13 +45,15 @@ pub fn check_for_update(cache_dir: &Path) -> Option<update_check::UpdateInfo> {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_panic::UnwrapPanic;
+
     use super::*;
     use std::path::Path;
 
     fn now_secs() -> u64 {
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .unwrap_p()
             .as_secs()
     }
 
@@ -62,7 +64,7 @@ mod tests {
     /// `latest != current` → `Some(UpdateInfo)` — asserted here.
     fn seed_update(cache_dir: &Path, latest: &str) -> Option<update_check::UpdateInfo> {
         let cache_dir = cache_dir.join("cache");
-        std::fs::create_dir_all(&cache_dir).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap_p();
         std::fs::write(
             cache_dir.join("specodelic.json"),
             format!(
@@ -70,7 +72,7 @@ mod tests {
                 now_secs()
             ),
         )
-        .unwrap();
+        .unwrap_p();
         check_for_update(&cache_dir)
     }
 
@@ -78,18 +80,18 @@ mod tests {
 
     #[test]
     fn update_notice_rides_warnings_when_newer_version_exists() {
-        let dir = tempfile::tempdir().unwrap();
-        let info = seed_update(dir.path(), "9.9.9").expect("newer version → Some");
+        let dir = tempfile::tempdir().unwrap_p();
+        let info = seed_update(dir.path(), "9.9.9").unwrap_p();
         let warning = update_notice(&info);
         assert!(warning.is_some(), "newer version → warning");
-        let msg = warning.unwrap();
+        let msg = warning.unwrap_p();
         assert!(msg.contains("9.9.9"), "names the newer version: {msg}");
         assert!(msg.contains("cargo install"), "actionable: {msg}");
     }
 
     #[test]
     fn no_notice_when_current() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         // genesis design: latest == current → None ("up to date"),
         // BEFORE notice() is ever consulted
         assert!(
@@ -102,9 +104,9 @@ mod tests {
     fn transport_failure_is_silent_never_an_error() {
         // unreachable API base (nothing listens on port 1) → None, no
         // panic, no error — the doctor must never fail on the network
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let cache = dir.path().join("cache");
-        std::fs::create_dir_all(&cache).unwrap();
+        std::fs::create_dir_all(&cache).unwrap_p();
         let info = update_check::check_with(
             "specodelic",
             env!("CARGO_PKG_VERSION"),
@@ -119,9 +121,9 @@ mod tests {
         // a stale cache entry with an unreachable API: check re-issues
         // the fetch, fails silently, writes a backoff entry — next call
         // short-circuits on the backoff (also hermetic, zero HTTP after)
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let cache = dir.path().join("cache");
-        std::fs::create_dir_all(&cache).unwrap();
+        std::fs::create_dir_all(&cache).unwrap_p();
         let stale = now_secs() - 604800 - 1; // older than the 7-day TTL
         std::fs::write(
             cache.join("specodelic.json"),
@@ -129,7 +131,7 @@ mod tests {
                 r#"{{"checked_at": {stale}, "latest": "0.0.1", "published_at": null, "ttl_secs": 604800}}"#
             ),
         )
-        .unwrap();
+        .unwrap_p();
         let info = update_check::check_with(
             "specodelic",
             env!("CARGO_PKG_VERSION"),
@@ -139,10 +141,11 @@ mod tests {
         assert!(info.is_none(), "transport failure → None");
         // backoff entry persisted (genesis stale-cache preservation: the
         // prior latest rides along) — the next call reads it fresh
-        let entry: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(cache.join("specodelic.json")).unwrap())
-                .unwrap();
-        let checked_at = entry["checked_at"].as_u64().unwrap();
+        let entry: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(cache.join("specodelic.json")).unwrap_p(),
+        )
+        .unwrap_p();
+        let checked_at = entry["checked_at"].as_u64().unwrap_p();
         assert!(
             checked_at > stale,
             "checked_at advanced to the backoff write"

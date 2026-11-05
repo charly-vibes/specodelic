@@ -16,6 +16,10 @@
 //! identifier — a hand-maintained list may be stale, a generated one
 //! cannot.
 
+#[path = "common/mod.rs"]
+mod common;
+use common::UnwrapPanic;
+use common::UnwrapPanicErr;
 use specodelic::ears::PATTERNS;
 use specodelic::guide::TOPICS;
 use specodelic::lint::{RULE_TABLE, lint_all};
@@ -31,14 +35,14 @@ const MANAGED_MARKER: &str =
 
 #[test]
 fn generate_pack_is_deterministic() {
-    let a = generate_pack("specodelic-design").expect("known pack generates");
-    let b = generate_pack("specodelic-design").expect("known pack generates");
+    let a = generate_pack("specodelic-design").unwrap_p();
+    let b = generate_pack("specodelic-design").unwrap_p();
     assert_eq!(a, b, "two generate_pack calls must be byte-identical");
 }
 
 #[test]
 fn pack_layout_is_exactly_three_files() {
-    let files = generate_pack("specodelic-design").expect("known pack generates");
+    let files = generate_pack("specodelic-design").unwrap_p();
     let mut paths: Vec<&String> = files.keys().collect();
     paths.sort();
     let expected = ["SKILL.md", "references/example.md", "references/format.md"];
@@ -48,7 +52,7 @@ fn pack_layout_is_exactly_three_files() {
 
 #[test]
 fn every_file_starts_with_managed_marker() {
-    let files = generate_pack("specodelic-design").expect("known pack generates");
+    let files = generate_pack("specodelic-design").unwrap_p();
     assert!(
         !files.is_empty(),
         "sanity: the pack contains at least one file"
@@ -100,14 +104,14 @@ fn pack_content_hash_is_sha256_over_sorted_path_nul_content() {
 fn hash_of_generated_pack_is_stable_across_calls() {
     // The staleness check (doctor, phase 5) recomputes both sides; the
     // generated pack's hash must therefore be call-stable by construction.
-    let a = generate_pack("specodelic-design").expect("known pack generates");
-    let b = generate_pack("specodelic-design").expect("known pack generates");
+    let a = generate_pack("specodelic-design").unwrap_p();
+    let b = generate_pack("specodelic-design").unwrap_p();
     assert_eq!(pack_content_hash(&a), pack_content_hash(&b));
 }
 
 #[test]
 fn unknown_pack_is_labeled_error() {
-    let err = generate_pack("nope").expect_err("unknown pack must fail");
+    let err = generate_pack("nope").unwrap_p_err();
     assert!(
         err.contains("nope"),
         "error must be labeled with the requested pack name, got: {err}"
@@ -120,7 +124,7 @@ fn unknown_pack_is_labeled_error() {
 #[test]
 fn unknown_render_placeholder_is_labeled_failure() {
     let body = "before <!-- spk:render:no-such-table --> after";
-    let err = render_body(body).expect_err("unknown placeholder must fail, never pass through");
+    let err = render_body(body).unwrap_p_err();
     assert!(
         err.contains("no-such-table"),
         "failure must name the placeholder identifier, got: {err}"
@@ -130,8 +134,7 @@ fn unknown_render_placeholder_is_labeled_failure() {
 #[test]
 fn unterminated_render_placeholder_is_labeled_failure() {
     let body = "text <!-- spk:render:ears with no close";
-    let err =
-        render_body(body).expect_err("unterminated placeholder must fail, never pass through");
+    let err = render_body(body).unwrap_p_err();
     assert!(
         err.contains("ears"),
         "failure must name the placeholder identifier, got: {err}"
@@ -140,17 +143,14 @@ fn unterminated_render_placeholder_is_labeled_failure() {
 
 #[test]
 fn body_without_placeholders_passes_through_verbatim() {
-    assert_eq!(
-        render_body("plain text").expect("pass through"),
-        "plain text"
-    );
+    assert_eq!(render_body("plain text").unwrap_p(), "plain text");
 }
 
 #[test]
 fn tracked_sources_render_clean() {
     // No tracked source carries a dangling placeholder at HEAD: pack
     // generation must succeed (a drift-class guard in its own right).
-    generate_pack("specodelic-design").expect("current sources must render cleanly");
+    generate_pack("specodelic-design").unwrap_p();
 }
 
 // ---- Phase 2: explain-derived rendering (tasks.md §2.2, design D3) ----
@@ -161,12 +161,9 @@ fn topics_line_renders_from_the_topic_list_table() {
     // same table `spk explain` (no argument) lists — never restated in
     // the source. Order and set must match the served table exactly (the
     // grounding drift class: the draft listed 8 of 9 topics).
-    let pack = generate_pack("specodelic-design").expect("pack generates");
+    let pack = generate_pack("specodelic-design").unwrap_p();
     let skill = &pack["SKILL.md"];
-    let line = skill
-        .lines()
-        .find(|l| l.contains("topics:"))
-        .expect("SKILL.md names the explaunable topics");
+    let line = skill.lines().find(|l| l.contains("topics:")).unwrap_p();
     let rendered = topics_mentioned(line);
     let served: Vec<&str> = TOPICS.iter().map(|(id, _)| *id).collect();
     assert_eq!(
@@ -189,7 +186,7 @@ fn format_reference_renders_the_explain_topics_it_summarizes() {
     // typed-reference table, and the naming law through the same code
     // paths that serve `spk explain ears`/`kinds`/`references`/`format`
     // — byte-equal to the served bodies, never a hand-copied table.
-    let pack = generate_pack("specodelic-design").expect("pack generates");
+    let pack = generate_pack("specodelic-design").unwrap_p();
     let format_ref = &pack["references/format.md"];
     for topic in ["format", "ears", "kinds", "references"] {
         let body = specodelic::guide::topic_body(topic)
@@ -211,7 +208,7 @@ fn ears_table_names_exactly_the_five_grammar_patterns() {
     // The rendered EARS table must name exactly the patterns the EARS
     // grammar classifies — the enum is the source of truth, the guide
     // prose cannot gain or lose a pattern without failing here.
-    let pack = generate_pack("specodelic-design").expect("pack generates");
+    let pack = generate_pack("specodelic-design").unwrap_p();
     let served: Vec<&str> = PATTERNS.iter().map(|p| p.display_name()).collect();
     let rendered = specodelic::skill_pack::pattern_name_mentions(&pack["references/format.md"]);
     assert_eq!(
@@ -226,9 +223,9 @@ fn every_rule_mention_in_the_protocol_resolves() {
     // `linter.<rule>` form; every such mention must resolve against the
     // lint rule catalog (the grounding drift class: a rule cited in a
     // failure table but absent from the served list).
-    let pack = generate_pack("specodelic-design").expect("pack generates");
+    let pack = generate_pack("specodelic-design").unwrap_p();
     let skill = &pack["SKILL.md"];
-    check_membership(skill).expect("every mention in the protocol resolves");
+    check_membership(skill).unwrap_p();
     // the gate must have shipped teeth: the self-check names rules
     let mentioned = skill
         .split('`')
@@ -254,8 +251,8 @@ fn every_rule_mention_in_the_protocol_resolves() {
 
 #[test]
 fn dangling_topic_mention_fails_naming_the_identifier() {
-    let err = check_membership("consult spk explain (topics: format, no-such-topic)")
-        .expect_err("a dangling topic mention must fail");
+    let err =
+        check_membership("consult spk explain (topics: format, no-such-topic)").unwrap_p_err();
     assert!(
         err.contains("no-such-topic"),
         "failure must name the identifier, got: {err}"
@@ -265,7 +262,7 @@ fn dangling_topic_mention_fails_naming_the_identifier() {
 #[test]
 fn dangling_rule_mention_fails_naming_the_identifier() {
     let err = check_membership("treat the finding's rule id `linter.no_such_rule` as ground truth")
-        .expect_err("a dangling rule mention must fail");
+        .unwrap_p_err();
     assert!(
         err.contains("linter.no_such_rule"),
         "failure must name the identifier, got: {err}"
@@ -275,7 +272,7 @@ fn dangling_rule_mention_fails_naming_the_identifier() {
 #[test]
 fn dangling_ears_pattern_fails_naming_the_identifier() {
     let fixture = "| Pattern | Shape |\n|---|---|\n| Fake-Pattern | `THE SYSTEM SHALL x` |";
-    let err = check_membership(fixture).expect_err("a dangling EARS pattern must fail");
+    let err = check_membership(fixture).unwrap_p_err();
     assert!(
         err.contains("Fake-Pattern"),
         "failure must name the identifier, got: {err}"
@@ -293,14 +290,13 @@ fn resolvable_mentions_pass_the_membership_gate() {
             .collect::<Vec<_>>()
             .join(", ")
     );
-    check_membership(&fixture).expect("resolvable mentions pass");
+    check_membership(&fixture).unwrap_p();
 }
 
 #[test]
 fn metasyntactic_explain_mention_is_not_flagged() {
     // `spk explain <topic>` in prose is a meta-shape, not a topic mention
-    check_membership("prefer `spk explain <topic>` for detail")
-        .expect("metasyntactic mention passes");
+    check_membership("prefer `spk explain <topic>` for detail").unwrap_p();
 }
 
 // ---- phase 3 (specodelic-xoeu, tasks.md §3): example embedding + lint gate ----
@@ -317,7 +313,7 @@ fn book_example() -> String {
         env!("CARGO_MANIFEST_DIR"),
         "/docs/src/examples/reservation-order.md"
     ))
-    .expect("the book example exists at docs/src/examples/reservation-order.md")
+    .unwrap_p()
 }
 
 #[test]
@@ -325,10 +321,8 @@ fn example_reference_embeds_the_book_example_verbatim() {
     // design D2: `references/example.md` is the book example verbatim
     // under the managed marker — never a copied (driftable) second
     // authoring surface.
-    let files = generate_pack("specodelic-design").expect("known pack generates");
-    let generated = files
-        .get("references/example.md")
-        .expect("the pack carries references/example.md");
+    let files = generate_pack("specodelic-design").unwrap_p();
+    let generated = files.get("references/example.md").unwrap_p();
     let expected = format!("{MANAGED_MARKER}\n\n{}", book_example());
     assert_eq!(
         generated, &expected,
@@ -343,7 +337,7 @@ fn embedded_example_lints_clean_through_the_corpus_api() {
     // findings and zero warnings, else the pack would ship a skill
     // teaching a spec that fails its own tool (tasks.md §3.1).
     let book = book_example();
-    let spec = parse_str(&book).expect("the book example parses as a spec");
+    let spec = parse_str(&book).unwrap_p();
     let report = lint_all(&[spec], &[]);
     assert_eq!(
         report.failures(),

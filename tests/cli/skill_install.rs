@@ -13,6 +13,7 @@
 //! file never touch the developer's real skill directories.
 
 use super::*;
+use crate::common::UnwrapPanic;
 
 /// Run `spk skill install` with hermetic HOME + XDG_STATE_HOME.
 fn skill_install(home: &std::path::Path, state: &std::path::Path, dir: Option<&str>) -> Command {
@@ -32,15 +33,15 @@ fn pack_dir(target: &std::path::Path) -> std::path::PathBuf {
 
 #[test]
 fn install_into_an_empty_dir_writes_the_pack_and_lists_paths_and_hash() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap_p();
     let target = tmp.path().join("skills");
     let out = skill_install(
         tmp.path(),
         &tmp.path().join("state"),
-        Some(target.to_str().unwrap()),
+        Some(target.to_str().unwrap_p()),
     )
     .output()
-    .unwrap();
+    .unwrap_p();
     assert!(
         out.status.success(),
         "install into an empty dir exits 0: {}",
@@ -70,9 +71,9 @@ fn install_into_an_empty_dir_writes_the_pack_and_lists_paths_and_hash() {
     let data = &envelope["data"];
     let mut got_paths: Vec<String> = data["paths"]
         .as_array()
-        .expect("envelope carries paths")
+        .unwrap_p()
         .iter()
-        .map(|p| p.as_str().unwrap().to_string())
+        .map(|p| p.as_str().unwrap_p().to_string())
         .collect();
     got_paths.sort();
     assert_eq!(
@@ -87,10 +88,10 @@ fn install_into_an_empty_dir_writes_the_pack_and_lists_paths_and_hash() {
 
 #[test]
 fn default_target_is_claude_skills_under_home_with_parents_created() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap_p();
     let out = skill_install(tmp.path(), &tmp.path().join("state"), None)
         .output()
-        .unwrap();
+        .unwrap_p();
     assert!(
         out.status.success(),
         "default-target install exits 0: {}",
@@ -106,20 +107,20 @@ fn default_target_is_claude_skills_under_home_with_parents_created() {
 
 #[test]
 fn overwrite_refusal_for_a_non_marker_target_file() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap_p();
     let target = tmp.path().join("skills");
     let skill = pack_dir(&target).join("SKILL.md");
-    std::fs::create_dir_all(skill.parent().unwrap()).unwrap();
+    std::fs::create_dir_all(skill.parent().unwrap_p()).unwrap_p();
     let foreign = "# my own notes\n";
-    std::fs::write(&skill, foreign).unwrap();
+    std::fs::write(&skill, foreign).unwrap_p();
 
     let out = skill_install(
         tmp.path(),
         &tmp.path().join("state"),
-        Some(target.to_str().unwrap()),
+        Some(target.to_str().unwrap_p()),
     )
     .output()
-    .unwrap();
+    .unwrap_p();
     let code = out.status.code().unwrap_or(-1);
     assert_eq!(code, 2, "overwrite refusal exits 2");
     let stdout = String::from_utf8_lossy(&out.stdout);
@@ -130,7 +131,7 @@ fn overwrite_refusal_for_a_non_marker_target_file() {
         "the refusal must name the conflicting path: {stdout} | {stderr}"
     );
     assert_eq!(
-        std::fs::read_to_string(&skill).unwrap(),
+        std::fs::read_to_string(&skill).unwrap_p(),
         foreign,
         "the foreign file must be left untouched"
     );
@@ -138,29 +139,29 @@ fn overwrite_refusal_for_a_non_marker_target_file() {
 
 #[test]
 fn marker_bearing_overwrite_succeeds() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap_p();
     let target = tmp.path().join("skills");
     let first = skill_install(
         tmp.path(),
         &tmp.path().join("state"),
-        Some(target.to_str().unwrap()),
+        Some(target.to_str().unwrap_p()),
     )
     .output()
-    .unwrap();
+    .unwrap_p();
     assert!(first.status.success(), "first install exits 0");
     let second = skill_install(
         tmp.path(),
         &tmp.path().join("state"),
-        Some(target.to_str().unwrap()),
+        Some(target.to_str().unwrap_p()),
     )
     .output()
-    .unwrap();
+    .unwrap_p();
     assert!(
         second.status.success(),
         "re-installing over marker-bearing files succeeds: {}",
         String::from_utf8_lossy(&second.stderr)
     );
-    let content = std::fs::read_to_string(pack_dir(&target).join("SKILL.md")).unwrap();
+    let content = std::fs::read_to_string(pack_dir(&target).join("SKILL.md")).unwrap_p();
     assert!(
         content.starts_with("<!-- MANAGED BY specodelic"),
         "the overwritten file is still marker-bearing"
@@ -169,18 +170,18 @@ fn marker_bearing_overwrite_succeeds() {
 
 #[test]
 fn write_failure_exits_1() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap_p();
     // A plain file where the target directory must be created — the
     // write cannot succeed; the error contract calls it exit 1.
     let blocker = tmp.path().join("blocker");
-    std::fs::write(&blocker, "not a directory").unwrap();
+    std::fs::write(&blocker, "not a directory").unwrap_p();
     let out = skill_install(
         tmp.path(),
         &tmp.path().join("state"),
-        Some(blocker.to_str().unwrap()),
+        Some(blocker.to_str().unwrap_p()),
     )
     .output()
-    .unwrap();
+    .unwrap_p();
     assert_eq!(
         out.status.code().unwrap_or(-1),
         1,
@@ -193,10 +194,10 @@ fn write_failure_exits_1() {
 #[test]
 fn invalid_invocation_exits_2() {
     let out = spk()
-        .env("HOME", tempfile::tempdir().unwrap().path())
+        .env("HOME", tempfile::tempdir().unwrap_p().path())
         .args(["skill", "frobnicate"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(
         out.status.code().unwrap_or(-1),
         2,
@@ -218,26 +219,26 @@ fn doctor_pack_row(
         .args(["doctor", "--json"])
         .current_dir(cwd)
         .output()
-        .unwrap();
+        .unwrap_p();
     let stdout = String::from_utf8_lossy(&out.stdout);
     let envelope: serde_json::Value = serde_json::from_str(&stdout)
         .unwrap_or_else(|e| panic!("doctor must emit JSON: {e}\n{stdout}"));
     let row = envelope["data"]["checks"]
         .as_array()
-        .expect("doctor payload carries checks")
+        .unwrap_p()
         .iter()
         .find(|r| r[0].as_str() == Some("managed skill pack"))
         .unwrap_or_else(|| panic!("doctor payload carries a managed skill pack row: {envelope}"))
         [1]
     .as_str()
-    .unwrap()
+    .unwrap_p()
     .to_string();
     (out.status.code().unwrap_or(-1), row)
 }
 
 #[test]
 fn doctor_reports_missing_when_no_pack_is_installed() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap_p();
     let (code, detail) = doctor_pack_row(tmp.path(), &tmp.path().join("state"), tmp.path());
     assert_eq!(
         code, 0,
@@ -255,10 +256,10 @@ fn doctor_reports_missing_when_no_pack_is_installed() {
 
 #[test]
 fn doctor_reports_pass_over_a_fresh_install() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap_p();
     let out = skill_install(tmp.path(), &tmp.path().join("state"), None)
         .output()
-        .unwrap();
+        .unwrap_p();
     assert!(out.status.success());
     let (code, detail) = doctor_pack_row(tmp.path(), &tmp.path().join("state"), tmp.path());
     assert_eq!(code, 0);
@@ -270,15 +271,15 @@ fn doctor_reports_pass_over_a_fresh_install() {
 
 #[test]
 fn doctor_reports_stale_with_both_hashes_and_regenerate_command() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap_p();
     let out = skill_install(tmp.path(), &tmp.path().join("state"), None)
         .output()
-        .unwrap();
+        .unwrap_p();
     assert!(out.status.success());
     // Simulate an older-binary install: mutate the installed pack file.
     let skill = tmp.path().join(".claude/skills/specodelic-design/SKILL.md");
-    let content = std::fs::read_to_string(&skill).unwrap();
-    std::fs::write(&skill, format!("{content}\nstale mutation\n")).unwrap();
+    let content = std::fs::read_to_string(&skill).unwrap_p();
+    std::fs::write(&skill, format!("{content}\nstale mutation\n")).unwrap_p();
     let (code, detail) = doctor_pack_row(tmp.path(), &tmp.path().join("state"), tmp.path());
     assert_eq!(code, 0, "stale is reported but never fails the doctor run");
     assert!(
@@ -303,10 +304,10 @@ fn doctor_reports_stale_with_both_hashes_and_regenerate_command() {
 
 #[test]
 fn mutated_non_pack_files_do_not_flip_pass_to_stale() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap_p();
     let out = skill_install(tmp.path(), &tmp.path().join("state"), None)
         .output()
-        .unwrap();
+        .unwrap_p();
     assert!(out.status.success());
     // A foreign file dropped next to the pack must not count.
     std::fs::write(
@@ -314,7 +315,7 @@ fn mutated_non_pack_files_do_not_flip_pass_to_stale() {
             .join(".claude/skills/specodelic-design/notes.txt"),
         "unrelated\n",
     )
-    .unwrap();
+    .unwrap_p();
     let (code, detail) = doctor_pack_row(tmp.path(), &tmp.path().join("state"), tmp.path());
     assert_eq!(code, 0);
     assert!(
@@ -325,15 +326,15 @@ fn mutated_non_pack_files_do_not_flip_pass_to_stale() {
 
 #[test]
 fn doctor_rechecks_recorded_dir_targets() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap_p();
     let alt = tmp.path().join("alt-skills");
     let out = skill_install(
         tmp.path(),
         &tmp.path().join("state"),
-        Some(alt.to_str().unwrap()),
+        Some(alt.to_str().unwrap_p()),
     )
     .output()
-    .unwrap();
+    .unwrap_p();
     assert!(out.status.success());
     let (code, detail) = doctor_pack_row(tmp.path(), &tmp.path().join("state"), tmp.path());
     assert_eq!(code, 0);

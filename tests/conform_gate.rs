@@ -7,8 +7,12 @@
 //! report with zero records, `evidence_scope` intact — never an error).
 //! Library layer only — the `spk conform` CLI command itself is phase 4.
 
+#[path = "common/mod.rs"]
+mod common;
 use std::path::PathBuf;
 
+use common::UnwrapPanic;
+use common::UnwrapPanicErr;
 use specodelic::conform::{
     ConformError, EVIDENCE_SCOPE, REPORT_SCHEMA_VERSION, gate, parse_corpus, run,
 };
@@ -111,13 +115,12 @@ statement: "the system conforms to the ledger"
 /// out-dir. Returns (parsed spec with path, out-dir path).
 fn compiled_fixture(dir: &std::path::Path, text: &str) -> (spec::Spec, PathBuf) {
     let file = dir.join("demo.gate.md");
-    std::fs::write(&file, text).expect("fixture spec writes");
-    let mut spec = spec::parse_str(text).expect("fixture spec parses");
+    std::fs::write(&file, text).unwrap_p();
+    let mut spec = spec::parse_str(text).unwrap_p();
     spec.path = Some(file.clone());
     let out_dir = dir.join("out");
-    let compiled = compile::compile_spec(&spec).expect("fixture spec compiles");
-    compile::write_artifacts(&spec, &compiled, out_dir.to_str().expect("utf8 out-dir"))
-        .expect("fixture artifacts write");
+    let compiled = compile::compile_spec(&spec).unwrap_p();
+    compile::write_artifacts(&spec, &compiled, out_dir.to_str().unwrap_p()).unwrap_p();
     (spec, out_dir)
 }
 
@@ -136,23 +139,22 @@ const CORPUS: &str = concat!(
 /// records (an Err, never a report).
 #[test]
 fn stale_artifacts_refused() {
-    let dir = tempfile::tempdir_in(std::env::temp_dir()).expect("tempdir");
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
     let (original, out_dir) = compiled_fixture(dir.path(), SPEC_TEXT);
 
     // Sanity: with current artifacts the gate passes.
-    gate(&original, &out_dir).expect("gate passes over current artifacts");
+    gate(&original, &out_dir).unwrap_p();
 
     // Edit the structured content WITHOUT recompiling.
-    let file = original.path.as_ref().expect("fixture path").clone();
-    std::fs::write(&file, SPEC_TEXT_EDITED).expect("spec edit writes");
-    let edited = spec::parse_str(SPEC_TEXT_EDITED).expect("edited spec parses");
+    let file = original.path.as_ref().unwrap_p().clone();
+    std::fs::write(&file, SPEC_TEXT_EDITED).unwrap_p();
+    let edited = spec::parse_str(SPEC_TEXT_EDITED).unwrap_p();
     let edited = spec::Spec {
         path: Some(file),
         ..edited
     };
 
-    let err: ConformError = run(&edited, &out_dir, CORPUS.as_bytes(), false)
-        .expect_err("stale artifacts must be refused");
+    let err: ConformError = run(&edited, &out_dir, CORPUS.as_bytes(), false).unwrap_p_err();
     assert!(
         err.message.contains("spk compile"),
         "refusal names the compile remediation: {err}"
@@ -168,12 +170,11 @@ fn stale_artifacts_refused() {
 /// naming `spk compile`, never a silent run.
 #[test]
 fn missing_artifacts_refused() {
-    let dir = tempfile::tempdir_in(std::env::temp_dir()).expect("tempdir");
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
     let (spec, _out_dir) = compiled_fixture(dir.path(), SPEC_TEXT);
     let empty_out = dir.path().join("nowhere");
 
-    let err = run(&spec, &empty_out, CORPUS.as_bytes(), false)
-        .expect_err("missing artifacts must be refused");
+    let err = run(&spec, &empty_out, CORPUS.as_bytes(), false).unwrap_p_err();
     assert!(
         err.message.contains("spk compile"),
         "refusal names the compile remediation: {err}"
@@ -185,10 +186,10 @@ fn missing_artifacts_refused() {
 /// `spk lint`, and the run emits ZERO verdict records.
 #[test]
 fn lint_dirty_refused() {
-    let dir = tempfile::tempdir_in(std::env::temp_dir()).expect("tempdir");
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
     let file = dir.path().join("demo.dirty.md");
-    std::fs::write(&file, LINT_DIRTY_TEXT).expect("fixture spec writes");
-    let mut spec = spec::parse_str(LINT_DIRTY_TEXT).expect("dirty fixture parses");
+    std::fs::write(&file, LINT_DIRTY_TEXT).unwrap_p();
+    let mut spec = spec::parse_str(LINT_DIRTY_TEXT).unwrap_p();
     spec.path = Some(file.clone());
     let out_dir = dir.path().join("out");
 
@@ -200,8 +201,7 @@ fn lint_dirty_refused() {
         "fixture is lint-dirty by the shared stage"
     );
 
-    let err = run(&spec, &out_dir, CORPUS.as_bytes(), false)
-        .expect_err("lint-dirty file must be refused");
+    let err = run(&spec, &out_dir, CORPUS.as_bytes(), false).unwrap_p_err();
     assert!(
         err.message.contains("spk lint"),
         "refusal names the lint remediation: {err}"
@@ -213,10 +213,10 @@ fn lint_dirty_refused() {
 /// for the refusal tests above).
 #[test]
 fn gated_run_produces_the_report() {
-    let dir = tempfile::tempdir_in(std::env::temp_dir()).expect("tempdir");
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
     let (spec, out_dir) = compiled_fixture(dir.path(), SPEC_TEXT);
 
-    let report = run(&spec, &out_dir, CORPUS.as_bytes(), false).expect("gated run succeeds");
+    let report = run(&spec, &out_dir, CORPUS.as_bytes(), false).unwrap_p();
     assert_eq!(report.report_schema_version, REPORT_SCHEMA_VERSION);
     assert_eq!(report.evidence_scope, EVIDENCE_SCOPE);
     assert_eq!(report.records.len(), 1);
@@ -230,7 +230,7 @@ fn gated_run_produces_the_report() {
 /// silently ignored.
 #[test]
 fn malformed_line_refused() {
-    let err = parse_corpus("{not json").expect_err("malformed line refused");
+    let err = parse_corpus("{not json").unwrap_p_err();
     assert!(
         err.message.contains("one JSON object per line"),
         "refusal carries the remediation hint: {err}"
@@ -241,7 +241,7 @@ fn malformed_line_refused() {
 #[test]
 fn missing_id_refused() {
     let err = parse_corpus(r#"{"setup": {"state": "held"}, "trace": [{"action": "confirm"}]}"#)
-        .expect_err("missing id refused");
+        .unwrap_p_err();
     assert!(
         err.message.contains("missing field `id`"),
         "refusal names the missing id: {err}"
@@ -262,7 +262,7 @@ fn duplicate_id_refused() {
         r#"{"id": "same", "trace": [{"action": "confirm"}]}"#,
         "\n",
     );
-    let err = parse_corpus(corpus).expect_err("duplicate id refused");
+    let err = parse_corpus(corpus).unwrap_p_err();
     assert!(
         err.message.contains("same"),
         "refusal names the duplicated id: {err}"
@@ -279,7 +279,7 @@ fn duplicate_id_refused() {
 fn unknown_field_refused() {
     let err =
         parse_corpus(r#"{"id": "ok", "trace": [{"action": "confirm"}], "expected": "confirmed"}"#)
-            .expect_err("unknown field refused");
+            .unwrap_p_err();
     assert!(
         err.message.contains("one JSON object per line") || err.message.contains("unknown"),
         "refusal carries the remediation hint: {err}"
@@ -294,10 +294,10 @@ fn unknown_field_refused() {
 /// `evidence_scope` intact, and the run is Ok — never an error.
 #[test]
 fn empty_corpus_yields_valid_report() {
-    let dir = tempfile::tempdir_in(std::env::temp_dir()).expect("tempdir");
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
     let (spec, out_dir) = compiled_fixture(dir.path(), SPEC_TEXT);
 
-    let report = run(&spec, &out_dir, b"", false).expect("empty corpus is a valid run");
+    let report = run(&spec, &out_dir, b"", false).unwrap_p();
     assert_eq!(report.records.len(), 0, "zero records");
     assert_eq!(report.evidence_scope, EVIDENCE_SCOPE);
     assert_eq!(report.report_schema_version, REPORT_SCHEMA_VERSION);
@@ -314,6 +314,6 @@ fn empty_corpus_yields_valid_report() {
 /// the caller's report, never a parse error.
 #[test]
 fn empty_corpus_parses_to_zero_scenarios() {
-    let corpus = parse_corpus("").expect("empty corpus parses");
+    let corpus = parse_corpus("").unwrap_p();
     assert!(corpus.is_empty());
 }

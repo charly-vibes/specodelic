@@ -393,6 +393,8 @@ pub fn latest_revision(text: &str) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_panic::UnwrapPanic;
+
     use super::*;
 
     #[test]
@@ -401,7 +403,7 @@ mod tests {
         // topic states the implemented claim gate — every opted-in
         // invariant claim verified, prose stays unchecked — and
         // distinguishes verification from application-test execution.
-        let lifecycle = topic_body("lifecycle").unwrap();
+        let lifecycle = topic_body("lifecycle").unwrap_p();
         assert!(
             lifecycle.contains("every opted-in invariant claim verified"),
             "lifecycle topic must state the claim gate"
@@ -441,7 +443,7 @@ mod tests {
         // bare ids and bare text do not resolve. (Revision 18: the
         // `spec.` self-file prefix retired with `id: spec` — dual-format
         // files carry real ids.)
-        let refs = topic_body("references").unwrap();
+        let refs = topic_body("references").unwrap_p();
         assert!(
             refs.contains("file-qualified"),
             "references topic must state the file-qualification law"
@@ -476,7 +478,7 @@ mod tests {
     fn format_topic_points_at_the_file_qualified_ref_law() {
         // gh#3: the format topic's layer walkthrough mentions the guard
         // cell; it must not teach the bare `[[id]]` form.
-        let format = topic_body("format").unwrap();
+        let format = topic_body("format").unwrap_p();
         assert!(
             !format.contains("by `[[id]]`"),
             "format topic must not advertise bare-id refs"
@@ -488,7 +490,7 @@ mod tests {
         // gh#5.3, revised Revision 18: `[[<file-id>]]` (the file's own
         // real id) is the intended traces_to target.
         // gh#4: drift between the requirement sections is lint-enforced.
-        let dual = topic_body("dual-format").unwrap();
+        let dual = topic_body("dual-format").unwrap_p();
         assert!(
             dual.contains("[[<file-id>]]"),
             "dual-format topic must document the self-intent traces_to target"
@@ -506,7 +508,7 @@ mod tests {
     #[test]
     fn format_topic_documents_escaped_pipes() {
         // gh#6.5: cells containing a literal pipe must escape it.
-        let format = topic_body("format").unwrap();
+        let format = topic_body("format").unwrap_p();
         assert!(
             format.contains("\\|"),
             "format topic must document escaped pipes in table cells"
@@ -521,7 +523,7 @@ mod tests {
     #[test]
     fn closed_sets_render_from_constants() {
         // kinds topic: the rendered kind sets equal the enforced constants
-        let kinds = topic_body("kinds").unwrap();
+        let kinds = topic_body("kinds").unwrap_p();
         for k in CONSTRAINT_KINDS {
             assert!(
                 kinds.contains(&format!("`{k}`")),
@@ -535,7 +537,7 @@ mod tests {
             );
         }
         // references topic: the rendered table has one row per typing pair
-        let refs = topic_body("references").unwrap();
+        let refs = topic_body("references").unwrap_p();
         for r in REFERENCE_TYPING {
             assert!(
                 refs.contains(&format!("`{}`", r.field)),
@@ -561,7 +563,7 @@ mod tests {
         let guard = REFERENCE_TYPING
             .iter()
             .find(|r| r.field == "guard")
-            .expect("guard row");
+            .unwrap_p();
         assert!(
             guard.resolves_to.contains("invariant"),
             "guard must still exclude advisory Constraints: {}",
@@ -588,12 +590,11 @@ mod tests {
         // names the machine-findable case form (the one compile's
         // required_law_cases parses) and Revision 13 records the
         // ratification.
-        let corpus = std::fs::read_to_string("openspec/specs/specodelic/spec.md")
-            .expect("openspec/specs/specodelic/spec.md must be readable from the crate root");
+        let corpus = std::fs::read_to_string("openspec/specs/specodelic/spec.md").unwrap_p();
         let row = corpus
             .lines()
             .find(|l| l.starts_with("| law_requires_cases"))
-            .expect("law_requires_cases row must exist in specodelic.md");
+            .unwrap_p();
         assert!(
             row.contains("**name:**"),
             "law_requires_cases must name the machine-findable **name:** case-label form"
@@ -618,7 +619,7 @@ mod tests {
         let uses = REFERENCE_TYPING
             .iter()
             .find(|r| r.field == "uses")
-            .expect("Reference Typing must carry a `uses` row (Revision 14)");
+            .unwrap_p();
         assert_eq!(uses.appears_on, "Constraint");
         assert!(
             uses.resolves_to.contains("profile"),
@@ -631,8 +632,7 @@ mod tests {
     fn pack_mechanism_ratified_in_the_corpus() {
         // Revision 14 is the decision of record for the pack mechanism:
         // the corpus carries the grown rows and the append-only heading.
-        let corpus = std::fs::read_to_string("openspec/specs/specodelic/spec.md")
-            .expect("openspec/specs/specodelic/spec.md must be readable from the crate root");
+        let corpus = std::fs::read_to_string("openspec/specs/specodelic/spec.md").unwrap_p();
         assert!(
             corpus.contains("## Revision 14"),
             "Revision 14 must record the pack-mechanism growth"
@@ -640,7 +640,7 @@ mod tests {
         let frontmatter_row = corpus
             .lines()
             .find(|l| l.starts_with("| frontmatter_valid"))
-            .expect("frontmatter_valid row must exist");
+            .unwrap_p();
         assert!(
             frontmatter_row.contains("profile"),
             "frontmatter_valid must admit kind: profile (Revision 14)"
@@ -648,13 +648,12 @@ mod tests {
         let uses_row = corpus
             .lines()
             .find(|l| l.contains("| `uses`        |"))
-            .expect("uses Reference Typing row must exist");
+            .unwrap_p();
         assert!(
             uses_row.contains("profile"),
             "the uses row must resolve to a kind: profile file's intent"
         );
-        let packs = std::fs::read_to_string("openspec/specs/packs/spec.md")
-            .expect("openspec/specs/packs/spec.md must be readable from the crate root");
+        let packs = std::fs::read_to_string("openspec/specs/packs/spec.md").unwrap_p();
         assert!(
             packs.contains("kind: profile"),
             "openspec/specs/packs/spec.md must describe the profile pack artifact"
@@ -666,12 +665,11 @@ mod tests {
         // specodelic-rjb (Revision 15): executable predicate fragments —
         // the `**rust:**` opt-in marker, verbatim Rust, compiled into the
         // proptest artifact and executed as scratch-crate invariants.
-        let compile_md = std::fs::read_to_string("openspec/specs/compile/spec.md")
-            .expect("openspec/specs/compile/spec.md must be readable from the crate root");
+        let compile_md = std::fs::read_to_string("openspec/specs/compile/spec.md").unwrap_p();
         let pred_row = compile_md
             .lines()
             .find(|l| l.starts_with("| predicate_fragment_opt_in"))
-            .expect("predicate_fragment_opt_in row must exist in compile.md");
+            .unwrap_p();
         assert!(
             pred_row.contains("**rust:**"),
             "predicate_fragment_opt_in must name the **rust:** marker form"
@@ -679,21 +677,19 @@ mod tests {
         let inv_row = compile_md
             .lines()
             .find(|l| l.starts_with("| invariant_fragment_opt_in"))
-            .expect("invariant_fragment_opt_in row must exist in compile.md");
+            .unwrap_p();
         assert!(
             inv_row.contains("**rust:**"),
             "invariant_fragment_opt_in must name the **rust:** marker form"
         );
-        let model_md = std::fs::read_to_string("openspec/specs/model_check/spec.md")
-            .expect("openspec/specs/model_check/spec.md must be readable from the crate root");
+        let model_md = std::fs::read_to_string("openspec/specs/model_check/spec.md").unwrap_p();
         assert!(
             model_md
                 .lines()
                 .any(|l| l.starts_with("| executable_invariants_execute")),
             "model_check.md must specify executable invariant execution"
         );
-        let corpus = std::fs::read_to_string("openspec/specs/specodelic/spec.md")
-            .expect("openspec/specs/specodelic/spec.md must be readable from the crate root");
+        let corpus = std::fs::read_to_string("openspec/specs/specodelic/spec.md").unwrap_p();
         assert!(
             corpus.contains("## Revision 15"),
             "Revision 15 must record the predicate-fragment decision"
@@ -704,7 +700,9 @@ mod tests {
     fn revision_comparison_is_numeric() {
         // double-digit ordering: 10 > 9 numerically (the drift guard must
         // not compare lexicographically)
-        assert!(revision_number("Revision 10").unwrap() > revision_number("Revision 9").unwrap());
+        assert!(
+            revision_number("Revision 10").unwrap_p() > revision_number("Revision 9").unwrap_p()
+        );
         assert_eq!(revision_number("## Revision 8"), Some(8));
         assert_eq!(revision_number("## Model"), None);
         assert_eq!(revision_number("## Revision abc"), None);
@@ -768,9 +766,7 @@ mod tests {
             serde_json::json!(["Constraint", "Intent", "Property", "State", "Transition"]),
             "objects must be the closed five, sorted"
         );
-        let morphs = data["morphisms"]
-            .as_array()
-            .expect("morphisms must be an array");
+        let morphs = data["morphisms"].as_array().unwrap_p();
         let canonical = &crate::acset::schema::canonical().morphisms;
         assert_eq!(
             morphs.len(),
@@ -781,7 +777,12 @@ mod tests {
         // own canonical sort inherited by every derived artifact.
         let mut keys: Vec<(&str, &str)> = morphs
             .iter()
-            .map(|m| (m["source"].as_str().unwrap(), m["name"].as_str().unwrap()))
+            .map(|m| {
+                (
+                    m["source"].as_str().unwrap_p(),
+                    m["name"].as_str().unwrap_p(),
+                )
+            })
             .collect();
         let sorted = keys.clone();
         keys.sort();
@@ -844,9 +845,9 @@ mod tests {
         let data = schema_export(&constructed);
         let names: Vec<&str> = data["morphisms"]
             .as_array()
-            .unwrap()
+            .unwrap_p()
             .iter()
-            .map(|m| m["name"].as_str().unwrap())
+            .map(|m| m["name"].as_str().unwrap_p())
             .collect();
         assert!(!names.contains(&"emits"), "dropped morphism must be gone");
         assert_eq!(
@@ -878,15 +879,15 @@ mod tests {
                     "ok": true,
                     "data": schema_export(schema)
                 }))
-                .unwrap(),
+                .unwrap_p(),
             )
-            .unwrap();
+            .unwrap_p();
             let out = std::process::Command::new("python3")
                 .arg("scripts/graph_views.py")
                 .arg("schema")
                 .arg(&path)
                 .output()
-                .expect("python3 must run the schema view script");
+                .unwrap_p();
             std::fs::remove_file(&path).ok();
             assert!(
                 out.status.success(),
@@ -922,10 +923,8 @@ mod tests {
         // latest Revision N heading in openspec/specs/specodelic/spec.md — the suite
         // fails here, naming both revisions, when the corpus bumps
         // without the constant following.
-        let corpus = std::fs::read_to_string("openspec/specs/specodelic/spec.md")
-            .expect("openspec/specs/specodelic/spec.md must be readable from the crate root");
-        let corpus_rev = latest_revision(&corpus)
-            .expect("openspec/specs/specodelic/spec.md declares no Revision headings");
+        let corpus = std::fs::read_to_string("openspec/specs/specodelic/spec.md").unwrap_p();
+        let corpus_rev = latest_revision(&corpus).unwrap_p();
         let format_rev = revision_number(FORMAT_REVISION)
             .unwrap_or_else(|| panic!("FORMAT_REVISION `{FORMAT_REVISION}` carries no Revision N"));
         assert_eq!(
@@ -952,7 +951,7 @@ mod tests {
             "graph-views appears exactly once, before the appended conform topic"
         );
         assert_eq!(
-            TOPICS.last().unwrap().0,
+            TOPICS.last().unwrap_p().0,
             "conform",
             "conform is the newest appended topic"
         );
@@ -964,7 +963,7 @@ mod tests {
     /// targets.
     #[test]
     fn graph_views_topic_documents_taxonomy_flags_and_recipes() {
-        let body = topic_body("graph-views").expect("graph-views topic must render");
+        let body = topic_body("graph-views").unwrap_p();
         for fragment in [
             "--format edges",
             "--format dot",

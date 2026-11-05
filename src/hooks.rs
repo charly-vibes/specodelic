@@ -280,14 +280,16 @@ pub fn uninstall(root: &Path) -> Result<UnwireOutcome, HooksError> {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_panic::UnwrapPanic;
+
     use super::*;
     use genesis::fixture::Fixture;
 
     const TWO_SPACE: &str = "pre-commit:\n  commands:\n    sibling-blockers:\n      run: scripts/guards/sibling-blockers.sh .\npre-push:\n  commands:\n    sibling-blockers:\n      run: scripts/guards/sibling-blockers.sh .\n";
 
     fn fixture_with_config(contents: &str) -> Fixture {
-        let fixture = Fixture::new().build().unwrap();
-        std::fs::write(fixture.root().join("lefthook.yml"), contents).unwrap();
+        let fixture = Fixture::new().build().unwrap_p();
+        std::fs::write(fixture.root().join("lefthook.yml"), contents).unwrap_p();
         fixture
     }
 
@@ -303,9 +305,9 @@ mod tests {
     #[test]
     fn install_inserts_inside_existing_commands_mapping() {
         let fixture = fixture_with_config(TWO_SPACE);
-        let outcome = install(fixture.root()).unwrap();
+        let outcome = install(fixture.root()).unwrap_p();
         assert_eq!(outcome, WireOutcome::Injected);
-        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
         // Entry is inside the pre-commit commands mapping, at entry indent.
         assert!(
             after.contains(&format!(
@@ -327,11 +329,11 @@ mod tests {
     #[test]
     fn install_is_idempotent() {
         let fixture = fixture_with_config(TWO_SPACE);
-        install(fixture.root()).unwrap();
-        let once = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
-        let outcome = install(fixture.root()).unwrap();
+        install(fixture.root()).unwrap_p();
+        let once = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
+        let outcome = install(fixture.root()).unwrap_p();
         assert_eq!(outcome, WireOutcome::AlreadyWired);
-        let twice = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        let twice = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
         assert_eq!(once, twice, "second install must not change the file");
         assert_eq!(once.matches("SPK:START").count(), 1);
     }
@@ -345,8 +347,8 @@ mod tests {
         // parse). The entry must be formatted at the stage's own indent.
         let config = "pre-commit:\n    commands:\n        lint:\n            run: lint\n";
         let fixture = fixture_with_config(config);
-        install(fixture.root()).unwrap();
-        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        install(fixture.root()).unwrap_p();
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
         assert!(
             after.contains(&format!(
                 "    commands:\n{}        lint:",
@@ -365,9 +367,9 @@ mod tests {
         let config =
             "pre-commit:\n  parallel: true\npre-push:\n  commands:\n    test:\n      run: test\n";
         let fixture = fixture_with_config(config);
-        let outcome = install(fixture.root()).unwrap();
+        let outcome = install(fixture.root()).unwrap_p();
         assert_eq!(outcome, WireOutcome::Injected);
-        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
         // Wrapper case: `commands:` + the marker-guarded entry injected
         // directly after the stage anchor, at the stage's children indent
         // (2), entry at +2; markers on their own lines (never glued onto
@@ -389,9 +391,9 @@ mod tests {
         // No pre-commit section at all — genesis ensure_wired appends one.
         let config = "pre-push:\n  commands:\n    test:\n      run: test\n";
         let fixture = fixture_with_config(config);
-        let outcome = install(fixture.root()).unwrap();
+        let outcome = install(fixture.root()).unwrap_p();
         assert_eq!(outcome, WireOutcome::Injected);
-        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
         assert!(
             after.contains("pre-commit:"),
             "stage section appended:\n{after}"
@@ -412,7 +414,7 @@ mod tests {
         let err = install(fixture.root()).unwrap_err();
         let msg = err.to_string();
         assert!(msg.contains("anchor"), "labeled anchor error: {msg}");
-        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
         assert_eq!(after, config, "file must be untouched");
     }
 
@@ -424,13 +426,13 @@ mod tests {
         let fixture = fixture_with_config(config);
         let err = install(fixture.root()).unwrap_err();
         assert!(err.to_string().contains("anchor"), "labeled error: {err}");
-        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
         assert_eq!(after, config, "file must be untouched");
     }
 
     #[test]
     fn install_errors_on_missing_config_and_never_creates_one() {
-        let fixture = Fixture::new().build().unwrap();
+        let fixture = Fixture::new().build().unwrap_p();
         let err = install(fixture.root()).unwrap_err();
         let msg = err.to_string();
         assert!(
@@ -450,8 +452,8 @@ mod tests {
     fn install_handles_config_without_trailing_newline() {
         let config = "pre-commit:\n  commands:\n    a:\n      run: a"; // no \n
         let fixture = fixture_with_config(config);
-        install(fixture.root()).unwrap();
-        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        install(fixture.root()).unwrap_p();
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
         assert!(
             after.contains(&format!("  commands:\n{}    a:", wired_entry_at(4))),
             "entry inserted inside mapping:\n{after}"
@@ -463,8 +465,8 @@ mod tests {
     fn install_handles_crlf_config() {
         let config = "pre-commit:\r\n  commands:\r\n    a:\r\n      run: a\r\n";
         let fixture = fixture_with_config(config);
-        install(fixture.root()).unwrap();
-        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        install(fixture.root()).unwrap_p();
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
         // Existing bytes unchanged, entry inserted, no duplicate key.
         assert!(
             after.starts_with("pre-commit:\r\n  commands:\r\n"),
@@ -481,8 +483,8 @@ mod tests {
 
     #[test]
     fn install_refuses_prek_framework() {
-        let fixture = Fixture::new().build().unwrap();
-        std::fs::write(fixture.root().join("prek.toml"), "").unwrap();
+        let fixture = Fixture::new().build().unwrap_p();
+        std::fs::write(fixture.root().join("prek.toml"), "").unwrap_p();
         let err = install(fixture.root()).unwrap_err();
         let msg = err.to_string();
         assert!(msg.contains("prek"), "framework named: {msg}");
@@ -497,11 +499,11 @@ mod tests {
     fn golden_install_uninstall_round_trip_is_byte_identical_2_space() {
         let fixture = fixture_with_config(TWO_SPACE);
         let wired = "pre-commit:\n  commands:\n    # <!-- SPK:START -->\n    specodelic-gates:\n      run: spk lint openspec\n    # <!-- SPK:END -->\n    sibling-blockers:\n      run: scripts/guards/sibling-blockers.sh .\npre-push:\n  commands:\n    sibling-blockers:\n      run: scripts/guards/sibling-blockers.sh .\n";
-        assert_eq!(install(fixture.root()).unwrap(), WireOutcome::Injected);
-        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        assert_eq!(install(fixture.root()).unwrap_p(), WireOutcome::Injected);
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
         assert_eq!(after, wired, "2-space golden bytes after install");
-        assert_eq!(uninstall(fixture.root()).unwrap(), UnwireOutcome::Removed);
-        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        assert_eq!(uninstall(fixture.root()).unwrap_p(), UnwireOutcome::Removed);
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
         assert_eq!(after, TWO_SPACE, "2-space round-trip restores the original");
     }
 
@@ -510,17 +512,17 @@ mod tests {
         let config = "pre-commit:\n    commands:\n        lint:\n            run: lint\n";
         let fixture = fixture_with_config(config);
         let wired = "pre-commit:\n    commands:\n        # <!-- SPK:START -->\n        specodelic-gates:\n          run: spk lint openspec\n        # <!-- SPK:END -->\n        lint:\n            run: lint\n";
-        assert_eq!(install(fixture.root()).unwrap(), WireOutcome::Injected);
+        assert_eq!(install(fixture.root()).unwrap_p(), WireOutcome::Injected);
         let after = std_fs_read(fixture.root());
         assert_eq!(after, wired, "4-space golden bytes after install");
-        assert_eq!(uninstall(fixture.root()).unwrap(), UnwireOutcome::Removed);
+        assert_eq!(uninstall(fixture.root()).unwrap_p(), UnwireOutcome::Removed);
         let after = std_fs_read(fixture.root());
         assert_eq!(after, config, "4-space round-trip restores the original");
     }
 
     /// Read the fixture's lefthook.yml (test helper).
     fn std_fs_read(root: &Path) -> String {
-        std::fs::read_to_string(root.join("lefthook.yml")).unwrap()
+        std::fs::read_to_string(root.join("lefthook.yml")).unwrap_p()
     }
 
     #[test]
@@ -529,7 +531,7 @@ mod tests {
         // genesis::git_hooks::lefthook::ensure_command_wired.
         let config = "pre-commit:\n  commands:\n    a:\n      run: a\n";
         let fixture = fixture_with_config(config);
-        install(fixture.root()).unwrap();
+        install(fixture.root()).unwrap_p();
         let after = std_fs_read(fixture.root());
         // Byte-identical to the donor output the local code produced.
         let genesis_wired = "pre-commit:\n  commands:\n    # <!-- SPK:START -->\n    specodelic-gates:\n      run: spk lint openspec\n    # <!-- SPK:END -->\n    a:\n      run: a\n";
@@ -548,21 +550,21 @@ mod tests {
         // lefthook shim). Empty hooksPath = git disables hooks, which
         // resolve_hooks_dir reports as Disabled and falls back to
         // the default .git/hooks.
-        let fixture = Fixture::new().with_git_init().build().unwrap();
+        let fixture = Fixture::new().with_git_init().build().unwrap_p();
         let git_dir = fixture.root().join(".git");
         let git_hooks_dir = git_dir.join("hooks");
-        std::fs::create_dir_all(&git_hooks_dir).unwrap();
+        std::fs::create_dir_all(&git_hooks_dir).unwrap_p();
         std::fs::write(
             git_hooks_dir.join("pre-commit"),
             "#!/bin/sh\n. \"$(dirname -- \"$0\")\"/_/husky.sh\n",
         )
-        .unwrap();
+        .unwrap_p();
         use std::io::Write as _;
         let mut config = std::fs::OpenOptions::new()
             .append(true)
             .open(git_dir.join("config"))
-            .unwrap();
-        writeln!(config, "[core]\n\thooksPath =").unwrap();
+            .unwrap_p();
+        writeln!(config, "[core]\n\thooksPath =").unwrap_p();
         let err = install(fixture.root()).unwrap_err();
         assert!(err.to_string().contains("husky"), "framework named: {err}");
     }
@@ -572,11 +574,11 @@ mod tests {
     #[test]
     fn uninstall_strips_only_the_marked_block() {
         let fixture = fixture_with_config(TWO_SPACE);
-        install(fixture.root()).unwrap();
-        let wired = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
-        let outcome = uninstall(fixture.root()).unwrap();
+        install(fixture.root()).unwrap_p();
+        let wired = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
+        let outcome = uninstall(fixture.root()).unwrap_p();
         assert_eq!(outcome, UnwireOutcome::Removed);
-        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
         // The rest is byte-identical to the pre-install config: the block
         // lines removed, nothing else moved.
         let restored = wired
@@ -601,9 +603,9 @@ mod tests {
         // the (now empty) section behind — documented, not hidden.
         let config = "pre-push:\n  commands:\n    test:\n      run: test\n";
         let fixture = fixture_with_config(config);
-        install(fixture.root()).unwrap();
-        uninstall(fixture.root()).unwrap();
-        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        install(fixture.root()).unwrap_p();
+        uninstall(fixture.root()).unwrap_p();
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
         assert!(
             after.contains("pre-commit:"),
             "empty stage section remains:\n{after}"
@@ -614,16 +616,16 @@ mod tests {
     #[test]
     fn uninstall_on_unwired_repo_is_a_no_op() {
         let fixture = fixture_with_config(TWO_SPACE);
-        let outcome = uninstall(fixture.root()).unwrap();
+        let outcome = uninstall(fixture.root()).unwrap_p();
         assert_eq!(outcome, UnwireOutcome::NotWired);
-        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap();
+        let after = std::fs::read_to_string(fixture.root().join("lefthook.yml")).unwrap_p();
         assert_eq!(after, TWO_SPACE, "config unchanged");
     }
 
     #[test]
     fn uninstall_on_missing_config_is_a_no_op() {
-        let fixture = Fixture::new().build().unwrap();
-        let outcome = uninstall(fixture.root()).unwrap();
+        let fixture = Fixture::new().build().unwrap_p();
+        let outcome = uninstall(fixture.root()).unwrap_p();
         assert_eq!(outcome, UnwireOutcome::NotWired);
     }
 
@@ -631,7 +633,7 @@ mod tests {
     fn uninstall_refuses_unbalanced_markers() {
         let config = format!(
             "pre-commit:\n  commands:\n{}\n    a:\n      run: a\n",
-            wired_entry_at(4).lines().next().unwrap()
+            wired_entry_at(4).lines().next().unwrap_p()
         );
         let fixture = fixture_with_config(&config);
         let err = uninstall(fixture.root()).unwrap_err();
@@ -646,31 +648,31 @@ mod tests {
     #[test]
     fn install_never_touches_hook_files_or_hooks_path() {
         // A bd-style repo: core.hooksPath → .beads/hooks, shims chained.
-        let fixture = Fixture::new().with_git_init().build().unwrap();
+        let fixture = Fixture::new().with_git_init().build().unwrap_p();
         let beads_dir = fixture.root().join(".beads").join("hooks");
-        std::fs::create_dir_all(&beads_dir).unwrap();
+        std::fs::create_dir_all(&beads_dir).unwrap_p();
         std::fs::write(
             beads_dir.join("pre-commit"),
             "#!/bin/sh\nexec lefthook \"$@\"\n",
         )
-        .unwrap();
-        std::fs::write(fixture.root().join("lefthook.yml"), TWO_SPACE).unwrap();
-        let shim_before = std::fs::read(beads_dir.join("pre-commit")).unwrap();
+        .unwrap_p();
+        std::fs::write(fixture.root().join("lefthook.yml"), TWO_SPACE).unwrap_p();
+        let shim_before = std::fs::read(beads_dir.join("pre-commit")).unwrap_p();
         std::process::Command::new("git")
             .args([
                 "-C",
-                fixture.root().to_str().unwrap(),
+                fixture.root().to_str().unwrap_p(),
                 "config",
                 "--local",
                 "core.hooksPath",
                 ".beads/hooks",
             ])
             .output()
-            .unwrap();
+            .unwrap_p();
 
-        install(fixture.root()).unwrap();
+        install(fixture.root()).unwrap_p();
 
-        let shim_after = std::fs::read(beads_dir.join("pre-commit")).unwrap();
+        let shim_after = std::fs::read(beads_dir.join("pre-commit")).unwrap_p();
         assert_eq!(shim_before, shim_after, "beads shim byte-identical");
         assert!(
             !fixture
@@ -684,13 +686,13 @@ mod tests {
         let hooks_path = std::process::Command::new("git")
             .args([
                 "-C",
-                fixture.root().to_str().unwrap(),
+                fixture.root().to_str().unwrap_p(),
                 "config",
                 "--local",
                 "core.hooksPath",
             ])
             .output()
-            .unwrap();
+            .unwrap_p();
         assert_eq!(
             String::from_utf8_lossy(&hooks_path.stdout).trim(),
             ".beads/hooks",

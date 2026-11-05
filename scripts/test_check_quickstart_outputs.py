@@ -72,22 +72,27 @@ class TestExtractPairs(unittest.TestCase):
         self.assertEqual(len(pairs), 2)
         self.assertEqual(pairs[0][0], "# comment\nspk lint file.md")
         self.assertEqual(pairs[0][1], "lint: ok")
+        return None  # explicit non-void: no self-field mutation
 
     def test_multi_command_fence_keeps_full_body(self):
         pairs = extract_pairs(PAIRED_DOC)
         self.assertEqual(
             pairs[1][0], "spk compile file.md\nspk model-check file.md")
+        return None  # explicit non-void: no self-field mutation
 
     def test_fence_without_text_partner_is_skipped(self):
         self.assertEqual(extract_pairs(UNPAIRED_DOC), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_non_sh_fences_are_never_paired(self):
         doc = "```text\njust text\n```\n"
         self.assertEqual(extract_pairs(doc), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_text_blocks_listed_in_document_order(self):
         blocks = extract_text_blocks(PAIRED_DOC)
         self.assertEqual(blocks, ["lint: ok", "compile: ok\nmodel-check: ok"])
+        return None  # explicit non-void: no self-field mutation
 
 
 class TestManifestHelpers(unittest.TestCase):
@@ -95,18 +100,22 @@ class TestManifestHelpers(unittest.TestCase):
         idx = pair_index([("cmd", "a"), ("cmd", "b"), ("other", "c")])
         self.assertEqual(idx["cmd"], ["a", "b"])
         self.assertEqual(idx["other"], ["c"])
+        return None  # explicit non-void: no self-field mutation
 
     def test_spk_lines_filters_comments_and_setup(self):
         body = "# hint\ncp a b\ncd somewhere\nspk lint x.md\n"
         self.assertEqual(spk_lines(body), ["spk lint x.md"])
+        return None  # explicit non-void: no self-field mutation
 
     def test_spk_lines_of_multi_command_fence(self):
         self.assertEqual(
             spk_lines("spk compile x\nspk model-check x"),
             ["spk compile x", "spk model-check x"])
+        return None  # explicit non-void: no self-field mutation
 
     def test_normalize_rstrips_and_drops_trailing_blanks(self):
         self.assertEqual(normalize("a  \n b \n\n\n"), ["a", " b"])
+        return None  # explicit non-void: no self-field mutation
 
     def test_break_c1_link_replaces_only_the_traces_to_cell(self):
         text = "| t1 | initial | initial | [[order.cancel.c1]] |\n" \
@@ -115,6 +124,7 @@ class TestManifestHelpers(unittest.TestCase):
         self.assertIn("| the file intent |", out)
         self.assertNotIn("[[order.cancel]] |", out)
         self.assertIn("[[order.cancel.c1]]", out)
+        return None  # explicit non-void: no self-field mutation
 
 
 class TestManifestResolvesAgainstRealDocs(unittest.TestCase):
@@ -122,21 +132,25 @@ class TestManifestResolvesAgainstRealDocs(unittest.TestCase):
 
     def setUp(self):
         self.unresolved = resolve_expected(ROOT, scenario_table())
+        return None  # explicit non-void: no self-field mutation
 
     def test_every_scenario_resolves(self):
         self.assertIsNone(self.unresolved)
+        return None  # explicit non-void: no self-field mutation
 
     def test_scenario_count_covers_both_docs(self):
         table = scenario_table()
         self.assertEqual(len(table), 18)
         self.assertEqual({sc["doc"] for sc in table},
                          {INSTALLATION, WORKED})
+        return None  # explicit non-void: no self-field mutation
 
     def test_final_spec_scenarios_reference_the_checked_in_example(self):
         table = scenario_table()
         final_users = [sc for sc in table if sc["fixture"] == FINAL_SPEC]
         self.assertGreaterEqual(len(final_users), 4)
         self.assertTrue((ROOT / FINAL_SPEC).is_file())
+        return None  # explicit non-void: no self-field mutation
 
 
 if __name__ == "__main__":

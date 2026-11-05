@@ -322,6 +322,8 @@ fn scaffold_layer(layer: &str, eol: &str, id: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_panic::UnwrapPanic;
+
     use super::*;
 
     fn plain_delta() -> String {
@@ -379,7 +381,7 @@ mod tests {
     #[test]
     fn wraps_plain_delta_into_a_sidecar_leaving_the_delta_alone() {
         let delta = plain_delta();
-        let out = migrate(&delta, &spec_path()).expect("migrates");
+        let out = migrate(&delta, &spec_path()).unwrap_p();
         // The sidecar id is the parent-dir id + .layer (Revision 19).
         assert_eq!(out.sidecar_id, "demo.cap.layer");
         assert!(
@@ -406,8 +408,7 @@ mod tests {
     fn sidecar_id_ignores_the_delta_filename() {
         // A non-spec.md delta still sits in the capability directory —
         // the sidecar id derives from the PARENT DIRECTORY, not the stem.
-        let out = migrate(&plain_delta(), std::path::Path::new("specs/cap-a/delta.md"))
-            .expect("migrates");
+        let out = migrate(&plain_delta(), std::path::Path::new("specs/cap-a/delta.md")).unwrap_p();
         assert_eq!(out.sidecar_id, "cap.a.layer");
     }
 
@@ -415,7 +416,7 @@ mod tests {
     fn crlf_delta_gets_crlf_sidecar() {
         let delta =
             "## ADDED Requirements\r\n\r\n### Requirement: Widget\r\nThe system SHALL wiget.\r\n";
-        let out = migrate(delta, &spec_path()).expect("migrates");
+        let out = migrate(delta, &spec_path()).unwrap_p();
         assert!(out.content.contains("\r\n"), "CRLF preserved in sidecar");
         assert!(!out.content.contains("\n\n"), "no LF blank lines leak");
     }
@@ -430,8 +431,8 @@ mod tests {
     #[test]
     fn scaffold_lints_clean_through_the_real_linter() {
         let delta = plain_delta();
-        let out = migrate(&delta, &spec_path()).expect("migrates");
-        let spec = crate::spec::parse_str(&out.content).expect("sidecar parses as a spec");
+        let out = migrate(&delta, &spec_path()).unwrap_p();
+        let spec = crate::spec::parse_str(&out.content).unwrap_p();
         assert_eq!(spec.intent.id, "demo.cap.layer");
         let report = crate::lint::lint_corpus(&[spec]);
         assert!(
@@ -445,6 +446,7 @@ mod tests {
 #[cfg(test)]
 mod rekey_tests {
     use super::*;
+    use crate::test_panic::UnwrapPanic;
 
     fn spec_path() -> std::path::PathBuf {
         std::path::PathBuf::from("openspec/specs/ge-cli/spec.md")
@@ -475,7 +477,7 @@ mod rekey_tests {
 
     #[test]
     fn rekey_rewrites_id_and_refs() {
-        let out = rekey(&legacy_file(), &spec_path()).expect("rekeys");
+        let out = rekey(&legacy_file(), &spec_path()).unwrap_p();
         assert!(out.content.contains("id: ge.cli\n"), "{}", out.content);
         assert!(out.content.contains("[[ge.cli]]"));
         assert!(out.content.contains("[[ge.cli.c1]]"));
@@ -507,11 +509,11 @@ mod rekey_tests {
 
     #[test]
     fn rekey_idempotent_second_run_is_noop() {
-        let out = rekey(&legacy_file(), &spec_path()).expect("rekeys");
+        let out = rekey(&legacy_file(), &spec_path()).unwrap_p();
         // Second run: id is already real — a no-op.
-        let second = rekey(&out.content, &spec_path()).expect("second run ok");
+        let second = rekey(&out.content, &spec_path()).unwrap_p();
         assert_eq!(second.content, out.content, "no-op never rewrites");
-        assert!(second.rekeyed.is_none() || !second.rekeyed.unwrap());
+        assert!(second.rekeyed.is_none() || !second.rekeyed.unwrap_p());
     }
 
     #[test]
@@ -520,7 +522,7 @@ mod rekey_tests {
             "### Requirement: Ge cli\n",
             "### Requirement: Ge cli\nSee spec.c1 prose mention — not a wiki-link.\n",
         );
-        let out = rekey(&file, &spec_path()).expect("rekeys");
+        let out = rekey(&file, &spec_path()).unwrap_p();
         assert!(
             out.content.contains("See spec.c1 prose mention"),
             "prose (non-bracketed) mentions stay untouched: {}",
@@ -531,8 +533,8 @@ mod rekey_tests {
     #[test]
     fn rekey_dry_run_semantics_via_outcome() {
         // The command layer owns --dry-run; the library transform is pure.
-        let out = rekey(&legacy_file(), &spec_path()).expect("rekeys");
-        assert!(out.rekeyed.unwrap());
+        let out = rekey(&legacy_file(), &spec_path()).unwrap_p();
+        assert!(out.rekeyed.unwrap_p());
         assert!(!out.inserted_frontmatter);
         assert!(out.inserted_layers.is_empty());
         assert!(!out.inserted_mirror);

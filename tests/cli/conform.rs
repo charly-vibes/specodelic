@@ -6,6 +6,7 @@
 // invocation error / gate refusal with zero verdict records), and the
 // read-only help contract.
 use super::*;
+use crate::common::UnwrapPanic;
 
 /// A lint-clean, compilable single-file fixture (rust-fragment invariant
 /// so the covering claim is executable — mirrors the phase-3 gate
@@ -93,14 +94,14 @@ fn compiled_out_dir(dir: &std::path::Path, spec: &std::path::Path) -> String {
     spk()
         .args([
             "compile",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out_dir.to_str().unwrap(),
+            out_dir.to_str().unwrap_p(),
         ])
         .assert()
         .success();
-    out_dir.to_str().unwrap().to_string()
+    out_dir.to_str().unwrap_p().to_string()
 }
 
 fn conform_json(
@@ -108,22 +109,22 @@ fn conform_json(
     corpus: &std::path::Path,
     extra: &[&str],
 ) -> (Option<i32>, serde_json::Value) {
-    let dir = spec.parent().unwrap().to_path_buf();
+    let dir = spec.parent().unwrap_p().to_path_buf();
     let out_dir = compiled_out_dir(dir.as_path(), spec);
     let out = spk()
         .args([
             "conform",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--oracle",
-            corpus.to_str().unwrap(),
+            corpus.to_str().unwrap_p(),
             "--out-dir",
             &out_dir,
             "--json",
         ])
         .args(extra)
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     (out.status.code(), json)
 }
 
@@ -131,11 +132,11 @@ fn conform_json(
 
 #[test]
 fn conform_emits_report_envelope_open_world_never_forbidden() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("demo.cli_conform.md");
-    std::fs::write(&spec, SPEC_TEXT).unwrap();
+    std::fs::write(&spec, SPEC_TEXT).unwrap_p();
     let corpus = dir.path().join("scenarios.jsonl");
-    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n{UNCOVERED_LINE}\n")).unwrap();
+    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n{UNCOVERED_LINE}\n")).unwrap_p();
 
     let (code, json) = conform_json(&spec, &corpus, &[]);
     // Coverage gaps never fail: permitted + underspecified → exit 0.
@@ -154,7 +155,7 @@ fn conform_emits_report_envelope_open_world_never_forbidden() {
     // Records sorted by scenario id; the uncovered trace is
     // underspecified — never forbidden without the declaration
     // (open_world_never_forbidden at CLI level).
-    let records = data["records"].as_array().unwrap();
+    let records = data["records"].as_array().unwrap_p();
     assert_eq!(records.len(), 2);
     assert_eq!(records[0]["scenario_id"], "confirm-happy");
     assert_eq!(records[0]["verdict"], "permitted");
@@ -174,11 +175,11 @@ fn conform_emits_report_envelope_open_world_never_forbidden() {
 
 #[test]
 fn conform_closed_world_recorded_and_uncovered_forbidden() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("demo.cli_conform.md");
-    std::fs::write(&spec, SPEC_TEXT).unwrap();
+    std::fs::write(&spec, SPEC_TEXT).unwrap_p();
     let corpus = dir.path().join("scenarios.jsonl");
-    std::fs::write(&corpus, format!("{UNCOVERED_LINE}\n")).unwrap();
+    std::fs::write(&corpus, format!("{UNCOVERED_LINE}\n")).unwrap_p();
 
     let (code, json) = conform_json(&spec, &corpus, &["--closed-world"]);
     // Uncovered + declared closed-world → forbidden → exit 1.
@@ -191,7 +192,7 @@ fn conform_closed_world_recorded_and_uncovered_forbidden() {
     let data = &json["data"];
     // The declaration is recorded in the header AND every record (D2).
     assert_eq!(data["closed_world"], serde_json::json!(true));
-    let records = data["records"].as_array().unwrap();
+    let records = data["records"].as_array().unwrap_p();
     assert_eq!(records.len(), 1);
     assert_eq!(records[0]["verdict"], "forbidden");
     assert_eq!(records[0]["closed_world"], serde_json::json!(true));
@@ -200,21 +201,21 @@ fn conform_closed_world_recorded_and_uncovered_forbidden() {
 
 #[test]
 fn conform_contradiction_forbidden_in_any_mode() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("demo.cli_conform.md");
-    std::fs::write(&spec, SPEC_TEXT).unwrap();
+    std::fs::write(&spec, SPEC_TEXT).unwrap_p();
     let corpus = dir.path().join("scenarios.jsonl");
-    std::fs::write(&corpus, format!("{CONTRADICTION_LINE}\n")).unwrap();
+    std::fs::write(&corpus, format!("{CONTRADICTION_LINE}\n")).unwrap_p();
 
     // NO --closed-world: a positive contradiction is still forbidden.
     let (code, json) = conform_json(&spec, &corpus, &[]);
     assert_eq!(code, Some(1), "contradiction fails any mode: {json}");
-    let records = json["data"]["records"].as_array().unwrap();
+    let records = json["data"]["records"].as_array().unwrap_p();
     assert_eq!(records[0]["verdict"], "forbidden");
     assert_eq!(records[0]["closed_world"], serde_json::json!(false));
     // The reason names the contradicted executable claim id.
     assert!(
-        records[0]["reason"].as_str().unwrap().contains("locked"),
+        records[0]["reason"].as_str().unwrap_p().contains("locked"),
         "reason names the contradicted claim: {json}"
     );
 }
@@ -223,24 +224,24 @@ fn conform_contradiction_forbidden_in_any_mode() {
 
 #[test]
 fn conform_invocation_error_exits_2_without_records() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     // Missing spec path.
     let out = spk()
         .args([
             "conform",
-            dir.path().join("nope.md").to_str().unwrap(),
+            dir.path().join("nope.md").to_str().unwrap_p(),
             "--oracle",
-            dir.path().join("scenarios.jsonl").to_str().unwrap(),
+            dir.path().join("scenarios.jsonl").to_str().unwrap_p(),
             "--json",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(
         out.status.code(),
         Some(2),
         "missing spec is an invocation error"
     );
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(json["ok"], serde_json::json!(false));
     assert!(
         json["data"]["records"].is_null(),
@@ -248,62 +249,62 @@ fn conform_invocation_error_exits_2_without_records() {
     );
     // Missing oracle path too.
     let spec = dir.path().join("demo.cli_conform.md");
-    std::fs::write(&spec, SPEC_TEXT).unwrap();
+    std::fs::write(&spec, SPEC_TEXT).unwrap_p();
     let out_dir = compiled_out_dir(dir.path(), &spec);
     let out = spk()
         .args([
             "conform",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--oracle",
-            dir.path().join("absent.jsonl").to_str().unwrap(),
+            dir.path().join("absent.jsonl").to_str().unwrap_p(),
             "--out-dir",
             &out_dir,
             "--json",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(
         out.status.code(),
         Some(2),
         "missing oracle is an invocation error"
     );
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(json["ok"], serde_json::json!(false));
     assert!(json["data"]["records"].is_null(), "zero records: {json}");
 }
 
 #[test]
 fn conform_gate_refusal_exits_2_without_records() {
-    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap();
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
     let spec = dir.path().join("demo.cli_conform.md");
-    std::fs::write(&spec, SPEC_TEXT).unwrap();
+    std::fs::write(&spec, SPEC_TEXT).unwrap_p();
     let _out_dir = compiled_out_dir(dir.path(), &spec);
     // Edit the structured content WITHOUT recompiling → stale artifacts.
-    std::fs::write(&spec, SPEC_TEXT_EDITED).unwrap();
+    std::fs::write(&spec, SPEC_TEXT_EDITED).unwrap_p();
     let corpus = dir.path().join("scenarios.jsonl");
-    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap();
+    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap_p();
 
     let out = spk()
         .args([
             "conform",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--oracle",
-            corpus.to_str().unwrap(),
+            corpus.to_str().unwrap_p(),
             "--out-dir",
-            dir.path().join("out").to_str().unwrap(),
+            dir.path().join("out").to_str().unwrap_p(),
             "--json",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(2), "gate refusal stays exit 2");
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(json["ok"], serde_json::json!(false), "{json}");
     assert!(
         json["data"]["records"].is_null(),
         "no verdict records from a gated-out invocation: {json}"
     );
     // The refusal names the failing stage's remediation (spk compile).
-    let rendered = serde_json::to_string(&json).unwrap();
+    let rendered = serde_json::to_string(&json).unwrap_p();
     assert!(
         rendered.contains("spk compile"),
         "refusal names the compile remediation: {json}"
@@ -315,11 +316,11 @@ fn conform_empty_corpus_yields_valid_empty_report_exit_0() {
     // Delta 'Empty corpus yields a valid empty report' at CLI level: a
     // zero-line corpus is a valid Ok report — zero records,
     // evidence_scope intact, exit 0 — never an error.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("demo.cli_conform.md");
-    std::fs::write(&spec, SPEC_TEXT).unwrap();
+    std::fs::write(&spec, SPEC_TEXT).unwrap_p();
     let corpus = dir.path().join("scenarios.jsonl");
-    std::fs::write(&corpus, "\n").unwrap();
+    std::fs::write(&corpus, "\n").unwrap_p();
 
     let (code, json) = conform_json(&spec, &corpus, &[]);
     assert_eq!(code, Some(0), "zero traces never fail: {json}");
@@ -463,10 +464,10 @@ const SIBLING_BROKEN_TEXT: &str = "---\nid: demo.cli_two\nkind: intent\n---\n";
 fn write_corpus(dir: &std::path::Path, target_text: &str, sibling_text: &str) {
     let one = dir.join("openspec/specs/demo.cli_one");
     let two = dir.join("openspec/specs/demo.cli_two");
-    std::fs::create_dir_all(&one).unwrap();
-    std::fs::create_dir_all(&two).unwrap();
-    std::fs::write(one.join("spec.md"), target_text).unwrap();
-    std::fs::write(two.join("spec.md"), sibling_text).unwrap();
+    std::fs::create_dir_all(&one).unwrap_p();
+    std::fs::create_dir_all(&two).unwrap_p();
+    std::fs::write(one.join("spec.md"), target_text).unwrap_p();
+    std::fs::write(two.join("spec.md"), sibling_text).unwrap_p();
 }
 
 /// Run conform with cwd = `dir` (the corpus root's parent), compiling
@@ -488,10 +489,10 @@ fn conform_json_in(
                 compile_path,
                 "--json",
                 "--out-dir",
-                dir.join("out").to_str().unwrap(),
+                dir.join("out").to_str().unwrap_p(),
             ])
             .output()
-            .unwrap();
+            .unwrap_p();
         assert!(
             out.status.success(),
             "fixture target must compile: {}",
@@ -504,16 +505,16 @@ fn conform_json_in(
             "conform",
             spec_path,
             "--oracle",
-            corpus.to_str().unwrap(),
+            corpus.to_str().unwrap_p(),
             "--out-dir",
-            dir.join("out").to_str().unwrap(),
+            dir.join("out").to_str().unwrap_p(),
             "--json",
         ])
         .args(extra)
         .output()
-        .unwrap();
+        .unwrap_p();
     let stdout = String::from_utf8_lossy(&out.stdout).to_string();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     (out.status.code(), json, stdout)
 }
 
@@ -522,10 +523,10 @@ fn conform_json_in(
 /// the corpus the file belongs to, and the run exits 0.
 #[test]
 fn conform_sibling_ref_corpus_gate_green() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_corpus(dir.path(), SIBLING_TARGET_TEXT, SIBLING_OTHER_TEXT);
     let corpus = dir.path().join("scenarios.jsonl");
-    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap();
+    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap_p();
 
     let (code, json, _stdout) = conform_json_in(
         dir.path(),
@@ -547,14 +548,14 @@ fn conform_sibling_ref_corpus_gate_green() {
 /// same artifact_gate shape — even when the rest of the corpus is clean.
 #[test]
 fn conform_target_own_findings_still_refused() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_corpus(
         dir.path(),
         &sibling_target_dangling_text(),
         SIBLING_OTHER_TEXT,
     );
     let corpus = dir.path().join("scenarios.jsonl");
-    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap();
+    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap_p();
 
     // No compile: the lint gate refuses before the artifact check (the
     // same stage order orchestrate applies: parse → lint → compile).
@@ -568,7 +569,7 @@ fn conform_target_own_findings_still_refused() {
     assert_eq!(code, Some(2), "own dangling ref refuses: {json}");
     assert_eq!(json["ok"], serde_json::json!(false));
     assert!(json["data"]["records"].is_null(), "zero records: {json}");
-    let rendered = serde_json::to_string(&json).unwrap();
+    let rendered = serde_json::to_string(&json).unwrap_p();
     assert!(rendered.contains("artifact_gate"), "{json}");
     assert!(rendered.contains("lint findings"), "{json}");
     assert!(rendered.contains("spk lint"), "{json}");
@@ -580,7 +581,7 @@ fn conform_target_own_findings_still_refused() {
 /// clean and refs nothing cross-file, so the run still succeeds.
 #[test]
 fn conform_partial_corpus_surfaces_labeled_warning() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_corpus(dir.path(), SIBLING_TARGET_TEXT, SIBLING_BROKEN_TEXT);
     // Make the target corpus-self-contained: drop the cross-file ref so
     // the partial corpus is the ONLY defect in play.
@@ -592,9 +593,9 @@ fn conform_partial_corpus_surfaces_labeled_warning() {
         dir.path().join("openspec/specs/demo.cli_one/spec.md"),
         target,
     )
-    .unwrap();
+    .unwrap_p();
     let corpus = dir.path().join("scenarios.jsonl");
-    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap();
+    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap_p();
 
     let (code, json, stdout) = conform_json_in(
         dir.path(),
@@ -617,10 +618,10 @@ fn conform_partial_corpus_surfaces_labeled_warning() {
 /// (the record never claims the prose invariant was checked).
 #[test]
 fn conform_structural_only_agrees_on_prose_guard() {
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("demo.cli_prose.md"), PROSE_SPEC_TEXT).unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
+    std::fs::write(dir.path().join("demo.cli_prose.md"), PROSE_SPEC_TEXT).unwrap_p();
     let corpus = dir.path().join("scenarios.jsonl");
-    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap();
+    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap_p();
 
     let (code, json, _stdout) = conform_json_in(
         dir.path(),
@@ -630,9 +631,9 @@ fn conform_structural_only_agrees_on_prose_guard() {
         &["--structural-only"],
     );
     assert_eq!(code, Some(0), "agree never fails the run: {json}");
-    let records = json["data"]["records"].as_array().unwrap();
+    let records = json["data"]["records"].as_array().unwrap_p();
     assert_eq!(records[0]["verdict"], "agree");
-    let reason = records[0]["reason"].as_str().unwrap();
+    let reason = records[0]["reason"].as_str().unwrap_p();
     assert!(
         reason.contains("healthy"),
         "the reason still names the uninterpretable guard: {reason}"
@@ -651,10 +652,10 @@ fn conform_structural_only_agrees_on_prose_guard() {
 /// prose-guarded trace is still `unknown` (closed-world honesty).
 #[test]
 fn conform_default_mode_still_unknown_on_prose_guard() {
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("demo.cli_prose.md"), PROSE_SPEC_TEXT).unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
+    std::fs::write(dir.path().join("demo.cli_prose.md"), PROSE_SPEC_TEXT).unwrap_p();
     let corpus = dir.path().join("scenarios.jsonl");
-    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap();
+    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap_p();
 
     let (code, json, _stdout) = conform_json_in(
         dir.path(),
@@ -664,12 +665,12 @@ fn conform_default_mode_still_unknown_on_prose_guard() {
         &[],
     );
     assert_eq!(code, Some(0), "unknown never fails the run: {json}");
-    let records = json["data"]["records"].as_array().unwrap();
+    let records = json["data"]["records"].as_array().unwrap_p();
     assert_eq!(records[0]["verdict"], "unknown");
     assert!(
         records[0]["reason"]
             .as_str()
-            .unwrap()
+            .unwrap_p()
             .contains("prose_claim_not_interpretable"),
         "{json}"
     );
@@ -682,18 +683,18 @@ fn conform_default_mode_still_unknown_on_prose_guard() {
 #[test]
 fn conform_isolated_file_fallback_unchanged() {
     // A bare temp dir with NO openspec ancestor: discovery falls back.
-    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap();
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
     std::fs::write(
         dir.path().join("demo.cli_one.md"),
         sibling_target_dangling_text(),
     )
-    .unwrap();
+    .unwrap_p();
     let corpus = dir.path().join("scenarios.jsonl");
-    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap();
+    std::fs::write(&corpus, format!("{PERMITTED_LINE}\n")).unwrap_p();
 
     let (code, json, _stdout) = conform_json_in(dir.path(), "demo.cli_one.md", &corpus, None, &[]);
     assert_eq!(code, Some(2), "isolated dangling ref refuses: {json}");
-    let rendered = serde_json::to_string(&json).unwrap();
+    let rendered = serde_json::to_string(&json).unwrap_p();
     assert!(rendered.contains("lint findings"), "{json}");
 }
 
@@ -707,11 +708,11 @@ fn conform_isolated_file_fallback_unchanged() {
 /// drift into two renderers.
 #[test]
 fn conform_exit1_renders_the_report_through_the_single_path() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("demo.cli_conform.md");
-    std::fs::write(&spec, SPEC_TEXT).unwrap();
+    std::fs::write(&spec, SPEC_TEXT).unwrap_p();
     let corpus = dir.path().join("scenarios.jsonl");
-    std::fs::write(&corpus, format!("{CONTRADICTION_LINE}\n")).unwrap();
+    std::fs::write(&corpus, format!("{CONTRADICTION_LINE}\n")).unwrap_p();
 
     let (code, json) = conform_json(&spec, &corpus, &[]);
     assert_eq!(code, Some(1));
@@ -720,16 +721,16 @@ fn conform_exit1_renders_the_report_through_the_single_path() {
     // The data payload IS the report — full records, not a stub.
     assert_eq!(data["report_schema_version"], 1);
     assert_eq!(data["verdict_counts"]["forbidden"], 1);
-    let records = data["records"].as_array().unwrap();
+    let records = data["records"].as_array().unwrap_p();
     assert_eq!(records[0]["verdict"], "forbidden");
     assert_eq!(records[0]["closed_world"], serde_json::json!(false));
     // The failure message leads the warnings channel (genesis failure
     // convention), followed by the labeled gate notes.
-    let warnings = json["warnings"].as_array().unwrap();
+    let warnings = json["warnings"].as_array().unwrap_p();
     assert!(
         warnings[0]["message"]
             .as_str()
-            .unwrap()
+            .unwrap_p()
             .contains("the oracle disagrees with the declared model"),
         "{json}"
     );
@@ -740,25 +741,25 @@ fn conform_exit1_renders_the_report_through_the_single_path() {
 /// evidence_scope statement, and the forbidden record.
 #[test]
 fn conform_exit1_human_view_matches_the_single_path() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("demo.cli_conform.md");
-    std::fs::write(&spec, SPEC_TEXT).unwrap();
+    std::fs::write(&spec, SPEC_TEXT).unwrap_p();
     let corpus = dir.path().join("scenarios.jsonl");
-    std::fs::write(&corpus, format!("{CONTRADICTION_LINE}\n")).unwrap();
+    std::fs::write(&corpus, format!("{CONTRADICTION_LINE}\n")).unwrap_p();
 
     let out_dir = compiled_out_dir(dir.path(), &spec);
     let out = spk()
         .args([
             "conform",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--oracle",
-            corpus.to_str().unwrap(),
+            corpus.to_str().unwrap_p(),
             "--out-dir",
             &out_dir,
             "--human",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(1));
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(

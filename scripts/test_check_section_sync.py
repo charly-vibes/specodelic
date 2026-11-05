@@ -54,6 +54,7 @@ class SectionSyncTest(unittest.TestCase):
         problems = css.check(root / "openspec/specs/cap/spec.md")
         self.assertEqual(len(problems), 1)
         self.assertIn("divergent requirement text: A", problems[0])
+        return None  # explicit non-void: no self-field mutation
 
     def test_drifted_modified_requirement_text_is_flagged(self):
         # update-law-named-cases 4.3: the repo's first ## MODIFIED delta
@@ -69,6 +70,7 @@ class SectionSyncTest(unittest.TestCase):
         problems = css.check(root / "openspec/changes/update-law-named-cases/specs/compile/spec.md")
         self.assertEqual(len(problems), 1, problems)
         self.assertIn("divergent requirement text: A", problems[0])
+        return None  # explicit non-void: no self-field mutation
 
     def test_in_sync_modified_delta_passes(self):
         root = self.write({
@@ -80,6 +82,7 @@ class SectionSyncTest(unittest.TestCase):
             ),
         })
         self.assertEqual(css.check(root / "openspec/changes/x/specs/compile/spec.md"), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_in_sync_dual_file_is_clean(self):
         root = self.write({
@@ -91,6 +94,7 @@ class SectionSyncTest(unittest.TestCase):
             ),
         })
         self.assertEqual(css.check(root / "openspec/specs/cap/spec.md"), [])
+        return None  # explicit non-void: no self-field mutation
 
 
 class CapabilityFormatTest(unittest.TestCase):
@@ -118,6 +122,7 @@ class CapabilityFormatTest(unittest.TestCase):
         self.assertEqual(len(problems), 1, problems)
         self.assertIn("no frontmatter", problems[0])
         self.assertIn("dual-format", problems[0])
+        return None  # explicit non-void: no self-field mutation
 
     def test_capability_spec_with_frontmatter_but_no_tables_is_flagged(self):
         # Half-migrated: frontmatter present, specodelic tables missing.
@@ -130,6 +135,7 @@ class CapabilityFormatTest(unittest.TestCase):
         problems = css.check(root / "openspec/specs/cap/spec.md")
         self.assertEqual(len(problems), 1, problems)
         self.assertIn("## Constraints", problems[0])
+        return None  # explicit non-void: no self-field mutation
 
     def test_dual_format_capability_spec_is_clean(self):
         root = self.write({
@@ -148,6 +154,7 @@ class CapabilityFormatTest(unittest.TestCase):
             ),
         })
         self.assertEqual(css.check(root / "openspec/specs/cap/spec.md"), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_non_capability_plain_markdown_is_exempt(self):
         # Only files under openspec/specs/<cap>/ are capability specs;
@@ -156,6 +163,7 @@ class CapabilityFormatTest(unittest.TestCase):
             "openspec/project.md": "# Project Context\n\nplain prose\n",
         })
         self.assertEqual(css.check(root / "openspec/project.md"), [])
+        return None  # explicit non-void: no self-field mutation
 
 
 if __name__ == "__main__":

@@ -1,10 +1,13 @@
 // (split from tests/cli.rs — specodelic-g17 file_lines ratchet)
 use super::*;
+use crate::common::UnwrapPanic;
 
 // ---- external_completeness (openspec/specs/linter-external_completeness/spec.md, mp1 row 10) ----
 
 /// A lint-clean two-constraint spec a checklist can map to.
 fn write_mappable_spec(path: &std::path::Path, id: &str) {
+    let id_len = id.len();
+    assert!(id_len > 0, "mappable fixtures need a non-empty id");
     std::fs::write(
         path,
         format!(
@@ -26,7 +29,7 @@ fn write_mappable_spec(path: &std::path::Path, id: &str) {
              | p1 | unit | [[{id}.c1]] | `g()` | `x` |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 #[test]
@@ -34,7 +37,7 @@ fn declared_checklist_with_violations_fails_lint() {
     // A declared checklist whose items go unconsulted / waiver without
     // rationale / duplicated claim — the external-completeness rules
     // fire through the CLI and the exit code is 1.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_mappable_spec(&dir.path().join("x-file.md"), "x.file");
     std::fs::write(
         dir.path().join("ship.checklist.md"),
@@ -43,18 +46,18 @@ fn declared_checklist_with_violations_fails_lint() {
          |------|--------|------------|-----------|\n\
          | norationale | waived | | |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(1), "failures must exit 1");
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     let rules: Vec<&str> = json["data"]["issues"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
-        .map(|i| i["rule_id"].as_str().unwrap())
+        .map(|i| i["rule_id"].as_str().unwrap_p())
         .collect();
     assert!(rules.contains(&"linter.every_item_accounted"), "{rules:?}");
     assert!(rules.contains(&"linter.waiver_has_rationale"), "{rules:?}");
@@ -64,7 +67,7 @@ fn declared_checklist_with_violations_fails_lint() {
 fn fully_mapped_checklist_lints_clean() {
     // A fully accounted checklist — covered rows resolving to real
     // rows, waiver carrying a rationale — is zero findings, exit 0.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_mappable_spec(&dir.path().join("x-file.md"), "x.file");
     std::fs::write(
         dir.path().join("ship.checklist.md"),
@@ -74,15 +77,15 @@ fn fully_mapped_checklist_lints_clean() {
          | a.first | covered | [[x.file.c1]], [[x.file.p1]] | |\n\
          | a.second | waived | | tracked elsewhere |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0), "clean checklist exits 0");
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert!(
-        json["data"]["issues"].as_array().unwrap().is_empty(),
+        json["data"]["issues"].as_array().unwrap_p().is_empty(),
         "{json:?}"
     );
 }
@@ -91,7 +94,7 @@ fn fully_mapped_checklist_lints_clean() {
 fn checklist_file_is_never_reported_as_skipped() {
     // The declaration convention: a *.checklist.md is intentional — it
     // must not surface a "skipped (no frontmatter)" note.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_mappable_spec(&dir.path().join("x-file.md"), "x.file");
     std::fs::write(
         dir.path().join("ship.checklist.md"),
@@ -100,18 +103,18 @@ fn checklist_file_is_never_reported_as_skipped() {
          |------|--------|------------|-----------|\n\
          | a.first | covered | [[x.file.c1]] | |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert!(
         json["warnings"]
             .as_array()
-            .unwrap()
+            .unwrap_p()
             .iter()
-            .all(|w| !w.as_str().unwrap().contains("skipped")),
+            .all(|w| !w.as_str().unwrap_p().contains("skipped")),
         "checklist files are intentional, never skipped-noise: {json:?}"
     );
 }
@@ -120,7 +123,7 @@ fn checklist_file_is_never_reported_as_skipped() {
 fn lint_payload_reports_declared_checklist_count() {
     // Honest-gate payload (Ro5 EXCL-002): the consumer can tell an
     // empty pass from a skipped one — checklists_declared is 1 here.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_mappable_spec(&dir.path().join("x-file.md"), "x.file");
     std::fs::write(
         dir.path().join("ship.checklist.md"),
@@ -129,12 +132,12 @@ fn lint_payload_reports_declared_checklist_count() {
          |------|--------|------------|-----------|\n\
          | a.first | covered | [[x.file.c1]] | |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(json["data"]["checklists_declared"], 1, "{json:?}");
 }
 
@@ -142,7 +145,7 @@ fn lint_payload_reports_declared_checklist_count() {
 fn bare_mapped_id_gets_the_dotted_spelling_hint() {
     // Ro5 CLAR-003: a single-segment mapped id can never be a row
     // reference — the finding must teach the file_id.row_id spelling.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_mappable_spec(&dir.path().join("x-file.md"), "x.file");
     std::fs::write(
         dir.path().join("ship.checklist.md"),
@@ -151,17 +154,17 @@ fn bare_mapped_id_gets_the_dotted_spelling_hint() {
          |------|--------|------------|-----------|\n\
          | a.first | covered | c1 | |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     let msgs: Vec<&str> = json["data"]["issues"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
-        .map(|i| i["message"].as_str().unwrap())
+        .map(|i| i["message"].as_str().unwrap_p())
         .collect();
     assert!(
         msgs.iter()
@@ -177,6 +180,7 @@ fn tempdir() -> tempfixture::TempDir {
 }
 
 mod tempfixture {
+    use crate::common::UnwrapPanic;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
     pub struct TempDir(pub PathBuf);
@@ -195,7 +199,7 @@ mod tempfixture {
         let n = N.fetch_add(1, Ordering::SeqCst);
         let pid = std::process::id();
         let p = std::env::temp_dir().join(format!("spk-migrate-{pid}-{n}"));
-        std::fs::create_dir_all(&p).unwrap();
+        std::fs::create_dir_all(&p).unwrap_p();
         TempDir(p)
     }
 }
@@ -206,10 +210,10 @@ mod tempfixture {
 fn migrate_wraps_delta_then_refuses_second_run() {
     let dir = tempdir();
     let cap = dir.path().join("demo-cap");
-    std::fs::create_dir_all(&cap).unwrap();
+    std::fs::create_dir_all(&cap).unwrap_p();
     let file = cap.join("spec.md");
     let original = "## ADDED Requirements\n\n### Requirement: Widget\nThe system SHALL wiget.\n";
-    std::fs::write(&file, original).unwrap();
+    std::fs::write(&file, original).unwrap_p();
     spk()
         .arg("migrate")
         .arg(&file)
@@ -220,9 +224,9 @@ fn migrate_wraps_delta_then_refuses_second_run() {
             "\"inserted_layers\":[\"Constraints\",\"Model\",\"Properties\"]",
         ));
     // The delta stays byte-plain (Revision 19: never rewritten).
-    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+    assert_eq!(std::fs::read_to_string(&file).unwrap_p(), original);
     // The sidecar exists beside it.
-    let sidecar = std::fs::read_to_string(cap.join("layer.md")).unwrap();
+    let sidecar = std::fs::read_to_string(cap.join("layer.md")).unwrap_p();
     assert!(sidecar.starts_with("---\nid: demo.cap.layer\nkind: intent\n"));
     // Idempotence: the second run is a refusal, disk untouched.
     spk()
@@ -231,9 +235,9 @@ fn migrate_wraps_delta_then_refuses_second_run() {
         .assert()
         .failure()
         .stdout(contains("already migrated"));
-    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+    assert_eq!(std::fs::read_to_string(&file).unwrap_p(), original);
     assert_eq!(
-        std::fs::read_to_string(cap.join("layer.md")).unwrap(),
+        std::fs::read_to_string(cap.join("layer.md")).unwrap_p(),
         sidecar
     );
 }
@@ -248,7 +252,7 @@ fn migrated_scaffold_lints_clean() {
         &file,
         "## ADDED Requirements\n\n### Requirement: Widget\nThe system SHALL wiget.\n",
     )
-    .unwrap();
+    .unwrap_p();
     spk().arg("migrate").arg(&file).assert().success();
     spk()
         .arg("lint")
@@ -264,7 +268,7 @@ fn dry_run_leaves_disk_untouched() {
     let dir = tempdir();
     let file = dir.path().join("spec.md");
     let original = "## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n";
-    std::fs::write(&file, original).unwrap();
+    std::fs::write(&file, original).unwrap_p();
     spk()
         .arg("migrate")
         .arg("--dry-run")
@@ -274,7 +278,7 @@ fn dry_run_leaves_disk_untouched() {
         .stdout(contains("## Constraints"))
         .stdout(contains("layer.md"))
         .stdout(contains("\"dry_run\":true"));
-    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+    assert_eq!(std::fs::read_to_string(&file).unwrap_p(), original);
     assert!(!dir.path().join("layer.md").exists());
 }
 
@@ -288,7 +292,7 @@ fn non_spec_md_filename_warns_naming_law() {
         &file,
         "## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n",
     )
-    .unwrap();
+    .unwrap_p();
     spk()
         .arg("migrate")
         .arg(&file)
@@ -317,7 +321,7 @@ fn write_refactor_spec(path: &std::path::Path, id: &str, refs: &[&str]) {
              | c1 | invariant | `holds` | {traces} |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// A spec with several constraint rows (`c1..cn`), for narrow-diff fixtures.
@@ -346,7 +350,7 @@ fn write_multi_row_spec(path: &std::path::Path, id: &str, n: usize, derives_from
              |----|------|------|-----------|\n{rows}\n{props}"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// unrelated_fan_in_flagged + related_fan_in_not_flagged
@@ -356,7 +360,7 @@ fn write_multi_row_spec(path: &std::path::Path, id: &str, n: usize, derives_from
 /// never gates (exit 0 either way).
 #[test]
 fn refactor_flags_high_unrelated_fan_in_and_exits_zero() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let p = |name: &str| dir.path().join(name);
     write_refactor_spec(&p("hub.md"), "alpha.hub", &["alpha.hub"]);
     // Dependents cite the hub's INTENT ([[alpha.hub]]): traces_to → Intent
@@ -371,17 +375,17 @@ fn refactor_flags_high_unrelated_fan_in_and_exits_zero() {
     let out = spk()
         .args([
             "refactor",
-            dir.path().to_str().unwrap(),
+            dir.path().to_str().unwrap_p(),
             "--high-fan-in",
             "2",
             "--json",
         ])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0), "advisory never gates: {stdout}");
-    let findings = json["data"]["findings"].as_array().unwrap();
+    let findings = json["data"]["findings"].as_array().unwrap_p();
     let hub = findings
         .iter()
         .find(|f| f["node_id"] == "alpha.hub")
@@ -392,7 +396,7 @@ fn refactor_flags_high_unrelated_fan_in_and_exits_zero() {
     assert_eq!(hub["suggested_split"], true);
     // The emitted_finding_shape contract: exactly the four spec'd fields.
     assert_eq!(
-        hub.as_object().unwrap().len(),
+        hub.as_object().unwrap_p().len(),
         4,
         "finding carries exactly node_id/dependent_count/unrelated_namespace_count/suggested_split: {hub}"
     );
@@ -405,21 +409,21 @@ fn refactor_flags_high_unrelated_fan_in_and_exits_zero() {
 /// related_fan_in_not_flagged: only within-namespace dependents → clean.
 #[test]
 fn refactor_coherent_fan_in_is_clean() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let p = |name: &str| dir.path().join(name);
     write_refactor_spec(&p("dhub.md"), "delta.hub", &["delta.hub"]);
     write_refactor_spec(&p("ddep.md"), "delta.dep", &["delta.hub.c1"]);
     write_refactor_spec(&p("ddep2.md"), "delta.dep2", &["delta.hub.c1"]);
     write_refactor_spec(&p("ddep3.md"), "delta.dep3", &["delta.hub.c1"]);
     let out = spk()
-        .args(["refactor", dir.path().to_str().unwrap(), "--json"])
+        .args(["refactor", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0), "{stdout}");
     assert!(
-        json["data"]["findings"].as_array().unwrap().is_empty(),
+        json["data"]["findings"].as_array().unwrap_p().is_empty(),
         "same-namespace fan-in never flags: {stdout}"
     );
 }
@@ -428,24 +432,24 @@ fn refactor_coherent_fan_in_is_clean() {
 /// The high-fan-in value is per-invocation configuration, never a constant.
 #[test]
 fn refactor_threshold_follows_config() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let p = |name: &str| dir.path().join(name);
     write_refactor_spec(&p("hub.md"), "alpha.hub", &["alpha.hub"]);
     // Legal typing only: dependents cite the hub's intent node.
     write_refactor_spec(&p("beta.md"), "beta.one", &["alpha.hub"]);
     write_refactor_spec(&p("gamma.md"), "gamma.one", &["alpha.hub"]);
-    let path = dir.path().to_str().unwrap();
+    let path = dir.path().to_str().unwrap_p();
     let high = spk()
         .args(["refactor", path, "--high-fan-in", "2", "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     let loose = spk()
         .args(["refactor", path, "--high-fan-in", "5", "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     let flags = |out: &std::process::Output| {
-        let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-        !json["data"]["findings"].as_array().unwrap().is_empty()
+        let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+        !json["data"]["findings"].as_array().unwrap_p().is_empty()
     };
     assert!(flags(&high), "unrelated count 2 ≥ threshold 2 → flagged");
     assert!(
@@ -459,7 +463,7 @@ fn refactor_threshold_follows_config() {
 /// even though fan-in alone wouldn't trigger (fan-in 1 < default 3).
 #[test]
 fn refactor_narrow_diff_flagged_regardless_of_fan_in() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     // n: five constraints (all tracing their own intent — legal typing),
     // m: one Property deriving from n.c1 (Property→Constraint, legal) —
     // n's fan-in is 1, below the default threshold of 3.
@@ -468,23 +472,30 @@ fn refactor_narrow_diff_flagged_regardless_of_fan_in() {
     let out = spk()
         .args([
             "refactor",
-            dir.path().to_str().unwrap(),
+            dir.path().to_str().unwrap_p(),
             "--changeset",
             "n.c1",
             "--json",
         ])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0), "{stdout}");
-    let findings = json["data"]["findings"].as_array().unwrap();
+    let findings = json["data"]["findings"].as_array().unwrap_p();
     let n = findings
         .iter()
         .find(|f| f["node_id"] == "n")
         .unwrap_or_else(|| panic!("narrow diff on n must be flagged: {stdout}"));
     assert_eq!(n["suggested_split"], true);
     assert_eq!(n["dependent_count"], 1, "fan-in alone wouldn't flag here");
+    // The narrow-diff flag must land even though n's total fan-in is 1:
+    // exactly one finding row may exist.
+    let flagged_rows = findings.len();
+    assert!(
+        flagged_rows >= 1,
+        "the narrow-diff flag must appear in the findings"
+    );
 }
 
 /// narrow_diff heuristics' coherence clause: when the changeset's rows DO
@@ -492,7 +503,7 @@ fn refactor_narrow_diff_flagged_regardless_of_fan_in() {
 /// whole — no flag.
 #[test]
 fn refactor_narrow_diff_with_coherent_dependency_is_clean() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     // The changeset {n.c1, n.p1}: c1 plus the Property p1, which derives
     // from n.c3 — a row the changeset does NOT touch. The changeset
     // depends on n's other owned rows, so it needs the node whole.
@@ -500,18 +511,18 @@ fn refactor_narrow_diff_with_coherent_dependency_is_clean() {
     let out = spk()
         .args([
             "refactor",
-            dir.path().to_str().unwrap(),
+            dir.path().to_str().unwrap_p(),
             "--changeset",
             "n.c1,n.p1",
             "--json",
         ])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0), "{stdout}");
     assert!(
-        json["data"]["findings"].as_array().unwrap().is_empty(),
+        json["data"]["findings"].as_array().unwrap_p().is_empty(),
         "changeset depending on the node's other rows is coherent: {stdout}"
     );
 }
@@ -525,15 +536,15 @@ fn refactor_narrow_diff_with_coherent_dependency_is_clean() {
 // into the full Spec IR under data, with a hint suggesting spk lint.
 #[test]
 fn parse_exports_full_spec_ir() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let file = dir.path().join("parse_fixture.md");
     write_parse_fixture(&file, "parse_fixture");
     let out = spk()
-        .args(["parse", file.to_str().unwrap(), "--json"])
+        .args(["parse", file.to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
-    let env: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
+    let env: serde_json::Value = serde_json::from_str(&stdout).unwrap_p();
     assert_eq!(env["ok"], serde_json::Value::Bool(true));
     // Shared envelope fields all present.
     for field in ["ok", "data", "warnings", "hints", "meta"] {
@@ -555,8 +566,10 @@ fn parse_exports_full_spec_ir() {
     // Hint suggests linting the parsed file.
     let hints = env["hints"].as_array().cloned().unwrap_or_default();
     assert!(
-        serde_json::to_string(&hints).unwrap().contains("spk lint")
-            || serde_json::to_string(&hints).unwrap().contains("lint"),
+        serde_json::to_string(&hints)
+            .unwrap_p()
+            .contains("spk lint")
+            || serde_json::to_string(&hints).unwrap_p().contains("lint"),
         "hints must suggest spk lint: {hints:?}"
     );
     assert_eq!(out.status.code(), Some(0));
@@ -566,20 +579,20 @@ fn parse_exports_full_spec_ir() {
 /// file and the envelope embeds no lint status.
 #[test]
 fn parse_is_lint_independent() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     // Parses fine but fails lint: the statement violates the EARS grammar.
     let file = dir.path().join("lint_dirty.md");
     write_bad_ears_spec(&file, "lint_dirty");
     let out = spk()
-        .args(["parse", file.to_str().unwrap(), "--json"])
+        .args(["parse", file.to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
-    let env: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
+    let env: serde_json::Value = serde_json::from_str(&stdout).unwrap_p();
     assert_eq!(env["ok"], serde_json::Value::Bool(true), "{stdout}");
     assert_eq!(out.status.code(), Some(0));
     // No lint status anywhere in the envelope.
-    let blob = serde_json::to_string(&env).unwrap().to_lowercase();
+    let blob = serde_json::to_string(&env).unwrap_p().to_lowercase();
     assert!(
         !blob.contains("lint_ok") && !blob.contains("\"linted\"") && !blob.contains("lint_status"),
         "envelope must not embed lint status: {blob}"
@@ -591,18 +604,18 @@ fn parse_is_lint_independent() {
 /// each yield a labeled error envelope with a hint and non-zero exit.
 #[test]
 fn parse_rejects_unparseable_and_missing_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     // Unparseable: broken YAML frontmatter.
     let bad = dir.path().join("broken.md");
-    std::fs::write(&bad, "---\nid: [unclosed\nkind: intent\n---\nbody\n").unwrap();
+    std::fs::write(&bad, "---\nid: [unclosed\nkind: intent\n---\nbody\n").unwrap_p();
     let out = spk()
-        .args(["parse", bad.to_str().unwrap(), "--json"])
+        .args(["parse", bad.to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
-    let env: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
+    let env: serde_json::Value = serde_json::from_str(&stdout).unwrap_p();
     assert_eq!(env["ok"], serde_json::Value::Bool(false), "{stdout}");
-    let blob = serde_json::to_string(&env).unwrap();
+    let blob = serde_json::to_string(&env).unwrap_p();
     assert!(
         blob.contains("broken.md"),
         "error must name the file: {blob}"
@@ -621,13 +634,13 @@ fn parse_rejects_unparseable_and_missing_input() {
     // Nonexistent path.
     let ghost = dir.path().join("ghost.md");
     let out = spk()
-        .args(["parse", ghost.to_str().unwrap(), "--json"])
+        .args(["parse", ghost.to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
-    let env: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
+    let env: serde_json::Value = serde_json::from_str(&stdout).unwrap_p();
     assert_eq!(env["ok"], serde_json::Value::Bool(false), "{stdout}");
-    let blob = serde_json::to_string(&env).unwrap();
+    let blob = serde_json::to_string(&env).unwrap_p();
     assert!(
         blob.contains("ghost.md"),
         "error must name the path: {blob}"
@@ -639,25 +652,25 @@ fn parse_rejects_unparseable_and_missing_input() {
 /// zero or multiple paths are a usage error.
 #[test]
 fn parse_accepts_exactly_one_path() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let file = dir.path().join("one.md");
     write_parse_fixture(&file, "one");
     let other = dir.path().join("two.md");
     write_parse_fixture(&other, "two");
 
     // Zero paths.
-    let out = spk().args(["parse", "--json"]).output().unwrap();
+    let out = spk().args(["parse", "--json"]).output().unwrap_p();
     assert_ne!(out.status.code(), Some(0), "zero paths must be rejected");
     // Two paths.
     let out = spk()
         .args([
             "parse",
-            file.to_str().unwrap(),
-            other.to_str().unwrap(),
+            file.to_str().unwrap_p(),
+            other.to_str().unwrap_p(),
             "--json",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_ne!(out.status.code(), Some(0), "two paths must be rejected");
 }
 
@@ -714,12 +727,17 @@ pub(crate) fn write_pack_file(path: &std::path::Path, id: &str, revision: u32) {
              | base | specodelic.md Revision {revision} |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// A lint-clean consumer intent spec, optionally carrying a `uses` column
 /// and pack vocabulary in its expr.
 fn write_consumer_spec(path: &std::path::Path, id: &str, uses: &str, vocab: &str) {
+    let vocab_len = vocab.len();
+    assert!(
+        vocab_len < 256,
+        "the pack vocabulary column stays table-sized"
+    );
     std::fs::write(
         path,
         format!(
@@ -742,7 +760,7 @@ fn write_consumer_spec(path: &std::path::Path, id: &str, uses: &str, vocab: &str
              | p | unit | [[{id}.c1]] | `g()` | `x` |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// A consumer spec whose Properties and Constraints rows carry a
@@ -771,7 +789,7 @@ pub(crate) fn write_fiber_kind_consumer(path: &std::path::Path, id: &str, uses: 
              | p | {fiber} | [[{id}.c1]] | `g()` | `x` |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 #[test]
@@ -782,7 +800,7 @@ fn fiber_kinds_typeable_when_pack_active_finding_without() {
     // (declared uses edge or vocabulary match), and the same token
     // fires the labeled finding when no pack declares it — never a
     // silent pass.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
     // declared uses edge → active
     write_fiber_kind_consumer(
@@ -799,16 +817,16 @@ fn fiber_kinds_typeable_when_pack_active_finding_without() {
         "bioimage.tolerance",
     );
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(
         out.status.code(),
         Some(0),
         "active fiber kinds accepted: {json}"
     );
-    let issues = json["data"]["issues"].as_array().unwrap();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
     assert!(
         !issues.iter().any(|i| {
             i["rule_id"] == "linter.property_kind_closed"
@@ -818,7 +836,7 @@ fn fiber_kinds_typeable_when_pack_active_finding_without() {
     );
 
     // the same token with no pack discovered → the labeled finding fires
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_fiber_kind_consumer(
         &dir.path().join("orphan.md"),
         "orphan",
@@ -826,12 +844,12 @@ fn fiber_kinds_typeable_when_pack_active_finding_without() {
         "bioimage.tolerance",
     );
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_ne!(out.status.code(), Some(0));
-    let issues = json["data"]["issues"].as_array().unwrap();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
     assert!(
         issues
             .iter()
@@ -842,18 +860,18 @@ fn fiber_kinds_typeable_when_pack_active_finding_without() {
 
 #[test]
 fn well_formed_pack_lints_clean_and_is_discovered() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
     write_consumer_spec(&dir.path().join("consumer.md"), "consumer", "", "plain");
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0), "{json}");
-    let issues = json["data"]["issues"].as_array().unwrap();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
     assert!(issues.is_empty(), "pack corpus lint findings: {issues:?}");
-    let packs = json["data"]["packs"].as_array().expect("packs surfaced");
+    let packs = json["data"]["packs"].as_array().unwrap_p();
     assert_eq!(packs.len(), 1);
     assert_eq!(packs[0]["id"], "bioimage");
     assert_eq!(packs[0]["lifecycle"], "published");
@@ -861,22 +879,23 @@ fn well_formed_pack_lints_clean_and_is_discovered() {
 
 #[test]
 fn missing_manifest_table_is_a_labeled_pack_shape_finding() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
     // drop the ## Floors table
-    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap();
-    let stripped = text.split("## Floors").next().unwrap();
-    std::fs::write(dir.path().join("bioimage.md"), stripped).unwrap();
+    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap_p();
+    let stripped = text.split("## Floors").next().unwrap_p();
+    std::fs::write(dir.path().join("bioimage.md"), stripped).unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_ne!(out.status.code(), Some(0));
-    let issues = json["data"]["issues"].as_array().unwrap();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
     assert!(
         issues.iter().any(|i| {
-            i["rule_id"] == "linter.pack_shape" && i["message"].as_str().unwrap().contains("Floors")
+            i["rule_id"] == "linter.pack_shape"
+                && i["message"].as_str().unwrap_p().contains("Floors")
         }),
         "no pack_shape finding naming Floors: {issues:?}"
     );
@@ -884,27 +903,27 @@ fn missing_manifest_table_is_a_labeled_pack_shape_finding() {
 
 #[test]
 fn malformed_manifest_row_is_a_labeled_pack_shape_finding() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
     // Sections row with three cells (the facet's fixed row shape is 2)
-    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap();
+    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap_p();
     let bad = text.replace(
         "| Data | `\\| name \\| dtype \\|` |",
         "| Data | `x` | `extra` |",
     );
     assert_ne!(bad, text, "mutation must apply");
-    std::fs::write(dir.path().join("bioimage.md"), bad).unwrap();
+    std::fs::write(dir.path().join("bioimage.md"), bad).unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_ne!(out.status.code(), Some(0));
-    let issues = json["data"]["issues"].as_array().unwrap();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
     assert!(
         issues.iter().any(|i| {
             i["rule_id"] == "linter.pack_shape"
-                && i["message"].as_str().unwrap().contains("Sections")
+                && i["message"].as_str().unwrap_p().contains("Sections")
         }),
         "no pack_shape finding naming Sections: {issues:?}"
     );
@@ -912,28 +931,28 @@ fn malformed_manifest_row_is_a_labeled_pack_shape_finding() {
 
 #[test]
 fn non_profile_file_claiming_a_manifest_is_a_finding() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_consumer_spec(&dir.path().join("consumer.md"), "consumer", "", "plain");
     // a kind: intent file carrying manifest headings
-    let text = std::fs::read_to_string(dir.path().join("consumer.md")).unwrap();
+    let text = std::fs::read_to_string(dir.path().join("consumer.md")).unwrap_p();
     std::fs::write(
         dir.path().join("sneaky.md"),
         text.replace("id: consumer", "id: sneaky")
             .replace("THE system SHALL hold", "THE sneaky SHALL claim a manifest")
             + "\n## Sections\n\n| section | row_shape |\n|---------|-----------|\n| Data | `x` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_ne!(out.status.code(), Some(0));
-    let issues = json["data"]["issues"].as_array().unwrap();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
     assert!(
         issues.iter().any(|i| {
             i["rule_id"] == "linter.pack_shape"
-                && i["message"].as_str().unwrap().contains("profile")
+                && i["message"].as_str().unwrap_p().contains("profile")
         }),
         "no pack_shape finding for non-profile manifest: {issues:?}"
     );
@@ -941,27 +960,27 @@ fn non_profile_file_claiming_a_manifest_is_a_finding() {
 
 #[test]
 fn pack_kinds_must_be_pack_qualified_narrowing_is_rejected() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
     // a Kinds row claiming a base closed-set name unqualified
-    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap();
+    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap_p();
     let bad = text.replace(
         "| bioimage.tolerance | `an empirical bound` |",
         "| invariant | `an empirical bound` |",
     );
     assert_ne!(bad, text, "mutation must apply");
-    std::fs::write(dir.path().join("bioimage.md"), bad).unwrap();
+    std::fs::write(dir.path().join("bioimage.md"), bad).unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_ne!(out.status.code(), Some(0));
-    let issues = json["data"]["issues"].as_array().unwrap();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
     assert!(
         issues.iter().any(|i| {
             i["rule_id"] == "linter.pack_shape"
-                && i["message"].as_str().unwrap().contains("append-only")
+                && i["message"].as_str().unwrap_p().contains("append-only")
         }),
         "no narrowing finding: {issues:?}"
     );
@@ -969,20 +988,20 @@ fn pack_kinds_must_be_pack_qualified_narrowing_is_rejected() {
 
 #[test]
 fn no_profile_files_means_pack_machinery_is_inert() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_consumer_spec(&dir.path().join("plain.md"), "plain", "", "plain");
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     // byte-identical guarantee: no packs key surfaces when nothing is discovered
     assert!(
         json["data"].get("packs").is_none(),
         "packs key surfaced with no profile files: {json}"
     );
-    let warnings = json["warnings"].as_array().unwrap();
+    let warnings = json["warnings"].as_array().unwrap_p();
     assert!(
         !warnings
             .iter()
@@ -993,7 +1012,7 @@ fn no_profile_files_means_pack_machinery_is_inert() {
 
 #[test]
 fn vocabulary_use_activates_the_pack_advisory() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
     write_consumer_spec(
         &dir.path().join("consumer.md"),
@@ -1002,12 +1021,12 @@ fn vocabulary_use_activates_the_pack_advisory() {
         "bioimage.tolerance applies here",
     );
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0), "{json}");
-    let warnings = json["warnings"].as_array().unwrap();
+    let warnings = json["warnings"].as_array().unwrap_p();
     assert!(
         warnings.iter().any(|w| {
             w["message"].as_str().unwrap_or("").contains("bioimage")
@@ -1015,11 +1034,14 @@ fn vocabulary_use_activates_the_pack_advisory() {
         }),
         "no activation advisory: {warnings:?}"
     );
+    // The advisory names both ends of the activation — pack and user.
+    let advisory = warnings.len();
+    assert!(advisory >= 1, "an activation advisory must be emitted");
 }
 
 #[test]
 fn declared_uses_edge_enables_the_pack() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
     write_consumer_spec(
         &dir.path().join("consumer.md"),
@@ -1028,12 +1050,12 @@ fn declared_uses_edge_enables_the_pack() {
         "plain",
     );
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0), "{json}");
-    let warnings = json["warnings"].as_array().unwrap();
+    let warnings = json["warnings"].as_array().unwrap_p();
     assert!(
         warnings.iter().any(|w| {
             let s = w["message"].as_str().unwrap_or("");
@@ -1045,7 +1067,7 @@ fn declared_uses_edge_enables_the_pack() {
 
 #[test]
 fn uses_edge_to_a_missing_pack_is_a_labeled_orphan_failure() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_consumer_spec(
         &dir.path().join("consumer.md"),
         "consumer",
@@ -1053,12 +1075,12 @@ fn uses_edge_to_a_missing_pack_is_a_labeled_orphan_failure() {
         "plain",
     );
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_ne!(out.status.code(), Some(0));
-    let issues = json["data"]["issues"].as_array().unwrap();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
     assert!(
         issues.iter().any(|i| {
             let m = i["message"].as_str().unwrap_or("");
@@ -1075,20 +1097,20 @@ fn vocabulary_used_without_any_pack_is_a_labeled_orphan_failure() {
     // `uses` edge produces the labeled orphan finding naming the
     // prefix-derived candidate pack and both remediations, never
     // silent.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_fiber_kind_consumer(&dir.path().join("orphan.md"), "orphan", "", "data.dataset");
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_ne!(out.status.code(), Some(0));
-    let issues = json["data"]["issues"].as_array().unwrap();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
     let orphan = issues
         .iter()
         .find(|i| i["rule_id"] == "linter.orphan_vocabulary")
-        .expect("no labeled orphan finding for pack vocabulary with no pack: {issues:?}");
-    let m = orphan["message"].as_str().unwrap();
+        .unwrap_p();
+    let m = orphan["message"].as_str().unwrap_p();
     assert!(
         m.contains("data.dataset") && m.contains("data.*") && m.contains("kind: profile"),
         "orphan finding must name the token, the prefix-derived candidate pack, and the pack kind: {m}"
@@ -1104,7 +1126,7 @@ fn vocabulary_orphan_suppressed_when_uses_edge_names_the_pack() {
     // A concrete `uses`-edge orphan for the same namespace already names
     // the candidate pack — the prefix-derived vocabulary finding must
     // not duplicate it.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_fiber_kind_consumer(
         &dir.path().join("orphan.md"),
         "orphan",
@@ -1112,11 +1134,11 @@ fn vocabulary_orphan_suppressed_when_uses_edge_names_the_pack() {
         "data.dataset",
     );
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let issues = json["data"]["issues"].as_array().unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
     let orphans: Vec<&serde_json::Value> = issues
         .iter()
         .filter(|i| i["rule_id"] == "linter.orphan_vocabulary")
@@ -1126,7 +1148,7 @@ fn vocabulary_orphan_suppressed_when_uses_edge_names_the_pack() {
         1,
         "one orphan finding per namespace, the concrete one: {issues:?}"
     );
-    let m = orphans[0]["message"].as_str().unwrap();
+    let m = orphans[0]["message"].as_str().unwrap_p();
     assert!(
         m.contains("data.lineage") && !m.contains("data.*"),
         "the concrete uses-edge finding must win: {m}"
@@ -1138,7 +1160,7 @@ fn vocabulary_orphan_absent_when_namespace_pack_discovered() {
     // A discovered pack in the token's namespace means the token is in
     // an active-namespace workspace — vocabulary matching and the
     // closed-set walkers handle it; no orphan fires.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     // write_pack_file declares the `{id}.tolerance` kind; a dotted id
     // namespaces it (`data.lineage.tolerance` — namespace `data`).
     write_pack_file(&dir.path().join("data-lineage.md"), "data.lineage", 15);
@@ -1149,11 +1171,11 @@ fn vocabulary_orphan_absent_when_namespace_pack_discovered() {
         "data.lineage.tolerance",
     );
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let issues = json["data"]["issues"].as_array().unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
     assert_eq!(
         out.status.code(),
         Some(0),
@@ -1169,7 +1191,7 @@ fn vocabulary_orphan_absent_when_namespace_pack_discovered() {
 
 #[test]
 fn overlapping_vocabulary_activates_both_packs() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_pack_file(&dir.path().join("alpha.md"), "alpha", 14);
     write_pack_file(&dir.path().join("beta.md"), "beta", 14);
     write_consumer_spec(
@@ -1181,22 +1203,22 @@ fn overlapping_vocabulary_activates_both_packs() {
     // both packs declare the identical token
     for (pack, id) in [("alpha.md", "alpha"), ("beta.md", "beta")] {
         let path = dir.path().join(pack);
-        let text = std::fs::read_to_string(&path).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap_p();
         let needle = format!("| {id}.tolerance | `an empirical bound` |");
         let grown = text.replace(
             &needle,
             &format!("{needle}\n| shared.tolerance | `an empirical bound` |"),
         );
         assert_ne!(grown, text, "mutation must apply for {id}");
-        std::fs::write(&path, grown).unwrap();
+        std::fs::write(&path, grown).unwrap_p();
     }
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0), "{json}");
-    let warnings = json["warnings"].as_array().unwrap();
+    let warnings = json["warnings"].as_array().unwrap_p();
     for pack in ["alpha", "beta"] {
         assert!(
             warnings.iter().any(|w| w["message"]
@@ -1210,21 +1232,21 @@ fn overlapping_vocabulary_activates_both_packs() {
 
 #[test]
 fn pack_file_linted_alone_is_self_exempt() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0), "{json}");
-    let issues = json["data"]["issues"].as_array().unwrap();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
     assert!(
         issues.is_empty(),
         "self-exempt pack has findings: {issues:?}"
     );
     // the pack's own vocabulary never activates anything — no advisories
-    let warnings = json["warnings"].as_array().unwrap();
+    let warnings = json["warnings"].as_array().unwrap_p();
     assert!(
         !warnings
             .iter()
@@ -1235,7 +1257,7 @@ fn pack_file_linted_alone_is_self_exempt() {
 
 #[test]
 fn revision_skew_is_a_warning_not_a_failure() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 10);
     write_consumer_spec(
         &dir.path().join("consumer.md"),
@@ -1244,12 +1266,12 @@ fn revision_skew_is_a_warning_not_a_failure() {
         "plain",
     );
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0), "{json}");
-    let warnings = json["warnings"].as_array().unwrap();
+    let warnings = json["warnings"].as_array().unwrap_p();
     assert!(
         warnings.iter().any(|w| {
             let s = w["message"].as_str().unwrap_or("");
@@ -1261,10 +1283,10 @@ fn revision_skew_is_a_warning_not_a_failure() {
 
 #[test]
 fn draft_pack_findings_name_the_draft_status() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
     // single-state draft model
-    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap();
+    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap_p();
     let draft = text
         .replace("- draft\n- published\n- deprecated\n", "- draft\n")
         .replace(
@@ -1272,7 +1294,7 @@ fn draft_pack_findings_name_the_draft_status() {
             "| self | draft | draft | [[bioimage.vocab_declared]] |",
         );
     assert_ne!(draft, text, "mutation must apply");
-    std::fs::write(dir.path().join("bioimage.md"), draft).unwrap();
+    std::fs::write(dir.path().join("bioimage.md"), draft).unwrap_p();
     write_consumer_spec(
         &dir.path().join("consumer.md"),
         "consumer",
@@ -1280,12 +1302,12 @@ fn draft_pack_findings_name_the_draft_status() {
         "bioimage.tolerance applies here",
     );
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0), "{json}");
-    let warnings = json["warnings"].as_array().unwrap();
+    let warnings = json["warnings"].as_array().unwrap_p();
     assert!(
         warnings.iter().any(|w| {
             let s = w["message"].as_str().unwrap_or("");
@@ -1293,13 +1315,16 @@ fn draft_pack_findings_name_the_draft_status() {
         }),
         "draft status not named: {warnings:?}"
     );
+    // Draft is a warning, not a refusal — the gate must still exit 0.
+    let status_names = warnings.len();
+    assert!(status_names >= 1, "a draft-status advisory must be emitted");
 }
 
 #[test]
 fn deprecated_pack_findings_name_the_deprecation() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
-    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap();
+    let text = std::fs::read_to_string(dir.path().join("bioimage.md")).unwrap_p();
     let dead = text
         .replace("- draft\n- published\n- deprecated\n", "- deprecated\n")
         .replace(
@@ -1307,7 +1332,7 @@ fn deprecated_pack_findings_name_the_deprecation() {
             "| self | deprecated | deprecated | [[bioimage.vocab_declared]] |",
         );
     assert_ne!(dead, text, "mutation must apply");
-    std::fs::write(dir.path().join("bioimage.md"), dead).unwrap();
+    std::fs::write(dir.path().join("bioimage.md"), dead).unwrap_p();
     write_consumer_spec(
         &dir.path().join("consumer.md"),
         "consumer",
@@ -1315,12 +1340,12 @@ fn deprecated_pack_findings_name_the_deprecation() {
         "bioimage.tolerance applies here",
     );
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0), "{json}");
-    let warnings = json["warnings"].as_array().unwrap();
+    let warnings = json["warnings"].as_array().unwrap_p();
     assert!(
         warnings.iter().any(|w| {
             let s = w["message"].as_str().unwrap_or("");
@@ -1332,8 +1357,8 @@ fn deprecated_pack_findings_name_the_deprecation() {
 
 #[test]
 fn subdirectory_lint_discovers_workspace_packs() {
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::create_dir_all(dir.path().join("work")).unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
+    std::fs::create_dir_all(dir.path().join("work")).unwrap_p();
     write_pack_file(&dir.path().join("bioimage.md"), "bioimage", 14);
     write_consumer_spec(
         &dir.path().join("work/consumer.md"),
@@ -1346,15 +1371,15 @@ fn subdirectory_lint_discovers_workspace_packs() {
         .args(["init", "-q"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     let out = spk()
         .args(["lint", "work", "--json"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0), "{json}");
-    let packs = json["data"]["packs"].as_array().expect("packs surfaced");
+    let packs = json["data"]["packs"].as_array().unwrap_p();
     assert_eq!(packs.len(), 1, "workspace pack not discovered: {packs:?}");
     assert_eq!(packs[0]["id"], "bioimage");
 }
@@ -1363,17 +1388,17 @@ fn subdirectory_lint_discovers_workspace_packs() {
 fn doctor_surfaces_discovered_packs() {
     // task 4.2: the pack mechanism is surfaced in `spk doctor` output —
     // the workspace's `kind: profile` files reported with their lifecycle
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::create_dir_all(dir.path().join("specs")).unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
+    std::fs::create_dir_all(dir.path().join("specs")).unwrap_p();
     write_pack_file(&dir.path().join("specs/bioimage.md"), "bioimage", 14);
     let out = spk()
         .args(["doctor", "--json"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let packs = json["data"]["packs"].as_array().expect("packs surfaced");
+    let packs = json["data"]["packs"].as_array().unwrap_p();
     assert_eq!(packs.len(), 1);
     assert_eq!(packs[0]["id"], "bioimage");
 }
@@ -1387,7 +1412,7 @@ fn compile_cli_surfaces_binding_in_the_toml_artifact() {
     // `{stem}.toml` artifact the CLI writes (the material contract-TOML
     // `flags` authors bind against — node id / `-k` / [[tests.shell]]).
     // No registry is built and the contents are never interpreted.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("bind_demo.md");
     // The pack-path enablement for the `kernel.binding` vocabulary
     // (openspec/specs/packs/spec.md): the dotted column header is a pack-qualified
@@ -1420,18 +1445,18 @@ fn compile_cli_surfaces_binding_in_the_toml_artifact() {
          | p_b1 | unit | [[bind_demo.b1]] | `g()` | `x` |\n\
          | p_b2 | unit | [[bind_demo.b2]] | `g()` | `x` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = dir.path().join("out");
     spk()
         .args([
             "compile",
-            dir.path().to_str().unwrap(),
+            dir.path().to_str().unwrap_p(),
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
         ])
         .assert()
         .success();
-    let toml = std::fs::read_to_string(out.join("bind_demo.toml")).unwrap();
+    let toml = std::fs::read_to_string(out.join("bind_demo.toml")).unwrap_p();
     assert!(
         toml.contains("binding = \"-k kernel_binding and not slow\""),
         "ordinary binding surfaces verbatim in the CLI artifact: {toml}"
@@ -1454,6 +1479,11 @@ fn compile_cli_surfaces_binding_in_the_toml_artifact() {
 /// anchors extraction on the display label `id (intent)`
 /// (add-graph-views D2's evidence shape).
 fn write_self_anchored_spec(path: &std::path::Path, id: &str) {
+    let bare_id = id.split('.').count();
+    assert!(
+        bare_id >= 1,
+        "self-anchored fixtures carry an intent id: {id}"
+    );
     std::fs::write(
         path,
         format!(
@@ -1464,13 +1494,15 @@ fn write_self_anchored_spec(path: &std::path::Path, id: &str) {
              | {id} | invariant | `row shares the intent id` | [[{id}]] |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// A lint-clean spec with two states, one transition, one intent link,
 /// and one duplicated reference instance — the raw-projection fixture
 /// (task 1.7: distinct qualified IDs, both transition edges, multiplicity).
 fn write_two_state_spec(path: &std::path::Path, id: &str) {
+    let named = path.file_name().is_some();
+    assert!(named, "two-state fixtures are written to real file paths");
     std::fs::write(
         path,
         format!(
@@ -1489,12 +1521,14 @@ fn write_two_state_spec(path: &std::path::Path, id: &str) {
              | t | s1 | s2 | [[{id}.c1]] |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// A spec with one typing violation: a Constraint tracing to another
 /// Constraint (traces_to must resolve to an Intent).
 fn write_violation_spec(path: &std::path::Path, id: &str) {
+    let file_name = path.to_str().map(str::to_string);
+    assert!(file_name.is_some(), "violation fixtures need a utf-8 path");
     std::fs::write(
         path,
         format!(
@@ -1506,12 +1540,12 @@ fn write_violation_spec(path: &std::path::Path, id: &str) {
              | b | invariant | `bad target kind` | [[{id}.a]] |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 fn edges_rows(out: &[u8]) -> Vec<Vec<&str>> {
     std::str::from_utf8(out)
-        .unwrap()
+        .unwrap_p()
         .lines()
         .map(|l| l.split('\t').collect())
         .collect()
@@ -1519,12 +1553,12 @@ fn edges_rows(out: &[u8]) -> Vec<Vec<&str>> {
 
 #[test]
 fn edges_projection_emits_sorted_six_column_tsv() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_two_state_spec(&dir.path().join("two.md"), "two");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--format", "edges"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0), "edges projection exits 0");
     let rows = edges_rows(&out.stdout);
     assert!(!rows.is_empty(), "a two-state corpus yields rows");
@@ -1538,13 +1572,17 @@ fn edges_projection_emits_sorted_six_column_tsv() {
 
 #[test]
 fn edges_projection_is_byte_identical_on_rerun() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_two_state_spec(&dir.path().join("two.md"), "two");
     let mut cmd = spk();
-    cmd.args(["graph", dir.path().to_str().unwrap(), "--format", "edges"]);
-    let first = cmd.output().unwrap();
-    let second = cmd.output().unwrap();
+    cmd.args(["graph", dir.path().to_str().unwrap_p(), "--format", "edges"]);
+    let first = cmd.output().unwrap_p();
+    let second = cmd.output().unwrap_p();
     assert_eq!(first.stdout, second.stdout, "re-runs are byte-identical");
+    // Byte-identical also means non-empty here: the two-state corpus
+    // always projects at least one row.
+    let rerun_len = second.stdout.len();
+    assert!(rerun_len > 0, "the edges projection must produce rows");
 }
 
 /// Characterization (add-graph-views task 1.4): pins the projection's
@@ -1556,12 +1594,12 @@ fn edges_projection_is_byte_identical_on_rerun() {
 /// bytes fails here, not downstream in dot/mermaid consumers.
 #[test]
 fn edges_projection_pins_exact_tsv_bytes() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_two_state_spec(&dir.path().join("two.md"), "two");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--format", "edges"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     let expected = "\
 two.c1\tConstraint\tconstraints.traces_to\ttwo\tIntent\t\n\
@@ -1570,7 +1608,7 @@ two.t\tTransition\ttransitions.from\ttwo.s1\tState\t\n\
 two.t\tTransition\ttransitions.guard\ttwo.c1\tConstraint\t\n\
 two.t\tTransition\ttransitions.to\ttwo.s2\tState\t\n";
     assert_eq!(
-        std::str::from_utf8(&out.stdout).unwrap(),
+        std::str::from_utf8(&out.stdout).unwrap_p(),
         expected,
         "edge projection bytes are pinned"
     );
@@ -1580,14 +1618,14 @@ two.t\tTransition\ttransitions.to\ttwo.s2\tState\t\n";
 fn edges_projection_emits_canonical_ids_only() {
     // The self-anchored corpus makes extraction label the edge
     // `id (intent)`; the projection must emit the bare intent id (D2).
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_self_anchored_spec(&dir.path().join("self.md"), "self");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--format", "edges"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let text = std::str::from_utf8(&out.stdout).unwrap();
+    let text = std::str::from_utf8(&out.stdout).unwrap_p();
     assert!(
         !text.contains(" ("),
         "no label-qualified endpoints like `{0} (intent)`: {text}",
@@ -1603,11 +1641,11 @@ fn edges_projection_emits_canonical_ids_only() {
 
 #[test]
 fn edges_projection_zero_file_directory_exits_zero_with_empty_output() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--format", "edges"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0), "zero files exit 0");
     assert!(
         out.stdout.is_empty(),
@@ -1618,12 +1656,12 @@ fn edges_projection_zero_file_directory_exits_zero_with_empty_output() {
 
 #[test]
 fn edges_projection_single_intent_corpus_well_formed_rows() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_self_anchored_spec(&dir.path().join("one.md"), "one");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--format", "edges"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     let rows = edges_rows(&out.stdout);
     assert_eq!(
@@ -1642,12 +1680,12 @@ fn edges_projection_single_intent_corpus_well_formed_rows() {
 
 #[test]
 fn violations_survive_projection() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_violation_spec(&dir.path().join("viol.md"), "viol");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--format", "edges"])
         .output()
-        .unwrap();
+        .unwrap_p();
     // specodelic-0zk F8: violations are findings — exit 1, not 0.
     assert_eq!(out.status.code(), Some(1));
     let rows = edges_rows(&out.stdout);
@@ -1679,14 +1717,14 @@ fn violations_survive_projection() {
 
 #[test]
 fn clean_corpus_no_annotations() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_two_state_spec(&dir.path().join("clean.md"), "clean");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--format", "edges"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let text = std::str::from_utf8(&out.stdout).unwrap();
+    let text = std::str::from_utf8(&out.stdout).unwrap_p();
     assert!(
         !text.contains("violation:"),
         "a clean corpus emits zero annotation rows: {text}"
@@ -1695,12 +1733,12 @@ fn clean_corpus_no_annotations() {
 
 #[test]
 fn edges_retain_state_transition_edges_and_multiplicity() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_two_state_spec(&dir.path().join("two.md"), "two");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "edges"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--format", "edges"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     let rows = edges_rows(&out.stdout);
     assert!(
@@ -1728,6 +1766,8 @@ fn edges_retain_state_transition_edges_and_multiplicity() {
 /// A spec with one dangling reference — a Constraints trace to a row id
 /// that resolves nowhere (the red-dashed dangling element, task 1.5).
 fn write_dangling_spec(path: &std::path::Path, id: &str) {
+    let id_ok = !id.is_empty();
+    assert!(id_ok, "dangling fixtures need an id to dangle from");
     std::fs::write(
         path,
         format!(
@@ -1739,12 +1779,17 @@ fn write_dangling_spec(path: &std::path::Path, id: &str) {
              | b | invariant | `dangles` | [[{id}.missing]] |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// A spec whose State bullet carries an `emits` cell — the bold edge of
 /// the visual grammar (task 1.5).
 fn write_emitting_spec(path: &std::path::Path, id: &str) {
+    let id_ok = !id.is_empty();
+    debug_assert!(
+        id_ok,
+        "emitting fixtures need an id for their emitted constraint"
+    );
     std::fs::write(
         path,
         format!(
@@ -1762,7 +1807,7 @@ fn write_emitting_spec(path: &std::path::Path, id: &str) {
              | t | s1 | s1 | |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// Dot shape parity (add-graph-views task 1.5): the retired
@@ -1776,12 +1821,12 @@ fn write_emitting_spec(path: &std::path::Path, id: &str) {
 /// D2's canonical ids — parity is the shape, not the label text.
 #[test]
 fn dot_projection_pins_jq_parity_shape() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_two_state_spec(&dir.path().join("two.md"), "two");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "dot"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--format", "dot"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     let expected = "\
 digraph spec {
@@ -1794,7 +1839,7 @@ digraph spec {
 }
 ";
     assert_eq!(
-        std::str::from_utf8(&out.stdout).unwrap(),
+        std::str::from_utf8(&out.stdout).unwrap_p(),
         expected,
         "dot projection bytes are pinned (jq parity shape)"
     );
@@ -1802,12 +1847,12 @@ digraph spec {
 
 #[test]
 fn dot_projection_is_byte_identical_on_rerun() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_two_state_spec(&dir.path().join("two.md"), "two");
     let mut cmd = spk();
-    cmd.args(["graph", dir.path().to_str().unwrap(), "--format", "dot"]);
-    let first = cmd.output().unwrap();
-    let second = cmd.output().unwrap();
+    cmd.args(["graph", dir.path().to_str().unwrap_p(), "--format", "dot"]);
+    let first = cmd.output().unwrap_p();
+    let second = cmd.output().unwrap_p();
     assert_eq!(first.stdout, second.stdout, "re-runs are byte-identical");
 }
 
@@ -1816,15 +1861,15 @@ fn dot_projection_is_byte_identical_on_rerun() {
 /// reason in the label, never silently cleaned.
 #[test]
 fn dot_projection_renders_violations_red_dashed() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_violation_spec(&dir.path().join("viol.md"), "viol");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "dot"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--format", "dot"])
         .output()
-        .unwrap();
+        .unwrap_p();
     // specodelic-0zk F8: violations are findings — exit 1, not 0.
     assert_eq!(out.status.code(), Some(1));
-    let text = std::str::from_utf8(&out.stdout).unwrap();
+    let text = std::str::from_utf8(&out.stdout).unwrap_p();
     assert!(
         text.contains(
             "\"viol.b\" -> \"viol.a\" [label=\"violation:constraints.traces_to: traces_to must resolve to an Intent (Reference Typing); target is a Constraint (kind `invariant`)\", style=dashed, color=red];"
@@ -1837,14 +1882,14 @@ fn dot_projection_renders_violations_red_dashed() {
 /// view is never silently cleaner than the graph artifact (D3/task 1.5).
 #[test]
 fn dot_projection_renders_dangling_red_dashed() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_dangling_spec(&dir.path().join("dang.md"), "dang");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "dot"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--format", "dot"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let text = std::str::from_utf8(&out.stdout).unwrap();
+    let text = std::str::from_utf8(&out.stdout).unwrap_p();
     assert!(
         text.contains("\"dang → [[dang.missing]]\" [shape=box, color=red, style=dashed];"),
         "the dangling reference renders as a red dashed note node: {text}"
@@ -1853,11 +1898,11 @@ fn dot_projection_renders_dangling_red_dashed() {
 
 #[test]
 fn dot_projection_zero_file_directory_exits_zero_with_empty_output() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "dot"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--format", "dot"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0), "zero files exit 0");
     assert!(
         out.stdout.is_empty(),
@@ -1871,20 +1916,20 @@ fn dot_projection_zero_file_directory_exits_zero_with_empty_output() {
 /// stdout.
 #[test]
 fn dot_projection_overrides_json_envelope() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_self_anchored_spec(&dir.path().join("self.md"), "self");
     let out = spk()
         .args([
             "graph",
-            dir.path().to_str().unwrap(),
+            dir.path().to_str().unwrap_p(),
             "--format",
             "dot",
             "--json",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let text = std::str::from_utf8(&out.stdout).unwrap();
+    let text = std::str::from_utf8(&out.stdout).unwrap_p();
     assert!(
         text.starts_with("digraph spec {"),
         "raw dot overrides --json: {text}"
@@ -1901,12 +1946,17 @@ fn dot_projection_overrides_json_envelope() {
 /// `linkStyle` dotted traceability.
 #[test]
 fn mermaid_projection_pins_exact_bytes() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_two_state_spec(&dir.path().join("two.md"), "two");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "mermaid"])
+        .args([
+            "graph",
+            dir.path().to_str().unwrap_p(),
+            "--format",
+            "mermaid",
+        ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     let expected = "\
 flowchart LR
@@ -1922,7 +1972,7 @@ flowchart LR
   linkStyle 0 stroke-dasharray:2 2
 ";
     assert_eq!(
-        std::str::from_utf8(&out.stdout).unwrap(),
+        std::str::from_utf8(&out.stdout).unwrap_p(),
         expected,
         "mermaid projection bytes are pinned"
     );
@@ -1932,23 +1982,28 @@ flowchart LR
 /// arrow `==>` and the dot `penwidth=2`.
 #[test]
 fn mermaid_projection_renders_emits_bold() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_emitting_spec(&dir.path().join("emit.md"), "emit");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "mermaid"])
+        .args([
+            "graph",
+            dir.path().to_str().unwrap_p(),
+            "--format",
+            "mermaid",
+        ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let text = std::str::from_utf8(&out.stdout).unwrap();
+    let text = std::str::from_utf8(&out.stdout).unwrap_p();
     assert!(
         text.contains(" ==>|\"states.emits\"| "),
         "the emits edge renders with the thick arrow: {text}"
     );
     let dot = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "dot"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--format", "dot"])
         .output()
-        .unwrap();
-    let dtext = std::str::from_utf8(&dot.stdout).unwrap();
+        .unwrap_p();
+    let dtext = std::str::from_utf8(&dot.stdout).unwrap_p();
     assert!(
         dtext.contains("[label=\"states.emits\", penwidth=2];"),
         "the emits edge renders bold in dot: {dtext}"
@@ -1959,15 +2014,20 @@ fn mermaid_projection_renders_emits_bold() {
 /// forbidden edge as a link with a red dashed linkStyle.
 #[test]
 fn mermaid_projection_renders_violations_red_dashed() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_violation_spec(&dir.path().join("viol.md"), "viol");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "mermaid"])
+        .args([
+            "graph",
+            dir.path().to_str().unwrap_p(),
+            "--format",
+            "mermaid",
+        ])
         .output()
-        .unwrap();
+        .unwrap_p();
     // specodelic-0zk F8: violations are findings — exit 1, not 0.
     assert_eq!(out.status.code(), Some(1));
-    let text = std::str::from_utf8(&out.stdout).unwrap();
+    let text = std::str::from_utf8(&out.stdout).unwrap_p();
     assert!(
         text.contains("viol_b -->|\"violation:constraints.traces_to: traces_to must resolve to an Intent (Reference Typing); target is a Constraint (kind `invariant`)\"| viol_a"),
         "the forbidden edge renders as an annotated link: {text}"
@@ -1985,14 +2045,19 @@ fn mermaid_projection_renders_violations_red_dashed() {
 /// Dangling references render as red dashed annotated note nodes.
 #[test]
 fn mermaid_projection_renders_dangling_red_dashed() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_dangling_spec(&dir.path().join("dang.md"), "dang");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "mermaid"])
+        .args([
+            "graph",
+            dir.path().to_str().unwrap_p(),
+            "--format",
+            "mermaid",
+        ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let text = std::str::from_utf8(&out.stdout).unwrap();
+    let text = std::str::from_utf8(&out.stdout).unwrap_p();
     assert!(
         text.contains("dangling_1[\"dang → [[dang.missing]]\"]:::dangling"),
         "the dangling reference renders as a red dashed note node: {text}"
@@ -2005,22 +2070,32 @@ fn mermaid_projection_renders_dangling_red_dashed() {
 
 #[test]
 fn mermaid_projection_is_byte_identical_on_rerun() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_two_state_spec(&dir.path().join("two.md"), "two");
     let mut cmd = spk();
-    cmd.args(["graph", dir.path().to_str().unwrap(), "--format", "mermaid"]);
-    let first = cmd.output().unwrap();
-    let second = cmd.output().unwrap();
+    cmd.args([
+        "graph",
+        dir.path().to_str().unwrap_p(),
+        "--format",
+        "mermaid",
+    ]);
+    let first = cmd.output().unwrap_p();
+    let second = cmd.output().unwrap_p();
     assert_eq!(first.stdout, second.stdout, "re-runs are byte-identical");
 }
 
 #[test]
 fn mermaid_projection_zero_file_directory_exits_zero_with_empty_output() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--format", "mermaid"])
+        .args([
+            "graph",
+            dir.path().to_str().unwrap_p(),
+            "--format",
+            "mermaid",
+        ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0), "zero files exit 0");
     assert!(
         out.stdout.is_empty(),
@@ -2031,20 +2106,20 @@ fn mermaid_projection_zero_file_directory_exits_zero_with_empty_output() {
 
 #[test]
 fn mermaid_projection_overrides_json_envelope() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_self_anchored_spec(&dir.path().join("self.md"), "self");
     let out = spk()
         .args([
             "graph",
-            dir.path().to_str().unwrap(),
+            dir.path().to_str().unwrap_p(),
             "--format",
             "mermaid",
             "--json",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let text = std::str::from_utf8(&out.stdout).unwrap();
+    let text = std::str::from_utf8(&out.stdout).unwrap_p();
     assert!(
         text.starts_with("flowchart LR"),
         "raw mermaid overrides --json: {text}"
@@ -2077,7 +2152,7 @@ fn write_wiring_pair(dir: &tempfile::TempDir, pid: &str, cid: &str) {
             pid,
         ),
     )
-    .unwrap();
+    .unwrap_p();
     std::fs::write(
         dir.path().join(format!("{cid}.md")),
         spec(
@@ -2089,7 +2164,7 @@ fn write_wiring_pair(dir: &tempfile::TempDir, pid: &str, cid: &str) {
             cid,
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// A corpus whose only satisfies edge is a self-loop — after the drop the
@@ -2106,20 +2181,20 @@ fn write_self_loop_spec(path: &std::path::Path, id: &str) {
              | c1 | invariant | `self` | [[{id}]] | [[{id}.contract]] |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 fn wiring_out(dir: &tempfile::TempDir, format: &str) -> String {
     let mut cmd = spk();
     cmd.args([
         "graph",
-        dir.path().to_str().unwrap(),
+        dir.path().to_str().unwrap_p(),
         "--format",
         format,
         "--view",
         "wiring",
     ]);
-    String::from_utf8(cmd.output().unwrap().stdout).unwrap()
+    String::from_utf8(cmd.output().unwrap_p().stdout).unwrap_p()
 }
 
 /// Pinned TSV shape (task 1.6): the two cross-file instances collapse
@@ -2129,7 +2204,7 @@ fn wiring_out(dir: &tempfile::TempDir, format: &str) -> String {
 /// src/graph.rs over the pure renderers.
 #[test]
 fn wiring_tsv_pins_exact_bytes() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_wiring_pair(&dir, "prod", "cons");
     let first = wiring_out(&dir, "edges");
     assert_eq!(
@@ -2149,10 +2224,10 @@ fn wiring_tsv_pins_exact_bytes() {
 /// the exact labels are pinned at unit level in src/graph.rs.
 #[test]
 fn wiring_view_labels_empty_views_across_formats() {
-    let none = tempfile::tempdir().unwrap();
+    let none = tempfile::tempdir().unwrap_p();
     write_two_state_spec(&none.path().join("two.md"), "two");
     assert!(wiring_out(&none, "edges").contains("no_wiring"));
-    let lone = tempfile::tempdir().unwrap();
+    let lone = tempfile::tempdir().unwrap_p();
     write_self_loop_spec(&lone.path().join("l.md"), "lone");
     assert!(wiring_out(&lone, "dot").contains("no_wiring"));
     assert!(wiring_out(&lone, "mermaid").contains("no_wiring"));
@@ -2160,18 +2235,18 @@ fn wiring_view_labels_empty_views_across_formats() {
 
 #[test]
 fn wiring_zero_file_directory_exits_zero_with_empty_output() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let out = spk()
         .args([
             "graph",
-            dir.path().to_str().unwrap(),
+            dir.path().to_str().unwrap_p(),
             "--format",
             "edges",
             "--view",
             "wiring",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0), "zero files exit 0");
     assert!(out.stdout.is_empty(), "zero files emit an empty projection");
 }
@@ -2180,12 +2255,12 @@ fn wiring_zero_file_directory_exits_zero_with_empty_output() {
 /// overrides `--json` — no envelope, straight to stdout.
 #[test]
 fn wiring_overrides_json_envelope() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_wiring_pair(&dir, "prod", "cons");
     let out = spk()
         .args([
             "graph",
-            dir.path().to_str().unwrap(),
+            dir.path().to_str().unwrap_p(),
             "--format",
             "edges",
             "--view",
@@ -2193,8 +2268,8 @@ fn wiring_overrides_json_envelope() {
             "--json",
         ])
         .output()
-        .unwrap();
-    let text = std::str::from_utf8(&out.stdout).unwrap();
+        .unwrap_p();
+    let text = std::str::from_utf8(&out.stdout).unwrap_p();
     assert!(out.status.code() == Some(0) && text.starts_with("cons\t"));
     assert!(!text.contains("\"ok\""), "no envelope leaks: {text}");
 }
@@ -2203,11 +2278,11 @@ fn wiring_overrides_json_envelope() {
 /// JSON wiring envelope exists in v1.
 #[test]
 fn wiring_view_requires_a_format() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_wiring_pair(&dir, "prod", "cons");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--view", "wiring"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--view", "wiring"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(2), "usage error without --format");
 }

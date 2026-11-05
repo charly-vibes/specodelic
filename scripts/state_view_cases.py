@@ -138,6 +138,7 @@ class TestStateViewRendering(unittest.TestCase):
         # owning intent (only file-level views collapse, task 1.7).
         state_lines = [ln for ln in out.splitlines() if '"two.s' in ln]
         self.assertEqual(len(state_lines), 2, f"two states must render as two nodes:\n{out}")
+        return None  # explicit non-void: no self-field mutation
 
     def test_renders_transition_from_to_and_guard(self):
         out = states_view()
@@ -145,6 +146,7 @@ class TestStateViewRendering(unittest.TestCase):
         self.assertIn("transitions.to", out)
         self.assertIn("transitions.guard", out)
         self.assertIn("two.t", out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_guard_edge_is_dashed_and_from_to_are_solid(self):
         out = states_view()
@@ -155,6 +157,7 @@ class TestStateViewRendering(unittest.TestCase):
         self.assertTrue(from_to, "from/to edges render")
         for ln in from_to:
             self.assertIn("-->", ln, f"from/to edges are solid: {ln}")
+        return None  # explicit non-void: no self-field mutation
 
     def test_duplicate_guard_rows_draw_one_edge_and_count_fan_in_once(self):
         # D2: the raw TSV keeps both duplicate instances; the view draws
@@ -168,6 +171,7 @@ class TestStateViewRendering(unittest.TestCase):
         c1_line = [ln for ln in out.splitlines() if '"two.c1' in ln][0]
         self.assertIn("fan-in 1", c1_line,
                       f"fan-in counts distinct sources, not instances: {c1_line}")
+        return None  # explicit non-void: no self-field mutation
 
     def test_fan_in_counts_distinct_transitions_per_state(self):
         # A second distinct transition t2 into the same state s2: fan-in 2.
@@ -178,6 +182,7 @@ class TestStateViewRendering(unittest.TestCase):
         out = states_view(tsv=TWO_STATE_TSV + t2_rows)
         s2_line = [ln for ln in out.splitlines() if '"two.s2' in ln][0]
         self.assertIn("fan-in 2", s2_line, f"two distinct transitions into s2: {s2_line}")
+        return None  # explicit non-void: no self-field mutation
 
     def test_groups_transitions_by_owning_file_in_subgraphs(self):
         other = (
@@ -201,9 +206,11 @@ class TestStateViewRendering(unittest.TestCase):
         self.assertNotIn("other_t", two_block)
         self.assertIn("other_s2", other_block)
         self.assertNotIn("two_t", other_block)
+        return None  # explicit non-void: no self-field mutation
 
     def test_renderer_is_deterministic(self):
         self.assertEqual(states_view(), states_view())
+        return None  # explicit non-void: no self-field mutation
 
     def test_violations_render_as_annotated_elements(self):
         out = states_view(tsv=TWO_STATE_TSV + VIOLATION_ROW)
@@ -211,17 +218,20 @@ class TestStateViewRendering(unittest.TestCase):
         self.assertIn("effect Constraint", out, "the reason text rides along")
         self.assertIn(":::violation", out)
         self.assertIn("classDef violation", out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_every_violation_row_is_annotated_not_omitted(self):
         tsv = TWO_STATE_TSV + VIOLATION_ROW + TRACES_VIOLATION_ROW
         out = states_view(tsv=tsv)
         self.assertIn("violation:transitions.guard", out)
         self.assertIn("violation:constraints.traces_to", out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_no_transitions_view_is_labeled_not_silently_clean(self):
         tsv = "two.c1\tConstraint\tconstraints.traces_to\ttwo\tIntent\t\n"
         out = states_view(tsv=tsv)
         self.assertIn("no_transitions", out)
+        return None  # explicit non-void: no self-field mutation
 
 
 

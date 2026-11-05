@@ -4,10 +4,11 @@
 //! test names are bound by the espectacular contract TOMLs under
 //! `.espectacular/archive-companion/` — do not rename them casually.
 
+use crate::common::UnwrapPanic;
 use assert_cmd::Command;
 
 fn spk() -> Command {
-    Command::cargo_bin("specodelic").unwrap()
+    Command::cargo_bin("specodelic").unwrap_p()
 }
 
 /// Fixture: a fake repo root (a `.git` dir is all repo_root() needs to
@@ -15,15 +16,15 @@ fn spk() -> Command {
 /// sidecar rides along (the Stage-2 shape, Revision 19). `sidecar`
 /// controls whether the sidecar exists at all.
 fn fixture(id: &str, delta: &str, sidecar: Option<&str>) -> tempfile::TempDir {
-    let root = tempfile::tempdir().unwrap();
-    std::fs::create_dir_all(root.path().join(".git")).unwrap();
+    let root = tempfile::tempdir().unwrap_p();
+    std::fs::create_dir_all(root.path().join(".git")).unwrap_p();
     let delta_path = root.path().join(format!(
         "openspec/changes/archive/2026-10-01-{id}/specs/c/spec.md"
     ));
-    std::fs::create_dir_all(delta_path.parent().unwrap()).unwrap();
-    std::fs::write(&delta_path, delta).unwrap();
+    std::fs::create_dir_all(delta_path.parent().unwrap_p()).unwrap_p();
+    std::fs::write(&delta_path, delta).unwrap_p();
     if let Some(sidecar) = sidecar {
-        std::fs::write(delta_path.with_file_name("layer.md"), sidecar).unwrap();
+        std::fs::write(delta_path.with_file_name("layer.md"), sidecar).unwrap_p();
     }
     root
 }
@@ -59,9 +60,9 @@ fn archive_companion_dry_run_reports_without_writing() {
         .args(["archive-companion", "dryx", "--dry-run", "--json"])
         .current_dir(root.path())
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap_p();
     assert_eq!(out.status.code(), Some(0), "{stdout}");
     assert_eq!(json["data"]["dry_run"], serde_json::json!(true));
     assert_eq!(json["data"]["openspec_ran"], serde_json::json!(false));
@@ -91,9 +92,9 @@ fn archive_companion_refuses_frontmatterless_delta() {
         .args(["archive-companion", "plain", "--json"])
         .current_dir(root.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(1));
-    let stderr = String::from_utf8(out.stderr).unwrap();
+    let stderr = String::from_utf8(out.stderr).unwrap_p();
     assert!(
         stderr.contains("unrestorable"),
         "refusal must name the failure: {stderr}"
@@ -117,9 +118,9 @@ fn archive_companion_unknown_change_is_labeled_error() {
         .args(["archive-companion", "ghost-change", "--json"])
         .current_dir(root.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(1));
-    let stderr = String::from_utf8(out.stderr).unwrap();
+    let stderr = String::from_utf8(out.stderr).unwrap_p();
     assert!(stderr.contains("ghost-change"), "{stderr}");
     assert!(stderr.contains("openspec list"), "{stderr}");
 }

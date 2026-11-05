@@ -54,6 +54,17 @@ fn modified_delta_with_non_spec_id_fires_dual_format_valid() {
         "a real-id delta file under its capability dir must lint clean: {:?}",
         report.issues
     );
+    // Revision 18 (specodelic-mcy): requirement_drift no longer fires on
+    // a real-id delta file — the drift gate is retired there. The other
+    // issues belong to the shared checklist fixtures, not the delta.
+    let drift_fired = report
+        .issues
+        .iter()
+        .any(|i| i.rule_id == "linter.requirement_drift");
+    assert!(
+        !drift_fired,
+        "requirement_drift must not fire on a real-id delta"
+    );
 }
 
 #[test]
@@ -65,6 +76,7 @@ fn spec_md_derives_expected_id_from_parent_dir() {
         "---\nid: ge.cli\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | [[ge.cli]] |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[ge.cli.c]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[ge.cli.c]] | `g()` | `x` |\n",
         "openspec/specs/ge-cli/spec.md",
     );
+    let derived = spec.intent.id.clone();
     let report = lint_all(&[spec], &checklist_fixtures());
     assert!(
         !report
@@ -74,6 +86,17 @@ fn spec_md_derives_expected_id_from_parent_dir() {
         "spec.md under ge-cli/ must accept id ge.cli: {:?}",
         report.issues
     );
+    // The derivation is exact: the derived id (ge.cli) must also satisfy
+    // the file's own naming law — no near-miss derivation.
+    let id_clean = !report
+        .issues
+        .iter()
+        .any(|i| i.rule_id == "linter.id_matches_file");
+    assert_eq!(
+        derived, "ge.cli",
+        "spec.md derives its id from the parent dir"
+    );
+    assert!(id_clean);
 }
 
 #[test]

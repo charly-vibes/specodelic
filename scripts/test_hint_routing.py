@@ -47,18 +47,21 @@ class TestHintRouting(unittest.TestCase):
                       "the lint envelope's artifact breach routes ARTIFACT_HINT")
         self.assertNotIn(LINT_HINT_MARK, proc.stderr,
                          "a broken envelope is not a fix-your-invariants case")
+        return None  # explicit non-void: no self-field mutation
 
     def test_lint_dirty_refusal_keeps_the_fix_invariants_hint(self):
         proc = run_states_cli(lint=LINT_DIRTY)
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("out_of_scope_refused", proc.stderr)
         self.assertIn(LINT_HINT_MARK, proc.stderr)
+        return None  # explicit non-void: no self-field mutation
 
     def test_intentless_refusal_keeps_the_zero_files_hint(self):
         proc = run_states_cli(graph=GRAPH_ZERO_FILES)
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("out_of_scope_refused", proc.stderr)
         self.assertIn(INTENTLESS_HINT_MARK, proc.stderr)
+        return None  # explicit non-void: no self-field mutation
 
     def test_short_tsv_row_gets_artifact_hint(self):
         proc = run_states_cli(tsv="two.t\tTransition\ttransitions.from\ttwo.s1\t\n",
@@ -67,6 +70,7 @@ class TestHintRouting(unittest.TestCase):
         self.assertIn("artifact_invalid", proc.stderr)
         self.assertIn(ARTIFACT_HINT_MARK, proc.stderr)
         self.assertNotIn(LINT_HINT_MARK, proc.stderr)
+        return None  # explicit non-void: no self-field mutation
 
 
 if __name__ == "__main__":

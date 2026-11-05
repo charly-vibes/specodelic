@@ -19,6 +19,9 @@
 //!    guards, so a dropped retry file cannot silently reintroduce the
 //!    red-main-without-code-failure failure mode.
 
+#[path = "common/mod.rs"]
+mod common;
+use common::UnwrapPanic;
 use std::fs;
 use std::path::Path;
 
@@ -40,7 +43,7 @@ fn msrv_declared_and_pinned_in_ci() {
         .lines()
         .find_map(|l| l.trim().strip_prefix("rust-version = \""))
         .map(|s| s.trim_end_matches('"').to_string())
-        .expect("Cargo.toml must declare rust-version (MSRV)");
+        .unwrap_p();
     assert_eq!(
         msrv, "1.88",
         "the dependency tree's floor is 1.88 (icu 2.3 via miette); if you bump the MSRV, bump this test and the CI pin together"
@@ -120,10 +123,7 @@ fn cargo_deny_wired_with_advisories_and_licenses() {
 #[test]
 fn ci_lints_fenced_spec_examples() {
     let justfile = read("justfile");
-    let ci_line = justfile
-        .lines()
-        .find(|l| l.starts_with("ci:"))
-        .expect("justfile must define a ci: recipe");
+    let ci_line = justfile.lines().find(|l| l.starts_with("ci:")).unwrap_p();
     assert!(
         ci_line.contains("lint-doc-examples"),
         "justfile ci: must run the fenced-spec-example lint (lint-doc-examples)"
@@ -141,10 +141,7 @@ fn ci_lints_fenced_spec_examples() {
 #[test]
 fn ci_runs_kernel_agreement_property() {
     let justfile = read("justfile");
-    let ci_line = justfile
-        .lines()
-        .find(|l| l.starts_with("ci:"))
-        .expect("justfile must define a ci: recipe");
+    let ci_line = justfile.lines().find(|l| l.starts_with("ci:")).unwrap_p();
     assert!(
         ci_line.contains("guard-kernel-agreement"),
         "justfile ci: must run the backend-agreement property (guard-kernel-agreement)"
@@ -174,10 +171,7 @@ fn ci_runs_kernel_agreement_property() {
 #[test]
 fn espectacular_gate_wired_structural_in_precommit_executed_in_ci() {
     let justfile = read("justfile");
-    let ci_line = justfile
-        .lines()
-        .find(|l| l.starts_with("ci:"))
-        .expect("justfile must define a ci: recipe");
+    let ci_line = justfile.lines().find(|l| l.starts_with("ci:")).unwrap_p();
     assert!(
         ci_line.contains("guard-espectacular"),
         "justfile ci: must run the scenario-conformance gate (guard-espectacular)"
@@ -229,7 +223,7 @@ fn docs_views_output_dir_is_gitignored() {
     let out = std::process::Command::new("git")
         .args(["check-ignore", "-q", "docs/src/views/states.md"])
         .status()
-        .expect("git must be available in the test environment");
+        .unwrap_p();
     assert!(
         out.success(),
         "git check-ignore docs/src/views/states.md must succeed — the \
@@ -248,7 +242,7 @@ fn docs_graphs_recipe_wired_build_time_only() {
     let recipe = justfile
         .lines()
         .find(|l| l.starts_with("docs-graphs:"))
-        .expect("justfile must define a docs-graphs: recipe (tasks 3.1)");
+        .unwrap_p();
     assert!(
         recipe.contains("docs-graphs"),
         "recipe header must be the plain recipe name"
@@ -273,10 +267,7 @@ fn docs_graphs_recipe_wired_build_time_only() {
         "docs-graphs must assert git status stays clean after a full build \
          (task 3.1) — generated output must never leak into the tracked tree"
     );
-    let ci_line = justfile
-        .lines()
-        .find(|l| l.starts_with("ci:"))
-        .expect("justfile must define a ci: recipe");
+    let ci_line = justfile.lines().find(|l| l.starts_with("ci:")).unwrap_p();
     assert!(
         !ci_line.contains("docs-graphs"),
         "just ci must NOT run docs-graphs in v1 — rendering is build-time \
@@ -294,7 +285,7 @@ fn docs_build_depends_on_docs_graphs() {
     let header = justfile
         .lines()
         .find(|l| l.starts_with("docs-build:"))
-        .expect("justfile must define a docs-build: recipe");
+        .unwrap_p();
     assert!(
         header
             .split(':')
@@ -384,10 +375,7 @@ fn pretender_version_is_pinned_and_single_sourced() {
                 && s.split('.')
                     .all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
         })
-        .expect(
-            "scripts/guards/pretender-pin.sh must declare PIN=\"x.y.z\" — \
-             it is the single source of truth for the pretender pin",
-        );
+        .unwrap_p();
 
     let ci = read(".github/workflows/ci.yml");
     assert!(

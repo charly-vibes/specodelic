@@ -16,6 +16,10 @@
 //! - the `identity_emission_exact` proptest over generated spec-shaped
 //!   inputs (padding, backticks, padded links, quoted ids, CRLF).
 
+#[path = "common/mod.rs"]
+mod common;
+use common::UnwrapPanic;
+use common::UnwrapPanicErr;
 use proptest::prelude::*;
 use specodelic::acset::writer;
 use specodelic::spec::{Spec, parse_str};
@@ -115,8 +119,8 @@ fn full_family_spec(id: &str) -> String {
 fn identity_emission_exact_under_crlf() {
     let source = full_family_spec("crlf.id").replace('\n', "\r\n");
     assert!(source.matches("\r\n").count() > 0, "fixture is CRLF");
-    let spec = parse_str(&source).expect("CRLF fixture parses");
-    let emitted = writer::emit(&source, &spec).expect("CRLF identity emission must not fail");
+    let spec = parse_str(&source).unwrap_p();
+    let emitted = writer::emit(&source, &spec).unwrap_p();
     assert_eq!(emitted, source, "CRLF bytes must survive emit unchanged");
 }
 
@@ -217,12 +221,12 @@ const SPAN_FAILURE_LABEL: &str = "spec.span_failure";
 #[test]
 fn span_failure_label_asserted_on_disagreement() {
     let source = full_family_spec("spanf.a");
-    let spec = parse_str(&source).expect("fixture parses");
+    let spec = parse_str(&source).unwrap_p();
     // Mutate the source AFTER parsing: the row's recorded id-cell span now
     // covers bytes that are not the parsed id — the writer must refuse.
     let mutated = source.replace("| c1 |", "| cZ |");
     assert_ne!(mutated, source, "mutation must actually change the source");
-    let err = writer::emit(&mutated, &spec).expect_err("span disagreement must fail");
+    let err = writer::emit(&mutated, &spec).unwrap_p_err();
     assert_eq!(err.label, SPAN_FAILURE_LABEL);
     assert!(
         err.detail.contains("c1"),
@@ -238,10 +242,10 @@ fn span_failure_label_asserted_on_disagreement() {
 #[test]
 fn span_failure_label_asserted_on_out_of_bounds() {
     let source = full_family_spec("spanf.b");
-    let spec = parse_str(&source).expect("fixture parses");
+    let spec = parse_str(&source).unwrap_p();
     // Shrink the source after parsing: recorded spans now point past EOF.
     let truncated = &source[..source.len() / 2];
-    let err = writer::emit(truncated, &spec).expect_err("out-of-bounds span must fail");
+    let err = writer::emit(truncated, &spec).unwrap_p_err();
     assert_eq!(err.label, SPAN_FAILURE_LABEL);
     assert!(
         !err.remediation.is_empty(),

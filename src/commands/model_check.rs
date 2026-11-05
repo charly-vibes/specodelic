@@ -69,14 +69,13 @@ pub(crate) fn cmd_model_check(
     };
     let (specs, _checklists, notes, _parse_errors) = parse_batch(paths, verbosity);
     if specs.is_empty() {
-        let mut out: Output<serde_json::Value> = Output::failure("no spec files to model-check")
-            .with_next_step(
+        let out: Output<serde_json::Value> = with_notes(
+            Output::failure("no spec files to model-check").with_next_step(
                 "pass spec files or a directory; each must have compiled artifacts (run: specodelic compile <files>)",
-            );
+            ),
+            &notes,
+        );
         // Hostile-input/parse notes name themselves even here (suz Ro5, CORR-001).
-        for n in &notes {
-            out = out.with_warning(n.clone());
-        }
         emit_report(out, None, format, verbosity, stdout, stderr);
         // Invocation error: nothing to check (specodelic-7rr item 2).
         return 2;
@@ -385,14 +384,13 @@ pub(crate) fn cmd_verify(
     let dir = std::path::Path::new(out_dir);
     let (specs, _checklists, notes, _parse_errors) = parse_batch(paths, verbosity);
     if specs.is_empty() {
-        let mut out: Output<serde_json::Value> = Output::failure("no spec files to verify")
-            .with_next_step(
+        let out: Output<serde_json::Value> = with_notes(
+            Output::failure("no spec files to verify").with_next_step(
                 "pass spec files or a directory; each must have compiled artifacts (run: specodelic compile <files>)",
-            );
+            ),
+            &notes,
+        );
         // Hostile-input/parse notes name themselves even here (suz Ro5, CORR-001).
-        for n in &notes {
-            out = out.with_warning(n.clone());
-        }
         emit_report(out, None, format, verbosity, stdout, stderr);
         // Invocation error: nothing to verify (specodelic-7rr item 2).
         return 2;
@@ -548,4 +546,10 @@ pub(crate) fn model_gate_json(gate: &verify::ModelGateState) -> serde_json::Valu
             serde_json::json!({"state": "missing", "detail": detail})
         }
     }
+}
+
+/// Attach hostile-input/parse notes to a failure envelope — one shared
+/// fold so the two command entry points stay branch-identical.
+fn with_notes<T: std::fmt::Debug>(out: Output<T>, notes: &[String]) -> Output<T> {
+    notes.iter().fold(out, |acc, n| acc.with_warning(n.clone()))
 }

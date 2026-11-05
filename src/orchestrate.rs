@@ -701,10 +701,12 @@ pub fn orchestrate(
 
 #[cfg(test)]
 mod tests {
+    use crate::test_panic::UnwrapPanic;
+
     use super::*;
 
     fn spec_from(text: &str, path: &str) -> Spec {
-        let mut s = crate::spec::parse_str(text).unwrap();
+        let mut s = crate::spec::parse_str(text).unwrap_p();
         s.path = Some(std::path::PathBuf::from(path));
         s
     }
@@ -739,9 +741,9 @@ mod tests {
     }
 
     fn checker<'a>(stage: &'a Stage, name: &str) -> &'a serde_json::Value {
-        stage.detail.as_ref().unwrap()["checkers"]
+        stage.detail.as_ref().unwrap_p()["checkers"]
             .as_array()
-            .unwrap()
+            .unwrap_p()
             .iter()
             .find(|c| c["checker"] == name)
             .unwrap_or_else(|| panic!("checker {name} missing"))
@@ -749,14 +751,14 @@ mod tests {
 
     #[test]
     fn every_stage_reported_and_native_model_check_is_never_clean() {
-        let td = tempfile::tempdir().unwrap();
+        let td = tempfile::tempdir().unwrap_p();
         let spec = spec_from(&mc_fixture("pipe.demo"), "pipe-demo.md");
         let specs = vec![spec];
         let o = orchestrate(
             &specs,
             &[],
             &ParseInput::default(),
-            td.path().to_str().unwrap(),
+            td.path().to_str().unwrap_p(),
             &model_check::Bound::default(),
             &Backends::default(),
         );
@@ -774,10 +776,10 @@ mod tests {
         assert_eq!(stage(&o, "model_check").status, "failed");
         let mc = stage(&o, "model_check");
         assert_eq!(
-            mc.detail.as_ref().unwrap()["checked"][0]["outcome"],
+            mc.detail.as_ref().unwrap_p()["checked"][0]["outcome"],
             "exploration_only"
         );
-        assert_eq!(mc.detail.as_ref().unwrap()["checked"][0]["clean"], false);
+        assert_eq!(mc.detail.as_ref().unwrap_p()["checked"][0]["clean"], false);
         assert_eq!(stage(&o, "verify").status, "skipped");
         assert_eq!(o.overall, "failed");
     }
@@ -787,13 +789,13 @@ mod tests {
         // specodelic-hhp decision (a): the failure-shape checker joins
         // the Checker Ownership table and the lint stage, after its
         // natural dependency linter.model_shape.
-        let td = tempfile::tempdir().unwrap();
+        let td = tempfile::tempdir().unwrap_p();
         let clean = spec_from(&mc_fixture("pipe.demo"), "pipe-demo.md");
         let o = orchestrate(
             &[clean],
             &[],
             &ParseInput::default(),
-            td.path().to_str().unwrap(),
+            td.path().to_str().unwrap_p(),
             &model_check::Bound::default(),
             &Backends::default(),
         );
@@ -802,7 +804,7 @@ mod tests {
 
         // A mute failure terminal (no emits edge) fails the checker and
         // the stage.
-        let td2 = tempfile::tempdir().unwrap();
+        let td2 = tempfile::tempdir().unwrap_p();
         let mute_src = mc_fixture("pipe.demo")
             .replace(
                 "| t | s1 | s2 | [[pipe.demo.c1]] |",
@@ -814,7 +816,7 @@ mod tests {
             &[mute],
             &[],
             &ParseInput::default(),
-            td2.path().to_str().unwrap(),
+            td2.path().to_str().unwrap_p(),
             &model_check::Bound::default(),
             &Backends::default(),
         );
@@ -823,14 +825,14 @@ mod tests {
         let fs = checker(lint2, "linter.failure_shape");
         assert_eq!(fs["status"], "failed");
         assert!(
-            !fs["issues"].as_array().unwrap().is_empty(),
+            !fs["issues"].as_array().unwrap_p().is_empty(),
             "the mute terminal is a finding: {fs}"
         );
     }
 
     #[test]
     fn upstream_failure_skips_dependents() {
-        let td = tempfile::tempdir().unwrap();
+        let td = tempfile::tempdir().unwrap_p();
         // Wrong kind: parses, but frontmatter_valid fires.
         let bad = spec_from(
             "---\nid: pipe.demo\nkind: feature\nstatement: \"THE system SHALL hold\"\n---\n",
@@ -841,7 +843,7 @@ mod tests {
             &specs,
             &[],
             &ParseInput::default(),
-            td.path().to_str().unwrap(),
+            td.path().to_str().unwrap_p(),
             &model_check::Bound::default(),
             &Backends::default(),
         );
@@ -859,7 +861,7 @@ mod tests {
             let c = checker(lint, dependent);
             assert_eq!(c["status"], "skipped", "{dependent}");
             assert_eq!(
-                c["issues"].as_array().unwrap().len(),
+                c["issues"].as_array().unwrap_p().len(),
                 0,
                 "{dependent} was never invoked — it reports no findings"
             );
@@ -871,7 +873,7 @@ mod tests {
 
     #[test]
     fn independent_branches_report_regardless() {
-        let td = tempfile::tempdir().unwrap();
+        let td = tempfile::tempdir().unwrap_p();
         // Branch B (ears) fails; branch A (referential → graph → model)
         // and branch C (schema) still run and report their own outcomes.
         let bad = spec_from(
@@ -883,7 +885,7 @@ mod tests {
             &specs,
             &[],
             &ParseInput::default(),
-            td.path().to_str().unwrap(),
+            td.path().to_str().unwrap_p(),
             &model_check::Bound::default(),
             &Backends::default(),
         );
@@ -903,7 +905,7 @@ mod tests {
 
     #[test]
     fn dependency_skip_stays_within_its_branch() {
-        let td = tempfile::tempdir().unwrap();
+        let td = tempfile::tempdir().unwrap_p();
         // Duplicate row id: referential fails → graph_shape and
         // model_shape skip (branch A), while ears (branch B) still runs.
         let dup = spec_from(
@@ -918,7 +920,7 @@ mod tests {
             &specs,
             &[],
             &ParseInput::default(),
-            td.path().to_str().unwrap(),
+            td.path().to_str().unwrap_p(),
             &model_check::Bound::default(),
             &Backends::default(),
         );
@@ -937,7 +939,7 @@ mod tests {
 
     #[test]
     fn coverage_failure_holds_compile() {
-        let td = tempfile::tempdir().unwrap();
+        let td = tempfile::tempdir().unwrap_p();
         // Constraint without a deriving property: all seven gate checkers
         // pass (coverage is NOT in the ownership table), the compile
         // stage halts on exactly the coverage checker's verdict.
@@ -950,21 +952,24 @@ mod tests {
             &specs,
             &[],
             &ParseInput::default(),
-            td.path().to_str().unwrap(),
+            td.path().to_str().unwrap_p(),
             &model_check::Bound::default(),
             &Backends::default(),
         );
         assert_eq!(stage(&o, "lint").status, "passed");
         let compile = stage(&o, "compile");
         assert_eq!(compile.status, "failed");
-        assert_eq!(compile.detail.as_ref().unwrap()["gate"], "linter.coverage");
+        assert_eq!(
+            compile.detail.as_ref().unwrap_p()["gate"],
+            "linter.coverage"
+        );
         assert_eq!(stage(&o, "model_check").status, "skipped");
         assert_eq!(stage(&o, "verify").status, "skipped");
     }
 
     #[test]
     fn external_completeness_never_gates() {
-        let td = tempfile::tempdir().unwrap();
+        let td = tempfile::tempdir().unwrap_p();
         // A declared (failing) checklist: the checker reports failed,
         // yet lint passes and the pipeline proceeds past compile.
         let spec = spec_from(&mc_fixture("pipe.demo"), "pipe-demo.md");
@@ -973,17 +978,17 @@ mod tests {
             &checklist_path,
             "# Checklist\n\n## Items\n\n| id | requirement |\n|----|-------------|\n| i1 | something |\n",
         )
-        .unwrap();
+        .unwrap_p();
         let cl = crate::checklist::parse_str(
             checklist_path.clone(),
-            &std::fs::read_to_string(&checklist_path).unwrap(),
+            &std::fs::read_to_string(&checklist_path).unwrap_p(),
         );
         let specs = vec![spec];
         let o = orchestrate(
             &specs,
             &[cl],
             &ParseInput::default(),
-            td.path().to_str().unwrap(),
+            td.path().to_str().unwrap_p(),
             &model_check::Bound::default(),
             &Backends::default(),
         );
@@ -997,10 +1002,10 @@ mod tests {
 
     #[test]
     fn rerun_is_byte_identical() {
-        let td = tempfile::tempdir().unwrap();
+        let td = tempfile::tempdir().unwrap_p();
         let spec = spec_from(&mc_fixture("pipe.demo"), "pipe-demo.md");
         let specs = vec![spec];
-        let out = td.path().to_str().unwrap().to_string();
+        let out = td.path().to_str().unwrap_p().to_string();
         let run = || {
             orchestrate(
                 &specs,
@@ -1011,8 +1016,8 @@ mod tests {
                 &Backends::default(),
             )
         };
-        let a = serde_json::to_string(&run()).unwrap();
-        let b = serde_json::to_string(&run()).unwrap();
+        let a = serde_json::to_string(&run()).unwrap_p();
+        let b = serde_json::to_string(&run()).unwrap_p();
         assert_eq!(a, b);
     }
 
@@ -1021,7 +1026,7 @@ mod tests {
         // CORR-001 (Ro5 over specodelic-8kk): gating reads structured
         // parse_errors, never note prose — a file whose PATH contains
         // "parse error" must not fail the parse stage.
-        let td = tempfile::tempdir().unwrap();
+        let td = tempfile::tempdir().unwrap_p();
         let spec = spec_from(&mc_fixture("pipe.demo"), "pipe-demo.md");
         let specs = vec![spec];
         let o = orchestrate(
@@ -1031,7 +1036,7 @@ mod tests {
                 notes: vec!["my parse error notes.md: unreadable (boom)".to_string()],
                 parse_errors: vec![],
             },
-            td.path().to_str().unwrap(),
+            td.path().to_str().unwrap_p(),
             &model_check::Bound::default(),
             &Backends::default(),
         );
@@ -1040,7 +1045,7 @@ mod tests {
 
     #[test]
     fn parse_error_holds_lint() {
-        let td = tempfile::tempdir().unwrap();
+        let td = tempfile::tempdir().unwrap_p();
         let spec = spec_from(&mc_fixture("pipe.demo"), "pipe-demo.md");
         let specs = vec![spec];
         let o = orchestrate(
@@ -1050,7 +1055,7 @@ mod tests {
                 notes: vec![],
                 parse_errors: vec!["broken.md: parse error: missing `kind` field".to_string()],
             },
-            td.path().to_str().unwrap(),
+            td.path().to_str().unwrap_p(),
             &model_check::Bound::default(),
             &Backends::default(),
         );
@@ -1066,16 +1071,16 @@ mod tests {
         // report (real artifact sha — the staleness key) and a passing
         // proptest body; the stage passes. Missing the model leg (no
         // .check.json) blocks even with passing properties.
-        let td = tempfile::tempdir().unwrap();
+        let td = tempfile::tempdir().unwrap_p();
         let spec = spec_from(&mc_fixture("pipe.demo"), "pipe-demo.md");
         let specs = vec![spec];
         let out_dir = td.path().join("out");
-        let out = out_dir.to_str().unwrap();
+        let out = out_dir.to_str().unwrap_p();
         // Compile + hand-translate the predicate to a passing body.
         let compile_stage = run_compile_stage(&specs, out);
         assert_eq!(compile_stage.status, "passed");
         let props_path = out_dir.join("pipe-demo_props.rs");
-        let src = std::fs::read_to_string(&props_path).unwrap();
+        let src = std::fs::read_to_string(&props_path).unwrap_p();
         let translated = src
             .lines()
             .map(|l| {
@@ -1087,7 +1092,7 @@ mod tests {
             })
             .collect::<Vec<_>>()
             .join("\n");
-        std::fs::write(&props_path, translated).unwrap();
+        std::fs::write(&props_path, translated).unwrap_p();
         // Fabricate the clean run report with the real artifact sha.
         let report_path = out_dir.join("pipe-demo.check.json");
         let mut report: serde_json::Value =
@@ -1100,15 +1105,19 @@ mod tests {
                     &model_check::Bound::default(),
                     &Backends::default(),
                 );
-                std::fs::read_to_string(&report_path).unwrap()
+                std::fs::read_to_string(&report_path).unwrap_p()
             }))
-            .unwrap();
+            .unwrap_p();
         report["outcome"] = serde_json::json!("no_counterexample");
-        std::fs::write(&report_path, serde_json::to_string_pretty(&report).unwrap()).unwrap();
+        std::fs::write(
+            &report_path,
+            serde_json::to_string_pretty(&report).unwrap_p(),
+        )
+        .unwrap_p();
         let stage = run_verify_stage(&specs, out);
         assert_eq!(stage.status, "passed", "{:?}", stage.detail);
         assert_eq!(
-            stage.detail.as_ref().unwrap()["verified"][0]["status"],
+            stage.detail.as_ref().unwrap_p()["verified"][0]["status"],
             "verified"
         );
     }

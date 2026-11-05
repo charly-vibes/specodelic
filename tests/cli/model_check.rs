@@ -1,39 +1,40 @@
 // (split from tests/cli.rs — specodelic-g17 file_lines ratchet)
 use super::*;
+use crate::common::UnwrapPanic;
 
 // ---- specodelic-nx7: the model_check step (add-model-check) ----
 
 #[test]
 fn model_check_reports_no_counterexample_after_compile() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("mc_demo.md");
     write_model_check_spec(&spec, "mc_demo");
     let out_dir = dir.path().join("specodelic");
     spk()
         .args([
             "compile",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out_dir.to_str().unwrap(),
+            out_dir.to_str().unwrap_p(),
         ])
         .assert()
         .success();
     let out = spk()
         .args([
             "model-check",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out_dir.to_str().unwrap(),
+            out_dir.to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     // specodelic-4v1 boundary: exploration_only is a NON-failure
     // outcome — it keeps exit 0 and a success envelope (verify's model
     // gate is what rejects it).
     assert_eq!(out.status.code(), Some(0));
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(json["ok"], serde_json::json!(true));
     let data = &json["data"];
     // Meter contract: .data.outcome for the single-file case. The native
@@ -47,19 +48,19 @@ fn model_check_reports_no_counterexample_after_compile() {
     assert!(
         checked["backend"]["version"]
             .as_str()
-            .unwrap()
+            .unwrap_p()
             .starts_with("0.")
     );
     assert_eq!(checked["bound"]["max_depth"], 100);
-    assert_eq!(checked["invariants_checked"].as_array().unwrap().len(), 0);
+    assert_eq!(checked["invariants_checked"].as_array().unwrap_p().len(), 0);
     // states: s1 (init) -> s2
     assert_eq!(checked["states_explored"], 2);
     // The run report persists with artifact provenance.
     let report_path = out_dir.join("mc_demo.check.json");
     let report: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&report_path).unwrap()).unwrap();
+        serde_json::from_str(&std::fs::read_to_string(&report_path).unwrap_p()).unwrap_p();
     assert_eq!(report["outcome"], "exploration_only");
-    assert_eq!(report["artifact_sha256"].as_str().unwrap().len(), 64);
+    assert_eq!(report["artifact_sha256"].as_str().unwrap_p().len(), 64);
 }
 
 // ---- specodelic-4v1: failures ride success-shaped envelopes (F1) ----
@@ -75,14 +76,14 @@ fn model_check_reports_no_counterexample_after_compile() {
 fn refuted_kernel_claim_exits_1_with_error_envelope() {
     // The sharpest F1 case: exit 0 + ok:true + counterexample_found —
     // CI gating on .ok passed a failing run.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("c4v.md");
     let rows = "| ka | invariant | `**kernel:** unique(traces_to)` | [[c4v]] |\n\
                 | kb | invariant | `**kernel:** resolves(traces_to)` | [[c4v]] |\n";
     write_claim_spec(&spec, "c4v", rows, &claim_props("c4v", &["ka", "kb"]), "ka");
     let out = td.path().join("out");
-    claim_compile(spec.to_str().unwrap(), &out);
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    claim_compile(spec.to_str().unwrap_p(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(
         code,
         Some(1),
@@ -103,14 +104,14 @@ fn refuted_kernel_claim_exits_1_with_error_envelope() {
 fn clean_model_check_stays_a_success_envelope_with_exit_0() {
     // The flip must not overreach: all claims verified over a completed
     // bounded exploration keeps ok:true / envelope_kind:ok / exit 0.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("c4c.md");
     let rows = "| ka | invariant | `**kernel:** acyclic(supersedes)` | [[c4c]] |\n\
                 | kb | invariant | `**kernel:** resolves(traces_to)` | [[c4c]] |\n";
     write_claim_spec(&spec, "c4c", rows, &claim_props("c4c", &["ka", "kb"]), "ka");
     let out = td.path().join("out");
-    claim_compile(spec.to_str().unwrap(), &out);
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    claim_compile(spec.to_str().unwrap_p(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(code, Some(0));
     assert_eq!(json["ok"], serde_json::json!(true));
     assert_eq!(json["envelope_kind"], serde_json::json!("ok"));
@@ -119,21 +120,21 @@ fn clean_model_check_stays_a_success_envelope_with_exit_0() {
 
 #[test]
 fn model_check_without_compiled_artifact_is_a_labeled_error() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("mc_demo.md");
     write_model_check_spec(&spec, "mc_demo");
     let out = spk()
         .args([
             "model-check",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            dir.path().join("nowhere").to_str().unwrap(),
+            dir.path().join("nowhere").to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(1));
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     // specodelic-4v1 (F1): a labeled failure never rides ok:true.
     assert_eq!(json["ok"], serde_json::json!(false), "envelope: {json}");
     assert_eq!(json["envelope_kind"], serde_json::json!("error"));
@@ -143,7 +144,7 @@ fn model_check_without_compiled_artifact_is_a_labeled_error() {
     assert!(
         failed["message"]
             .as_str()
-            .unwrap()
+            .unwrap_p()
             .contains("specodelic compile")
     );
 }
@@ -153,37 +154,37 @@ fn model_check_rejects_a_spec_edited_after_compile() {
     // CORR-001 (ro5): the run interprets the live spec's IR, so a module
     // compiled from an older Model section must be a labeled error —
     // never a clean run against a mixed (IR, artifact) pair.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("mc_demo.md");
     write_model_check_spec(&spec, "mc_demo");
     let out_dir = dir.path().join("specodelic");
     spk()
         .args([
             "compile",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out_dir.to_str().unwrap(),
+            out_dir.to_str().unwrap_p(),
         ])
         .assert()
         .success();
     // Edit the Model section WITHOUT recompiling: add a third state.
     let text = std::fs::read_to_string(&spec)
-        .unwrap()
+        .unwrap_p()
         .replace("- s2", "- s2\n- s3");
-    std::fs::write(&spec, text).unwrap();
+    std::fs::write(&spec, text).unwrap_p();
     let out = spk()
         .args([
             "model-check",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out_dir.to_str().unwrap(),
+            out_dir.to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(1));
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     // specodelic-4v1 (F1): a labeled failure never rides ok:true.
     assert_eq!(json["ok"], serde_json::json!(false), "envelope: {json}");
     assert_eq!(json["envelope_kind"], serde_json::json!("error"));
@@ -192,24 +193,24 @@ fn model_check_rejects_a_spec_edited_after_compile() {
     assert!(
         failed["message"]
             .as_str()
-            .unwrap()
+            .unwrap_p()
             .contains("specodelic compile")
     );
 }
 
 #[test]
 fn model_check_timed_out_when_bound_cannot_be_exhausted() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("mc_demo.md");
     write_model_check_spec(&spec, "mc_demo");
     let out_dir = dir.path().join("specodelic");
     spk()
         .args([
             "compile",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out_dir.to_str().unwrap(),
+            out_dir.to_str().unwrap_p(),
         ])
         .assert()
         .success();
@@ -218,26 +219,26 @@ fn model_check_timed_out_when_bound_cannot_be_exhausted() {
     let out = spk()
         .args([
             "model-check",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out_dir.to_str().unwrap(),
+            out_dir.to_str().unwrap_p(),
             "--max-depth",
             "1",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     // specodelic-4v1 boundary: timed_out is a NON-failure outcome —
     // exit 0, success envelope (verify's model gate rejects it).
     assert_eq!(out.status.code(), Some(0));
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(json["ok"], serde_json::json!(true));
     assert_eq!(json["data"]["outcome"], "timed_out");
 }
 
 #[test]
 fn compile_corpus_succeeds_and_reports_all_artifacts() {
-    let out = tempfile::tempdir().unwrap();
+    let out = tempfile::tempdir().unwrap_p();
     let cmd = spk()
         // The dogfood corpus = the corpus-backed capability dirs (the
         // specs/ corpus before the single-tree migration, specodelic-jf1):
@@ -269,52 +270,57 @@ fn compile_corpus_succeeds_and_reports_all_artifacts() {
             "openspec/specs/linter-observability",
             "--json",
             "--out-dir",
-            out.path().to_str().unwrap(),
+            out.path().to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&cmd.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&cmd.stdout).unwrap_p();
     let data = &json["data"];
     assert_eq!(data["files_failed"], 0);
     // 22 corpus spec files (the exemption list's non-spec files are skipped)
     assert_eq!(data["files_compiled"], 22);
-    for f in data["compiled"].as_array().unwrap() {
+    for f in data["compiled"].as_array().unwrap_p() {
         assert!(
             f["artifacts"]["toml"]
                 .as_str()
-                .unwrap()
+                .unwrap_p()
                 .contains("[constraints]")
         );
         assert!(f["artifacts"]["props"].as_str().is_some());
-        assert!(f["artifacts"]["tla"].as_str().unwrap().contains("MODULE "));
-        assert!(!f["model_ir"]["states"].as_array().unwrap().is_empty());
-        assert_eq!(f["written"].as_array().unwrap().len(), 3);
+        assert!(
+            f["artifacts"]["tla"]
+                .as_str()
+                .unwrap_p()
+                .contains("MODULE ")
+        );
+        assert!(!f["model_ir"]["states"].as_array().unwrap_p().is_empty());
+        assert_eq!(f["written"].as_array().unwrap_p().len(), 3);
     }
     assert_eq!(cmd.status.code(), Some(0));
 }
 
 #[test]
 fn compile_refuses_lint_dirty_file_naming_precondition() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let bad = dir.path().join("bad_spec.md");
     std::fs::write(
         &bad,
         "---\nid: bad_spec\nkind: intent\nstatement: \"the system should maybe work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[bad_spec]] |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s2 | |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[bad_spec.a]] | `g()` | `x` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
         .args([
             "compile",
-            dir.path().to_str().unwrap(),
+            dir.path().to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            dir.path().join("artifacts").to_str().unwrap(),
+            dir.path().join("artifacts").to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let failed = json["data"]["failed"].as_array().unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap_p();
+    let failed = json["data"]["failed"].as_array().unwrap_p();
     assert_eq!(failed.len(), 1);
     assert_eq!(failed[0]["stage"], "precondition_satisfied");
     assert_eq!(out.status.code(), Some(1));
@@ -324,8 +330,8 @@ fn compile_refuses_lint_dirty_file_naming_precondition() {
 
 #[test]
 fn compile_round_trip_is_byte_stable() {
-    let out = tempfile::tempdir().unwrap();
-    let od = out.path().to_str().unwrap();
+    let out = tempfile::tempdir().unwrap_p();
+    let od = out.path().to_str().unwrap_p();
     // Reference resolution is corpus-wide (total_refs), so compile the
     // dogfood corpus (the corpus-backed dirs; compile refuses stateless
     // capability specs — see common::corpus_dirs); artifacts land in a
@@ -336,13 +342,13 @@ fn compile_round_trip_is_byte_stable() {
         .collect();
     args.extend(common::corpus_dirs());
     spk().args(args.clone()).assert().success();
-    let first_toml = std::fs::read_to_string(out.path().join("compile.toml")).unwrap();
-    let first_props = std::fs::read_to_string(out.path().join("compile_props.rs")).unwrap();
-    let first_tla = std::fs::read_to_string(out.path().join("compile.tla")).unwrap();
+    let first_toml = std::fs::read_to_string(out.path().join("compile.toml")).unwrap_p();
+    let first_props = std::fs::read_to_string(out.path().join("compile_props.rs")).unwrap_p();
+    let first_tla = std::fs::read_to_string(out.path().join("compile.tla")).unwrap_p();
     spk().args(args).assert().success();
-    let second_toml = std::fs::read_to_string(out.path().join("compile.toml")).unwrap();
-    let second_props = std::fs::read_to_string(out.path().join("compile_props.rs")).unwrap();
-    let second_tla = std::fs::read_to_string(out.path().join("compile.tla")).unwrap();
+    let second_toml = std::fs::read_to_string(out.path().join("compile.toml")).unwrap_p();
+    let second_props = std::fs::read_to_string(out.path().join("compile_props.rs")).unwrap_p();
+    let second_tla = std::fs::read_to_string(out.path().join("compile.tla")).unwrap_p();
     assert_eq!(first_toml, second_toml);
     assert_eq!(first_props, second_props);
     assert_eq!(first_tla, second_tla);
@@ -356,15 +362,15 @@ fn compile_round_trip_is_byte_stable() {
 
 #[test]
 fn explain_bare_lists_topics_append_only() {
-    let out = spk().args(["explain", "--json"]).output().unwrap();
+    let out = spk().args(["explain", "--json"]).output().unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
     let ids: Vec<&str> = json["data"]["topics"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
-        .map(|t| t["id"].as_str().unwrap())
+        .map(|t| t["id"].as_str().unwrap_p())
         .collect();
     // append-only topic list: graph-views appended at the end
     // (add-graph-views task 3.4), then conform appended after it
@@ -394,11 +400,11 @@ fn explain_dual_format_topic_serves_the_migration_recipe() {
     let out = spk()
         .args(["explain", "dual-format", "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
-    let body = json["data"]["body"].as_str().unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
+    let body = json["data"]["body"].as_str().unwrap_p();
     assert!(body.contains("id: spec"), "naming law: {body}");
     assert!(
         body.contains("## ADDED/MODIFIED/REMOVED Requirements"),
@@ -424,19 +430,19 @@ fn explain_dual_format_topic_serves_the_migration_recipe() {
 fn explain_known_topic_works_offline_in_consumer_dir() {
     // consumer repo: no specs/ at all — the guide is embedded in the
     // binary, so the envelope still carries the full body
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let out = spk()
         .args(["explain", "format", "--json"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
     assert_eq!(json["ok"], true);
     assert_eq!(json["data"]["topic"], "format");
     assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 19");
-    let body = json["data"]["body"].as_str().unwrap();
+    let body = json["data"]["body"].as_str().unwrap_p();
     assert!(body.contains("## Constraints"));
     assert!(body.contains("## Properties"));
     assert!(body.contains("lifecycle"));
@@ -455,10 +461,10 @@ fn explain_references_documents_file_qualified_refs() {
     let out = spk()
         .args(["explain", "references", "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
-    let body = json["data"]["body"].as_str().unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
+    let body = json["data"]["body"].as_str().unwrap_p();
     assert!(body.contains("file-qualified"));
     assert!(body.contains("[[<file-id>.<row-id>]]"));
     assert!(body.contains("[[ge.cli.c1]]"));
@@ -469,40 +475,46 @@ fn explain_references_documents_file_qualified_refs() {
 fn explain_kinds_renders_enforced_closed_sets() {
     // the rendered kind sets equal the constants the linter enforces,
     // because both come from the same pub const source (spec scenario)
-    let out = spk().args(["explain", "kinds", "--json"]).output().unwrap();
+    let out = spk()
+        .args(["explain", "kinds", "--json"])
+        .output()
+        .unwrap_p();
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
-    let body = json["data"]["body"].as_str().unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
+    let body = json["data"]["body"].as_str().unwrap_p();
     assert!(body.contains("`invariant`, `advisory`, `effect`, `extension_point`"));
     assert!(body.contains("`unit`, `law`"));
 }
 
 #[test]
 fn explain_unknown_topic_fails_with_topic_hint() {
-    let out = spk().args(["explain", "nope", "--json"]).output().unwrap();
+    let out = spk()
+        .args(["explain", "nope", "--json"])
+        .output()
+        .unwrap_p();
     assert_ne!(out.status.code(), Some(0));
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
     assert_eq!(json["envelope_kind"], "error");
     // the failure message names every valid topic (repo convention: failure
     // messages go to stderr even in JSON mode)
-    let stderr = String::from_utf8(out.stderr).unwrap();
+    let stderr = String::from_utf8(out.stderr).unwrap_p();
     assert!(stderr.contains("unknown topic `nope`"));
     assert!(stderr.contains("format | ears | kinds | references | lifecycle | lint-rules"));
-    assert!(json["hints"].as_array().unwrap().iter().any(|h| {
+    assert!(json["hints"].as_array().unwrap_p().iter().any(|h| {
         h["command"]
             .as_str()
-            .unwrap()
+            .unwrap_p()
             .contains("specodelic explain")
     }));
 }
 
 #[test]
 fn version_json_reports_format_revision() {
-    let out = spk().args(["--version", "--json"]).output().unwrap();
+    let out = spk().args(["--version", "--json"]).output().unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
     assert_eq!(json["envelope_kind"], "version");
     assert_eq!(json["data"]["name"], "specodelic");
     assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 19");
@@ -511,10 +523,10 @@ fn version_json_reports_format_revision() {
 #[test]
 fn doctor_self_hosting_reports_mode() {
     // this repo carries openspec/specs/specodelic/spec.md → mode self_hosting
-    let out = spk().args(["doctor", "--json"]).output().unwrap();
+    let out = spk().args(["doctor", "--json"]).output().unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
     assert_eq!(json["data"]["mode"], "self_hosting");
 }
 
@@ -522,38 +534,38 @@ fn doctor_self_hosting_reports_mode() {
 fn doctor_consumer_with_corpus_reports_format_revision() {
     // consumer workspace: a corpus without the core spec still diagnoses
     // cleanly and reports the embedded guide's format_revision as ok
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let specs = dir.path().join("openspec/specs");
-    std::fs::create_dir_all(&specs).unwrap();
+    std::fs::create_dir_all(&specs).unwrap_p();
     std::fs::write(
         specs.join("my_tool.md"),
         "---\nid: my.tool\nkind: intent\nstatement: \"THE tool SHALL work\"\n---\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
         .args(["doctor", "--json"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
     assert_eq!(json["data"]["mode"], "consumer");
     assert_eq!(json["data"]["format_revision"], "specodelic.md Revision 19");
 }
 
 #[test]
 fn doctor_empty_consumer_suggests_new() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     // human mode: the next-step footer (with the suggestion) prints to
     // stderr; JSON mode keeps everything in the envelope on stdout
     let out = spk()
         .args(["doctor", "--human"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let stderr = String::from_utf8(out.stderr).unwrap();
+    let stderr = String::from_utf8(out.stderr).unwrap_p();
     assert!(stderr.contains("spk new"), "footer: {stderr}");
 }
 
@@ -561,29 +573,29 @@ fn doctor_empty_consumer_suggests_new() {
 fn doctor_warns_when_binary_lags_corpus() {
     // synthetic corpus declares Revision 99 while the binary embeds
     // Revision 11 → warning naming both revisions, exit 0 (never fails)
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let specs = dir.path().join("openspec/specs/specodelic");
-    std::fs::create_dir_all(&specs).unwrap();
+    std::fs::create_dir_all(&specs).unwrap_p();
     std::fs::write(
         specs.join("spec.md"),
         "---\nid: specodelic\nkind: intent\nstatement: \"THE format SHALL be described\"\n---\n\n## Revision 1\n\n## Revision 99\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
         .args(["doctor", "--json"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0), "warn, never fail");
     // the warning rides the success envelope's warnings channel — repo
     // convention: only failure messages go to stderr, even in JSON mode
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
     let warnings: Vec<String> = json["warnings"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
-        .map(|w| w["message"].as_str().unwrap().to_string())
+        .map(|w| w["message"].as_str().unwrap_p().to_string())
         .collect();
     assert!(
         warnings.iter().any(|w| w.contains("99") && w.contains("9")),
@@ -595,23 +607,23 @@ fn doctor_warns_when_binary_lags_corpus() {
 fn doctor_current_consumer_emits_no_currency_warning() {
     // corpus at the embedded revision (8) → no warning; also covers the
     // no-revision-heading skip via a second fixture
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let specs = dir.path().join("openspec/specs/specodelic");
-    std::fs::create_dir_all(&specs).unwrap();
+    std::fs::create_dir_all(&specs).unwrap_p();
     std::fs::write(
         specs.join("spec.md"),
         "---\nid: specodelic\nkind: intent\nstatement: \"THE format SHALL be described\"\n---\n\n## Revision 8\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
         .args(["doctor", "--json"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     assert!(
         !String::from_utf8(out.stderr)
-            .unwrap()
+            .unwrap_p()
             .contains("newer than")
     );
 }
@@ -620,23 +632,23 @@ fn doctor_current_consumer_emits_no_currency_warning() {
 fn doctor_skips_currency_check_with_note_on_unreadable_corpus() {
     // review EDGE-001: an unreadable corpus must be skipped with an
     // informational warning, never silently treated as current
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let specs = dir.path().join("openspec/specs/specodelic");
-    std::fs::create_dir_all(&specs).unwrap();
-    std::fs::write(specs.join("spec.md"), b"\xff\xfe\x00binary").unwrap();
+    std::fs::create_dir_all(&specs).unwrap_p();
+    std::fs::write(specs.join("spec.md"), b"\xff\xfe\x00binary").unwrap_p();
     let out = spk()
         .args(["doctor", "--json"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0), "warn, never fail");
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
     let warnings: Vec<String> = json["warnings"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
-        .map(|w| w["message"].as_str().unwrap().to_string())
+        .map(|w| w["message"].as_str().unwrap_p().to_string())
         .collect();
     assert!(
         warnings
@@ -684,7 +696,7 @@ fn write_claim_spec(path: &std::path::Path, id: &str, rows: &str, props: &str, g
              {props}"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// The coverage property rows for the named constraint rows.
@@ -698,7 +710,7 @@ fn claim_props(id: &str, rows: &[&str]) -> String {
 
 fn claim_compile(spec: &str, out: &std::path::Path) {
     spk()
-        .args(["compile", spec, "--out-dir", out.to_str().unwrap()])
+        .args(["compile", spec, "--out-dir", out.to_str().unwrap_p()])
         .assert()
         .success();
 }
@@ -711,42 +723,50 @@ fn claim_mc_json(spec: &str, out: &std::path::Path) -> (Option<i32>, serde_json:
             spec,
             "--json",
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap_p();
     (result.status.code(), json)
 }
 
 /// Run verify over one spec and return (exit code, parsed envelope).
 fn claim_verify_json(spec: &str, out: &std::path::Path) -> (Option<i32>, serde_json::Value) {
     let result = spk()
-        .args(["verify", spec, "--json", "--out-dir", out.to_str().unwrap()])
+        .args([
+            "verify",
+            spec,
+            "--json",
+            "--out-dir",
+            out.to_str().unwrap_p(),
+        ])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap_p();
     (result.status.code(), json)
 }
 
 /// The persisted run report for one stem.
 fn claim_report(out: &std::path::Path, stem: &str) -> serde_json::Value {
-    serde_json::from_str(&std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap())
-        .unwrap()
+    serde_json::from_str(
+        &std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap_p(),
+    )
+    .unwrap_p()
 }
 
 #[test]
 fn false_kernel_claim_forces_counterexample_found() {
     // ka refutes (both rows trace to the same target — unique is
     // refuted), kb verifies: the refuted required claim must govern.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("ckf.md");
     let rows = "| ka | invariant | `**kernel:** unique(traces_to)` | [[ckf]] |\n\
                 | kb | invariant | `**kernel:** resolves(traces_to)` | [[ckf]] |\n";
     write_claim_spec(&spec, "ckf", rows, &claim_props("ckf", &["ka", "kb"]), "ka");
     let out = td.path().join("out");
-    claim_compile(spec.to_str().unwrap(), &out);
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    claim_compile(spec.to_str().unwrap_p(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     // specodelic-4v1: a refuted claim is a failing aggregate — the
     // verdict gates the exit code AND the envelope kind now.
     assert_eq!(code, Some(1));
@@ -758,12 +778,12 @@ fn false_kernel_claim_forces_counterexample_found() {
     assert_eq!(checked["violated_invariant_id"], "ka");
     let statuses: Vec<(String, String)> = checked["invariant_statuses"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .map(|s| {
             (
-                s["id"].as_str().unwrap().to_string(),
-                s["status"].as_str().unwrap().to_string(),
+                s["id"].as_str().unwrap_p().to_string(),
+                s["status"].as_str().unwrap_p().to_string(),
             )
         })
         .collect();
@@ -780,7 +800,7 @@ fn false_kernel_claim_forces_counterexample_found() {
     assert_eq!(report["outcome"], "counterexample_found");
     assert_eq!(report["violated_invariant_id"], "ka");
     // The verify gate rejects the non-clean aggregate.
-    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
+    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(vcode, Some(1));
     assert_eq!(vjson["data"]["status"], "model_not_clean");
 }
@@ -789,14 +809,14 @@ fn false_kernel_claim_forces_counterexample_found() {
 fn false_negated_citation_forces_counterexample_found() {
     // c1 verifies (s2 reachable is fine — blackhole is not); the
     // negated citation ¬[[c1]] therefore refutes.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("cnf.md");
     let rows = "| c1 | invariant | `**rust:** state != \"blackhole\"` | [[cnf]] |\n\
                 | c2 | invariant | `¬[[cnf.c1]]` | [[cnf]] |\n";
     write_claim_spec(&spec, "cnf", rows, &claim_props("cnf", &["c1", "c2"]), "c1");
     let out = td.path().join("out");
-    claim_compile(spec.to_str().unwrap(), &out);
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    claim_compile(spec.to_str().unwrap_p(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     // specodelic-4v1: a refuted claim is a failing aggregate — exit 1.
     assert_eq!(code, Some(1));
     assert_eq!(json["data"]["outcome"], "counterexample_found");
@@ -806,7 +826,7 @@ fn false_negated_citation_forces_counterexample_found() {
     // No invented state trace: the citation counterexample carries
     // claim evidence, not a fabricated BFS path.
     assert!(report.get("trace").is_none() || report["trace"].is_null());
-    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
+    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(vcode, Some(1));
     assert_eq!(vjson["data"]["status"], "model_not_clean");
 }
@@ -816,13 +836,13 @@ fn unknown_kernel_claim_prevents_clean() {
     // The ghost seed reaches an id outside the corpus — honest unknown.
     // Unknown required claims prevent clean: exploration_only, and
     // verify rejects it.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("cuk.md");
     let rows = "| g1 | invariant | `**kernel:** reachable(demo.ghost.nowhere, cuk.g1, supersedes)` | [[cuk]] |\n";
     write_claim_spec(&spec, "cuk", rows, &claim_props("cuk", &["g1"]), "g1");
     let out = td.path().join("out");
-    claim_compile(spec.to_str().unwrap(), &out);
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    claim_compile(spec.to_str().unwrap_p(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     // specodelic-4v1 boundary: an unknown claim is exploration_only —
     // a NON-failure outcome; exit 0 stays (verify rejects the gate).
     assert_eq!(code, Some(0));
@@ -840,7 +860,7 @@ fn unknown_kernel_claim_prevents_clean() {
         statuses[0]
     );
     assert_eq!(claim_report(&out, "cuk")["outcome"], "exploration_only");
-    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
+    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(vcode, Some(1));
     assert_eq!(vjson["data"]["status"], "model_not_clean");
 }
@@ -850,14 +870,14 @@ fn missing_evidence_citation_prevents_clean_and_names_the_reason() {
     // A property row has no same-run invariant evidence — the required
     // claim is unknown with the labeled reason, so the aggregate is
     // exploration_only even though the exec leg reported clean facts.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("cme.md");
     let rows = "| c1 | invariant | `**rust:** state != \"blackhole\"` | [[cme]] |\n\
                 | c2 | invariant | `[[p_c1]]` | [[cme]] |\n";
     write_claim_spec(&spec, "cme", rows, &claim_props("cme", &["c1", "c2"]), "c1");
     let out = td.path().join("out");
-    claim_compile(spec.to_str().unwrap(), &out);
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    claim_compile(spec.to_str().unwrap_p(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     // specodelic-4v1 boundary: incomplete required set =
     // exploration_only, a NON-failure outcome; exit 0 stays.
     assert_eq!(code, Some(0));
@@ -865,20 +885,20 @@ fn missing_evidence_citation_prevents_clean_and_names_the_reason() {
     let statuses = &json["data"]["checked"][0]["invariant_statuses"];
     let c2 = statuses
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .find(|s| s["id"] == "c2")
-        .unwrap();
+        .unwrap_p();
     assert_eq!(c2["status"], "unknown");
     assert!(
         c2["reason"]
             .as_str()
-            .unwrap()
+            .unwrap_p()
             .contains("same-run invariant evidence"),
         "labeled reason: {c2}"
     );
     assert_eq!(claim_report(&out, "cme")["outcome"], "exploration_only");
-    let (vcode, _) = claim_verify_json(spec.to_str().unwrap(), &out);
+    let (vcode, _) = claim_verify_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(vcode, Some(1));
 }
 
@@ -888,22 +908,22 @@ fn all_true_claims_over_completed_exploration_verify() {
     // verifies acyclic and resolves over the v0 snapshot — every
     // required claim discharged, exploration completed, so the
     // aggregate is no_counterexample and BOTH gates verify end to end.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("cat.md");
     let rows = "| ka | invariant | `**kernel:** acyclic(supersedes)` | [[cat]] |\n\
                 | kb | invariant | `**kernel:** resolves(traces_to)` | [[cat]] |\n";
     write_claim_spec(&spec, "cat", rows, &claim_props("cat", &["ka", "kb"]), "ka");
     let out = td.path().join("out");
-    claim_compile(spec.to_str().unwrap(), &out);
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    claim_compile(spec.to_str().unwrap_p(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(code, Some(0));
     assert_eq!(json["data"]["outcome"], "no_counterexample");
     let statuses = &json["data"]["checked"][0]["invariant_statuses"];
-    for s in statuses.as_array().unwrap() {
+    for s in statuses.as_array().unwrap_p() {
         assert_eq!(s["status"], "verified", "claim {}: {}", s["id"], s);
     }
     assert_eq!(claim_report(&out, "cat")["outcome"], "no_counterexample");
-    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
+    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(vcode, Some(0));
     assert_eq!(vjson["data"]["status"], "verified");
 }
@@ -912,33 +932,33 @@ fn all_true_claims_over_completed_exploration_verify() {
 fn exhausted_bound_stays_timed_out_despite_verified_claims() {
     // D2 ordering: an exhausted budget outranks the all-verified leg —
     // a truncated exploration proves nothing about the claims.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("cex.md");
     let rows = "| ka | invariant | `**kernel:** acyclic(supersedes)` | [[cex]] |\n\
                 | kb | invariant | `**kernel:** resolves(traces_to)` | [[cex]] |\n";
     write_claim_spec(&spec, "cex", rows, &claim_props("cex", &["ka", "kb"]), "ka");
     let out = td.path().join("out");
-    claim_compile(spec.to_str().unwrap(), &out);
+    claim_compile(spec.to_str().unwrap_p(), &out);
     let result = spk()
         .args([
             "model-check",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
             "--max-depth",
             "1",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     // specodelic-4v1 boundary: the exhausted-budget aggregate is
     // timed_out — a NON-failure outcome; exit 0 stays.
     assert_eq!(result.status.code(), Some(0));
-    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap_p();
     assert_eq!(json["ok"], serde_json::json!(true));
     assert_eq!(json["data"]["outcome"], "timed_out");
     assert_eq!(claim_report(&out, "cex")["outcome"], "timed_out");
-    let (vcode, _) = claim_verify_json(spec.to_str().unwrap(), &out);
+    let (vcode, _) = claim_verify_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(vcode, Some(1));
 }
 
@@ -947,12 +967,12 @@ fn no_required_claims_stay_explicitly_unchecked() {
     // D1: prose invariant rows are never required claims — no evaluator
     // opted in, no status fabricated. The empty required set reports
     // exploration_only and verify rejects it (D2 rule 5).
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("cpr.md");
     write_model_check_spec(&spec, "cpr");
     let out = td.path().join("out");
-    claim_compile(spec.to_str().unwrap(), &out);
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    claim_compile(spec.to_str().unwrap_p(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     // specodelic-4v1 boundary: an empty required set is a NON-failure
     // exploration_only outcome; exit 0 stays (verify rejects the gate).
     assert_eq!(code, Some(0));
@@ -960,11 +980,11 @@ fn no_required_claims_stay_explicitly_unchecked() {
     assert!(
         json["data"]["checked"][0]["invariant_statuses"]
             .as_array()
-            .unwrap()
+            .unwrap_p()
             .is_empty()
     );
     assert_eq!(claim_report(&out, "cpr")["outcome"], "exploration_only");
-    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
+    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(vcode, Some(1));
     // Both gates are always evaluated; this fixture's parameterless
     // property blocker is named first, so the model-gate leg is asserted
@@ -997,7 +1017,7 @@ fn write_view_parity_spec(path: &std::path::Path, id: &str, ka_expr: &str) {
 fn mixed_fixture_views_agree_on_blockers_and_unchecked() {
     // Verified Rust + unknown kernel + prose-only unchecked: every view
     // names ka as the blocker, kp as unchecked, and the same counts.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("cmx.md");
     write_view_parity_spec(
         &spec,
@@ -1005,10 +1025,10 @@ fn mixed_fixture_views_agree_on_blockers_and_unchecked() {
         "**kernel:** reachable(demo.ghost.nowhere, cmx.ka, supersedes)",
     );
     let out = td.path().join("out");
-    claim_compile(spec.to_str().unwrap(), &out);
+    claim_compile(spec.to_str().unwrap_p(), &out);
 
     // JSON envelope vs persisted report: identical claim fields.
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     // specodelic-4v1 boundary: unknown claim = exploration_only, a
     // NON-failure outcome; exit 0 stays.
     assert_eq!(code, Some(0));
@@ -1016,23 +1036,21 @@ fn mixed_fixture_views_agree_on_blockers_and_unchecked() {
     let checked = &json["data"]["checked"][0];
     let expected = checked["expected_claim_ids"]
         .as_array()
-        .expect("JSON envelope carries the required set")
+        .unwrap_p()
         .iter()
-        .map(|v| v.as_str().unwrap().to_string())
+        .map(|v| v.as_str().unwrap_p().to_string())
         .collect::<Vec<_>>();
     assert_eq!(expected, vec!["ka".to_string(), "kb".to_string()]);
     let unchecked = checked["unchecked_claim_ids"]
         .as_array()
-        .expect("JSON envelope carries the unchecked set")
+        .unwrap_p()
         .iter()
-        .map(|v| v.as_str().unwrap().to_string())
+        .map(|v| v.as_str().unwrap_p().to_string())
         .collect::<Vec<_>>();
     assert_eq!(unchecked, vec!["kp".to_string()]);
-    let claims = checked["claims"]
-        .as_array()
-        .expect("JSON carries claim records");
+    let claims = checked["claims"].as_array().unwrap_p();
     assert_eq!(claims.len(), 2, "evaluated claims only: {claims:?}");
-    let ka = claims.iter().find(|c| c["id"] == "ka").unwrap();
+    let ka = claims.iter().find(|c| c["id"] == "ka").unwrap_p();
     assert_eq!(ka["evaluator"], "kernel");
     assert_eq!(ka["status"], "unknown");
     // Native kernel unknowns are honest unknowns without a synthetic
@@ -1042,7 +1060,7 @@ fn mixed_fixture_views_agree_on_blockers_and_unchecked() {
     if let Some(reason) = ka.get("reason") {
         assert!(reason.is_string(), "reason is a string when present: {ka}");
     }
-    let kb = claims.iter().find(|c| c["id"] == "kb").unwrap();
+    let kb = claims.iter().find(|c| c["id"] == "kb").unwrap_p();
     assert_eq!(kb["evaluator"], "rust");
     assert_eq!(kb["status"], "verified");
     let report = claim_report(&out, "cmx");
@@ -1057,14 +1075,14 @@ fn mixed_fixture_views_agree_on_blockers_and_unchecked() {
     let human = spk()
         .args([
             "model-check",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--human",
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(human.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(human.stdout).unwrap_p();
     assert!(
         stdout.contains("ka"),
         "human names the blocking claim: {stdout}"
@@ -1084,35 +1102,35 @@ fn mixed_fixture_views_agree_on_blockers_and_unchecked() {
 
     // Verify's view: the blocked entry names the same blocker and the
     // same unchecked set.
-    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
+    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(vcode, Some(1));
     let model = &vjson["data"]["blocked"][0]["model"];
     assert_eq!(model["state"], "not_clean");
     let blocking: Vec<String> = model["blocking_claims"]
         .as_array()
-        .expect("verify names the blocking claims")
+        .unwrap_p()
         .iter()
-        .map(|v| v.as_str().unwrap().to_string())
+        .map(|v| v.as_str().unwrap_p().to_string())
         .collect();
     assert_eq!(blocking, vec!["ka".to_string()]);
     let v_unchecked: Vec<String> = model["unchecked_claim_ids"]
         .as_array()
-        .expect("verify names the unchecked claims")
+        .unwrap_p()
         .iter()
-        .map(|v| v.as_str().unwrap().to_string())
+        .map(|v| v.as_str().unwrap_p().to_string())
         .collect();
     assert_eq!(v_unchecked, vec!["kp".to_string()]);
     let v_human = spk()
         .args([
             "verify",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--human",
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
-    let v_stdout = String::from_utf8(v_human.stdout).unwrap();
+        .unwrap_p();
+    let v_stdout = String::from_utf8(v_human.stdout).unwrap_p();
     assert!(
         v_stdout.contains("ka"),
         "verify human names the blocker: {v_stdout}"
@@ -1127,36 +1145,34 @@ fn mixed_fixture_views_agree_on_blockers_and_unchecked() {
 fn refuted_kernel_blocker_names_the_same_claim_in_every_view() {
     // Verified resolves + refuted unique: ka is the blocker in JSON,
     // the persisted report, human output, and verify's blocked entry.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("crf.md");
     write_view_parity_spec(&spec, "crf", "**kernel:** unique(traces_to)");
     let out = td.path().join("out");
-    claim_compile(spec.to_str().unwrap(), &out);
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    claim_compile(spec.to_str().unwrap_p(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     // specodelic-4v1: a refuted claim is a failing aggregate — exit 1.
     assert_eq!(code, Some(1));
     assert_eq!(json["data"]["outcome"], "counterexample_found");
     let checked = &json["data"]["checked"][0];
-    let claims = checked["claims"]
-        .as_array()
-        .expect("JSON carries claim records");
-    let ka = claims.iter().find(|c| c["id"] == "ka").unwrap();
+    let claims = checked["claims"].as_array().unwrap_p();
+    let ka = claims.iter().find(|c| c["id"] == "ka").unwrap_p();
     assert_eq!(ka["status"], "counterexample");
-    let kb = claims.iter().find(|c| c["id"] == "kb").unwrap();
+    let kb = claims.iter().find(|c| c["id"] == "kb").unwrap_p();
     assert_eq!(kb["status"], "verified");
     let report = claim_report(&out, "crf");
     assert_eq!(report["claims"], checked["claims"]);
     let human = spk()
         .args([
             "model-check",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--human",
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(human.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(human.stdout).unwrap_p();
     assert!(
         stdout.contains("ka"),
         "human names the refuted claim: {stdout}"
@@ -1165,14 +1181,14 @@ fn refuted_kernel_blocker_names_the_same_claim_in_every_view() {
         stdout.contains("counterexample"),
         "human names the refuted status: {stdout}"
     );
-    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap(), &out);
+    let (vcode, vjson) = claim_verify_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(vcode, Some(1));
     let model = &vjson["data"]["blocked"][0]["model"];
     let blocking: Vec<String> = model["blocking_claims"]
         .as_array()
-        .expect("verify names the blocking claims")
+        .unwrap_p()
         .iter()
-        .map(|v| v.as_str().unwrap().to_string())
+        .map(|v| v.as_str().unwrap_p().to_string())
         .collect();
     assert_eq!(blocking, vec!["ka".to_string()]);
 }
@@ -1193,13 +1209,13 @@ fn docs_carry_release_version_and_implemented_capability_status() {
     // Release-version statements only: `v<semver>` or `Version <semver>`
     // — a bare x.y.z elsewhere (e.g. "Invariant 3.2.5") is not a
     // maintained version literal.
-    let literal = regex::Regex::new(r"(?:\bv|Version )(\d+\.\d+\.\d+)").unwrap();
+    let literal = regex::Regex::new(r"(?:\bv|Version )(\d+\.\d+\.\d+)").unwrap_p();
     for doc in docs {
         let path = root.join(doc);
         let text = std::fs::read_to_string(&path)
             .unwrap_or_else(|e| panic!("{doc} must be readable: {e}"));
         for cap in literal.captures_iter(&text) {
-            let lit = cap.get(1).unwrap().as_str();
+            let lit = cap.get(1).unwrap_p().as_str();
             assert_eq!(
                 lit, version,
                 "{doc} carries version literal {lit} but the release is {version} — versions derive from Cargo metadata"
@@ -1211,7 +1227,7 @@ fn docs_carry_release_version_and_implemented_capability_status() {
     // application-test execution. Phrase assertions are whitespace-
     // normalized — markdown wrapping is not a capability change.
     let norm = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
-    let readme = norm(&std::fs::read_to_string(root.join("README.md")).unwrap());
+    let readme = norm(&std::fs::read_to_string(root.join("README.md")).unwrap_p());
     assert!(
         readme.contains("every opted-in invariant claim"),
         "README's verify status must state the implemented claim gate"
@@ -1225,7 +1241,7 @@ fn docs_carry_release_version_and_implemented_capability_status() {
         "openspec/project.md",
         "openspec/STATUS.md",
     ] {
-        let text = norm(&std::fs::read_to_string(root.join(doc)).unwrap());
+        let text = norm(&std::fs::read_to_string(root.join(doc)).unwrap_p());
         assert!(
             text.contains("invariant claim"),
             "{doc} must state the implemented claim-gate capability"
@@ -1284,8 +1300,8 @@ fn write_scope_pair(dir: &std::path::Path) -> (String, String) {
         &scope_props("scp_b"),
     );
     (
-        a.to_str().unwrap().to_string(),
-        b.to_str().unwrap().to_string(),
+        a.to_str().unwrap_p().to_string(),
+        b.to_str().unwrap_p().to_string(),
     )
 }
 
@@ -1295,7 +1311,7 @@ fn scope_compile(specs: &[&str], out: &std::path::Path) {
     let mut args = vec!["compile".to_string()];
     args.extend(specs.iter().map(|s| s.to_string()));
     args.push("--out-dir".to_string());
-    args.push(out.to_str().unwrap().to_string());
+    args.push(out.to_str().unwrap_p().to_string());
     spk().args(&args).assert().success();
 }
 
@@ -1315,10 +1331,10 @@ fn mc_batch(specs: &[&str], out: &std::path::Path) -> (Option<i32>, serde_json::
     args.extend([
         "--json".to_string(),
         "--out-dir".to_string(),
-        out.to_str().unwrap().to_string(),
+        out.to_str().unwrap_p().to_string(),
     ]);
-    let result = spk().args(&args).output().unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    let result = spk().args(&args).output().unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap_p();
     let code = result.status.code();
     // specodelic-4v1: the exit code now tracks the aggregate — callers
     // assert the exact code their fixture's outcome implies.
@@ -1332,25 +1348,27 @@ fn verify_batch(specs: &[&str], out: &std::path::Path) -> (Option<i32>, serde_js
     args.extend([
         "--json".to_string(),
         "--out-dir".to_string(),
-        out.to_str().unwrap().to_string(),
+        out.to_str().unwrap_p().to_string(),
     ]);
-    let result = spk().args(&args).output().unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    let result = spk().args(&args).output().unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap_p();
     (result.status.code(), json)
 }
 
 /// The persisted run report for the given stem.
 fn read_check_report(out: &std::path::Path, stem: &str) -> serde_json::Value {
-    serde_json::from_str(&std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap())
-        .unwrap()
+    serde_json::from_str(
+        &std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap_p(),
+    )
+    .unwrap_p()
 }
 
 fn write_check_report(out: &std::path::Path, stem: &str, report: &serde_json::Value) {
     std::fs::write(
         out.join(format!("{stem}.check.json")),
-        serde_json::to_string_pretty(report).unwrap(),
+        serde_json::to_string_pretty(report).unwrap_p(),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// The scope digest a stored report carries — fails with the intended
@@ -1366,7 +1384,7 @@ fn scope_digest_of(report: &serde_json::Value) -> String {
 /// refutes — identical local claim ids (c1, c2) either way, opposite
 /// outcomes.
 fn write_dual68(dir: &std::path::Path, passing: bool) -> String {
-    std::fs::create_dir_all(dir).unwrap();
+    std::fs::create_dir_all(dir).unwrap_p();
     // Revision 18: spec.md derives its id from the parent directory.
     let fid = dir.file_name().and_then(|s| s.to_str()).unwrap_or("d1");
     let fragment = if passing {
@@ -1399,13 +1417,13 @@ fn write_dual68(dir: &std::path::Path, passing: bool) -> String {
              | p_c2 | unit | [[{fid}.c2]] | `word()` | `**rust:** v0.len() >= 1` |\n"
         ),
     )
-    .unwrap();
-    path.to_str().unwrap().to_string()
+    .unwrap_p();
+    path.to_str().unwrap_p().to_string()
 }
 
 #[test]
 fn report_binds_schema_claims_and_scope_digest() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let (a, _b) = write_scope_pair(td.path());
     let out = td.path().join("out");
     scope_compile(&[a.as_str()], &out);
@@ -1417,7 +1435,7 @@ fn report_binds_schema_claims_and_scope_digest() {
     assert_eq!(digest.len(), 64);
     // Canonical qualified claim records: the required rust claim with
     // its evaluator kind; expected ids match the live required set.
-    let claims = report["claims"].as_array().unwrap();
+    let claims = report["claims"].as_array().unwrap_p();
     assert_eq!(claims.len(), 2);
     assert_eq!(claims[0]["id"], "ka");
     assert_eq!(claims[0]["evaluator"], "kernel");
@@ -1433,7 +1451,7 @@ fn report_binds_schema_claims_and_scope_digest() {
 
 #[test]
 fn old_report_requires_model_check_rerun() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let (a, _b) = write_scope_pair(td.path());
     let out = td.path().join("out");
     scope_compile(&[a.as_str()], &out);
@@ -1448,10 +1466,10 @@ fn old_report_requires_model_check_rerun() {
         "expected_claim_ids",
         "unchecked_claim_ids",
     ] {
-        old.as_object_mut().unwrap().remove(key);
+        old.as_object_mut().unwrap_p().remove(key);
     }
     write_check_report(&out, "scp_a", &old);
-    let before = std::fs::read_to_string(out.join("scp_a.check.json")).unwrap();
+    let before = std::fs::read_to_string(out.join("scp_a.check.json")).unwrap_p();
     drop_props(&out, &["scp_a"]);
     let (vcode, vjson) = verify_batch(&[a.as_str()], &out);
     assert_eq!(vcode, Some(1), "old reports never verify: {vjson}");
@@ -1462,19 +1480,19 @@ fn old_report_requires_model_check_rerun() {
     assert!(
         entry["model"]["detail"]
             .as_str()
-            .unwrap()
+            .unwrap_p()
             .contains("claim schema"),
         "names the schema gap: {entry}"
     );
     // No report rewriting to manufacture evidence: the stored file is
     // byte-identical after the rejected verify.
-    let after = std::fs::read_to_string(out.join("scp_a.check.json")).unwrap();
+    let after = std::fs::read_to_string(out.join("scp_a.check.json")).unwrap_p();
     assert_eq!(before, after);
 }
 
 #[test]
 fn unrecognized_claim_schema_version_requires_rerun() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let (a, _b) = write_scope_pair(td.path());
     let out = td.path().join("out");
     scope_compile(&[a.as_str()], &out);
@@ -1490,7 +1508,7 @@ fn unrecognized_claim_schema_version_requires_rerun() {
     assert!(
         entry["model"]["detail"]
             .as_str()
-            .unwrap()
+            .unwrap_p()
             .contains("claim schema"),
         "{entry}"
     );
@@ -1498,7 +1516,7 @@ fn unrecognized_claim_schema_version_requires_rerun() {
 
 #[test]
 fn missing_claim_record_requires_rerun() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let (a, _b) = write_scope_pair(td.path());
     let out = td.path().join("out");
     scope_compile(&[a.as_str()], &out);
@@ -1517,14 +1535,14 @@ fn missing_claim_record_requires_rerun() {
     let entry = &vjson["data"]["blocked"][0];
     assert_eq!(entry["model"]["state"], "stale");
     assert!(
-        entry["model"]["detail"].as_str().unwrap().contains("ka"),
+        entry["model"]["detail"].as_str().unwrap_p().contains("ka"),
         "names the missing claim: {entry}"
     );
 }
 
 #[test]
 fn duplicate_claim_record_rejected() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let (a, _b) = write_scope_pair(td.path());
     let out = td.path().join("out");
     scope_compile(&[a.as_str()], &out);
@@ -1532,7 +1550,7 @@ fn duplicate_claim_record_rejected() {
     let mut report = read_check_report(&out, "scp_a");
     for key in ["claims", "invariant_statuses"] {
         let dup = report[key][0].clone();
-        report[key].as_array_mut().unwrap().push(dup);
+        report[key].as_array_mut().unwrap_p().push(dup);
     }
     write_check_report(&out, "scp_a", &report);
     drop_props(&out, &["scp_a"]);
@@ -1547,7 +1565,7 @@ fn duplicate_claim_record_rejected() {
     assert!(
         entry["model"]["detail"]
             .as_str()
-            .unwrap()
+            .unwrap_p()
             .contains("duplicate"),
         "{entry}"
     );
@@ -1555,7 +1573,7 @@ fn duplicate_claim_record_rejected() {
 
 #[test]
 fn reversed_order_and_prose_edits_preserve_scope_digest() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let (a, b) = write_scope_pair(td.path());
     let fwd = td.path().join("fwd");
     let rev = td.path().join("rev");
@@ -1568,9 +1586,9 @@ fn reversed_order_and_prose_edits_preserve_scope_digest() {
     let digest_rev = scope_digest_of(&read_check_report(&rev, "scp_a"));
     assert_eq!(digest_fwd, digest_rev);
     // Prose-only edits never parse, so they preserve the digest too.
-    let prose = std::fs::read_to_string(&a).unwrap()
+    let prose = std::fs::read_to_string(&a).unwrap_p()
         + "\n## Notes\n\nJust prose — never parsed, never part of the scope.\n";
-    std::fs::write(&a, prose).unwrap();
+    std::fs::write(&a, prose).unwrap_p();
     let prose_out = td.path().join("prose");
     scope_compile(&[a.as_str(), b.as_str()], &prose_out);
     mc_batch(&[a.as_str(), b.as_str()], &prose_out);
@@ -1580,18 +1598,18 @@ fn reversed_order_and_prose_edits_preserve_scope_digest() {
 
 #[test]
 fn cross_file_edit_invalidates_clean_report() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let (a, b) = write_scope_pair(td.path());
     let out = td.path().join("out");
     scope_compile(&[a.as_str(), b.as_str()], &out);
     mc_batch(&[a.as_str(), b.as_str()], &out);
     // b changes structurally after the reports were written.
     let edited = std::fs::read_to_string(&b)
-        .unwrap()
+        .unwrap_p()
         .replace("resolves(traces_to)", "unique(traces_to)");
-    std::fs::write(&b, edited).unwrap();
+    std::fs::write(&b, edited).unwrap_p();
     spk()
-        .args(["compile", b.as_str(), "--out-dir", out.to_str().unwrap()])
+        .args(["compile", b.as_str(), "--out-dir", out.to_str().unwrap_p()])
         .assert()
         .success();
     // a's stored evidence covered the old b: the whole invocation scope
@@ -1599,7 +1617,7 @@ fn cross_file_edit_invalidates_clean_report() {
     drop_props(&out, &["scp_a", "scp_b"]);
     let (vcode, vjson) = verify_batch(&[a.as_str(), b.as_str()], &out);
     assert_eq!(vcode, Some(1));
-    let blocked = vjson["data"]["blocked"].as_array().unwrap();
+    let blocked = vjson["data"]["blocked"].as_array().unwrap_p();
     let a_entry = blocked
         .iter()
         .find(|e| e["id"] == "scp_a")
@@ -1608,7 +1626,7 @@ fn cross_file_edit_invalidates_clean_report() {
     assert!(
         a_entry["model"]["detail"]
             .as_str()
-            .unwrap()
+            .unwrap_p()
             .contains("scope"),
         "names the scope mismatch: {a_entry}"
     );
@@ -1616,7 +1634,7 @@ fn cross_file_edit_invalidates_clean_report() {
 
 #[test]
 fn dropped_input_invalidates_report() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let (a, b) = write_scope_pair(td.path());
     let out = td.path().join("out");
     scope_compile(&[a.as_str(), b.as_str()], &out);
@@ -1629,7 +1647,10 @@ fn dropped_input_invalidates_report() {
     let entry = &vjson["data"]["blocked"][0];
     assert_eq!(entry["model"]["state"], "stale");
     assert!(
-        entry["model"]["detail"].as_str().unwrap().contains("scope"),
+        entry["model"]["detail"]
+            .as_str()
+            .unwrap_p()
+            .contains("scope"),
         "{entry}"
     );
 }
@@ -1639,13 +1660,13 @@ fn artifact_edit_after_report_is_rejected() {
     // Pin: the pre-existing artifact staleness key stays enforced
     // alongside the scope digest — editing the compiled module after the
     // run is an artifact mismatch, failed closed.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let (a, _b) = write_scope_pair(td.path());
     let out = td.path().join("out");
     scope_compile(&[a.as_str()], &out);
     mc_batch(&[a.as_str()], &out);
     let tla = out.join("scp_a.tla");
-    std::fs::write(&tla, "MODULE scp_a edited").unwrap();
+    std::fs::write(&tla, "MODULE scp_a edited").unwrap_p();
     drop_props(&out, &["scp_a"]);
     let (vcode, vjson) = verify_batch(&[a.as_str()], &out);
     assert_eq!(vcode, Some(1));
@@ -1654,7 +1675,7 @@ fn artifact_edit_after_report_is_rejected() {
 
 #[test]
 fn dual_format_opposite_outcomes_and_swapped_reports() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let d1 = write_dual68(&td.path().join("d1"), true);
     let d2 = write_dual68(&td.path().join("d2"), false); // opposite outcome
     let out = td.path().join("out");
@@ -1665,10 +1686,10 @@ fn dual_format_opposite_outcomes_and_swapped_reports() {
     // compose like any other corpus.)
     let d1x = {
         let dir = td.path().join("d1x");
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).unwrap_p();
         let path = dir.join("spec.md");
-        std::fs::copy(&d1, &path).unwrap();
-        path.to_str().unwrap().to_string()
+        std::fs::copy(&d1, &path).unwrap_p();
+        path.to_str().unwrap_p().to_string()
     };
     let combined = spk()
         .args([
@@ -1677,14 +1698,14 @@ fn dual_format_opposite_outcomes_and_swapped_reports() {
             d1x.as_str(),
             "--json",
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_ne!(combined.status.code(), Some(0));
-    let stderr = String::from_utf8(combined.stderr).unwrap();
+    let stderr = String::from_utf8(combined.stderr).unwrap_p();
     assert!(stderr.contains("duplicate_corpus_identity"), "{stderr}");
-    let stdout = String::from_utf8(combined.stdout).unwrap();
+    let stdout = String::from_utf8(combined.stdout).unwrap_p();
     assert!(
         stdout.contains("rename"),
         "hint to rename one file: {stdout}"
@@ -1715,18 +1736,21 @@ fn dual_format_opposite_outcomes_and_swapped_reports() {
     assert_ne!(digest1, digest2);
     // Swapped reports are rejected: d1's invocation must not accept
     // d2's evidence, and the rejected report is never rewritten.
-    std::fs::copy(out2.join("d2.check.json"), out1.join("d1.check.json")).unwrap();
-    let before = std::fs::read_to_string(out1.join("d1.check.json")).unwrap();
+    std::fs::copy(out2.join("d2.check.json"), out1.join("d1.check.json")).unwrap_p();
+    let before = std::fs::read_to_string(out1.join("d1.check.json")).unwrap_p();
     drop_props(&out1, &["d1"]);
     let (vcode, vjson) = verify_batch(&[d1.as_str()], &out1);
     assert_eq!(vcode, Some(1), "swapped evidence never verifies: {vjson}");
     let entry = &vjson["data"]["blocked"][0];
     assert_eq!(entry["model"]["state"], "stale");
     assert!(
-        entry["model"]["detail"].as_str().unwrap().contains("scope"),
+        entry["model"]["detail"]
+            .as_str()
+            .unwrap_p()
+            .contains("scope"),
         "{entry}"
     );
-    let after = std::fs::read_to_string(out1.join("d1.check.json")).unwrap();
+    let after = std::fs::read_to_string(out1.join("d1.check.json")).unwrap_p();
     assert_eq!(before, after);
     // Distinct-real-id files lint together like any corpus.
     spk()
@@ -1750,7 +1774,7 @@ fn dual_format_opposite_outcomes_and_swapped_reports() {
 /// first non-blank line is `---` are runnable format artifacts.
 fn usage_example(id: &str) -> String {
     let doc_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("openspec/USAGE.md");
-    let doc = std::fs::read_to_string(&doc_path).unwrap();
+    let doc = std::fs::read_to_string(&doc_path).unwrap_p();
     let mut blocks: Vec<String> = Vec::new();
     let mut in_fence = false;
     let mut body: Vec<String> = Vec::new();
@@ -1795,12 +1819,12 @@ fn usage_example(id: &str) -> String {
 fn checked_statuses(json: &serde_json::Value) -> Vec<(String, String)> {
     json["data"]["checked"][0]["invariant_statuses"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .map(|s| {
             (
-                s["id"].as_str().unwrap().to_string(),
-                s["status"].as_str().unwrap().to_string(),
+                s["id"].as_str().unwrap_p().to_string(),
+                s["status"].as_str().unwrap_p().to_string(),
             )
         })
         .collect()
@@ -1812,17 +1836,17 @@ fn usage_quick_start_kernel_claims_verify() {
     // structural facts are kernel claims — the migrated example must
     // lint clean and produce fresh expected statuses through the real
     // compile → model-check path.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let out = td.path().join("out");
     let spec = td.path().join("order-cancel.md");
-    std::fs::write(&spec, usage_example("order.cancel")).unwrap();
+    std::fs::write(&spec, usage_example("order.cancel")).unwrap_p();
     // The doc example lints clean — zero exemptions.
     spk()
-        .args(["lint", spec.to_str().unwrap()])
+        .args(["lint", spec.to_str().unwrap_p()])
         .assert()
         .success();
-    claim_compile(spec.to_str().unwrap(), &out);
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    claim_compile(spec.to_str().unwrap_p(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(code, Some(0));
     assert_eq!(json["data"]["outcome"], "no_counterexample");
     let statuses = checked_statuses(&json);
@@ -1850,7 +1874,7 @@ fn dangling_kernel_endpoint_unknown_carries_reason() {
     // must point at the bad id. Status semantics are unchanged: the
     // unknown itself is deliberate (never a fabricated verdict) — the
     // fix is the attached reason, so exit 0 stays (post-4v1).
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let out = td.path().join("out");
     let example = usage_example("order.cancel").replace(
         "reachable(order.cancel.refund, order.cancel.refund_bounded, guard)",
@@ -1861,17 +1885,17 @@ fn dangling_kernel_endpoint_unknown_carries_reason() {
         "the sed must hit the reachable cell"
     );
     let spec = td.path().join("order-cancel.md");
-    std::fs::write(&spec, example).unwrap();
-    claim_compile(spec.to_str().unwrap(), &out);
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    std::fs::write(&spec, example).unwrap_p();
+    claim_compile(spec.to_str().unwrap_p(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(code, Some(0));
     assert_eq!(json["data"]["outcome"], "exploration_only");
     let entry = json["data"]["checked"][0]["invariant_statuses"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .find(|s| s["id"] == "refund_guard_reaches")
-        .unwrap()
+        .unwrap_p()
         .clone();
     assert_eq!(entry["status"], "unknown");
     let reason = entry["reason"].as_str().unwrap_or_else(|| {
@@ -1886,10 +1910,10 @@ fn dangling_kernel_endpoint_unknown_carries_reason() {
     let report = claim_report(&out, "order-cancel");
     let claim = report["claims"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .find(|c| c["id"] == "refund_guard_reaches")
-        .unwrap();
+        .unwrap_p();
     assert_eq!(claim["status"], "unknown");
     assert!(
         claim["reason"]
@@ -1905,16 +1929,16 @@ fn usage_micro_example_kernel_claims_verify() {
     // Task 6.1 (design D5, example 2/2): the §3 worked micro-example's
     // data-dependent structural facts are kernel claims — same gate
     // shape as the quick-start, extracted live from the doc.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let out = td.path().join("out");
     let spec = td.path().join("api-rate_limit.md");
-    std::fs::write(&spec, usage_example("api.rate_limit")).unwrap();
+    std::fs::write(&spec, usage_example("api.rate_limit")).unwrap_p();
     spk()
-        .args(["lint", spec.to_str().unwrap()])
+        .args(["lint", spec.to_str().unwrap_p()])
         .assert()
         .success();
-    claim_compile(spec.to_str().unwrap(), &out);
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    claim_compile(spec.to_str().unwrap_p(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(code, Some(0));
     assert_eq!(json["data"]["outcome"], "no_counterexample");
     let statuses = checked_statuses(&json);
@@ -1944,17 +1968,17 @@ fn usage_micro_example_kernel_claims_verify() {
 
 #[test]
 fn specodelic_md_kernel_invariants_verify() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let out = td.path().join("out");
     let repo_spec =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("openspec/specs/specodelic/spec.md");
-    let spec = repo_spec.to_str().unwrap();
+    let spec = repo_spec.to_str().unwrap_p();
     // The format's own file lints clean — the migration gate (corpus
     // lint, as `just lint-specs` runs it: its cross-file refs resolve
     // corpus-wide, so a single-file lint would false-fail).
     let specs_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("openspec/specs");
     spk()
-        .args(["lint", specs_dir.to_str().unwrap()])
+        .args(["lint", specs_dir.to_str().unwrap_p()])
         .assert()
         .success();
     // compile is corpus-wide for the same reason (compile's
@@ -1962,7 +1986,7 @@ fn specodelic_md_kernel_invariants_verify() {
     // dirs, not the whole tree (stateless capability specs refuse) —
     // then model-check runs on specodelic.md as the sole invocation
     // corpus.
-    let mut cargs: Vec<String> = ["compile", "--out-dir", out.to_str().unwrap()]
+    let mut cargs: Vec<String> = ["compile", "--out-dir", out.to_str().unwrap_p()]
         .into_iter()
         .map(String::from)
         .collect();
@@ -2001,21 +2025,25 @@ fn specodelic_md_kernel_invariants_verify() {
 // included (kernel_nonmember_labeled, openspec/specs/compile/spec.md).
 #[test]
 fn stale_compile_with_kernel_grammar_broken_cell_fails_labeled() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("m6k.md");
     let rows = "| ka | invariant | `**kernel:** acyclic(supersedes)` | [[m6k]] |\n\
                 | kb | invariant | `**kernel:** resolves(traces_to)` | [[m6k]] |\n";
     write_claim_spec(&spec, "m6k", rows, &claim_props("m6k", &["ka", "kb"]), "ka");
     let out = td.path().join("out");
-    claim_compile(spec.to_str().unwrap(), &out);
+    claim_compile(spec.to_str().unwrap_p(), &out);
     // The stale-compile edit: break the kernel grammar in ka's cell —
     // the exact body repro (acyclic → bogusfn, a non-member atomic).
     let edited = std::fs::read_to_string(&spec)
-        .unwrap()
+        .unwrap_p()
         .replace("acyclic(supersedes)", "bogusfn(supersedes)");
-    assert_ne!(edited, std::fs::read_to_string(&spec).unwrap(), "sed no-op");
-    std::fs::write(&spec, edited).unwrap();
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_ne!(
+        edited,
+        std::fs::read_to_string(&spec).unwrap_p(),
+        "sed no-op"
+    );
+    std::fs::write(&spec, edited).unwrap_p();
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     // Labeled failure: exit 1, error envelope, stage kernel_grammar.
     assert_eq!(
         code,
@@ -2024,7 +2052,7 @@ fn stale_compile_with_kernel_grammar_broken_cell_fails_labeled() {
     );
     assert_eq!(json["ok"], serde_json::json!(false), "envelope: {json}");
     assert_eq!(json["envelope_kind"], serde_json::json!("error"));
-    let failed = json["data"]["failed"].as_array().unwrap();
+    let failed = json["data"]["failed"].as_array().unwrap_p();
     assert!(
         failed.iter().any(|f| f["stage"] == "kernel_grammar"
             && f["message"].as_str().is_some_and(|m| m.contains("bogusfn"))),
@@ -2043,7 +2071,7 @@ fn stale_compile_with_kernel_grammar_broken_cell_fails_labeled() {
 // clean run keeps prose prose — model-check must not start failing on it.
 #[test]
 fn prose_only_cell_edit_stays_unchecked_not_labeled() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("m6kp.md");
     let rows = "| ka | invariant | `**kernel:** resolves(traces_to)` | [[m6kp]] |\n\
                 | kc | invariant | `the refund policy holds for all orders` | [[m6kp]] |\n";
@@ -2055,18 +2083,22 @@ fn prose_only_cell_edit_stays_unchecked_not_labeled() {
         "ka",
     );
     let out = td.path().join("out");
-    claim_compile(spec.to_str().unwrap(), &out);
-    let edited = std::fs::read_to_string(&spec).unwrap().replace(
+    claim_compile(spec.to_str().unwrap_p(), &out);
+    let edited = std::fs::read_to_string(&spec).unwrap_p().replace(
         "the refund policy holds for all orders",
         "the refund policy holds for every order",
     );
-    assert_ne!(edited, std::fs::read_to_string(&spec).unwrap(), "sed no-op");
-    std::fs::write(&spec, edited).unwrap();
-    let (code, json) = claim_mc_json(spec.to_str().unwrap(), &out);
+    assert_ne!(
+        edited,
+        std::fs::read_to_string(&spec).unwrap_p(),
+        "sed no-op"
+    );
+    std::fs::write(&spec, edited).unwrap_p();
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
     assert_eq!(code, Some(0), "prose stays prose: {json}");
     assert_eq!(json["data"]["outcome"], "no_counterexample");
     let checked = &json["data"]["checked"][0];
-    let unchecked = checked["unchecked_claim_ids"].as_array().unwrap();
+    let unchecked = checked["unchecked_claim_ids"].as_array().unwrap_p();
     assert!(
         unchecked.iter().any(|u| u == "kc"),
         "the edited prose cell stays explicitly unchecked: {unchecked:?}"
@@ -2088,12 +2120,12 @@ fn explain_conform_topic_carries_the_conform_semantics() {
     let out = spk()
         .args(["explain", "conform", "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
     assert_eq!(json["data"]["topic"], "conform");
-    let body = json["data"]["body"].as_str().unwrap();
+    let body = json["data"]["body"].as_str().unwrap_p();
     // Oracle JSONL schema + the naming rationale surfaced from
     // src/conform.rs's TraceStep doc comment.
     assert!(body.contains("deny_unknown_fields"), "schema: {body}");
@@ -2141,8 +2173,8 @@ fn explain_conform_topic_carries_the_conform_semantics() {
 #[test]
 fn explain_conform_topic_reachable_in_human_mode() {
     // The meter: `spk explain conform` exits 0 and prints the primer.
-    let out = spk().args(["explain", "conform"]).output().unwrap();
+    let out = spk().args(["explain", "conform"]).output().unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let stdout = String::from_utf8(out.stdout).unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(stdout.contains("conform"), "human body: {stdout}");
 }

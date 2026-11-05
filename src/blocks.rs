@@ -86,13 +86,14 @@ pub fn has_block(path: &std::path::Path) -> bool {
 
 #[cfg(test)]
 mod discovery_tests {
+    use crate::test_panic::UnwrapPanic;
     use genesis::discovery;
 
     // -- specodelic-las: spk init registers in .genesis/tools.toml -------
 
     #[test]
     fn register_creates_manifest_with_specodelic_entry() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         genesis::discovery::register(
             dir.path(),
             "specodelic",
@@ -100,18 +101,18 @@ mod discovery_tests {
             "file",
             "AGENTS.md",
         )
-        .unwrap();
-        let manifest = discovery::read_manifest(dir.path()).expect("manifest written");
-        let entry = manifest.tools.get("specodelic").expect("entry present");
+        .unwrap_p();
+        let manifest = discovery::read_manifest(dir.path()).unwrap_p();
+        let entry = manifest.tools.get("specodelic").unwrap_p();
         assert_eq!(entry.detector.detector_type, "file");
         assert_eq!(entry.detector.path, "AGENTS.md");
     }
 
     #[test]
     fn register_is_idempotent_and_merges_with_siblings() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         // a sibling tool registered first
-        discovery::register(dir.path(), "wai", "Workflow manager", "directory", ".wai").unwrap();
+        discovery::register(dir.path(), "wai", "Workflow manager", "directory", ".wai").unwrap_p();
         // register specodelic twice
         for _ in 0..2 {
             genesis::discovery::register(
@@ -121,9 +122,9 @@ mod discovery_tests {
                 "file",
                 "AGENTS.md",
             )
-            .unwrap();
+            .unwrap_p();
         }
-        let manifest = discovery::read_manifest(dir.path()).unwrap();
+        let manifest = discovery::read_manifest(dir.path()).unwrap_p();
         assert_eq!(
             manifest.tools.len(),
             2,
@@ -135,9 +136,9 @@ mod discovery_tests {
         let tools = discovery::scan(dir.path());
         assert!(tools.iter().any(|t| t.name == "specodelic"));
         // detector: AGENTS.md must exist for `detected: true`
-        std::fs::write(dir.path().join("AGENTS.md"), "x").unwrap();
+        std::fs::write(dir.path().join("AGENTS.md"), "x").unwrap_p();
         let tools = discovery::scan(dir.path());
-        let spk = tools.iter().find(|t| t.name == "specodelic").unwrap();
+        let spk = tools.iter().find(|t| t.name == "specodelic").unwrap_p();
         assert!(spk.detected, "AGENTS.md present → detected");
     }
 }
@@ -156,6 +157,8 @@ pub fn block_format_revision(path: &std::path::Path) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_panic::UnwrapPanic;
+
     use super::*;
 
     #[test]
@@ -173,23 +176,26 @@ mod tests {
 
     #[test]
     fn inject_is_idempotent_and_refreshes() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let path = dir.path().join("AGENTS.md");
-        std::fs::write(&path, "# My repo\n").unwrap();
+        std::fs::write(&path, "# My repo\n").unwrap_p();
         assert!(matches!(
-            inject_into(&path).unwrap(),
+            inject_into(&path).unwrap_p(),
             InjectResult::Prepended
         ));
         assert!(has_block(&path));
         // refresh: updated in place, single block, content preserved
-        assert!(matches!(inject_into(&path).unwrap(), InjectResult::Updated));
-        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(matches!(
+            inject_into(&path).unwrap_p(),
+            InjectResult::Updated
+        ));
+        let text = std::fs::read_to_string(&path).unwrap_p();
         assert_eq!(text.matches("SPECODELIC:START").count(), 1);
         assert!(text.contains("# My repo"));
         // currency parse: the block names the current revision
         assert_eq!(
             block_format_revision(&path),
-            Some(crate::guide::revision_number(crate::guide::FORMAT_REVISION).unwrap())
+            Some(crate::guide::revision_number(crate::guide::FORMAT_REVISION).unwrap_p())
         );
     }
 }

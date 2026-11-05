@@ -6,6 +6,7 @@
 // Rationale: specodelic-4v1 (F1) — failures ride success-shaped
 // envelopes; see also tests/cli/model_check.rs for the model-check side.
 use super::*;
+use crate::common::UnwrapPanic;
 
 /// A lint-clean spec with a Properties table whose predicate carries no
 /// `**rust:` marker — the todo_predicate! placeholder path (gh-15).
@@ -32,7 +33,7 @@ fn write_props_spec(path: &std::path::Path, id: &str) {
              | p | unit | [[{id}.c1]] | `g()` | `x` |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// A lint-clean-shaped spec whose one kernel row uses a nonmember
@@ -61,7 +62,7 @@ fn write_kernel_grammar_broken_spec(path: &std::path::Path, id: &str) {
              | p_ka | unit | [[{id}.ka]] | `word()` | `**rust:** v0.len() >= 1` |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 #[test]
@@ -69,21 +70,21 @@ fn kernel_grammar_failure_is_an_error_envelope_with_exit_1() {
     // specodelic-4v1 (F1): exit 1 was already correct; the envelope lied
     // (ok:true / envelope_kind:ok with files_failed: 1). The
     // errors.md correspondence is bidirectional: exit 1 ⇔ ok:false.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("kgf.md");
     write_kernel_grammar_broken_spec(&spec, "kgf");
     let result = spk()
         .args([
             "compile",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            td.path().join("out").to_str().unwrap(),
+            td.path().join("out").to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(result.status.code(), Some(1), "labeled failure exits 1");
-    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap_p();
     assert_eq!(json["ok"], serde_json::json!(false), "envelope: {json}");
     assert_eq!(json["envelope_kind"], serde_json::json!("error"));
     // The payload survives the envelope flip — consumers still read the
@@ -101,7 +102,7 @@ fn kernel_grammar_failure_is_an_error_envelope_with_exit_1() {
 fn clean_compile_stays_a_success_envelope_with_exit_0() {
     // The flip must not overreach: a fully compiled batch keeps
     // ok:true / envelope_kind:ok / exit 0.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("kgc.md");
     std::fs::write(
         &spec,
@@ -123,19 +124,19 @@ fn clean_compile_stays_a_success_envelope_with_exit_0() {
           |----|------|--------------|-----------|------------|\n\
           | p_ka | unit | [[kgc.ka]] | `word()` | `**rust:** v0.len() >= 1` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let result = spk()
         .args([
             "compile",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            td.path().join("out").to_str().unwrap(),
+            td.path().join("out").to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(result.status.code(), Some(0));
-    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap_p();
     assert_eq!(json["ok"], serde_json::json!(true));
     assert_eq!(json["envelope_kind"], serde_json::json!("ok"));
     assert_eq!(json["data"]["files_failed"], serde_json::json!(0));
@@ -148,51 +149,56 @@ fn emitted_props_artifacts_are_rustfmt_clean() {
     // churn ~14 files of pure formatting that trips downstream
     // `cargo fmt --check` gates. Emitted .rs artifacts pass
     // `rustfmt --check --edition 2021` as written; no post-pass needed.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("rfc.md");
     write_props_spec(&spec, "rfc");
     let out = td.path().join("out");
     let result = spk()
         .args([
             "compile",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(result.status.code(), Some(0), "compile must succeed");
     let props_path = std::fs::read_dir(&out)
-        .unwrap()
+        .unwrap_p()
         .filter_map(|e| e.ok())
         .map(|e| e.path())
         .find(|p| p.extension().is_some_and(|x| x == "rs"))
-        .expect("compile emits a *_props.rs artifact");
+        .unwrap_p();
 
     // Byte-stable across a re-run: same input, byte-identical artifacts.
-    let first = std::fs::read(&props_path).unwrap();
+    let first = std::fs::read(&props_path).unwrap_p();
     let rerun = spk()
         .args([
             "compile",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(rerun.status.code(), Some(0));
     assert_eq!(
         first,
-        std::fs::read(&props_path).unwrap(),
+        std::fs::read(&props_path).unwrap_p(),
         "emission must be byte-stable across a re-run"
     );
 
     let fmt = std::process::Command::new("rustfmt")
-        .args(["--check", "--edition", "2021", props_path.to_str().unwrap()])
+        .args([
+            "--check",
+            "--edition",
+            "2021",
+            props_path.to_str().unwrap_p(),
+        ])
         .output()
-        .expect("rustfmt must be available to assert the fmt-clean contract");
+        .unwrap_p();
     assert!(
         fmt.status.success(),
         "emitted {} is not rustfmt-clean:\n{}{}",

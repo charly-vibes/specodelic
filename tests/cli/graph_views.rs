@@ -19,15 +19,16 @@
 //! and the fixture corpora stay files rather than inline strings
 //! (parse_misc.rs sits at its file_lines cap).
 
+use crate::common::UnwrapPanic;
 use assert_cmd::Command;
 
 fn spk() -> Command {
-    Command::cargo_bin("specodelic").unwrap()
+    Command::cargo_bin("specodelic").unwrap_p()
 }
 
 fn edges_rows(out: &[u8]) -> Vec<Vec<&str>> {
     std::str::from_utf8(out)
-        .unwrap()
+        .unwrap_p()
         .lines()
         .map(|l| l.split('\t').collect())
         .collect()
@@ -46,13 +47,13 @@ fn fixture_zero_file_corpus_projects_empty_but_envelope_refuses() {
             "edges",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0), "parsed-not-linted: exit 0");
     assert!(out.stdout.is_empty(), "an intentless corpus yields no rows");
     let json = spk()
         .args(["graph", "tests/fixtures/graph/zero_file", "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(json.status.code(), Some(2), "the scope-gate input refuses");
 }
 
@@ -64,7 +65,7 @@ fn fixture_single_intent_corpus_is_in_scope_with_wellformed_rows() {
     let tsv = spk()
         .args(["graph", "tests/fixtures/single_intent", "--format", "edges"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(tsv.status.code(), Some(0));
     for row in edges_rows(&tsv.stdout) {
         assert_eq!(row.len(), 6, "every row has exactly six columns: {row:?}");
@@ -72,9 +73,9 @@ fn fixture_single_intent_corpus_is_in_scope_with_wellformed_rows() {
     let json = spk()
         .args(["graph", "tests/fixtures/single_intent", "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(json.status.code(), Some(0));
-    let data: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
+    let data: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap_p();
     assert_eq!(data["ok"], serde_json::json!(true));
     assert_eq!(
         data["data"]["files"],
@@ -101,7 +102,7 @@ fn fixture_typing_violations_corpus_projects_annotation_and_transition_rows() {
             "edges",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     // specodelic-0zk F8: typing violations are findings — exit 1, not 0.
     assert_eq!(out.status.code(), Some(1));
     let rows = edges_rows(&out.stdout);
@@ -130,7 +131,7 @@ fn fixture_lint_dirty_corpus_parses_but_fails_lint() {
     let out = spk()
         .args(["graph", "tests/fixtures/lint_dirty", "--format", "edges"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(
         out.status.code(),
         Some(0),
@@ -145,14 +146,14 @@ fn fixture_lint_dirty_corpus_parses_but_fails_lint() {
     let lint = spk()
         .args(["lint", "tests/fixtures/lint_dirty", "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_ne!(lint.status.code(), Some(0), "invariant findings fail lint");
-    let data: serde_json::Value = serde_json::from_slice(&lint.stdout).unwrap();
+    let data: serde_json::Value = serde_json::from_slice(&lint.stdout).unwrap_p();
     let rules: Vec<&str> = data["data"]["issues"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
-        .map(|i| i["rule_id"].as_str().unwrap())
+        .map(|i| i["rule_id"].as_str().unwrap_p())
         .collect();
     assert!(
         rules.contains(&"linter.guard_required"),
@@ -171,7 +172,7 @@ fn member_path_link_graphs_without_panicking() {
     let json = spk()
         .args(["graph", "tests/fixtures/member_path", "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(
         json.status.code(),
         Some(0),
@@ -181,7 +182,7 @@ fn member_path_link_graphs_without_panicking() {
     let out = spk()
         .args(["graph", "tests/fixtures/member_path", "--format", "edges"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     let rows = edges_rows(&out.stdout);
     assert!(
@@ -205,16 +206,16 @@ fn dangling_member_path_reports_not_silently_resolves() {
     let json = spk()
         .args(["graph", "tests/fixtures/member_path_dangling", "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(
         json.status.code(),
         Some(1),
         "dangling findings exit 1, never the panic 101: {}",
         String::from_utf8_lossy(&json.stderr)
     );
-    let data: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
+    let data: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap_p();
     assert_eq!(data["ok"], serde_json::Value::Bool(true));
-    let rendered = serde_json::to_string(&data["data"]).unwrap();
+    let rendered = serde_json::to_string(&data["data"]).unwrap_p();
     assert!(
         rendered.contains("v.norow.deep"),
         "the dangling report keeps the labeled path spelling: {rendered}"

@@ -36,6 +36,7 @@ class PlainInvocationTest(unittest.TestCase):
             sv.GATE_COMMAND,
             ["openspec", "validate", "--all", "--strict", "--no-interactive"],
         )
+        return None  # explicit non-void: no self-field mutation
 
     def test_no_version_guard_machinery_exists(self):
         # the version-sniffing behavior no longer exists
@@ -52,6 +53,7 @@ class PlainInvocationTest(unittest.TestCase):
                 f"spec_validate.{name} is version-guard machinery — "
                 "the pin is retired; delete it",
             )
+        return None  # explicit non-void: no self-field mutation
 
     def test_no_fallback_invocation_in_the_script(self):
         # the fallback mechanism itself is gone; the pinned package name
@@ -59,11 +61,13 @@ class PlainInvocationTest(unittest.TestCase):
         code_only = SCRIPT_SOURCE.split('"]', 1)[-1].split('REMEDIATION', 1)[0]
         self.assertNotIn("npx", code_only)
         self.assertNotIn("subprocess.run([", code_only)
+        return None  # explicit non-void: no self-field mutation
 
     def test_expected_validator_version_is_documented(self):
         # docstring note (not a runtime constant) names the 1.x pin so a
         # drifted dev machine has a remediable lead
         self.assertIn("1.14.2", SCRIPT_SOURCE)
+        return None  # explicit non-void: no self-field mutation
 
 
 class RunnerTest(unittest.TestCase):
@@ -76,6 +80,7 @@ class RunnerTest(unittest.TestCase):
             sv.GATE_COMMAND, check=False, capture_output=True, text=True,
             timeout=mock.ANY,
         )
+        return None  # explicit non-void: no self-field mutation
 
     def test_run_streams_validator_output(self):
         lines = []
@@ -86,6 +91,7 @@ class RunnerTest(unittest.TestCase):
             rc = sv.run_gate(echo=lines.append)
         self.assertEqual(rc, 0)
         self.assertTrue(any("52/52" in ln for ln in lines), lines)
+        return None  # explicit non-void: no self-field mutation
 
     def test_run_failure_reports_remediation_hint(self):
         lines = []
@@ -101,12 +107,14 @@ class RunnerTest(unittest.TestCase):
         )
         # the hint names the pinned validator so a drifted machine can fix it
         self.assertTrue(any("1.14.2" in ln for ln in lines), lines)
+        return None  # explicit non-void: no self-field mutation
 
     def test_exit_code_is_the_validators_exit_code(self):
         with mock.patch("subprocess.run") as run:
             run.return_value = mock.Mock(returncode=7, stdout="", stderr="")
             rc = sv.run_gate(echo=lambda *_: None)
         self.assertEqual(rc, 7)
+        return None  # explicit non-void: no self-field mutation
 
 
 class JustfileWiringTest(unittest.TestCase):
@@ -115,6 +123,7 @@ class JustfileWiringTest(unittest.TestCase):
         self.assertIn("spec_validate.py", just)
         # the retirement is visible at the seam too: no fallback language
         self.assertNotIn("npx", just)
+        return None  # explicit non-void: no self-field mutation
 
 
 if __name__ == "__main__":

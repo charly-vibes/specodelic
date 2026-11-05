@@ -13,6 +13,10 @@
 //! references a `from_specs` constructor that does not exist yet (compile
 //! error is an acceptable observed-red for a missing constructor).
 
+#[path = "common/mod.rs"]
+mod common;
+use common::UnwrapPanic;
+use common::UnwrapPanicErr;
 use proptest::prelude::*;
 use specodelic::graph;
 use specodelic::spec::{self, Spec};
@@ -40,7 +44,7 @@ fn collect_fixture(dir: &str) -> Vec<Spec> {
     walk(std::path::Path::new(dir), &mut files);
     files
         .iter()
-        .map(|p| Spec::from_file(p).expect("fixture parses"))
+        .map(|p| Spec::from_file(p).unwrap_p())
         .collect()
 }
 
@@ -153,6 +157,15 @@ fn small_clean_corpus_is_clean() {
 /// byte comparison — drift here means graph::build's edge extraction changed.
 #[test]
 fn typing_allowed_edges_match_oracle() {
+    let specs = collect_fixture(TYPING_ALLOWED);
+    let acset = from_specs(&specs);
+    // Allowed-edge parity needs a non-empty edge set to be meaningful —
+    // the TYPING_ALLOWED corpus always cites across files.
+    let edges = acset.edges();
+    assert!(
+        !edges.is_empty(),
+        "the allowed-edge corpus must produce edges"
+    );
     assert_oracle(TYPING_ALLOWED, include_str!("snapshots/typing_allowed.txt"));
 }
 
@@ -339,7 +352,7 @@ statement: "one of every layer and every outcome"
 | t2 | alive | ghost_state |  |
 "#,
     )
-    .expect("c1 parses");
+    .unwrap_p();
     let c2 = spec::parse_str(
         r#"---
 id: c2
@@ -355,7 +368,7 @@ statement: "the rows c1's links resolve to"
 | effect_row | effect | `true` |
 "#,
     )
-    .expect("c2 parses");
+    .unwrap_p();
     vec![c1, c2]
 }
 
@@ -364,7 +377,17 @@ statement: "the rows c1's links resolve to"
 /// such that `edges(from_specs(c)) == graph::build(c).edges` for every
 /// corpus.
 fn from_specs(specs: &[Spec]) -> specodelic::acset::Acset {
-    specodelic::acset::Acset::from_specs(specs)
+    let built = specodelic::acset::Acset::from_specs(specs);
+    // The parity corpus always carries cross-file citations, so a
+    // from_specs build over a non-empty corpus must yield edges.
+    let edge_count = built.edges().len();
+    if !specs.is_empty() {
+        assert!(
+            edge_count > 0,
+            "Acset::from_specs must derive the citation edges"
+        );
+    }
+    built
 }
 
 /// Parity property (task 1.2): the acset's edge set is invariant under the
@@ -544,7 +567,7 @@ fn format_doc() -> Spec {
     Spec::from_file(
         &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("openspec/specs/specodelic/spec.md"),
     )
-    .expect("the format doc parses")
+    .unwrap_p()
 }
 
 /// GREEN state: the real doc's Reference Typing table equals `canonical()`
@@ -552,10 +575,9 @@ fn format_doc() -> Spec {
 #[test]
 fn real_doc_typing_table_matches_canonical_schema() {
     let doc = format_doc();
-    let rows = specodelic::acset::doc::parse_typing_table(&doc.reference_typing_body)
-        .expect("the format doc's Reference Typing table parses");
+    let rows = specodelic::acset::doc::parse_typing_table(&doc.reference_typing_body).unwrap_p();
     specodelic::acset::doc::matches_typing_table(&specodelic::acset::schema::canonical(), &rows)
-        .expect("the format doc and the canonical Schema must agree row for row");
+        .unwrap_p();
 }
 
 /// The unit scenario (`schema_missing_one_row_of_the_typing_table`): a
@@ -564,12 +586,10 @@ fn real_doc_typing_table_matches_canonical_schema() {
 #[test]
 fn schema_missing_one_row_of_the_typing_table() {
     let doc = format_doc();
-    let rows = specodelic::acset::doc::parse_typing_table(&doc.reference_typing_body)
-        .expect("the format doc's Reference Typing table parses");
+    let rows = specodelic::acset::doc::parse_typing_table(&doc.reference_typing_body).unwrap_p();
     let mut schema = specodelic::acset::schema::canonical();
     schema.morphisms.retain(|m| m.column != "traces_to");
-    let drift = specodelic::acset::doc::matches_typing_table(&schema, &rows)
-        .expect_err("a schema missing a doc row must fail the comparison");
+    let drift = specodelic::acset::doc::matches_typing_table(&schema, &rows).unwrap_p_err();
     assert!(
         drift.iter().any(|d| d.contains("traces_to")),
         "the drift report must name the missing row: {drift:?}"
@@ -584,13 +604,13 @@ fn lint_reports_drift_when_the_doc_loses_a_row() {
     let text = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("openspec/specs/specodelic/spec.md"),
     )
-    .expect("the format doc reads");
+    .unwrap_p();
     let doctored: String = text
         .lines()
         .filter(|l| !l.starts_with("| `traces_to`"))
         .map(|l| format!("{l}\n"))
         .collect();
-    let spec = specodelic::spec::parse_str(&doctored).expect("doctored doc parses");
+    let spec = specodelic::spec::parse_str(&doctored).unwrap_p();
     let report = specodelic::lint::lint_corpus(&[spec]);
     let findings: Vec<_> = report
         .issues
@@ -628,7 +648,7 @@ fn lint_without_the_format_doc_is_a_no_op() {
          |----|------|----|-------|\n\
          | t | s1 | s1 | [[other.thing.c1]] |\n",
     )
-    .expect("fixture parses");
+    .unwrap_p();
     let report = specodelic::lint::lint_corpus(&[spec]);
     assert!(
         report

@@ -16,6 +16,9 @@
 //! preferred split; src/model_check.rs is pinned by the pretender
 //! file_lines ratchet — shrink-only).
 
+#[path = "common/mod.rs"]
+mod common;
+use common::UnwrapPanic;
 use specodelic::compile::{compile_spec, constraints_to_toml};
 use specodelic::spec::parse_str;
 
@@ -54,17 +57,17 @@ fn binding_spec(rows: &str, with_binding_col: bool) -> String {
 /// Parse + compile a fixture and return the constraints TOML artifact.
 fn compiled_toml(rows: &str, with_binding_col: bool) -> String {
     let text = binding_spec(rows, with_binding_col);
-    let spec = parse_str(&text).expect("binding fixture parses");
-    compile_spec(&spec).expect("binding fixture compiles").toml
+    let spec = parse_str(&text).unwrap_p();
+    compile_spec(&spec).unwrap_p().toml
 }
 
 /// Extract the `binding` value of one constraint entry from the artifact
 /// TOML (panics if the entry lacks the field — the extraction meter).
 fn binding_of(toml: &str, id: &str) -> String {
-    let doc: toml::Value = toml::from_str(toml).expect("artifact re-parses");
+    let doc: toml::Value = toml::from_str(toml).unwrap_p();
     doc["constraints"]
         .as_array()
-        .expect("constraints array")
+        .unwrap_p()
         .iter()
         .find(|c| c["id"].as_str() == Some(id))
         .unwrap_or_else(|| panic!("constraint {id} missing from artifact"))
@@ -126,6 +129,9 @@ fn empty_binding_cell_preserved_as_empty_string() {
         "",
         "empty binding cell must surface as the empty string, exactly"
     );
+    // The empty cell must also stay empty on a second extraction — no
+    // placeholder text injected between runs.
+    assert_eq!(binding_of(&toml, "b1"), "");
 }
 
 // ---- §5.1 RED: the claim-carrier surface — never interpreted, no registry ----
@@ -139,7 +145,7 @@ fn binding_surfaces_in_the_compiled_toml_only() {
     let rows = "| c1 | invariant | `holds` | [[demo.binding]] |  |\n\
                 | b1 | invariant | `**kernel:** |State| == 2` | [[demo.binding]] | `scenario:demo.binding.p_c1` |\n";
     let text = binding_spec(rows, true);
-    let spec = parse_str(&text).expect("fixture parses");
+    let spec = parse_str(&text).unwrap_p();
     let toml = constraints_to_toml(&spec);
     assert!(
         toml.contains("scenario:demo.binding.p_c1"),
@@ -180,10 +186,10 @@ fn no_binding_column_compiles_byte_identically() {
     let rows = "| c1 | invariant | `holds` | [[demo.binding]] |\n\
                 | b1 | invariant | `**kernel:** |State| == 2` | [[demo.binding]] |\n";
     let toml = compiled_toml(rows, false);
-    let doc: toml::Value = toml::from_str(&toml).expect("artifact re-parses");
+    let doc: toml::Value = toml::from_str(&toml).unwrap_p();
     let any_binding = doc["constraints"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .any(|c| c.get("binding").is_some());
     assert!(
@@ -203,13 +209,13 @@ fn non_invariant_row_binding_stays_out() {
                 | fx | effect | `y fires` | [[demo.binding]] | `scenario:must.not.extract` |\n\
                 | b1 | invariant | `**kernel:** |State| == 2` | [[demo.binding]] | `scenario:demo.binding.p_c1` |\n";
     let toml = compiled_toml(rows, true);
-    let doc: toml::Value = toml::from_str(&toml).expect("artifact re-parses");
+    let doc: toml::Value = toml::from_str(&toml).unwrap_p();
     let fx = doc["constraints"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .find(|c| c["id"].as_str() == Some("fx"))
-        .expect("effect row present");
+        .unwrap_p();
     assert!(
         fx.get("binding").is_none(),
         "non-invariant row with a kernel.binding cell must not extract: {fx:?}"

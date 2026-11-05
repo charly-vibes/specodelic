@@ -49,6 +49,7 @@ STRIPPED = (
 class StripTest(unittest.TestCase):
     def test_strips_delta_sections_keeps_mirror(self):
         self.assertEqual(mds.strip_delta_sections(FULL), STRIPPED)
+        return None  # explicit non-void: no self-field mutation
 
     def test_all_four_titles(self):
         delta = (
@@ -62,6 +63,7 @@ class StripTest(unittest.TestCase):
         for title in ("ADDED", "MODIFIED", "REMOVED", "RENAMED"):
             self.assertNotIn(f"## {title}", out)
         self.assertIn("### Requirement: A", out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_fenced_headers_are_content(self):
         delta = (
@@ -73,6 +75,7 @@ class StripTest(unittest.TestCase):
         # byte-preservation: the fence markers themselves survive
         self.assertIn("```md\n", out)
         self.assertEqual(out.count("```"), 2)
+        return None  # explicit non-void: no self-field mutation
 
     def test_fenced_block_is_byte_identical(self):
         delta = (
@@ -81,10 +84,12 @@ class StripTest(unittest.TestCase):
             "Trailing prose.\n"
         )
         self.assertEqual(mds.strip_delta_sections(delta), delta)
+        return None  # explicit non-void: no self-field mutation
 
     def test_idempotent(self):
         once = mds.strip_delta_sections(FULL)
         self.assertEqual(mds.strip_delta_sections(once), once)
+        return None  # explicit non-void: no self-field mutation
 
 
 class MigrationTest(unittest.TestCase):
@@ -98,9 +103,11 @@ class MigrationTest(unittest.TestCase):
         (specs / "cap-b" / "spec.md").write_text(STRIPPED)
         # a plain prose file must be left alone (no frontmatter)
         (specs / "STATUS.md").write_text("# status\n")
+        return None  # explicit non-void: no self-field mutation
 
     def tearDown(self):
         self.tmp.cleanup()
+        return None  # explicit non-void: no self-field mutation
 
     def test_migrates_only_dual_deployed_specs(self):
         changed = mds.migrate(self.root)
@@ -117,10 +124,12 @@ class MigrationTest(unittest.TestCase):
             (self.root / "openspec/specs/cap-b/spec.md").read_text(),
             STRIPPED,
         )
+        return None  # explicit non-void: no self-field mutation
 
     def test_idempotent_second_run_changes_nothing(self):
         mds.migrate(self.root)
         self.assertEqual(mds.migrate(self.root), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_dry_run_reports_without_writing(self):
         changed = mds.migrate(self.root, dry_run=True)
@@ -133,6 +142,7 @@ class MigrationTest(unittest.TestCase):
             (self.root / "openspec/specs/cap-a/spec.md").read_text(),
             FULL,
         )
+        return None  # explicit non-void: no self-field mutation
 
 
 if __name__ == "__main__":

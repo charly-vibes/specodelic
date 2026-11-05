@@ -11,11 +11,14 @@
 //! Phase 5 expects NO source changes — these are conformance
 //! constraints, not behavior to implement (tasks 5.2).
 
+#[path = "common/mod.rs"]
+mod common;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use assert_cmd::Command;
 
+use common::UnwrapPanic;
 use specodelic::conform::{ConformReport, run};
 use specodelic::spec;
 use specodelic::{compile, orchestrate};
@@ -74,8 +77,8 @@ const CORPUS: &str = concat!(
 /// Parse the fixture with its path set (artifact stem derives from it).
 fn fixture_spec(dir: &Path) -> spec::Spec {
     let file = dir.join("demo.lifecycle.md");
-    std::fs::write(&file, SPEC_TEXT).expect("fixture spec writes");
-    let mut spec = spec::parse_str(SPEC_TEXT).expect("fixture spec parses");
+    std::fs::write(&file, SPEC_TEXT).unwrap_p();
+    let mut spec = spec::parse_str(SPEC_TEXT).unwrap_p();
     spec.path = Some(file.clone());
     spec
 }
@@ -83,23 +86,22 @@ fn fixture_spec(dir: &Path) -> spec::Spec {
 /// Compile the fixture's artifacts into `out_dir` (conform never
 /// compiles — the gate requires current artifacts).
 fn compile_fixture(spec: &spec::Spec, out_dir: &Path) {
-    let compiled = compile::compile_spec(spec).expect("fixture spec compiles");
-    compile::write_artifacts(spec, &compiled, out_dir.to_str().expect("utf8 out-dir"))
-        .expect("fixture artifacts write");
+    let compiled = compile::compile_spec(spec).unwrap_p();
+    compile::write_artifacts(spec, &compiled, out_dir.to_str().unwrap_p()).unwrap_p();
 }
 
 /// Byte-exact snapshot of every file under `dir` (recursive).
 fn snapshot(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
     let mut map = BTreeMap::new();
     fn walk(dir: &Path, base: &Path, map: &mut BTreeMap<PathBuf, Vec<u8>>) {
-        for entry in std::fs::read_dir(dir).expect("dir reads") {
-            let entry = entry.expect("dir entries");
+        for entry in std::fs::read_dir(dir).unwrap_p() {
+            let entry = entry.unwrap_p();
             let path = entry.path();
             if path.is_dir() {
                 walk(&path, base, map);
             } else {
-                let rel = path.strip_prefix(base).expect("relative path");
-                map.insert(rel.to_path_buf(), std::fs::read(&path).expect("file reads"));
+                let rel = path.strip_prefix(base).unwrap_p();
+                map.insert(rel.to_path_buf(), std::fs::read(&path).unwrap_p());
             }
         }
     }
@@ -108,7 +110,7 @@ fn snapshot(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
 }
 
 fn spk() -> Command {
-    Command::cargo_bin("specodelic").unwrap()
+    Command::cargo_bin("specodelic").unwrap_p()
 }
 
 // ---------------------------------------------------------------------------
@@ -122,7 +124,7 @@ fn spk() -> Command {
 /// is conformance, not behavior: no orchestrate code change is expected.
 #[test]
 fn outside_lifecycle_orchestrate_never_invokes_conform() {
-    let dir = tempfile::tempdir_in(std::env::temp_dir()).expect("tempdir");
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
     let spec = fixture_spec(dir.path());
 
     // Library path — the same machinery the CLI wraps.
@@ -130,7 +132,7 @@ fn outside_lifecycle_orchestrate_never_invokes_conform() {
         std::slice::from_ref(&spec),
         &[],
         &orchestrate::ParseInput::default(),
-        dir.path().join("out").to_str().expect("utf8 out-dir"),
+        dir.path().join("out").to_str().unwrap_p(),
         &specodelic::model_check::Bound::default(),
         &orchestrate::Backends::default(),
     );
@@ -140,7 +142,7 @@ fn outside_lifecycle_orchestrate_never_invokes_conform() {
         vec!["parse", "lint", "compile", "model_check", "verify"],
         "pipeline stages are exactly the lifecycle stages — conform is not one"
     );
-    let serialized = serde_json::to_string(&o).expect("orchestration serializes");
+    let serialized = serde_json::to_string(&o).unwrap_p();
     assert!(
         !serialized.contains("conform"),
         "no orchestration stage or detail may reference conform: {serialized}"
@@ -150,20 +152,20 @@ fn outside_lifecycle_orchestrate_never_invokes_conform() {
     let out = spk()
         .args([
             "orchestrate",
-            dir.path().to_str().expect("utf8 dir"),
+            dir.path().to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            dir.path().join("cli-out").to_str().expect("utf8 cli-out"),
+            dir.path().join("cli-out").to_str().unwrap_p(),
         ])
         .output()
-        .expect("orchestrate runs");
-    let stdout = String::from_utf8(out.stdout).expect("utf8 stdout");
-    let json: serde_json::Value = serde_json::from_str(&stdout).expect("envelope parses");
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap_p();
     let cli_stages: Vec<&str> = json["data"]["stages"]
         .as_array()
-        .expect("stages array")
+        .unwrap_p()
         .iter()
-        .map(|s| s["stage"].as_str().expect("stage name"))
+        .map(|s| s["stage"].as_str().unwrap_p())
         .collect();
     assert_eq!(
         cli_stages,
@@ -184,7 +186,7 @@ fn outside_lifecycle_orchestrate_never_invokes_conform() {
 /// exactly the same stages with the same statuses.
 #[test]
 fn conform_run_leaves_stage_unchanged() {
-    let dir = tempfile::tempdir_in(std::env::temp_dir()).expect("tempdir");
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
     let spec = fixture_spec(dir.path());
     let out_dir = dir.path().join("out");
     compile_fixture(&spec, &out_dir);
@@ -199,7 +201,7 @@ fn conform_run_leaves_stage_unchanged() {
         std::slice::from_ref(&spec),
         &[],
         &orchestrate_inputs.0,
-        out_dir.to_str().expect("utf8 out-dir"),
+        out_dir.to_str().unwrap_p(),
         &orchestrate_inputs.1,
         &orchestrate_inputs.2,
     );
@@ -211,14 +213,12 @@ fn conform_run_leaves_stage_unchanged() {
 
     // The artifact tree snapshot BEFORE the conform run.
     let artifacts_before_conform = snapshot(&out_dir);
-    let spec_bytes_before =
-        std::fs::read(spec.path.as_ref().expect("fixture path")).expect("spec reads");
+    let spec_bytes_before = std::fs::read(spec.path.as_ref().unwrap_p()).unwrap_p();
 
     // Conform runs over the model_checked artifact — with a forbidden
     // verdict (the class that maps to exit 1) to prove even a failing
     // evaluation cannot gate or block the lifecycle.
-    let report: ConformReport =
-        run(&spec, &out_dir, CORPUS.as_bytes(), false).expect("conform runs");
+    let report: ConformReport = run(&spec, &out_dir, CORPUS.as_bytes(), false).unwrap_p();
     assert!(
         report
             .records
@@ -235,8 +235,7 @@ fn conform_run_leaves_stage_unchanged() {
         artifacts_before_conform,
         "conform leaves the artifact tree byte-identical"
     );
-    let spec_bytes_after =
-        std::fs::read(spec.path.as_ref().expect("fixture path")).expect("spec reads");
+    let spec_bytes_after = std::fs::read(spec.path.as_ref().unwrap_p()).unwrap_p();
     assert_eq!(
         spec_bytes_before, spec_bytes_after,
         "conform never writes the spec file"
@@ -248,7 +247,7 @@ fn conform_run_leaves_stage_unchanged() {
         std::slice::from_ref(&spec),
         &[],
         &orchestrate_inputs.0,
-        out_dir.to_str().expect("utf8 out-dir"),
+        out_dir.to_str().unwrap_p(),
         &orchestrate_inputs.1,
         &orchestrate_inputs.2,
     );
@@ -286,13 +285,11 @@ fn consumes_never_writes() {
 
     // Fixture: a byte-copy of a real corpus file in a temp dir, compiled
     // into a temp out-dir (never the real corpus).
-    let dir = tempfile::tempdir_in(std::env::temp_dir()).expect("tempdir");
-    let original = std::fs::read(real_corpus.join("errors/spec.md")).expect("real corpus reads");
-    std::fs::create_dir_all(dir.path().join("errors")).unwrap();
-    std::fs::write(dir.path().join("errors/spec.md"), &original).expect("fixture copy writes");
-    let mut spec =
-        spec::parse_str(&String::from_utf8(original.clone()).expect("real corpus is utf8"))
-            .expect("real corpus file parses");
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
+    let original = std::fs::read(real_corpus.join("errors/spec.md")).unwrap_p();
+    std::fs::create_dir_all(dir.path().join("errors")).unwrap_p();
+    std::fs::write(dir.path().join("errors/spec.md"), &original).unwrap_p();
+    let mut spec = spec::parse_str(&String::from_utf8(original.clone()).unwrap_p()).unwrap_p();
     spec.path = Some(dir.path().join("errors/spec.md"));
     let out_dir = dir.path().join("out");
     compile_fixture(&spec, &out_dir);
@@ -308,8 +305,7 @@ fn consumes_never_writes() {
     // The whole fixture tree before the conform run.
     let fixture_before = snapshot(dir.path());
 
-    let report = run(&spec, &out_dir, corpus.as_bytes(), false)
-        .expect("dogfood conform runs over the fixture copy");
+    let report = run(&spec, &out_dir, corpus.as_bytes(), false).unwrap_p();
     assert_eq!(report.records.len(), 2, "every trace receives a verdict");
     assert!(!report.evidence_scope.is_empty());
 
@@ -339,6 +335,6 @@ fn git_status_porcelain(manifest: &Path) -> String {
         .args(["status", "--porcelain"])
         .current_dir(manifest)
         .output()
-        .expect("git status runs");
-    String::from_utf8(out.stdout).expect("git status is utf8")
+        .unwrap_p();
+    String::from_utf8(out.stdout).unwrap_p()
 }

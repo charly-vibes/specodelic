@@ -13,6 +13,10 @@
 //! preferred split; src/model_check.rs is pinned by the pretender
 //! file_lines ratchet — shrink-only).
 
+#[path = "common/mod.rs"]
+mod common;
+use common::UnwrapPanic;
+use common::UnwrapPanicErr;
 use specodelic::compile::{ThreeValued, compile_spec, extract_model_ir};
 use specodelic::kernel::{
     Atomic, KernelError, KernelExpr, Term, parse_kernel_expr, parse_kernel_str,
@@ -25,7 +29,7 @@ use specodelic::spec::parse_str;
 const PROSE_SAMPLE: &str = "---\nid: demo.prose\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| pr | invariant | `every row holds its own shape` | [[demo.prose]] |\n| ci | invariant | `[[demo.prose.pr]] ∧ ¬[[demo.prose.fx]]` | [[demo.prose]] |\n| fx | effect | `y fires` | [[demo.prose]] |\n\n## Model\n\n### States\n\n- s1\n- s2 (emits: `[[demo.prose.fx]]`)\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t1 | s1 | s2 | [[demo.prose.pr]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p1 | unit | [[demo.prose.pr]] | `arbitrary_row()` | `check(x) == ok` |\n";
 
 fn prose_sample() -> specodelic::spec::Spec {
-    parse_str(PROSE_SAMPLE).expect("prose fixture parses")
+    parse_str(PROSE_SAMPLE).unwrap_p()
 }
 
 // --- 3.1 RED: closed atomic set accepts ---
@@ -82,8 +86,7 @@ fn nonmember_atomic_fails_labeled_naming_atomic_and_set() {
     // Scenario: Closed atomic set accepts and rejects — an expression
     // using a non-member atomic is a labeled failure naming the atomic
     // AND the closed set, never prose, never silently ignored.
-    let err = parse_kernel_str("∀ c ∈ Constraint: frobnicate(c)")
-        .expect_err("non-member atomic must fail labeled");
+    let err = parse_kernel_str("∀ c ∈ Constraint: frobnicate(c)").unwrap_p_err();
     let message = match err {
         KernelError::Labeled { message } => message,
     };
@@ -109,6 +112,13 @@ fn malformed_kernel_shaped_cell_fails_labeled_not_prose() {
     assert!(parse_kernel_str("resolves(").is_err());
     // An empty marker is labeled too — never a silent no-op.
     assert!(parse_kernel_expr("`**kernel:**`").is_err());
+    // The label must carry prose: an empty failure message would leave
+    // the author without the remediation the contract promises.
+    let labeled = parse_kernel_str("resolves(").unwrap_p_err();
+    assert!(
+        !labeled.to_string().is_empty(),
+        "grammar failures carry a message"
+    );
 }
 
 // --- 3.1 RED: row-typing edge cases (RO5U stage-4 pins) ---
@@ -117,7 +127,7 @@ fn malformed_kernel_shaped_cell_fails_labeled_not_prose() {
 fn row_typing_edge_cases_fail_labeled() {
     // acyclic requires an endo morphism — traces_to is Constraint →
     // Intent, not endo: labeled, never silent.
-    let err = parse_kernel_str("acyclic(traces_to)").expect_err("non-endo");
+    let err = parse_kernel_str("acyclic(traces_to)").unwrap_p_err();
     match err {
         KernelError::Labeled { message } => {
             assert!(message.contains("endo"), "{message}");
@@ -125,14 +135,14 @@ fn row_typing_edge_cases_fail_labeled() {
     }
     // An unknown morphism name is labeled, naming the Reference Typing
     // rows.
-    let err = parse_kernel_str("resolves(bogus)").expect_err("unknown morphism");
+    let err = parse_kernel_str("resolves(bogus)").unwrap_p_err();
     match err {
         KernelError::Labeled { message } => {
             assert!(message.contains("bogus"), "{message}");
         }
     }
     // An unknown quantifier object is labeled, naming the closed five.
-    let err = parse_kernel_str("∀ c ∈ Ghost: resolves(traces_to)").expect_err("unknown object");
+    let err = parse_kernel_str("∀ c ∈ Ghost: resolves(traces_to)").unwrap_p_err();
     match err {
         KernelError::Labeled { message } => {
             assert!(message.contains("Ghost"), "{message}");
@@ -140,7 +150,7 @@ fn row_typing_edge_cases_fail_labeled() {
     }
     // A projection of a morphism not sourced on the bounding object is
     // labeled (Reference Typing row-typing).
-    let err = parse_kernel_str("∀ i ∈ Intent: i.supersedes == x").expect_err("ill-typed proj");
+    let err = parse_kernel_str("∀ i ∈ Intent: i.supersedes == x").unwrap_p_err();
     match err {
         KernelError::Labeled { message } => {
             assert!(message.contains("not sourced on Intent"), "{message}");
@@ -174,6 +184,14 @@ fn prose_expr_cell_stays_prose() {
     assert_eq!(parse_kernel_expr("every row holds its own shape"), Ok(None));
     assert_eq!(parse_kernel_expr("`x holds`"), Ok(None));
     assert_eq!(parse_kernel_expr(""), Ok(None));
+    // Kernel markers are the deciding signal: even one `∃` turns a cell
+    // away from prose — so its absence here is load-bearing.
+    // The kernel-shaped sibling is not prose — the opt-in marker parses
+    // the same fragment the grammar layer accepts directly.
+    assert!(matches!(
+        parse_kernel_str("resolves(traces_to)"),
+        Ok(Some(KernelExpr::Atomic(_)))
+    ));
 }
 
 #[test]
@@ -182,6 +200,9 @@ fn citation_cells_are_not_stolen_by_the_kernel() {
     // is a citation, never a kernel expression (the marker decides).
     assert_eq!(parse_kernel_expr("¬[[demo.prose.pr]]"), Ok(None));
     assert_eq!(parse_kernel_expr("[[demo.prose.pr]] ∧ [[a]]"), Ok(None));
+    // Negation of a bare citation is likewise prose — the marker, not
+    // the citation syntax, decides kernel-hood.
+    assert_eq!(parse_kernel_expr("¬[[demo.prose.pr]] ∧ [[a]]"), Ok(None));
 }
 
 #[test]
@@ -195,6 +216,12 @@ fn corpus_quantifier_prose_stays_prose() {
     );
     assert_eq!(
         parse_kernel_expr("`∀ id ∈ index(branch_A) ∩ index(branch_B): id was already defined`"),
+        Ok(None)
+    );
+    // The backticked prose form and its bare form must both be refused —
+    // quoting cannot smuggle kernel syntax past the guard.
+    assert_eq!(
+        parse_kernel_expr("∀ id ∈ index(branch_A) ∩ index(branch_B): id was already defined"),
         Ok(None)
     );
 }
@@ -223,7 +250,7 @@ fn prose_expr_cells_compile_byte_identically() {
     // prose corpus are byte-identical to the pre-kernel compilation.
     // Goldens captured from the pre-phase-3 compiler.
     let spec = prose_sample();
-    let compiled = compile_spec(&spec).expect("prose fixture compiles");
+    let compiled = compile_spec(&spec).unwrap_p();
     assert_eq!(
         compiled.toml,
         "source = \"demo.prose\"\n\n[[constraints]]\nid = \"pr\"\nkind = \"invariant\"\nexpr = \"`every row holds its own shape`\"\ntraces_to = \"[[demo.prose]]\"\n\n[[constraints]]\nid = \"ci\"\nkind = \"invariant\"\nexpr = \"`[[demo.prose.pr]] ∧ ¬[[demo.prose.fx]]`\"\ntraces_to = \"[[demo.prose]]\"\n\n[[constraints]]\nid = \"fx\"\nkind = \"effect\"\nexpr = \"`y fires`\"\ntraces_to = \"[[demo.prose]]\"\n"
@@ -258,7 +285,7 @@ fn kernel_expr_cell_extracts_into_the_ir() {
         "| pr | invariant | `every row holds its own shape` | [[demo.prose]] |",
         "| pr | invariant | `**kernel:** acyclic(supersedes)` | [[demo.prose]] |",
     );
-    let spec = parse_str(&text).expect("kernel fixture parses");
+    let spec = parse_str(&text).unwrap_p();
     let ir = extract_model_ir(&spec);
     assert_eq!(
         ir.guard_kernel.get("pr").map(String::as_str),

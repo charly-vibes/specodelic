@@ -1,5 +1,6 @@
 // (split from tests/cli.rs — specodelic-g17 file_lines ratchet)
 use super::*;
+use crate::common::UnwrapPanic;
 
 // ---- specodelic-suz: hostile-input ingestion hardening ----
 
@@ -9,20 +10,20 @@ use super::*;
 #[cfg(unix)]
 #[test]
 fn lint_on_a_fifo_is_rejected_never_blocks() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let fifo = dir.path().join("pipe.md");
     std::process::Command::new("mkfifo")
         .arg(&fifo)
         .status()
-        .unwrap()
+        .unwrap_p()
         .success()
         .then_some(())
-        .expect("mkfifo must succeed");
+        .unwrap_p();
     let out = spk()
-        .args(["lint", fifo.to_str().unwrap(), "--json"])
+        .args(["lint", fifo.to_str().unwrap_p(), "--json"])
         .timeout(std::time::Duration::from_secs(10))
         .output()
-        .expect("lint must finish — a FIFO must never block the read");
+        .unwrap_p();
     // A rejected input is a labeled failure when nothing else was linted.
     assert!(!out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
@@ -45,7 +46,7 @@ fn lint_on_a_char_device_is_rejected_never_reads_unbounded() {
         .args(["lint", "/dev/zero", "--json"])
         .timeout(std::time::Duration::from_secs(10))
         .output()
-        .expect("lint must finish — a device file must never be read unbounded");
+        .unwrap_p();
     // A rejected input is a labeled failure when nothing else was linted.
     assert!(!out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
@@ -60,18 +61,18 @@ fn lint_on_a_char_device_is_rejected_never_reads_unbounded() {
 /// unbounded into memory.
 #[test]
 fn lint_on_an_oversized_file_names_the_cap() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let big = dir.path().join("big.md");
     let mut content = String::from(
         "---\nid: big\nkind: intent\nstatement: \"THE system SHALL be oversized\"\n---\n\n",
     );
     content.push_str(&"x".repeat(3 * 1024 * 1024));
-    std::fs::write(&big, content).unwrap();
+    std::fs::write(&big, content).unwrap_p();
     let out = spk()
-        .args(["lint", big.to_str().unwrap(), "--json"])
+        .args(["lint", big.to_str().unwrap_p(), "--json"])
         .timeout(std::time::Duration::from_secs(10))
         .output()
-        .unwrap();
+        .unwrap_p();
     // A rejected input is a labeled failure when nothing else was linted.
     assert!(!out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
@@ -87,19 +88,19 @@ fn lint_on_an_oversized_file_names_the_cap() {
 /// batch comes up empty (specodelic-suz Ro5 follow-up, CORR-001).
 #[test]
 fn hostile_note_rides_the_empty_failure_envelope_of_every_verb() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let big = dir.path().join("big.md");
     let mut content = String::from(
         "---\nid: big\nkind: intent\nstatement: \"THE system SHALL be oversized\"\n---\n\n",
     );
     content.push_str(&"x".repeat(3 * 1024 * 1024));
-    std::fs::write(&big, content).unwrap();
+    std::fs::write(&big, content).unwrap_p();
     for verb in ["compile", "model-check", "verify"] {
         let out = spk()
-            .args([verb, big.to_str().unwrap(), "--json"])
+            .args([verb, big.to_str().unwrap_p(), "--json"])
             .timeout(std::time::Duration::from_secs(10))
             .output()
-            .unwrap();
+            .unwrap_p();
         assert!(!out.status.success(), "{verb}: must fail on zero specs");
         let stdout = String::from_utf8_lossy(&out.stdout);
         assert!(
@@ -118,21 +119,21 @@ fn hostile_note_rides_the_empty_failure_envelope_of_every_verb() {
 #[cfg(unix)]
 #[test]
 fn lint_skips_a_fifo_alongside_valid_specs_with_a_note() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_model_check_spec(&dir.path().join("ok.md"), "ok");
     let fifo = dir.path().join("pipe.md");
     std::process::Command::new("mkfifo")
         .arg(&fifo)
         .status()
-        .unwrap()
+        .unwrap_p()
         .success()
         .then_some(())
-        .expect("mkfifo must succeed");
+        .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .timeout(std::time::Duration::from_secs(10))
         .output()
-        .expect("lint must finish — a FIFO must never block the read");
+        .unwrap_p();
     assert!(out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
@@ -174,12 +175,12 @@ fn assert_human_text(stdout: &str, context: &str) {
 fn error_envelope_serializes_ok_false() {
     // An invocation error must never read {"ok":true,"envelope_kind":"error"}
     // — machine consumers gate on `ok`.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(json["ok"], serde_json::json!(false), "envelope: {json}");
     assert_eq!(json["envelope_kind"], serde_json::json!("error"));
 }
@@ -191,13 +192,13 @@ fn invocation_errors_exit_two() {
     // (nothing processed: path not found, no spec files matched).
     // Consumers must distinguish "your spec is bad" (1) from "you typoed
     // the path" (2).
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("README.md"), "# not a spec\n").unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
+    std::fs::write(dir.path().join("README.md"), "# not a spec\n").unwrap_p();
     for verb in ["lint", "graph", "compile", "model-check", "verify"] {
         let out = spk()
-            .args([verb, dir.path().to_str().unwrap(), "--json"])
+            .args([verb, dir.path().to_str().unwrap_p(), "--json"])
             .output()
-            .unwrap();
+            .unwrap_p();
         assert_eq!(
             out.status.code(),
             Some(2),
@@ -205,7 +206,7 @@ fn invocation_errors_exit_two() {
             out.status.code()
         );
         // ...and the envelope must not silently claim success either way.
-        let stdout = String::from_utf8(out.stdout).unwrap();
+        let stdout = String::from_utf8(out.stdout).unwrap_p();
         assert!(
             stdout.contains("error"),
             "{verb}: envelope_kind must be error on an invocation error: {stdout}"
@@ -217,24 +218,24 @@ fn invocation_errors_exit_two() {
 fn lint_findings_exit_one() {
     // Findings are a tool-level failure (exit 1), distinct from the
     // invocation error (exit 2).
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let bad = dir.path().join("bad_spec.md");
     std::fs::write(
         &bad,
         "---\nid: bad_spec\nkind: intent\nstatement: \"the system should maybe work\"\n---\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(1));
 }
 
 #[test]
 fn help_documents_exit_codes() {
-    let out = spk().arg("--help").output().unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+    let out = spk().arg("--help").output().unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(
         stdout.contains("Exit codes") && stdout.contains("invocation error"),
         "--help must document the exit-code mapping:\n{stdout}"
@@ -243,18 +244,18 @@ fn help_documents_exit_codes() {
 
 #[test]
 fn human_lint_is_text_not_debug() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let bad = dir.path().join("bad_spec.md");
     std::fs::write(
         &bad,
         "---\nid: bad_spec\nkind: intent\nstatement: \"the system should maybe work\"\n---\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--human"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--human"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert_human_text(&stdout, "lint");
     assert!(
         stdout.contains("linter.ears_syntax"),
@@ -268,14 +269,14 @@ fn human_lint_is_text_not_debug() {
 
 #[test]
 fn human_graph_is_text_not_debug() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("gdemo.md");
     write_model_check_spec(&spec, "gdemo");
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--human"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--human"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert_human_text(&stdout, "graph");
     assert!(
         stdout.contains("dangling"),
@@ -285,13 +286,13 @@ fn human_graph_is_text_not_debug() {
 
 #[test]
 fn human_compile_is_text_not_debug() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let (spec, out_dir) = compile_fixture(&td, "hcomp", "        let _ = v0;");
     let out = spk()
         .args(["compile", &spec, "--human", "--out-dir", &out_dir])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert_human_text(&stdout, "compile");
     assert!(
         stdout.contains("compiled"),
@@ -301,13 +302,13 @@ fn human_compile_is_text_not_debug() {
 
 #[test]
 fn human_model_check_is_text_not_debug() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let (spec, out_dir) = compile_fixture(&td, "hmc", "        let _ = v0;");
     let out = spk()
         .args(["model-check", &spec, "--human", "--out-dir", &out_dir])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert_human_text(&stdout, "model-check");
     assert!(
         stdout.contains("exploration_only") || stdout.contains("outcome"),
@@ -317,13 +318,13 @@ fn human_model_check_is_text_not_debug() {
 
 #[test]
 fn human_verify_is_text_not_debug() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let (spec, out_dir) = compile_fixture(&td, "hver", "        let _ = v0;");
     let out = spk()
         .args(["verify", &spec, "--human", "--out-dir", &out_dir])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert_human_text(&stdout, "verify");
     assert!(
         stdout.contains("verified") || stdout.contains("blocked"),
@@ -333,8 +334,8 @@ fn human_verify_is_text_not_debug() {
 
 #[test]
 fn human_doctor_is_text_not_debug() {
-    let out = spk().args(["doctor", "--human"]).output().unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+    let out = spk().args(["doctor", "--human"]).output().unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert_human_text(&stdout, "doctor");
     assert!(
         stdout.contains("mode"),
@@ -351,19 +352,14 @@ fn usage_quick_start_example_is_lint_clean() {
     // (id_matches_file) and every constraint has a deriving property
     // (coverage).
     let usage = std::fs::read_to_string("openspec/USAGE.md")
-        .unwrap()
+        .unwrap_p()
         // Windows runners check out CRLF (Git for Windows autocrlf);
         // normalize so the fence search below is line-ending-agnostic.
         .replace("\r\n", "\n");
-    let start = usage
-        .find("## 1. Quick start")
-        .expect("USAGE §1 quick-start exists");
-    let block_start = usage[start..]
-        .find("```markdown\n")
-        .expect("quick-start has a markdown block")
-        + start
-        + "```markdown\n".len();
-    let block_end = usage[block_start..].find("\n```").expect("block is closed") + block_start;
+    let start = usage.find("## 1. Quick start").unwrap_p();
+    let block_start =
+        usage[start..].find("```markdown\n").unwrap_p() + start + "```markdown\n".len();
+    let block_end = usage[block_start..].find("\n```").unwrap_p() + block_start;
     let body = &usage[block_start..block_end];
 
     // The example must name its file (the id↔filename law): order.cancel
@@ -373,14 +369,14 @@ fn usage_quick_start_example_is_lint_clean() {
         "the quick-start prose must tell the reader to save the spec as order-cancel.md (id_matches_file law)"
     );
 
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let spec = dir.path().join("order-cancel.md");
-    std::fs::write(&spec, body).unwrap();
+    std::fs::write(&spec, body).unwrap_p();
     let out = spk()
-        .args(["lint", spec.to_str().unwrap(), "--json"])
+        .args(["lint", spec.to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert_eq!(
         out.status.code(),
         Some(0),
@@ -397,7 +393,7 @@ fn explain_unknown_topic_exits_two() {
     let out = spk()
         .args(["explain", "nosuchtopic", "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(2));
 }
 
@@ -405,26 +401,26 @@ fn explain_unknown_topic_exits_two() {
 fn new_existing_file_exits_two() {
     // Overwriting an existing file is refused — an invocation error, not
     // a tool-level failure.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let file = dir.path().join("demo-thing.md");
-    std::fs::write(&file, "exists").unwrap();
+    std::fs::write(&file, "exists").unwrap_p();
     let out = spk()
         .args([
             "new",
             "demo.thing",
             "--file",
-            file.to_str().unwrap(),
+            file.to_str().unwrap_p(),
             "--json",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(2));
 }
 
 #[test]
 fn human_explain_lists_topics_not_debug() {
-    let out = spk().args(["explain", "--human"]).output().unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+    let out = spk().args(["explain", "--human"]).output().unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert_human_text(&stdout, "explain list");
     assert!(
         stdout.contains("dual-format"),
@@ -437,8 +433,8 @@ fn human_explain_unknown_topic_has_no_debug_junk() {
     let out = spk()
         .args(["explain", "nosuchtopic", "--human"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert_human_text(&stdout, "explain unknown");
     assert!(
         !stdout.contains('"'),
@@ -448,7 +444,7 @@ fn human_explain_unknown_topic_has_no_debug_junk() {
 
 #[test]
 fn human_new_reports_unquoted() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let out = spk()
         .args([
             "new",
@@ -458,8 +454,8 @@ fn human_new_reports_unquoted() {
             "--human",
         ])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(stdout.contains("created"), "{stdout}");
     assert!(
         !stdout.contains('"'),
@@ -474,8 +470,8 @@ fn human_hooks_uninstall_renders_text() {
         .args(["hooks", "uninstall", "--human"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert_human_text(&stdout, "hooks uninstall");
     assert!(
         stdout.contains("unwired") || stdout.contains("not_wired"),
@@ -506,7 +502,7 @@ fn write_rename_fixture(dir: &tempfile::TempDir) {
          |----|------|--------------|-----------|-----------|\n\
          | p1 | unit | [[alpha.c1]] | `arbitrary_row()` | `check(x) == ok` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     std::fs::write(
         dir.path().join("beta.md"),
         "---\nid: beta\nkind: intent\nstatement: \"THE system SHALL reference\"\n---\n\n\
@@ -519,7 +515,7 @@ fn write_rename_fixture(dir: &tempfile::TempDir) {
          |----|------|--------------|-----------|-----------|\n\
          | pb1 | unit | [[alpha.c1]] | `arbitrary_row()` | `check(z) == ok` |\n",
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// clean_rename_passes + old_id_fully_replaced + prose_mention_left_alone:
@@ -528,26 +524,26 @@ fn write_rename_fixture(dir: &tempfile::TempDir) {
 /// touches prose that mentions the old id in words.
 #[test]
 fn rename_of_a_row_rewrites_definition_and_all_refs() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_rename_fixture(&dir);
     let out = spk()
         .args([
             "rename",
             "alpha.c1",
             "alpha.c1_renamed",
-            dir.path().join("alpha.md").to_str().unwrap(),
-            dir.path().join("beta.md").to_str().unwrap(),
+            dir.path().join("alpha.md").to_str().unwrap_p(),
+            dir.path().join("beta.md").to_str().unwrap_p(),
             "--json",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert!(
         out.status.success(),
         "clean rename must pass: {}",
         String::from_utf8_lossy(&out.stderr)
     );
-    let alpha = std::fs::read_to_string(dir.path().join("alpha.md")).unwrap();
-    let beta = std::fs::read_to_string(dir.path().join("beta.md")).unwrap();
+    let alpha = std::fs::read_to_string(dir.path().join("alpha.md")).unwrap_p();
+    let beta = std::fs::read_to_string(dir.path().join("beta.md")).unwrap_p();
     assert!(
         alpha.contains("| c1_renamed |"),
         "definition cell rewritten: {alpha}"
@@ -573,12 +569,12 @@ fn rename_of_a_row_rewrites_definition_and_all_refs() {
     let graph = spk()
         .args([
             "graph",
-            dir.path().join("alpha.md").to_str().unwrap(),
-            dir.path().join("beta.md").to_str().unwrap(),
+            dir.path().join("alpha.md").to_str().unwrap_p(),
+            dir.path().join("beta.md").to_str().unwrap_p(),
             "--json",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert!(
         graph.status.success()
             && !String::from_utf8_lossy(&graph.stdout).contains("\"dangling\":[{"),
@@ -591,31 +587,31 @@ fn rename_of_a_row_rewrites_definition_and_all_refs() {
 /// the file per the naming law (`-` ⇔ `.`), and cross-file refs follow.
 #[test]
 fn rename_of_a_files_intent_id_renames_the_file() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_rename_fixture(&dir);
     let out = spk()
         .args([
             "rename",
             "alpha",
             "alpha.prime",
-            dir.path().join("alpha.md").to_str().unwrap(),
-            dir.path().join("beta.md").to_str().unwrap(),
+            dir.path().join("alpha.md").to_str().unwrap_p(),
+            dir.path().join("beta.md").to_str().unwrap_p(),
             "--json",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert!(
         out.status.success(),
         "intent rename must pass: {}",
         String::from_utf8_lossy(&out.stderr)
     );
     assert!(!dir.path().join("alpha.md").exists(), "old filename gone");
-    let renamed = std::fs::read_to_string(dir.path().join("alpha-prime.md")).unwrap();
+    let renamed = std::fs::read_to_string(dir.path().join("alpha-prime.md")).unwrap_p();
     assert!(
         renamed.starts_with("---\nid: alpha.prime\n"),
         "frontmatter id rewritten: {renamed}"
     );
-    let beta = std::fs::read_to_string(dir.path().join("beta.md")).unwrap();
+    let beta = std::fs::read_to_string(dir.path().join("beta.md")).unwrap_p();
     assert!(
         beta.contains("[[alpha.prime.c1]]"),
         "child refs follow the rename: {beta}"
@@ -626,23 +622,23 @@ fn rename_of_a_files_intent_id_renames_the_file() {
 /// and every file is byte-identical to its pre-rename state.
 #[test]
 fn rename_to_an_existing_id_is_rejected_and_leaves_the_repo_byte_identical() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_rename_fixture(&dir);
     let before: Vec<_> = ["alpha.md", "beta.md"]
         .iter()
-        .map(|f| (f, std::fs::read(dir.path().join(f)).unwrap()))
+        .map(|f| (f, std::fs::read(dir.path().join(f)).unwrap_p()))
         .collect();
     let out = spk()
         .args([
             "rename",
             "alpha.c1",
             "p1", // collides with the property row id
-            dir.path().join("alpha.md").to_str().unwrap(),
-            dir.path().join("beta.md").to_str().unwrap(),
+            dir.path().join("alpha.md").to_str().unwrap_p(),
+            dir.path().join("beta.md").to_str().unwrap_p(),
             "--json",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert!(!out.status.success(), "collision must fail");
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
@@ -651,7 +647,7 @@ fn rename_to_an_existing_id_is_rejected_and_leaves_the_repo_byte_identical() {
     );
     for (f, bytes) in before {
         assert_eq!(
-            std::fs::read(dir.path().join(f)).unwrap(),
+            std::fs::read(dir.path().join(f)).unwrap_p(),
             bytes,
             "{f} must be byte-identical after a failed rename"
         );
@@ -661,19 +657,19 @@ fn rename_to_an_existing_id_is_rejected_and_leaves_the_repo_byte_identical() {
 /// An unknown old_id is a labeled failure — nothing is written.
 #[test]
 fn rename_of_an_unknown_id_is_rejected() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_rename_fixture(&dir);
     let out = spk()
         .args([
             "rename",
             "nope.such",
             "whatever",
-            dir.path().join("alpha.md").to_str().unwrap(),
-            dir.path().join("beta.md").to_str().unwrap(),
+            dir.path().join("alpha.md").to_str().unwrap_p(),
+            dir.path().join("beta.md").to_str().unwrap_p(),
             "--json",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert!(!out.status.success(), "unknown id must fail");
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(

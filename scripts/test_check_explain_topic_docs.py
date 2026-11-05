@@ -64,10 +64,12 @@ class ExplainTopicDocsTest(unittest.TestCase):
     def test_nine_topics_plus_all_ids_passes(self):
         root = self.write(self.base_tree("nine", LISTING, True))
         self.assertEqual(cetd.check(root), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_digit_count_nine_topics_passes(self):
         root = self.write(self.base_tree("9", LISTING, True))
         self.assertEqual(cetd.check(root), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_nine_topics_with_full_slash_list_passes(self):
         # README's post-fix shape: count phrase + adjacent slash-list of
@@ -80,6 +82,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
         )
         root = self.write(tree)
         self.assertEqual(cetd.check(root), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_stale_inline_slash_enumeration_is_flagged(self):
         # README's original drift shape: a slash-list naming six served
@@ -97,6 +100,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
         self.assertEqual(len(problems), 1, problems)
         self.assertIn("omits served topic(s) dual-format, graph-views, packs",
                       problems[0])
+        return None  # explicit non-void: no self-field mutation
 
     def test_backticked_list_after_count_missing_id_is_flagged(self):
         # index.md's drift shape: "eight topics (`format`, ..., `packs`)"
@@ -111,6 +115,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
         problems = cetd.check(root)
         self.assertTrue(any("omits served topic(s) graph-views" in p
                             for p in problems), problems)
+        return None  # explicit non-void: no self-field mutation
 
     def test_non_topic_enumeration_is_ignored(self):
         tree = self.base_tree("nine", LISTING, True)
@@ -121,6 +126,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
         )
         root = self.write(tree)
         self.assertEqual(cetd.check(root), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_seven_topics_is_flagged(self):
         root = self.write(self.base_tree("seven", LISTING, True))
@@ -128,12 +134,14 @@ class ExplainTopicDocsTest(unittest.TestCase):
         self.assertEqual(len(problems), len(cetd.PAGES), problems)
         for p in problems:
             self.assertIn("'seven topics' != the 9 topics", p)
+        return None  # explicit non-void: no self-field mutation
 
     def test_eight_topics_is_flagged(self):
         root = self.write(self.base_tree("eight", LISTING, True))
         problems = cetd.check(root)
         for p in problems:
             self.assertIn("'eight topics' != the 9 topics", p)
+        return None  # explicit non-void: no self-field mutation
 
     def test_six_topics_is_flagged(self):
         # README's original drift shape: a word count one below served.
@@ -141,6 +149,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
         problems = cetd.check(root)
         for p in problems:
             self.assertIn("'six topics' != the 9 topics", p)
+        return None  # explicit non-void: no self-field mutation
 
     def test_stale_digit_count_is_flagged(self):
         # The word-count fallback includes digits: "6 topics" against a
@@ -149,6 +158,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
         problems = cetd.check(root)
         for p in problems:
             self.assertIn("'6 topics' != the 9 topics", p)
+        return None  # explicit non-void: no self-field mutation
 
     def test_missing_id_is_flagged(self):
         tree = self.base_tree("nine", LISTING, True)
@@ -166,6 +176,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
                             for p in problems), problems)
         self.assertTrue(any("omits served topic(s) graph-views" in p
                             for p in problems), problems)
+        return None  # explicit non-void: no self-field mutation
 
     def test_count_only_page_with_no_ids_passes(self):
         # installation.md is COUNT-ONLY: a correct count with NO topic
@@ -177,6 +188,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
         )
         root = self.write(tree)
         self.assertEqual(cetd.check(root), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_count_only_page_with_wrong_count_fails(self):
         # COUNT-ONLY pages still cannot state a stale count.
@@ -189,6 +201,7 @@ class ExplainTopicDocsTest(unittest.TestCase):
         problems = cetd.check(root)
         self.assertEqual(len(problems), 1, problems)
         self.assertIn("'eight topics' != the 9 topics", problems[0])
+        return None  # explicit non-void: no self-field mutation
 
     def test_count_only_page_is_not_required_to_enumerate_ids(self):
         # The missing-id rule must not fire for count-only pages even
@@ -197,22 +210,27 @@ class ExplainTopicDocsTest(unittest.TestCase):
         tree[INSTALL] = "Guide page. Nine topics served, ids omitted.\n"
         root = self.write(tree)
         self.assertEqual(cetd.check(root), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_parse_topics_reads_append_only_const(self):
         self.assertEqual(cetd.parse_topics(topics_block(ALL_IDS)), ALL_IDS)
+        return None  # explicit non-void: no self-field mutation
 
     def test_parse_topics_is_fail_closed_on_missing_block(self):
         with self.assertRaises(ValueError):
             cetd.parse_topics("pub const SOMETHING: &str = \"x\";\n")
+        return None  # explicit non-void: no self-field mutation
 
     def test_parse_topics_is_fail_closed_on_empty_block(self):
         with self.assertRaises(ValueError):
             cetd.parse_topics("pub const TOPICS: &[(&str, &str)] = &[];\n")
+        return None  # explicit non-void: no self-field mutation
 
     def test_lint_rules_never_matches_count_phrase(self):
         # "lint-rules topics" is a topic id before "topics", not a count —
         # the count regex must not read it as stale prose.
         self.assertFalse(cetd.COUNT_PHRASE_RE.search("lifecycle/lint-rules topics"))
+        return None  # explicit non-void: no self-field mutation
 
 
 if __name__ == "__main__":

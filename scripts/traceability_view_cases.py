@@ -112,11 +112,13 @@ class TestTraceabilityRendering(unittest.TestCase):
             self.assertEqual(
                 len(decls), 1, f"exactly one node per intent {intent}:\n{out}"
             )
+        return None  # explicit non-void: no self-field mutation
 
     def test_row_level_ids_never_appear_as_endpoints(self):
         out = traceability_view()
         for row_id in ("alpha.s1", "alpha.s2", "alpha.c1", "beta.s1", "gamma.t"):
             self.assertNotIn(row_id, out, f"row ids collapse to intents: {row_id}")
+        return None  # explicit non-void: no self-field mutation
 
     def test_file_dependencies_draw_once_between_intents(self):
         out = traceability_view()
@@ -126,6 +128,7 @@ class TestTraceabilityRendering(unittest.TestCase):
         self.assertEqual(out.count("alpha --> beta"), 1, out)
         # Intra-file edges are not file dependencies: no self-loop.
         self.assertNotIn("alpha --> alpha", out, out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_fan_in_counts_distinct_source_intents(self):
         # beta is targeted by alpha (twice, raw) and gamma: fan-in 2, not 3.
@@ -134,6 +137,7 @@ class TestTraceabilityRendering(unittest.TestCase):
         # Sources with no incoming cross-file edges carry no annotation.
         self.assertIn('alpha["alpha"]', out, out)
         self.assertIn('gamma["gamma"]', out, out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_duplicate_rows_add_zero_beyond_first_contribution(self):
         # D2 multiplicity: alpha's duplicate instances contribute once —
@@ -148,6 +152,7 @@ class TestTraceabilityRendering(unittest.TestCase):
             traceability_view(tsv=single),
             "one instance per source gives the same fan-in as duplicates",
         )
+        return None  # explicit non-void: no self-field mutation
 
     def test_intentless_endpoint_beyond_intent_set_refused(self):
         # A TSV endpoint that collapses outside the intent set means the
@@ -156,9 +161,11 @@ class TestTraceabilityRendering(unittest.TestCase):
         with self.assertRaises(graph_views.ArtifactInvalid) as ctx:
             traceability_view(tsv=tsv)
         self.assertIn("ghost", str(ctx.exception))
+        return None  # explicit non-void: no self-field mutation
 
     def test_renderer_is_deterministic(self):
         self.assertEqual(traceability_view(), traceability_view())
+        return None  # explicit non-void: no self-field mutation
 
     def test_violations_stay_annotated_not_omitted(self):
         out = traceability_view(tsv=DEP_TSV + VIOLATION_ROW)
@@ -166,11 +173,13 @@ class TestTraceabilityRendering(unittest.TestCase):
         self.assertIn("must resolve to an Intent", out, "the reason rides along")
         self.assertIn(":::violation", out)
         self.assertIn("classDef violation", out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_violations_do_not_contribute_to_fan_in(self):
         # Violations are not recorded edges (D3): beta stays fan-in 2.
         out = traceability_view(tsv=DEP_TSV + VIOLATION_ROW)
         self.assertIn('beta["beta (fan-in 2)"]', out, out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_empty_tsv_renders_nodes_and_labeled_note(self):
         # The zero-row artifact (states precedent pins the empty TSV too):
@@ -182,6 +191,7 @@ class TestTraceabilityRendering(unittest.TestCase):
         )
         self.assertIn("no_dependencies", out)
         self.assertIn("classDef violation", out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_single_intent_corpus_renders_exactly_one_intent_node(self):
         # tests/fixtures/single_intent shape: one intent, intra-file rows
@@ -201,6 +211,7 @@ class TestTraceabilityRendering(unittest.TestCase):
             len([ln for ln in out.splitlines() if 'two["' in ln]), 1, out
         )
         self.assertIn("no_dependencies", out)
+        return None  # explicit non-void: no self-field mutation
 
 
 class TestTraceabilityScope(unittest.TestCase):
@@ -211,22 +222,27 @@ class TestTraceabilityScope(unittest.TestCase):
         with self.assertRaises(graph_views.OutOfScopeRefused) as ctx:
             traceability_view(graph=GRAPH_INTENTLESS)
         self.assertIn("intentless", str(ctx.exception))
+        return None  # explicit non-void: no self-field mutation
 
     def test_unsuccessful_graph_envelope_refused(self):
         with self.assertRaises(graph_views.OutOfScopeRefused):
             traceability_view(graph=GRAPH_ZERO_FILES)
+        return None  # explicit non-void: no self-field mutation
 
     def test_lint_dirty_refused_naming_the_failed_gate(self):
         with self.assertRaises(graph_views.OutOfScopeRefused) as ctx:
             traceability_view(lint=LINT_DIRTY)
         self.assertIn("guard_required", str(ctx.exception))
+        return None  # explicit non-void: no self-field mutation
 
     def test_unsuccessful_lint_envelope_refused(self):
         with self.assertRaises(graph_views.OutOfScopeRefused):
             traceability_view(lint=LINT_FAILED_ENVELOPE)
+        return None  # explicit non-void: no self-field mutation
 
     def test_clean_lint_envelope_renders(self):
         self.assertIn("alpha --> beta", traceability_view(lint=LINT_CLEAN))
+        return None  # explicit non-void: no self-field mutation
 
 
 class TestTraceabilityCli(unittest.TestCase):
@@ -238,18 +254,21 @@ class TestTraceabilityCli(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("flowchart", proc.stdout)
         self.assertIn("alpha --> beta", proc.stdout)
+        return None  # explicit non-void: no self-field mutation
 
     def test_intentless_cli_fails_before_output(self):
         proc = run_trace_cli(graph=GRAPH_ZERO_FILES)
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("out_of_scope_refused", proc.stderr)
         self.assertEqual(proc.stdout, "")
+        return None  # explicit non-void: no self-field mutation
 
     def test_lint_dirty_cli_fails_before_output(self):
         proc = run_trace_cli(lint=LINT_DIRTY)
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("out_of_scope_refused", proc.stderr)
         self.assertEqual(proc.stdout, "")
+        return None  # explicit non-void: no self-field mutation
 
     def test_single_intent_cli_exits_zero_with_labeled_view(self):
         tsv = "two.c1\tConstraint\tconstraints.traces_to\ttwo\tIntent\t\n"
@@ -262,6 +281,7 @@ class TestTraceabilityCli(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("no_dependencies", proc.stdout)
         self.assertIn('two["', proc.stdout)
+        return None  # explicit non-void: no self-field mutation
 
 
 if __name__ == "__main__":

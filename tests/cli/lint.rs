@@ -1,5 +1,6 @@
 // (split from tests/cli.rs — specodelic-g17 file_lines ratchet)
 use super::*;
+use crate::common::UnwrapPanic;
 
 // ---- specodelic-zo9: dual_format_valid lint rule (retired by
 // Revision 19, add-delta-layer-sidecar — the mirror it policed is
@@ -11,17 +12,17 @@ fn lint_no_longer_flags_half_format_dual_file_via_cli() {
     // A file with frontmatter + ## ADDED Requirements but no sibling
     // ## Requirements used to fire dual_format_valid; Revision 19
     // retired the rule with the mirror.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     std::fs::write(
         dir.path().join("spec.md"),
         "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: Something\nThe system SHALL do the thing.\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(
         !stdout.contains("dual_format_valid"),
         "the rule is retired: {stdout}"
@@ -34,15 +35,15 @@ fn lint_no_longer_flags_half_format_dual_file_via_cli() {
 fn lint_finds_specs_in_nested_directories() {
     // collect_specs must recurse: a spec in a subdirectory is linted,
     // not silently ignored (beads specodelic-6pi).
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let nested = dir.path().join("domain").join("deep");
-    std::fs::create_dir_all(&nested).unwrap();
+    std::fs::create_dir_all(&nested).unwrap_p();
     write_bad_ears_spec(&nested.join("nested_spec.md"), "nested_spec");
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(
         stdout.contains("nested_spec.md"),
         "nested spec must be linted: {stdout}"
@@ -55,22 +56,22 @@ fn lint_finds_specs_in_nested_directories() {
 fn lint_skips_hidden_and_build_directories() {
     // Recursive collection must not sweep .git/, target/, node_modules/:
     // exactly the top-level spec is linted, junk specs are never read.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_bad_ears_spec(&dir.path().join("top_spec.md"), "top_spec");
     for junk in [".git", "target", "node_modules"] {
         let j = dir.path().join(junk);
-        std::fs::create_dir_all(&j).unwrap();
+        std::fs::create_dir_all(&j).unwrap_p();
         let id = format!("junk_{}", junk.trim_start_matches('.'));
         write_bad_ears_spec(&j.join(format!("{id}.md")), &id);
     }
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
     assert_eq!(json["data"]["files_linted"], 1, "only the top-level spec");
-    let issues = json["data"]["issues"].as_array().unwrap();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
     assert!(!issues.is_empty(), "top_spec's ears_syntax must fire");
     assert!(
         issues.iter().all(|i| i["file"]
@@ -86,17 +87,17 @@ fn lint_fails_with_hint_when_no_specs_found() {
     // A directory with no spec files must not yield a silent ok:true —
     // that's a false green (beads specodelic-6pi). Failure message rides
     // stderr even in JSON mode (convention of record).
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("README.md"), "# not a spec\n").unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
+    std::fs::write(dir.path().join("README.md"), "# not a spec\n").unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let stderr = String::from_utf8(out.stderr).unwrap();
+        .unwrap_p();
+    let stderr = String::from_utf8(out.stderr).unwrap_p();
     assert!(stderr.contains("no spec files found"), "stderr: {stderr}");
     // JSON mode keeps the remediation hint inside the envelope (stdout);
     // the footer prints to stderr only in human mode (convention of record)
-    let stdout = String::from_utf8(out.stdout).unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(stdout.contains("frontmatter"), "envelope hint: {stdout}");
     // Invocation error exits 2 (specodelic-7rr item 2) — distinct from
     // findings (1); the envelope kind agrees (error).
@@ -110,33 +111,33 @@ fn lint_fails_on_parse_error_even_when_other_specs_parse() {
     // envelope — exit 0 — so the pre-commit gate let a corrupted spec
     // commit (empirically verified with a gate-probe commit). A parse
     // error is a failure regardless of the rest of the batch.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let good = dir.path().join("good.md");
     write_parse_fixture(&good, "good");
     let broken = dir.path().join("broken.md");
-    std::fs::write(&broken, "---\nid: [unclosed\nkind: intent\n---\nbody\n").unwrap();
+    std::fs::write(&broken, "---\nid: [unclosed\nkind: intent\n---\nbody\n").unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_ne!(
         out.status.code(),
         Some(0),
         "parse error must fail the lint stage (exit 0 = gate passes)"
     );
-    let stdout = String::from_utf8(out.stdout).unwrap();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(
         stdout.contains("broken.md"),
         "the parse error must name the offending file: {stdout}"
     );
 
     // Single malformed file keeps its labeled invocation failure (exit 2).
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("broken.md"), "---\nid: [unclosed\n").unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
+    std::fs::write(dir.path().join("broken.md"), "---\nid: [unclosed\n").unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(2));
 }
 
@@ -148,8 +149,8 @@ fn lint_corpus_is_fully_clean() {
     let out = spk()
         .args(["lint", "openspec/specs", "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     let data = &json["data"];
     // 47 = the migrated corpus (22) + the capability specs deployed before
     // the single-tree migration (jf1, 44 at that count) + the
@@ -158,7 +159,7 @@ fn lint_corpus_is_fully_clean() {
     // + the graph-views capability (add-graph-views, s8fg task 7.1
     // companion archive, 2026-10-19).
     assert_eq!(data["files_linted"], 47);
-    let issues = data["issues"].as_array().unwrap();
+    let issues = data["issues"].as_array().unwrap_p();
     assert!(issues.is_empty(), "corpus lint findings: {issues:?}");
     assert_eq!(out.status.code(), Some(0));
 }
@@ -168,16 +169,16 @@ fn graph_corpus_is_fully_resolved() {
     let out = spk()
         .args(["graph", "openspec/specs", "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     let data = &json["data"];
-    assert!(data["dangling"].as_array().unwrap().is_empty());
-    assert!(data["edges"].as_array().unwrap().len() > 300);
+    assert!(data["dangling"].as_array().unwrap_p().is_empty());
+    assert!(data["edges"].as_array().unwrap_p().len() > 300);
     // specodelic-cxq (2026-09-30): the corpus is reconciled with the
     // Reference Typing table — zero typing-forbidden edges, and the
     // graph therefore exits 0 (the old "violations tolerated until
     // cxq" escape hatch is gone).
-    let violations = data["violations"].as_array().unwrap();
+    let violations = data["violations"].as_array().unwrap_p();
     assert!(
         violations.is_empty(),
         "corpus typing violations: {violations:?}"
@@ -192,43 +193,43 @@ fn graph_real_id_files_resolve_corpus_wide_and_typos_dangle() {
     // cross-file ref between them produces an edge, no dangling), while
     // a typo'd file segment still dangles (the CORR-001 protection now
     // rests on real ids, not on a scoped index).
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let a = dir.path().join("demo-a");
     let b = dir.path().join("demo-b");
-    std::fs::create_dir_all(&a).unwrap();
-    std::fs::create_dir_all(&b).unwrap();
+    std::fs::create_dir_all(&a).unwrap_p();
+    std::fs::create_dir_all(&b).unwrap_p();
     std::fs::write(
         a.join("spec.md"),
         "---\nid: demo.a\nkind: intent\nstatement: \"THE a SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| local_a | invariant | `x` | [[demo.a]] |\n| cross | invariant | `cites beta's row` | [[demo.a]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[demo.a.local_a]] ∧ [[demo.b.row_in_b]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pa | unit | [[demo.a.local_a]] | `g()` | `x` |\n| pc | unit | [[demo.a.cross]] | `g()` | `x` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     std::fs::write(
         b.join("spec.md"),
         "---\nid: demo.b\nkind: intent\nstatement: \"THE b SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| row_in_b | invariant | `z` | [[demo.b]] |\n\n## Model\n\n### States\n\n- `s2`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s2 | s2 | [[demo.b.row_in_b]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pb | unit | [[demo.b.row_in_b]] | `g()` | `z` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(
         !stdout.contains("demo.b.row_in_b is not defined"),
         "cross-file ref between real-id files must resolve: {stdout}"
     );
     // Typo'd file segment still dangles.
     let c = dir.path().join("demo-c");
-    std::fs::create_dir_all(&c).unwrap();
+    std::fs::create_dir_all(&c).unwrap_p();
     std::fs::write(
         c.join("spec.md"),
         "---\nid: demo.c\nkind: intent\nstatement: \"THE c SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| cc | invariant | `x` | [[demo.c]] |\n\n## Model\n\n### States\n\n- `s3`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s3 | s3 | [[demo.ccc.cc]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pc | unit | [[demo.c.cc]] | `g()` | `x` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(
         stdout.contains("demo.ccc"),
         "typo'd file segment must dangle in the graph: {stdout}"
@@ -244,20 +245,20 @@ fn graph_real_id_files_resolve_corpus_wide_and_typos_dangle() {
 /// here loudly, never silently).
 #[test]
 fn extra_frontmatter_key_lints_clean() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     std::fs::write(
         dir.path().join("extra.md"),
         "---\nid: extra\nkind: intent\nchecked_against_core: clear\nstatement: \"THE extra SHALL carry an optional key\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | [[extra]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[extra.c]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p | unit | [[extra.c]] | `g()` | `x` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0), "exit 0");
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
-    let issues = json["data"]["issues"].as_array().unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
     assert!(
         issues.is_empty(),
         "optional frontmatter key must lint clean (subset reading): {issues:?}"
@@ -269,13 +270,13 @@ fn extra_frontmatter_key_lints_clean() {
     let out = spk()
         .args([
             "parse",
-            dir.path().join("extra.md").to_str().unwrap(),
+            dir.path().join("extra.md").to_str().unwrap_p(),
             "--json",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
     assert!(
         json["data"]["intent"]["extra"]["checked_against_core"].is_string(),
         "parser captures the extra frontmatter field: {json}"
@@ -291,26 +292,26 @@ fn extra_frontmatter_key_lints_clean() {
 /// a row with no path to ANY intent still hard-fails.
 #[test]
 fn cross_file_only_rows_warn_advisory_never_silent() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     std::fs::write(
         dir.path().join("base.md"),
         "---\nid: base\nkind: intent\nstatement: \"THE base SHALL anchor\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| base_invariant | invariant | `x` | [[base]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[base.base_invariant]] |\n",
     )
-    .unwrap();
+    .unwrap_p();
     std::fs::write(
         dir.path().join("consumer.md"),
         "---\nid: consumer\nkind: intent\nstatement: \"THE consumer SHALL consume\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| orphan_c | invariant | `y` | |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[base.base_invariant]] |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap_p();
     let issues = json["data"]["issues"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .filter(|i| i["rule_id"] == "linter.single_root_reachable")
         .cloned()
@@ -320,17 +321,17 @@ fn cross_file_only_rows_warn_advisory_never_silent() {
     assert!(
         issues
             .iter()
-            .any(|i| i["message"].as_str().unwrap().contains("orphan_c")),
+            .any(|i| i["message"].as_str().unwrap_p().contains("orphan_c")),
         "row with no path to ANY intent must hard-fail: {issues:?}"
     );
     // The cross-file-only component {t, s1} must NOT hard-fail.
     assert!(
         !issues.iter().any(|i| i["message"]
             .as_str()
-            .unwrap()
+            .unwrap_p()
             .contains("[[base.base_invariant]]"))
             || !issues.iter().any(|i| {
-                let m = i["message"].as_str().unwrap();
+                let m = i["message"].as_str().unwrap_p();
                 (m.contains(" t") || m.contains("s1")) && !m.contains("orphan_c")
             }),
         "cross-file-only rows must not ride the issues channel: {issues:?}"
@@ -338,7 +339,7 @@ fn cross_file_only_rows_warn_advisory_never_silent() {
     // Advisory tier: the same rows warn on the warnings channel.
     let warnings: Vec<String> = json["warnings"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .map(|w| w["message"].as_str().unwrap_or_default().to_string())
         .collect();
@@ -362,9 +363,9 @@ fn error_contract_rows_are_published() {
     let out = spk()
         .args(["graph", "openspec/specs", "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let edges = json["data"]["edges"].as_array().unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let edges = json["data"]["edges"].as_array().unwrap_p();
     for row in [
         "envelope_error_kind",
         "exit_code_mapping",
@@ -403,17 +404,17 @@ fn error_contract_rows_are_published() {
 #[test]
 fn failure_terminals_emit_labeled_errors() {
     #[rustfmt::skip]
-    let out = spk().args(["graph", "openspec/specs", "--json"]).output().unwrap(); // at the function_lines ratchet
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let edges = json["data"]["edges"].as_array().unwrap();
+    let out = spk().args(["graph", "openspec/specs", "--json"]).output().unwrap_p(); // at the function_lines ratchet
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let edges = json["data"]["edges"].as_array().unwrap_p();
     let e = |k: &str| -> Vec<(String, String)> {
         edges
             .iter()
             .filter(|x| x["kind"] == k)
             .map(|x| {
                 (
-                    x["from"].as_str().unwrap().to_string(),
-                    x["to"].as_str().unwrap().to_string(),
+                    x["from"].as_str().unwrap_p().to_string(),
+                    x["to"].as_str().unwrap_p().to_string(),
                 )
             })
             .collect()
@@ -615,7 +616,7 @@ fn failure_terminals_emit_labeled_errors() {
             // the success siblings from the same source state are what
             // the failure guard negates (a disjunction negates the union);
             // citation sets must be equal
-            let src = from_of.get(t).copied().unwrap();
+            let src = from_of.get(t).copied().unwrap_p();
             let siblings: Vec<&str> = to_of
                 .iter()
                 .filter(|(id, to)| from_of.get(*id).copied() == Some(src) && !is_fail_state(to))
@@ -672,20 +673,20 @@ fn write_clean_failure_shape_spec(path: &std::path::Path, id: &str) {
              | p_x | unit | [[{id}.x_failure]] | `g()` | `x` |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 fn lint_issues(dir: &tempfile::TempDir) -> (Option<i32>, Vec<String>) {
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     let issues = json["data"]["issues"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
-        .map(|i| i["rule_id"].as_str().unwrap().to_string())
+        .map(|i| i["rule_id"].as_str().unwrap_p().to_string())
         .collect();
     (out.status.code(), issues)
 }
@@ -695,16 +696,16 @@ fn lint_issues(dir: &tempfile::TempDir) -> (Option<i32>, Vec<String>) {
 /// (mute_terminal_rejected).
 #[test]
 fn lint_mute_failure_terminal_flagged() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_clean_failure_shape_spec(&dir.path().join("d-mute.md"), "d.mute");
     // strip the emits cell from the failure state
     let p = dir.path().join("d-mute.md");
-    let text = std::fs::read_to_string(&p).unwrap();
+    let text = std::fs::read_to_string(&p).unwrap_p();
     std::fs::write(
         &p,
         text.replace("- failed (emits: `[[d.mute.x_failure]]`)", "- failed"),
     )
-    .unwrap();
+    .unwrap_p();
 
     let (code, issues) = lint_issues(&dir);
     assert_eq!(code, Some(1));
@@ -714,11 +715,11 @@ fn lint_mute_failure_terminal_flagged() {
         "exactly the mute-terminal finding, nothing else: {issues:?}"
     );
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let msg = json["data"]["issues"][0]["message"].as_str().unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let msg = json["data"]["issues"][0]["message"].as_str().unwrap_p();
     assert!(msg.contains("failed"), "names the mute state: {msg}");
     assert!(
         msg.contains("emits"),
@@ -732,7 +733,7 @@ fn lint_mute_failure_terminal_flagged() {
 /// format change dropping the namespacing law is caught here.
 #[test]
 fn lint_error_label_collision_flagged() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     std::fs::write(
         dir.path().join("d-lbl.md"),
         "---\nid: d.lbl\nkind: intent\nstatement: \"THE d SHALL label its failures\"\n---\n\
@@ -760,7 +761,7 @@ fn lint_error_label_collision_flagged() {
          | p_x | unit | [[d.lbl.x_failure]] | `g()` | `x` |\n\
          | p_sub | unit | [[d.lbl.sub.x_failure]] | `g()` | `x` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let (code, issues) = lint_issues(&dir);
     assert_eq!(code, Some(1));
     assert!(
@@ -774,10 +775,10 @@ fn lint_error_label_collision_flagged() {
 /// (zero_citation_flagged).
 #[test]
 fn lint_zero_citation_failure_guard_flagged() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     write_clean_failure_shape_spec(&dir.path().join("d-zc.md"), "d.zc");
     let p = dir.path().join("d-zc.md");
-    let text = std::fs::read_to_string(&p).unwrap();
+    let text = std::fs::read_to_string(&p).unwrap_p();
     std::fs::write(
         &p,
         text.replace(
@@ -785,7 +786,7 @@ fn lint_zero_citation_failure_guard_flagged() {
             "| boom | s | failed | `the world ends` |",
         ),
     )
-    .unwrap();
+    .unwrap_p();
 
     let (code, issues) = lint_issues(&dir);
     assert_eq!(code, Some(1));
@@ -802,7 +803,7 @@ fn lint_zero_citation_failure_guard_flagged() {
 /// (carved_out_guard_passes).
 #[test]
 fn lint_carved_out_stage_fail_passes() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     std::fs::write(
         dir.path().join("orchestrate.md"),
         "---\nid: orchestrate\nkind: intent\nstatement: \"THE orchestrate SHALL stage its checks\"\n---\n\
@@ -826,7 +827,7 @@ fn lint_carved_out_stage_fail_passes() {
          | p_inv | unit | [[orchestrate.inv]] | `g()` | `x` |\n\
          | p_lsf | unit | [[orchestrate.lint_stage_failure]] | `g()` | `x` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let (code, issues) = lint_issues(&dir);
     assert_eq!(code, Some(0), "carve-out membership is checked: {issues:?}");
     assert!(issues.is_empty(), "no findings: {issues:?}");
@@ -838,7 +839,7 @@ fn lint_carved_out_stage_fail_passes() {
 /// (negation_set_mismatch_flagged).
 #[test]
 fn lint_negation_set_mismatch_flagged() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     std::fs::write(
         dir.path().join("d-mm.md"),
         "---\nid: d.mm\nkind: intent\nstatement: \"THE d SHALL negate its guards\"\n---\n\
@@ -864,7 +865,7 @@ fn lint_negation_set_mismatch_flagged() {
          | p_other | unit | [[d.mm.other]] | `g()` | `x` |\n\
          | p_x | unit | [[d.mm.x_failure]] | `g()` | `x` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let (code, issues) = lint_issues(&dir);
     assert_eq!(code, Some(1));
     assert_eq!(
@@ -873,11 +874,11 @@ fn lint_negation_set_mismatch_flagged() {
         "exactly the negation-mismatch finding, nothing else: {issues:?}"
     );
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    let msg = json["data"]["issues"][0]["message"].as_str().unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let msg = json["data"]["issues"][0]["message"].as_str().unwrap_p();
     assert!(
         msg.contains("d.mm.inv"),
         "the finding names the expected citation set: {msg}"
@@ -888,19 +889,19 @@ fn lint_negation_set_mismatch_flagged() {
 /// typed reference fields (→ State) and must yield exactly one edge each.
 #[test]
 fn graph_extracts_from_to_state_edges() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     std::fs::write(
         dir.path().join("t.md"),
         "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `x` | [[t]] |\n\n## Model\n\n### States\n\n- `a`\n- `b`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| go | a | b | [[t.c1]] |\n| bad | a | zz | [[t.c1]] |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     let data = &json["data"];
-    let edges = data["edges"].as_array().unwrap();
+    let edges = data["edges"].as_array().unwrap_p();
     for (kind, to) in [("transitions.from", "t.a"), ("transitions.to", "t.b")] {
         assert!(
             edges
@@ -912,9 +913,9 @@ fn graph_extracts_from_to_state_edges() {
     // An unknown state in from/to dangles — never silently dropped.
     let dangling = data["dangling"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
-        .map(|d| d.as_str().unwrap())
+        .map(|d| d.as_str().unwrap_p())
         .collect::<Vec<_>>()
         .join("; ");
     assert!(
@@ -929,19 +930,19 @@ fn graph_extracts_from_to_state_edges() {
 /// surfaces as a labeled violation instead of a silent edge.
 #[test]
 fn graph_typing_forbidden_edge_is_reported_not_recorded() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     std::fs::write(
         dir.path().join("t.md"),
         "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `x` | [[t]] |\n| c2 | invariant | `y` | [[t.c1]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p1 | unit | [[t.c1]] | `g()` | `x` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     let data = &json["data"];
-    let edges = data["edges"].as_array().unwrap();
+    let edges = data["edges"].as_array().unwrap_p();
     // Control: the legal derives_from edge is still recorded.
     assert!(
         edges
@@ -955,7 +956,7 @@ fn graph_typing_forbidden_edge_is_reported_not_recorded() {
             .any(|e| e["kind"] == "constraints.traces_to" && e["to"] == "t.c1"),
         "typing-forbidden edge must not be recorded: {edges:?}"
     );
-    let violations = data["violations"].as_array().unwrap();
+    let violations = data["violations"].as_array().unwrap_p();
     assert!(
         violations
             .iter()
@@ -973,19 +974,19 @@ fn graph_typing_forbidden_edge_is_reported_not_recorded() {
 /// the same edge set).
 #[test]
 fn constraint_row_derives_from_is_a_typing_violation() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     std::fs::write(
         dir.path().join("t.md"),
         "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | derives_from |\n|----|------|------|-----------|--------------|\n| c1 | invariant | `x` | [[t]] | [[t.c2]] |\n| c2 | invariant | `y` | [[t]] | |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| go | s1 | s1 | [[t.c1]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p1 | unit | [[t.c1]] | `g()` | `x` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     let data = &json["data"];
-    let edges = data["edges"].as_array().unwrap();
+    let edges = data["edges"].as_array().unwrap_p();
     // Control: the legal property→constraint derives_from edge is still
     // recorded.
     assert!(
@@ -1000,7 +1001,7 @@ fn constraint_row_derives_from_is_a_typing_violation() {
             .any(|e| e["kind"] == "constraints.derives_from"),
         "a Constraint-row derives_from must not be recorded as an edge: {edges:?}"
     );
-    let violations = data["violations"].as_array().unwrap();
+    let violations = data["violations"].as_array().unwrap_p();
     assert!(
         violations
             .iter()
@@ -1016,33 +1017,34 @@ fn constraint_row_derives_from_is_a_typing_violation() {
 /// and a cross-kind supersedes is a typing violation.
 #[test]
 fn graph_supersedes_edges_cycle_and_typing() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     std::fs::write(
         dir.path().join("t.md"),
         "---\nid: t\nkind: intent\nstatement: \"THE t SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | supersedes |\n|----|------|------|-----------|------------|\n| c1 | invariant | `x` | [[t]] | [[t.c2]] |\n| c2 | invariant | `y` | [[t]] | [[t.c1]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate | supersedes |\n|----|------|--------------|-----------|------------|------------|\n| p1 | unit | [[t.c1]] | `g()` | `x` | [[t.c1]] |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["graph", dir.path().to_str().unwrap(), "--json"])
+        .args(["graph", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     let data = &json["data"];
-    let edges = data["edges"].as_array().unwrap();
+    let edges = data["edges"].as_array().unwrap_p();
     assert!(
         edges.iter().any(|e| e["kind"] == "constraints.supersedes"
             && e["from"] == "t.c1"
             && e["to"] == "t.c2"),
         "supersedes edge must be recorded: {edges:?}"
     );
-    let cycles = data["supersedes_cycles"].as_array().unwrap();
+    let cycles = data["supersedes_cycles"].as_array().unwrap_p();
     assert!(
         cycles
             .iter()
-            .any(|c| c.as_str().unwrap().contains("t.c1") && c.as_str().unwrap().contains("t.c2")),
+            .any(|c| c.as_str().unwrap_p().contains("t.c1")
+                && c.as_str().unwrap_p().contains("t.c2")),
         "supersedes cycle must be reported: {cycles:?}"
     );
-    let violations = data["violations"].as_array().unwrap();
+    let violations = data["violations"].as_array().unwrap_p();
     assert!(
         violations
             .iter()
@@ -1054,18 +1056,18 @@ fn graph_supersedes_edges_cycle_and_typing() {
 
 #[test]
 fn lint_synthetically_bad_file_fails_with_rule_name() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let bad = dir.path().join("bad_spec.md");
     std::fs::write(
         &bad,
         "---\nid: bad_spec\nkind: intent\nstatement: \"the system should maybe work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[bad_spec]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s2 | |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[bad_spec.a]] | `g()` | `x` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     // ears_syntax (no SHALL) + guard_required (empty guard) both fire
     assert!(stdout.contains("ears_syntax"));
     assert!(stdout.contains("guard_required"));
@@ -1079,26 +1081,26 @@ fn lint_synthetically_bad_file_fails_with_rule_name() {
 fn bad_ears_finding_carries_rule_id_and_semantics() {
     // spec scenario: agent reads a finding without repo access — the
     // JSON finding names the rule id and states what the rule requires
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let bad = dir.path().join("bad_spec.md");
     std::fs::write(
         &bad,
         "---\nid: bad_spec\nkind: intent\nstatement: \"the system should maybe work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `x` | [[bad_spec]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s2 | |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[bad_spec.a]] | `g()` | `x` |\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
     let ears = json["data"]["issues"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .find(|i| i["rule_id"] == "linter.ears_syntax")
-        .expect("bad-EARS fixture must yield a linter.ears_syntax finding");
-    assert!(!ears["rule_semantics"].as_str().unwrap().is_empty());
+        .unwrap_p();
+    assert!(!ears["rule_semantics"].as_str().unwrap_p().is_empty());
     // the bare `rule` field was dropped in the review pass — rule_id is
     // the single naming (rule ids are stable, linter.<name>)
 }
@@ -1106,21 +1108,21 @@ fn bad_ears_finding_carries_rule_id_and_semantics() {
 #[test]
 fn human_output_shows_rule_id() {
     // spec scenario: human output shows the rule id
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let bad = dir.path().join("bad_spec.md");
     std::fs::write(
         &bad,
         "---\nid: bad_spec\nkind: intent\nstatement: \"the system should maybe work\"\n---\n",
     )
-    .unwrap();
+    .unwrap_p();
     let out = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--human"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--human"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_ne!(out.status.code(), Some(0));
     assert!(
         String::from_utf8(out.stdout)
-            .unwrap()
+            .unwrap_p()
             .contains("linter.ears_syntax")
     );
 }
@@ -1132,11 +1134,11 @@ fn explain_lint_rules_renders_the_rule_catalog() {
     let out = spk()
         .args(["explain", "lint-rules", "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(out.stdout).unwrap()).unwrap();
-    let body = json["data"]["body"].as_str().unwrap();
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
+    let body = json["data"]["body"].as_str().unwrap_p();
     assert!(!body.contains("{{"));
     assert!(!body.contains("shipped with the self-describing lint findings change"));
     // the rendered catalog enumerates every rule id the linter can emit
@@ -1149,14 +1151,14 @@ fn explain_lint_rules_renders_the_rule_catalog() {
 
 #[test]
 fn new_scaffolds_a_spec_file() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let out = spk()
         .args(["new", "demo.thing", "--file", "demo-thing.md"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let content = std::fs::read_to_string(dir.path().join("demo-thing.md")).unwrap();
+    let content = std::fs::read_to_string(dir.path().join("demo-thing.md")).unwrap_p();
     assert!(content.contains("id: demo.thing"));
     // the scaffold carries per-layer guidance comments that teach the
     // format in place (task 4.1); closed sets render from the guide
@@ -1170,12 +1172,12 @@ fn new_scaffolds_a_spec_file() {
     // valid spec containing the guidance comments yields no findings
     // (task 4.2; the linter never parses prose/comments)
     let lint = spk()
-        .args(["lint", dir.path().to_str().unwrap(), "--json"])
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(lint.stdout).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(json["data"]["issues"].as_array().unwrap().len(), 0);
+        .unwrap_p();
+    let stdout = String::from_utf8(lint.stdout).unwrap_p();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap_p();
+    assert_eq!(json["data"]["issues"].as_array().unwrap_p().len(), 0);
     assert_eq!(lint.status.code(), Some(0));
 }
 
@@ -1184,14 +1186,14 @@ fn new_scaffold_shows_file_qualified_ref_examples() {
     // gh#3: derives_from / guard cells take file-qualified wiki-links,
     // not bare ids — the scaffold's guidance comments must show the
     // concrete self-file form rendered from the new spec's own id.
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let out = spk()
         .args(["new", "demo.thing", "--file", "demo-thing.md"])
         .current_dir(dir.path())
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
-    let content = std::fs::read_to_string(dir.path().join("demo-thing.md")).unwrap();
+    let content = std::fs::read_to_string(dir.path().join("demo-thing.md")).unwrap_p();
     assert!(
         content.contains("[[demo.thing."),
         "scaffold must render a file-qualified example ref from the spec's own id"
@@ -1214,8 +1216,8 @@ fn help_does_not_leak_flattened_struct_docs_and_labels_orchestrate() {
     // gh#6.4: orchestrate was a stub — the subcommand list said so.
     // specodelic-8kk shipped it: the label must be gone, and the help
     // line must name the pipeline it drives.
-    let out = spk().args(["--help"]).output().unwrap();
-    let text = String::from_utf8(out.stdout).unwrap();
+    let out = spk().args(["--help"]).output().unwrap_p();
+    let text = String::from_utf8(out.stdout).unwrap_p();
     assert!(
         !text.contains("Clap-derivable"),
         "help must not leak internal struct docs"
@@ -1224,7 +1226,7 @@ fn help_does_not_leak_flattened_struct_docs_and_labels_orchestrate() {
     let orch = text
         .lines()
         .find(|l| l.trim_start().starts_with("orchestrate"))
-        .expect("orchestrate listed in help");
+        .unwrap_p();
     assert!(
         !orch.contains("not yet implemented"),
         "orchestrate is implemented — no stub label: {orch}"

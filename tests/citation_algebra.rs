@@ -11,8 +11,11 @@
 //! These live out-of-module because src/model_check.rs is pinned by
 //! the pretender file_lines ratchet (shrink-only, pretender.toml).
 
+#[path = "common/mod.rs"]
+mod common;
 use std::collections::BTreeMap;
 
+use common::UnwrapPanic;
 use specodelic::model_check::{
     BACKEND_VERSION, Backend, Bound, CitationExpr, InvariantStatus, Outcome, RunReport,
     ThreeValued, evaluate_citation, parse_citation_expr,
@@ -48,7 +51,13 @@ fn citation_expr_parses_cite_conjunction_negation_prose_stays_prose() {
 fn citation_conjunction_of_verified_discharges_verified() {
     // Scenario: Citation algebra evaluates — citations resolve against
     // compiled property outcomes and compose.
-    let expr = parse_citation_expr("[[a]] ∧ [[b]]").expect("parses");
+    let expr = parse_citation_expr("[[a]] ∧ [[b]]").unwrap_p();
+    // A ∧ B verifies only when BOTH conjuncts verify — the composite
+    // must be an And node over the two citations.
+    assert!(matches!(
+        &expr,
+        specodelic::compile::CitationExpr::And(_, _)
+    ));
     let outcomes = BTreeMap::from([
         ("a".to_string(), ThreeValued::Verified),
         ("b".to_string(), ThreeValued::Verified),
@@ -60,7 +69,7 @@ fn citation_conjunction_of_verified_discharges_verified() {
 fn citation_conjunction_absorbs_unknown_never_coerces_to_pass() {
     // dl/1 Kleene absorb: one unknown disjunct makes the whole
     // conjunction unknown — never pass (spec.run_report_status).
-    let expr = parse_citation_expr("[[a]] ∧ [[b]]").expect("parses");
+    let expr = parse_citation_expr("[[a]] ∧ [[b]]").unwrap_p();
     let outcomes = BTreeMap::from([
         ("a".to_string(), ThreeValued::Verified),
         ("b".to_string(), ThreeValued::Unknown),
@@ -70,7 +79,7 @@ fn citation_conjunction_absorbs_unknown_never_coerces_to_pass() {
 
 #[test]
 fn counterexample_propagates_through_conjunction() {
-    let expr = parse_citation_expr("[[a]] ∧ [[b]]").expect("parses");
+    let expr = parse_citation_expr("[[a]] ∧ [[b]]").unwrap_p();
     let outcomes = BTreeMap::from([
         ("a".to_string(), ThreeValued::Verified),
         ("b".to_string(), ThreeValued::Counterexample),
@@ -85,12 +94,12 @@ fn counterexample_propagates_through_conjunction() {
 fn undischargable_citation_reports_unknown_never_pass() {
     // Scenario: Undischargable citation is honest — a cited id with
     // no known outcome (prose property, nonexistent id) is unknown.
-    let conj = parse_citation_expr("[[prose_prop]] ∧ [[no_such_id]]").expect("parses");
+    let conj = parse_citation_expr("[[prose_prop]] ∧ [[no_such_id]]").unwrap_p();
     assert_eq!(
         evaluate_citation(&conj, &BTreeMap::new()),
         ThreeValued::Unknown
     );
-    let bare = parse_citation_expr("[[nope]]").expect("parses");
+    let bare = parse_citation_expr("[[nope]]").unwrap_p();
     assert_eq!(
         evaluate_citation(&bare, &BTreeMap::new()),
         ThreeValued::Unknown
@@ -109,7 +118,7 @@ fn malformed_bracket_in_citation_id_stays_prose() {
 
 #[test]
 fn citation_negation_flips_verified_counterexample_keeps_unknown() {
-    let expr = parse_citation_expr("¬[[a]]").expect("parses");
+    let expr = parse_citation_expr("¬[[a]]").unwrap_p();
     let verified = BTreeMap::from([("a".to_string(), ThreeValued::Verified)]);
     assert_eq!(
         evaluate_citation(&expr, &verified),
@@ -152,9 +161,9 @@ fn report_persists_per_invariant_status_with_honest_unknown() {
         artifact_sha256: "sha256".into(),
         states_explored: 3,
     };
-    let json = serde_json::to_string(&report).expect("serializes");
+    let json = serde_json::to_string(&report).unwrap_p();
     assert!(json.contains("\"status\":\"verified\""), "{}", json);
     assert!(json.contains("\"status\":\"unknown\""), "{}", json);
-    let round: RunReport = serde_json::from_str(&json).expect("deserializes");
+    let round: RunReport = serde_json::from_str(&json).unwrap_p();
     assert_eq!(round, report);
 }

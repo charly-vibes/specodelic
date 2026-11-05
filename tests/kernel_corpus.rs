@@ -16,11 +16,14 @@
 //! `kernel_status.rs`; the out-of-module split honors the pretender
 //! file_lines ratchet on `src/model_check.rs`).
 
+#[path = "common/mod.rs"]
+mod common;
 use assert_cmd::Command;
+use common::UnwrapPanic;
 use serde_json::Value;
 
 fn spk() -> Command {
-    Command::cargo_bin("specodelic").unwrap()
+    Command::cargo_bin("specodelic").unwrap_p()
 }
 
 /// A kernel-claim fixture in the proven lint-clean shape: a Model
@@ -57,7 +60,7 @@ fn write_kernel_fixture(
              {props}"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// The two coverage property rows for the ka/kb row pair.
@@ -72,7 +75,7 @@ fn ka_kb_props(id: &str) -> String {
 fn compile(specs: &[String], out: &std::path::Path) {
     let mut args = vec!["compile".to_string()];
     args.extend(specs.iter().cloned());
-    args.extend(["--out-dir".to_string(), out.to_str().unwrap().to_string()]);
+    args.extend(["--out-dir".to_string(), out.to_str().unwrap_p().to_string()]);
     spk().args(&args).assert().success();
 }
 
@@ -83,19 +86,19 @@ fn model_check_json(specs: &[String], out: &std::path::Path) -> (Option<i32>, Va
     args.extend([
         "--json".to_string(),
         "--out-dir".to_string(),
-        out.to_str().unwrap().to_string(),
+        out.to_str().unwrap_p().to_string(),
     ]);
-    let result = spk().args(&args).output().unwrap();
-    let json: Value = serde_json::from_slice(&result.stdout).unwrap();
+    let result = spk().args(&args).output().unwrap_p();
+    let json: Value = serde_json::from_slice(&result.stdout).unwrap_p();
     (result.status.code(), json)
 }
 
 /// The persisted report's per-invariant statuses as (id, status) pairs.
 fn report_statuses(out: &std::path::Path, stem: &str) -> Vec<(String, String)> {
     let report: Value = serde_json::from_str(
-        &std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap(),
+        &std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap_p(),
     )
-    .unwrap();
+    .unwrap_p();
     statuses_of(&report["invariant_statuses"])
 }
 
@@ -107,12 +110,12 @@ fn json_statuses(json: &Value, file_idx: usize) -> Vec<(String, String)> {
 /// (id, status) pairs from a statuses array.
 fn statuses_of(list: &Value) -> Vec<(String, String)> {
     list.as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .map(|s| {
             (
-                s["id"].as_str().unwrap().to_string(),
-                s["status"].as_str().unwrap().to_string(),
+                s["id"].as_str().unwrap_p().to_string(),
+                s["status"].as_str().unwrap_p().to_string(),
             )
         })
         .collect()
@@ -134,7 +137,7 @@ fn assert_exactly_once(list: &[(String, String)], id: &str, status: &str) {
 fn json_reasons(json: &Value, file_idx: usize) -> Vec<String> {
     json["data"]["checked"][file_idx]["invariant_statuses"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .filter(|s| s["status"] == "unknown")
         .filter_map(|s| s["reason"].as_str().map(String::from))
@@ -145,7 +148,7 @@ fn json_reasons(json: &Value, file_idx: usize) -> Vec<String> {
 
 #[test]
 fn mixed_kernel_and_rust_claims_both_surface() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("mixed_demo.md");
     let rows = "| c1 | invariant | `**rust:** state != \"blackhole\"` | [[mixed_demo]] |\n\
                 | ka | invariant | `**kernel:** |State| == 999` | [[mixed_demo]] |\n\
@@ -156,8 +159,8 @@ fn mixed_kernel_and_rust_claims_both_surface() {
     );
     write_kernel_fixture(&spec, "mixed_demo", rows, &props, "c1");
     let out = td.path().join("out");
-    compile(&[spec.to_str().unwrap().to_string()], &out);
-    let (code, json) = model_check_json(&[spec.to_str().unwrap().to_string()], &out);
+    compile(&[spec.to_str().unwrap_p().to_string()], &out);
+    let (code, json) = model_check_json(&[spec.to_str().unwrap_p().to_string()], &out);
 
     // The two-state model versus cardinality 999: the Rust claim passes
     // (s2 is reachable but blackhole is not) and the kernel claims are
@@ -180,15 +183,15 @@ fn mixed_kernel_and_rust_claims_both_surface() {
 
 #[test]
 fn kernel_only_corpus_publishes_every_claim() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("konly_demo.md");
     let rows = "| ka | invariant | `**kernel:** |State| == 999` | [[konly_demo]] |\n\
                 | kb | invariant | `**kernel:** |State| == 2` | [[konly_demo]] |\n";
     let props = ka_kb_props("konly_demo");
     write_kernel_fixture(&spec, "konly_demo", rows, &props, "ka");
     let out = td.path().join("out");
-    compile(&[spec.to_str().unwrap().to_string()], &out);
-    let (code, json) = model_check_json(&[spec.to_str().unwrap().to_string()], &out);
+    compile(&[spec.to_str().unwrap_p().to_string()], &out);
+    let (code, json) = model_check_json(&[spec.to_str().unwrap_p().to_string()], &out);
 
     // specodelic-4v1: the refuted claim is a failing aggregate — exit 1.
     assert_eq!(code, Some(1));
@@ -204,7 +207,7 @@ fn kernel_only_corpus_publishes_every_claim() {
 
 #[test]
 fn reversed_file_order_yields_identical_statuses() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     // |Intent| counts the corpus: == 2 is verified over the two-file
     // invocation (corpus-wide evaluation), == 1 is refuted. Per-file
     // evaluation would flip ka's status — the discriminator.
@@ -215,8 +218,8 @@ fn reversed_file_order_yields_identical_statuses() {
     write_kernel_fixture(&a, "corpus_a", rows, &ka_kb_props("corpus_a"), "ka");
     write_kernel_fixture(&b, "corpus_b", rows, &ka_kb_props("corpus_b"), "ka");
     let out = td.path().join("out");
-    let sa = a.to_str().unwrap().to_string();
-    let sb = b.to_str().unwrap().to_string();
+    let sa = a.to_str().unwrap_p().to_string();
+    let sb = b.to_str().unwrap_p().to_string();
     compile(&[sa.clone(), sb.clone()], &out);
 
     let (code, forward) = model_check_json(&[sa.clone(), sb.clone()], &out);
@@ -242,22 +245,22 @@ fn reversed_file_order_yields_identical_statuses() {
 
 #[test]
 fn empty_input_is_invocation_error() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let empty = td.path().join("empty");
-    std::fs::create_dir(&empty).unwrap();
+    std::fs::create_dir(&empty).unwrap_p();
     let out = spk()
         .args([
             "model-check",
-            empty.to_str().unwrap(),
+            empty.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            td.path().join("out").to_str().unwrap(),
+            td.path().join("out").to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     // Invocation error: nothing to check — never a vacuous success.
     assert_eq!(out.status.code(), Some(2));
-    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(json["envelope_kind"], "error");
 }
 
@@ -273,22 +276,22 @@ fn tlc_seam(dir: &std::path::Path, run_output: &str) {
     let script = format!(
         "#!/bin/sh\nfor arg in \"$@\"; do case \"$arg\" in -version) echo 'TLC2 version 1.20.0 of 12 May 2024'; exit 0;; esac; done\ncat <<'TLCOUT'\n{run_output}\nTLCOUT\nexit 0\n"
     );
-    std::fs::write(&shim, script).unwrap();
-    std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap();
-    std::fs::write(dir.join("tla2tools.jar"), b"placeholder").unwrap();
+    std::fs::write(&shim, script).unwrap_p();
+    std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap_p();
+    std::fs::write(dir.join("tla2tools.jar"), b"placeholder").unwrap_p();
 }
 
 #[cfg(unix)]
 #[test]
 fn tlc_backend_kernel_claims_are_labeled_unsupported() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("konly_demo.md");
     let rows = "| ka | invariant | `**kernel:** |State| == 999` | [[konly_demo]] |\n\
                 | kb | invariant | `**kernel:** |State| == 2` | [[konly_demo]] |\n";
     let props = ka_kb_props("konly_demo");
     write_kernel_fixture(&spec, "konly_demo", rows, &props, "ka");
     let out = td.path().join("out");
-    compile(&[spec.to_str().unwrap().to_string()], &out);
+    compile(&[spec.to_str().unwrap_p().to_string()], &out);
     tlc_seam(
         td.path(),
         "Model checking completed. No error has been found.\n7 states generated, 7 distinct states found, 0 states left on queue.",
@@ -297,27 +300,27 @@ fn tlc_backend_kernel_claims_are_labeled_unsupported() {
     let result = spk()
         .args([
             "model-check",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
             "--backend",
             "tlc",
             "--tlc-jar",
-            td.path().join("tla2tools.jar").to_str().unwrap(),
+            td.path().join("tla2tools.jar").to_str().unwrap_p(),
         ])
         .env(
             "SPK_TLC_JAVA",
-            td.path().join("fake-java.sh").to_str().unwrap(),
+            td.path().join("fake-java.sh").to_str().unwrap_p(),
         )
         .output()
-        .unwrap();
+        .unwrap_p();
     // The TLC run itself completes; the kernel claims must still be
     // published — labeled unsupported, never omitted, never implied pass.
     // specodelic-4v1 boundary: unsupported (unknown) claims are
     // exploration_only — a NON-failure outcome; exit 0 stays.
     assert_eq!(result.status.code(), Some(0));
-    let json: Value = serde_json::from_slice(&result.stdout).unwrap();
+    let json: Value = serde_json::from_slice(&result.stdout).unwrap_p();
     let cli = json_statuses(&json, 0);
     assert_exactly_once(&cli, "ka", "unknown");
     assert_exactly_once(&cli, "kb", "unknown");
@@ -335,7 +338,7 @@ fn tlc_backend_kernel_claims_are_labeled_unsupported() {
 
 #[test]
 fn orchestrate_stage_publishes_kernel_claims() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("konly_demo.md");
     let rows = "| ka | invariant | `**kernel:** |State| == 999` | [[konly_demo]] |\n\
                 | kb | invariant | `**kernel:** |State| == 2` | [[konly_demo]] |\n";
@@ -345,19 +348,19 @@ fn orchestrate_stage_publishes_kernel_claims() {
     let result = spk()
         .args([
             "orchestrate",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     // The native run is exploration_only (kernel claims are not executed
     // by the backend), so the stage honestly fails and verify skips —
     // but the stage detail must publish the kernel claims.
     assert_eq!(result.status.code(), Some(1));
-    let json: Value = serde_json::from_slice(&result.stdout).unwrap();
-    let stages = json["data"]["stages"].as_array().unwrap();
+    let json: Value = serde_json::from_slice(&result.stdout).unwrap_p();
+    let stages = json["data"]["stages"].as_array().unwrap_p();
     let mc = stages
         .iter()
         .find(|s| s["stage"] == "model_check")

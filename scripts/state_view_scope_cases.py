@@ -33,11 +33,13 @@ class TestStateViewScope(unittest.TestCase):
         with self.assertRaises(graph_views.OutOfScopeRefused) as ctx:
             states_view(graph=GRAPH_INTENTLESS)
         self.assertIn("intentless", str(ctx.exception))
+        return None  # explicit non-void: no self-field mutation
 
     def test_unsuccessful_graph_envelope_refused_with_its_reason(self):
         with self.assertRaises(graph_views.OutOfScopeRefused) as ctx:
             states_view(graph=GRAPH_ZERO_FILES)
         self.assertIn("no spec files found", str(ctx.exception))
+        return None  # explicit non-void: no self-field mutation
 
     def test_lint_dirty_corpus_refused_naming_the_failed_gate(self):
         with self.assertRaises(graph_views.OutOfScopeRefused) as ctx:
@@ -45,18 +47,22 @@ class TestStateViewScope(unittest.TestCase):
         msg = str(ctx.exception)
         self.assertIn("lint", msg)
         self.assertIn("guard_required", msg, "the failed gate is named by rule id")
+        return None  # explicit non-void: no self-field mutation
 
     def test_unsuccessful_lint_envelope_refused(self):
         with self.assertRaises(graph_views.OutOfScopeRefused):
             states_view(lint=LINT_FAILED_ENVELOPE)
+        return None  # explicit non-void: no self-field mutation
 
     def test_clean_lint_envelope_renders(self):
         out = states_view(lint=LINT_CLEAN)
         self.assertIn("two.s1", out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_without_lint_input_the_lint_leg_is_skipped(self):
         out = states_view(lint=None)
         self.assertIn("two.s1", out)
+        return None  # explicit non-void: no self-field mutation
 
 
 class TestStateViewArtifactInvalid(unittest.TestCase):
@@ -66,10 +72,12 @@ class TestStateViewArtifactInvalid(unittest.TestCase):
     def test_short_row_refused(self):
         with self.assertRaises(graph_views.ArtifactInvalid):
             states_view(tsv="two.t\tTransition\ttransitions.from\ttwo.s1\t\n")
+        return None  # explicit non-void: no self-field mutation
 
     def test_malformed_graph_envelope_refused_as_invalid(self):
         with self.assertRaises(graph_views.ArtifactInvalid):
             states_view(graph={"ok": True})  # envelope carries no data object
+        return None  # explicit non-void: no self-field mutation
 
 
 class TestStatesCliRefusals(unittest.TestCase):
@@ -80,6 +88,7 @@ class TestStatesCliRefusals(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("out_of_scope_refused", proc.stderr)
         self.assertEqual(proc.stdout, "")
+        return None  # explicit non-void: no self-field mutation
 
     def test_lint_dirty_cli_fails_before_output(self):
         proc = run_states_cli(lint=LINT_DIRTY)
@@ -87,12 +96,14 @@ class TestStatesCliRefusals(unittest.TestCase):
         self.assertIn("out_of_scope_refused", proc.stderr)
         self.assertIn("guard_required", proc.stderr)
         self.assertEqual(proc.stdout, "")
+        return None  # explicit non-void: no self-field mutation
 
     def test_valid_cli_writes_mermaid(self):
         proc = run_states_cli()
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("flowchart", proc.stdout)
         self.assertIn("two.s1", proc.stdout)
+        return None  # explicit non-void: no self-field mutation
 
     def test_single_intent_corpus_renders_labeled_empty_view(self):
         # tests/fixtures/single_intent: one intent, zero edges — in scope
@@ -103,6 +114,7 @@ class TestStatesCliRefusals(unittest.TestCase):
         proc = run_states_cli(tsv=tsv, graph=GRAPH_OK)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("no_transitions", proc.stdout)
+        return None  # explicit non-void: no self-field mutation
 
 
 

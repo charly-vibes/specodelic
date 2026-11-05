@@ -33,14 +33,16 @@ pub(crate) fn cmd_lint(
                 },
             )
         };
-        let mut out: Output<serde_json::Value> = Output::failure(msg).with_next_step(hint);
+        let out: Output<serde_json::Value> = notes
+            .iter()
+            .chain(&parse_errors)
+            .fold(Output::failure(msg).with_next_step(hint), |acc, n| {
+                acc.with_warning(n.clone())
+            });
         // The labeled notes surface even on the nothing-linted path — a
         // hostile-input rejection (FIFO, device, oversized) or a parse
         // error must name itself, never vanish into a generic failure
         // (specodelic-suz).
-        for n in notes.iter().chain(&parse_errors) {
-            out = out.with_warning(n.clone());
-        }
         emit_report(out, None, format, verbosity, stdout, stderr);
         // Invocation error (specodelic-7rr item 2): nothing was processed.
         return 2;
@@ -221,11 +223,11 @@ pub(crate) fn cmd_rename(
         }
     }
     if files.is_empty() {
-        let mut out: Output<serde_json::Value> = Output::failure("no spec files to rename")
-            .with_next_step("pass spec files or a directory (defaults to ./specs)");
-        for n in &notes {
-            out = out.with_warning(n.clone());
-        }
+        let out: Output<serde_json::Value> = notes.iter().fold(
+            Output::failure("no spec files to rename")
+                .with_next_step("pass spec files or a directory (defaults to ./specs)"),
+            |acc, n| acc.with_warning(n.clone()),
+        );
         emit_report(out, None, format, verbosity, stdout, stderr);
         return 2;
     }
@@ -307,12 +309,14 @@ pub(crate) fn cmd_rename(
                     "fix the reported issues; the repo is byte-identical to before",
                 ),
             };
-            let mut out: Output<serde_json::Value> = Output::failure(msg).with_next_step(hint);
-            if let rename::RenameError::VerifyFailed { details } = &e {
-                for d in details {
-                    out = out.with_warning(d.clone());
-                }
-            }
+            let out: Output<serde_json::Value> = match &e {
+                rename::RenameError::VerifyFailed { details } => details
+                    .iter()
+                    .fold(Output::failure(msg).with_next_step(hint), |acc, d| {
+                        acc.with_warning(d.clone())
+                    }),
+                _ => Output::failure(msg).with_next_step(hint),
+            };
             emit_report(out, None, format, verbosity, stdout, stderr);
             1
         }

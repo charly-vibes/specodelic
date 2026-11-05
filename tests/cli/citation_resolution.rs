@@ -6,6 +6,7 @@
 //! the CLI JSON output and the persisted run report.
 
 use super::*;
+use crate::common::UnwrapPanic;
 
 /// An ordinary spec whose row sets are given verbatim — the two-state
 /// model is shared, so an exec fragment `state != "s2"` is a real
@@ -39,7 +40,7 @@ fn write_rows_spec(path: &std::path::Path, id: &str, constraint_rows: &str, prop
              |----|------|--------------|-----------|------------|\n\
              {property_rows}", guard_row = guard_row),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// The passing exec invariant every fixture cites.
@@ -65,7 +66,7 @@ fn property_rows_for(id: &str, rows: &[&::std::primitive::str]) -> String {
 fn compile_batch(specs: &[String], out: &std::path::Path) {
     let mut args = vec!["compile".to_string()];
     args.extend(specs.iter().cloned());
-    args.extend(["--out-dir".to_string(), out.to_str().unwrap().to_string()]);
+    args.extend(["--out-dir".to_string(), out.to_str().unwrap_p().to_string()]);
     spk().args(&args).assert().success();
 }
 
@@ -76,27 +77,27 @@ fn model_check_json(specs: &[String], out: &std::path::Path) -> (Option<i32>, se
     args.extend([
         "--json".to_string(),
         "--out-dir".to_string(),
-        out.to_str().unwrap().to_string(),
+        out.to_str().unwrap_p().to_string(),
     ]);
-    let result = spk().args(&args).output().unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    let result = spk().args(&args).output().unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap_p();
     (result.status.code(), json)
 }
 
 /// The persisted report's per-invariant statuses as (id, status) pairs.
 fn report_statuses(out: &std::path::Path, stem: &str) -> Vec<(String, String)> {
     let report: serde_json::Value = serde_json::from_str(
-        &std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap(),
+        &std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap_p(),
     )
-    .unwrap();
+    .unwrap_p();
     report["invariant_statuses"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .map(|s| {
             (
-                s["id"].as_str().unwrap().to_string(),
-                s["status"].as_str().unwrap().to_string(),
+                s["id"].as_str().unwrap_p().to_string(),
+                s["status"].as_str().unwrap_p().to_string(),
             )
         })
         .collect()
@@ -106,12 +107,12 @@ fn report_statuses(out: &std::path::Path, stem: &str) -> Vec<(String, String)> {
 fn json_statuses(json: &serde_json::Value, file_idx: usize) -> Vec<(String, String)> {
     json["data"]["checked"][file_idx]["invariant_statuses"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .map(|s| {
             (
-                s["id"].as_str().unwrap().to_string(),
-                s["status"].as_str().unwrap().to_string(),
+                s["id"].as_str().unwrap_p().to_string(),
+                s["status"].as_str().unwrap_p().to_string(),
             )
         })
         .collect()
@@ -121,7 +122,7 @@ fn json_statuses(json: &serde_json::Value, file_idx: usize) -> Vec<(String, Stri
 fn json_reasons(json: &serde_json::Value, file_idx: usize) -> Vec<String> {
     json["data"]["checked"][file_idx]["invariant_statuses"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .filter(|s| s["status"] == "unknown")
         .filter_map(|s| s["reason"].as_str().map(String::from))
@@ -141,7 +142,7 @@ fn assert_status(list: &[(String, String)], id: &str, status: &str) {
 /// qualified citation — `passing` picks the verified fragment,
 /// `!passing` the counterexample fragment.
 fn write_dual_spec(dir: &std::path::Path, passing: bool) {
-    std::fs::create_dir_all(dir).unwrap();
+    std::fs::create_dir_all(dir).unwrap_p();
     // Revision 18: spec.md derives its id from the parent directory.
     let fid = dir.file_name().and_then(|s| s.to_str()).unwrap_or("d1");
     let fragment = if passing {
@@ -180,14 +181,14 @@ fn write_dual_spec(dir: &std::path::Path, passing: bool) {
              \n### Requirement: Isolated delta scope\nThe delta SHALL be model-checked only as the sole parsed input.\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 // ---- Scenario: Qualified and bare citations agree locally ----
 
 #[test]
 fn qualified_and_bare_citations_agree_on_local_exec_evidence() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("cbdemo.md");
     let rows = format!(
         "{}| c2 | invariant | `[[c1]]` | [[cbdemo]] |\n| c3 | invariant | `[[cbdemo.c1]]` | [[cbdemo]] |\n",
@@ -200,8 +201,8 @@ fn qualified_and_bare_citations_agree_on_local_exec_evidence() {
         &property_rows_for("cbdemo", &["c1", "c2", "c3"]),
     );
     let out = td.path().join("out");
-    compile_batch(&[spec.to_str().unwrap().to_string()], &out);
-    let (code, json) = model_check_json(&[spec.to_str().unwrap().to_string()], &out);
+    compile_batch(&[spec.to_str().unwrap_p().to_string()], &out);
+    let (code, json) = model_check_json(&[spec.to_str().unwrap_p().to_string()], &out);
     assert_eq!(code, Some(0));
     // Baseline (29f81ef): the qualified spelling resolved unknown while
     // the bare spelling verified — both must agree on the same exec
@@ -219,7 +220,7 @@ fn qualified_and_bare_citations_agree_on_local_exec_evidence() {
 
 #[test]
 fn qualified_citations_resolve_exactly_never_by_suffix() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let res = td.path().join("res.md");
     write_rows_spec(
         &res,
@@ -244,7 +245,7 @@ fn qualified_citations_resolve_exactly_never_by_suffix() {
     );
     let specs: Vec<String> = [res, mres, cite]
         .iter()
-        .map(|p| p.to_str().unwrap().to_string())
+        .map(|p| p.to_str().unwrap_p().to_string())
         .collect();
     let out = td.path().join("out");
     compile_batch(&specs, &out);
@@ -267,7 +268,7 @@ fn qualified_citations_resolve_exactly_never_by_suffix() {
 
 #[test]
 fn shared_local_ids_stay_file_local_and_qualified_resolves_cross_file() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let a = td.path().join("shrd_a.md");
     write_rows_spec(
         &a,
@@ -290,7 +291,7 @@ fn shared_local_ids_stay_file_local_and_qualified_resolves_cross_file() {
     );
     let specs: Vec<String> = [a, b]
         .iter()
-        .map(|p| p.to_str().unwrap().to_string())
+        .map(|p| p.to_str().unwrap_p().to_string())
         .collect();
     let out = td.path().join("out");
     compile_batch(&specs, &out);
@@ -315,7 +316,7 @@ fn shared_local_ids_stay_file_local_and_qualified_resolves_cross_file() {
 
 #[test]
 fn citation_chains_resolve_in_dependency_order_either_input_order() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let a = td.path().join("chain_a.md");
     write_rows_spec(
         &a,
@@ -333,7 +334,7 @@ fn citation_chains_resolve_in_dependency_order_either_input_order() {
         "| c9 | invariant | `[[chain_a.c3]]` | [[chain_b]] |\n",
         &property_rows_for("chain_b", &["c9"]),
     );
-    let specs: Vec<String> = [a.to_str().unwrap(), b.to_str().unwrap()]
+    let specs: Vec<String> = [a.to_str().unwrap_p(), b.to_str().unwrap_p()]
         .iter()
         .map(|s| s.to_string())
         .collect();
@@ -344,7 +345,7 @@ fn citation_chains_resolve_in_dependency_order_either_input_order() {
         let batch: Vec<String> = order.iter().map(|&i| specs[i].clone()).collect();
         let (code, json) = model_check_json(&batch, &out);
         assert_eq!(code, Some(0));
-        let idx_a = order.iter().position(|&i| i == 0).unwrap();
+        let idx_a = order.iter().position(|&i| i == 0).unwrap_p();
         let statuses_a = json_statuses(&json, idx_a);
         assert_status(&statuses_a, "c2", "verified");
         // A citation of a citation resolves in dependency order.
@@ -360,7 +361,7 @@ fn citation_chains_resolve_in_dependency_order_either_input_order() {
 
 #[test]
 fn citation_cycle_is_unknown_with_cycle_reason() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("cydemo.md");
     write_rows_spec(
         &spec,
@@ -372,8 +373,8 @@ fn citation_cycle_is_unknown_with_cycle_reason() {
         &property_rows_for("cydemo", &["c1", "c2", "c3"]),
     );
     let out = td.path().join("out");
-    compile_batch(&[spec.to_str().unwrap().to_string()], &out);
-    let (code, json) = model_check_json(&[spec.to_str().unwrap().to_string()], &out);
+    compile_batch(&[spec.to_str().unwrap_p().to_string()], &out);
+    let (code, json) = model_check_json(&[spec.to_str().unwrap_p().to_string()], &out);
     // specodelic-4v1 boundary: unknown claims are exploration_only — a
     // NON-failure outcome; exit 0 stays.
     assert_eq!(code, Some(0));
@@ -394,7 +395,7 @@ fn citation_cycle_is_unknown_with_cycle_reason() {
 
 #[test]
 fn missing_citation_target_is_unknown_with_reason() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("ghstdemo.md");
     write_rows_spec(
         &spec,
@@ -406,8 +407,8 @@ fn missing_citation_target_is_unknown_with_reason() {
         &property_rows_for("ghstdemo", &["c1", "c2"]),
     );
     let out = td.path().join("out");
-    compile_batch(&[spec.to_str().unwrap().to_string()], &out);
-    let (code, json) = model_check_json(&[spec.to_str().unwrap().to_string()], &out);
+    compile_batch(&[spec.to_str().unwrap_p().to_string()], &out);
+    let (code, json) = model_check_json(&[spec.to_str().unwrap_p().to_string()], &out);
     // specodelic-4v1 boundary: unknown claims are exploration_only — a
     // NON-failure outcome; exit 0 stays.
     assert_eq!(code, Some(0));
@@ -425,7 +426,7 @@ fn missing_citation_target_is_unknown_with_reason() {
 
 #[test]
 fn property_row_citation_is_unknown_without_property_execution() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("propcite.md");
     write_rows_spec(
         &spec,
@@ -437,8 +438,8 @@ fn property_row_citation_is_unknown_without_property_execution() {
         &property_rows_for("propcite", &["c1", "c2"]),
     );
     let out = td.path().join("out");
-    compile_batch(&[spec.to_str().unwrap().to_string()], &out);
-    let (code, json) = model_check_json(&[spec.to_str().unwrap().to_string()], &out);
+    compile_batch(&[spec.to_str().unwrap_p().to_string()], &out);
+    let (code, json) = model_check_json(&[spec.to_str().unwrap_p().to_string()], &out);
     // specodelic-4v1 boundary: unknown claims are exploration_only — a
     // NON-failure outcome; exit 0 stays.
     assert_eq!(code, Some(0));
@@ -462,29 +463,29 @@ fn combined_same_identity_scope_fails_before_any_writes() {
     // rule is folded into the identity law — a combined invocation whose
     // inputs claim the SAME intent id fails duplicate_corpus_identity
     // before any writes.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     write_dual_spec(&td.path().join("d1"), true);
     let twin = {
         let dir = td.path().join("d1x");
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).unwrap_p();
         let path = dir.join("spec.md");
-        std::fs::copy(td.path().join("d1/spec.md"), &path).unwrap();
-        path.to_str().unwrap().to_string()
+        std::fs::copy(td.path().join("d1/spec.md"), &path).unwrap_p();
+        path.to_str().unwrap_p().to_string()
     };
     let out = td.path().join("out");
     let result = spk()
         .args([
             "model-check",
-            td.path().join("d1/spec.md").to_str().unwrap(),
+            td.path().join("d1/spec.md").to_str().unwrap_p(),
             twin.as_str(),
             "--json",
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_ne!(result.status.code(), Some(0));
-    let stderr = String::from_utf8(result.stderr).unwrap();
+    let stderr = String::from_utf8(result.stderr).unwrap_p();
     assert!(
         stderr.contains("duplicate_corpus_identity"),
         "labeled scope failure: {stderr}"
@@ -495,7 +496,7 @@ fn combined_same_identity_scope_fails_before_any_writes() {
 
 #[test]
 fn combined_same_identity_fails_scope_for_check_and_verify() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let ordinary = td.path().join("ord_demo.md");
     write_rows_spec(
         &ordinary,
@@ -510,8 +511,8 @@ fn combined_same_identity_fails_scope_for_check_and_verify() {
         &verified_row_for("ord_demo"),
         &property_rows_for("ord_demo", &["c1"]),
     );
-    let ordinary = ordinary.to_str().unwrap().to_string();
-    let twin = twin.to_str().unwrap().to_string();
+    let ordinary = ordinary.to_str().unwrap_p().to_string();
+    let twin = twin.to_str().unwrap_p().to_string();
     let out = td.path().join("out");
     for command in ["model-check", "verify"] {
         let result = spk()
@@ -521,16 +522,16 @@ fn combined_same_identity_fails_scope_for_check_and_verify() {
                 twin.as_str(),
                 "--json",
                 "--out-dir",
-                out.to_str().unwrap(),
+                out.to_str().unwrap_p(),
             ])
             .output()
-            .unwrap();
+            .unwrap_p();
         assert_ne!(
             result.status.code(),
             Some(0),
             "{command} must refuse the same-identity scope"
         );
-        let stderr = String::from_utf8(result.stderr).unwrap();
+        let stderr = String::from_utf8(result.stderr).unwrap_p();
         assert!(
             stderr.contains("duplicate_corpus_identity"),
             "{command}: labeled scope failure: {stderr}"
@@ -541,7 +542,7 @@ fn combined_same_identity_fails_scope_for_check_and_verify() {
 
 #[test]
 fn independent_dual_format_runs_preserve_opposite_outcomes() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     write_dual_spec(&td.path().join("d1"), true);
     write_dual_spec(&td.path().join("d2"), false);
     let out1 = td.path().join("o1");
@@ -550,20 +551,20 @@ fn independent_dual_format_runs_preserve_opposite_outcomes() {
         spk()
             .args([
                 "compile",
-                td.path().join(dir).join("spec.md").to_str().unwrap(),
+                td.path().join(dir).join("spec.md").to_str().unwrap_p(),
                 "--out-dir",
-                out.to_str().unwrap(),
+                out.to_str().unwrap_p(),
             ])
             .assert()
             .success();
     }
     let (code1, json1) = model_check_json(
-        &[td.path().join("d1/spec.md").to_str().unwrap().to_string()],
+        &[td.path().join("d1/spec.md").to_str().unwrap_p().to_string()],
         &out1,
     );
     assert_eq!(code1, Some(0));
     let (code2, json2) = model_check_json(
-        &[td.path().join("d2/spec.md").to_str().unwrap().to_string()],
+        &[td.path().join("d2/spec.md").to_str().unwrap_p().to_string()],
         &out2,
     );
     // specodelic-4v1: the refuted run exits 1 (findings), the clean one 0.
@@ -585,7 +586,7 @@ fn orchestrate_mixed_same_identity_scope_fails_before_any_stage() {
     // H2 (RO5U), revised Revision 18 (specodelic-mcy): the scope law is
     // the identity law — orchestrate's preflight refuses a same-id pair
     // before the compile stage writes anything.
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let a = td.path().join("dup_one.md");
     let b = td.path().join("dup_two.md");
     write_rows_spec(
@@ -604,16 +605,16 @@ fn orchestrate_mixed_same_identity_scope_fails_before_any_stage() {
     let result = spk()
         .args([
             "orchestrate",
-            a.to_str().unwrap(),
-            b.to_str().unwrap(),
+            a.to_str().unwrap_p(),
+            b.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_ne!(result.status.code(), Some(0));
-    let stderr = String::from_utf8(result.stderr).unwrap();
+    let stderr = String::from_utf8(result.stderr).unwrap_p();
     assert!(
         stderr.contains("duplicate_corpus_identity"),
         "labeled scope failure: {stderr}"
@@ -626,7 +627,7 @@ fn orchestrate_mixed_same_identity_scope_fails_before_any_stage() {
 
 #[test]
 fn ordinary_duplicate_intent_ids_fail_before_writes() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let a = td.path().join("dup_one.md");
     let b = td.path().join("dup_two.md");
     write_rows_spec(
@@ -645,16 +646,16 @@ fn ordinary_duplicate_intent_ids_fail_before_writes() {
     let result = spk()
         .args([
             "model-check",
-            a.to_str().unwrap(),
-            b.to_str().unwrap(),
+            a.to_str().unwrap_p(),
+            b.to_str().unwrap_p(),
             "--json",
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_ne!(result.status.code(), Some(0));
-    let err = String::from_utf8(result.stderr).unwrap();
+    let err = String::from_utf8(result.stderr).unwrap_p();
     assert!(
         err.contains("duplicate_corpus_identity"),
         "labeled duplicate failure: {err}"
@@ -667,7 +668,7 @@ fn ordinary_duplicate_intent_ids_fail_before_writes() {
 
 #[test]
 fn multi_file_lint_accepts_shared_local_ids_and_dual_format_pairs() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let a = td.path().join("shrd_a.md");
     let b = td.path().join("shrd_b.md");
     write_rows_spec(
@@ -686,15 +687,15 @@ fn multi_file_lint_accepts_shared_local_ids_and_dual_format_pairs() {
     write_dual_spec(&td.path().join("d2"), false);
     // Ordinary files sharing local row ids: lint stays per-file.
     spk()
-        .args(["lint", a.to_str().unwrap(), b.to_str().unwrap()])
+        .args(["lint", a.to_str().unwrap_p(), b.to_str().unwrap_p()])
         .assert()
         .success();
     // Two dual-format files: file-local identity support retained.
     spk()
         .args([
             "lint",
-            td.path().join("d1/spec.md").to_str().unwrap(),
-            td.path().join("d2/spec.md").to_str().unwrap(),
+            td.path().join("d1/spec.md").to_str().unwrap_p(),
+            td.path().join("d2/spec.md").to_str().unwrap_p(),
         ])
         .assert()
         .success();
@@ -704,7 +705,7 @@ fn multi_file_lint_accepts_shared_local_ids_and_dual_format_pairs() {
 
 #[test]
 fn qualified_citation_without_its_file_in_the_invocation_is_unknown() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let a = td.path().join("disc_a.md");
     write_rows_spec(
         &a,
@@ -728,12 +729,12 @@ fn qualified_citation_without_its_file_in_the_invocation_is_unknown() {
     let out = td.path().join("out");
     compile_batch(
         &[
-            a.to_str().unwrap().to_string(),
-            b.to_str().unwrap().to_string(),
+            a.to_str().unwrap_p().to_string(),
+            b.to_str().unwrap_p().to_string(),
         ],
         &out,
     );
-    let (code, json) = model_check_json(&[a.to_str().unwrap().to_string()], &out);
+    let (code, json) = model_check_json(&[a.to_str().unwrap_p().to_string()], &out);
     // specodelic-4v1 boundary: unknown claims are exploration_only — a
     // NON-failure outcome; exit 0 stays.
     assert_eq!(code, Some(0));

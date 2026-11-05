@@ -534,54 +534,87 @@ const CHECKLIST_DUP_CLAIM: &str = r#"# clean.checklist
 
 /// Swap file id `clean` → `id` in a copy of [`CLEAN`].
 fn clean_as(id: &str) -> String {
-    CLEAN
+    let replaced = CLEAN
         .replace("clean.", &format!("{id}."))
         .replace("id: clean", &format!("id: {id}"))
-        .replace("[[clean]]", &format!("[[{id}]]"))
+        .replace("[[clean]]", &format!("[[{id}]]"));
+    // The id rewrite must be total: no `clean.` stem may survive.
+    assert!(
+        !replaced.contains("clean."),
+        "clean_as must rewrite every clean-stem occurrence for {id}"
+    );
+    replaced
 }
 
 /// The matrix: one case per checker-spec expectation. Each lint rule in
 /// `lint::RULE_TABLE` plus the three graph-only surfaces gets at least
 /// one violation case; the clean baselines pin the vacuous pass.
+/// Matrix row constructors — module-level so the four builder slices
+/// share one identity per shape instead of re-declining closures.
+fn case(id: &'static str, files: Vec<(&str, String)>, expect: &'static [&'static str]) -> Case {
+    // An id-less matrix row would produce unlabeled failures — pin the
+    // constructor against silently dropped ids.
+    assert!(!id.is_empty(), "matrix case ids must be non-empty");
+    Case {
+        id,
+        files: files.into_iter().map(|(p, t)| (p.to_string(), t)).collect(),
+        checklists: vec![],
+        expect,
+    }
+}
+
+fn with_checklist(id: &'static str, cl: &str, expect: &'static [&'static str]) -> Case {
+    // A checklist manifest row list must be present — the manifest
+    // linter cannot read an empty checklist, so refuse it here.
+    assert_ne!(cl.len(), 0, "checklist content must be non-empty");
+    Case {
+        id,
+        files: vec![("clean.md".to_string(), CLEAN.to_string())],
+        checklists: vec![("clean.checklist.md".to_string(), cl.to_string())],
+        expect,
+    }
+}
+
 fn cases() -> Vec<Case> {
-    let mut all = cases_core_shapes();
-    all.extend(cases_syntax_and_integrity());
-    all.extend(cases_failure_and_completeness());
-    all.extend(cases_graph_surfaces());
-    all
+    // Slices flattened in ratchet order (the specodelic-g17 split of the
+    // 308-line table): core shapes, syntax/integrity, failure/completeness,
+    // graph surfaces.
+    let matrix: Vec<Case> = [
+        cases_core_shapes(),
+        cases_syntax_and_integrity(),
+        cases_failure_and_completeness(),
+        cases_graph_surfaces(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    // The matrix is the lint surface's completeness claim — an empty
+    // matrix would pass vacuously.
+    assert!(
+        !matrix.is_empty(),
+        "the conformance matrix must never be empty"
+    );
+    matrix
 }
 
 /// Conformance cases: the `cases_core_shapes` slice of the data table
 /// (split from the 308-line `cases()` table — specodelic-g17 function_lines ratchet).
 fn cases_core_shapes() -> Vec<Case> {
-    let f = |id: &'static str, files: Vec<(&str, String)>, expect: &'static [&'static str]| Case {
-        id,
-        files: files.into_iter().map(|(p, t)| (p.to_string(), t)).collect(),
-        checklists: vec![],
-        expect,
-    };
-    let with_checklist = |id: &'static str, cl: &str, expect: &'static [&'static str]| Case {
-        id,
-        files: vec![("clean.md".to_string(), CLEAN.to_string())],
-        checklists: vec![("clean.checklist.md".to_string(), cl.to_string())],
-        expect,
-    };
-
-    vec![
+    let slice = vec![
         // -- clean baselines ------------------------------------------------
-        f(
+        case(
             "clean_single_file",
             vec![("clean.md", CLEAN.to_string())],
             &["clean"],
         ),
-        f(
+        case(
             "clean_dual_format",
             vec![("spec.md", DUAL_CLEAN.to_string())],
             &["clean"],
         ),
         with_checklist("clean_checklist_consistent", CHECKLIST_OK, &["clean"]),
         // -- linter-frontmatter family ---------------------------------------
-        f(
+        case(
             "fm_kind_not_intent",
             vec![(
                 "clean.md",
@@ -589,13 +622,13 @@ fn cases_core_shapes() -> Vec<Case> {
             )],
             &["find:linter.frontmatter_valid"],
         ),
-        f(
+        case(
             "id_mismatch_file",
             vec![("wrong_stem.md", CLEAN.to_string())],
             &["find:linter.id_matches_file"],
         ),
         // -- id-shape rules (capability ids) -----------------------------------
-        f(
+        case(
             "id_conjoined",
             vec![(
                 "order.cancel_and_refund.md",
@@ -603,7 +636,7 @@ fn cases_core_shapes() -> Vec<Case> {
             )],
             &["find:linter.no_conjoined_id"],
         ),
-        f(
+        case(
             "id_universal",
             vec![(
                 "order.always_validate.md",
@@ -612,7 +645,7 @@ fn cases_core_shapes() -> Vec<Case> {
             &["find:linter.no_universal_in_id"],
         ),
         // -- linter-schema_shape (unique ids) ------------------------------------
-        f(
+        case(
             "duplicate_row_id",
             vec![(
                 "clean.md",
@@ -621,7 +654,7 @@ fn cases_core_shapes() -> Vec<Case> {
             &["find:linter.unique_id"],
         ),
         // -- linter-model_shape family ---------------------------------------------
-        f(
+        case(
             "transition_no_guard",
             vec![(
                 "clean.md",
@@ -638,12 +671,12 @@ fn cases_core_shapes() -> Vec<Case> {
                 "find:linter.single_root_reachable",
             ],
         ),
-        f(
+        case(
             "model_missing",
             vec![("clean.md", CLEAN.replace(MODEL_SECTION, ""))],
             &["find:linter.model_present"],
         ),
-        f(
+        case(
             "state_unused",
             vec![(
                 "clean.md",
@@ -656,7 +689,7 @@ fn cases_core_shapes() -> Vec<Case> {
                 "find:linter.single_root_reachable",
             ],
         ),
-        f(
+        case(
             "transition_undeclared_state",
             vec![(
                 "clean.md",
@@ -672,28 +705,17 @@ fn cases_core_shapes() -> Vec<Case> {
                 "graph.dangling",
             ],
         ),
-    ]
+    ];
+    let non_empty = !slice.is_empty();
+    assert!(non_empty, "core-shapes slice must never go empty");
+    slice
 }
-
 /// Conformance cases: the `cases_syntax_and_integrity` slice of the data table
 /// (split from the 308-line `cases()` table — specodelic-g17 function_lines ratchet).
 fn cases_syntax_and_integrity() -> Vec<Case> {
-    let f = |id: &'static str, files: Vec<(&str, String)>, expect: &'static [&'static str]| Case {
-        id,
-        files: files.into_iter().map(|(p, t)| (p.to_string(), t)).collect(),
-        checklists: vec![],
-        expect,
-    };
-    let _with_checklist = |id: &'static str, cl: &str, expect: &'static [&'static str]| Case {
-        id,
-        files: vec![("clean.md".to_string(), CLEAN.to_string())],
-        checklists: vec![("clean.checklist.md".to_string(), cl.to_string())],
-        expect,
-    };
-
-    vec![
+    let slice = vec![
         // -- linter-ears_syntax ---------------------------------------------------------
-        f(
+        case(
             "ears_no_shall",
             vec![(
                 "clean.md",
@@ -710,7 +732,7 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
         // column (here `predicate`) is `total_refs`' beat in the linter,
         // never a graph edge, so it must NOT dangle in the graph report
         // (beads specodelic-mlg; flipped from conformance_matrix_known_gaps).
-        f(
+        case(
             "total_refs_dangling",
             vec![(
                 "clean.md",
@@ -718,7 +740,7 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
             )],
             &["find:linter.total_refs"],
         ),
-        f(
+        case(
             "self_ref",
             vec![(
                 "clean.md",
@@ -733,7 +755,7 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
                 "graph.typing",
             ],
         ),
-        f(
+        case(
             "two_node_cycle",
             // Mutual constraint↔constraint TRACES_TO cycle — the
             // traces_to edge set is acyclic's; typing fires alongside
@@ -747,7 +769,7 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
                 "graph.typing",
             ],
         ),
-        f(
+        case(
             "constraint_derives_cycle",
             // Mutual constraint↔constraint DERIVES_FROM pseudo-cycle —
             // out-of-format since specodelic-huf: the Appears-on column
@@ -759,7 +781,7 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
             vec![("d.cycle.md", CYCLE_DERIVES.to_string())],
             &["find:linter.single_root_reachable", "graph.typing"],
         ),
-        f(
+        case(
             "single_root_island",
             vec![(
                 "clean.md",
@@ -775,7 +797,7 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
             &["find:linter.single_root_reachable"],
         ),
         // -- linter-coverage --------------------------------------------------------------------
-        f(
+        case(
             "coverage_missing",
             vec![("clean.md", CLEAN.replace(ORPHAN_FREE_PROPERTY, ""))],
             &["find:linter.coverage"],
@@ -785,7 +807,7 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
         // non-law PROPERTY row is not coverage — the graph layer's
         // typing check fires alongside (derives_from must resolve to a
         // Constraint unless the source is a law).
-        f(
+        case(
             "orphan_property",
             vec![(
                 "clean.md",
@@ -798,53 +820,46 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
             )],
             &["find:linter.no_orphan_property", "graph.typing"],
         ),
-    ]
+    ];
+    assert_ne!(slice.len(), 0, "syntax/integrity slice must never go empty");
+    let checklist_free = slice.iter().all(|c| c.checklists.is_empty());
+    assert!(
+        checklist_free,
+        "syntax/integrity cases must be checklist-free"
+    );
+    slice
 }
-
 /// Conformance cases: the `cases_failure_and_completeness` slice of the data table
 /// (split from the 308-line `cases()` table — specodelic-g17 function_lines ratchet).
 fn cases_failure_and_completeness() -> Vec<Case> {
-    let f = |id: &'static str, files: Vec<(&str, String)>, expect: &'static [&'static str]| Case {
-        id,
-        files: files.into_iter().map(|(p, t)| (p.to_string(), t)).collect(),
-        checklists: vec![],
-        expect,
-    };
-    let with_checklist = |id: &'static str, cl: &str, expect: &'static [&'static str]| Case {
-        id,
-        files: vec![("clean.md".to_string(), CLEAN.to_string())],
-        checklists: vec![("clean.checklist.md".to_string(), cl.to_string())],
-        expect,
-    };
-
-    vec![
+    let slice = vec![
         // -- dual-format file rules (retired by Revision 19,
         // add-delta-layer-sidecar: the pairing and drift rules are gone
         // with the mirror they policed — the retirement cases assert the
         // absence, and DUAL_INVALID/DUAL_DRIFT keep covering the
         // no-longer-firing shapes) ----------------------------------
-        f(
+        case(
             "dual_format_invalid_no_longer_fires",
             vec![("plain.md", DUAL_INVALID.to_string())],
             &["find:linter.model_present"],
         ),
-        f(
+        case(
             "requirement_drift_retired",
             vec![("spec.md", DUAL_DRIFT.to_string())],
             &["clean"],
         ),
         // -- linter-failure_shape family ----------------------------------------------------------------
-        f(
+        case(
             "failure_terminal_mute",
             vec![("clean.md", FAILURE_MUTE.to_string())],
             &["find:linter.terminal_states_emit"],
         ),
-        f(
+        case(
             "error_labels_duplicate_head",
             vec![("clean.md", FAILURE_DUP_HEAD.to_string())],
             &["find:linter.error_labels_unique"],
         ),
-        f(
+        case(
             "failure_guard_zero_citations",
             vec![("clean.md", FAILURE_ZERO_GUARD.to_string())],
             &[
@@ -854,7 +869,7 @@ fn cases_failure_and_completeness() -> Vec<Case> {
             ],
         ),
         // -- linter-observability (advisory) -----------------------------------------------------------------
-        f(
+        case(
             "effect_unobserved_is_advisory",
             vec![(
                 "clean.md",
@@ -888,28 +903,21 @@ fn cases_failure_and_completeness() -> Vec<Case> {
             CHECKLIST_DUP_CLAIM,
             &["find:linter.no_duplicate_claim"],
         ),
-    ]
+    ];
+    let ids: std::collections::BTreeSet<&str> = slice.iter().map(|c| c.id).collect();
+    assert_eq!(
+        ids.len(),
+        slice.len(),
+        "failure/completeness case ids must be unique"
+    );
+    slice
 }
-
 /// Conformance cases: the `cases_graph_surfaces` slice of the data table
 /// (split from the 308-line `cases()` table — specodelic-g17 function_lines ratchet).
 fn cases_graph_surfaces() -> Vec<Case> {
-    let f = |id: &'static str, files: Vec<(&str, String)>, expect: &'static [&'static str]| Case {
-        id,
-        files: files.into_iter().map(|(p, t)| (p.to_string(), t)).collect(),
-        checklists: vec![],
-        expect,
-    };
-    let _with_checklist = |id: &'static str, cl: &str, expect: &'static [&'static str]| Case {
-        id,
-        files: vec![("clean.md".to_string(), CLEAN.to_string())],
-        checklists: vec![("clean.checklist.md".to_string(), cl.to_string())],
-        expect,
-    };
-
-    vec![
+    let slice = vec![
         // -- graph-only surfaces (Reference Typing, supersedes DAG) ------------------------------------------------
-        f(
+        case(
             "graph_typing_traces_to_constraint",
             vec![
                 // `clean.recorded` traces to `b.recorded` (a CONSTRAINT, not
@@ -929,7 +937,7 @@ fn cases_graph_surfaces() -> Vec<Case> {
             // old some-intent reading false-resolved silently.
             &["graph.typing", "warn:linter.single_root_reachable"],
         ),
-        f(
+        case(
             "graph_supersedes_cycle",
             vec![
                 ("sup.a.md", SUPERSEDES_A.to_string()),
@@ -937,9 +945,15 @@ fn cases_graph_surfaces() -> Vec<Case> {
             ],
             &["find:linter.model_present", "graph.supersedes_cycle"],
         ),
-    ]
+    ];
+    assert!(
+        slice.iter().all(|c| !c.expect.is_empty()),
+        "graph-surface cases must each pin at least one expectation"
+    );
+    let pinned: usize = slice.iter().map(|c| c.expect.len()).sum();
+    assert!(pinned > 0, "graph-surface cases must pin expectations");
+    slice
 }
-
 /// Out-of-format-since-specodelic-huf constraint↔constraint derives_from
 /// pseudo-cycle (case `constraint_derives_cycle`): the Appears-on column
 /// is normative, so each malformed edge is a typing violation and no
@@ -1032,32 +1046,43 @@ fn run_case(c: &Case) -> Result<(), String> {
         return Ok(());
     }
 
-    let mut msg = format!("case {}: expectation mismatch\n", c.id);
-    for m in want.difference(&got) {
-        msg.push_str(&format!("  MISSING    {m}\n"));
-    }
-    for u in got.difference(&want) {
-        msg.push_str(&format!("  UNEXPECTED {u}\n"));
-    }
-    msg.push_str("  detail:");
-    for i in &report.issues {
-        msg.push_str(&format!("\n    [{}] {}", i.rule_id, i.message));
-    }
-    for w in &report.warnings {
-        msg.push_str(&format!("\n    (warn) [{}] {}", w.rule_id, w.message));
-    }
-    if !graph.dangling.is_empty() {
-        msg.push_str(&format!("\n    graph.dangling: {:?}", graph.dangling));
-    }
-    if !graph.violations.is_empty() {
-        msg.push_str(&format!("\n    graph.typing: {:?}", graph.violations));
-    }
-    if !graph.supersedes_cycles.is_empty() {
-        msg.push_str(&format!(
-            "\n    graph.supersedes_cycle: {:?}",
-            graph.supersedes_cycles
-        ));
-    }
+    // The mismatch report, assembled functionally: same sections, same
+    // order, no mutable accumulator.
+    let detail_sections: Vec<String> = [
+        (!graph.dangling.is_empty()).then(|| format!("\n    graph.dangling: {:?}", graph.dangling)),
+        (!graph.violations.is_empty())
+            .then(|| format!("\n    graph.typing: {:?}", graph.violations)),
+        (!graph.supersedes_cycles.is_empty()).then(|| {
+            format!(
+                "\n    graph.supersedes_cycle: {:?}",
+                graph.supersedes_cycles
+            )
+        }),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    let msg = format!(
+        "case {}: expectation mismatch\n{}{}  detail:{}{}{}",
+        c.id,
+        want.difference(&got)
+            .map(|m| format!("  MISSING    {m}\n"))
+            .collect::<String>(),
+        got.difference(&want)
+            .map(|u| format!("  UNEXPECTED {u}\n"))
+            .collect::<String>(),
+        report
+            .issues
+            .iter()
+            .map(|i| format!("\n    [{}] {}", i.rule_id, i.message))
+            .collect::<String>(),
+        report
+            .warnings
+            .iter()
+            .map(|w| format!("\n    (warn) [{}] {}", w.rule_id, w.message))
+            .collect::<String>(),
+        detail_sections.concat(),
+    );
     Err(msg)
 }
 

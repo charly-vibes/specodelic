@@ -10,6 +10,7 @@
 //! BEFORE the destructive archive, and the post-attach shape + lint
 //! assertion with revert.
 
+use crate::test_panic::UnwrapPanic;
 use std::fs;
 use std::path::Path;
 
@@ -17,21 +18,21 @@ use super::*;
 
 /// Build a repo-root-shaped temp tree from relative path → content.
 fn tree(entries: &[(&str, &str)]) -> tempfile::TempDir {
-    let root = tempfile::tempdir().unwrap();
+    let root = tempfile::tempdir().unwrap_p();
     for (rel, content) in entries {
         let p = root.path().join(rel);
-        fs::create_dir_all(p.parent().unwrap()).unwrap();
-        fs::write(p, content).unwrap();
+        fs::create_dir_all(p.parent().unwrap_p()).unwrap_p();
+        fs::write(p, content).unwrap_p();
     }
     root
 }
 
 fn tree_owned(entries: &[(String, &str)]) -> tempfile::TempDir {
-    let root = tempfile::tempdir().unwrap();
+    let root = tempfile::tempdir().unwrap_p();
     for (rel, content) in entries {
         let p = root.path().join(rel);
-        fs::create_dir_all(p.parent().unwrap()).unwrap();
-        fs::write(p, content).unwrap();
+        fs::create_dir_all(p.parent().unwrap_p()).unwrap_p();
+        fs::write(p, content).unwrap_p();
     }
     root
 }
@@ -137,10 +138,10 @@ fn applying_runner() -> impl FnMut(&Path, &str) -> Result<(), String> {
     move |root: &Path, id: &str| -> Result<(), String> {
         let src = root.join("openspec/changes").join(id);
         let dst = root.join(format!("openspec/changes/archive/2026-10-01-{id}"));
-        fs::create_dir_all(dst.parent().unwrap()).unwrap();
-        fs::rename(&src, &dst).unwrap();
-        fs::create_dir_all(root.join("openspec/specs/c")).unwrap();
-        fs::write(root.join("openspec/specs/c/spec.md"), APPLIED_DEPLOY).unwrap();
+        fs::create_dir_all(dst.parent().unwrap_p()).unwrap_p();
+        fs::rename(&src, &dst).unwrap_p();
+        fs::create_dir_all(root.join("openspec/specs/c")).unwrap_p();
+        fs::write(root.join("openspec/specs/c/spec.md"), APPLIED_DEPLOY).unwrap_p();
         Ok(())
     }
 }
@@ -157,7 +158,7 @@ fn resolve_archive_dir_newest_wins() {
             PLAIN_DELTA,
         ),
     ]);
-    let dir = resolve_archive_dir(root.path(), "x").unwrap();
+    let dir = resolve_archive_dir(root.path(), "x").unwrap_p();
     assert_eq!(
         dir,
         root.path().join("openspec/changes/archive/2026-10-01-x")
@@ -180,25 +181,25 @@ fn resolve_archive_dir_none_is_labeled_error() {
 #[test]
 fn restore_assembles_dual_format_from_sidecar_and_applied_spec() {
     let root = tree_owned(&archived_fixtures("asm"));
-    let archive = resolve_archive_dir(root.path(), "asm").unwrap();
+    let archive = resolve_archive_dir(root.path(), "asm").unwrap_p();
     // openspec's apply already wrote the deployed spec from the delta
-    fs::create_dir_all(root.path().join("openspec/specs/c")).unwrap();
-    fs::write(root.path().join("openspec/specs/c/spec.md"), APPLIED_DEPLOY).unwrap();
+    fs::create_dir_all(root.path().join("openspec/specs/c")).unwrap_p();
+    fs::write(root.path().join("openspec/specs/c/spec.md"), APPLIED_DEPLOY).unwrap_p();
 
-    let restored = restore(root.path(), &archive).unwrap();
+    let restored = restore(root.path(), &archive).unwrap_p();
     assert_eq!(restored, vec![root.path().join("openspec/specs/c/spec.md")]);
 
-    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap();
+    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap_p();
     assert_eq!(deployed, ASSEMBLED_DEPLOY);
     // the archived delta stays byte-plain (openspec moved it verbatim;
     // the companion never rewrites it)
     assert_eq!(
-        fs::read_to_string(archive.join("specs/c/spec.md")).unwrap(),
+        fs::read_to_string(archive.join("specs/c/spec.md")).unwrap_p(),
         PLAIN_DELTA
     );
     // the sidecar rides along in the archive, untouched
     assert_eq!(
-        fs::read_to_string(archive.join("specs/c/layer.md")).unwrap(),
+        fs::read_to_string(archive.join("specs/c/layer.md")).unwrap_p(),
         SIDECAR
     );
 }
@@ -218,9 +219,9 @@ fn restore_new_capability_deploys_from_sidecar_tables() {
             SIDECAR,
         ),
     ]);
-    let archive = resolve_archive_dir(root.path(), "new").unwrap();
-    let restored = restore(root.path(), &archive).unwrap();
-    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap();
+    let archive = resolve_archive_dir(root.path(), "new").unwrap_p();
+    let restored = restore(root.path(), &archive).unwrap_p();
+    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap_p();
     assert!(restored.len() == 1);
     // frontmatter + the three tables, no delta headers
     assert!(deployed.starts_with("---\nid: c\n"));
@@ -233,9 +234,9 @@ fn restore_new_capability_deploys_from_sidecar_tables() {
 #[test]
 fn restore_rekeys_sidecar_id_and_refs() {
     let root = tree_owned(&archived_fixtures("rekey"));
-    let archive = resolve_archive_dir(root.path(), "rekey").unwrap();
-    restore(root.path(), &archive).unwrap();
-    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap();
+    let archive = resolve_archive_dir(root.path(), "rekey").unwrap_p();
+    restore(root.path(), &archive).unwrap_p();
+    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap_p();
     assert!(deployed.contains("id: c\n"), "{deployed}");
     assert!(
         !deployed.contains("c.layer"),
@@ -253,7 +254,7 @@ fn restore_refuses_sidecarless_delta_before_any_write() {
         "openspec/changes/archive/2026-10-01-s/specs/c/spec.md",
         PLAIN_DELTA,
     )]);
-    let archive = resolve_archive_dir(root.path(), "s").unwrap();
+    let archive = resolve_archive_dir(root.path(), "s").unwrap_p();
     match restore(root.path(), &archive) {
         Err(CompanionError::SidecarRefusal { refused, .. }) => {
             assert_eq!(refused.len(), 1);
@@ -336,7 +337,7 @@ fn restore_refuses_sidecar_missing_a_table() {
             "---\nid: c.layer\nkind: intent\nstatement: \"SHALL x.\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n",
         ),
     ]);
-    let archive = resolve_archive_dir(root.path(), "partial").unwrap();
+    let archive = resolve_archive_dir(root.path(), "partial").unwrap_p();
     match restore(root.path(), &archive) {
         Err(CompanionError::SidecarRefusal { refused, .. }) => {
             assert!(refused[0].1.contains("Properties"), "{}", refused[0].1);
@@ -361,7 +362,7 @@ fn restore_post_attach_shape_assertion_refuses_delta_headers() {
         ),
         ("openspec/specs/c/spec.md", PLAIN_DELTA),
     ]);
-    let archive = resolve_archive_dir(root.path(), "raw").unwrap();
+    let archive = resolve_archive_dir(root.path(), "raw").unwrap_p();
     match restore(root.path(), &archive) {
         Err(CompanionError::AttachViolation { cap, detail, .. }) => {
             assert_eq!(cap, "c");
@@ -371,7 +372,7 @@ fn restore_post_attach_shape_assertion_refuses_delta_headers() {
     }
     assert!(
         !fs::read_to_string(root.path().join("openspec/specs/c/spec.md"))
-            .unwrap()
+            .unwrap_p()
             .contains("## Constraints"),
         "the reverted deployed tree must not carry the assembled layer"
     );
@@ -400,7 +401,7 @@ fn restore_post_attach_lint_failure_reverts_write() {
         ),
         ("openspec/specs/c/spec.md", prior),
     ]);
-    let archive = resolve_archive_dir(root.path(), "dirty").unwrap();
+    let archive = resolve_archive_dir(root.path(), "dirty").unwrap_p();
     match restore(root.path(), &archive) {
         Err(CompanionError::AttachViolation { cap, detail, .. }) => {
             assert_eq!(cap, "c");
@@ -412,7 +413,7 @@ fn restore_post_attach_lint_failure_reverts_write() {
         other => panic!("expected AttachViolation, got {other:?}"),
     }
     assert_eq!(
-        fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap(),
+        fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap_p(),
         prior,
         "the violated write must be reverted to the prior deployed bytes"
     );
@@ -430,8 +431,8 @@ fn run_reverts_archive_move_on_attach_violation() {
     let mut runner = move |root: &Path, id: &str| -> Result<(), String> {
         let src = root.join("openspec/changes").join(id);
         let dst = root.join(format!("openspec/changes/archive/2026-10-01-{id}"));
-        fs::create_dir_all(dst.parent().unwrap()).unwrap();
-        fs::rename(src, dst).unwrap();
+        fs::create_dir_all(dst.parent().unwrap_p()).unwrap_p();
+        fs::rename(src, dst).unwrap_p();
         Ok(())
     };
     assert!(run(root_path.as_path(), "broken", false, &mut runner).is_err());
@@ -459,11 +460,11 @@ fn restore_recognizes_already_deployed_sidecarless_archive() {
         ),
         ("openspec/specs/c/spec.md", ASSEMBLED_DEPLOY),
     ]);
-    let archive = resolve_archive_dir(root.path(), "r2").unwrap();
-    let restored = restore(root.path(), &archive).unwrap();
+    let archive = resolve_archive_dir(root.path(), "r2").unwrap_p();
+    let restored = restore(root.path(), &archive).unwrap_p();
     assert!(restored.is_empty());
     assert_eq!(
-        fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap(),
+        fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap_p(),
         ASSEMBLED_DEPLOY
     );
 }
@@ -478,26 +479,26 @@ fn run_rerun_converges_to_identical_deployed_bytes() {
         root.path().join("openspec/changes/live/specs/c/layer.md"),
         SIDECAR,
     )
-    .unwrap();
+    .unwrap_p();
     let root_path = root.path().to_path_buf();
 
-    let outcome = run(root_path.as_path(), "live", false, &mut applying_runner()).unwrap();
+    let outcome = run(root_path.as_path(), "live", false, &mut applying_runner()).unwrap_p();
     assert!(outcome.openspec_ran);
     let deployed = root_path.join("openspec/specs/c/spec.md");
-    let first = fs::read(&deployed).unwrap();
-    assert_eq!(fs::read_to_string(&deployed).unwrap(), ASSEMBLED_DEPLOY);
+    let first = fs::read(&deployed).unwrap_p();
+    assert_eq!(fs::read_to_string(&deployed).unwrap_p(), ASSEMBLED_DEPLOY);
 
     // rerun: openspec is NOT invoked (already archived); the re-attach
     // re-resolves from the archive and converges to identical bytes
-    let outcome2 = run(root_path.as_path(), "live", false, &mut panicking_runner()).unwrap();
+    let outcome2 = run(root_path.as_path(), "live", false, &mut panicking_runner()).unwrap_p();
     assert!(!outcome2.openspec_ran);
     assert_eq!(
-        fs::read(&deployed).unwrap(),
+        fs::read(&deployed).unwrap_p(),
         first,
         "rerun must converge byte-identically"
     );
     assert_eq!(
-        fs::read_to_string(&deployed).unwrap(),
+        fs::read_to_string(&deployed).unwrap_p(),
         ASSEMBLED_DEPLOY,
         "rerun must still produce the fully assembled dual-format spec"
     );
@@ -528,13 +529,13 @@ fn restore_newest_archive_wins() {
         ),
         ("openspec/specs/c/spec.md".to_string(), APPLIED_DEPLOY),
     ]);
-    let outcome = run(root.path(), "n", false, &mut panicking_runner()).unwrap();
+    let outcome = run(root.path(), "n", false, &mut panicking_runner()).unwrap_p();
     assert_eq!(
         outcome.archive_dir,
         root.path().join("openspec/changes/archive/2026-10-01-n"),
         "the newest archive directory must win"
     );
-    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap();
+    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap_p();
     assert!(
         !deployed.contains("OLDER MARKER"),
         "the stale archive's layer must not leak into the deploy: {deployed}"
@@ -548,8 +549,8 @@ fn run_dry_run_never_invokes_or_writes() {
         root.path()
             .join("openspec/changes/archive/2026-10-01-dry/specs/c/spec.md"),
     )
-    .unwrap();
-    let outcome = run(root.path(), "dry", true, &mut panicking_runner()).unwrap();
+    .unwrap_p();
+    let outcome = run(root.path(), "dry", true, &mut panicking_runner()).unwrap_p();
     assert!(outcome.dry_run);
     assert!(!outcome.openspec_ran);
     assert_eq!(
@@ -572,7 +573,7 @@ fn run_dry_run_never_invokes_or_writes() {
             root.path()
                 .join("openspec/changes/archive/2026-10-01-dry/specs/c/spec.md")
         )
-        .unwrap(),
+        .unwrap_p(),
         before
     );
 }
@@ -584,8 +585,8 @@ fn run_dry_run_over_active_change_reports_plan() {
         root.path().join("openspec/changes/fresh/specs/c/layer.md"),
         SIDECAR,
     )
-    .unwrap();
-    let outcome = run(root.path(), "fresh", true, &mut panicking_runner()).unwrap();
+    .unwrap_p();
+    let outcome = run(root.path(), "fresh", true, &mut panicking_runner()).unwrap_p();
     assert!(outcome.dry_run);
     assert_eq!(
         outcome.restored,
@@ -616,9 +617,9 @@ fn run_dry_run_refuses_sidecarless_delta() {
 #[test]
 fn run_already_archived_skips_openspec() {
     let root = tree_owned(&archived_fixtures("done"));
-    fs::create_dir_all(root.path().join("openspec/specs/c")).unwrap();
-    fs::write(root.path().join("openspec/specs/c/spec.md"), APPLIED_DEPLOY).unwrap();
-    let outcome = run(root.path(), "done", false, &mut panicking_runner()).unwrap();
+    fs::create_dir_all(root.path().join("openspec/specs/c")).unwrap_p();
+    fs::write(root.path().join("openspec/specs/c/spec.md"), APPLIED_DEPLOY).unwrap_p();
+    let outcome = run(root.path(), "done", false, &mut panicking_runner()).unwrap_p();
     assert!(!outcome.openspec_ran);
     assert_eq!(outcome.restored.len(), 1);
 }
@@ -629,8 +630,8 @@ fn restore_empty_delta_set_is_success() {
         "openspec/changes/archive/2026-10-01-b/proposal.md",
         "# docs",
     )]);
-    let archive = resolve_archive_dir(root.path(), "b").unwrap();
-    let restored = restore(root.path(), &archive).unwrap();
+    let archive = resolve_archive_dir(root.path(), "b").unwrap_p();
+    let restored = restore(root.path(), &archive).unwrap_p();
     assert!(restored.is_empty());
 }
 
@@ -651,7 +652,7 @@ fn run_open_spec_failure_is_labeled() {
             .join("openspec/changes/broken2/specs/c/layer.md"),
         SIDECAR,
     )
-    .unwrap();
+    .unwrap_p();
     let mut failing = |_root: &Path, _id: &str| -> Result<(), String> {
         Err("openspec: validation failed".to_string())
     };
@@ -668,7 +669,7 @@ fn run_open_spec_missing_is_labeled() {
         root.path().join("openspec/changes/nobin/specs/c/layer.md"),
         SIDECAR,
     )
-    .unwrap();
+    .unwrap_p();
     let mut missing = |_root: &Path, _id: &str| -> Result<(), String> {
         Err("spawn failed: No such file or directory".to_string())
     };

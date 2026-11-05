@@ -24,15 +24,13 @@ use specodelic::spec::{Spec, parse_str};
 #[path = "common/mod.rs"]
 mod common;
 
+use common::UnwrapPanic;
 use common::kernel_corpora::{CHAIN, CYCLIC, DANGLING, DUPLICATES};
 
 /// Parse a per-file fixture list into a corpus (each chunk is one
 /// complete spec file, parsed through the real parser).
 fn corpus(files: &[&str]) -> Vec<Spec> {
-    files
-        .iter()
-        .map(|f| parse_str(f).expect("fixture file parses"))
-        .collect()
+    files.iter().map(|f| parse_str(f).unwrap_p()).collect()
 }
 
 // --- acyclic: graph traversal agreement ---
@@ -44,18 +42,16 @@ fn acyclic_agrees_with_graph_cycle_detection() {
     // instance, cyclic and acyclic alike.
     let cyclic_specs = corpus(CYCLIC);
     let cyclic_env = KernelEnv::from_specs(&cyclic_specs);
-    let machinery_cyclic =
-        query::cyclic_nodes(cyclic_env.instance(), &["supersedes"]).expect("machinery runs");
+    let machinery_cyclic = query::cyclic_nodes(cyclic_env.instance(), &["supersedes"]).unwrap_p();
     assert!(!machinery_cyclic.is_empty(), "fixture must have a cycle");
     let expr = parse_kernel_str("acyclic(supersedes)")
-        .expect("parses")
-        .expect("an expression");
+        .unwrap_p()
+        .unwrap_p();
     assert_eq!(cyclic_env.evaluate(&expr), ThreeValued::Counterexample);
 
     let chain_specs = corpus(CHAIN);
     let chain_env = KernelEnv::from_specs(&chain_specs);
-    let machinery_chain =
-        query::cyclic_nodes(chain_env.instance(), &["supersedes"]).expect("machinery runs");
+    let machinery_chain = query::cyclic_nodes(chain_env.instance(), &["supersedes"]).unwrap_p();
     assert!(machinery_chain.is_empty(), "fixture must be acyclic");
     assert_eq!(chain_env.evaluate(&expr), ThreeValued::Verified);
 }
@@ -72,20 +68,20 @@ fn reachable_agrees_with_forward_closure() {
     // Machinery: nc reachable from na through supersedes (na → nb →
     // nc); nc's forward closure contains only itself.
     let machinery =
-        query::forward_closure(instance, &["demo.chn.a.na"], &["supersedes"]).expect("machinery");
+        query::forward_closure(instance, &["demo.chn.a.na"], &["supersedes"]).unwrap_p();
     assert!(machinery.contains("demo.chn.c.nc"));
     let yes = parse_kernel_str("reachable(demo.chn.a.na, demo.chn.c.nc, supersedes)")
-        .expect("parses")
-        .expect("an expression");
+        .unwrap_p()
+        .unwrap_p();
     assert_eq!(env.evaluate(&yes), ThreeValued::Verified);
     // The negative case: a row outside the closure entirely.
     let outside = parse_kernel_str("reachable(demo.chn.c.nc, demo.chn.a.na, supersedes)")
-        .expect("parses")
-        .expect("an expression");
+        .unwrap_p()
+        .unwrap_p();
     assert_eq!(env.evaluate(&outside), ThreeValued::Counterexample);
     // And the machinery agrees with that negative, too.
     let machinery_outside =
-        query::forward_closure(instance, &["demo.chn.c.nc"], &["supersedes"]).expect("machinery");
+        query::forward_closure(instance, &["demo.chn.c.nc"], &["supersedes"]).unwrap_p();
     assert!(!machinery_outside.contains("demo.chn.a.na"));
 }
 
@@ -96,8 +92,8 @@ fn unknown_seed_is_unknown_never_a_fabricated_verdict() {
     let specs = corpus(CHAIN);
     let env = KernelEnv::from_specs(&specs);
     let ghost = parse_kernel_str("reachable(demo.ghost.nowhere, demo.chn.c.nc, supersedes)")
-        .expect("parses")
-        .expect("an expression");
+        .unwrap_p()
+        .unwrap_p();
     assert_eq!(env.evaluate(&ghost), ThreeValued::Unknown);
 }
 
@@ -116,15 +112,15 @@ fn resolves_agrees_with_the_dangling_report() {
         .collect();
     assert_eq!(machinery_dangling.len(), 1, "fixture must dangle once");
     let bad = parse_kernel_str("resolves(traces_to)")
-        .expect("parses")
-        .expect("an expression");
+        .unwrap_p()
+        .unwrap_p();
     assert_eq!(env.evaluate(&bad), ThreeValued::Counterexample);
 
     let clean_env = KernelEnv::from_specs(&corpus(CHAIN));
     assert!(clean_env.instance().dangling().is_empty());
     let good = parse_kernel_str("resolves(traces_to)")
-        .expect("parses")
-        .expect("an expression");
+        .unwrap_p()
+        .unwrap_p();
     assert_eq!(clean_env.evaluate(&good), ThreeValued::Verified);
 }
 
@@ -136,15 +132,11 @@ fn unique_agrees_with_injectivity_of_defined_values() {
     // machinery: two constraints resolving to the same intent refute
     // injectivity; distinct targets verify.
     let env = KernelEnv::from_specs(&corpus(DUPLICATES));
-    let dup = parse_kernel_str("unique(traces_to)")
-        .expect("parses")
-        .expect("an expression");
+    let dup = parse_kernel_str("unique(traces_to)").unwrap_p().unwrap_p();
     assert_eq!(env.evaluate(&dup), ThreeValued::Counterexample);
 
     let env = KernelEnv::from_specs(&corpus(CHAIN));
-    let good = parse_kernel_str("unique(traces_to)")
-        .expect("parses")
-        .expect("an expression");
+    let good = parse_kernel_str("unique(traces_to)").unwrap_p().unwrap_p();
     assert_eq!(env.evaluate(&good), ThreeValued::Verified);
 }
 
@@ -154,21 +146,13 @@ fn unique_agrees_with_injectivity_of_defined_values() {
 fn comparisons_agree_with_bounded_evaluation() {
     let env = KernelEnv::from_specs(&corpus(CHAIN));
     // The chain corpus has 3 intents and 3 constraints.
-    let card = parse_kernel_str("|Intent| == 3")
-        .expect("parses")
-        .expect("an expression");
+    let card = parse_kernel_str("|Intent| == 3").unwrap_p().unwrap_p();
     assert_eq!(env.evaluate(&card), ThreeValued::Verified);
-    let wrong = parse_kernel_str("|Intent| == 4")
-        .expect("parses")
-        .expect("an expression");
+    let wrong = parse_kernel_str("|Intent| == 4").unwrap_p().unwrap_p();
     assert_eq!(env.evaluate(&wrong), ThreeValued::Counterexample);
-    let le = parse_kernel_str("|Constraint| <= 3")
-        .expect("parses")
-        .expect("an expression");
+    let le = parse_kernel_str("|Constraint| <= 3").unwrap_p().unwrap_p();
     assert_eq!(env.evaluate(&le), ThreeValued::Verified);
-    let gt = parse_kernel_str("|Constraint| > 3")
-        .expect("parses")
-        .expect("an expression");
+    let gt = parse_kernel_str("|Constraint| > 3").unwrap_p().unwrap_p();
     assert_eq!(env.evaluate(&gt), ThreeValued::Counterexample);
 }
 
@@ -177,23 +161,23 @@ fn bounded_quantifiers_agree_over_the_instance() {
     let env = KernelEnv::from_specs(&corpus(CHAIN));
     // ∀ over I(Constraint): finite, terminating, vacuous-truth-free.
     let all = parse_kernel_str("∀ c ∈ Constraint: |Constraint| >= 1")
-        .expect("parses")
-        .expect("an expression");
+        .unwrap_p()
+        .unwrap_p();
     assert_eq!(env.evaluate(&all), ThreeValued::Verified);
     // ∃ with a witness.
     let some = parse_kernel_str("∃ c ∈ Constraint: |Intent| == 3")
-        .expect("parses")
-        .expect("an expression");
+        .unwrap_p()
+        .unwrap_p();
     assert_eq!(env.evaluate(&some), ThreeValued::Verified);
     // ∃ refuted when no witness exists.
     let none = parse_kernel_str("∃ c ∈ Constraint: |Intent| == 99")
-        .expect("parses")
-        .expect("an expression");
+        .unwrap_p()
+        .unwrap_p();
     assert_eq!(env.evaluate(&none), ThreeValued::Counterexample);
     // Projection row-typing: c.supersedes resolves to an id or ⊥.
     let proj = parse_kernel_str("∃ c ∈ Constraint: c.supersedes == demo.chn.b.nb")
-        .expect("parses")
-        .expect("an expression");
+        .unwrap_p()
+        .unwrap_p();
     assert_eq!(env.evaluate(&proj), ThreeValued::Verified);
 }
 

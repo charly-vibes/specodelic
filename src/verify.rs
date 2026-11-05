@@ -1280,6 +1280,8 @@ fn first_error_lines(output: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_panic::UnwrapPanic;
+
     use super::*;
 
     /// A lint-shaped spec with no Properties rows (vacuous properties gate).
@@ -1289,7 +1291,7 @@ mod tests {
     const FIXTURE_ONE_PROP: &str = "---\nid: vfix\nkind: intent\nstatement: \"THE fixture SHALL have one property\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|------------|\n| c1 | invariant | `holds` | [[vfix]] |\n\n## Model\n\n### States\n\n- s1\n- s2\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s2 | [[vfix.c1]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[vfix.c1]] | `g()` | `x` |\n";
 
     fn spec_of(text: &str) -> crate::spec::Spec {
-        crate::spec::parse_str(text).expect("fixture parses")
+        crate::spec::parse_str(text).unwrap_p()
     }
 
     /// A minimal spec with no Constraints rows — intent id `vfix` (no
@@ -1324,9 +1326,9 @@ mod tests {
         );
         std::fs::write(
             dir.join("vfix.check.json"),
-            serde_json::to_string(&json).unwrap(),
+            serde_json::to_string(&json).unwrap_p(),
         )
-        .unwrap();
+        .unwrap_p();
     }
 
     // --- verdict (both_gates_required and the failure precedence) ---
@@ -1569,7 +1571,7 @@ mod tests {
 
     #[test]
     fn model_gate_missing_report() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let spec = vfix_spec();
         let g = evaluate_model_gate(&spec, std::slice::from_ref(&spec), dir.path(), "vfix");
         match g {
@@ -1580,8 +1582,8 @@ mod tests {
 
     #[test]
     fn model_gate_unreadable_report_fails_closed() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("vfix.check.json"), "not json").unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
+        std::fs::write(dir.path().join("vfix.check.json"), "not json").unwrap_p();
         let spec = vfix_spec();
         let g = evaluate_model_gate(&spec, std::slice::from_ref(&spec), dir.path(), "vfix");
         match g {
@@ -1594,7 +1596,7 @@ mod tests {
 
     #[test]
     fn model_gate_stale_when_artifact_changed() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let spec = vfix_spec();
         let report = RunReport {
             backend: crate::model_check::Backend {
@@ -1614,7 +1616,7 @@ mod tests {
             artifact_sha256: "0".repeat(64),
             states_explored: 1,
         };
-        std::fs::write(dir.path().join("vfix.tla"), "MODULE now — END").unwrap();
+        std::fs::write(dir.path().join("vfix.tla"), "MODULE now — END").unwrap_p();
         write_fresh_report(dir.path(), &spec, &report);
         let g = evaluate_model_gate(&spec, std::slice::from_ref(&spec), dir.path(), "vfix");
         match g {
@@ -1625,7 +1627,7 @@ mod tests {
 
     #[test]
     fn model_gate_stale_when_module_gone() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let spec = vfix_spec();
         let report = RunReport {
             backend: crate::model_check::Backend {
@@ -1658,10 +1660,10 @@ mod tests {
 
     #[test]
     fn model_gate_clean_and_not_clean_outcomes() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let spec = vfix_spec();
         let tla = "MODULE vfix ---- END";
-        std::fs::write(dir.path().join("vfix.tla"), tla).unwrap();
+        std::fs::write(dir.path().join("vfix.tla"), tla).unwrap_p();
         let sha = model_check::artifact_sha256(tla.as_bytes());
         for (outcome, want) in [
             (Outcome::NoCounterexample, ModelGateState::Clean),
@@ -1739,7 +1741,7 @@ mod tests {
 
     #[test]
     fn properties_gate_missing_artifact() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let spec = spec_of(FIXTURE_ONE_PROP);
         let g = evaluate_properties_gate(
             &spec,
@@ -1754,12 +1756,12 @@ mod tests {
 
     #[test]
     fn properties_gate_stale_when_artifact_predates_spec_edit() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let spec = spec_of(FIXTURE_ONE_PROP);
         // artifact generated from an older spec (different predicate)
         let older = compile::properties_to_proptest(&spec)
             .replace("// predicate: `x`", "// predicate: `older`");
-        std::fs::write(dir.path().join("vfix_props.rs"), older).unwrap();
+        std::fs::write(dir.path().join("vfix_props.rs"), older).unwrap_p();
         let g = evaluate_properties_gate(
             &spec,
             dir.path(),
@@ -1774,13 +1776,13 @@ mod tests {
 
     #[test]
     fn properties_gate_runs_translated_artifact() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let spec = spec_of(FIXTURE_ONE_PROP);
         std::fs::write(
             dir.path().join("vfix_props.rs"),
             compile::properties_to_proptest(&spec),
         )
-        .unwrap();
+        .unwrap_p();
         let g = evaluate_properties_gate(
             &spec,
             dir.path(),
@@ -1795,13 +1797,13 @@ mod tests {
 
     #[test]
     fn properties_gate_no_rows_passes_without_runner() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let spec = spec_of(FIXTURE_NO_PROPS);
         std::fs::write(
             dir.path().join("vfix_props.rs"),
             compile::properties_to_proptest(&spec),
         )
-        .unwrap();
+        .unwrap_p();
         let g = evaluate_properties_gate(
             &spec,
             dir.path(),
@@ -1816,13 +1818,13 @@ mod tests {
 
     #[test]
     fn properties_gate_failed_block_is_not_a_skip() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let spec = spec_of(FIXTURE_ONE_PROP);
         std::fs::write(
             dir.path().join("vfix_props.rs"),
             compile::properties_to_proptest(&spec),
         )
-        .unwrap();
+        .unwrap_p();
         let g = evaluate_properties_gate(
             &spec,
             dir.path(),
@@ -1844,13 +1846,13 @@ mod tests {
 
     #[test]
     fn properties_gate_runner_errors_fail_labeled() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let spec = spec_of(FIXTURE_ONE_PROP);
         std::fs::write(
             dir.path().join("vfix_props.rs"),
             compile::properties_to_proptest(&spec),
         )
-        .unwrap();
+        .unwrap_p();
         for (err, want) in [
             (
                 RunnerError::Spawn("no cargo".into()),
@@ -1883,7 +1885,7 @@ mod tests {
 
     fn age_entry(path: &std::path::Path, before: std::time::Duration) {
         let mtime = filetime::FileTime::from_system_time(std::time::SystemTime::now() - before);
-        filetime::set_file_mtime(path, mtime).expect("age entry");
+        filetime::set_file_mtime(path, mtime).unwrap_p();
     }
 
     #[test]
@@ -1902,9 +1904,9 @@ mod tests {
 
     #[test]
     fn prune_removes_stale_orphan_crate_dirs() {
-        let base = tempfile::tempdir().expect("base");
+        let base = tempfile::tempdir().unwrap_p();
         let stale = base.path().join(crate_dir_name("1000"));
-        std::fs::create_dir_all(&stale).unwrap();
+        std::fs::create_dir_all(&stale).unwrap_p();
         age_entry(&stale, std::time::Duration::from_secs(48 * 3600));
 
         let stats = prune_scratch(
@@ -1920,14 +1922,14 @@ mod tests {
 
     #[test]
     fn prune_keeps_fresh_crate_dirs_target_and_lock() {
-        let base = tempfile::tempdir().expect("base");
+        let base = tempfile::tempdir().unwrap_p();
         let fresh = base.path().join(crate_dir_name("2000"));
-        std::fs::create_dir_all(&fresh).unwrap();
+        std::fs::create_dir_all(&fresh).unwrap_p();
         age_entry(&fresh, std::time::Duration::from_secs(60));
         let target = base.path().join("target");
-        std::fs::create_dir_all(&target).unwrap();
+        std::fs::create_dir_all(&target).unwrap_p();
         age_entry(&target, std::time::Duration::from_secs(48 * 3600)); // old target survives age pruning
-        std::fs::write(base.path().join("Cargo.lock"), "").unwrap();
+        std::fs::write(base.path().join("Cargo.lock"), "").unwrap_p();
 
         let stats = prune_scratch(
             base.path(),
@@ -1947,9 +1949,9 @@ mod tests {
     fn prune_ignores_entries_that_are_not_scratch_crate_dirs() {
         // A non-crate-shaped dir never gets pruned, however old — the
         // scratch base may point at a user-chosen location.
-        let base = tempfile::tempdir().expect("base");
+        let base = tempfile::tempdir().unwrap_p();
         let other = base.path().join("not-a-crate-dir");
-        std::fs::create_dir_all(&other).unwrap();
+        std::fs::create_dir_all(&other).unwrap_p();
         age_entry(&other, std::time::Duration::from_secs(48 * 3600));
 
         let stats = prune_scratch(
@@ -1971,14 +1973,14 @@ mod tests {
         // `properties_uncompilable` races). A fresh scratch crate dir
         // means a peer build is in flight — the drop defers to a later
         // quiet invocation.
-        let base = tempfile::tempdir().expect("base");
+        let base = tempfile::tempdir().unwrap_p();
         let target = base.path().join("target");
-        std::fs::create_dir_all(target.join("debug")).unwrap();
-        std::fs::write(target.join("debug/blob"), vec![0u8; 64]).unwrap();
+        std::fs::create_dir_all(target.join("debug")).unwrap_p();
+        std::fs::write(target.join("debug/blob"), vec![0u8; 64]).unwrap_p();
         let fresh_peer = base.path().join("111-222-3");
-        std::fs::create_dir_all(&fresh_peer).unwrap();
+        std::fs::create_dir_all(&fresh_peer).unwrap_p();
         let old_peer = base.path().join("111-222-4");
-        std::fs::create_dir_all(&old_peer).unwrap();
+        std::fs::create_dir_all(&old_peer).unwrap_p();
         age_entry(&old_peer, std::time::Duration::from_secs(48 * 3600));
 
         let stats = prune_scratch(
@@ -2003,12 +2005,12 @@ mod tests {
         // base/model-check/<unique> — a fresh model-check tree is peer
         // build activity too, and its in-flight cargo must not lose the
         // shared target's dep artifacts (specodelic-68m.5 flake fix).
-        let base = tempfile::tempdir().expect("base");
+        let base = tempfile::tempdir().unwrap_p();
         let target = base.path().join("target");
-        std::fs::create_dir_all(target.join("debug")).unwrap();
-        std::fs::write(target.join("debug/blob"), vec![0u8; 64]).unwrap();
+        std::fs::create_dir_all(target.join("debug")).unwrap_p();
+        std::fs::write(target.join("debug/blob"), vec![0u8; 64]).unwrap_p();
         let mc = base.path().join("model-check");
-        std::fs::create_dir_all(mc.join("111-222")).unwrap();
+        std::fs::create_dir_all(mc.join("111-222")).unwrap_p();
 
         let stats = prune_scratch(
             base.path(),
@@ -2024,10 +2026,10 @@ mod tests {
 
     #[test]
     fn prune_resets_target_when_over_size_cap() {
-        let base = tempfile::tempdir().expect("base");
+        let base = tempfile::tempdir().unwrap_p();
         let target = base.path().join("target");
-        std::fs::create_dir_all(target.join("debug")).unwrap();
-        std::fs::write(target.join("debug/blob"), vec![0u8; 64]).unwrap();
+        std::fs::create_dir_all(target.join("debug")).unwrap_p();
+        std::fs::write(target.join("debug/blob"), vec![0u8; 64]).unwrap_p();
 
         let stats = prune_scratch(
             base.path(),
@@ -2042,10 +2044,10 @@ mod tests {
 
     #[test]
     fn prune_keeps_target_under_size_cap() {
-        let base = tempfile::tempdir().expect("base");
+        let base = tempfile::tempdir().unwrap_p();
         let target = base.path().join("target");
-        std::fs::create_dir_all(&target).unwrap();
-        std::fs::write(target.join("blob"), vec![0u8; 16]).unwrap();
+        std::fs::create_dir_all(&target).unwrap_p();
+        std::fs::write(target.join("blob"), vec![0u8; 16]).unwrap_p();
 
         let stats = prune_scratch(
             base.path(),
@@ -2064,7 +2066,7 @@ mod tests {
     fn run_bounded_completes_within_budget() {
         let mut cmd = Command::new("echo");
         cmd.arg("ok");
-        let out = run_bounded(&mut cmd, Some(std::time::Duration::from_secs(10))).unwrap();
+        let out = run_bounded(&mut cmd, Some(std::time::Duration::from_secs(10))).unwrap_p();
         assert!(String::from_utf8_lossy(&out.stdout).contains("ok"));
     }
 
@@ -2072,7 +2074,7 @@ mod tests {
     fn run_bounded_unbounded_when_no_budget() {
         let mut cmd = Command::new("echo");
         cmd.arg("ok");
-        let out = run_bounded(&mut cmd, None).unwrap();
+        let out = run_bounded(&mut cmd, None).unwrap_p();
         assert!(String::from_utf8_lossy(&out.stdout).contains("ok"));
     }
 
@@ -2092,7 +2094,7 @@ mod tests {
                  echo 'padding line so the runner overflows the pipe buffer' >&2; \
              done",
         ]);
-        let out = run_bounded(&mut cmd, Some(std::time::Duration::from_secs(30))).unwrap();
+        let out = run_bounded(&mut cmd, Some(std::time::Duration::from_secs(30))).unwrap_p();
         assert!(
             String::from_utf8_lossy(&out.stdout).contains("overflows the pipe buffer"),
             "stdout was truncated or lost"
@@ -2155,13 +2157,13 @@ mod tests {
 
     #[test]
     fn timeout_maps_to_labeled_gate_state_not_test_failure() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let spec = spec_of(FIXTURE_ONE_PROP);
         std::fs::write(
             dir.path().join("vfix_props.rs"),
             compile::properties_to_proptest(&spec),
         )
-        .unwrap();
+        .unwrap_p();
         let g = evaluate_properties_gate(
             &spec,
             dir.path(),

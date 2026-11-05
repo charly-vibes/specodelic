@@ -32,7 +32,10 @@
 //! conformance matrix's and the oracle's job; and it never patches the
 //! generator to avoid a crash instead of reporting it.
 
+#[path = "common/mod.rs"]
+mod common;
 use assert_cmd::Command;
+use common::UnwrapPanic;
 use specodelic::compile;
 use specodelic::graph;
 use specodelic::lint;
@@ -373,7 +376,7 @@ fn cli_must_survive(
     args: &[&str],
     out_dir: Option<&std::path::Path>,
 ) {
-    let mut cmd = Command::cargo_bin("specodelic").expect("binary built");
+    let mut cmd = Command::cargo_bin("specodelic").unwrap_p();
     cmd.args(args)
         .arg("--json")
         .timeout(Duration::from_secs(60));
@@ -383,9 +386,7 @@ fn cli_must_survive(
     if let Some(od) = out_dir {
         cmd.arg("--out-dir").arg(od);
     }
-    let out = cmd
-        .output()
-        .expect("CLI terminates within 60s (timeout hit = hang = bug)");
+    let out = cmd.output().unwrap_p();
     let code = out.status.code();
     assert!(
         code.is_some(),
@@ -405,11 +406,11 @@ fn cli_must_survive(
 fn fuzz_cli(n: u64) {
     for i in 0..n {
         let corpus = mutant_for_seed(BASE_SEED.wrapping_add(1_000_000 + i));
-        let dir = tempfile::tempdir().expect("tempdir");
+        let dir = tempfile::tempdir().unwrap_p();
         for (path, text) in &corpus.0 {
-            std::fs::write(dir.path().join(path), text).expect("write mutant");
+            std::fs::write(dir.path().join(path), text).unwrap_p();
         }
-        let out = tempfile::tempdir().expect("tempdir out");
+        let out = tempfile::tempdir().unwrap_p();
         cli_must_survive(Some(dir.path()), &["lint"], None);
         cli_must_survive(Some(dir.path()), &["graph"], None);
         cli_must_survive(Some(dir.path()), &["compile"], Some(out.path()));
@@ -428,7 +429,7 @@ fn skeleton_parses_and_lints_clean() {
     let corpus = skeleton(2).0;
     let mut specs = Vec::new();
     for (path, text) in &corpus {
-        let mut s = parse_str(text).expect("skeleton parses");
+        let mut s = parse_str(text).unwrap_p();
         s.path = Some(PathBuf::from(path));
         specs.push(s);
     }

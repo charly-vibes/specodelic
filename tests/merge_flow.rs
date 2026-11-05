@@ -6,17 +6,20 @@
 //! reference minted on the other branch is flagged; a clean merge
 //! reports no findings.
 
+#[path = "common/mod.rs"]
+mod common;
 use assert_cmd::Command;
+use common::UnwrapPanic;
 use std::path::{Path, PathBuf};
 
 fn spk() -> Command {
-    Command::cargo_bin("specodelic").unwrap()
+    Command::cargo_bin("specodelic").unwrap_p()
 }
 
 /// A minimal lint-clean spec: frontmatter + Constraints + Model + a
 /// deriving Property (the same shape as the linter's clean fixture).
 fn write_spec(path: &Path, id: &str, statement: &str) {
-    std::fs::write(path, clean_spec(id, statement)).unwrap();
+    std::fs::write(path, clean_spec(id, statement)).unwrap_p();
 }
 
 /// The lint-clean fixture body for id `id`; `extra_constraint` optionally
@@ -56,7 +59,7 @@ fn write_referring_spec(path: &Path, id: &str, target: &str) {
         1,
     );
     body.push_str(&format!("| p2 | unit | [[{id}.c2]] | `g2()` | `y` |\n"));
-    std::fs::write(path, body).unwrap();
+    std::fs::write(path, body).unwrap_p();
 }
 
 /// Base/A/B trees: `shared_ids` are written identically into all three;
@@ -64,7 +67,7 @@ fn write_referring_spec(path: &Path, id: &str, target: &str) {
 fn setup(dir: &Path, shared_ids: &[&str]) -> (PathBuf, PathBuf, PathBuf) {
     let mk = |name: &str| {
         let d = dir.join(name);
-        std::fs::create_dir_all(&d).unwrap();
+        std::fs::create_dir_all(&d).unwrap_p();
         d
     };
     let (base, a, b) = (mk("base"), mk("a"), mk("b"));
@@ -85,21 +88,21 @@ fn run_merge(base: &Path, a: &Path, b: &Path) -> (String, Option<i32>) {
         .args([
             "merge",
             "--branch",
-            b.to_str().unwrap(),
+            b.to_str().unwrap_p(),
             "--base",
-            base.to_str().unwrap(),
-            a.to_str().unwrap(),
+            base.to_str().unwrap_p(),
+            a.to_str().unwrap_p(),
             "--json",
         ])
         .output()
-        .unwrap();
-    (String::from_utf8(out.stdout).unwrap(), out.status.code())
+        .unwrap_p();
+    (String::from_utf8(out.stdout).unwrap_p(), out.status.code())
 }
 
 /// MUST 1: both branches independently mint the same new id → flagged.
 #[test]
 fn id_collision_across_branches_is_flagged() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap_p();
     let (base, a, b) = setup(tmp.path(), &["shared"]);
     write_spec(&a.join("collide.md"), "collide", "A's body");
     write_spec(&b.join("collide.md"), "collide", "B's different body");
@@ -116,7 +119,7 @@ fn id_collision_across_branches_is_flagged() {
 /// identically in the ancestor is NOT a collision; a clean merge exits 0.
 #[test]
 fn clean_merge_reports_no_findings() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap_p();
     let (base, a, b) = setup(tmp.path(), &["shared"]);
     write_spec(
         &a.join("only_a.md"),
@@ -141,10 +144,10 @@ fn clean_merge_reports_no_findings() {
 /// name → flagged for rename replay.
 #[test]
 fn dangling_rename_across_branches_is_flagged() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap_p();
     let mk = |name: &str| {
         let d = tmp.path().join(name);
-        std::fs::create_dir_all(&d).unwrap();
+        std::fs::create_dir_all(&d).unwrap_p();
         d
     };
     let (base, a, b) = (mk("base"), mk("a"), mk("b"));
@@ -161,7 +164,7 @@ fn dangling_rename_across_branches_is_flagged() {
         "new_spec",
         "THE rename SHALL define new_spec",
     );
-    std::fs::copy(base.join("old_spec.md"), b.join("old_spec.md")).unwrap();
+    std::fs::copy(base.join("old_spec.md"), b.join("old_spec.md")).unwrap_p();
     write_referring_spec(&b.join("referrer.md"), "referrer", "old_spec");
 
     let (stdout, code) = run_merge(&base, &a, &b);
@@ -175,10 +178,10 @@ fn dangling_rename_across_branches_is_flagged() {
 /// intersect → needs_review.
 #[test]
 fn textually_clean_semantic_conflict_is_flagged() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap_p();
     let mk = |name: &str| {
         let d = tmp.path().join(name);
-        std::fs::create_dir_all(&d).unwrap();
+        std::fs::create_dir_all(&d).unwrap_p();
         d
     };
     let (base, a, b) = (mk("base"), mk("a"), mk("b"));
@@ -189,15 +192,15 @@ fn textually_clean_semantic_conflict_is_flagged() {
         | id | kind | expr | traces_to |\n\
         |----|------|------|-----------|\n\
         | c1 | invariant | `holds` | [[m]] |\n";
-    std::fs::write(base.join("m.md"), m_with_row("c1", m)).unwrap();
+    std::fs::write(base.join("m.md"), m_with_row("c1", m)).unwrap_p();
     // Branch A renamed the row in place: c1 -> c1renamed.
     std::fs::write(
         a.join("m.md"),
         m_with_row("c1renamed", &m_with_row("c1", m)),
     )
-    .unwrap();
+    .unwrap_p();
     // Branch B keeps m.md untouched and mints a new ref to m.c1.
-    std::fs::write(b.join("m.md"), m).unwrap();
+    std::fs::write(b.join("m.md"), m).unwrap_p();
     write_referring_spec(&b.join("referrer.md"), "referrer", "m.c1");
     let _ = (&base, &a, &b);
 
@@ -215,14 +218,14 @@ fn textually_clean_semantic_conflict_is_flagged() {
 /// edited copy silently and relint the wrong tree).
 #[test]
 fn modify_delete_edited_in_a_deleted_in_b_is_flagged() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let (base, a, b) = setup(dir.path(), &["x", "y"]);
     std::fs::write(
         a.join("x.md"),
         clean_spec("x", "THE system SHALL hold edited"),
     )
-    .unwrap();
-    std::fs::remove_file(b.join("x.md")).unwrap(); // B keeps only y.md
+    .unwrap_p();
+    std::fs::remove_file(b.join("x.md")).unwrap_p(); // B keeps only y.md
 
     let (stdout, code) = run_merge(&base, &a, &b);
     assert!(
@@ -239,14 +242,14 @@ fn modify_delete_edited_in_a_deleted_in_b_is_flagged() {
 /// The mirror case: branch B edits, branch A deletes.
 #[test]
 fn modify_delete_edited_in_b_deleted_in_a_is_flagged() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let (base, a, b) = setup(dir.path(), &["x", "y"]);
-    std::fs::remove_file(a.join("x.md")).unwrap(); // A keeps only y.md
+    std::fs::remove_file(a.join("x.md")).unwrap_p(); // A keeps only y.md
     std::fs::write(
         b.join("x.md"),
         clean_spec("x", "THE system SHALL hold edited"),
     )
-    .unwrap();
+    .unwrap_p();
 
     let (stdout, code) = run_merge(&base, &a, &b);
     assert!(
@@ -262,20 +265,20 @@ fn modify_delete_edited_in_b_deleted_in_a_is_flagged() {
 /// branches instead of about the missing ancestor.
 #[test]
 fn merge_without_base_warns_about_missing_ancestor() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
     let (base, a, b) = setup(dir.path(), &["x"]);
     let _ = base;
     let out = spk()
         .args([
             "merge",
             "--branch",
-            b.to_str().unwrap(),
-            a.to_str().unwrap(),
+            b.to_str().unwrap_p(),
+            a.to_str().unwrap_p(),
             "--json",
         ])
         .output()
-        .unwrap();
-    let stdout = String::from_utf8(out.stdout).unwrap();
+        .unwrap_p();
+    let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(
         stdout.contains("--base") && stdout.contains("ancestor"),
         "no-base merge explains the missing ancestor: {stdout}"

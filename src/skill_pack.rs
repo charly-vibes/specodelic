@@ -83,12 +83,14 @@ fn record_target(target: &Path) {
     if existing.lines().any(|l| l == line) {
         return;
     }
-    let mut out = existing;
-    if !out.is_empty() && !out.ends_with('\n') {
-        out.push('\n');
-    }
-    out.push_str(&line);
-    out.push('\n');
+    let out = format!(
+        "{existing}{}{line}\n",
+        if existing.is_empty() || existing.ends_with('\n') {
+            ""
+        } else {
+            "\n"
+        }
+    );
     // Best-effort: a failed record write must not fail an install that
     // fully succeeded (the envelope already names the target).
     let _ = std::fs::write(&record, out);

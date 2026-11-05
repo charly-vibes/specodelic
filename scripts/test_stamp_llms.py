@@ -43,29 +43,34 @@ class StampTest(unittest.TestCase):
         self.assertIn("v0.3.1", out)
         self.assertIn("main @ abcdef1", out)
         self.assertTrue(out.startswith("# specodelic\n"))
+        return None  # explicit non-void: no self-field mutation
 
     def test_stamped_llms_links_release_status_page(self) -> None:
         out = sl.stamped_llms("body", "0.3.1", "main", "abcdef123456")
         self.assertIn(
             "https://charly-vibes.github.io/specodelic/release.html", out
         )
+        return None  # explicit non-void: no self-field mutation
 
     def test_stamped_llms_disambiguates_llm_txt(self) -> None:
         # specodelic-lf4b.11: an agent reading the deployed llms.txt must
         # be able to tell it apart from the repo-root llm.txt summary.
         out = sl.stamped_llms("body", "0.3.1", "main", "abcdef123456")
         self.assertIn("llm.txt", out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_stamped_llms_preserves_source_body(self) -> None:
         body = "# specodelic\n\n## Docs\n\n- [kinds](https://example.com)\n"
         out = sl.stamped_llms(body, "1.0.0", "v1.0.0", "abcdef123456")
         self.assertIn(body, out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_release_page_has_version_and_no_hand_edit(self) -> None:
         out = sl.release_page("0.3.1", "main", "abcdef123456")
         self.assertIn("v0.3.1", out)
         self.assertIn("main @ abcdef1", out)
         self.assertIn("Do not hand-edit", out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_book_pages_maps_prose_pages_only(self) -> None:
         summary = (
@@ -83,6 +88,7 @@ class StampTest(unittest.TestCase):
                 ("Graph views — diagrams", "graph-views.md"),
             ],
         )
+        return None  # explicit non-void: no self-field mutation
 
     def test_narrative_llm_has_body_and_header(self) -> None:
         # specodelic-lf4b.11: llm.txt is derived from llms.txt, so the two
@@ -97,6 +103,7 @@ class StampTest(unittest.TestCase):
         self.assertIn(
             "https://charly-vibes.github.io/specodelic/llms.txt", out
         )
+        return None  # explicit non-void: no self-field mutation
 
     def test_narrative_llm_surfaces_graph_views(self) -> None:
         # The prose-page map comes from SUMMARY.md — graph-views must not
@@ -105,6 +112,7 @@ class StampTest(unittest.TestCase):
         out = sl.narrative_llm("# specodelic\n\nbody\n", summary)
         self.assertIn("graph-views", out)
         self.assertIn("graph-views.html", out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_narrative_llm_single_h1(self) -> None:
         out = sl.narrative_llm("# specodelic\n\nbody\n", "[a](index.md)\n")
@@ -115,12 +123,14 @@ class StampTest(unittest.TestCase):
         self.assertIn(
             "[a](https://charly-vibes.github.io/specodelic/index.html)", out
         )
+        return None  # explicit non-void: no self-field mutation
 
     def test_narrative_llm_no_summary_yields_body_only(self) -> None:
         out = sl.narrative_llm("# specodelic\n\nbody\n", "")
         self.assertNotIn("prose pages", out)
         self.assertIn("body", out)
         self.assertIn("llms.txt", out)
+        return None  # explicit non-void: no self-field mutation
 
 
 class StampCliTest(unittest.TestCase):
@@ -133,12 +143,14 @@ class StampCliTest(unittest.TestCase):
         )
         (self.tmp / "llms.txt").write_text("# specodelic\n\nbody\n")
         (self.tmp / "docs").mkdir()
+        return None  # explicit non-void: no self-field mutation
 
     def test_page_phase_writes_release_md(self) -> None:
         sl.main(["page"], root=self.tmp)
         page = self.tmp / "docs" / "src" / "release.md"
         self.assertTrue(page.exists())
         self.assertIn("v9.9.9", page.read_text())
+        return None  # explicit non-void: no self-field mutation
 
     def test_llms_phase_writes_stamped_copy(self) -> None:
         (self.tmp / "book").mkdir()
@@ -147,6 +159,7 @@ class StampCliTest(unittest.TestCase):
         self.assertTrue(out.exists())
         self.assertIn("v9.9.9", out.read_text())
         self.assertIn("release.html", out.read_text())
+        return None  # explicit non-void: no self-field mutation
 
     def test_llms_phase_never_touches_repo_source(self) -> None:
         (self.tmp / "book").mkdir()
@@ -154,6 +167,7 @@ class StampCliTest(unittest.TestCase):
         before = src.read_text()
         sl.main(["llms"], root=self.tmp, tag="main", sha="abcdef123456")
         self.assertEqual(before, src.read_text())
+        return None  # explicit non-void: no self-field mutation
 
     def test_env_ref_beats_git_fallback(self) -> None:
         # specodelic-lf4b.11: CI names the real ref/tag via env (the
@@ -168,6 +182,7 @@ class StampCliTest(unittest.TestCase):
             os.environ.update(old)
         page = (self.tmp / "docs" / "src" / "release.md").read_text()
         self.assertIn("v9.9.9 @ 0123456", page)
+        return None  # explicit non-void: no self-field mutation
 
     def test_root_phase_regenerates_llm_txt(self) -> None:
         (self.tmp / "docs" / "src").mkdir(parents=True, exist_ok=True)
@@ -188,6 +203,7 @@ class StampCliTest(unittest.TestCase):
             (self.tmp / "llms.txt").read_text(),
             "# specodelic\n\n- spk archive-companion\n- dual-format\n",
         )
+        return None  # explicit non-void: no self-field mutation
 
 
 class DriftGuardTest(unittest.TestCase):
@@ -204,11 +220,13 @@ class DriftGuardTest(unittest.TestCase):
         self.assertTrue(text.startswith("# specodelic"))
         self.assertIn("## Installation", text)
         self.assertIn("cargo install specodelic", text)
+        return None  # explicit non-void: no self-field mutation
 
     def test_llm_txt_is_regenerated_not_hand_written(self) -> None:
         text = (REPO / "llm.txt").read_text()
         self.assertIn("regenerated by", text)
         self.assertIn("scripts/stamp_llms.py", text)
+        return None  # explicit non-void: no self-field mutation
 
     def test_llm_txt_carries_capability_surface(self) -> None:
         # specodelic-lf4b.11 meter: the regenerated narrative must cover
@@ -221,6 +239,7 @@ class DriftGuardTest(unittest.TestCase):
             "hooks install",
         ):
             self.assertIn(needle, text)
+        return None  # explicit non-void: no self-field mutation
 
     def test_llm_txt_disambiguates_llms_txt(self) -> None:
         # Meter: an agent grabbing either summary can tell them apart.
@@ -230,6 +249,7 @@ class DriftGuardTest(unittest.TestCase):
             "https://charly-vibes.github.io/specodelic/llms.txt", text
         )
         self.assertIn("do not hand-edit", text)
+        return None  # explicit non-void: no self-field mutation
 
     def test_llm_txt_tracks_llms_txt_body(self) -> None:
         # Divergence-proofing: the whole llms.txt body (after its H1) must
@@ -238,6 +258,7 @@ class DriftGuardTest(unittest.TestCase):
         llm = (REPO / "llm.txt").read_text()
         body = llms.split("\n", 1)[1].lstrip("\n").rstrip("\n")
         self.assertIn(body, llm)
+        return None  # explicit non-void: no self-field mutation
 
     def test_llms_txt_carries_merged_install_content(self) -> None:
         text = (REPO / "llms.txt").read_text()
@@ -245,11 +266,13 @@ class DriftGuardTest(unittest.TestCase):
         self.assertIn("cargo install specodelic", text)
         self.assertIn("## Links", text)
         self.assertIn("https://github.com/charly-vibes/specodelic", text)
+        return None  # explicit non-void: no self-field mutation
 
     def test_llms_txt_keeps_core_sections(self) -> None:
         text = (REPO / "llms.txt").read_text()
         for section in ("## What it is", "## Core concepts", "## Docs"):
             self.assertIn(section, text)
+        return None  # explicit non-void: no self-field mutation
 
     def test_release_page_matches_crate_version(self) -> None:
         # Meter: the checked-in release.md must name the crate version.
@@ -258,6 +281,7 @@ class DriftGuardTest(unittest.TestCase):
         m = re.search(r'^version\s*=\s*"([^"]+)"', cargo, re.MULTILINE)
         assert m
         self.assertIn(f"v{m.group(1)}", page)
+        return None  # explicit non-void: no self-field mutation
 
 
 if __name__ == "__main__":

@@ -7,8 +7,11 @@
 //! digest binding the scenario corpus bytes. Library/emit-layer only —
 //! the `spk conform` CLI command itself is phase 4.
 
+#[path = "common/mod.rs"]
+mod common;
 use std::path::PathBuf;
 
+use common::UnwrapPanic;
 use specodelic::conform::{
     EVIDENCE_SCOPE, REPORT_SCHEMA_VERSION, Verdict, build_report, emit_report, parse_corpus,
     scope_digest,
@@ -63,11 +66,11 @@ const CORPUS_BYTES: &str = concat!(
 );
 
 fn fixture_spec() -> spec::Spec {
-    spec::parse_str(SPEC_TEXT).expect("fixture spec parses")
+    spec::parse_str(SPEC_TEXT).unwrap_p()
 }
 
 fn fixture_corpus() -> Vec<specodelic::conform::ScenarioTrace> {
-    parse_corpus(CORPUS_BYTES).expect("fixture corpus parses")
+    parse_corpus(CORPUS_BYTES).unwrap_p()
 }
 
 fn fixture_report() -> specodelic::conform::ConformReport {
@@ -94,7 +97,7 @@ fn report_schema_roundtrip() {
     // distinct; both families may sit at v1.
     assert_eq!(report.report_schema_version, REPORT_SCHEMA_VERSION);
 
-    let json = serde_json::to_value(&report).expect("report serializes");
+    let json = serde_json::to_value(&report).unwrap_p();
     assert!(
         json.get("report_schema_version").is_some(),
         "report declares report_schema_version: {json}"
@@ -139,7 +142,7 @@ fn report_schema_roundtrip() {
         .records
         .iter()
         .find(|r| r.scenario_id == "wrong-state-reopen")
-        .expect("record per scenario id");
+        .unwrap_p();
     assert_eq!(reopen.verdict, Verdict::Forbidden);
     assert!(
         !reopen.closed_world,
@@ -152,8 +155,7 @@ fn report_schema_roundtrip() {
     );
 
     // Roundtrip: JSON → value → struct equals the original.
-    let back: specodelic::conform::ConformReport =
-        serde_json::from_value(json).expect("report deserializes");
+    let back: specodelic::conform::ConformReport = serde_json::from_value(json).unwrap_p();
     assert_eq!(back, report, "serialize→deserialize roundtrip is lossless");
 }
 
@@ -175,10 +177,9 @@ fn evidence_scope_present_in_both_views() {
         &mut json_buf,
         &mut stderr_buf,
     )
-    .expect("json emit succeeds");
-    let emitted = String::from_utf8(json_buf).expect("json emit is utf-8");
-    let envelope: serde_json::Value =
-        serde_json::from_str(&emitted).expect("json emit is one JSON envelope");
+    .unwrap_p();
+    let emitted = String::from_utf8(json_buf).unwrap_p();
+    let envelope: serde_json::Value = serde_json::from_str(&emitted).unwrap_p();
     assert_eq!(
         envelope["data"]["evidence_scope"].as_str(),
         Some(EVIDENCE_SCOPE),
@@ -195,8 +196,8 @@ fn evidence_scope_present_in_both_views() {
         &mut human_buf,
         &mut human_stderr,
     )
-    .expect("human emit succeeds");
-    let human = String::from_utf8(human_buf).expect("human emit is utf-8");
+    .unwrap_p();
+    let human = String::from_utf8(human_buf).unwrap_p();
     assert!(
         human.contains(EVIDENCE_SCOPE),
         "the --human view carries the same evidence_scope statement: {human}"
@@ -214,8 +215,8 @@ fn rerun_byte_identical() {
     let first = fixture_report();
     let second = fixture_report();
 
-    let first_json = serde_json::to_string(&first).expect("report serializes");
-    let second_json = serde_json::to_string(&second).expect("report serializes");
+    let first_json = serde_json::to_string(&first).unwrap_p();
+    let second_json = serde_json::to_string(&second).unwrap_p();
     assert_eq!(
         first_json, second_json,
         "two runs over identical inputs produce byte-identical reports"
@@ -250,10 +251,9 @@ fn rerun_byte_identical() {
             &mut buf,
             &mut err,
         )
-        .expect("json emit succeeds");
-        let envelope: serde_json::Value =
-            serde_json::from_slice(&buf).expect("json emit is one JSON envelope");
-        serde_json::to_string(&envelope["data"]).expect("data serializes")
+        .unwrap_p();
+        let envelope: serde_json::Value = serde_json::from_slice(&buf).unwrap_p();
+        serde_json::to_string(&envelope["data"]).unwrap_p()
     };
     assert_eq!(
         emit_json(&first),
@@ -321,7 +321,7 @@ fn digest_binds_scenarios() {
         "{CORPUS_BYTES}{}\n",
         r#"{"id": "extra-scenario", "setup": {"state": "held"}, "trace": [{"action": "confirm"}]}"#
     );
-    parse_corpus(&extended).expect("extended corpus parses");
+    parse_corpus(&extended).unwrap_p();
     let digest_extended = scope_digest(&spec, extended.as_bytes());
     assert_ne!(
         digest_a, digest_extended,

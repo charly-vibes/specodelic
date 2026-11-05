@@ -13,10 +13,9 @@ use genesis::guide::Output;
 /// genesis failure convention: failure messages are always visible, and
 /// in JSON mode they also print to stderr).
 pub(crate) fn as_failure<T: std::fmt::Debug>(
-    out: Output<T>,
+    mut out: Output<T>,
     message: impl Into<String>,
 ) -> Output<T> {
-    let mut out = out;
     out.is_error = true;
     out.warnings.insert(0, message.into());
     // Failure outputs stay visible at Quiet, matching Output::failure.

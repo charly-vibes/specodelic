@@ -32,11 +32,13 @@ def recipe_body(text: str, name: str) -> str:
 class TestCorpusModelCheckGate(unittest.TestCase):
     def setUp(self):
         self.text = JUSTFILE.read_text()
+        return None  # explicit non-void: no self-field mutation
 
     def test_ci_includes_model_check_specs(self):
         ci_recipe = re.search(rf"(?m)^{re.escape('ci')}:\s*\S.*$", self.text)
         self.assertIsNotNone(ci_recipe, "ci recipe missing")
         self.assertIn("model-check-specs", ci_recipe.group(0))
+        return None  # explicit non-void: no self-field mutation
 
     def test_model_check_specs_recipe_invokes_spk(self):
         body = recipe_body(self.text, "model-check-specs")
@@ -45,10 +47,12 @@ class TestCorpusModelCheckGate(unittest.TestCase):
         # capability set, specodelic-jf1) via the CORPUS_DIRS just var.
         self.assertIn("model-check {{CORPUS_DIRS}}", body)
         self.assertIn('CORPUS_DIRS := "openspec/specs/', self.text)
+        return None  # explicit non-void: no self-field mutation
 
     def test_gate_uses_cargo_run_not_path_binary(self):
         body = recipe_body(self.text, "model-check-specs")
         self.assertIn("cargo run", body)
+        return None  # explicit non-void: no self-field mutation
 
 
 if __name__ == "__main__":

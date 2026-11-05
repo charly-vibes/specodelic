@@ -21,13 +21,14 @@ use specodelic::spec::parse_str;
 #[path = "common/mod.rs"]
 mod common;
 
+use common::UnwrapPanic;
 use common::kernel_corpora::{ABSORBING, BROKEN, CLEAN, UNKNOWABLE};
 
 /// The end-to-end chain under test: parse → compile extraction →
 /// evaluate each extracted claim over the acset instance. Returns
 /// (constraint id, status) pairs, sorted.
 fn chain(text: &str) -> Vec<(String, ThreeValued)> {
-    let spec = parse_str(text).expect("fixture parses");
+    let spec = parse_str(text).unwrap_p();
     let ir = extract_model_ir(&spec);
     let env = KernelEnv::from_specs(std::slice::from_ref(&spec));
     let mut out: Vec<(String, ThreeValued)> = ir
@@ -35,7 +36,7 @@ fn chain(text: &str) -> Vec<(String, ThreeValued)> {
         .iter()
         .filter_map(|(id, text)| {
             parse_kernel_str(text)
-                .expect("extracted claims re-parse")
+                .unwrap_p()
                 .map(|expr| (id.clone(), env.evaluate(&expr)))
         })
         .collect();
@@ -72,6 +73,10 @@ fn unknown_claim_travels_the_whole_chain_honestly() {
     // the chain, never pass.
     let statuses = chain(UNKNOWABLE);
     assert_eq!(statuses, vec![("u1".to_string(), ThreeValued::Unknown)]);
+    // Honest propagation is closed under re-evaluation: the unknown
+    // verdict must not flip when the chain is walked a second time.
+    let again = chain(UNKNOWABLE);
+    assert_eq!(statuses, again);
 }
 
 #[test]
@@ -127,7 +132,7 @@ fn empty_domain_quantifiers_decide_honestly() {
     let spec = parse_str(
         "---\nid: demo.st.empty\nkind: intent\nstatement: \"THE empty SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| e1 | invariant | `**kernel:** ∀ t ∈ Transition: |Transition| == 0` | [[demo.st.empty]] |\n| e2 | invariant | `**kernel:** ∃ t ∈ Transition: |Transition| == 0` | [[demo.st.empty]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p1 | unit | [[demo.st.empty.e1]] | `arb()` | `true` |\n",
     )
-    .expect("parses");
+    .unwrap_p();
     let ir = extract_model_ir(&spec);
     let env = KernelEnv::from_specs(std::slice::from_ref(&spec));
     assert!(env.domain("Transition").is_empty());
@@ -135,10 +140,8 @@ fn empty_domain_quantifiers_decide_honestly() {
         ("e1", ThreeValued::Verified),
         ("e2", ThreeValued::Counterexample),
     ] {
-        let text = ir.guard_kernel.get(id).expect("claim extracted");
-        let expr = parse_kernel_str(text)
-            .expect("re-parses")
-            .expect("an expression");
+        let text = ir.guard_kernel.get(id).unwrap_p();
+        let expr = parse_kernel_str(text).unwrap_p().unwrap_p();
         assert_eq!(env.evaluate(&expr), expected, "claim {id}");
     }
 }

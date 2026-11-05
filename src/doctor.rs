@@ -384,25 +384,27 @@ fn discover_workspace_packs(root: &Path) -> Vec<crate::packs::PackInfo> {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_panic::UnwrapPanic;
+
     use super::*;
     use crate::blocks;
     use genesis::doctor::DoctorCheck;
     use genesis::suite_linter::Severity;
 
     fn fixture() -> tempfile::TempDir {
-        tempfile::tempdir().unwrap()
+        tempfile::tempdir().unwrap_p()
     }
 
     fn self_hosting_root(dir: &std::path::Path) -> std::path::PathBuf {
         // The single-tree layout (specodelic-jf1) is the repo's own
         // shape: the core spec is openspec/specs/specodelic/spec.md.
         let specs = dir.join("openspec/specs/specodelic");
-        std::fs::create_dir_all(&specs).unwrap();
+        std::fs::create_dir_all(&specs).unwrap_p();
         std::fs::write(
             specs.join("spec.md"),
             "---\nid: specodelic\nkind: intent\nstatement: \"THE format SHALL be described\"\n---\n\n## Revision 12\n",
         )
-        .unwrap();
+        .unwrap_p();
         dir.to_path_buf()
     }
 
@@ -423,8 +425,8 @@ mod tests {
         // as self-hosting — consumer repos migrate on their own schedule.
         let dir = fixture();
         let specs = dir.path().join("specs");
-        std::fs::create_dir_all(&specs).unwrap();
-        std::fs::write(specs.join("specodelic.md"), "---\nid: specodelic\n---\n").unwrap();
+        std::fs::create_dir_all(&specs).unwrap_p();
+        std::fs::write(specs.join("specodelic.md"), "---\nid: specodelic\n---\n").unwrap_p();
         assert_eq!(workspace_mode(dir.path()), "self_hosting");
         assert_eq!(core_spec_path(dir.path()), Some("specs/specodelic.md"));
     }
@@ -440,15 +442,15 @@ mod tests {
     #[test]
     fn beads_check_passes_when_initialized() {
         let dir = fixture();
-        std::fs::create_dir_all(dir.path().join(".beads")).unwrap();
-        std::fs::write(dir.path().join(".beads/config.yaml"), "x: 1\n").unwrap();
-        assert!(BeadsCheck.run(dir.path()).unwrap().is_empty());
+        std::fs::create_dir_all(dir.path().join(".beads")).unwrap_p();
+        std::fs::write(dir.path().join(".beads/config.yaml"), "x: 1\n").unwrap_p();
+        assert!(BeadsCheck.run(dir.path()).unwrap_p().is_empty());
     }
 
     #[test]
     fn beads_check_warns_when_missing() {
         let dir = fixture();
-        let results = BeadsCheck.run(dir.path()).unwrap();
+        let results = BeadsCheck.run(dir.path()).unwrap_p();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].severity, Severity::Warning);
         assert!(results[0].message.contains("bd init"));
@@ -459,7 +461,7 @@ mod tests {
     #[test]
     fn block_check_warns_when_missing_and_names_the_fix() {
         let dir = fixture();
-        let results = BlockCheck.run(dir.path()).unwrap();
+        let results = BlockCheck.run(dir.path()).unwrap_p();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].severity, Severity::Warning);
         assert!(results[0].message.contains("spk init"));
@@ -469,9 +471,9 @@ mod tests {
     fn block_check_passes_when_current() {
         let dir = fixture();
         let path = dir.path().join(blocks::BLOCK_FILE);
-        std::fs::write(&path, "# My repo\n").unwrap();
-        blocks::inject_into(&path).unwrap();
-        assert!(BlockCheck.run(dir.path()).unwrap().is_empty());
+        std::fs::write(&path, "# My repo\n").unwrap_p();
+        blocks::inject_into(&path).unwrap_p();
+        assert!(BlockCheck.run(dir.path()).unwrap_p().is_empty());
     }
 
     #[test]
@@ -482,8 +484,8 @@ mod tests {
             dir.path().join(blocks::BLOCK_FILE),
             "# repo\n\n<!-- SPECODELIC:START -->\nembedded format revision: specodelic.md Revision 1\n<!-- SPECODELIC:END -->\n",
         )
-        .unwrap();
-        let results = BlockCheck.run(dir.path()).unwrap();
+        .unwrap_p();
+        let results = BlockCheck.run(dir.path()).unwrap_p();
         assert_eq!(results.len(), 1);
         assert!(
             results[0].message.contains("stale"),
@@ -496,10 +498,10 @@ mod tests {
     fn block_check_is_auto_fixable_and_fix_injects() {
         let dir = fixture();
         assert!(BlockCheck.auto_fixable());
-        assert!(!BlockCheck.run(dir.path()).unwrap().is_empty());
-        BlockCheck.fix(dir.path()).unwrap();
-        assert!(BlockCheck.run(dir.path()).unwrap().is_empty());
-        let text = std::fs::read_to_string(dir.path().join(blocks::BLOCK_FILE)).unwrap();
+        assert!(!BlockCheck.run(dir.path()).unwrap_p().is_empty());
+        BlockCheck.fix(dir.path()).unwrap_p();
+        assert!(BlockCheck.run(dir.path()).unwrap_p().is_empty());
+        let text = std::fs::read_to_string(dir.path().join(blocks::BLOCK_FILE)).unwrap_p();
         assert!(text.contains("SPECODELIC:START"));
     }
 
@@ -508,7 +510,7 @@ mod tests {
     #[test]
     fn discovery_passes_when_specs_dir_exists() {
         let dir = fixture();
-        std::fs::create_dir_all(dir.path().join("specs")).unwrap();
+        std::fs::create_dir_all(dir.path().join("specs")).unwrap_p();
         assert_eq!(discovery_detail(dir.path()), "ok (specs/)");
     }
 
@@ -516,11 +518,11 @@ mod tests {
     fn discovery_passes_on_openspec_tree_and_counts_files() {
         let dir = fixture();
         let nested = dir.path().join("openspec/specs/thing");
-        std::fs::create_dir_all(&nested).unwrap();
-        std::fs::write(nested.join("spec.md"), "---\nid: spec\n---\n").unwrap();
+        std::fs::create_dir_all(&nested).unwrap_p();
+        std::fs::write(nested.join("spec.md"), "---\nid: spec\n---\n").unwrap_p();
         // hidden dirs are skipped
-        std::fs::create_dir_all(dir.path().join("openspec/.hidden")).unwrap();
-        std::fs::write(dir.path().join("openspec/.hidden/x.md"), "x").unwrap();
+        std::fs::create_dir_all(dir.path().join("openspec/.hidden")).unwrap_p();
+        std::fs::write(dir.path().join("openspec/.hidden/x.md"), "x").unwrap_p();
         let detail = discovery_detail(dir.path());
         assert!(
             detail.contains("found openspec/specs/ (1 spec file(s))"),
@@ -540,23 +542,23 @@ mod tests {
     fn payload_matches_the_hand_rolled_shape() {
         let dir = fixture();
         let root = self_hosting_root(dir.path());
-        std::fs::create_dir_all(root.join(".beads")).unwrap();
-        std::fs::write(root.join(".beads/config.yaml"), "x: 1\n").unwrap();
+        std::fs::create_dir_all(root.join(".beads")).unwrap_p();
+        std::fs::write(root.join(".beads/config.yaml"), "x: 1\n").unwrap_p();
         let path = root.join(blocks::BLOCK_FILE);
-        std::fs::write(&path, "# My repo\n").unwrap();
-        blocks::inject_into(&path).unwrap();
-        let report = run_checks(&root, false).unwrap();
+        std::fs::write(&path, "# My repo\n").unwrap_p();
+        blocks::inject_into(&path).unwrap_p();
+        let report = run_checks(&root, false).unwrap_p();
         let p = payload(&root, &report);
         assert_eq!(p["mode"], "self_hosting");
         assert_eq!(p["format_revision"], guide::FORMAT_REVISION);
-        let checks: Vec<&serde_json::Value> = p["checks"].as_array().unwrap().iter().collect();
+        let checks: Vec<&serde_json::Value> = p["checks"].as_array().unwrap_p().iter().collect();
         // add-skill-pack §5: the managed skill pack row joins the six
         // hand-rolled rows — the staleness detail is environment-
         // dependent, asserted separately in tests/cli/skill_install.rs.
         assert_eq!(checks.len(), 7, "all seven rows present");
         let rows: Vec<String> = checks
             .iter()
-            .map(|c| format!("{}: {}", c[0].as_str().unwrap(), c[1].as_str().unwrap()))
+            .map(|c| format!("{}: {}", c[0].as_str().unwrap_p(), c[1].as_str().unwrap_p()))
             .collect();
         let joined = rows.join("\n");
         assert!(
@@ -572,8 +574,7 @@ mod tests {
             joined.contains("beads: ok (.beads/config.yaml)"),
             "{joined}"
         );
-        let embedded_rev = guide::revision_number(guide::FORMAT_REVISION)
-            .expect("FORMAT_REVISION names a Revision");
+        let embedded_rev = guide::revision_number(guide::FORMAT_REVISION).unwrap_p();
         assert!(
             joined.contains(&format!(
                 "SPECODELIC block: ok (Revision {embedded_rev} ≥ embedded)"
@@ -591,9 +592,9 @@ mod tests {
     #[test]
     fn payload_renders_findings_for_broken_workspaces() {
         let dir = fixture();
-        let report = run_checks(dir.path(), false).unwrap();
+        let report = run_checks(dir.path(), false).unwrap_p();
         let p = payload(dir.path(), &report);
-        let joined = serde_json::to_string(&p["checks"]).unwrap();
+        let joined = serde_json::to_string(&p["checks"]).unwrap_p();
         assert!(joined.contains("start a corpus"), "{joined}");
         assert!(joined.contains("bd init"), "{joined}");
         assert!(joined.contains("spk init"), "{joined}");
@@ -606,7 +607,7 @@ mod tests {
     fn runner_report_never_fails_on_any_workspace_shape() {
         // empty consumer dir: worst case — warnings but zero failures
         let dir = fixture();
-        let report = run_checks(dir.path(), false).unwrap();
+        let report = run_checks(dir.path(), false).unwrap_p();
         assert_eq!(report.summary.fail, 0, "doctor never fails");
         assert!(report.summary.warn > 0, "empty workspace has findings");
         assert_eq!(report.exit_code(), 0);
@@ -616,12 +617,12 @@ mod tests {
     fn runner_report_is_healthy_on_a_set_up_self_hosting_repo() {
         let dir = fixture();
         self_hosting_root(dir.path());
-        std::fs::create_dir_all(dir.path().join(".beads")).unwrap();
-        std::fs::write(dir.path().join(".beads/config.yaml"), "x: 1\n").unwrap();
+        std::fs::create_dir_all(dir.path().join(".beads")).unwrap_p();
+        std::fs::write(dir.path().join(".beads/config.yaml"), "x: 1\n").unwrap_p();
         let path = dir.path().join(blocks::BLOCK_FILE);
-        std::fs::write(&path, "# My repo\n").unwrap();
-        blocks::inject_into(&path).unwrap();
-        let report = run_checks(dir.path(), false).unwrap();
+        std::fs::write(&path, "# My repo\n").unwrap_p();
+        blocks::inject_into(&path).unwrap_p();
+        let report = run_checks(dir.path(), false).unwrap_p();
         assert!(report.is_healthy(), "{report:?}");
         assert_eq!(report.exit_code(), 0);
     }
@@ -631,8 +632,8 @@ mod tests {
         // a consumer workspace is legitimate — its missing things warn,
         // but the invariant that matters is: never a failure, exit 0
         let dir = fixture();
-        std::fs::create_dir_all(dir.path().join("specs")).unwrap();
-        let report = run_checks(dir.path(), false).unwrap();
+        std::fs::create_dir_all(dir.path().join("specs")).unwrap_p();
+        let report = run_checks(dir.path(), false).unwrap_p();
         assert_eq!(report.summary.fail, 0);
         assert_eq!(report.exit_code(), 0);
     }
@@ -640,12 +641,12 @@ mod tests {
     #[test]
     fn runner_fix_dispatch_repairs_the_block() {
         let dir = fixture();
-        let report = run_checks(dir.path(), true).unwrap();
+        let report = run_checks(dir.path(), true).unwrap_p();
         let block = report
             .checks
             .iter()
             .find(|c| c.name == "SPECODELIC block")
-            .expect("block check present");
+            .unwrap_p();
         assert!(
             block.status.is_pass(),
             "post-fix the block check passes: {block:?}"
@@ -656,13 +657,13 @@ mod tests {
         );
         // and the payload renders the repaired fact, not the old finding
         let p = payload(dir.path(), &report);
-        let checks = p["checks"].as_array().unwrap();
+        let checks = p["checks"].as_array().unwrap_p();
         let block_row = checks
             .iter()
             .find(|c| c[0].as_str() == Some("SPECODELIC block"))
-            .unwrap();
+            .unwrap_p();
         assert!(
-            block_row[1].as_str().unwrap().starts_with("ok (Revision"),
+            block_row[1].as_str().unwrap_p().starts_with("ok (Revision"),
             "post-fix payload: {block_row:?}"
         );
     }

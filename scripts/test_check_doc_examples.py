@@ -45,39 +45,48 @@ class TestExtractSpecExamples(unittest.TestCase):
         self.assertEqual(len(found), 1)
         self.assertTrue(found[0].lstrip().startswith("---"))
         self.assertIn("## Constraints", found[0])
+        return None  # explicit non-void: no self-field mutation
 
     def test_table_fragment_without_frontmatter_is_skipped(self):
         self.assertEqual(extract_spec_examples(TABLE_FRAGMENT), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_non_markdown_fences_are_skipped(self):
         text = "```bash\n---\nid: fake\n---\n```\n"
         self.assertEqual(extract_spec_examples(text), [])
+        return None  # explicit non-void: no self-field mutation
 
     def test_example_and_fragment_coexist(self):
         text = FULL_EXAMPLE + "\nprose between fences\n\n" + TABLE_FRAGMENT
         self.assertEqual(len(extract_spec_examples(text)), 1)
+        return None  # explicit non-void: no self-field mutation
 
     def test_multiple_examples_are_all_extracted(self):
         text = FULL_EXAMPLE + "\nmid-text\n\n" + FULL_EXAMPLE
         self.assertEqual(len(extract_spec_examples(text)), 2)
+        return None  # explicit non-void: no self-field mutation
 
     def test_unclosed_fence_is_dropped_not_crashed(self):
         self.assertEqual(
             extract_spec_examples("```markdown\n---\nid: x\n---\n"), []
         )
+        return None  # explicit non-void: no self-field mutation
 
 
 class TestNamingLaw(unittest.TestCase):
     def test_id_to_stem_maps_dot_to_dash(self):
         self.assertEqual(stem_for_id("order.cancel"), "order-cancel")
         self.assertEqual(stem_for_id("linter.graph_shape"), "linter-graph_shape")
+        return None  # explicit non-void: no self-field mutation
 
     def test_underscore_is_literal(self):
         self.assertEqual(stem_for_id("rename_naturality"), "rename_naturality")
+        return None  # explicit non-void: no self-field mutation
 
     def test_frontmatter_id_parses_through_quotes(self):
         body = extract_spec_examples(FULL_EXAMPLE)[0]
         self.assertEqual(frontmatter_id(body), "order.cancel")
+        return None  # explicit non-void: no self-field mutation
 
 
 if __name__ == "__main__":

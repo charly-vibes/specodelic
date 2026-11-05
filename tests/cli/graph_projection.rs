@@ -14,10 +14,11 @@
 //! projection modes reported success for both failure shapes, so a gate
 //! could neither catch a typo'd path nor stop on a violations corpus.
 
+use crate::common::UnwrapPanic;
 use assert_cmd::Command;
 
 fn spk() -> Command {
-    Command::cargo_bin("specodelic").unwrap()
+    Command::cargo_bin("specodelic").unwrap_p()
 }
 
 /// F3: a nonexistent path is NOT zero spec files — the projection
@@ -28,7 +29,7 @@ fn nonexistent_path_projection_exits_2() {
     let out = spk()
         .args(["graph", "/nonexistent/spk-0zk-path", "--format", "edges"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(
         out.status.code(),
         Some(2),
@@ -47,7 +48,7 @@ fn nonexistent_path_dot_and_mermaid_also_exits_2() {
         let out = spk()
             .args(["graph", "/nonexistent/spk-0zk-path", "--format", format])
             .output()
-            .unwrap();
+            .unwrap_p();
         assert_eq!(
             out.status.code(),
             Some(2),
@@ -69,7 +70,7 @@ fn existing_empty_path_still_exits_0() {
             "edges",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(0));
     assert!(out.stdout.is_empty());
 }
@@ -88,14 +89,14 @@ fn violations_corpus_projection_exits_1_and_keeps_rows() {
             "edges",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(
         out.status.code(),
         Some(1),
         "typing violations are findings: exit 1, not 0"
     );
     let rows: Vec<Vec<&str>> = std::str::from_utf8(&out.stdout)
-        .unwrap()
+        .unwrap_p()
         .lines()
         .map(|l| l.split('\t').collect())
         .collect();
@@ -128,7 +129,7 @@ fn violations_corpus_wiring_view_exits_1() {
             "wiring",
         ])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(1));
 }
 
@@ -139,6 +140,6 @@ fn violations_corpus_json_mode_still_exits_1() {
     let out = spk()
         .args(["graph", "tests/fixtures/typing_violations", "--json"])
         .output()
-        .unwrap();
+        .unwrap_p();
     assert_eq!(out.status.code(), Some(1));
 }

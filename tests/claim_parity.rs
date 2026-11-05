@@ -14,11 +14,14 @@
 //! direct harness (the library-level chains live in `kernel_status.rs`
 //! and `citation_algebra.rs`).
 
+#[path = "common/mod.rs"]
+mod common;
 use assert_cmd::Command;
+use common::UnwrapPanic;
 use serde_json::Value;
 
 fn spk() -> Command {
-    Command::cargo_bin("specodelic").unwrap()
+    Command::cargo_bin("specodelic").unwrap_p()
 }
 
 /// A parity fixture in the proven lint-clean shape: a Model section
@@ -55,7 +58,7 @@ fn write_parity_fixture(
              {props}"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// Compile every spec into `out` (compile requires a linted-and-covered
@@ -63,7 +66,7 @@ fn write_parity_fixture(
 fn compile(specs: &[String], out: &std::path::Path) {
     let mut args = vec!["compile".to_string()];
     args.extend(specs.iter().cloned());
-    args.extend(["--out-dir".to_string(), out.to_str().unwrap().to_string()]);
+    args.extend(["--out-dir".to_string(), out.to_str().unwrap_p().to_string()]);
     spk().args(&args).assert().success();
 }
 
@@ -74,10 +77,10 @@ fn cli_model_check(specs: &[String], out: &std::path::Path) -> (Option<i32>, Val
     args.extend([
         "--json".to_string(),
         "--out-dir".to_string(),
-        out.to_str().unwrap().to_string(),
+        out.to_str().unwrap_p().to_string(),
     ]);
-    let result = spk().args(&args).output().unwrap();
-    let json: Value = serde_json::from_slice(&result.stdout).unwrap();
+    let result = spk().args(&args).output().unwrap_p();
+    let json: Value = serde_json::from_slice(&result.stdout).unwrap_p();
     (result.status.code(), json)
 }
 
@@ -88,10 +91,10 @@ fn orchestrate(specs: &[String], out: &std::path::Path) -> (Option<i32>, Value) 
     args.extend([
         "--json".to_string(),
         "--out-dir".to_string(),
-        out.to_str().unwrap().to_string(),
+        out.to_str().unwrap_p().to_string(),
     ]);
-    let result = spk().args(&args).output().unwrap();
-    let json: Value = serde_json::from_slice(&result.stdout).unwrap();
+    let result = spk().args(&args).output().unwrap_p();
+    let json: Value = serde_json::from_slice(&result.stdout).unwrap_p();
     (result.status.code(), json)
 }
 
@@ -100,7 +103,7 @@ fn orchestrate(specs: &[String], out: &std::path::Path) -> (Option<i32>, Value) 
 fn model_check_stage(json: &Value) -> &Value {
     json["data"]["stages"]
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .find(|s| s["stage"] == "model_check")
         .unwrap_or_else(|| panic!("model_check stage missing: {:?}", json["data"]["stages"]))
@@ -118,7 +121,7 @@ fn status_entries(json: &Value, file_idx: usize) -> &Value {
 fn assert_exactly_once(list: &Value, id: &str, status: &str) {
     let hits: Vec<&Value> = list
         .as_array()
-        .unwrap()
+        .unwrap_p()
         .iter()
         .filter(|s| s["id"] == *id)
         .collect();
@@ -128,7 +131,7 @@ fn assert_exactly_once(list: &Value, id: &str, status: &str) {
 
 /// The persisted report's raw payload (byte string) for a stem.
 fn report_payload(out: &std::path::Path, stem: &str) -> String {
-    std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap()
+    std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap_p()
 }
 
 // ---- Scenario: mixed corpus — CLI and orchestrate publish identical
@@ -136,7 +139,7 @@ fn report_payload(out: &std::path::Path, stem: &str) -> String {
 
 #[test]
 fn mixed_claims_cli_and_orchestrate_parity() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("parity_demo.md");
     let rows = "| c1 | invariant | `**rust:** state != \"blackhole\"` | [[parity_demo]] |\n\
                 | ka | invariant | `**kernel:** |State| == 999` | [[parity_demo]] |\n\
@@ -147,7 +150,7 @@ fn mixed_claims_cli_and_orchestrate_parity() {
                  | p_kb | unit | [[parity_demo.kb]] | `g()` | `x` |\n\
                  | p_cx | unit | [[parity_demo.cx]] | `g()` | `x` |\n";
     write_parity_fixture(&spec, "parity_demo", rows, props, "c1");
-    let s = spec.to_str().unwrap().to_string();
+    let s = spec.to_str().unwrap_p().to_string();
     let cli_out = td.path().join("cli_out");
     let orch_out = td.path().join("orch_out");
     let specs = vec![s.clone()];
@@ -186,7 +189,7 @@ fn mixed_claims_cli_and_orchestrate_parity() {
         "persisted report payloads must not diverge"
     );
     // The persisted report's statuses agree with the command output.
-    let report: Value = serde_json::from_str(&report_payload(&cli_out, "parity_demo")).unwrap();
+    let report: Value = serde_json::from_str(&report_payload(&cli_out, "parity_demo")).unwrap_p();
     assert_exactly_once(&report["invariant_statuses"], "cx", "unknown");
 }
 
@@ -194,14 +197,14 @@ fn mixed_claims_cli_and_orchestrate_parity() {
 
 #[test]
 fn clean_corpus_cli_and_orchestrate_parity() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let spec = td.path().join("clean_demo.md");
     let rows = "| c1 | invariant | `**rust:** state != \"blackhole\"` | [[clean_demo]] |\n\
                 | ka | invariant | `**kernel:** |State| == 2` | [[clean_demo]] |\n";
     let props = "| p_c1 | unit | [[clean_demo.c1]] | `g()` | `x` |\n\
                  | p_ka | unit | [[clean_demo.ka]] | `g()` | `x` |\n";
     write_parity_fixture(&spec, "clean_demo", rows, props, "c1");
-    let s = spec.to_str().unwrap().to_string();
+    let s = spec.to_str().unwrap_p().to_string();
     let cli_out = td.path().join("cli_out");
     let orch_out = td.path().join("orch_out");
     let specs = vec![s.clone()];
@@ -231,7 +234,7 @@ fn clean_corpus_cli_and_orchestrate_parity() {
 
 #[test]
 fn two_file_corpus_cli_and_orchestrate_parity() {
-    let td = tempfile::tempdir().unwrap();
+    let td = tempfile::tempdir().unwrap_p();
     let a = td.path().join("par_a.md");
     let b = td.path().join("par_b.md");
     // Each file carries a corpus-wide kernel claim (|Intent| == 2 over
@@ -246,8 +249,8 @@ fn two_file_corpus_cli_and_orchestrate_parity() {
     let rows_b = rows.replace("[[par_a]]", "[[par_b]]");
     let props_b = props.replace("par_a.", "par_b.");
     write_parity_fixture(&b, "par_b", &rows_b, &props_b, "ka");
-    let sa = a.to_str().unwrap().to_string();
-    let sb = b.to_str().unwrap().to_string();
+    let sa = a.to_str().unwrap_p().to_string();
+    let sb = b.to_str().unwrap_p().to_string();
     let cli_out = td.path().join("cli_out");
     let orch_out = td.path().join("orch_out");
     let specs = vec![sa.clone(), sb.clone()];
@@ -271,10 +274,10 @@ fn two_file_corpus_cli_and_orchestrate_parity() {
         assert_eq!(cli, orch, "per-file parity for file index {file_idx}");
         let cx = cli
             .as_array()
-            .unwrap()
+            .unwrap_p()
             .iter()
             .find(|s| s["id"] == "cx")
-            .unwrap();
+            .unwrap_p();
         assert!(
             cx["reason"]
                 .as_str()

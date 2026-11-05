@@ -88,54 +88,50 @@ pub fn analyze(
 ) -> RefactorReport {
     // Owned rows per candidate file, file-qualified — Constraints and
     // Properties are the rows `narrow_diff_heuristic` speaks of.
-    let mut owned: BTreeMap<&str, BTreeSet<String>> = BTreeMap::new();
-    for spec in specs {
-        let file = spec.id();
-        let entry = owned.entry(file).or_default();
-        for id in spec.constraints.iter().map(|r| &r.id) {
-            entry.insert(format!("{file}.{id}"));
-        }
-        for id in spec.properties.iter().map(|r| &r.id) {
-            entry.insert(format!("{file}.{id}"));
-        }
-    }
+    let owned: BTreeMap<&str, BTreeSet<String>> = specs
+        .iter()
+        .map(|spec| {
+            let file = spec.id();
+            let rows: BTreeSet<String> = spec
+                .constraints
+                .iter()
+                .chain(spec.properties.iter())
+                .map(|r| format!("{file}.{}", r.id))
+                .collect();
+            (file, rows)
+        })
+        .collect();
 
     // Fan-in aggregation: incoming cross-file edges to the file's intent
     // node or any of its owned rows. Every edge comes from `report` —
     // derived once by graph::build, never re-walked here.
-    let mut dependent_count: BTreeMap<&str, usize> = BTreeMap::new();
-    let mut unrelated_count: BTreeMap<&str, usize> = BTreeMap::new();
-    for edge in &report.edges {
-        let target_file = owned
-            .keys()
-            .copied()
-            .find(|f| edge.to == *f || file_of(&edge.to) == *f);
-        let Some(target_file) = target_file else {
-            continue;
-        };
-        let from_file = file_of(&edge.from);
-        if from_file == target_file {
-            // A file's own rows referencing itself is cohesion, not fan-in.
-            continue;
-        }
-        *dependent_count.entry(target_file).or_default() += 1;
-        if unrelated(from_file, target_file) {
-            *unrelated_count.entry(target_file).or_default() += 1;
-        }
-    }
+    let edge_targets: Vec<(&str, &str)> = report
+        .edges
+        .iter()
+        .filter_map(|edge| {
+            let target_file = owned
+                .keys()
+                .copied()
+                .find(|f| edge.to == *f || file_of(&edge.to) == *f)?;
+            let from_file = file_of(&edge.from);
+            (from_file != target_file)
+                // A file's own rows referencing itself is cohesion, not fan-in.
+                .then_some((target_file, from_file))
+        })
+        .collect();
+    let dependent_count: BTreeMap<&str, usize> = tally(edge_targets.iter().map(|(f, _)| *f));
+    let unrelated_count: BTreeMap<&str, usize> = tally(
+        edge_targets
+            .iter()
+            .filter(|(target, from)| unrelated(from, target))
+            .map(|(f, _)| *f),
+    );
 
-    let mut out = RefactorReport {
-        files: specs.len(),
-        findings: vec![],
-    };
-    let mut flagged: BTreeSet<&str> = BTreeSet::new();
-    // `flag.guard`: unrelated_fan_in_defined (high unrelated fan-in, per the
-    // configured threshold) ∨ narrow_diff_heuristic.
-    for (file, &unrelated_n) in &unrelated_count {
-        if unrelated_n >= threshold {
-            flagged.insert(file);
-        }
-    }
+    let mut flagged: BTreeSet<&str> = unrelated_count
+        .iter()
+        .filter(|(_, unrelated_n)| **unrelated_n >= threshold)
+        .map(|(file, _)| *file)
+        .collect();
     if !changeset.is_empty() {
         for (file, rows) in &owned {
             let touched: BTreeSet<&String> = changeset.iter().collect();
@@ -159,15 +155,32 @@ pub fn analyze(
             }
         }
     }
-    for file in flagged {
-        out.findings.push(Finding {
+    let findings = flagged
+        .into_iter()
+        .map(|file| Finding {
             node_id: file.to_string(),
-            dependent_count: dependent_count.get(file).copied().unwrap_or(0),
-            unrelated_namespace_count: unrelated_count.get(file).copied().unwrap_or(0),
+            dependent_count: dependent_count.get(&file).copied().unwrap_or(0),
+            unrelated_namespace_count: unrelated_count.get(&file).copied().unwrap_or(0),
             suggested_split: true,
-        });
-    }
+        })
+        .collect();
+    let out = RefactorReport {
+        files: specs.len(),
+        findings,
+    };
     // BTreeSet iteration is already deterministic; findings are per-file
     // so the report is byte-stable across reruns (deterministic_rerun).
     out
+}
+
+/// Key occurrence counts, keys iterated in BTree order — the deterministic
+/// aggregation behind the fan-in tallies (no `let mut` accumulators).
+fn tally<'a, I>(keys: I) -> BTreeMap<&'a str, usize>
+where
+    I: Iterator<Item = &'a str>,
+{
+    keys.fold(BTreeMap::new(), |mut acc, k| {
+        *acc.entry(k).or_default() += 1;
+        acc
+    })
 }

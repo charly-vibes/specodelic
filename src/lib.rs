@@ -35,5 +35,7 @@ pub mod refactor;
 pub mod rename;
 pub mod skill_pack;
 pub mod spec;
+#[cfg(test)]
+pub mod test_panic;
 pub mod update_notice;
 pub mod verify;

@@ -14,8 +14,11 @@
 //! the observed red (same discipline as the 3.x parity property before
 //! `from_specs` landed).
 
+#[path = "common/mod.rs"]
+mod common;
 use std::collections::{BTreeMap, BTreeSet};
 
+use common::UnwrapPanic;
 use proptest::prelude::*;
 use specodelic::acset::instance::Instance;
 use specodelic::acset::query::{self, Direction, Query, QueryError};
@@ -45,7 +48,7 @@ fn collect_fixture(dir: &str) -> Vec<Spec> {
     walk(std::path::Path::new(dir), &mut files);
     files
         .iter()
-        .map(|p| Spec::from_file(p).expect("fixture parses"))
+        .map(|p| Spec::from_file(p).unwrap_p())
         .collect()
 }
 
@@ -105,7 +108,7 @@ statement: "closure corpus: cycle, cross-file edge, dangling"
 | p1 | unit | [[c2.r1]] | `arb()` | `true` |
 "#,
     )
-    .expect("c1 parses");
+    .unwrap_p();
     let c2 = spec::parse_str(
         r#"---
 id: c2
@@ -120,7 +123,7 @@ statement: "the rows c1's links resolve to"
 | r1 | invariant | `true` |
 "#,
     )
-    .expect("c2 parses");
+    .unwrap_p();
     vec![c1, c2]
 }
 
@@ -157,14 +160,13 @@ fn unknown_seed_rejected() {
 #[test]
 fn supersedes_scope_exact() {
     let instance = Instance::from_specs(&corpus());
-    let sup = query::forward_closure(&instance, &["c1.r1"], &["supersedes"]).expect("seed exists");
+    let sup = query::forward_closure(&instance, &["c1.r1"], &["supersedes"]).unwrap_p();
     assert_eq!(
         sup,
         BTreeSet::from(["c1.r1".to_string(), "c1.r2".to_string()]),
         "the supersedes cycle is the whole result — no traces edge followed"
     );
-    let traces =
-        query::forward_closure(&instance, &["c1.r1"], &["traces_to"]).expect("seeds exist");
+    let traces = query::forward_closure(&instance, &["c1.r1"], &["traces_to"]).unwrap_p();
     assert_eq!(
         traces,
         BTreeSet::from(["c1.r1".to_string(), "c2".to_string()]),
@@ -178,8 +180,7 @@ fn supersedes_scope_exact() {
 #[test]
 fn closure_on_cycle_terminates() {
     let instance = Instance::from_specs(&corpus());
-    let out = query::forward_closure(&instance, &["c1.r1", "c1.r2"], &["supersedes"])
-        .expect("seeds exist");
+    let out = query::forward_closure(&instance, &["c1.r1", "c1.r2"], &["supersedes"]).unwrap_p();
     assert_eq!(
         out,
         BTreeSet::from(["c1.r1".to_string(), "c1.r2".to_string()]),
@@ -193,7 +194,7 @@ fn closure_on_cycle_terminates() {
 #[test]
 fn dangling_not_followed_in_traversal() {
     let instance = Instance::from_specs(&corpus());
-    let out = query::forward_closure(&instance, &["c1.r3"], &["traces_to"]).expect("seed exists");
+    let out = query::forward_closure(&instance, &["c1.r3"], &["traces_to"]).unwrap_p();
     assert_eq!(
         out,
         BTreeSet::from(["c1.r3".to_string()]),
@@ -249,7 +250,7 @@ proptest! {
             seeds: seeds.iter().map(|s| s.to_string()).collect(),
             morphisms: morphs.iter().map(|m| m.to_string()).collect(),
         };
-        let run = |seeds: &[&str]| query::run(&q(seeds), &instance).expect("seeds exist");
+        let run = |seeds: &[&str]| query::run(&q(seeds), &instance).unwrap_p();
 
         let closure_s = run(&s);
         // contains: S ⊆ closure(S)
@@ -276,8 +277,8 @@ fn results_sorted_by_id() {
         specs.reverse();
         Instance::from_specs(&specs)
     };
-    let out = query::forward_closure(&forward, &seeds, &morphs).expect("seeds exist");
-    let out_reversed = query::forward_closure(&reversed, &seeds, &morphs).expect("seeds exist");
+    let out = query::forward_closure(&forward, &seeds, &morphs).unwrap_p();
+    let out_reversed = query::forward_closure(&reversed, &seeds, &morphs).unwrap_p();
     assert_eq!(out, out_reversed, "file order cannot reach the result");
     let as_vec: Vec<&str> = out.iter().map(|s| s.as_str()).collect();
     let mut sorted = as_vec.clone();
@@ -305,7 +306,7 @@ statement: "two constraints tracing one intent"
 | c2 | invariant | `true` | [[shared]] |
 "#,
     )
-    .expect("parses");
+    .unwrap_p();
     let specs = vec![shared];
     let instance = Instance::from_specs(&specs);
     assert_eq!(query::fan_in(&instance).get("shared"), Some(&2));
@@ -359,7 +360,7 @@ fn walk_parity_fan_and_cycles() {
             .flat_map(|cycle| cycle.split(" → ").map(String::from))
             .collect();
         let all = instance.morphism_names();
-        let cyclic = query::cyclic_nodes(&instance, &all).expect("no seeds involved");
+        let cyclic = query::cyclic_nodes(&instance, &all).unwrap_p();
         assert_eq!(cyclic, old_members, "supersedes-cycle parity: {name}");
     }
 }
@@ -380,7 +381,7 @@ proptest! {
             .collect();
         let touched_refs: Vec<&str> = touched.iter().map(String::as_str).collect();
         let queried = query::blast_radius(&instance, &touched_refs, &instance.morphism_names())
-            .expect("seeds exist");
+            .unwrap_p();
         prop_assert_eq!(queried, merge_blast_radius(&specs, &touched));
     }
 }

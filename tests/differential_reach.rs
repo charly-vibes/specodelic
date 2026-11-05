@@ -30,6 +30,9 @@
 //! ground truth, and any disagreement is a bug in spk or in the harness,
 //! to be diagnosed, not absorbed.
 
+#[path = "common/mod.rs"]
+mod common;
+use common::UnwrapPanic;
 use specodelic::compile;
 use specodelic::lint;
 use specodelic::model_check::{self, Outcome};
@@ -143,11 +146,7 @@ fn random_model(seed: u64) -> GeneratedModel {
 /// Independent BFS closure over the generator's ground-truth edges from the
 /// first listed state (the pc-automaton's init). Returns the reachable set.
 fn bfs_closure(model: &GeneratedModel) -> BTreeSet<String> {
-    let init = model
-        .states
-        .first()
-        .expect("generator always emits ≥1 state")
-        .clone();
+    let init = model.states.first().unwrap_p().clone();
     let mut adj: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
     for (from, to) in &model.edges {
         adj.entry(from.as_str()).or_default().push(to.as_str());
@@ -177,7 +176,7 @@ fn generous_bound() -> model_check::Bound {
 /// Run spk's native backend over the generated model; panic on anything
 /// but a completed honest exploration.
 fn native_report(model: &GeneratedModel) -> model_check::RunReport {
-    let mut spec = parse_str(&model.text).expect("generated model parses");
+    let mut spec = parse_str(&model.text).unwrap_p();
     spec.path = Some(PathBuf::from("f0.md"));
     let report = lint::lint_all(&[spec.clone()], &[]);
     assert!(
@@ -185,10 +184,9 @@ fn native_report(model: &GeneratedModel) -> model_check::RunReport {
         "generated model must lint clean: {:?}",
         report.issues
     );
-    let compiled = compile::compile_spec(&spec).expect("lint-clean model compiles");
+    let compiled = compile::compile_spec(&spec).unwrap_p();
     let tla = compiled.tla.clone().into_bytes();
-    model_check::run(&compiled.model_ir, &tla, &generous_bound())
-        .expect("native run succeeds on a generated model")
+    model_check::run(&compiled.model_ir, &tla, &generous_bound()).unwrap_p()
 }
 
 // ===========================================================================
@@ -312,9 +310,9 @@ fn tlc_differential() {
 
     for seed in 0..25u64 {
         let model = random_model(seed);
-        let mut spec = parse_str(&model.text).expect("generated model parses");
+        let mut spec = parse_str(&model.text).unwrap_p();
         spec.path = Some(PathBuf::from("f0.md"));
-        let compiled = compile::compile_spec(&spec).expect("lint-clean model compiles");
+        let compiled = compile::compile_spec(&spec).unwrap_p();
         let tla = compiled.tla.clone().into_bytes();
         let bound = model_check::Bound {
             max_depth: 10_000,
@@ -328,7 +326,7 @@ fn tlc_differential() {
             &bound,
             &paths,
         )
-        .expect("TLC run succeeds on a generated model");
+        .unwrap_p();
         assert_eq!(
             report.outcome,
             Outcome::ExplorationOnly,

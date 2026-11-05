@@ -1396,6 +1396,8 @@ fn parse_output_entry(entry: &str) -> Option<(&str, &str)> {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_panic::UnwrapPanic;
+
     use super::*;
 
     /// Fixture: a three-state automaton a → b → c (first listed state is
@@ -1411,7 +1413,7 @@ mod tests {
                 "emits": {}
             }"#,
         )
-        .unwrap()
+        .unwrap_p()
     }
 
     fn artifact() -> Vec<u8> {
@@ -1481,7 +1483,7 @@ mod tests {
         transitions: &[(&str, &str, &str)],
         invariants: &[(&str, &str)],
     ) -> Vec<u8> {
-        let mut text = String::from_utf8(artifact_for(states, transitions, &[])).unwrap();
+        let mut text = String::from_utf8(artifact_for(states, transitions, &[])).unwrap_p();
         if !invariants.is_empty() {
             let manifest = invariants
                 .iter()
@@ -1505,7 +1507,7 @@ mod tests {
             &[("t1", "a", "b"), ("t2", "b", "c")],
             &[("c_hold", "state != \"blackhole\"")],
         );
-        let shape = parse_artifact_shape(&tla).expect("parses");
+        let shape = parse_artifact_shape(&tla).unwrap_p();
         assert_eq!(
             shape.invariants,
             vec![("c_hold".to_string(), "state != \"blackhole\"".to_string())],
@@ -1514,7 +1516,12 @@ mod tests {
         // Manifest absence means zero invariants (the corpus modules keep
         // their bytes — the manifest is only emitted when one exists).
         let plain = artifact_with_manifest(&["a"], &[("t1", "a", "a")], &[]);
-        assert!(parse_artifact_shape(&plain).unwrap().invariants.is_empty());
+        assert!(
+            parse_artifact_shape(&plain)
+                .unwrap_p()
+                .invariants
+                .is_empty()
+        );
     }
 
     #[test]
@@ -1545,7 +1552,7 @@ mod tests {
             ("c_hold", "state != \"blackhole\""),
             ("c_other", "state != \"doom\""),
         ]);
-        let edges = resolve_edges(&ir).unwrap();
+        let edges = resolve_edges(&ir).unwrap_p();
         let src = scratch_run_source(&ir, &edges, &Bound::default());
         assert!(
             src.contains("fn inv_0(state: &str) -> bool {\n    state != \"blackhole\"\n}"),
@@ -1570,7 +1577,7 @@ mod tests {
         let facts: RunFacts = serde_json::from_str(
             r#"{"violated_invariant_id":"c_hold","trace":["a","b","c"],"states_explored":3,"deadline_hit":false,"states_capped":false}"#,
         )
-        .expect("the scratch line parses");
+        .unwrap_p();
         assert_eq!(facts.violated_invariant_id.as_deref(), Some("c_hold"));
         assert_eq!(
             facts.trace,
@@ -1673,7 +1680,7 @@ mod tests {
             artifact_sha256: "abc".into(),
             states_explored: 3,
         };
-        let json = serde_json::to_value(&report).unwrap();
+        let json = serde_json::to_value(&report).unwrap_p();
         assert_eq!(json["outcome"], "no_counterexample");
         assert_eq!(json["backend"]["engine"], "stateright");
         assert_eq!(json["artifact_sha256"], "abc");
@@ -1686,7 +1693,7 @@ mod tests {
 
     #[test]
     fn exploration_run_names_backend_and_restates_bound() {
-        let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap();
+        let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap_p();
         assert_eq!(report.outcome, Outcome::ExplorationOnly);
         assert_eq!(report.backend.engine, "stateright");
         assert_eq!(report.backend.version, BACKEND_VERSION);
@@ -1697,7 +1704,7 @@ mod tests {
     #[test]
     fn exploration_is_exhaustive_within_the_bound() {
         // a → b → c: the full reachable set is explored.
-        let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap();
+        let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap_p();
         assert_eq!(report.states_explored, 3);
         assert_eq!(report.outcome, Outcome::ExplorationOnly);
     }
@@ -1708,7 +1715,7 @@ mod tests {
         let mut ir = chain_ir();
         ir.transitions.truncate(1); // keep only a → b
         let artifact = artifact_for(&["a", "b", "c"], &[("t1", "a", "b")], &[]);
-        let report = run(&ir, &artifact, &Bound::default()).unwrap();
+        let report = run(&ir, &artifact, &Bound::default()).unwrap_p();
         assert_eq!(report.states_explored, 2);
     }
 
@@ -1720,7 +1727,7 @@ mod tests {
         // exploration — however exhaustive — must carry an explicitly
         // exploratory outcome a consumer cannot read as
         // counterexample-free verification.
-        let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap();
+        let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap_p();
         assert!(report.invariants_checked.is_empty());
         assert_eq!(report.outcome, Outcome::ExplorationOnly);
     }
@@ -1741,7 +1748,7 @@ mod tests {
             artifact_sha256: "abc".into(),
             states_explored: 3,
         };
-        let json = serde_json::to_value(&report).unwrap();
+        let json = serde_json::to_value(&report).unwrap_p();
         assert_eq!(json["outcome"], "exploration_only");
     }
 
@@ -1751,7 +1758,7 @@ mod tests {
         // predicates are uninterpreted — the in-process native backend
         // checks nothing semantic and never invents a counterexample.
         // Fragment-bearing IR takes run_executable instead.
-        let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap();
+        let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap_p();
         assert!(report.invariants_checked.is_empty());
         assert_eq!(report.violated_invariant_id, None);
         assert_eq!(report.trace, None);
@@ -1765,7 +1772,7 @@ mod tests {
             max_depth: 1,
             ..Default::default()
         };
-        let report = run(&chain_ir(), &artifact(), &bound).unwrap();
+        let report = run(&chain_ir(), &artifact(), &bound).unwrap_p();
         assert_eq!(report.outcome, Outcome::TimedOut);
     }
 
@@ -1775,7 +1782,7 @@ mod tests {
             max_states: Some(1),
             ..Default::default()
         };
-        let report = run(&chain_ir(), &artifact(), &bound).unwrap();
+        let report = run(&chain_ir(), &artifact(), &bound).unwrap_p();
         assert_eq!(report.outcome, Outcome::TimedOut);
     }
 
@@ -1786,7 +1793,7 @@ mod tests {
             timeout_secs: Some(0),
             ..Default::default()
         };
-        let report = run(&chain_ir(), &artifact(), &bound).unwrap();
+        let report = run(&chain_ir(), &artifact(), &bound).unwrap_p();
         assert_eq!(report.outcome, Outcome::TimedOut);
     }
 
@@ -1796,7 +1803,7 @@ mod tests {
             max_states: Some(100),
             ..Default::default()
         };
-        let report = run(&chain_ir(), &artifact(), &bound).unwrap();
+        let report = run(&chain_ir(), &artifact(), &bound).unwrap_p();
         assert_eq!(report.outcome, Outcome::ExplorationOnly);
     }
 
@@ -1817,7 +1824,7 @@ mod tests {
 
     #[test]
     fn stale_report_detected_by_artifact_hash_change() {
-        let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap();
+        let report = run(&chain_ir(), &artifact(), &Bound::default()).unwrap_p();
         assert!(!is_stale(&report, &artifact_sha256(&artifact())));
         assert!(is_stale(&report, &artifact_sha256(b"edited module")));
     }
@@ -1905,7 +1912,7 @@ mod tests {
                 "emits_values": {"a": "`C's expr`"}
             }"#,
         )
-        .unwrap()
+        .unwrap_p()
     }
 
     #[test]
@@ -1952,7 +1959,7 @@ mod tests {
             &[("t1", "a", "b"), ("t2", "b", "c")],
             &[("a", "`C's expr`")],
         );
-        let report = run(&emitting_ir(), &artifact, &Bound::default()).unwrap();
+        let report = run(&emitting_ir(), &artifact, &Bound::default()).unwrap_p();
         assert_eq!(report.outcome, Outcome::ExplorationOnly);
     }
 
@@ -1979,7 +1986,7 @@ mod tests {
             max_depth: 3,
             ..Default::default()
         };
-        let report = run(&chain_ir(), &artifact(), &bound).unwrap();
+        let report = run(&chain_ir(), &artifact(), &bound).unwrap_p();
         assert_eq!(report.outcome, Outcome::ExplorationOnly);
         assert_eq!(report.states_explored, 3);
     }
@@ -1991,7 +1998,7 @@ mod tests {
             max_depth: 1,
             ..Default::default()
         };
-        let report = run(&chain_ir(), &artifact(), &bound).unwrap();
+        let report = run(&chain_ir(), &artifact(), &bound).unwrap_p();
         assert_eq!(report.outcome, Outcome::TimedOut);
     }
 
@@ -2004,7 +2011,7 @@ mod tests {
             max_states: Some(1),
             ..Default::default()
         };
-        let report = run(&chain_ir(), &artifact(), &bound).unwrap();
+        let report = run(&chain_ir(), &artifact(), &bound).unwrap_p();
         assert_eq!(report.outcome, Outcome::TimedOut);
     }
 
@@ -2021,9 +2028,9 @@ mod tests {
                 "emits": {}
             }"#,
         )
-        .unwrap();
+        .unwrap_p();
         let artifact = artifact_for(&["a", "b"], &[("loop", "a", "a"), ("t", "a", "b")], &[]);
-        let report = run(&ir, &artifact, &Bound::default()).unwrap();
+        let report = run(&ir, &artifact, &Bound::default()).unwrap_p();
         assert_eq!(report.outcome, Outcome::ExplorationOnly);
         assert_eq!(report.states_explored, 2);
     }
@@ -2096,9 +2103,9 @@ mod tests {
     fn tlc_run_with_missing_binary_is_a_labeled_error_never_a_verdict() {
         // MUST (specodelic-ug3): a missing checker binary is an ERROR —
         // it can never degrade into a no_counterexample result.
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let module = dir.path().join("chain.tla");
-        std::fs::write(&module, artifact()).unwrap();
+        std::fs::write(&module, artifact()).unwrap_p();
         let paths = TlcPaths {
             java: dir.path().join("no-such-java"),
             jar: dir.path().join("tla2tools.jar"),
@@ -2109,9 +2116,9 @@ mod tests {
 
     #[test]
     fn tlc_run_with_missing_jar_is_a_labeled_error_never_a_verdict() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let module = dir.path().join("chain.tla");
-        std::fs::write(&module, artifact()).unwrap();
+        std::fs::write(&module, artifact()).unwrap_p();
         let paths = TlcPaths {
             java: std::path::PathBuf::from("sh"),
             jar: dir.path().join("no-such.jar"),
@@ -2130,10 +2137,10 @@ mod tests {
         let script = format!(
             "#!/bin/sh\nfor arg in \"$@\"; do case \"$arg\" in -version) echo 'TLC2 version 1.20.0 of 12 May 2024'; exit 0;; esac; done\ncat <<'TLCOUT'\n{run_output}\nTLCOUT\nexit {exit_code}\n"
         );
-        std::fs::write(&shim, script).unwrap();
+        std::fs::write(&shim, script).unwrap_p();
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap();
-        std::fs::write(dir.path().join("tla2tools.jar"), b"placeholder jar").unwrap();
+        std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap_p();
+        std::fs::write(dir.path().join("tla2tools.jar"), b"placeholder jar").unwrap_p();
         TlcPaths {
             java: shim,
             jar: dir.path().join("tla2tools.jar"),
@@ -2143,7 +2150,7 @@ mod tests {
     #[cfg(unix)]
     fn module_file(dir: &tempfile::TempDir) -> std::path::PathBuf {
         let module = dir.path().join("chain.tla");
-        std::fs::write(&module, artifact()).unwrap();
+        std::fs::write(&module, artifact()).unwrap_p();
         module
     }
 
@@ -2154,14 +2161,15 @@ mod tests {
         // Decision 3, Option A), so even the reference engine's completed
         // run is exploration_only, never no_counterexample — the two
         // backends' reports are comparable (backend_identified).
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let module = module_file(&dir);
         let paths = fake_java(
             &dir,
             "Model checking completed. No error has been found.\n43 states generated, 42 distinct states found, 0 states left on queue.",
             0,
         );
-        let report = run_tlc(&chain_ir(), &module, &artifact(), &Bound::default(), &paths).unwrap();
+        let report =
+            run_tlc(&chain_ir(), &module, &artifact(), &Bound::default(), &paths).unwrap_p();
         assert_eq!(report.backend.engine, "tlc");
         assert_eq!(report.backend.version, "1.20.0");
         assert_eq!(report.outcome, Outcome::ExplorationOnly);
@@ -2174,14 +2182,15 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn tlc_depth_cutoff_reports_timed_out() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let module = module_file(&dir);
         let paths = fake_java(
             &dir,
             "The behavior up to this point is error-free.\n5 states generated, 5 distinct states found.",
             0,
         );
-        let report = run_tlc(&chain_ir(), &module, &artifact(), &Bound::default(), &paths).unwrap();
+        let report =
+            run_tlc(&chain_ir(), &module, &artifact(), &Bound::default(), &paths).unwrap_p();
         assert_eq!(report.outcome, Outcome::TimedOut);
         assert_eq!(report.backend.engine, "tlc");
     }
@@ -2194,7 +2203,7 @@ mod tests {
         // name a corpus invariant (counterexample_names_violated_invariant,
         // deferred on mp1's predicate-fragment decision), so an engine-
         // invariant violation is a labeled error, never counterexample_found.
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let module = module_file(&dir);
         let paths = fake_java(
             &dir,
@@ -2208,7 +2217,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn tlc_nonzero_exit_without_completion_is_a_labeled_error() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let module = module_file(&dir);
         let paths = fake_java(&dir, "Exception in thread main ...", 1);
         let e = run_tlc(&chain_ir(), &module, &artifact(), &Bound::default(), &paths).unwrap_err();
@@ -2220,7 +2229,7 @@ mod tests {
     fn tlc_exit_zero_without_a_known_verdict_fails_closed() {
         // Unrecognized output on a zero exit is never silently mapped to a
         // verdict — the run reports a labeled error instead.
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let module = module_file(&dir);
         let paths = fake_java(&dir, "something unexpected", 0);
         let e = run_tlc(&chain_ir(), &module, &artifact(), &Bound::default(), &paths).unwrap_err();
@@ -2232,17 +2241,17 @@ mod tests {
     fn tlc_wall_clock_budget_exhaustion_kills_the_run_as_timed_out() {
         // A shim that ignores its budget: the backend must enforce the
         // wall-clock bound itself (kill the JVM), reporting timed_out.
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let module = module_file(&dir);
         let shim = dir.path().join("slow-java.sh");
         std::fs::write(
             &shim,
             "#!/bin/sh\nfor arg in \"$@\"; do case \"$arg\" in -version) echo 'TLC2 version 1.20.0 of 12 May 2024'; exit 0;; esac; done\nexec sleep 30\n",
         )
-        .unwrap();
+        .unwrap_p();
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap();
-        std::fs::write(dir.path().join("tla2tools.jar"), b"placeholder").unwrap();
+        std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap_p();
+        std::fs::write(dir.path().join("tla2tools.jar"), b"placeholder").unwrap_p();
         let paths = TlcPaths {
             java: shim,
             jar: dir.path().join("tla2tools.jar"),
@@ -2251,7 +2260,7 @@ mod tests {
             timeout_secs: Some(0),
             ..Default::default()
         };
-        let report = run_tlc(&chain_ir(), &module, &artifact(), &bound, &paths).unwrap();
+        let report = run_tlc(&chain_ir(), &module, &artifact(), &bound, &paths).unwrap_p();
         assert_eq!(report.outcome, Outcome::TimedOut);
     }
 
@@ -2260,7 +2269,7 @@ mod tests {
     fn tlc_max_states_budget_is_unsupported_and_labeled() {
         // TLC has no state-count cap (its bound is -depth); an unsupported
         // budget is a labeled error, never silently ignored.
-        let dir = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap_p();
         let module = module_file(&dir);
         let paths = fake_java(
             &dir,

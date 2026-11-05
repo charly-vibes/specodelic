@@ -1,11 +1,12 @@
 //! Integration tests — run the `specodelic` binary against the repo's own corpus.
 
+use crate::common::UnwrapPanic;
 use assert_cmd::Command;
 use predicates::prelude::PredicateBooleanExt;
 use predicates::str::contains;
 
 fn spk() -> Command {
-    Command::cargo_bin("specodelic").unwrap()
+    Command::cargo_bin("specodelic").unwrap_p()
 }
 
 fn write_bad_ears_spec(path: &std::path::Path, id: &str) {
@@ -13,7 +14,7 @@ fn write_bad_ears_spec(path: &std::path::Path, id: &str) {
         path,
         format!("---\nid: {id}\nkind: intent\nstatement: \"the system should maybe work\"\n---\n"),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 /// A lint-clean spec with a two-state model — the model-check fixture.
@@ -40,7 +41,7 @@ fn write_model_check_spec(path: &std::path::Path, id: &str) {
              | p | unit | [[{id}.c1]] | `g()` | `x` |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 #[path = "../common/mod.rs"]
 mod common;
@@ -88,7 +89,7 @@ fn write_parse_fixture(path: &std::path::Path, id: &str) {
              | p3 | unit | [[{id}.c1]] | `k()` | `z` |\n"
         ),
     )
-    .unwrap();
+    .unwrap_p();
 }
 
 fn compile_fixture(td: &tempfile::TempDir, id: &str, body_line: &str) -> (String, String) {
@@ -98,14 +99,14 @@ fn compile_fixture(td: &tempfile::TempDir, id: &str, body_line: &str) -> (String
     spk()
         .args([
             "compile",
-            spec.to_str().unwrap(),
+            spec.to_str().unwrap_p(),
             "--out-dir",
-            out.to_str().unwrap(),
+            out.to_str().unwrap_p(),
         ])
         .assert()
         .success();
     let props = out.join(format!("{id}_props.rs"));
-    let src = std::fs::read_to_string(&props).unwrap();
+    let src = std::fs::read_to_string(&props).unwrap_p();
     let translated = src
         .lines()
         .map(|l| {
@@ -117,25 +118,25 @@ fn compile_fixture(td: &tempfile::TempDir, id: &str, body_line: &str) -> (String
         })
         .collect::<Vec<_>>()
         .join("\n");
-    std::fs::write(&props, translated).unwrap();
+    std::fs::write(&props, translated).unwrap_p();
     (
-        spec.to_str().unwrap().to_string(),
-        out.to_str().unwrap().to_string(),
+        spec.to_str().unwrap_p().to_string(),
+        out.to_str().unwrap_p().to_string(),
     )
 }
 
 fn hooks_fixture(with_config: bool, with_openspec: bool) -> tempfile::TempDir {
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::create_dir_all(dir.path().join(".git")).unwrap();
+    let dir = tempfile::tempdir().unwrap_p();
+    std::fs::create_dir_all(dir.path().join(".git")).unwrap_p();
     if with_config {
         std::fs::write(
             dir.path().join("lefthook.yml"),
             "pre-commit:\n  commands:\n    sibling-blockers:\n      run: scripts/guards/sibling-blockers.sh .\n",
         )
-        .unwrap();
+        .unwrap_p();
     }
     if with_openspec {
-        std::fs::create_dir_all(dir.path().join("openspec")).unwrap();
+        std::fs::create_dir_all(dir.path().join("openspec")).unwrap_p();
     }
     dir
 }

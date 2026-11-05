@@ -14,6 +14,10 @@
 //! preferred split; src/model_check.rs is pinned by the pretender
 //! file_lines ratchet — shrink-only).
 
+#[path = "common/mod.rs"]
+mod common;
+use common::UnwrapPanic;
+use common::UnwrapPanicErr;
 use specodelic::compile::compile_spec;
 use specodelic::spec::parse_str;
 
@@ -28,8 +32,8 @@ fn kernel_marker_on_a_non_invariant_cell_fails_labeled() {
         "| b | effect | `y fires` | [[demo.edge]] |",
         "| b | effect | `**kernel:** acyclic(supersedes)` | [[demo.edge]] |",
     );
-    let spec = parse_str(&text).expect("parses");
-    let err = compile_spec(&spec).expect_err("non-invariant kernel marker must fail labeled");
+    let spec = parse_str(&text).unwrap_p();
+    let err = compile_spec(&spec).unwrap_p_err();
     assert_eq!(err.stage, "fragment_extraction", "{err:?}");
     assert!(err.message.contains("kernel"), "{err:?}");
 }
@@ -43,8 +47,8 @@ fn broken_kernel_grammar_fails_labeled_at_compile() {
         "| a | invariant | `holds a` | [[demo.edge]] |",
         "| a | invariant | `**kernel:** ∀ c ∈ Constraint: frobnicate(c)` | [[demo.edge]] |",
     );
-    let spec = parse_str(&text).expect("parses");
-    let err = compile_spec(&spec).expect_err("non-member atomic must fail labeled");
+    let spec = parse_str(&text).unwrap_p();
+    let err = compile_spec(&spec).unwrap_p_err();
     assert_eq!(err.stage, "kernel_grammar", "{err:?}");
     assert!(err.message.contains("frobnicate"), "{err:?}");
     assert!(err.message.contains("kernel_grammar_closed"), "{err:?}");
@@ -58,8 +62,8 @@ fn double_opt_in_fails_labeled() {
         "| a | invariant | `holds a` | [[demo.edge]] |",
         "| a | invariant | `**kernel:** acyclic(supersedes)` `**rust:** true` | [[demo.edge]] |",
     );
-    let spec = parse_str(&text).expect("parses");
-    let err = compile_spec(&spec).expect_err("double opt-in must fail labeled");
+    let spec = parse_str(&text).unwrap_p();
+    let err = compile_spec(&spec).unwrap_p_err();
     assert!(err.message.contains("**kernel:**"), "{err:?}");
 }
 
@@ -72,8 +76,8 @@ fn valid_kernel_cell_compiles_besides_prose_and_citations() {
         "| a | invariant | `holds a` | [[demo.edge]] |",
         "| a | invariant | `**kernel:** acyclic(supersedes)` | [[demo.edge]] |",
     );
-    let spec = parse_str(&text).expect("parses");
-    let compiled = compile_spec(&spec).expect("compiles");
+    let spec = parse_str(&text).unwrap_p();
+    let compiled = compile_spec(&spec).unwrap_p();
     assert_eq!(
         compiled.model_ir.guard_kernel.get("a").map(String::as_str),
         Some("acyclic(supersedes)")

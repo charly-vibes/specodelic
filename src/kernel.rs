@@ -302,7 +302,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn expect(&mut self, tok: &str, what: &str) -> Result<(), KernelError> {
+    fn expect_tok(&mut self, tok: &str, what: &str) -> Result<(), KernelError> {
         if self.eat(tok) {
             Ok(())
         } else {
@@ -406,9 +406,9 @@ impl<'a> Parser<'a> {
             Some('∀') => self.quantifier(true),
             Some('∃') => self.quantifier(false),
             Some('(') => {
-                self.expect("(", "an opening paren")?;
+                self.expect_tok("(", "an opening paren")?;
                 let inner = self.expr()?;
-                self.expect(")", "a closing paren")?;
+                self.expect_tok(")", "a closing paren")?;
                 Ok(inner)
             }
             _ => self.atomic(),
@@ -420,13 +420,13 @@ impl<'a> Parser<'a> {
     /// labeled failure); the variable scopes over the body.
     fn quantifier(&mut self, forall: bool) -> Result<KernelExpr, KernelError> {
         let tok = if forall { "∀" } else { "∃" };
-        self.expect(tok, "a quantifier")?;
+        self.expect_tok(tok, "a quantifier")?;
         let var = self.ident().ok_or_else(|| {
             KernelError::labeled(
                 "kernel grammar expects a bound variable name after the quantifier",
             )
         })?;
-        self.expect("∈", "the membership symbol in a quantifier")?;
+        self.expect_tok("∈", "the membership symbol in a quantifier")?;
         let object = self
             .ident()
             .ok_or_else(|| KernelError::labeled("kernel grammar expects an object after `∈`"))?;
@@ -436,7 +436,7 @@ impl<'a> Parser<'a> {
                 OBJECTS.join(", ")
             )));
         }
-        self.expect(":", "the colon opening a quantifier body")?;
+        self.expect_tok(":", "the colon opening a quantifier body")?;
         self.vars.push((var.clone(), object.clone()));
         let body = self.expr()?;
         self.vars.pop();
@@ -491,15 +491,15 @@ impl<'a> Parser<'a> {
             let rest = &self.s[self.pos + "reachable".len()..];
             if rest.trim_start().starts_with('(') {
                 self.pos += "reachable".len();
-                self.expect("(", "the argument list of reachable")?;
+                self.expect_tok("(", "the argument list of reachable")?;
                 let from = self
                     .qualified_ident()
                     .ok_or_else(|| KernelError::labeled("reachable expects a from id"))?;
-                self.expect(",", "the comma after reachable's from id")?;
+                self.expect_tok(",", "the comma after reachable's from id")?;
                 let to = self
                     .qualified_ident()
                     .ok_or_else(|| KernelError::labeled("reachable expects a to id"))?;
-                self.expect(",", "the comma after reachable's to id")?;
+                self.expect_tok(",", "the comma after reachable's to id")?;
                 let m = self
                     .ident()
                     .ok_or_else(|| KernelError::labeled("reachable expects a morphism name"))?;
@@ -508,7 +508,7 @@ impl<'a> Parser<'a> {
                         "unknown morphism `{m}` in reachable — the schema's morphisms are the Reference Typing rows (traces_to, derives_from, guard, supersedes, emits, satisfies, observes, uses, from, to)"
                     )));
                 }
-                self.expect(")", "the closing paren of reachable")?;
+                self.expect_tok(")", "the closing paren of reachable")?;
                 return Ok(KernelExpr::Atomic(Atomic::Reachable(from, to, m)));
             }
         }
@@ -554,11 +554,11 @@ impl<'a> Parser<'a> {
     /// One morphism-name argument — row-typed: the name must be a
     /// schema morphism (Schema-as-data).
     fn morphism_arg(&mut self, atomic: &str) -> Result<String, KernelError> {
-        self.expect("(", &format!("the argument list of {atomic}"))?;
+        self.expect_tok("(", &format!("the argument list of {atomic}"))?;
         let m = self
             .ident()
             .ok_or_else(|| KernelError::labeled(format!("{atomic} expects a morphism name")))?;
-        self.expect(")", &format!("the closing paren of {atomic}"))?;
+        self.expect_tok(")", &format!("the closing paren of {atomic}"))?;
         if !self.schema.morphisms.iter().any(|row| row.name == m) {
             return Err(KernelError::labeled(format!(
                 "unknown morphism `{m}` in {atomic} — the schema's morphisms are the Reference Typing rows (traces_to, derives_from, guard, supersedes, emits, satisfies, observes, uses, from, to)"
@@ -575,7 +575,7 @@ impl<'a> Parser<'a> {
             let object = self
                 .ident()
                 .ok_or_else(|| KernelError::labeled("cardinality term expects an object"))?;
-            self.expect("|", "the closing bar of a cardinality term")?;
+            self.expect_tok("|", "the closing bar of a cardinality term")?;
             if !OBJECTS.contains(&object.as_str()) {
                 return Err(KernelError::labeled(format!(
                     "unknown cardinality object `{object}` — the schema's objects are {{{}}}",

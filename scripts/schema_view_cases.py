@@ -106,6 +106,7 @@ class TestSchemaViewRendering(unittest.TestCase):
         self.assertIn("Intent", out)
         self.assertIn("traces_to", out)
         self.assertIn(REVISION, out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_perturbation_one_morphism_changes_exactly_one_edge(self):
         base = graph_views.render_schema(
@@ -121,6 +122,7 @@ class TestSchemaViewRendering(unittest.TestCase):
         self.assertEqual(removed, [], "perturbation must not remove lines")
         self.assertEqual(len(added), 1, "one morphism in = one edge out")
         self.assertIn("uses", added[0])
+        return None  # explicit non-void: no self-field mutation
 
     def test_refinement_labels_render(self):
         out = graph_views.render_schema(
@@ -130,11 +132,13 @@ class TestSchemaViewRendering(unittest.TestCase):
         )
         self.assertIn("effect", out)
         self.assertIn("emits", out)
+        return None  # explicit non-void: no self-field mutation
 
     def test_renderer_is_deterministic(self):
         env = envelope(schema_data(BASE_OBJECTS, base_morphisms()))
         self.assertEqual(graph_views.render_schema(env),
                          graph_views.render_schema(env))
+        return None  # explicit non-void: no self-field mutation
 
 
 class TestSchemaExportInvalid(unittest.TestCase):
@@ -143,11 +147,13 @@ class TestSchemaExportInvalid(unittest.TestCase):
     def assert_invalid(self, payload):
         with self.assertRaises(graph_views.SchemaExportInvalid):
             graph_views.render_schema(payload)
+        return None  # explicit non-void: no self-field mutation
 
     def test_unsuccessful_envelope_refused(self):
         self.assert_invalid(
             envelope(schema_data(BASE_OBJECTS, base_morphisms()), ok=False)
         )
+        return None  # explicit non-void: no self-field mutation
 
     def test_missing_morphism_field_refused(self):
         broken = dict(TRACES_TO)
@@ -155,17 +161,20 @@ class TestSchemaExportInvalid(unittest.TestCase):
         self.assert_invalid(
             envelope(schema_data(BASE_OBJECTS, [broken]))
         )
+        return None  # explicit non-void: no self-field mutation
 
     def test_unknown_schema_version_refused(self):
         self.assert_invalid(
             envelope(schema_data(BASE_OBJECTS, base_morphisms(), version=2))
         )
+        return None  # explicit non-void: no self-field mutation
 
     def test_duplicate_morphism_identity_refused(self):
         self.assert_invalid(
             envelope(schema_data(BASE_OBJECTS,
                                  [dict(TRACES_TO), dict(TRACES_TO)]))
         )
+        return None  # explicit non-void: no self-field mutation
 
     def test_dangling_endpoint_refused(self):
         broken = dict(TRACES_TO)
@@ -173,19 +182,23 @@ class TestSchemaExportInvalid(unittest.TestCase):
         self.assert_invalid(
             envelope(schema_data(BASE_OBJECTS, [broken]))
         )
+        return None  # explicit non-void: no self-field mutation
 
     def test_missing_objects_key_refused(self):
         data = schema_data(BASE_OBJECTS, base_morphisms())
         del data["objects"]
         self.assert_invalid(envelope(data))
+        return None  # explicit non-void: no self-field mutation
 
     def test_missing_format_revision_refused(self):
         data = schema_data(BASE_OBJECTS, base_morphisms())
         del data["format_revision"]
         self.assert_invalid(envelope(data))
+        return None  # explicit non-void: no self-field mutation
 
     def test_missing_data_key_refused(self):
         self.assert_invalid({"ok": True, "envelope_version": "0.1"})
+        return None  # explicit non-void: no self-field mutation
 
 
 # ---- states view fixtures (gre.6) --------------------------------------
@@ -206,12 +219,14 @@ class TestSchemaCliRefusals(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("schema_export_invalid", proc.stderr)
         self.assertEqual(proc.stdout, "")
+        return None  # explicit non-void: no self-field mutation
 
     def test_valid_export_cli_writes_diagram(self):
         proc = run_cli(envelope(schema_data(BASE_OBJECTS, base_morphisms())))
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn(REVISION, proc.stdout)
         self.assertIn("traces_to", proc.stdout)
+        return None  # explicit non-void: no self-field mutation
 
     def test_unknown_version_cli_fails_before_output(self):
         proc = run_cli(envelope(schema_data(BASE_OBJECTS, base_morphisms(),
@@ -219,6 +234,7 @@ class TestSchemaCliRefusals(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("schema_export_invalid", proc.stderr)
         self.assertEqual(proc.stdout, "")
+        return None  # explicit non-void: no self-field mutation
 
 
 
