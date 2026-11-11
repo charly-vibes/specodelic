@@ -1,0 +1,11 @@
+run_id: tdd-ro5-2026-11-11-specodelic-edrv-binds-nothing
+pipeline: tdd-ro5
+topic: 'specodelic-edrv: binds_nothing'
+created_at: '2026-11-11T19:49:41.703157072+00:00'
+current_step: 8
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
+bypasses: []
