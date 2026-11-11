@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-11-specodelic-6hou-slice-4-gate-pass, pipeline-step:ship-close]
+---
+
+SHIP specodelic-6hou verified closed by orchestrator: 2 commits caa8168 (verbatim cohesive-unit relocation RungAggregate/EvidenceMix/rung_from_evidence/current_check_evidence/with_derived_rung -> src/audit/rung.rs 209L with file header + pub use re-export; audit.rs 2294->2122 net -172, ratchet 2122/2300; unused use crate::model_check removed with block; lib.rs untouched - mod audit dir-style) + 93c892c (tasks 4.3 tick). Orchestrator re-verified: cmp IDENTICAL on all three proof fixtures (human/json/no-rung json, /var/tmp/6hou-proof), just ci exit 0 at HEAD. SLICE 4 FULLY TICKED (4.1-4.3). Note: per-suite honest count 994 (my prior 997 was aggregate counting across binaries). Queue next: x0wy LAST (docs 5.1 new docs/src/graded-evidence.md verb page per docs-home DECISION record + 5.2 specs/audit layer.md sidecar + just archive-change fail-closed; carries 37hl honesty findings; espectacular contract TOMLs authored in archive commit per boilerplate).

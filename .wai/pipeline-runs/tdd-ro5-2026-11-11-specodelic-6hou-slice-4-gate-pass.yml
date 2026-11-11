@@ -1,0 +1,11 @@
+run_id: tdd-ro5-2026-11-11-specodelic-6hou-slice-4-gate-pass
+pipeline: tdd-ro5
+topic: 'specodelic-6hou: slice 4 gate pass'
+created_at: '2026-11-11T22:25:20.398159378+00:00'
+current_step: 8
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
+bypasses: []
