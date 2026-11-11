@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-11-specodelic-qqgn-unify-row-emission, pipeline-step:orient]
+---
+
+ORIENT: specodelic-qqgn slice-2 refactor 2.3 (unify row-emission across row kinds). Read brief + design.md (both-layer invariant: every audit row carries conform verdict AND AuditClass::of-derived class) + tasks.md. Row-emission duplication pinned at HEAD: (a) row construction in 2 sites — oracle map in build_report + the two branches of pack_check_row — each deriving class via AuditClass::of; (b) count-map recompute loop duplicated build_report/with_pack_rows; (c) sort-by-scenario_id discipline copied 3x (build_report, pack_check_rows, with_pack_rows). Prior session 8ebr explicitly deferred exactly this to 2.3. Red = new in-module pin tests on the unified surface written against current API, then extraction, zero behavior change proven byte-identical on fixed fixtures under /var/tmp/qqgn-proof. TMPDIR=/var/tmp/specodelic-xch1 mandatory for every cargo run. No push, no bd close, no wai close.

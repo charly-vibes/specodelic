@@ -1,0 +1,11 @@
+run_id: tdd-ro5-2026-11-11-specodelic-qqgn-unify-row-emission
+pipeline: tdd-ro5
+topic: 'specodelic-qqgn: unify row-emission'
+created_at: '2026-11-11T19:11:44.148399633+00:00'
+current_step: 9
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
+bypasses: []

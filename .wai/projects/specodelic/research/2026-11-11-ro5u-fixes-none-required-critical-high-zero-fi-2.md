@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-11-specodelic-qqgn-unify-row-emission, pipeline-step:fix-review]
+---
+
+RO5U-FIXES: none required — Critical/High: zero findings. Medium (audit_row visibility): explicitly DEFERRED with reason — slice-3/4 row kinds (binds_nothing, rung aggregate) are the brief's stated future consumers and will live in audit.rs itself where audit_row is already in scope; widening to pub(crate) now would be speculative churn with no current consumer (the 8ebr ro5u deferral pattern; revisit iff a consumer lands outside audit.rs). Low (SPEC fixture duplication): by-convention documented in the module header, no fix. Low (pre-existing pack_row_tests doc-comment clippy --all-targets finding): present at HEAD~3, outside just ci clippy scope, unrelated to 2.3 — tracked, not mine. Low (recount tuple return): destructured by name at both call sites, no fix. No behavior-impacting fixes → no new tests; suite state unchanged (16/16 in-module audit, full cargo test green, envelopes byte-identical).

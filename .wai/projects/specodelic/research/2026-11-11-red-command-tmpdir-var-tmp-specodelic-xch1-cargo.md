@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-11-specodelic-qqgn-unify-row-emission, pipeline-step:red]
+---
+
+RED: command=TMPDIR=/var/tmp/specodelic-xch1 cargo test --lib audit → 16 passed (13 prior + 3 new emission_tests). Expected failure=NONE by design — refactor ticket: brief mandates pins written against CURRENT API that PASS before unification (slice-1 gheu precedent). New pins in src/audit.rs mod emission_tests: (1) emission_is_both_layered_across_row_kinds — build_report oracle rows (permitted/underspecified/forbidden) + pack_check_row both branches: class==AuditClass::of(verdict) everywhere, keys verbatim (corpus ids / pack:<pack_id>:<subject_id>); (2) count_maps_agree_between_the_compute_sites — with_pack_rows from-scratch recompute over stale-seeded maps reproduces build_report's maps exactly, pack rows fold additively; (3) row_order_is_key_sorted_across_kinds_in_both_paths — shuffled corpus still sorts, mixed oracle+pack fold interleaves in key order. BEFORE proof captured at /var/tmp/qqgn-proof (fresh/human/baseline/stale/refuse envelopes, exits 1/1/0/1/2).
