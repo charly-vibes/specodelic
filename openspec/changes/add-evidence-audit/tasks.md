@@ -34,10 +34,10 @@ shippable alone; cut freely without the others.
 
 ## Slice 4 — rung aggregate (supersedes 4m3y)
 
-- [ ] 4.1 Red: corpus with mixed evidence — summaries report per-file rung
+- [x] 4.1 Red: corpus with mixed evidence — summaries report per-file rung
       1–5, never exceeding present evidence; lint/orchestrate summaries
       unchanged otherwise.
-- [ ] 4.2 Green: derive rungs from existing outputs at report time.
+- [x] 4.2 Green: derive rungs from existing outputs at report time.
 - [ ] 4.3 Refactor: `just ci` green.
 
 ## Docs + layer

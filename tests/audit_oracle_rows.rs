@@ -366,6 +366,7 @@ fn exit_code_one_iff_contradicted_or_stale_under_declared_expectation() {
         expectation_declared: false,
         verdict_counts: Default::default(),
         class_counts: Default::default(),
+        ladder_rung: audit::RungAggregate::default(),
         records,
     };
     // All current → 0.
