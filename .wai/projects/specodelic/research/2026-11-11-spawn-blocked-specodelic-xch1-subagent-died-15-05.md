@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-11-specodelic-xch1-oracle-row-classification-before-diff, pipeline-step:green]
+---
+
+SPAWN-BLOCKED: specodelic-xch1 subagent died 15:05:44Z ~20min in — OpenRouter credits exhausted ('requested 48000 tokens, can only afford 20035'). HARD EXTERNAL BLOCKER: needs owner to top up https://openrouter.ai/settings/credits. State preserved: subagent session 01a1cb12-5455-74f0-86ea-3c6a120c430c (resume: pi --session 01a1cb12-5455-74f0-86ea-3c6a120c430c -p 'continue your brief from wai pipeline current'); its tdd-ro5 run ACTIVE at step 4/9 green (run yml tdd-ro5-2026-11-11-specodelic-xch1-oracle-row-classification-before-diff.yml); RED tests landed + verified honest by orchestrator (tests/audit_oracle_rows.rs fails E0432 unresolved specodelic::audit — intended reason); src/audit.rs not started; tree otherwise clean; xch1 stays claimed; epic-orchestrator run parked at step 4 spawn-subagent. On credits top-up: resume subagent OR spawn fresh with instruction to adopt the active tdd-ro5 run at green. wai artifacts uncommitted by design until ship. Queue unchanged: gheu→8ebr→qqgn→edrv→l6md→37hl→6hou→x0wy.
