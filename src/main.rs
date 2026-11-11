@@ -16,7 +16,7 @@ use genesis::envelope::{Envelope, EnvelopeKind};
 use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
-use specodelic::{acset, checklist, graph, guide, model_check, spec, verify};
+use specodelic::{acset, audit, checklist, graph, guide, model_check, spec, verify};
 
 mod commands;
 
@@ -233,6 +233,39 @@ enum Commands {
         structural_only: bool,
         /// Directory holding the compiled artifacts (must match compile's
         /// out-dir — conform never re-compiles)
+        #[arg(long, default_value = "specodelic")]
+        out_dir: String,
+    },
+    /// Re-validate a recorded oracle corpus against the current model —
+    /// the graded-evidence audit (add-evidence-audit, slice 1): every
+    /// record carries the audit class AND the underlying conform verdict.
+    /// READ-ONLY like conform: classifies, never compiles, never writes
+    /// artifacts, never advances the lifecycle. `--before` diffs a prior
+    /// report (same class ⇒ current, worsened ⇒ stale, absent ⇒ new); a
+    /// scope digest mismatch between the reports is a labeled refusal —
+    /// never silently diffed across corpus versions.
+    Audit {
+        /// The spec file to audit (exactly one)
+        spec_path: String,
+        /// JSONL oracle corpus of recorded examples — one {id, setup?,
+        /// trace} object per line (the same corpus shape conform consumes)
+        #[arg(long)]
+        oracle: String,
+        /// A prior audit report (the JSON envelope a previous
+        /// `spk audit --json` run wrote): rows diff per record — same
+        /// class ⇒ current, worsened ⇒ stale, absent ⇒ new; a
+        /// scope_sha256 mismatch is a labeled refusal, never a silent diff.
+        #[arg(long)]
+        before: Option<String>,
+        /// Record the report as a declared expectation baseline: when it
+        /// is later used with --before, stale rows fail the run (exit 1).
+        #[arg(long)]
+        declare_expectation: bool,
+        /// Declare closed-world mode (passed through to conform's walk)
+        #[arg(long)]
+        closed_world: bool,
+        /// Directory holding the compiled artifacts (must match compile's
+        /// out-dir — audit never re-compiles)
         #[arg(long, default_value = "specodelic")]
         out_dir: String,
     },
@@ -636,6 +669,27 @@ fn run(
                 oracle: oracle.clone(),
                 closed_world: *closed_world,
                 structural_only: *structural_only,
+                out_dir: out_dir.clone(),
+            },
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        ),
+        Commands::Audit {
+            spec_path,
+            oracle,
+            before,
+            closed_world,
+            declare_expectation,
+            out_dir,
+        } => audit::cmd_audit(
+            spec_path,
+            audit::AuditTarget {
+                oracle: oracle.clone(),
+                before: before.clone(),
+                closed_world: *closed_world,
+                declare_expectation: *declare_expectation,
                 out_dir: out_dir.clone(),
             },
             format,

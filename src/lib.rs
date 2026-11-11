@@ -12,6 +12,7 @@
 
 pub mod acset;
 pub mod archive_companion;
+pub mod audit;
 pub mod blocks;
 pub mod checklist;
 pub mod citation_corpus;

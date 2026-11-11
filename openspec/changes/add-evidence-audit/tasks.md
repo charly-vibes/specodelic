@@ -6,14 +6,14 @@ shippable alone; cut freely without the others.
 ## Slice 1 — oracle-row classification + diff (supersedes fqte; parked
 ## preservation's v1)
 
-- [ ] 1.1 Red: fixture corpus + current model — audit classifies each record
+- [x] 1.1 Red: fixture corpus + current model — audit classifies each record
       {current, unchecked, contradicted} carrying the underlying conform
       verdict; report carries evidence_scope + scope_sha256.
-- [ ] 1.2 Red: `--before <report.json>` — a record whose class dropped
+- [x] 1.2 Red: `--before <report.json>` — a record whose class dropped
       classifies `stale`; new records `new`; digest mismatch fails labeled.
-- [ ] 1.3 Red: exit contract — 1 iff `contradicted` (or `stale` when the
+- [x] 1.3 Red: exit contract — 1 iff `contradicted` (or `stale` when the
       prior report declared an expectation); 2 on gate refusal, zero records.
-- [ ] 1.4 Green: `src/audit.rs` (walk reuse), CLI wiring, envelope output.
+- [x] 1.4 Green: `src/audit.rs` (walk reuse), CLI wiring, envelope output.
 - [ ] 1.5 Refactor: extract the report-diff into a testable unit.
 
 ## Slice 2 — pack-check rows (supersedes va3q)
