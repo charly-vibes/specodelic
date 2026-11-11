@@ -893,3 +893,196 @@ mod diff_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod pack_row_tests {
+    use super::*;
+
+    /// The pack-check row unit pinned in isolation (tasks.md 2.1–2.2,
+    /// slice 2): constructed [`PackCheck`] outcomes only — no spec
+    /// parse, no conform walk, no CLI. The pins cover the delta-spec
+    /// scenarios "Empty checked-set is unchecked" and "Unchecked never
+    /// fails the run": the vacuous checked-set is a structured,
+    /// countable `unchecked` row — never a pass — and a non-empty
+    /// checked-set carries its violations through as their real
+    /// verdicts (forbidden ⇒ contradicted).
+
+    fn check(
+        pack: &str,
+        subject: &str,
+        rules: &[&str],
+        violations: Vec<PackViolation>,
+    ) -> PackCheck {
+        PackCheck {
+            pack_id: pack.to_string(),
+            subject_id: subject.to_string(),
+            declared_rules: rules.iter().map(|s| s.to_string()).collect(),
+            violations,
+        }
+    }
+
+    fn violation(rule: &str, message: &str) -> PackViolation {
+        PackViolation {
+            rule_id: rule.to_string(),
+            message: message.to_string(),
+        }
+    }
+
+    /// An empty report to fold pack rows into: only the fold's
+    /// load-bearing fields matter (records + the two count maps).
+    fn empty_report() -> AuditReport {
+        AuditReport {
+            report_schema_version: AUDIT_SCHEMA_VERSION,
+            evidence_scope: String::new(),
+            scope_sha256: "digest".to_string(),
+            expectation_declared: false,
+            verdict_counts: BTreeMap::new(),
+            class_counts: BTreeMap::new(),
+            records: vec![],
+        }
+    }
+
+    /// The delta scenario "Empty checked-set is unchecked": a checker
+    /// that ran over vocabulary it activates but produced an empty
+    /// checked-set is the structured `unchecked` class — countable,
+    /// never a pass. The row carries BOTH layers: the verdict carrier
+    /// is conform's nothing-was-interpreted verdict (`agree`), and the
+    /// audit class is exactly its [`AuditClass::of`] layer, so the
+    /// record never claims a check happened.
+    #[test]
+    fn empty_checked_set_is_unchecked_never_a_pass() {
+        let rows = pack_check_rows(&[check(
+            "packs.py",
+            "some_spec",
+            &["packs.py.kind_a", "packs.py.kind_b"],
+            vec![],
+        )]);
+        assert_eq!(rows.len(), 1, "one row per checker run");
+        let row = &rows[0];
+        assert_eq!(row.class, AuditClass::Unchecked);
+        assert_eq!(row.conform_verdict, Verdict::Agree);
+        assert_eq!(
+            AuditClass::of(row.conform_verdict),
+            row.class,
+            "the both-layer invariant: the class is the verdict's audit layer"
+        );
+        assert_eq!(
+            row.scenario_id, "pack:packs.py:some_spec",
+            "the row key names the pack and the subject"
+        );
+        assert!(
+            row.reason.contains("empty checked-set"),
+            "the reason names the vacuity: {row.reason}"
+        );
+        assert!(
+            row.reason.contains("never a pass"),
+            "the reason states the honesty rule: {row.reason}"
+        );
+        assert!(
+            row.reason.contains("packs.py") && row.reason.contains("some_spec"),
+            "the reason names the pack and the subject: {row.reason}"
+        );
+        assert!(
+            row.reason.contains("2 declared rule(s)"),
+            "the reason names how many rules the pack declares: {row.reason}"
+        );
+        assert!(
+            row.evaluated_claim_ids.is_empty(),
+            "nothing was evaluated — the row must not pretend otherwise"
+        );
+        assert!(!row.closed_world, "pack checks are not closed-world walks");
+    }
+
+    /// Non-empty checked-set results carry through as their real
+    /// verdicts: a violation positively contradicts the pack's
+    /// declared rules — `forbidden` riding its `contradicted` layer.
+    #[test]
+    fn violation_rows_carry_the_real_verdict() {
+        let rows = pack_check_rows(&[check(
+            "packs.py",
+            "other_spec",
+            &["packs.py.kind_a"],
+            vec![
+                violation("packs.py.kind_b", "kind not declared by the pack"),
+                violation("packs.py.kind_c", "kind not declared by the pack"),
+            ],
+        )]);
+        assert_eq!(rows.len(), 1, "one row per checker run");
+        let row = &rows[0];
+        assert_eq!(row.class, AuditClass::Contradicted);
+        assert_eq!(row.conform_verdict, Verdict::Forbidden);
+        assert_eq!(
+            AuditClass::of(row.conform_verdict),
+            row.class,
+            "the both-layer invariant: the class is the verdict's audit layer"
+        );
+        assert_eq!(
+            row.evaluated_claim_ids,
+            vec!["packs.py.kind_b", "packs.py.kind_c"],
+            "the violated rules carry through as the ids the row rests on"
+        );
+        assert!(
+            row.reason.contains("2 checked-set violation(s)"),
+            "the reason names the violation count: {row.reason}"
+        );
+        assert!(
+            row.reason.contains("packs.py.kind_b"),
+            "the reason names a violated rule: {row.reason}"
+        );
+    }
+
+    /// Rows count toward the report's totals: the fold appends the
+    /// rows, re-sorts by scenario id, and recomputes BOTH count maps —
+    /// pack evidence is never silently dropped from the summary.
+    #[test]
+    fn pack_rows_count_toward_report_totals() {
+        let rows = pack_check_rows(&[
+            // fed out of id order to pin the fold's re-sort
+            check("packs.b", "spec_y", &["packs.b.t"], vec![violation("packs.b.v", "boom")]),
+            check("packs.a", "spec_x", &["packs.a.t"], vec![]),
+        ]);
+        let merged = with_pack_rows(empty_report(), rows);
+        assert_eq!(merged.records.len(), 2);
+        assert_eq!(
+            merged.records[0].scenario_id, "pack:packs.a:spec_x",
+            "records stay sorted by scenario id"
+        );
+        assert_eq!(merged.class_counts.get("unchecked"), Some(&1));
+        assert_eq!(merged.class_counts.get("contradicted"), Some(&1));
+        assert_eq!(merged.verdict_counts.get("agree"), Some(&1));
+        assert_eq!(merged.verdict_counts.get("forbidden"), Some(&1));
+    }
+
+    /// The delta scenario "Unchecked never fails the run": every row
+    /// unchecked ⇒ exit 0 (under or without a declared expectation),
+    /// with the counts countable in the summary — the vacuous
+    /// checked-set is visible, but it never fails the run.
+    #[test]
+    fn all_unchecked_pack_rows_exit_zero_with_counts() {
+        let rows = pack_check_rows(&[
+            check("packs.a", "spec_x", &["packs.a.t"], vec![]),
+            check("packs.b", "spec_y", &["packs.b.t"], vec![]),
+        ]);
+        let merged = with_pack_rows(empty_report(), rows);
+        assert_eq!(exit_code(&merged, false), 0);
+        assert_eq!(exit_code(&merged, true), 0);
+        assert!(
+            merged.class_counts.get("unchecked").copied().unwrap_or(0) >= 2,
+            "the unchecked rows are countable in the summary"
+        );
+    }
+
+    /// A pack violation is contradicted evidence: it fails the run
+    /// (exit 1) — never a silent pass in either direction.
+    #[test]
+    fn pack_violation_rows_fail_the_run() {
+        let rows = pack_check_rows(&[check(
+            "packs.b",
+            "spec_y",
+            &["packs.b.t"],
+            vec![violation("packs.b.v", "boom")],
+        )]);
+        let merged = with_pack_rows(empty_report(), rows);
+        assert_eq!(exit_code(&merged, false), 1);
+    }
+}
