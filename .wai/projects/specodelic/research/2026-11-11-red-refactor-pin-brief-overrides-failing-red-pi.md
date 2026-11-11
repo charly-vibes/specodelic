@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-11-specodelic-gheu-extract-report-diff-into-testable-unit, pipeline-step:red]
+---
+
+RED (refactor-pin, brief overrides failing-red: pin BEFORE the move): command=cargo test --lib audit::diff_tests — 6/6 PASS against the current internal API location (diff_with_prior already standalone pub at module level since a435157; pins constructed-AuditReport units, no spec/walk/CLI): same_or_improved_class_is_current, worsened_class_is_stale_carrying_the_current_verdict, row_absent_from_prior_is_new, empty_prior_report_makes_every_row_new, digest_mismatch_is_a_labeled_refusal, schema_version_mismatch_is_a_labeled_refusal. Cargo fmt --check clean. Pin suite cargo test --test audit_oracle_rows 14/14 PASS. BEFORE byte-proof captured at /var/tmp/gheu-proof/before/ (runs A plain exit0, B baseline-declared exit0, C diff-same-spec exit0 both-current, D diff-after-revision-declared exit1 stale reopen-happy error-kind envelope, H human view exit1) from HEAD binary. Committing tests-only as the red commit.
