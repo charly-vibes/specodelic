@@ -6,6 +6,9 @@ collapses them into one `PASS` label: each stage attests something
 different, and each stage's verdict is honest about what it did *not*
 check. This page names the ladder rung by rung, then states the known
 limitations up front — each one backed by a command you can run right now.
+`spk audit` turns the ladder into machine-readable output — the per-file
+rung aggregate and the closed class vocabulary for evidence the toolchain
+touches but never re-validates — on the [graded evidence](graded-evidence.md) page.
 
 The canonical one-line statement of the widest boundary — **verification
 is not application testing** — lives in the repo

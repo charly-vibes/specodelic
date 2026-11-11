@@ -118,6 +118,23 @@ exists, the entry links to it instead of restating.
   better-design rung a counterexample puts you on). A file's honest
   status is the highest rung it has evidence for. See
   [verification boundaries](verification-boundaries.md).
+- **graded evidence** — evidence the toolchain touches but never
+  re-validates: recorded example corpora, pack-checker results,
+  fragment/claim bindings, prior audit reports. `spk audit` computes the
+  grading uniformly — see [graded evidence](graded-evidence.md).
+- **audit classes** — the closed evidence-lifecycle vocabulary `spk
+  audit` assigns every evidence row: `current`, `stale`, `unchecked`,
+  `contradicted`, `binds_nothing`, `new`. A record carries both the
+  audit class and the underlying conform verdict — audit layers the
+  class on top, never re-deriving the verdict.
+- **binds_nothing** — the audit class for a fragment or claim that cites
+  no declared model element: green yet vacuous. A warnings-channel
+  advisory — countable, never a pass, never exit-nonzero — and a
+  legitimately sparse model with declared elements is never flagged.
+- **evidence_scope** — the fixed statement every conform and audit
+  report carries in both output views: *agreement on the supplied
+  corpus; not a proof of behavioral equality*. It is report data, so no
+  reformatting can strip it.
 - **coverage** — every Constraint row must have at least one Property
   deriving from it (`p.derives_from == c`), checked by
   `linter.coverage`. Uncovered constraints are invisible to the rest of
@@ -169,7 +186,10 @@ exists, the entry links to it instead of restating.
 - **oracle** — the executable ground truth a spec's claims are measured
   against. Here that is the compiled property blocks and required
   invariant claims that `spk verify` executes; rung 4 of the ladder,
-  **matches-oracle**, means exactly that they ran and passed.
+  **matches-oracle**, means exactly that they ran and passed. (The
+  *oracle corpus* of `conform`/`audit` is a different sense: a JSONL
+  file of recorded examples from an external system, classified against
+  the spec — see [conform](conform.md).)
 - **SUT** — System Under Test: in classic property-based testing, the
   implementation the properties run against. In specodelic the checked
   "system" is the spec's own compiled model and claims, so a `verified`

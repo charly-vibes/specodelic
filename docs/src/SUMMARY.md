@@ -60,6 +60,7 @@
 
 - [Architecture — the four layers and the lint pipeline](architecture.md)
 - [Verification boundaries — the guarantee ladder and known limitations](verification-boundaries.md)
+- [Graded evidence — the audit verb and its closed class vocabulary](graded-evidence.md)
 
 # Tool Relationships
 
@@ -81,6 +82,7 @@
 
 - [acset-core — capability](specs/acset-core/spec.md)
 - [acset-writer — capability](specs/acset-writer/spec.md)
+- [audit — capability](specs/audit/spec.md)
 - [doctor — capability](specs/doctor/spec.md)
 - [embedded-guide — capability](specs/embedded-guide/spec.md)
 - [docs-site — capability](specs/docs-site/spec.md)
