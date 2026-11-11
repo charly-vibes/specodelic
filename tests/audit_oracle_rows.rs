@@ -420,7 +420,6 @@ fn run_refuses_zero_record_corpus_labeled() {
 fn run_refuses_gate_failure_labeled() {
     let spec = parse_spec(SPEC_V1);
     let bytes = parse_corpus_bytes(&[CONFIRM_HAPPY]);
-    let corpus = conform::parse_corpus(&bytes).expect("fixture corpus parses");
     let err = audit::run(
         &spec,
         std::path::Path::new("/nonexistent/specodelic-audit-gate"),
