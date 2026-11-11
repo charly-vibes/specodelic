@@ -25,10 +25,11 @@ shippable alone; cut freely without the others.
 
 ## Slice 3 — binds_nothing (supersedes the model-binding half of h5ks)
 
-- [ ] 3.1 Red: fragment/claim citing no declared model element ⇒
+- [x] 3.1 Red: fragment/claim citing no declared model element ⇒
       `binds_nothing` on the warnings channel; a legitimately sparse
-      phase-model with declared bad states must NOT flag.
-- [ ] 3.2 Green: citation-vs-declared-ids check; never exit-nonzero.
+      phase-model with declared bad states must NOT flag (red 19f6589).
+- [x] 3.2 Green: citation-vs-declared-ids check; never exit-nonzero
+      (green e337e10).
 - [ ] 3.3 Refactor: share the declared-ids index with lint.
 
 ## Slice 4 — rung aggregate (supersedes 4m3y)
