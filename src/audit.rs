@@ -188,26 +188,18 @@ pub fn build_report(
 ) -> AuditReport {
     let mut records: Vec<AuditRecord> = conform::classify_traces(spec, corpus, closed_world)
         .into_iter()
-        .map(|v| AuditRecord {
-            class: AuditClass::of(v.verdict),
-            scenario_id: v.scenario_id,
-            conform_verdict: v.verdict,
-            reason: v.reason,
-            evaluated_claim_ids: v.evaluated_claim_ids,
-            closed_world: v.closed_world,
+        .map(|v| {
+            audit_row(
+                v.scenario_id,
+                v.verdict,
+                v.reason,
+                v.evaluated_claim_ids,
+                v.closed_world,
+            )
         })
         .collect();
-    records.sort_by(|a, b| a.scenario_id.cmp(&b.scenario_id));
-    let mut verdict_counts: BTreeMap<String, usize> = BTreeMap::new();
-    let mut class_counts: BTreeMap<String, usize> = BTreeMap::new();
-    for record in &records {
-        *verdict_counts
-            .entry(record.conform_verdict.as_str().to_string())
-            .or_insert(0) += 1;
-        *class_counts
-            .entry(record.class.as_str().to_string())
-            .or_insert(0) += 1;
-    }
+    sort_rows(&mut records);
+    let (verdict_counts, class_counts) = recount(&records);
     AuditReport {
         report_schema_version: AUDIT_SCHEMA_VERSION,
         evidence_scope: conform::EVIDENCE_SCOPE.to_string(),
@@ -217,6 +209,64 @@ pub fn build_report(
         class_counts,
         records,
     }
+}
+
+// ---------------------------------------------------------------------------
+// The shared row-emission surface (tasks.md 2.3 — slice 2 refactor):
+// ONE construction site, ONE recount, ONE row order — every row kind
+// (oracle rows, pack rows, and the future slice-3/4 kinds) emits
+// through these three units, never a copy of the emission shape
+// ---------------------------------------------------------------------------
+
+/// One audit row, built through the ONE construction site every row
+/// kind shares (tasks.md 2.3): the row key, the conform verdict the
+/// row carries, its labeled reason, the ids the verdict rests on, and
+/// the closed-world flag. The audit class is ALWAYS the verdict's
+/// [`AuditClass::of`] layer — the both-layer invariant by
+/// construction, never by per-site discipline — so adding a future row
+/// kind (binds_nothing slice 3, rung aggregate slice 4) is one call,
+/// not a copy of the walk-and-collect shape.
+fn audit_row(
+    scenario_id: String,
+    verdict: Verdict,
+    reason: String,
+    evaluated_claim_ids: Vec<String>,
+    closed_world: bool,
+) -> AuditRecord {
+    AuditRecord {
+        scenario_id,
+        class: AuditClass::of(verdict),
+        conform_verdict: verdict,
+        reason,
+        evaluated_claim_ids,
+        closed_world,
+    }
+}
+
+/// BOTH count maps over one row set (tasks.md 2.3): the per-verdict
+/// and per-class totals, always computed from scratch over the records
+/// — the one recount every emission path shares, so a fold or a
+/// rebuild can never increment onto stale maps.
+fn recount(records: &[AuditRecord]) -> (BTreeMap<String, usize>, BTreeMap<String, usize>) {
+    let mut verdict_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut class_counts: BTreeMap<String, usize> = BTreeMap::new();
+    for record in records {
+        *verdict_counts
+            .entry(record.conform_verdict.as_str().to_string())
+            .or_insert(0) += 1;
+        *class_counts
+            .entry(record.class.as_str().to_string())
+            .or_insert(0) += 1;
+    }
+    (verdict_counts, class_counts)
+}
+
+/// The report's canonical row order (tasks.md 2.3): sorted by row key
+/// — the one sort discipline every emission path shares, so
+/// serialization stays byte-identical across runs over identical
+/// inputs.
+fn sort_rows(records: &mut [AuditRecord]) {
+    records.sort_by(|a, b| a.scenario_id.cmp(&b.scenario_id));
 }
 
 // ---------------------------------------------------------------------------
@@ -270,19 +320,18 @@ pub struct PackCheck {
 pub fn pack_check_row(check: &PackCheck) -> AuditRecord {
     let scenario_id = format!("pack:{}:{}", check.pack_id, check.subject_id);
     if check.violations.is_empty() {
-        AuditRecord {
+        audit_row(
             scenario_id,
-            class: AuditClass::of(Verdict::Agree),
-            conform_verdict: Verdict::Agree,
-            reason: format!(
+            Verdict::Agree,
+            format!(
                 "pack `{}` activated for `{}` over {} declared rule(s) — empty checked-set (no violations to report): nothing was checked; absence of violations is absence of evidence, never a pass",
                 check.pack_id,
                 check.subject_id,
                 check.declared_rules.len(),
             ),
-            evaluated_claim_ids: Vec::new(),
-            closed_world: false,
-        }
+            Vec::new(),
+            false,
+        )
     } else {
         // Deterministic listing: each violation surfaces as
         // `rule (message)` — the checker's labeled finding carries
@@ -305,20 +354,19 @@ pub fn pack_check_row(check: &PackCheck) -> AuditRecord {
             check.violations.iter().map(|v| v.rule_id.clone()).collect();
         violated.sort();
         violated.dedup();
-        AuditRecord {
+        audit_row(
             scenario_id,
-            class: AuditClass::of(Verdict::Forbidden),
-            conform_verdict: Verdict::Forbidden,
-            reason: format!(
+            Verdict::Forbidden,
+            format!(
                 "pack `{}` found {} checked-set violation(s) for `{}`: {}",
                 check.pack_id,
                 check.violations.len(),
                 check.subject_id,
                 shown.join(", "),
             ),
-            evaluated_claim_ids: violated,
-            closed_world: false,
-        }
+            violated,
+            false,
+        )
     }
 }
 
@@ -331,7 +379,7 @@ pub fn pack_check_row(check: &PackCheck) -> AuditRecord {
 /// `--before` (the slice-1 prior-parse guard).
 pub fn pack_check_rows(checks: &[PackCheck]) -> Vec<AuditRecord> {
     let mut rows: Vec<AuditRecord> = checks.iter().map(pack_check_row).collect();
-    rows.sort_by(|a, b| a.scenario_id.cmp(&b.scenario_id));
+    sort_rows(&mut rows);
     rows
 }
 
@@ -345,19 +393,8 @@ pub fn pack_check_rows(checks: &[PackCheck]) -> Vec<AuditRecord> {
 /// `--before` prior-parse guard refuses them labeled downstream.
 pub fn with_pack_rows(mut report: AuditReport, rows: Vec<AuditRecord>) -> AuditReport {
     report.records.extend(rows);
-    report
-        .records
-        .sort_by(|a, b| a.scenario_id.cmp(&b.scenario_id));
-    let mut verdict_counts: BTreeMap<String, usize> = BTreeMap::new();
-    let mut class_counts: BTreeMap<String, usize> = BTreeMap::new();
-    for record in &report.records {
-        *verdict_counts
-            .entry(record.conform_verdict.as_str().to_string())
-            .or_insert(0) += 1;
-        *class_counts
-            .entry(record.class.as_str().to_string())
-            .or_insert(0) += 1;
-    }
+    sort_rows(&mut report.records);
+    let (verdict_counts, class_counts) = recount(&report.records);
     report.verdict_counts = verdict_counts;
     report.class_counts = class_counts;
     report
