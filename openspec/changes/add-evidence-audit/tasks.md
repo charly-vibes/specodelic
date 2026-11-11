@@ -30,7 +30,7 @@ shippable alone; cut freely without the others.
       phase-model with declared bad states must NOT flag (red 19f6589).
 - [x] 3.2 Green: citation-vs-declared-ids check; never exit-nonzero
       (green e337e10).
-- [ ] 3.3 Refactor: share the declared-ids index with lint.
+- [x] 3.3 Refactor: share the declared-ids index with lint.
 
 ## Slice 4 — rung aggregate (supersedes 4m3y)
 
