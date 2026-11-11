@@ -1427,9 +1427,17 @@ statement: "THE system SHALL keep the ledger consistent"
                 AuditClass::Contradicted,
             ),
             ("confirm-happy", Verdict::Permitted, AuditClass::Current),
-            ("undo-undeclared", Verdict::Underspecified, AuditClass::Unchecked),
+            (
+                "undo-undeclared",
+                Verdict::Underspecified,
+                AuditClass::Unchecked,
+            ),
         ];
-        assert_eq!(report.records.len(), expected.len(), "one row per corpus line");
+        assert_eq!(
+            report.records.len(),
+            expected.len(),
+            "one row per corpus line"
+        );
         for (row, (id, verdict, class)) in report.records.iter().zip(expected) {
             assert_eq!(&row.scenario_id, id, "the oracle row key is the corpus id");
             assert_eq!(&row.conform_verdict, verdict, "the verdict rides through");
@@ -1479,9 +1487,10 @@ statement: "THE system SHALL keep the ledger consistent"
         assert_eq!(recomputed.verdict_counts, built.verdict_counts);
         // pack rows fold onto the recomputed counts additively: the
         // pack's unchecked row joins the oracle's unchecked row
-        let merged = with_pack_rows(recomputed, pack_check_rows(&[
-            pack_check("packs.a", "spec_x"),
-        ]));
+        let merged = with_pack_rows(
+            recomputed,
+            pack_check_rows(&[pack_check("packs.a", "spec_x")]),
+        );
         assert_eq!(merged.class_counts.get("unchecked"), Some(&2));
         assert_eq!(merged.class_counts.get("contradicted"), Some(&1));
         assert_eq!(merged.verdict_counts.get("agree"), Some(&1));
