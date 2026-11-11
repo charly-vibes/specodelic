@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-11-specodelic-l6md-shared-declared-ids-index, pipeline-step:ship-close]
+---
+
+SHIP specodelic-l6md verified closed by orchestrator: 4-commit census ae3e798 (red: 3 refactor-red pins - graph rows() triple order + transitions exclusion, conn_edges_of ghost-endpoint refusal, audit declared_model_ids exact 9-id set + intent exclusion) / 60ba02c (green: declared_rows canonical walk + transition_ids + state_ids in src/lint/graph.rs, rows()/conn_edges_of rewired, lint mod.rs re-export extended, audit declared_model_ids composes shared pieces) / 461febb (tidy: M1 with_pack_rows->fold_rows 12 sites, L8 one mod fixtures shell+spec) / 90735b9 (tasks 3.3 ticked). Diff scope == brief. Byte-identity spot-verified: cmp audit-vacuous before/after2 IDENTICAL; full proof set /var/tmp/l6md-proof (lint corpus envelope, findings fixture, graph json+edges TSV, audit vacuous/happy/before-diff). just ci exit 0 at HEAD (988 passed / 0 failed), ah check --run-tests 588/0. L8 residual (cross-file tests/ fixture dedup) filed as specodelic-gixd. SLICE 3 COMPLETE. Queue next: 37hl (slice 4 feature, rung aggregate 4.1-4.2, bd-ready).

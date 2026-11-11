@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-11-specodelic-l6md-shared-declared-ids-index, pipeline-step:refactor]
+---
+
+REFACTOR (tasks 3.3 tidy, edrv RO5U deferrals, zero behavior change): M1 — with_pack_rows renamed fold_rows (12 sites: run() bind fold, CLI pack fold, 10 test folds, 2 doc refs); doc rewritten to state the shared-fold honesty (pack rows from the CLI site, binds_nothing rows from the run() walk, test folds — one surface, no name claiming pack exclusivity it stopped having). L8 — the identical shell() fixture (x2: binds_nothing_tests + emission_tests) and empty_report() (pack_row_tests) collapsed into ONE #[cfg(test)] mod fixtures { shell(), spec() } (the shared-fixture-module pattern applied audit.rs-internally per the brief's 'src/audit.rs-internal tidy items' scoping; the cross-file tests/ variant of L8 stays deferred — tests/ files are outside this ticket's allowed-file guard). Tests 23/23 green after refactor, fmt clean, clippy -D warnings clean, proof artifacts byte-identical again (7 re-captured vs HEAD originals). Scope kept tight: diff_tests' parameterized report() helper left alone (different shape, not duplication).

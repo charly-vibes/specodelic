@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-11-specodelic-edrv-binds-nothing, pipeline-step:ship-close]
+---
+
+SPAWN-PENDING: specodelic-l6md subagent spawned pid 2473906 (fresh session, name subagent:specodelic-l6md:tdd-ro5), log /var/tmp/specodelic-l6md-subagent.log, watchdog /var/tmp/specodelic-l6md-watchdog.log (15-min liveness + EXITED/DONE marker, pid 2473909). edrv SHIPPED this session: 3 commits 19f6589/e337e10/20cb4ab verified (diff scope==brief, spot-read of variant/check/amendment, just ci exit 0 985/0), closed, pushed 798b920..211c675; l6md brief committed+pushed cc0ff16 WITH claim export. Brief carries edrv's deferred RO5U items M1+L8 as in-scope tidy; semantic differences flagged (audit set includes transitions, excludes intent id; lint states-only + rows() triple). On DONE: capture report, verify diff scope (src/audit.rs + src/lint/graph.rs + tasks.md 3.3 checkbox only) + byte-identical lint/audit proof + just ci, close l6md, export+push, queue 37hl next (slice 4 feature 4.1-4.2, bd-ready).
