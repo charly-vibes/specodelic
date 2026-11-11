@@ -301,11 +301,8 @@ pub fn pack_check_row(check: &PackCheck) -> AuditRecord {
             .collect();
         shown.sort();
         shown.dedup();
-        let mut violated: Vec<String> = check
-            .violations
-            .iter()
-            .map(|v| v.rule_id.clone())
-            .collect();
+        let mut violated: Vec<String> =
+            check.violations.iter().map(|v| v.rule_id.clone()).collect();
         violated.sort();
         violated.dedup();
         AuditRecord {
@@ -1127,19 +1124,23 @@ mod pack_row_tests {
         );
         assert!(
             row.reason.contains("empty checked-set"),
-            "the reason names the vacuity: {}", row.reason
+            "the reason names the vacuity: {}",
+            row.reason
         );
         assert!(
             row.reason.contains("never a pass"),
-            "the reason states the honesty rule: {}", row.reason
+            "the reason states the honesty rule: {}",
+            row.reason
         );
         assert!(
             row.reason.contains("packs.py") && row.reason.contains("some_spec"),
-            "the reason names the pack and the subject: {}", row.reason
+            "the reason names the pack and the subject: {}",
+            row.reason
         );
         assert!(
             row.reason.contains("2 declared rule(s)"),
-            "the reason names how many rules the pack declares: {}", row.reason
+            "the reason names how many rules the pack declares: {}",
+            row.reason
         );
         assert!(
             row.evaluated_claim_ids.is_empty(),
@@ -1178,11 +1179,14 @@ mod pack_row_tests {
         );
         assert!(
             row.reason.contains("2 checked-set violation(s)"),
-            "the reason names the violation count: {}", row.reason
+            "the reason names the violation count: {}",
+            row.reason
         );
         assert!(
-            row.reason.contains("packs.py.kind_b (kind not declared by the pack)"),
-            "the reason surfaces the violation's message verbatim: {}", row.reason
+            row.reason
+                .contains("packs.py.kind_b (kind not declared by the pack)"),
+            "the reason surfaces the violation's message verbatim: {}",
+            row.reason
         );
     }
 
@@ -1193,7 +1197,12 @@ mod pack_row_tests {
     fn pack_rows_count_toward_report_totals() {
         let rows = pack_check_rows(&[
             // fed out of id order to pin the fold's re-sort
-            check("packs.b", "spec_y", &["packs.b.t"], vec![violation("packs.b.v", "boom")]),
+            check(
+                "packs.b",
+                "spec_y",
+                &["packs.b.t"],
+                vec![violation("packs.b.v", "boom")],
+            ),
             check("packs.a", "spec_x", &["packs.a.t"], vec![]),
         ]);
         let merged = with_pack_rows(empty_report(), rows);
@@ -1235,7 +1244,11 @@ mod pack_row_tests {
             merged.records[0].scenario_id, "oracle_setup_holds",
             "row-key order puts the oracle row first"
         );
-        assert_eq!(merged.class_counts.get("stale"), None, "stale counts never survive the recompute");
+        assert_eq!(
+            merged.class_counts.get("stale"),
+            None,
+            "stale counts never survive the recompute"
+        );
         assert_eq!(merged.verdict_counts.get("unknown"), None);
         assert_eq!(merged.class_counts.get("current"), Some(&1));
         assert_eq!(merged.class_counts.get("unchecked"), Some(&1));
