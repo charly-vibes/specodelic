@@ -1,3 +1,11 @@
+# audit Specification
+
+## Purpose
+Compute the graded-evidence discipline the toolchain already names (the
+ladder, evidence_scope, exploration_only) uniformly over everything that
+claims to constrain behavior: recorded example corpora, pack checker
+results, fragment/claim bindings, and prior audit reports.
+
 ## ADDED Requirements
 
 ### Requirement: Evidence row classification

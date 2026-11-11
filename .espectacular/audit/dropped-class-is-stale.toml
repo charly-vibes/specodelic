@@ -1,0 +1,12 @@
+id = "dropped-class-is-stale"
+description = "A record that was `current` in the prior report and is `unchecked` or worse in the current run is `stale`, naming both classes (audit / Evidence diff across reports)."
+# Provenance (specodelic-x0wy, 2026-11-11): authored at the companion
+# archive of add-evidence-audit — binds the landed slice-1 tests for
+# this scenario.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "before_worsened_class_classifies_stale_and_same_class_stays_current"

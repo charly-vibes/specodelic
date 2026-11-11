@@ -1,0 +1,14 @@
+id = "rung-never-claims-without-evidence"
+description = "No audit, conform, or verify evidence for a file reports rung 1 (lint-clean at most), stated as such (audit / Evidence rung aggregate)."
+# Provenance (specodelic-x0wy, 2026-11-11): authored at the companion
+# archive of add-evidence-audit — binds the landed slice-4 tests for
+# this scenario (the pure-core floor; the CLI floor is rung 2 per the
+# documented honesty boundary, pinned by
+# audit_cli_without_check_evidence_reports_rung_2_never_higher).
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "no_evidence_reports_rung_1_stated_as_such"

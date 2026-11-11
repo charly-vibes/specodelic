@@ -42,7 +42,7 @@ shippable alone; cut freely without the others.
 
 ## Docs + layer
 
-- [ ] 5.1 Graded-evidence docs page (consolidates the Wave-1 scatter; the
+- [x] 5.1 Graded-evidence docs page (consolidates the Wave-1 scatter; the
       ladder becomes the audit's vocabulary; Limitations discipline).
-- [ ] 5.2 `specs/audit/layer.md` sidecar authored; validated via
+- [x] 5.2 `specs/audit/layer.md` sidecar authored; validated via
       `just archive-change id=add-evidence-audit` (fail-closed).

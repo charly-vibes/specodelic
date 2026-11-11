@@ -1,0 +1,15 @@
+id = "corpus-version-mismatch-refused"
+description = "Prior and current reports carrying different scope digests fail labeled naming the digest mismatch, with no classification emitted (audit / Evidence diff across reports)."
+# Provenance (specodelic-x0wy, 2026-11-11): authored at the companion
+# archive of add-evidence-audit — binds the landed slice-1 tests for
+# this scenario.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "before_digest_mismatch_fails_labeled"
+
+[[tests.cargo]]
+flags = "digest_mismatch_is_a_labeled_refusal"

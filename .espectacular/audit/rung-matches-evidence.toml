@@ -1,0 +1,15 @@
+id = "rung-matches-evidence"
+description = "A file lint-clean but only model-checked, with no verify pass, reports rung 3 — never 4 or 5 (audit / Evidence rung aggregate)."
+# Provenance (specodelic-x0wy, 2026-11-11): authored at the companion
+# archive of add-evidence-audit — binds the landed slice-4 tests for
+# this scenario.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "audit_cli_model_checked_only_reports_rung_3_in_both_views"
+
+[[tests.cargo]]
+flags = "model_checked_only_reports_rung_3_never_4_or_5"

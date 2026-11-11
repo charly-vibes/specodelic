@@ -1,0 +1,15 @@
+id = "current-evidence-agrees"
+description = "A record whose verdict class matches its class in the prior report (or no prior report exists and the walk classifies it) is `current` and names the underlying verdict (audit / Evidence row classification)."
+# Provenance (specodelic-x0wy, 2026-11-11): authored at the companion
+# archive of add-evidence-audit — binds the landed slice-1 tests for
+# this scenario.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "audit_classifies_records_current_unchecked_contradicted_carrying_the_conform_verdict"
+
+[[tests.cargo]]
+flags = "before_worsened_class_classifies_stale_and_same_class_stays_current"

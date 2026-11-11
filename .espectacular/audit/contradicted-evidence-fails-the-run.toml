@@ -1,0 +1,15 @@
+id = "contradicted-evidence-fails-the-run"
+description = "A record the walk classifies forbidden or unsupported is `contradicted` and the run exits 1 — never a silent pass (audit / Evidence row classification)."
+# Provenance (specodelic-x0wy, 2026-11-11): authored at the companion
+# archive of add-evidence-audit — binds the landed slice-1 tests for
+# this scenario.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "audit_cli_envelope_and_exit_1_on_contradicted"
+
+[[tests.cargo]]
+flags = "exit_code_one_iff_contradicted_or_stale_under_declared_expectation"

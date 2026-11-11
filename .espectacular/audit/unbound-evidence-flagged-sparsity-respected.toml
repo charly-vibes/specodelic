@@ -1,0 +1,15 @@
+id = "unbound-evidence-flagged-sparsity-respected"
+description = "A fragment citing no declared model element is `binds_nothing` on the warnings channel, while a model whose declared elements are simply not exercised stays unflagged (audit / Audit honesty channels)."
+# Provenance (specodelic-x0wy, 2026-11-11): authored at the companion
+# archive of add-evidence-audit — binds the landed slice-3 tests for
+# this scenario.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "binds_nothing_flags_on_the_warnings_channel_exit_zero"
+
+[[tests.cargo]]
+flags = "sparse_phase_model_is_never_flagged"

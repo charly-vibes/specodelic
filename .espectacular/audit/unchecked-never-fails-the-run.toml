@@ -1,0 +1,15 @@
+id = "unchecked-never-fails-the-run"
+description = "A run where every row is `unchecked` or `binds_nothing` exits 0 with the counts surfaced in both output views (audit / Audit honesty channels)."
+# Provenance (specodelic-x0wy, 2026-11-11): authored at the companion
+# archive of add-evidence-audit — binds the landed slice-2/3 tests for
+# this scenario.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "honesty_mix_exits_zero_with_counts_in_both_views"
+
+[[tests.cargo]]
+flags = "all_unchecked_pack_rows_exit_zero_with_counts"

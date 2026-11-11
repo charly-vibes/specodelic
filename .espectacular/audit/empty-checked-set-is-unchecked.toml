@@ -1,0 +1,12 @@
+id = "empty-checked-set-is-unchecked"
+description = "A pack checker that runs over vocabulary it activates but produces an empty checked-set yields `unchecked`, countable in the summary — never a pass (audit / Audit honesty channels)."
+# Provenance (specodelic-x0wy, 2026-11-11): authored at the companion
+# archive of add-evidence-audit — binds the landed slice-2 tests for
+# this scenario.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "empty_checked_set_is_unchecked_never_a_pass"
