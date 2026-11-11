@@ -1289,3 +1289,203 @@ mod pack_row_tests {
         assert_eq!(exit_code(&merged, false), 1);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Emission-surface pins (tasks.md 2.3, slice-2 refactor): the unified
+// row-emission surface's contract, pinned BEFORE the unification and
+// written against the current internal API locations — oracle rows via
+// [`build_report`]'s walk-and-construct, pack rows via
+// [`pack_check_row`]'s branches, counts via both compute sites — so
+// the extraction into one shared surface must keep these green (zero
+// behavior change IS the ticket's pin). Constructed fixtures only: a
+// parsed spec + corpus for the oracle side, constructed [`PackCheck`]s
+// for the pack side — no CLI, no gate, no compiled artifacts.
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod emission_tests {
+    use super::*;
+
+    /// The oracle-side fixture spec: declares `confirm` AND `reopen`
+    /// (the integration fixture's shape at tests/audit_oracle_rows.rs;
+    /// no gate runs here, so no Properties table is needed).
+    const SPEC: &str = r#"---
+id: demo.audit
+kind: intent
+statement: "THE system SHALL keep the ledger consistent"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| locked | invariant | `**rust:** status != "open"` | [[demo.audit]] |
+
+## Model
+
+### States
+
+- held
+- confirmed
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| confirm | held | confirmed | [[demo.audit.locked]] |
+| reopen | confirmed | held | [[demo.audit.locked]] |
+"#;
+
+    /// The three oracle corpus lines spread the full class range:
+    /// permitted, uncovered (underspecified open-world), and a positive
+    /// contradiction.
+    const CORPUS_LINES: &[&str] = &[
+        r#"{"id": "confirm-happy", "setup": {"state": "held"}, "trace": [{"action": "confirm", "observations": {"status": "confirmed"}}]}"#,
+        r#"{"id": "undo-undeclared", "setup": {"state": "held"}, "trace": [{"action": "undo"}]}"#,
+        r#"{"id": "confirm-from-wrong-state", "setup": {"state": "confirmed"}, "trace": [{"action": "confirm"}]}"#,
+    ];
+
+    /// The oracle report built over the fixture corpus.
+    fn oracle_report(corpus_lines: &[&str]) -> AuditReport {
+        let spec = crate::spec::parse_str(SPEC).expect("fixture spec parses");
+        let corpus_bytes = format!("{}\n", corpus_lines.join("\n"));
+        let corpus = conform::parse_corpus(&corpus_bytes).expect("fixture corpus parses");
+        build_report(&spec, corpus_bytes.as_bytes(), &corpus, false, false)
+    }
+
+    /// A shell report carrying only the fold's load-bearing fields.
+    fn shell() -> AuditReport {
+        AuditReport {
+            report_schema_version: AUDIT_SCHEMA_VERSION,
+            evidence_scope: String::new(),
+            scope_sha256: "digest".to_string(),
+            expectation_declared: false,
+            verdict_counts: BTreeMap::new(),
+            class_counts: BTreeMap::new(),
+            records: vec![],
+        }
+    }
+
+    fn pack_check(pack: &str, subject: &str) -> PackCheck {
+        PackCheck {
+            pack_id: pack.to_string(),
+            subject_id: subject.to_string(),
+            declared_rules: vec![format!("{pack}.t")],
+            violations: vec![],
+        }
+    }
+
+    /// The unified emission surface's core contract across BOTH row
+    /// kinds: every emitted row carries the BOTH-layer payload — the
+    /// conform verdict AND the class that is exactly its
+    /// [`AuditClass::of`] layer — with the row key verbatim (oracle ids
+    /// straight from the corpus, pack keys `pack:<pack_id>:<subject_id>`).
+    #[test]
+    fn emission_is_both_layered_across_row_kinds() {
+        let report = oracle_report(CORPUS_LINES);
+        let expected: &[(&str, Verdict, AuditClass)] = &[
+            (
+                "confirm-from-wrong-state",
+                Verdict::Forbidden,
+                AuditClass::Contradicted,
+            ),
+            ("confirm-happy", Verdict::Permitted, AuditClass::Current),
+            ("undo-undeclared", Verdict::Underspecified, AuditClass::Unchecked),
+        ];
+        assert_eq!(report.records.len(), expected.len(), "one row per corpus line");
+        for (row, (id, verdict, class)) in report.records.iter().zip(expected) {
+            assert_eq!(&row.scenario_id, id, "the oracle row key is the corpus id");
+            assert_eq!(&row.conform_verdict, verdict, "the verdict rides through");
+            assert_eq!(&row.class, class, "the class is the verdict's audit layer");
+            assert_eq!(
+                AuditClass::of(row.conform_verdict),
+                row.class,
+                "the both-layer invariant holds for oracle row {id}"
+            );
+        }
+        // The pack branches emit through the same contract: the empty
+        // checked-set rides `agree` (its layer IS unchecked), the
+        // violation rides `forbidden` (its layer IS contradicted).
+        let empty = pack_check_row(&pack_check("packs.a", "spec_x"));
+        assert_eq!(empty.scenario_id, "pack:packs.a:spec_x");
+        assert_eq!(empty.conform_verdict, Verdict::Agree);
+        assert_eq!(AuditClass::of(empty.conform_verdict), empty.class);
+        assert_eq!(empty.class, AuditClass::Unchecked);
+        let mut violated = pack_check("packs.a", "spec_x");
+        violated.violations = vec![PackViolation {
+            rule_id: "packs.a.v".to_string(),
+            message: "boom".to_string(),
+        }];
+        let violated = pack_check_row(&violated);
+        assert_eq!(violated.scenario_id, "pack:packs.a:spec_x");
+        assert_eq!(violated.conform_verdict, Verdict::Forbidden);
+        assert_eq!(AuditClass::of(violated.conform_verdict), violated.class);
+        assert_eq!(violated.class, AuditClass::Contradicted);
+    }
+
+    /// The two count-map compute sites agree: recomputing
+    /// [`with_pack_rows`]' maps from scratch over [`build_report`]'s own
+    /// records reproduces exactly the maps [`build_report`] produced —
+    /// seeded garbage counts never survive — and pack rows fold onto
+    /// those counts additively.
+    #[test]
+    fn count_maps_agree_between_the_compute_sites() {
+        let built = oracle_report(CORPUS_LINES);
+        let mut reseeded = shell();
+        reseeded.records = built.records.clone();
+        // deliberately stale maps: prior-diff leftovers that must not
+        // survive a from-scratch recompute
+        reseeded.class_counts.insert("stale".to_string(), 99);
+        reseeded.verdict_counts.insert("unknown".to_string(), 99);
+        let recomputed = with_pack_rows(reseeded, vec![]);
+        assert_eq!(recomputed.class_counts, built.class_counts);
+        assert_eq!(recomputed.verdict_counts, built.verdict_counts);
+        // pack rows fold onto the recomputed counts additively: the
+        // pack's unchecked row joins the oracle's unchecked row
+        let merged = with_pack_rows(recomputed, pack_check_rows(&[
+            pack_check("packs.a", "spec_x"),
+        ]));
+        assert_eq!(merged.class_counts.get("unchecked"), Some(&2));
+        assert_eq!(merged.class_counts.get("contradicted"), Some(&1));
+        assert_eq!(merged.verdict_counts.get("agree"), Some(&1));
+        assert_eq!(merged.verdict_counts.get("underspecified"), Some(&1));
+    }
+
+    /// Row order is key-sorted across BOTH paths: [`build_report`]
+    /// sorts its walk output even when the corpus is fed out of id
+    /// order, and [`with_pack_rows`] interleaves oracle and pack rows
+    /// into one key-sorted sequence across kinds.
+    #[test]
+    fn row_order_is_key_sorted_across_kinds_in_both_paths() {
+        let shuffled: Vec<&str> = CORPUS_LINES.iter().rev().copied().collect();
+        let built = oracle_report(&shuffled);
+        let oracle_ids: Vec<&str> = built
+            .records
+            .iter()
+            .map(|r| r.scenario_id.as_str())
+            .collect();
+        let mut sorted = oracle_ids.clone();
+        sorted.sort();
+        assert_eq!(oracle_ids, sorted, "oracle rows come out key-sorted");
+        let merged = with_pack_rows(
+            built,
+            pack_check_rows(&[
+                pack_check("packs.m", "spec_z"),
+                pack_check("packs.a", "spec_b"),
+            ]),
+        );
+        let ids: Vec<&str> = merged
+            .records
+            .iter()
+            .map(|r| r.scenario_id.as_str())
+            .collect();
+        let mut expected = ids.clone();
+        expected.sort();
+        assert_eq!(ids, expected, "the merged rows interleave in key order");
+        assert_eq!(
+            ids.iter().filter(|id| id.starts_with("pack:")).count(),
+            2,
+            "both pack rows ride in the merged order"
+        );
+    }
+}
