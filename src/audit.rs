@@ -404,15 +404,19 @@ pub fn pack_check_rows(checks: &[PackCheck]) -> Vec<AuditRecord> {
     rows
 }
 
-/// Fold pack-check rows into a report (tasks 2.2): the rows join the
-/// records and BOTH count maps are recomputed over the merged set —
-/// pack evidence counts toward the totals like every other row, never
+/// Fold rows into a report — the ONE shared fold (tasks 2.2 + 3.3
+/// rename, edrv RO5U M1: the name no longer claims pack exclusivity
+/// it stopped having when the bind fold landed): pack-check rows from
+/// the CLI fold site, binds_nothing rows from the `run()` walk, and
+/// the test folds all pass through here. The rows join the records
+/// and BOTH count maps are recomputed over the merged set — every
+/// folded row counts toward the totals like every other row, never
 /// silently dropped from the summary. The exit contract composes
 /// unchanged: all-unchecked pack rows stay exit 0 with counts
 /// surfaced; a violation row is contradicted evidence and fails the
 /// run. Duplicate row keys in `rows` pass through as-is here — the
 /// `--before` prior-parse guard refuses them labeled downstream.
-pub fn with_pack_rows(mut report: AuditReport, rows: Vec<AuditRecord>) -> AuditReport {
+pub fn fold_rows(mut report: AuditReport, rows: Vec<AuditRecord>) -> AuditReport {
     report.records.extend(rows);
     sort_rows(&mut report.records);
     let (verdict_counts, class_counts) = recount(&report.records);
@@ -750,7 +754,7 @@ pub fn run(
     // binds_nothing rows fold into the report through the ONE shared
     // fold (slice-2's unified surface), counts recomputed over the
     // merged set, exit contract untouched (never exit-nonzero).
-    let report = with_pack_rows(report, bind_rows(spec));
+    let report = fold_rows(report, bind_rows(spec));
     match prior {
         Some(prior) => diff_with_prior(report, prior),
         None => Ok(report),
@@ -1076,6 +1080,40 @@ pub fn cmd_audit(
 }
 
 // ---------------------------------------------------------------------------
+// Shared test fixtures (tasks 3.3 tidy — edrv RO5U L8, the
+// shared-fixture-module pattern applied audit.rs-internally): the
+// shell-report and spec-parse helpers one copy behind the pack-row,
+// binds-nothing, and emission test mods instead of three parallel
+// definitions. (The cross-file tests/ variant of L8 stays deferred —
+// those files are outside this ticket's allowed-file set.)
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod fixtures {
+    use super::*;
+
+    /// A shell report carrying only the fold's load-bearing fields
+    /// (records + the two count maps).
+    pub(crate) fn shell() -> AuditReport {
+        AuditReport {
+            report_schema_version: AUDIT_SCHEMA_VERSION,
+            evidence_scope: String::new(),
+            scope_sha256: "digest".to_string(),
+            expectation_declared: false,
+            verdict_counts: BTreeMap::new(),
+            class_counts: BTreeMap::new(),
+            records: vec![],
+        }
+    }
+
+    /// Parse a fixture spec (shared behind the vacuity and emission
+    /// pins).
+    pub(crate) fn spec(text: &str) -> Spec {
+        crate::spec::parse_str(text).expect("fixture spec parses")
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Unit tests — the `--before` diff unit pinned in isolation (tasks.md
 // 1.5, slice-1 refactor): constructed reports only, so the pins test
 // the UNIT — no spec parse, no conform walk, no CLI. The counts and
@@ -1282,6 +1320,7 @@ mod diff_tests {
 
 #[cfg(test)]
 mod pack_row_tests {
+    use super::fixtures::shell;
     use super::*;
 
     /// The pack-check row unit pinned in isolation (tasks.md 2.1–2.2,
@@ -1310,20 +1349,6 @@ mod pack_row_tests {
         PackViolation {
             rule_id: rule.to_string(),
             message: message.to_string(),
-        }
-    }
-
-    /// An empty report to fold pack rows into: only the fold's
-    /// load-bearing fields matter (records + the two count maps).
-    fn empty_report() -> AuditReport {
-        AuditReport {
-            report_schema_version: AUDIT_SCHEMA_VERSION,
-            evidence_scope: String::new(),
-            scope_sha256: "digest".to_string(),
-            expectation_declared: false,
-            verdict_counts: BTreeMap::new(),
-            class_counts: BTreeMap::new(),
-            records: vec![],
         }
     }
 
@@ -1438,7 +1463,7 @@ mod pack_row_tests {
             ),
             check("packs.a", "spec_x", &["packs.a.t"], vec![]),
         ]);
-        let merged = with_pack_rows(empty_report(), rows);
+        let merged = fold_rows(shell(), rows);
         assert_eq!(merged.records.len(), 2);
         assert_eq!(
             merged.records[0].scenario_id, "pack:packs.a:spec_x",
@@ -1457,7 +1482,7 @@ mod pack_row_tests {
     /// stay sorted by row key across kinds.
     #[test]
     fn pack_rows_fold_alongside_oracle_rows() {
-        let mut report = empty_report();
+        let mut report = shell();
         report.records.push(AuditRecord {
             scenario_id: "oracle_setup_holds".to_string(),
             class: AuditClass::Current,
@@ -1471,7 +1496,7 @@ mod pack_row_tests {
         report.class_counts.insert("stale".to_string(), 5);
         report.verdict_counts.insert("unknown".to_string(), 5);
         let rows = pack_check_rows(&[check("packs.a", "spec_x", &["packs.a.t"], vec![])]);
-        let merged = with_pack_rows(report, rows);
+        let merged = fold_rows(report, rows);
         assert_eq!(merged.records.len(), 2);
         assert_eq!(
             merged.records[0].scenario_id, "oracle_setup_holds",
@@ -1499,7 +1524,7 @@ mod pack_row_tests {
             check("packs.a", "spec_x", &["packs.a.t"], vec![]),
             check("packs.b", "spec_y", &["packs.b.t"], vec![]),
         ]);
-        let merged = with_pack_rows(empty_report(), rows);
+        let merged = fold_rows(shell(), rows);
         assert_eq!(exit_code(&merged, false), 0);
         assert_eq!(exit_code(&merged, true), 0);
         assert!(
@@ -1518,7 +1543,7 @@ mod pack_row_tests {
             &["packs.b.t"],
             vec![violation("packs.b.v", "boom")],
         )]);
-        let merged = with_pack_rows(empty_report(), rows);
+        let merged = fold_rows(shell(), rows);
         assert_eq!(exit_code(&merged, false), 1);
     }
 }
@@ -1539,6 +1564,7 @@ mod pack_row_tests {
 
 #[cfg(test)]
 mod binds_nothing_tests {
+    use super::fixtures::{shell, spec};
     use super::*;
 
     /// The vacuity fixture: three evidence units citing nothing (a
@@ -1650,10 +1676,6 @@ statement: "THE system SHALL keep the ledger consistent"
 | halt | phase_b | bad_state | [[demo.sparse.phase_fragment]] |
 "#;
 
-    fn spec(text: &str) -> Spec {
-        crate::spec::parse_str(text).expect("fixture spec parses")
-    }
-
     /// The citation-target set covers EVERY declared model element —
     /// states, transitions, constraints, properties — and never the
     /// intent id (a fragment citing only the intent id binds nothing).
@@ -1686,19 +1708,6 @@ statement: "THE system SHALL keep the ledger consistent"
             !declared.contains("demo.bind"),
             "the intent id is not a model element — a fragment citing only it binds nothing"
         );
-    }
-
-    /// A shell report carrying only the fold's load-bearing fields.
-    fn shell() -> AuditReport {
-        AuditReport {
-            report_schema_version: AUDIT_SCHEMA_VERSION,
-            evidence_scope: String::new(),
-            scope_sha256: "digest".to_string(),
-            expectation_declared: false,
-            verdict_counts: BTreeMap::new(),
-            class_counts: BTreeMap::new(),
-            records: vec![],
-        }
     }
 
     /// Vacuity flags: each evidence unit whose text cites none of the
@@ -1812,7 +1821,7 @@ statement: "THE system SHALL keep the ledger consistent"
             violations: vec![],
         }]);
         let binds = bind_rows(&spec(SPEC_VACUOUS));
-        let merged = with_pack_rows(shell(), [unchecked, binds].concat());
+        let merged = fold_rows(shell(), [unchecked, binds].concat());
         assert_eq!(exit_code(&merged, false), 0);
         assert_eq!(exit_code(&merged, true), 0);
         assert_eq!(merged.class_counts.get("binds_nothing"), Some(&3));
@@ -1893,6 +1902,7 @@ statement: "THE system SHALL keep the ledger consistent"
 
 #[cfg(test)]
 mod emission_tests {
+    use super::fixtures::{shell, spec};
     use super::*;
 
     /// The oracle-side fixture spec: declares `confirm` AND `reopen`
@@ -1936,23 +1946,10 @@ statement: "THE system SHALL keep the ledger consistent"
 
     /// The oracle report built over the fixture corpus.
     fn oracle_report(corpus_lines: &[&str]) -> AuditReport {
-        let spec = crate::spec::parse_str(SPEC).expect("fixture spec parses");
+        let spec = spec(SPEC);
         let corpus_bytes = format!("{}\n", corpus_lines.join("\n"));
         let corpus = conform::parse_corpus(&corpus_bytes).expect("fixture corpus parses");
         build_report(&spec, corpus_bytes.as_bytes(), &corpus, false, false)
-    }
-
-    /// A shell report carrying only the fold's load-bearing fields.
-    fn shell() -> AuditReport {
-        AuditReport {
-            report_schema_version: AUDIT_SCHEMA_VERSION,
-            evidence_scope: String::new(),
-            scope_sha256: "digest".to_string(),
-            expectation_declared: false,
-            verdict_counts: BTreeMap::new(),
-            class_counts: BTreeMap::new(),
-            records: vec![],
-        }
     }
 
     fn pack_check(pack: &str, subject: &str) -> PackCheck {
@@ -2021,7 +2018,7 @@ statement: "THE system SHALL keep the ledger consistent"
     }
 
     /// The two count-map compute sites agree: recomputing
-    /// [`with_pack_rows`]' maps from scratch over [`build_report`]'s own
+    /// [`fold_rows`]' maps from scratch over [`build_report`]'s own
     /// records reproduces exactly the maps [`build_report`] produced —
     /// seeded garbage counts never survive — and pack rows fold onto
     /// those counts additively.
@@ -2034,12 +2031,12 @@ statement: "THE system SHALL keep the ledger consistent"
         // survive a from-scratch recompute
         reseeded.class_counts.insert("stale".to_string(), 99);
         reseeded.verdict_counts.insert("unknown".to_string(), 99);
-        let recomputed = with_pack_rows(reseeded, vec![]);
+        let recomputed = fold_rows(reseeded, vec![]);
         assert_eq!(recomputed.class_counts, built.class_counts);
         assert_eq!(recomputed.verdict_counts, built.verdict_counts);
         // pack rows fold onto the recomputed counts additively: the
         // pack's unchecked row joins the oracle's unchecked row
-        let merged = with_pack_rows(
+        let merged = fold_rows(
             recomputed,
             pack_check_rows(&[pack_check("packs.a", "spec_x")]),
         );
@@ -2051,7 +2048,7 @@ statement: "THE system SHALL keep the ledger consistent"
 
     /// Row order is key-sorted across BOTH paths: [`build_report`]
     /// sorts its walk output even when the corpus is fed out of id
-    /// order, and [`with_pack_rows`] interleaves oracle and pack rows
+    /// order, and [`fold_rows`] interleaves oracle and pack rows
     /// into one key-sorted sequence across kinds.
     #[test]
     fn row_order_is_key_sorted_across_kinds_in_both_paths() {
@@ -2065,7 +2062,7 @@ statement: "THE system SHALL keep the ledger consistent"
         let mut sorted = oracle_ids.clone();
         sorted.sort();
         assert_eq!(oracle_ids, sorted, "oracle rows come out key-sorted");
-        let merged = with_pack_rows(
+        let merged = fold_rows(
             built,
             pack_check_rows(&[
                 pack_check("packs.m", "spec_z"),
