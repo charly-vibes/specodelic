@@ -1328,6 +1328,328 @@ mod pack_row_tests {
 }
 
 // ---------------------------------------------------------------------------
+// Slice-3 pins (tasks.md 3.1 — binds_nothing red): the vacuity advisory
+// pinned in isolation — constructed specs only, no corpus, no gate, no
+// CLI (the CLI-level warnings-channel pin lives in
+// tests/audit_binds_nothing.rs). The pins cover the delta-spec scenario
+// "Unbound evidence flagged, sparsity respected" and "Unchecked never
+// fails the run": an evidence unit whose text cites none of the spec's
+// declared model-element ids yields a `binds_nothing` row on the
+// warnings channel; a legitimately sparse phase-model with declared
+// elements is NEVER flagged (the check is citation-vs-declared-ids,
+// never coverage-of-declared-ids); and the honesty mix exits 0 with
+// counts surfaced in both views.
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod binds_nothing_tests {
+    use super::*;
+
+    /// The vacuity fixture: three evidence units citing nothing (a
+    /// constraints rust fragment, a kernel claim, a property predicate
+    /// fragment) alongside one bound fragment and a phase-model whose
+    /// declared elements (`phase_open`, `bad_state`) most units never
+    /// exercise — the sparse phase-model shape the check must respect.
+    const SPEC_VACUOUS: &str = r#"---
+id: demo.bind
+kind: intent
+statement: "THE system SHALL keep the ledger consistent"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| vacuous_fragment | invariant | `**rust:** score == 10 && frame < 12` | [[demo.bind]] |
+| vacuous_kernel | invariant | `**kernel:** acyclic(supersedes)` | [[demo.bind]] |
+| bound_fragment | invariant | `**rust:** state != "held"` | [[demo.bind]] |
+
+## Model
+
+### States
+
+- held
+- phase_open
+- bad_state
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| advance | held | phase_open | [[demo.bind.vacuous_kernel]] |
+| regress | phase_open | bad_state | [[demo.bind.bound_fragment]] |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|------------|
+| vacuous_pred | unit | [[demo.bind]] | `g()` | `**rust:** n % 2 == 0` |
+"#;
+
+    /// The substring-free fixture: `unlocked` must NOT count as citing
+    /// the declared `lock` (whole-token match, never substring), while a
+    /// dotted reference (`demo.sub.held`) DOES cite the declared `held`
+    /// through its id segments.
+    const SPEC_SUBSTR: &str = r#"---
+id: demo.sub
+kind: intent
+statement: "THE system SHALL keep the ledger consistent"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| lock | invariant | `**rust:** flag != 0` | [[demo.sub]] |
+
+## Model
+
+### States
+
+- held
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| keep | held | held | [[demo.sub.lock]] |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|------------|
+| substr_pred | unit | [[demo.sub]] | `g()` | `**rust:** unlocked == false` |
+| dotted_pred | unit | [[demo.sub]] | `g()` | `**rust:** demo.sub.held == true` |
+"#;
+
+    /// The sparse phase-model fixture: the fragment cites the declared
+    /// bad state (`bad_state` — the phase-model shape that is legitimate
+    /// by design); every other declared element is unexercised and must
+    /// stay unflagged (never coverage-of-declared-ids).
+    const SPEC_SPARSE: &str = r#"---
+id: demo.sparse
+kind: intent
+statement: "THE system SHALL keep the ledger consistent"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| phase_fragment | invariant | `**rust:** state != "bad_state"` | [[demo.sparse]] |
+
+## Model
+
+### States
+
+- phase_a
+- phase_b
+- bad_state
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|-------|
+| enter | phase_a | phase_b | [[demo.sparse.phase_fragment]] |
+| halt | phase_b | bad_state | [[demo.sparse.phase_fragment]] |
+"#;
+
+    fn spec(text: &str) -> Spec {
+        crate::spec::parse_str(text).expect("fixture spec parses")
+    }
+
+    /// A shell report carrying only the fold's load-bearing fields.
+    fn shell() -> AuditReport {
+        AuditReport {
+            report_schema_version: AUDIT_SCHEMA_VERSION,
+            evidence_scope: String::new(),
+            scope_sha256: "digest".to_string(),
+            expectation_declared: false,
+            verdict_counts: BTreeMap::new(),
+            class_counts: BTreeMap::new(),
+            records: vec![],
+        }
+    }
+
+    /// Vacuity flags: each evidence unit whose text cites none of the
+    /// spec's declared model-element ids yields exactly one
+    /// `binds_nothing` row keyed `bind:<owner-id>` — surfaced in the
+    /// class counts (warnings channel), never a pass, never a failure.
+    #[test]
+    fn vacuous_evidence_units_flag_binds_nothing() {
+        let rows = bind_rows(&spec(SPEC_VACUOUS));
+        let ids: Vec<&str> = rows.iter().map(|r| r.scenario_id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec![
+                "bind:vacuous_fragment",
+                "bind:vacuous_kernel",
+                "bind:vacuous_pred"
+            ],
+            "exactly the vacuous units flag, key-sorted"
+        );
+        for row in &rows {
+            assert_eq!(row.class, AuditClass::BindsNothing);
+            assert_eq!(
+                AuditClass::of(row.conform_verdict),
+                AuditClass::Unchecked,
+                "SCOPED AMENDMENT (the override site's contract): the row still carries the nothing-was-interpreted verdict carrier (`agree`), whose of-derived class IS unchecked — the citation check overrides it to binds_nothing where the evidence unit cites nothing; the only row kind whose class is not of-derived"
+            );
+            assert_eq!(row.conform_verdict, Verdict::Agree);
+            assert_eq!(row.class.as_str(), "binds_nothing");
+            assert!(
+                row.reason.contains("cites no declared model element"),
+                "the reason names the vacuity: {}",
+                row.reason
+            );
+            assert!(
+                row.reason.contains("never a failure"),
+                "the reason states the honesty rule: {}",
+                row.reason
+            );
+            assert!(
+                row.evaluated_claim_ids.is_empty(),
+                "nothing was evaluated — the row must not pretend otherwise"
+            );
+            assert!(
+                !row.closed_world,
+                "citation checks are not closed-world walks"
+            );
+        }
+    }
+
+    /// Sparsity respected: a legitimately sparse phase-model whose
+    /// fragment cites a declared element produces NO binds_nothing flag,
+    /// no matter how many declared elements no fragment exercises — the
+    /// check is citation-vs-declared-ids, never coverage-of-declared-ids.
+    #[test]
+    fn sparse_phase_model_is_never_flagged() {
+        let rows = bind_rows(&spec(SPEC_SPARSE));
+        assert!(
+            rows.is_empty(),
+            "a declared-element-citing fragment never flags: {rows:?}"
+        );
+    }
+
+    /// Whole-token match: `unlocked` does not cite `lock` (substring
+    /// match would wrongly bind), while a dotted reference cites the
+    /// declared id through its segments.
+    #[test]
+    fn citation_match_is_whole_token_never_substring() {
+        let rows = bind_rows(&spec(SPEC_SUBSTR));
+        let ids: Vec<&str> = rows.iter().map(|r| r.scenario_id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec!["bind:lock", "bind:substr_pred"],
+            "`unlocked` must not cite `lock`; the dotted `demo.sub.held` ref binds via `held`"
+        );
+    }
+
+    /// A fragment in a spec that declares NO model elements binds
+    /// nothing by construction — the vacuity advisory is honest even at
+    /// the empty extreme (a fragment over an empty model constrains
+    /// nothing).
+    #[test]
+    fn fragment_over_an_empty_model_binds_nothing() {
+        const SPEC_BARE: &str = r#"---
+id: demo.bare
+kind: intent
+statement: "THE system SHALL keep the ledger consistent"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| lone | invariant | `**rust:** flag != 0` | [[demo.bare]] |
+"#;
+        let rows = bind_rows(&spec(SPEC_BARE));
+        assert_eq!(rows.len(), 1, "the lone fragment flags: {rows:?}");
+        assert_eq!(rows[0].scenario_id, "bind:lone");
+        assert_eq!(rows[0].class, AuditClass::BindsNothing);
+    }
+
+    /// The honesty mix (delta scenario "Unchecked never fails the run",
+    /// extended to binds_nothing): a report whose rows are
+    /// unchecked/binds_nothing exits 0 with counts surfaced in BOTH
+    /// views — the JSON class_counts and the human class list.
+    #[test]
+    fn honesty_mix_exits_zero_with_counts_in_both_views() {
+        let unchecked = pack_check_rows(&[PackCheck {
+            pack_id: "packs.a".to_string(),
+            subject_id: "spec_x".to_string(),
+            declared_rules: vec!["packs.a.t".to_string()],
+            violations: vec![],
+        }]);
+        let binds = bind_rows(&spec(SPEC_VACUOUS));
+        let merged = with_pack_rows(shell(), [unchecked, binds].concat());
+        assert_eq!(exit_code(&merged, false), 0);
+        assert_eq!(exit_code(&merged, true), 0);
+        assert_eq!(merged.class_counts.get("binds_nothing"), Some(&3));
+        assert_eq!(merged.class_counts.get("unchecked"), Some(&1));
+        let human = human_view(&merged);
+        assert!(
+            human.contains("binds_nothing 3"),
+            "the human view surfaces the binds_nothing count: {human}"
+        );
+        assert!(
+            human.contains("unchecked 1"),
+            "the human view surfaces the unchecked count: {human}"
+        );
+    }
+
+    /// The closed vocabulary rides the report schema: a prior report
+    /// carrying `binds_nothing` rows round-trips through
+    /// [`parse_prior_report`], and the class sits at warnings-channel
+    /// rank 1 in the `--before` overlay order — beside unchecked, never
+    /// worsening past contradicted, never failing a run.
+    #[test]
+    fn binds_nothing_round_trips_and_rides_rank_1() {
+        let record = AuditRecord {
+            scenario_id: "bind:vacuous".to_string(),
+            class: AuditClass::BindsNothing,
+            conform_verdict: Verdict::Agree,
+            reason: "cites no declared model element".to_string(),
+            evaluated_claim_ids: Vec::new(),
+            closed_world: false,
+        };
+        let report = AuditReport {
+            report_schema_version: AUDIT_SCHEMA_VERSION,
+            evidence_scope: String::new(),
+            scope_sha256: "digest".to_string(),
+            expectation_declared: false,
+            verdict_counts: BTreeMap::new(),
+            class_counts: BTreeMap::from([("binds_nothing".to_string(), 1)]),
+            records: vec![record],
+        };
+        let bytes = serde_json::to_vec(&report).expect("report serializes");
+        let parsed = parse_prior_report(&bytes).expect("prior round-trips");
+        assert_eq!(parsed.records[0].class, AuditClass::BindsNothing);
+        assert_eq!(parsed.class_counts.get("binds_nothing"), Some(&1));
+        // Warnings-channel rank: beside unchecked (1), below
+        // contradicted (2), above current (0).
+        assert_eq!(AuditClass::rank(AuditClass::BindsNothing), 1);
+        assert_eq!(AuditClass::rank(AuditClass::Unchecked), 1);
+        assert_eq!(AuditClass::rank(AuditClass::Contradicted), 2);
+        assert_eq!(
+            overlay_class(AuditClass::BindsNothing, AuditClass::Current),
+            AuditClass::Stale,
+            "clean-to-flagged worsens like current-to-unchecked"
+        );
+        assert_eq!(
+            overlay_class(AuditClass::BindsNothing, AuditClass::Unchecked),
+            AuditClass::Current,
+            "a held advisory is current"
+        );
+        assert_eq!(
+            overlay_class(AuditClass::Current, AuditClass::BindsNothing),
+            AuditClass::Current,
+            "flagged-to-clean improved"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Emission-surface pins (tasks.md 2.3, slice-2 refactor): the unified
 // row-emission surface's contract, pinned BEFORE the unification and
 // written against the current internal API locations — oracle rows via
