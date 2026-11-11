@@ -18,9 +18,9 @@ shippable alone; cut freely without the others.
 
 ## Slice 2 — pack-check rows (supersedes va3q)
 
-- [ ] 2.1 Red: pack vocabulary + empty checked-set yields `unchecked`,
+- [x] 2.1 Red: pack vocabulary + empty checked-set yields `unchecked`,
       countable, never a pass; non-empty checked-set results carry through.
-- [ ] 2.2 Green: surface pack checker outcomes as audit rows.
+- [x] 2.2 Green: surface pack checker outcomes as audit rows.
 - [ ] 2.3 Refactor: unify row-emission code across row kinds.
 
 ## Slice 3 — binds_nothing (supersedes the model-binding half of h5ks)
