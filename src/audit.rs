@@ -9,7 +9,7 @@
 //! pack-check results — into the audit-local closed
 //! evidence-lifecycle vocabulary {current, stale, unchecked,
 //! contradicted, binds_nothing} — slice 1 implements the subset its
-//! tests exercise (`binds_nothing` is slice 3) — with every record
+//! tests exercise; slice 3 completes the set with `binds_nothing` — with every record
 //! carrying BOTH layers (the audit class and the underlying conform
 //! verdict it was derived from); the persisted report with the fixed
 //! evidence_scope statement verbatim and a scope_sha256 binding the
@@ -31,6 +31,13 @@
 //! countable in the totals, never a silent pass (the va3q failure) —
 //! and non-empty checked-set results carry through as their real
 //! verdicts.
+//! Slice 3 adds the vacuity advisory: an evidence unit (fragment or
+//! claim) whose text cites none of the spec's declared model-element
+//! ids yields a `binds_nothing` row on the warnings channel —
+//! advisory-only, file-scoped, never exit-nonzero (the bowling rev1
+//! failure: green yet vacuous) — while a legitimately sparse
+//! phase-model with declared elements is never flagged (the check is
+//! citation-vs-declared-ids, never coverage-of-declared-ids).
 //! Read-only like conform: it evaluates, it never compiles, never
 //! writes artifacts, never advances a lifecycle transition.
 //! Rationale: the walk-reuse boundary keeps the audit a thin
@@ -53,11 +60,11 @@ use crate::spec::Spec;
 // layered on conform's untouched verdict taxonomy, never replacing it
 // ---------------------------------------------------------------------------
 
-/// One evidence row's evidence-lifecycle class — an oracle record or
-/// a pack-check result. Closed set: `current`, `stale`, `unchecked`,
-/// `contradicted`, `new` (slice 1's subset of the vocabulary;
-/// `binds_nothing` lands in slice 3). An audit record carries BOTH
-/// this class and the underlying conform verdict.
+/// One evidence row's evidence-lifecycle class — an oracle record, a
+/// pack-check result, or a fragment/claim binding. Closed set:
+/// `current`, `stale`, `unchecked`, `contradicted`, `binds_nothing`,
+/// `new`. An audit record carries BOTH this class and the underlying
+/// conform verdict.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuditClass {
@@ -74,6 +81,12 @@ pub enum AuditClass {
     Unchecked,
     /// The current model positively contradicts the recorded example.
     Contradicted,
+    /// The row's evidence unit (fragment/claim) cites no declared
+    /// model element — a vacuous binding (green yet vacuous, the
+    /// bowling rev1 failure). Warnings-channel advisory: never a pass,
+    /// never a failure; a legitimately sparse phase-model whose
+    /// declared elements are simply not exercised is never flagged.
+    BindsNothing,
     /// The current run graded a row the prior report never saw.
     New,
 }
@@ -87,12 +100,16 @@ impl AuditClass {
             AuditClass::Stale => "stale",
             AuditClass::Unchecked => "unchecked",
             AuditClass::Contradicted => "contradicted",
+            AuditClass::BindsNothing => "binds_nothing",
             AuditClass::New => "new",
         }
     }
 
     /// The class derived from the conform verdict it carries: the
     /// audit layer rides conform's verdicts, never re-derives them.
+    /// `binds_nothing` is deliberately NOT derivable here: it is
+    /// evidence-level vacuity from citation analysis, not a verdict
+    /// layer — see the scoped amendment at [`bind_row`].
     fn of(verdict: Verdict) -> AuditClass {
         match verdict {
             Verdict::Permitted => AuditClass::Current,
@@ -104,13 +121,17 @@ impl AuditClass {
     }
 
     /// Worsening order for the `--before` overlay: current(0) <
-    /// unchecked(1) < contradicted(2). `Stale`/`New` are diff overlays
+    /// unchecked(1) < contradicted(2). `binds_nothing` rides rank 1
+    /// beside `unchecked` — the warnings-channel peers: an advisory
+    /// held steady stays current, clean-to-flagged worsens to stale
+    /// exactly like current-to-unchecked, and it never worsens past
+    /// contradicted, never fails a run. `Stale`/`New` are diff overlays
     /// a fresh build never produces; their ranks only matter if an
     /// already-diffed report were re-diffed, which the CLI never does.
     fn rank(self) -> u8 {
         match self {
             AuditClass::Current | AuditClass::New => 0,
-            AuditClass::Unchecked | AuditClass::Stale => 1,
+            AuditClass::Unchecked | AuditClass::Stale | AuditClass::BindsNothing => 1,
             AuditClass::Contradicted => 2,
         }
     }
@@ -401,6 +422,144 @@ pub fn with_pack_rows(mut report: AuditReport, rows: Vec<AuditRecord>) -> AuditR
 }
 
 // ---------------------------------------------------------------------------
+// binds_nothing rows (slice 3 — tasks 3.1–3.2, supersedes the
+// model-binding half of h5ks): fragment/claim vacuity as structured,
+// countable, warnings-channel advisory rows
+// ---------------------------------------------------------------------------
+
+/// One evidence unit the vacuity check receives (slice 3): the row that
+/// owns it and the unit's text (the fragment body after the `**rust:**`
+/// marker, or the marker-stripped kernel claim content).
+struct EvidenceUnit {
+    owner_id: String,
+    kind: &'static str,
+    text: String,
+}
+
+/// The spec's declared model-element ids (the citation target set): the
+/// Model-section states plus every declared row id — states bullets,
+/// transitions, constraints, properties. The intent id is deliberately
+/// NOT a model element (it is the file's own id, not a declared row);
+/// a fragment citing only the intent id binds nothing.
+fn declared_model_ids(spec: &Spec) -> BTreeSet<String> {
+    let mut ids: BTreeSet<String> = spec.states.iter().map(|row| row.id.clone()).collect();
+    ids.extend(spec.transitions.iter().map(|t| t.id.clone()));
+    ids.extend(spec.constraints.iter().map(|row| row.id.clone()));
+    ids.extend(spec.properties.iter().map(|row| row.id.clone()));
+    ids
+}
+
+/// Whether `text` cites any declared id — WHOLE-TOKEN matching, never
+/// substring: the text is tokenized into `[A-Za-z0-9_]+` runs and a
+/// citation is a token exactly equal to a declared id, so `unlocked`
+/// does not cite `lock` and `beheld` does not cite `held`. Dotted
+/// references (`demo.spec.held`) cite the declared id through their
+/// segments (the token split treats `.` as a boundary) — the cheap
+/// v1 check; a graph-backed fan-in signal stays deferred (design open
+/// question), refinement if false positives appear.
+fn cites_declared_id(text: &str, declared: &BTreeSet<String>) -> bool {
+    text.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .any(|token| declared.contains(token))
+}
+
+/// The spec's evidence units (slice 3): the fragment/claim surface the
+/// toolchain already executes, collected audit-locally from the `&Spec`
+/// the walk already has — constraint rust fragments and kernel claims
+/// through [`compile::extract_model_ir`]'s IR, property predicate rust
+/// fragments through [`compile::fragment_of`] (law-kind predicates are
+/// skipped: they cannot carry fragments, and their `**label:**`
+/// occurrences are the law-case grammar, never markers — the
+/// validate_fragments discipline). Citation-expression claims are
+/// deliberately not units: a citation expression is built of `[[row
+/// ids]]` and so binds a declared row id by construction — checking it
+/// would add rows that can never flag. A LOCAL collection only; sharing
+/// the declared-ids index with lint is task 3.3 (a different ticket).
+fn evidence_units(spec: &Spec) -> Vec<EvidenceUnit> {
+    let ir = crate::compile::extract_model_ir(spec);
+    let mut units: Vec<EvidenceUnit> = ir
+        .invariants
+        .iter()
+        .map(|inv| EvidenceUnit {
+            owner_id: inv.id.clone(),
+            kind: "fragment",
+            text: inv.fragment.clone(),
+        })
+        .collect();
+    units.extend(ir.guard_kernel.iter().map(|(id, text)| EvidenceUnit {
+        owner_id: id.clone(),
+        kind: "kernel claim",
+        text: text.clone(),
+    }));
+    for p in &spec.properties {
+        let kind = p.cells.get("kind").map(String::as_str).unwrap_or("");
+        if kind == "law" {
+            continue;
+        }
+        let predicate = p.cells.get("predicate").map(String::as_str).unwrap_or("");
+        if let Some(fragment) = crate::compile::fragment_of(predicate) {
+            units.push(EvidenceUnit {
+                owner_id: p.id.clone(),
+                kind: "fragment",
+                text: fragment,
+            });
+        }
+    }
+    units
+}
+
+/// One binds_nothing row (tasks 3.2): the audit record flagging one
+/// evidence unit whose text cites none of the spec's declared
+/// model-element ids — keyed `bind:<owner-id>`, deterministic and
+/// diffable across reports.
+///
+/// SCOPED AMENDMENT to the both-layer invariant (the qqgn pin
+/// "class always of-derived"): the row is built through the ONE
+/// construction site [`audit_row`], whose class is
+/// [`AuditClass::of`](`Verdict::Agree`) = `unchecked` — the
+/// nothing-was-interpreted verdict carrier, exactly the pack-row
+/// precedent — and the citation check then OVERRIDES that verdict-
+/// derived class to `binds_nothing` where the evidence unit cites
+/// nothing. This is the only row kind whose class is not of-derived:
+/// vacuity is evidence-level citation analysis, not a verdict layer —
+/// `AuditClass::of` cannot express it and was deliberately not taught
+/// to. The verdict rides through untouched (the both-layer payload is
+/// intact); only the class is overridden, only here.
+fn bind_row(unit: &EvidenceUnit) -> AuditRecord {
+    let mut row = audit_row(
+        format!("bind:{}", unit.owner_id),
+        Verdict::Agree,
+        format!(
+            "{} `{}` cites no declared model element — a vacuous binding (green yet vacuous): nothing was checked; warnings-channel advisory, never a failure, and a model whose declared elements are simply not exercised is never flagged",
+            unit.kind, unit.owner_id,
+        ),
+        Vec::new(),
+        false,
+    );
+    row.class = AuditClass::BindsNothing;
+    row
+}
+
+/// The binds_nothing rows for one spec's evidence units (tasks 3.2),
+/// in the report's canonical order — sorted by row key, the same
+/// discipline as every emission path, so serialization stays
+/// byte-identical across runs over identical inputs. Only VACUOUS
+/// units produce rows: a unit citing at least one declared id is never
+/// flagged, and declared elements no unit exercises never produce rows
+/// (the sparsity guarantee — citation-vs-declared-ids, never
+/// coverage-of-declared-ids; legitimately sparse phase-models with
+/// declared bad states stay unflagged).
+pub fn bind_rows(spec: &Spec) -> Vec<AuditRecord> {
+    let declared = declared_model_ids(spec);
+    let mut rows: Vec<AuditRecord> = evidence_units(spec)
+        .iter()
+        .filter(|unit| !cites_declared_id(&unit.text, &declared))
+        .map(bind_row)
+        .collect();
+    sort_rows(&mut rows);
+    rows
+}
+
+// ---------------------------------------------------------------------------
 // The --before prior-report diff (design D1 — diff reports, not files)
 // ---------------------------------------------------------------------------
 
@@ -581,6 +740,11 @@ pub fn run(
         closed_world,
         expectation_declared,
     );
+    // Slice 3: the vacuity advisory rides the walk — the spec's
+    // binds_nothing rows fold into the report through the ONE shared
+    // fold (slice-2's unified surface), counts recomputed over the
+    // merged set, exit contract untouched (never exit-nonzero).
+    let report = with_pack_rows(report, bind_rows(spec));
     match prior {
         Some(prior) => diff_with_prior(report, prior),
         None => Ok(report),
@@ -656,6 +820,23 @@ pub fn emit_output(
     }
 }
 
+/// Emit a success report through [`emit_output`], with optional
+/// warnings-channel messages attached ahead of the envelope — the ONE
+/// success path (slice 3: the vacuity advisory rides here; empty
+/// warnings render exactly like the pre-slice-3 success envelope).
+pub fn emit_report_with(
+    report: &AuditReport,
+    warnings: Vec<String>,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl Write,
+    stderr: &mut impl Write,
+) -> std::io::Result<()> {
+    let mut out = Output::success(report.clone());
+    out.warnings.extend(warnings);
+    emit_output(out, format, verbosity, stdout, stderr)
+}
+
 /// Emit a success report through [`emit_output`].
 pub fn emit_report(
     report: &AuditReport,
@@ -664,13 +845,7 @@ pub fn emit_report(
     stdout: &mut impl Write,
     stderr: &mut impl Write,
 ) -> std::io::Result<()> {
-    emit_output(
-        Output::success(report.clone()),
-        format,
-        verbosity,
-        stdout,
-        stderr,
-    )
+    emit_report_with(report, Vec::new(), format, verbosity, stdout, stderr)
 }
 
 /// Emit a refusal (invocation error, gate refusal, zero records, diff
@@ -841,7 +1016,23 @@ pub fn cmd_audit(
                 emit_output(out, format, verbosity, stdout, stderr).ok();
                 1
             } else {
-                emit_report(&report, format, verbosity, stdout, stderr).ok();
+                // Warnings-channel surfacing (slice 3): binds_nothing
+                // rows ride the success envelope's warnings — advisory
+                // only, exit stays 0; the counts surface in both views
+                // through the class counts.
+                let binds = report
+                    .records
+                    .iter()
+                    .filter(|r| r.class == AuditClass::BindsNothing)
+                    .count();
+                let warnings = if binds > 0 {
+                    vec![format!(
+                        "{binds} binds_nothing row(s) — evidence citing no declared model element (vacuous binding); warnings-channel advisory, never a failure"
+                    )]
+                } else {
+                    Vec::new()
+                };
+                emit_report_with(&report, warnings, format, verbosity, stdout, stderr).ok();
                 0
             }
         }
@@ -1095,7 +1286,6 @@ mod pack_row_tests {
     /// countable `unchecked` row — never a pass — and a non-empty
     /// checked-set carries its violations through as their real
     /// verdicts (forbidden ⇒ contradicted).
-
     fn check(
         pack: &str,
         subject: &str,
