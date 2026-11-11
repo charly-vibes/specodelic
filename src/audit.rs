@@ -1648,6 +1648,40 @@ statement: "THE system SHALL keep the ledger consistent"
         crate::spec::parse_str(text).expect("fixture spec parses")
     }
 
+    /// The citation-target set covers EVERY declared model element —
+    /// states, transitions, constraints, properties — and never the
+    /// intent id (a fragment citing only the intent id binds nothing).
+    /// Pin written before the shared-walk extraction (add-evidence-audit
+    /// 3.3): lint's graph projections and connectivity edges derive
+    /// from the same declared-ids walk, and this set must survive the
+    /// unification unchanged.
+    #[test]
+    fn declared_model_ids_covers_every_model_element_never_the_intent() {
+        let declared = declared_model_ids(&spec(SPEC_VACUOUS));
+        let expected: BTreeSet<String> = [
+            "held",
+            "phase_open",
+            "bad_state",
+            "advance",
+            "regress",
+            "vacuous_fragment",
+            "vacuous_kernel",
+            "bound_fragment",
+            "vacuous_pred",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+        assert_eq!(
+            declared, expected,
+            "exactly the declared model-element ids, no more"
+        );
+        assert!(
+            !declared.contains("demo.bind"),
+            "the intent id is not a model element — a fragment citing only it binds nothing"
+        );
+    }
+
     /// A shell report carrying only the fold's load-bearing fields.
     fn shell() -> AuditReport {
         AuditReport {

@@ -653,3 +653,99 @@ pub(crate) fn dfs_cycles(
         on_path.remove(next);
     }
 }
+
+#[cfg(test)]
+mod declared_ids_pins {
+    use super::{Spec, conn_edges_of, rows};
+
+    /// Fixture covering every declared row collection (constraint,
+    /// property, states, transitions) plus a transition with one
+    /// declared and one ghost endpoint — the exact shape the
+    /// declared-ids pins need.
+    const PIN_SPEC: &str = r#"---
+id: demo.pins
+kind: intent
+statement: "THE system SHALL keep the ledger consistent"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|------------|
+| locked | invariant | `**rust:** status != "open"` | [[demo.pins]] |
+
+## Model
+
+### States
+
+- held
+- confirmed
+
+### Transitions
+
+| id | from | to | guard |
+|----|------|----|--------|
+| confirm | held | confirmed | [[demo.pins.locked]] |
+| ghost | held | nowhere | [[demo.pins.locked]] |
+
+## Properties
+
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|------------|
+| p | unit | [[demo.pins.locked]] | `g()` | `x` |
+"#;
+
+    fn spec(text: &str) -> Spec {
+        crate::spec::parse_str(text).expect("fixture spec parses")
+    }
+
+    /// The graph-projection contract over the declared-ids walk
+    /// (add-evidence-audit 3.3 pin, written before the extraction):
+    /// `rows` projects EXACTLY the constraints → properties → states
+    /// triple in canonical walk order — transitions anchor the
+    /// connectivity graph but are never projected rows.
+    #[test]
+    fn rows_projects_constraints_properties_states_never_transitions() {
+        let spec = spec(PIN_SPEC);
+        let projected: Vec<(&str, &str)> = rows(&spec)
+            .iter()
+            .map(|(table, r)| (*table, r.id.as_str()))
+            .collect();
+        assert_eq!(
+            projected,
+            vec![
+                ("constraints", "locked"),
+                ("properties", "p"),
+                ("states", "held"),
+                ("states", "confirmed"),
+            ],
+            "the projection triple in canonical order — no transition rows"
+        );
+    }
+
+    /// The connectivity-edge contract over the state-id piece
+    /// (add-evidence-audit 3.3 pin, written before the extraction):
+    /// per transition, the [from, to] endpoints resolve ONLY against
+    /// the file's declared state ids — a ghost endpoint creates no
+    /// edge (every_transition_valid's beat, never this walk's).
+    #[test]
+    fn conn_edges_resolve_only_declared_state_endpoints() {
+        let spec = spec(PIN_SPEC);
+        let edges = conn_edges_of(std::slice::from_ref(&spec));
+        assert_eq!(
+            edges,
+            vec![
+                (
+                    "demo.pins.confirm".to_string(),
+                    "demo.pins.held".to_string()
+                ),
+                (
+                    "demo.pins.confirm".to_string(),
+                    "demo.pins.confirmed".to_string()
+                ),
+                ("demo.pins.ghost".to_string(), "demo.pins.held".to_string()),
+            ],
+            "declared endpoints edge in [from, to] order; the ghost `nowhere` creates none"
+        );
+    }
+}
