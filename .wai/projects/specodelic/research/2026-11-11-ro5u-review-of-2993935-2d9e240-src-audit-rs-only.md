@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-11-specodelic-8ebr-pack-check-rows, pipeline-step:fix-review]
+---
+
+RO5U review of 2993935+2d9e240 (src/audit.rs only). CRITICAL: none. HIGH: none. MEDIUM: (1) tests — with_pack_rows only pinned folding into an EMPTY report; the realistic fold (pack rows + existing oracle rows, counts COMBINE, recompute-from-scratch vs increment) unpinned; fix: fold into a report carrying an oracle record, assert combined counts. (2) dead payload — PackViolation.message carried but never surfaced (violation-row reason lists rule ids only); fix: surface messages in the reason and pin. LOW: (3) duplicate-(pack_id,subject_id) caller discipline undocumented on pack_check_rows/with_pack_rows; fix: one doc sentence (duplicates are caller discipline; --before parse refuses duplicate keys labeled, slice-1 guard). PASSES: correctness (class always AuditClass::of-derived, both-layer invariant structural), scope (only src/audit.rs, slice-1 signatures untouched), docs, determinism.

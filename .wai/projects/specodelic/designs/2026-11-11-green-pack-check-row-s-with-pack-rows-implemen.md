@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-11-specodelic-8ebr-pack-check-rows, pipeline-step:green]
+---
+
+GREEN: pack_check_row(s) + with_pack_rows implemented in src/audit.rs after build_report — empty checked-set => agree/unchecked row keyed pack:<pack_id>:<subject_id>, reason names pack/subject/declared-rule count + never-a-pass, evaluated_claim_ids empty; violations => forbidden/contradicted with violated rules as the ids the row rests on; with_pack_rows appends + re-sorts + recomputes BOTH count maps. Class always derived via AuditClass::of(verdict) so the both-layer invariant is structural. No slice-1 surface touched (doc-comment accuracy only); exit contract composes unchanged. cargo test --lib audit: 12/12 (7 slice-1 + 5 new). just test-smart: 237 ingested, 1 failure = orchestrate_verify::fragments_reach_verified_end_to_end — pre-existing flake (testaruda flagged + quarantined it; passes twice in isolation; unrelated path). testaruda 18-run warning is ingest drift, not test failure.
