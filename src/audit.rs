@@ -284,6 +284,23 @@ pub fn pack_check_row(check: &PackCheck) -> AuditRecord {
             closed_world: false,
         }
     } else {
+        // Deterministic listing: each violation surfaces as
+        // `rule (message)` — the checker's labeled finding carries
+        // through verbatim, not just its rule id — sorted and deduped;
+        // the ids the row rests on stay the plain deduped rule ids.
+        let mut shown: Vec<String> = check
+            .violations
+            .iter()
+            .map(|v| {
+                if v.message.is_empty() {
+                    v.rule_id.clone()
+                } else {
+                    format!("{} ({})", v.rule_id, v.message)
+                }
+            })
+            .collect();
+        shown.sort();
+        shown.dedup();
         let mut violated: Vec<String> = check
             .violations
             .iter()
@@ -291,7 +308,6 @@ pub fn pack_check_row(check: &PackCheck) -> AuditRecord {
             .collect();
         violated.sort();
         violated.dedup();
-        let shown = violated.join(", ");
         AuditRecord {
             scenario_id,
             class: AuditClass::of(Verdict::Forbidden),
@@ -301,7 +317,7 @@ pub fn pack_check_row(check: &PackCheck) -> AuditRecord {
                 check.pack_id,
                 check.violations.len(),
                 check.subject_id,
-                shown,
+                shown.join(", "),
             ),
             evaluated_claim_ids: violated,
             closed_world: false,
@@ -312,7 +328,10 @@ pub fn pack_check_row(check: &PackCheck) -> AuditRecord {
 /// The pack-check rows for a run's checker outcomes (tasks 2.2), in
 /// the report's canonical order — sorted by row key, the same
 /// discipline as [`build_report`], so serialization stays
-/// byte-identical across runs over identical inputs.
+/// byte-identical across runs over identical inputs. One check per
+/// `(pack_id, subject_id)` is the caller's discipline: duplicate row
+/// keys are refused labeled if the merged report later feeds
+/// `--before` (the slice-1 prior-parse guard).
 pub fn pack_check_rows(checks: &[PackCheck]) -> Vec<AuditRecord> {
     let mut rows: Vec<AuditRecord> = checks.iter().map(pack_check_row).collect();
     rows.sort_by(|a, b| a.scenario_id.cmp(&b.scenario_id));
@@ -325,7 +344,8 @@ pub fn pack_check_rows(checks: &[PackCheck]) -> Vec<AuditRecord> {
 /// silently dropped from the summary. The exit contract composes
 /// unchanged: all-unchecked pack rows stay exit 0 with counts
 /// surfaced; a violation row is contradicted evidence and fails the
-/// run.
+/// run. Duplicate row keys in `rows` pass through as-is here — the
+/// `--before` prior-parse guard refuses them labeled downstream.
 pub fn with_pack_rows(mut report: AuditReport, rows: Vec<AuditRecord>) -> AuditReport {
     report.records.extend(rows);
     report
@@ -1161,8 +1181,8 @@ mod pack_row_tests {
             "the reason names the violation count: {}", row.reason
         );
         assert!(
-            row.reason.contains("packs.py.kind_b"),
-            "the reason names a violated rule: {}", row.reason
+            row.reason.contains("packs.py.kind_b (kind not declared by the pack)"),
+            "the reason surfaces the violation's message verbatim: {}", row.reason
         );
     }
 
@@ -1186,6 +1206,41 @@ mod pack_row_tests {
         assert_eq!(merged.class_counts.get("contradicted"), Some(&1));
         assert_eq!(merged.verdict_counts.get("agree"), Some(&1));
         assert_eq!(merged.verdict_counts.get("forbidden"), Some(&1));
+    }
+
+    /// The realistic fold (the slice-4 shape): pack rows joining
+    /// EXISTING oracle rows. Counts are recomputed FROM SCRATCH over
+    /// the merged records — seeded with a deliberately stale map, the
+    /// fold must rebuild it, never increment onto it — and records
+    /// stay sorted by row key across kinds.
+    #[test]
+    fn pack_rows_fold_alongside_oracle_rows() {
+        let mut report = empty_report();
+        report.records.push(AuditRecord {
+            scenario_id: "oracle_setup_holds".to_string(),
+            class: AuditClass::Current,
+            conform_verdict: Verdict::Permitted,
+            reason: "fixture reason".to_string(),
+            evaluated_claim_ids: Vec::new(),
+            closed_world: false,
+        });
+        // deliberately stale maps: a prior diff's leftovers that must
+        // not survive a from-scratch recompute
+        report.class_counts.insert("stale".to_string(), 5);
+        report.verdict_counts.insert("unknown".to_string(), 5);
+        let rows = pack_check_rows(&[check("packs.a", "spec_x", &["packs.a.t"], vec![])]);
+        let merged = with_pack_rows(report, rows);
+        assert_eq!(merged.records.len(), 2);
+        assert_eq!(
+            merged.records[0].scenario_id, "oracle_setup_holds",
+            "row-key order puts the oracle row first"
+        );
+        assert_eq!(merged.class_counts.get("stale"), None, "stale counts never survive the recompute");
+        assert_eq!(merged.verdict_counts.get("unknown"), None);
+        assert_eq!(merged.class_counts.get("current"), Some(&1));
+        assert_eq!(merged.class_counts.get("unchecked"), Some(&1));
+        assert_eq!(merged.verdict_counts.get("permitted"), Some(&1));
+        assert_eq!(merged.verdict_counts.get("agree"), Some(&1));
     }
 
     /// The delta scenario "Unchecked never fails the run": every row
