@@ -253,19 +253,17 @@ pub fn parse_prior_report(bytes: &[u8]) -> Result<AuditReport, ConformError> {
         })
 }
 
-/// The prior-report diff (design D1): compare per-row classes with the
-/// prior report — same class ⇒ `current`, class dropped/worsened ⇒
-/// `stale`, improved ⇒ `current` (the evidence got better; it is
-/// current), no prior row ⇒ `new`. A `scope_sha256` mismatch between
-/// the reports is a labeled refusal: per-row comparison would silently
-/// diff different evidence across corpus versions (the spec may differ
-/// — that is the diff's purpose; the corpus may not).
-pub fn diff_with_prior(
-    mut current: AuditReport,
+/// The diff's diffability preconditions (design D1 + risks), checked
+/// before any row is compared: reports from different audit schema
+/// versions are never silently diffed — the version field exists to
+/// guard exactly this drift — and a `scope_sha256` mismatch is a
+/// labeled refusal: per-row comparison would silently diff different
+/// evidence across corpus versions (the spec may differ — that is the
+/// diff's purpose; the corpus may not).
+pub(crate) fn ensure_diffable(
+    current: &AuditReport,
     prior: &AuditReport,
-) -> Result<AuditReport, ConformError> {
-    // Reports from different audit schema versions are never silently
-    // diffed — the version field exists to guard exactly this drift.
+) -> Result<(), ConformError> {
     if prior.report_schema_version != current.report_schema_version {
         return Err(ConformError {
             stage: "before_diff".into(),
@@ -284,6 +282,32 @@ pub fn diff_with_prior(
             ),
         });
     }
+    Ok(())
+}
+
+/// The pairwise overlay decision (design D1): the current class held
+/// or improved ⇒ `current` (improved evidence is current); it worsened
+/// by the [`AuditClass::rank`] order ⇒ `stale`. The `new` overlay is
+/// not a pairwise decision — a row the prior report never saw has no
+/// prior class to compare — so it stays in [`diff_with_prior`].
+pub(crate) fn overlay_class(current: AuditClass, prior: AuditClass) -> AuditClass {
+    if AuditClass::rank(current) > AuditClass::rank(prior) {
+        AuditClass::Stale
+    } else {
+        AuditClass::Current
+    }
+}
+
+/// The prior-report diff (design D1): compare per-row classes with the
+/// prior report — same class ⇒ `current`, class dropped/worsened ⇒
+/// `stale`, improved ⇒ `current` (the evidence got better; it is
+/// current), no prior row ⇒ `new`; [`ensure_diffable`] refusals come
+/// first. Recomputes `class_counts` over the diffed classes.
+pub fn diff_with_prior(
+    mut current: AuditReport,
+    prior: &AuditReport,
+) -> Result<AuditReport, ConformError> {
+    ensure_diffable(&current, prior)?;
     for record in &mut current.records {
         record.class = match prior
             .records
@@ -291,12 +315,7 @@ pub fn diff_with_prior(
             .find(|r| r.scenario_id == record.scenario_id)
         {
             None => AuditClass::New,
-            Some(prior_row)
-                if AuditClass::rank(record.class) > AuditClass::rank(prior_row.class) =>
-            {
-                AuditClass::Stale
-            }
-            Some(_) => AuditClass::Current,
+            Some(prior_row) => overlay_class(record.class, prior_row.class),
         };
     }
     let mut class_counts: BTreeMap<String, usize> = BTreeMap::new();
@@ -847,6 +866,30 @@ mod diff_tests {
         assert!(
             err.message.contains("schema version"),
             "the refusal names the schema drift: {err}"
+        );
+    }
+
+    /// The extracted pairwise unit's contract at its own granularity:
+    /// held/improved ⇒ `current`, worsened (current→unchecked,
+    /// unchecked→contradicted) ⇒ `stale` — the [`AuditClass::rank`]
+    /// order is the whole decision.
+    #[test]
+    fn overlay_class_ranks_worsening_only() {
+        assert_eq!(
+            overlay_class(AuditClass::Current, AuditClass::Current),
+            AuditClass::Current
+        );
+        assert_eq!(
+            overlay_class(AuditClass::Unchecked, AuditClass::Current),
+            AuditClass::Stale
+        );
+        assert_eq!(
+            overlay_class(AuditClass::Contradicted, AuditClass::Unchecked),
+            AuditClass::Stale
+        );
+        assert_eq!(
+            overlay_class(AuditClass::Current, AuditClass::Unchecked),
+            AuditClass::Current
         );
     }
 }
