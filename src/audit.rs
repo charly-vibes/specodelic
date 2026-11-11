@@ -669,3 +669,184 @@ pub fn cmd_audit(
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Unit tests — the `--before` diff unit pinned in isolation (tasks.md
+// 1.5, slice-1 refactor): constructed reports only, so the pins test
+// the UNIT — no spec parse, no conform walk, no CLI. The counts and
+// scope fields a constructed report carries are inert here: the diff
+// recomputes class_counts and only reads the schema version, the
+// digest, and the per-row records.
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod diff_tests {
+    use super::*;
+
+    /// A minimal report: only the diff's load-bearing fields matter
+    /// (schema version, digest, records).
+    fn report(digest: &str, records: Vec<AuditRecord>) -> AuditReport {
+        AuditReport {
+            report_schema_version: AUDIT_SCHEMA_VERSION,
+            evidence_scope: String::new(),
+            scope_sha256: digest.to_string(),
+            expectation_declared: false,
+            verdict_counts: BTreeMap::new(),
+            class_counts: BTreeMap::new(),
+            records,
+        }
+    }
+
+    fn record(id: &str, class: AuditClass, verdict: Verdict) -> AuditRecord {
+        AuditRecord {
+            scenario_id: id.to_string(),
+            class,
+            conform_verdict: verdict,
+            reason: "fixture reason".to_string(),
+            evaluated_claim_ids: Vec::new(),
+            closed_world: false,
+        }
+    }
+
+    fn class_of(diffed: &AuditReport, id: &str) -> AuditClass {
+        diffed
+            .records
+            .iter()
+            .find(|r| r.scenario_id == id)
+            .unwrap_or_else(|| panic!("diffed row for {id} present"))
+            .class
+    }
+
+    /// Same class ⇒ `current`; improved ⇒ `current` too (the evidence
+    /// got better; it is current).
+    #[test]
+    fn same_or_improved_class_is_current() {
+        let prior = report(
+            "digest",
+            vec![
+                record("held", AuditClass::Current, Verdict::Permitted),
+                record("gap", AuditClass::Unchecked, Verdict::Underspecified),
+            ],
+        );
+        let current = report(
+            "digest",
+            vec![
+                record("held", AuditClass::Current, Verdict::Permitted),
+                record("gap", AuditClass::Current, Verdict::Permitted),
+            ],
+        );
+        let diffed = diff_with_prior(current, &prior).expect("same digest diffs");
+        assert_eq!(class_of(&diffed, "held"), AuditClass::Current);
+        assert_eq!(class_of(&diffed, "gap"), AuditClass::Current);
+        assert_eq!(diffed.class_counts.get("current"), Some(&2));
+    }
+
+    /// Dropped/worsened class ⇒ `stale`, and the stale record carries
+    /// the CURRENT run's conform verdict — the audit rides the fresh
+    /// walk, never the prior report's verdicts.
+    #[test]
+    fn worsened_class_is_stale_carrying_the_current_verdict() {
+        let prior = report(
+            "digest",
+            vec![
+                record("dropped", AuditClass::Current, Verdict::Permitted),
+                record("worsened", AuditClass::Current, Verdict::Permitted),
+            ],
+        );
+        let current = report(
+            "digest",
+            vec![
+                record("dropped", AuditClass::Unchecked, Verdict::Underspecified),
+                record("worsened", AuditClass::Contradicted, Verdict::Forbidden),
+            ],
+        );
+        let diffed = diff_with_prior(current, &prior).expect("same digest diffs");
+        let dropped = diffed
+            .records
+            .iter()
+            .find(|r| r.scenario_id == "dropped")
+            .expect("diffed row for dropped present");
+        assert_eq!(dropped.class, AuditClass::Stale);
+        assert_eq!(dropped.conform_verdict, Verdict::Underspecified);
+        let worsened = diffed
+            .records
+            .iter()
+            .find(|r| r.scenario_id == "worsened")
+            .expect("diffed row for worsened present");
+        assert_eq!(worsened.class, AuditClass::Stale);
+        assert_eq!(worsened.conform_verdict, Verdict::Forbidden);
+        assert_eq!(diffed.class_counts.get("stale"), Some(&2));
+    }
+
+    /// A row the prior report never saw ⇒ `new` — fresh evidence is
+    /// never graded against a baseline that did not record it.
+    #[test]
+    fn row_absent_from_prior_is_new() {
+        let prior = report("digest", vec![]);
+        let current = report(
+            "digest",
+            vec![record("fresh", AuditClass::Current, Verdict::Permitted)],
+        );
+        let diffed = diff_with_prior(current, &prior).expect("same digest diffs");
+        assert_eq!(class_of(&diffed, "fresh"), AuditClass::New);
+        assert_eq!(diffed.class_counts.get("new"), Some(&1));
+    }
+
+    /// An empty prior report (a baseline that shared no rows with this
+    /// run) ⇒ every current row is `new`.
+    #[test]
+    fn empty_prior_report_makes_every_row_new() {
+        let prior = report("digest", vec![]);
+        let current = report(
+            "digest",
+            vec![
+                record("a", AuditClass::Current, Verdict::Permitted),
+                record("b", AuditClass::Unchecked, Verdict::Unknown),
+            ],
+        );
+        let diffed = diff_with_prior(current, &prior).expect("same digest diffs");
+        assert_eq!(class_of(&diffed, "a"), AuditClass::New);
+        assert_eq!(class_of(&diffed, "b"), AuditClass::New);
+        assert_eq!(diffed.class_counts.get("new"), Some(&2));
+    }
+
+    /// A `scope_sha256` mismatch between the reports is a labeled
+    /// refusal — rows are never compared across corpus versions.
+    #[test]
+    fn digest_mismatch_is_a_labeled_refusal() {
+        let prior = report("prior-digest", vec![]);
+        let current = report(
+            "current-digest",
+            vec![record("a", AuditClass::Current, Verdict::Permitted)],
+        );
+        let err = diff_with_prior(current, &prior).expect_err("digest mismatch refuses");
+        assert_eq!(err.stage, "before_diff");
+        assert!(
+            err.message.contains("scope_sha256"),
+            "the refusal names the digest field: {err}"
+        );
+        assert!(
+            err.message.contains("spk audit"),
+            "the refusal carries a remediation hint: {err}"
+        );
+    }
+
+    /// A schema-version mismatch is a labeled refusal, checked before
+    /// the digest — the version field exists to guard exactly this
+    /// drift between report families' generations.
+    #[test]
+    fn schema_version_mismatch_is_a_labeled_refusal() {
+        let mut prior = report("digest", vec![]);
+        prior.report_schema_version = AUDIT_SCHEMA_VERSION + 1;
+        let current = report(
+            "digest",
+            vec![record("a", AuditClass::Current, Verdict::Permitted)],
+        );
+        let err = diff_with_prior(current, &prior).expect_err("schema mismatch refuses");
+        assert_eq!(err.stage, "before_diff");
+        assert!(
+            err.message.contains("schema version"),
+            "the refusal names the schema drift: {err}"
+        );
+    }
+}
