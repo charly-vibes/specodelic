@@ -1,11 +1,13 @@
-//! audit — the graded-evidence audit verb (add-evidence-audit, slice 1).
+//! audit — the graded-evidence audit verb (add-evidence-audit, slices
+//! 1–2).
 //!
 //! Purpose: re-validate recorded evidence (the example/oracle corpus)
 //! against the current model instead of trusting a prior run's good
 //! verdicts — the graded-evidence failures the studies found were all
 //! one concept: evidence whose scope silently widened.
-//! Responsibilities: classify every oracle row into the audit-local
-//! closed evidence-lifecycle vocabulary {current, stale, unchecked,
+//! Responsibilities: classify every evidence row — oracle records AND
+//! pack-check results — into the audit-local closed
+//! evidence-lifecycle vocabulary {current, stale, unchecked,
 //! contradicted, binds_nothing} — slice 1 implements the subset its
 //! tests exercise (`binds_nothing` is slice 3) — with every record
 //! carrying BOTH layers (the audit class and the underlying conform
@@ -24,6 +26,11 @@
 //! Reuses conform's walk machinery unchanged (classify_traces, the
 //! artifact gate, corpus parsing) — no second walk implementation, no
 //! new checking semantics: nothing here checks what conform could not.
+//! Slice 2 adds the pack-check row surface: a checker whose
+//! checked-set is empty yields the structured `unchecked` verdict —
+//! countable in the totals, never a silent pass (the va3q failure) —
+//! and non-empty checked-set results carry through as their real
+//! verdicts.
 //! Read-only like conform: it evaluates, it never compiles, never
 //! writes artifacts, never advances a lifecycle transition.
 //! Rationale: the walk-reuse boundary keeps the audit a thin
@@ -46,10 +53,11 @@ use crate::spec::Spec;
 // layered on conform's untouched verdict taxonomy, never replacing it
 // ---------------------------------------------------------------------------
 
-/// One oracle row's evidence-lifecycle class. Closed set: `current`,
-/// `stale`, `unchecked`, `contradicted`, `new` (slice 1's subset of the
-/// vocabulary; `binds_nothing` lands in slice 3). An audit record
-/// carries BOTH this class and the underlying conform verdict.
+/// One evidence row's evidence-lifecycle class — an oracle record or
+/// a pack-check result. Closed set: `current`, `stale`, `unchecked`,
+/// `contradicted`, `new` (slice 1's subset of the vocabulary;
+/// `binds_nothing` lands in slice 3). An audit record carries BOTH
+/// this class and the underlying conform verdict.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuditClass {
@@ -209,6 +217,133 @@ pub fn build_report(
         class_counts,
         records,
     }
+}
+
+// ---------------------------------------------------------------------------
+// Pack-check rows (slice 2 — tasks 2.1–2.2, supersedes va3q): pack
+// checker outcomes as structured, countable audit rows
+// ---------------------------------------------------------------------------
+
+/// One violation in a pack checker's checked-set — the checker's
+/// labeled finding: the pack rule it violates and the finding message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PackViolation {
+    pub rule_id: String,
+    pub message: String,
+}
+
+/// One pack-checker outcome as the audit receives it (slice 2): the
+/// pack that ran, the spec it was activated for, the rules it
+/// declares, and the checked-set it produced. The checked-set is the
+/// honesty subject: an EMPTY one means the checker ran over activated
+/// vocabulary but produced nothing — the row is `unchecked`, never a
+/// pass (the va3q failure: an empty-checked-set warning string read
+/// as a pass even when the checked file had real problems).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PackCheck {
+    /// The pack that ran (its manifest id).
+    pub pack_id: String,
+    /// The spec the pack was activated for (its intent id) — the row
+    /// key's subject half.
+    pub subject_id: String,
+    /// The rules the pack declares (its vocabulary): context for the
+    /// honesty reason — the reason names how many rules the pack
+    /// declares, so a checker over zero rules with an empty
+    /// checked-set reads as doubly vacuous, not as doubly verified.
+    pub declared_rules: Vec<String>,
+    /// The checked-set: the violations the checker produced.
+    pub violations: Vec<PackViolation>,
+}
+
+/// One pack-check row (tasks 2.2): the audit record classifying one
+/// checker run's outcome, keyed `pack:<pack_id>:<subject_id>` —
+/// deterministic and diffable across reports. An empty checked-set
+/// yields the structured `unchecked` verdict: the verdict carrier is
+/// conform's nothing-was-interpreted `agree`, whose audit layer IS
+/// [`AuditClass::Unchecked`], so the record carries BOTH layers
+/// without ever claiming a check happened — `evaluated_claim_ids`
+/// stays empty (nothing was evaluated). A non-empty checked-set
+/// carries through as its real verdicts: each violation is a positive
+/// contradiction with the pack's declared rules — `forbidden` riding
+/// `contradicted` — with the violated rules naming what the verdict
+/// rests on.
+pub fn pack_check_row(check: &PackCheck) -> AuditRecord {
+    let scenario_id = format!("pack:{}:{}", check.pack_id, check.subject_id);
+    if check.violations.is_empty() {
+        AuditRecord {
+            scenario_id,
+            class: AuditClass::of(Verdict::Agree),
+            conform_verdict: Verdict::Agree,
+            reason: format!(
+                "pack `{}` activated for `{}` over {} declared rule(s) — empty checked-set (no violations to report): nothing was checked; absence of violations is absence of evidence, never a pass",
+                check.pack_id,
+                check.subject_id,
+                check.declared_rules.len(),
+            ),
+            evaluated_claim_ids: Vec::new(),
+            closed_world: false,
+        }
+    } else {
+        let mut violated: Vec<String> = check
+            .violations
+            .iter()
+            .map(|v| v.rule_id.clone())
+            .collect();
+        violated.sort();
+        violated.dedup();
+        let shown = violated.join(", ");
+        AuditRecord {
+            scenario_id,
+            class: AuditClass::of(Verdict::Forbidden),
+            conform_verdict: Verdict::Forbidden,
+            reason: format!(
+                "pack `{}` found {} checked-set violation(s) for `{}`: {}",
+                check.pack_id,
+                check.violations.len(),
+                check.subject_id,
+                shown,
+            ),
+            evaluated_claim_ids: violated,
+            closed_world: false,
+        }
+    }
+}
+
+/// The pack-check rows for a run's checker outcomes (tasks 2.2), in
+/// the report's canonical order — sorted by row key, the same
+/// discipline as [`build_report`], so serialization stays
+/// byte-identical across runs over identical inputs.
+pub fn pack_check_rows(checks: &[PackCheck]) -> Vec<AuditRecord> {
+    let mut rows: Vec<AuditRecord> = checks.iter().map(pack_check_row).collect();
+    rows.sort_by(|a, b| a.scenario_id.cmp(&b.scenario_id));
+    rows
+}
+
+/// Fold pack-check rows into a report (tasks 2.2): the rows join the
+/// records and BOTH count maps are recomputed over the merged set —
+/// pack evidence counts toward the totals like every other row, never
+/// silently dropped from the summary. The exit contract composes
+/// unchanged: all-unchecked pack rows stay exit 0 with counts
+/// surfaced; a violation row is contradicted evidence and fails the
+/// run.
+pub fn with_pack_rows(mut report: AuditReport, rows: Vec<AuditRecord>) -> AuditReport {
+    report.records.extend(rows);
+    report
+        .records
+        .sort_by(|a, b| a.scenario_id.cmp(&b.scenario_id));
+    let mut verdict_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut class_counts: BTreeMap<String, usize> = BTreeMap::new();
+    for record in &report.records {
+        *verdict_counts
+            .entry(record.conform_verdict.as_str().to_string())
+            .or_insert(0) += 1;
+        *class_counts
+            .entry(record.class.as_str().to_string())
+            .or_insert(0) += 1;
+    }
+    report.verdict_counts = verdict_counts;
+    report.class_counts = class_counts;
+    report
 }
 
 // ---------------------------------------------------------------------------
@@ -972,19 +1107,19 @@ mod pack_row_tests {
         );
         assert!(
             row.reason.contains("empty checked-set"),
-            "the reason names the vacuity: {row.reason}"
+            "the reason names the vacuity: {}", row.reason
         );
         assert!(
             row.reason.contains("never a pass"),
-            "the reason states the honesty rule: {row.reason}"
+            "the reason states the honesty rule: {}", row.reason
         );
         assert!(
             row.reason.contains("packs.py") && row.reason.contains("some_spec"),
-            "the reason names the pack and the subject: {row.reason}"
+            "the reason names the pack and the subject: {}", row.reason
         );
         assert!(
             row.reason.contains("2 declared rule(s)"),
-            "the reason names how many rules the pack declares: {row.reason}"
+            "the reason names how many rules the pack declares: {}", row.reason
         );
         assert!(
             row.evaluated_claim_ids.is_empty(),
@@ -1023,11 +1158,11 @@ mod pack_row_tests {
         );
         assert!(
             row.reason.contains("2 checked-set violation(s)"),
-            "the reason names the violation count: {row.reason}"
+            "the reason names the violation count: {}", row.reason
         );
         assert!(
             row.reason.contains("packs.py.kind_b"),
-            "the reason names a violated rule: {row.reason}"
+            "the reason names a violated rule: {}", row.reason
         );
     }
 
