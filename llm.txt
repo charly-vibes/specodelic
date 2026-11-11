@@ -150,6 +150,7 @@ cargo install specodelic
 - [Graph views — derived diagrams of the corpus](https://charly-vibes.github.io/specodelic/graph-views.html)
 - [Architecture — the four layers and the lint pipeline](https://charly-vibes.github.io/specodelic/architecture.html)
 - [Verification boundaries — the guarantee ladder and known limitations](https://charly-vibes.github.io/specodelic/verification-boundaries.html)
+- [Graded evidence — the audit verb and its closed class vocabulary](https://charly-vibes.github.io/specodelic/graded-evidence.html)
 - [specodelic, OpenSpec, and the `ah` companion — who owns what](https://charly-vibes.github.io/specodelic/tool-relationships.html)
 - [worked example — reservation/order, built layer by layer, failures included](https://charly-vibes.github.io/specodelic/examples/worked-example.html)
 - [worked example — the data.lineage pack, failures included](https://charly-vibes.github.io/specodelic/examples/data-lineage.html)
