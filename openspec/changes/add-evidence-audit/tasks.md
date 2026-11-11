@@ -14,7 +14,7 @@ shippable alone; cut freely without the others.
 - [x] 1.3 Red: exit contract — 1 iff `contradicted` (or `stale` when the
       prior report declared an expectation); 2 on gate refusal, zero records.
 - [x] 1.4 Green: `src/audit.rs` (walk reuse), CLI wiring, envelope output.
-- [ ] 1.5 Refactor: extract the report-diff into a testable unit.
+- [x] 1.5 Refactor: extract the report-diff into a testable unit.
 
 ## Slice 2 — pack-check rows (supersedes va3q)
 
