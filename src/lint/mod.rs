@@ -20,7 +20,9 @@ mod rules;
 
 // Moved to submodules (specodelic-g17 file_lines split) — re-imported so
 // existing call sites (lint_one, lint_all, advisory_findings, tests) stay put.
-pub(crate) use graph::{Index, lint_graph_shape, lint_references, resolves_row};
+pub(crate) use graph::{
+    Index, declared_rows, lint_graph_shape, lint_references, resolves_row, transition_ids,
+};
 pub(crate) use observability::{lint_coverage, lint_observability};
 pub(crate) use rules::{
     expected_id_from_path, lint_ears_family, lint_failure_shape_family, lint_frontmatter_family,

@@ -440,13 +440,17 @@ struct EvidenceUnit {
 /// Model-section states plus every declared row id — states bullets,
 /// transitions, constraints, properties. The intent id is deliberately
 /// NOT a model element (it is the file's own id, not a declared row);
-/// a fragment citing only the intent id binds nothing.
+/// a fragment citing only the intent id binds nothing. Derives from
+/// the ONE shared declared-ids index (`crate::lint::declared_rows`
+/// composed with `crate::lint::transition_ids` — transitions are a
+/// separate typed table, add-evidence-audit 3.3) — the same index
+/// lint's graph projections and connectivity state-ids use — never a
+/// parallel audit-local one.
 fn declared_model_ids(spec: &Spec) -> BTreeSet<String> {
-    let mut ids: BTreeSet<String> = spec.states.iter().map(|row| row.id.clone()).collect();
-    ids.extend(spec.transitions.iter().map(|t| t.id.clone()));
-    ids.extend(spec.constraints.iter().map(|row| row.id.clone()));
-    ids.extend(spec.properties.iter().map(|row| row.id.clone()));
-    ids
+    crate::lint::declared_rows(spec)
+        .map(|(_, row)| row.id.clone())
+        .chain(crate::lint::transition_ids(spec).map(String::from))
+        .collect()
 }
 
 /// Whether `text` cites any declared id — WHOLE-TOKEN matching, never
@@ -472,8 +476,10 @@ fn cites_declared_id(text: &str, declared: &BTreeSet<String>) -> bool {
 /// validate_fragments discipline). Citation-expression claims are
 /// deliberately not units: a citation expression is built of `[[row
 /// ids]]` and so binds a declared row id by construction — checking it
-/// would add rows that can never flag. A LOCAL collection only; sharing
-/// the declared-ids index with lint is task 3.3 (a different ticket).
+/// would add rows that can never flag. The UNITS are collected
+/// audit-locally; the declared-ids citation TARGET they are checked
+/// against is the shared walk with lint (`crate::lint::declared_rows`,
+/// add-evidence-audit 3.3) — one index, no parallel walks.
 fn evidence_units(spec: &Spec) -> Vec<EvidenceUnit> {
     let ir = crate::compile::extract_model_ir(spec);
     let mut units: Vec<EvidenceUnit> = ir

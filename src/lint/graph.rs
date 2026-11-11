@@ -120,7 +120,7 @@ fn conn_edges_of(specs: &[Spec]) -> Vec<(String, String)> {
         .iter()
         .flat_map(|spec| {
             let file_id = spec.intent.id.clone();
-            let states: Vec<String> = spec.states.iter().map(|s| s.id.clone()).collect();
+            let states: BTreeSet<&str> = state_ids(spec).collect();
             spec.transitions.iter().flat_map(move |t| {
                 let file_id = file_id.clone();
                 let states = states.clone();
@@ -132,7 +132,7 @@ fn conn_edges_of(specs: &[Spec]) -> Vec<(String, String)> {
                 let edges: Vec<(String, String)> = endpoints
                     .iter()
                     .filter_map(move |endpoint| {
-                        if states.iter().any(|s| s == endpoint) {
+                        if states.contains(endpoint.as_str()) {
                             Some((t_node.clone(), format!("{file_id}.{endpoint}")))
                         } else {
                             None
@@ -449,11 +449,51 @@ pub(crate) fn find_cycles(edges: &BTreeSet<(String, String)>) -> Vec<Vec<String>
     found
 }
 
-pub(crate) fn rows(spec: &Spec) -> Vec<(&'static str, &crate::spec::Row)> {
+/// The ONE canonical walk over a spec's declared model rows — the
+/// shared declared-ids index (add-evidence-audit 3.3): the graph
+/// projections ([`rows`]), the connectivity state-id membership
+/// ([`state_ids`]), and audit's citation-target set
+/// (`audit::declared_model_ids`, composed with [`transition_ids`])
+/// all derive from this single implementation instead of parallel
+/// per-consumer walks. The walk order is the projection contract:
+/// constraints, properties, states. Transitions are a separate typed
+/// table (from/to/guard, not a Row) and are exposed as their own
+/// [`transition_ids`] piece — never yielded here, so this walk IS the
+/// graph projection. The intent row is the file's own id, not a
+/// declared model row, and is never yielded (audit's semantic: a
+/// fragment citing only the intent id binds nothing).
+pub(crate) fn declared_rows(
+    spec: &Spec,
+) -> impl Iterator<Item = (&'static str, &crate::spec::Row)> {
     let constraints = spec.constraints.iter().map(|r| ("constraints", r));
     let properties = spec.properties.iter().map(|r| ("properties", r));
     let states = spec.states.iter().map(|r| ("states", r));
-    constraints.chain(properties).chain(states).collect()
+    constraints.chain(properties).chain(states)
+}
+
+/// The graph-projection rows (constraints, properties, states — never
+/// transitions: transitions anchor the connectivity graph, they are
+/// not projected rows) in canonical [`declared_rows`] order.
+pub(crate) fn rows(spec: &Spec) -> Vec<(&'static str, &crate::spec::Row)> {
+    declared_rows(spec).collect()
+}
+
+/// The transition-id piece of the shared index: the declared
+/// transition table is typed apart from the Row walk, and audit's
+/// citation-target set composes it with [`declared_rows`] (states,
+/// constraints, and properties are Rows; transitions are not).
+pub(crate) fn transition_ids<'a>(spec: &'a Spec) -> impl Iterator<Item = &'a str> + 'a {
+    spec.transitions.iter().map(|t| t.id.as_str())
+}
+
+/// The state-id membership piece of the shared walk: the only rows a
+/// transition's from/to may resolve against for the connectivity
+/// graph (every_transition_valid validates endpoints separately — a
+/// ghost endpoint creates no edge here).
+pub(crate) fn state_ids<'a>(spec: &'a Spec) -> impl Iterator<Item = &'a str> + 'a {
+    declared_rows(spec)
+        .filter(|(table, _)| *table == "states")
+        .map(|(_, r)| r.id.as_str())
 }
 
 /// Corpus-wide id index for reference resolution.
