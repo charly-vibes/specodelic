@@ -158,7 +158,9 @@ fn lint_corpus_is_fully_clean() {
     // + the conform capability (add-conform, 2026-10-16)
     // + the graph-views capability (add-graph-views, s8fg task 7.1
     // companion archive, 2026-10-19).
-    assert_eq!(data["files_linted"], 47);
+    // 48 = + the audit capability (add-evidence-audit companion archive,
+    // specodelic-x0wy, 2026-11-11).
+    assert_eq!(data["files_linted"], 48);
     let issues = data["issues"].as_array().unwrap_p();
     assert!(issues.is_empty(), "corpus lint findings: {issues:?}");
     assert_eq!(out.status.code(), Some(0));
