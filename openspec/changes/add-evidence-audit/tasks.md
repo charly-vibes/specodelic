@@ -38,7 +38,7 @@ shippable alone; cut freely without the others.
       1–5, never exceeding present evidence; lint/orchestrate summaries
       unchanged otherwise.
 - [x] 4.2 Green: derive rungs from existing outputs at report time.
-- [ ] 4.3 Refactor: `just ci` green.
+- [x] 4.3 Refactor: `just ci` green.
 
 ## Docs + layer
 
