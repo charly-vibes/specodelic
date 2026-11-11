@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-11-specodelic-37hl-rung-aggregate, pipeline-step:red]
+---
+
+RED 4.1: command=TMPDIR=/var/tmp/specodelic-xch1 just test-smart. Expected failure confirmed = the missing rung surface, nothing else: E0422/E0425 cannot find RungAggregate/EvidenceMix/rung_from_evidence/with_derived_rung (17), E0609 no field ladder_rung on AuditReport (6), E0433 no model_check in rung_tests scope (12). tests/audit_rung.rs compiles past fixtures and pins envelope data.ladder_rung (runtime red once lib compiles). Pins: delta scenarios verbatim (model-checked-only⇒3 never 4/5; no-evidence⇒1 'at most'), full mix table (exploration_only/timed_out⇒3, verify⇒4, counterexample⇒5), vacuous rows never lift (modelful⇒2/free⇒1), stale check.json never lifts + current does (tmpdir IO, sha via artifact_sha256), old-shape prior parses via serde default + diff never lets prior rung drive current + round-trip, human_view surfaces 'ladder_rung: 3 — basis'. CLI pins: real-binary rung 3 in JSON+human with binds row counting, rung 2 without check evidence

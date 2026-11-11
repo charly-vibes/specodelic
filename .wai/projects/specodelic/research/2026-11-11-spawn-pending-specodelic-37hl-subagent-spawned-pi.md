@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-11-specodelic-l6md-shared-declared-ids-index, pipeline-step:ship-close]
+---
+
+SPAWN-PENDING: specodelic-37hl subagent spawned pid 2922478 (fresh session, name subagent:specodelic-37hl:tdd-ro5), log /var/tmp/specodelic-37hl-subagent.log, watchdog /var/tmp/specodelic-37hl-watchdog.log (15-min liveness + EXITED/DONE marker, pid 2922481). l6md SHIPPED this session: 4 commits ae3e798/60ba02c/461febb/90735b9 verified (diff scope==brief, cmp byte-identity spot, just ci exit 0 988/0), closed, pushed cc0ff16..dfc144f; L8 residual filed specodelic-gixd; SLICE 3 COMPLETE. 37hl brief committed+pushed cd10ef5 WITH claim export. Brief carries: slice-4 independence from slice 1 (red test decides wiring), ladder semantics 1-5 from verification-boundaries.md, unchecked/binds_nothing never lift rung, no new stored state, lint/orchestrate byte-identity as hard guard (touching them = report deviation, not edit). On DONE: capture report, verify diff scope (src/audit.rs + tasks.md 4.1-4.2 checkboxes only) + rung pins + just ci, close 37hl, export+push, queue 6hou next (4.3 refactor, verify bd blocked-state cleared before claiming).
