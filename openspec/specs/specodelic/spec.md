@@ -73,7 +73,7 @@ is a [typed foreign key](theory.md#typed-foreign-keys-generating-morphisms).
 |---------------|-------------|-------------------|
 | `traces_to`   | Constraint  | Intent            |
 | `derives_from`| Property    | Constraint, or the same Property when the deriving row is itself a `law` — a law derives from the top-level constraint **or law** it restates (e.g. the checker-file `*_naturality` laws deriving from `specodelic.rename_naturality`); the graph acyclicity invariant (`acyclic_traces`, which already includes `derives_from`) is what keeps this same-kind self-reference edge well-formed |
-| `guard`       | Transition  | an invariant Constraint — or a State, the "has reached state X" pattern (Revision 12) — an `advisory` Constraint can never gate a transition, by typing, not by convention. A guard may be prose; when its gating condition corresponds to a declared constraint, the guard must cite it — a prose-only guard is machine-uninterpreted (the model-check backend reports `invariants_checked: []`) |
+| `guard`       | Transition  | an invariant Constraint — or a State, the "has reached state X" pattern (Revision 12) — an `advisory` Constraint can never gate a transition, by typing, not by convention. A guard may be prose; when its gating condition corresponds to a declared constraint, the guard must cite it — a prose-only guard is machine-uninterpreted (the model-check backend reports `invariants_checked: []` — exploration-only, honestly, never counted as verified); when the guard's cited invariant Constraint carries a `**rust:**` fragment (Revision 15 — the marker lives on the Constraint's `expr` cell, never on the guard itself, which `fragment_guard_rejected` refuses), model_check's executable backend runs it natively and `no_counterexample` can be honestly earned |
 | `from` / `to` | Transition  | State             |
 | `supersedes`  | Constraint, Property | same kind as the row it appears on (Constraint→Constraint, Property→Property) |
 | `emits`       | State       | Constraint, kind == `effect` only — a state's declared Moore-machine output; optional and absent on a state with no output of its own |
@@ -974,6 +974,20 @@ capability spec is invalidated — the capability-spec class keeps every
 rule it had. `archive-companion`'s deploy re-assembly (openspec applies,
 the companion re-attaches the layer from the archived sidecar) is
 tool semantics, recorded in `archive-companion.md` — not a format law.
+
+## Revision 20 — 2026-11-12
+
+**Guard row names the executable regime** (`specodelic-814`). The
+Reference Typing `guard` cell stated only the prose-only regime — "a
+prose-only guard is machine-uninterpreted (the model-check backend
+reports `invariants_checked: []`)" — with no mention of the `**rust:**`
+escape hatch; that was never wrong for prose guards but went incomplete
+when Revision 15 landed the executable-fragment mechanism. The cell now states both regimes:
+prose-only stays exploration-only, honestly uncounted; a cited invariant
+Constraint carrying a `**rust:**` fragment executes natively
+(model_check.md's `executable_invariants_execute`), where
+`no_counterexample` can be honestly earned. No typing rule, closed set,
+or table shape changes — wording sync only.
 
 ## Requirements
 
