@@ -415,6 +415,15 @@ fn unescape_cell_pipes(text: &str) -> String {
     text.replace("\\|", "|")
 }
 
+/// The shared body-shaping for executable rust bodies — inline
+/// fragments (table cells) and `## Fragments` helper bodies alike
+/// (task 3.1: one extraction discipline, two transports): trimmed,
+/// with the table-cell pipe escape undone (identity for section text,
+/// which never carries the escape — the fence body is not a cell).
+fn shape_rust_body(text: &str) -> String {
+    unescape_cell_pipes(text.trim())
+}
+
 /// Strict fragment parse: `Ok(None)` when the cell carries no marker in
 /// fragment position (unchanged pre-Revision-15 behavior),
 /// `Ok(Some(fragment))` for exactly one fragment-position marker with a
@@ -459,13 +468,7 @@ pub fn fragment_of_strict(cell: &str) -> Result<Option<Fragment>, String> {
             } else {
                 Ok(Some(Fragment {
                     lang,
-                    // Unescape the cell's pipe transport (`\|`) here, at
-                    // the single place fragment text is produced, so every
-                    // downstream consumer — `_props.rs` assertions, the
-                    // `.tla` manifest, the model-check scratch crate,
-                    // audit/conform evidence — sees the same unescaped
-                    // Rust (specodelic-q7uo).
-                    text: unescape_cell_pipes(fragment),
+                    text: shape_rust_body(fragment),
                 }))
             }
         }
@@ -670,7 +673,7 @@ fn fragment_defs(spec: &Spec) -> Result<Vec<FragmentDef>, CompileError> {
         if open {
             return Err(helper_error(format!("def `{name}` has an unclosed fence")));
         }
-        let body = body.trim_end().to_string();
+        let body = shape_rust_body(&body);
         if body.is_empty() {
             return Err(helper_error(format!("def `{name}` has an empty body")));
         }
