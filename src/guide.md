@@ -374,3 +374,27 @@ the full closed atomic set. Every atomic names its proven grounding
 (graph traversal, acset traversal, model_check bounded evaluation),
 so evaluation is total over finite instances and `unknown` never
 coerces to pass.
+
+## Shared fragment definitions (`## Fragments`, folded summary)
+
+A spec file may carry an optional `## Fragments` section of named
+shared definitions — `def <name>:` followed by a fenced rust body.
+Any fragment cell in the same file references a helper with the `@name`
+token, and compile inlines each referenced body at every use site as a
+`({ <items> <name> })` block expression: per-row blocks stay
+self-contained (the inline-not-shared-module decision of record — no
+artifact-layout change for any consumer), and the rewrite is valid
+identically for predicate assertions and ModelIR invariant fragments.
+
+The section is opaque prose to the linter — no frontmatter, tables, or
+typed references, no gating rule disturbed. Compile is stricter, all
+labeled at `fragment_extraction`: a malformed or duplicate `def` line;
+a helper name colliding with a generated symbol (`spec_gen`,
+`todo_predicate`, a block fn, or the `v0`, `v1`, … strategy-binding
+namespace — never a silent shadow); a helper body carrying a
+`fragment_hygiene` banned token (helpers inherit the fragment token ban
+verbatim, imprecision included); an `@name` no `def` defines; and
+mutually referencing defs (a cycle — inlining terminates by
+construction). A def reachable from no fragment cell is a dead helper:
+compile succeeds and the warning rides the warnings channel. A file
+without the section compiles byte-identically (pure widening).
