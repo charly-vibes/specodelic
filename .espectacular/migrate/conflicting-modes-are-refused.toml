@@ -1,0 +1,12 @@
+id = "conflicting-modes-are-refused"
+description = "add-revision-upgrade: the verb's modes are exclusive — neither flag is silently ignored"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "upgrade_rekey_and_to_revision_conflict_is_refused"
+
+[[tests.cargo]]
+flags = "upgrade_write_and_dry_run_conflict_is_refused"

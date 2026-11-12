@@ -10,13 +10,13 @@
 //! self-hosting; this binary is the machine half of that contract.
 
 use clap::CommandFactory;
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use genesis::cli::generate_completions;
 use genesis::envelope::{Envelope, EnvelopeKind};
 use genesis::guide::{CliFormat, CliVerbosity, Output, OutputFormat, Verbosity};
 
 use specodelic::spec::Spec;
-use specodelic::{acset, audit, checklist, graph, guide, model_check, spec, verify};
+use specodelic::{acset, audit, checklist, graph, guide, migrate, model_check, spec, verify};
 
 mod commands;
 
@@ -335,18 +335,10 @@ enum Commands {
     /// and the specodelic layer is scaffolded into a sibling `layer.md`
     /// sidecar (Revision 19); an already-migrated pair is refused. With
     /// --rekey, instead rewrite an `id: spec` dual-format file to its
-    /// Revision 18 real id (naming law; idempotent no-op when already real)
-    Migrate {
-        /// Delta file to wrap in place (must contain ## ADDED and/or ##
-        /// MODIFIED Requirements)
-        file: String,
-        /// Print the resulting content without writing the file
-        #[arg(long)]
-        dry_run: bool,
-        /// Rekey an `id: spec` dual-format file to its real parent-dir-derived id
-        #[arg(long)]
-        rekey: bool,
-    },
+    /// Revision 18 real id (naming law; idempotent no-op when already real).
+    /// With --to-revision, instead upgrade a corpus across the known
+    /// format revisions (a dry run unless --write is given).
+    Migrate(MigrateArgs),
     /// Scaffold a new spec file from the four-layer template
     New {
         /// Intent id for the new spec (e.g. order.cancel)
@@ -434,6 +426,33 @@ enum Commands {
         #[arg(value_enum)]
         shell: clap_complete::Shell,
     },
+}
+
+/// The `migrate` verb's arguments: the plain-delta wrap, the `--rekey`
+/// rewrite, and the corpus revision upgrade (`--to-revision`) — three
+/// modes over one positional path list.
+#[derive(Args)]
+struct MigrateArgs {
+    /// Delta file to wrap in place (must contain ## ADDED and/or ##
+    /// MODIFIED Requirements); with --to-revision, the corpus paths to
+    /// upgrade across the known format revisions
+    #[arg(required = true)]
+    paths: Vec<String>,
+    /// Print the resulting content without writing the file
+    #[arg(long)]
+    dry_run: bool,
+    /// Rekey an `id: spec` dual-format file to its real parent-dir-derived id
+    #[arg(long)]
+    rekey: bool,
+    /// Upgrade the given paths to the named format revision
+    #[arg(long, value_name = "N")]
+    to_revision: Option<u32>,
+    /// The revision the corpus is authored at (default: detected from the files)
+    #[arg(long, value_name = "R")]
+    from_revision: Option<u32>,
+    /// Apply the revision upgrade (without it the upgrade is a dry run)
+    #[arg(long, visible_alias = "force")]
+    write: bool,
 }
 
 #[derive(Subcommand)]
@@ -600,6 +619,211 @@ fn cmd_guide(
     0
 }
 
+/// The `migrate` verb's dispatch. The corpus revision upgrade is wired
+/// here; the wrap and `--rekey` paths keep their existing command arm
+/// (src/commands/manage.rs) and their existing behavior — exactly one
+/// file each.
+fn cmd_migrate_verb(
+    args: &MigrateArgs,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    if let Some(target) = args.to_revision {
+        if args.rekey {
+            let out: Output<serde_json::Value> = Output::failure(
+                "--rekey and --to-revision are different modes — pick one",
+            )
+            .with_next_step(
+                "run: spk migrate --rekey <file> (the Revision 18 re-key) or spk migrate --to-revision <N> <paths...> (the corpus upgrade)",
+            );
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            return 2;
+        }
+        return cmd_migrate_upgrade(
+            &UpgradeRequest {
+                paths: &args.paths,
+                from_revision: args.from_revision,
+                target,
+                write: args.write,
+                dry_run: args.dry_run,
+            },
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        );
+    }
+    if args.paths.len() != 1 {
+        let out: Output<serde_json::Value> = Output::failure(format!(
+            "the migrate wrap path takes exactly one file — {} paths given",
+            args.paths.len()
+        ))
+        .with_next_step(
+            "run: spk migrate <file> (one delta file); the corpus upgrade takes --to-revision <N> <paths...>",
+        );
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
+    cmd_migrate(
+        &args.paths[0],
+        args.dry_run,
+        args.rekey,
+        format,
+        verbosity,
+        stdout,
+        stderr,
+    )
+}
+
+/// The corpus revision upgrade (`spk migrate --to-revision <N>`): plan
+/// the upgrade across the known format revisions, then write only the
+/// files a registered step changed. A dry run unless `--write` is
+/// given; a refusal (an unknown revision, a target below the corpus's
+/// current revision, a file that cannot be upgraded) writes nothing.
+/// The upgrade request the migrate verb hands to its upgrade arm.
+struct UpgradeRequest<'a> {
+    /// The supplied paths (files or corpus directories).
+    paths: &'a [String],
+    /// The declared source revision, when the adopter named one.
+    from_revision: Option<u32>,
+    /// The requested target revision.
+    target: u32,
+    /// Apply the plan (`--write`).
+    write: bool,
+    /// The explicit preview flag (`--dry-run`).
+    dry_run: bool,
+}
+
+/// The corpus revision upgrade (`spk migrate --to-revision <N>`): plan
+/// the upgrade across the known format revisions, then write only the
+/// files a registered step changed. A dry run unless `--write` is
+/// given; a refusal (an unknown revision, a target below the corpus's
+/// current revision, a file that cannot be upgraded) writes nothing.
+fn cmd_migrate_upgrade(
+    request: &UpgradeRequest<'_>,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let UpgradeRequest {
+        paths,
+        from_revision,
+        target,
+        write,
+        dry_run,
+    } = *request;
+    if write && dry_run {
+        let out: Output<serde_json::Value> = Output::failure(
+            "--write and --dry-run conflict — the revision upgrade is a dry run unless --write is given"
+                .to_string(),
+        )
+        .with_next_step(
+            "run: spk migrate --to-revision <N> <paths...> (preview) or add --write (apply)",
+        );
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
+    let files = collect_specs(paths);
+    if files.is_empty() {
+        let out: Output<serde_json::Value> = Output::failure(format!(
+            "no markdown files found under {}",
+            paths.join(", ")
+        ))
+        .with_next_step("pass the corpus paths to upgrade (a directory or a spec file)");
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
+    let mut inputs: Vec<(std::path::PathBuf, String)> = Vec::new();
+    for file in &files {
+        match std::fs::read_to_string(file) {
+            Ok(text) => inputs.push((file.clone(), text)),
+            Err(e) => {
+                let out: Output<serde_json::Value> =
+                    Output::failure(format!("{}: unreadable ({e})", file.display()))
+                        .with_next_step("pass a readable UTF-8 markdown file");
+                emit_report(out, None, format, verbosity, stdout, stderr);
+                return 2;
+            }
+        }
+    }
+    let plan = match migrate::plan_upgrade(&inputs, from_revision, target) {
+        Ok(plan) => plan,
+        Err(e) => {
+            let hint = match e {
+                migrate::UpgradeError::UnknownTargetRevision(_)
+                | migrate::UpgradeError::UnknownSourceRevision(_) => {
+                    "run: spk --version --json — it reports the embedded format revision"
+                }
+                migrate::UpgradeError::TargetBelowCurrent { .. } => {
+                    "an upgrade never moves a corpus backwards — target the corpus's current revision or higher"
+                }
+                migrate::UpgradeError::NoDerivableId(_) => {
+                    "move the file under its capability directory (openspec/specs/<cap>/spec.md) — the id derives from the parent dir"
+                }
+                migrate::UpgradeError::UnreadableFrontmatter(_) => {
+                    "close the frontmatter fence (---) so the id line can be read"
+                }
+            };
+            let out: Output<serde_json::Value> =
+                Output::failure(e.to_string()).with_next_step(hint);
+            emit_report(out, None, format, verbosity, stdout, stderr);
+            return 2;
+        }
+    };
+    // Write only the files a registered step changed — every other file
+    // keeps its bytes (line endings and final terminator included).
+    let mut written = 0usize;
+    if write {
+        for file in plan.files.iter().filter(|f| f.changed) {
+            if let Err(e) = std::fs::write(&file.path, &file.content) {
+                let out: Output<serde_json::Value> =
+                    Output::failure(format!("{}: write failed ({e})", file.path.display()))
+                        .with_next_step("check file permissions");
+                emit_report(out, None, format, verbosity, stdout, stderr);
+                return 2;
+            }
+            written += 1;
+        }
+    }
+    let changed: Vec<serde_json::Value> = plan
+        .files
+        .iter()
+        .filter(|f| f.changed)
+        .map(|f| {
+            let mut entry = serde_json::json!({
+                "path": f.path.display().to_string(),
+                "revisions": f.applied,
+            });
+            if !write {
+                entry["content"] = serde_json::json!(f.content);
+            }
+            entry
+        })
+        .collect();
+    let skipped: Vec<serde_json::Value> = plan
+        .skipped
+        .iter()
+        .map(|s| serde_json::json!({"path": s.path.display().to_string(), "reason": s.reason}))
+        .collect();
+    let out: Output<serde_json::Value> = Output::success(serde_json::json!({
+        "mode": "upgrade",
+        "source_revision": plan.source_revision,
+        "target_revision": plan.target_revision,
+        "dry_run": !write,
+        "files_scanned": inputs.len(),
+        "files_changed": changed.len(),
+        "files_written": written,
+        "changed": changed,
+        "skipped": skipped,
+    }))
+    .with_next_step("run: spk lint <corpus> — the upgraded corpus must lint clean");
+    emit_report(out, None, format, verbosity, stdout, stderr);
+    0
+}
+
 fn run(
     cli: &Cli,
     format: OutputFormat,
@@ -756,11 +980,7 @@ fn run(
         Commands::New { id, file } => {
             cmd_new(id, file.as_deref(), format, verbosity, stdout, stderr)
         }
-        Commands::Migrate {
-            file,
-            dry_run,
-            rekey,
-        } => cmd_migrate(file, *dry_run, *rekey, format, verbosity, stdout, stderr),
+        Commands::Migrate(args) => cmd_migrate_verb(args, format, verbosity, stdout, stderr),
         Commands::Explain { topic } => {
             cmd_explain(topic.as_deref(), format, verbosity, stdout, stderr)
         }

@@ -1,0 +1,9 @@
+id = "target-below-the-current-revision-is-refused"
+description = "add-revision-upgrade: a target below the corpus's current revision is refused and writes nothing"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "upgrade_target_below_current_revision_is_refused"

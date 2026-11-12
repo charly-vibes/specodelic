@@ -57,6 +57,7 @@ mod graph_views;
 mod hooks_hostile_output;
 mod lint;
 mod migrate;
+mod migrate_upgrade;
 mod model_check;
 mod orchestrate_verify;
 mod pack_discovery;

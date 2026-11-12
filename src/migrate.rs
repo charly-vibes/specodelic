@@ -16,6 +16,16 @@
 //! preview path). `--rekey` (add-migrate-rekey) keeps the Revision 18
 //! semantics unchanged: an `id: spec` dual-format file re-keyed in
 //! place, every `[[spec.*]]` ref re-keyed, every other byte untouched.
+//!
+//! The third face of the verb is the corpus revision upgrade
+//! (add-revision-upgrade): the core-owned [`REVISIONS`] registry records
+//! every known format revision — its date, its change note and the
+//! optional migration step a corpus file needs to cross it — and
+//! [`plan_upgrade`] carries a file set from the corpus's source revision
+//! to a target revision. The registry is thin by design: only Revision 18
+//! (the id law) carries a step; every other revision was additive and
+//! upgrades as a byte-stable no-op. The upgrade never rewrites a plain
+//! delta and never creates a file — the wrap path's job stays untouched.
 
 use std::fmt;
 
@@ -157,6 +167,479 @@ pub fn rekey(text: &str, path: &std::path::Path) -> Result<MigrateOutcome, Migra
         inserted_layers: vec![],
         inserted_mirror: false,
     })
+}
+
+/// The first known format revision — the corpus's revision history
+/// starts at Revision 2.
+pub const FIRST_REVISION: u32 = 2;
+
+/// The latest known format revision — the one this binary embeds.
+pub const LATEST_REVISION: u32 = 20;
+
+/// One known format revision in the core-owned registry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RevisionEntry {
+    /// The revision number.
+    pub number: u32,
+    /// The date the format corpus records for the revision (revisions
+    /// 2 … 15 carry no date in the corpus).
+    pub date: Option<&'static str>,
+    /// A one-line change note.
+    pub note: &'static str,
+    /// The migration step a corpus file needs to cross this revision —
+    /// `None` when the revision required no corpus rewrite.
+    pub step: Option<RevisionStep>,
+}
+
+/// The mechanical transform a revision needs. A revision whose change was
+/// additive (a new rule, a reworded constraint, a tool-side change)
+/// carries no step at all: crossing it is a byte-stable no-op.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevisionStep {
+    /// Revision 18's id law: the frontmatter `id: spec` becomes the
+    /// parent-directory-derived id and every `[[spec…]]` ref re-keys to
+    /// it. Every other byte of the file stays untouched.
+    IdLaw,
+}
+
+/// The core-owned registry of the known format revisions.
+///
+/// Each entry records the revision number, the date the format corpus
+/// records for it, a one-line change note, and an OPTIONAL migration
+/// step. The registry is thin by design: only Revision 18 — the id law
+/// — needs a corpus rewrite; the other revisions were additive,
+/// rewordings, or changes to the tool's own semantics, so crossing them
+/// changes no file.
+pub const REVISIONS: &[RevisionEntry] = &[
+    RevisionEntry {
+        number: 2,
+        date: None,
+        note: "the linter's four gaps folded into the constraint/model/property split",
+        step: None,
+    },
+    RevisionEntry {
+        number: 3,
+        date: None,
+        note: "Rule-of-5 review of the checker corpus — the id_matches_file bug fixed",
+        step: None,
+    },
+    RevisionEntry {
+        number: 4,
+        date: None,
+        note: "the closed kind sets for Constraint and Property rows",
+        step: None,
+    },
+    RevisionEntry {
+        number: 5,
+        date: None,
+        note: "the polyglot-ecosystem sweep — quality signals, adapter contracts, feedback loops",
+        step: None,
+    },
+    RevisionEntry {
+        number: 6,
+        date: None,
+        note: "the category-theory sweep — grounded expressions, Moore-machine reducers",
+        step: None,
+    },
+    RevisionEntry {
+        number: 7,
+        date: None,
+        note: "the multiple-dispatch sweep — extension points, protocols, multimethods",
+        step: None,
+    },
+    RevisionEntry {
+        number: 8,
+        date: None,
+        note: "the model-checking backend became pluggable — the corpus language leaves Alloy",
+        step: None,
+    },
+    RevisionEntry {
+        number: 9,
+        date: None,
+        note: "declared outputs became observable claims — `observes` separates watched effects",
+        step: None,
+    },
+    RevisionEntry {
+        number: 10,
+        date: None,
+        note: "guard typing decided — a guard may be prose or cite a row",
+        step: None,
+    },
+    RevisionEntry {
+        number: 11,
+        date: None,
+        note: "`derives_from` gains the same-kind law edge",
+        step: None,
+    },
+    RevisionEntry {
+        number: 12,
+        date: None,
+        note: "`guard` may cite a State as well as a Constraint",
+        step: None,
+    },
+    RevisionEntry {
+        number: 13,
+        date: None,
+        note: "law rows enumerate their required cases as named labels in their own predicate",
+        step: None,
+    },
+    RevisionEntry {
+        number: 14,
+        date: None,
+        note: "domain packs — the extension mechanism becomes first-class",
+        step: None,
+    },
+    RevisionEntry {
+        number: 15,
+        date: None,
+        note: "executable predicate fragments — the verified gate becomes reachable",
+        step: None,
+    },
+    RevisionEntry {
+        number: 16,
+        date: Some("2026-10-04"),
+        note: "closed language-tag fragments — rust, py and ts",
+        step: None,
+    },
+    RevisionEntry {
+        number: 17,
+        date: Some("2026-10-08"),
+        note: "the min-expr kernel — decidable semantics for the data-dependent cells",
+        step: None,
+    },
+    RevisionEntry {
+        number: 18,
+        date: Some("2026-10-08"),
+        note: "single-tree spec authoring — the id law derives spec.md from its parent directory",
+        step: Some(RevisionStep::IdLaw),
+    },
+    RevisionEntry {
+        number: 19,
+        date: Some("2026-10-24"),
+        note: "change deltas go plain — the layer rides beside as a layer.md sidecar",
+        step: None,
+    },
+    RevisionEntry {
+        number: 20,
+        date: Some("2026-11-12"),
+        note: "the guard row names the executable regime",
+        step: None,
+    },
+];
+
+/// The known revision range, as the refusal messages name it.
+pub fn known_revision_range() -> String {
+    format!("{FIRST_REVISION} to {LATEST_REVISION}")
+}
+
+/// The registry entry for a revision, when the revision is known.
+pub fn known_revision(number: u32) -> Option<&'static RevisionEntry> {
+    REVISIONS.iter().find(|e| e.number == number)
+}
+
+/// Why an upgrade cannot run (specs/migrate, the upgrade refusals).
+#[derive(Debug, PartialEq, Clone)]
+pub enum UpgradeError {
+    /// The requested target revision is outside the known range.
+    UnknownTargetRevision(u32),
+    /// The declared source revision is outside the known range.
+    UnknownSourceRevision(u32),
+    /// The target revision is below the corpus's current revision — an
+    /// upgrade never moves a corpus backwards.
+    TargetBelowCurrent {
+        /// The requested target revision.
+        target: u32,
+        /// The corpus's current revision.
+        current: u32,
+        /// The file that still carries the older shape, when one is known.
+        lagging: Option<std::path::PathBuf>,
+    },
+    /// The file's real id cannot be derived (a bare `spec.md`, or a
+    /// parent directory named `spec`).
+    NoDerivableId(std::path::PathBuf),
+    /// The file's frontmatter has no closing fence — the id line cannot
+    /// be read.
+    UnreadableFrontmatter(std::path::PathBuf),
+}
+
+impl fmt::Display for UpgradeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            UpgradeError::UnknownTargetRevision(n) => write!(
+                f,
+                "unknown target revision {n} — the known format revisions are {}",
+                known_revision_range()
+            ),
+            UpgradeError::UnknownSourceRevision(n) => write!(
+                f,
+                "unknown source revision {n} — the known format revisions are {}",
+                known_revision_range()
+            ),
+            UpgradeError::TargetBelowCurrent {
+                target,
+                current,
+                lagging,
+            } => {
+                write!(
+                    f,
+                    "target revision {target} is below the corpus's current revision {current} — an upgrade never moves a corpus backwards"
+                )?;
+                if let Some(path) = lagging {
+                    write!(f, " (the oldest file is {})", path.display())?;
+                }
+                Ok(())
+            }
+            UpgradeError::NoDerivableId(path) => write!(
+                f,
+                "{}: the real id cannot be derived (bare spec.md, or parent dir named `spec`)",
+                path.display()
+            ),
+            UpgradeError::UnreadableFrontmatter(path) => write!(
+                f,
+                "{}: the frontmatter has no closing fence — the id line cannot be read",
+                path.display()
+            ),
+        }
+    }
+}
+
+/// The per-file outcome of an upgrade plan.
+#[derive(Debug, PartialEq, Clone)]
+pub struct UpgradeFile {
+    /// The file's path.
+    pub path: std::path::PathBuf,
+    /// The file's content after the upgrade (unchanged when no step
+    /// applied).
+    pub content: String,
+    /// True when the registered steps changed the file's bytes.
+    pub changed: bool,
+    /// The revisions whose steps applied to this file.
+    pub applied: Vec<u32>,
+}
+
+/// A file the upgrade left alone, with the reason.
+#[derive(Debug, PartialEq, Clone)]
+pub struct SkippedFile {
+    /// The file's path.
+    pub path: std::path::PathBuf,
+    /// Why the file was skipped.
+    pub reason: &'static str,
+}
+
+/// The upgrade plan: the resolved revisions plus the per-file outcomes.
+#[derive(Debug, PartialEq, Clone)]
+pub struct UpgradePlan {
+    /// The corpus's source revision (declared, or detected).
+    pub source_revision: u32,
+    /// The target revision.
+    pub target_revision: u32,
+    /// The corpus files, with their post-upgrade content.
+    pub files: Vec<UpgradeFile>,
+    /// The files the upgrade skipped.
+    pub skipped: Vec<SkippedFile>,
+}
+
+/// The revision a corpus file satisfies, derived from its shape.
+///
+/// `None` when the file is not a corpus spec file (no frontmatter). A
+/// file that still declares `id: spec` predates Revision 18 — it
+/// satisfies Revision 17 and no later. A file that already carries a
+/// real id satisfies every registered step.
+pub fn file_revision(text: &str) -> Option<u32> {
+    frontmatter_id(text)?;
+    for entry in REVISIONS {
+        if let Some(step) = entry.step
+            && step.pending(text)
+        {
+            return Some(entry.number - 1);
+        }
+    }
+    Some(LATEST_REVISION)
+}
+
+impl RevisionStep {
+    /// True when the file still carries the step's pre-shape. A step is
+    /// shape-guarded: a file that does not is not rewritten by it.
+    fn pending(self, text: &str) -> bool {
+        match self {
+            RevisionStep::IdLaw => frontmatter_id(text).as_deref() == Some("spec"),
+        }
+    }
+
+    /// The step's transform: the file's new content.
+    fn apply(self, text: &str, path: &std::path::Path) -> Result<String, UpgradeError> {
+        match self {
+            RevisionStep::IdLaw => apply_id_law(text, path),
+        }
+    }
+}
+
+/// The Revision 18 id law: the frontmatter `id: spec` becomes the
+/// naming law's derived id and every `[[spec…]]` ref re-keys to it.
+/// Every other byte of the file — line endings and the final terminator
+/// included — stays untouched.
+fn apply_id_law(text: &str, path: &std::path::Path) -> Result<String, UpgradeError> {
+    let derived = crate::lint::expected_id_from_path(path);
+    if derived.is_empty() || derived == "spec" {
+        // Nothing to re-key TO: a bare spec.md (no parent dir) and a
+        // spec.md under a directory named `spec` both derive `spec`
+        // back — refusing beats a self-referential rewrite.
+        return Err(UpgradeError::NoDerivableId(path.to_path_buf()));
+    }
+    let Some(close) = frontmatter_close(text) else {
+        return Err(UpgradeError::UnreadableFrontmatter(path.to_path_buf()));
+    };
+    let frontmatter = &text[..close];
+    let body = &text[close..];
+    let new_frontmatter = replace_frontmatter_id(frontmatter, &derived);
+    let body = body.replace("[[spec]]", &format!("[[{derived}]]"));
+    let body = body.replace("[[spec.", &format!("[[{derived}."));
+    Ok(format!("{new_frontmatter}{body}"))
+}
+
+/// The byte offset just past the frontmatter's closing fence, when the
+/// text opens with one. Both LF and CRLF fences are recognized.
+fn frontmatter_close(text: &str) -> Option<usize> {
+    let open = if text.starts_with("---\n") {
+        4
+    } else if text.starts_with("---\r\n") {
+        5
+    } else {
+        return None;
+    };
+    let mut offset = 0;
+    for line in text[open..].split_inclusive('\n') {
+        let len = line.len();
+        if line.trim_end() == "---" {
+            return Some(open + offset + len);
+        }
+        offset += len;
+    }
+    None
+}
+
+/// The frontmatter `id:` value of a spec file, when it has one.
+fn frontmatter_id(text: &str) -> Option<String> {
+    let close = frontmatter_close(text)?;
+    let frontmatter = &text[..close];
+    let id_line = frontmatter
+        .lines()
+        .find(|l| l.trim_start().starts_with("id:"))
+        .map(|l| l.trim_start()[3..].trim())?;
+    Some(id_line.trim_matches('"').trim_matches('\'').to_string())
+}
+
+/// The frontmatter with its `id:` line rewritten — every other byte
+/// (indentation, line endings, the closing fence) stays untouched.
+fn replace_frontmatter_id(frontmatter: &str, derived: &str) -> String {
+    let mut out = String::with_capacity(frontmatter.len() + derived.len());
+    let mut replaced = false;
+    for line in frontmatter.split_inclusive('\n') {
+        let stripped = line.trim_end_matches(['\r', '\n']);
+        if !replaced && stripped.trim_start().starts_with("id:") {
+            let indent = &stripped[..stripped.len() - stripped.trim_start().len()];
+            let eol = &line[stripped.len()..];
+            out.push_str(indent);
+            out.push_str("id: ");
+            out.push_str(derived);
+            out.push_str(eol);
+            replaced = true;
+            continue;
+        }
+        out.push_str(line);
+    }
+    out
+}
+
+/// Plan the upgrade of a file set across the known format revisions.
+///
+/// The source revision is `declared_source` when given, and otherwise
+/// the oldest revision any file in the set still satisfies (a file still
+/// declaring `id: spec` satisfies Revision 17; a file already carrying
+/// a real id satisfies every registered step). The registered steps
+/// between the source revision and the target revision apply in
+/// ascending revision order, each shape-guarded: a file that does not
+/// carry a step's pre-shape is not rewritten by it.
+pub fn plan_upgrade(
+    files: &[(std::path::PathBuf, String)],
+    declared_source: Option<u32>,
+    target: u32,
+) -> Result<UpgradePlan, UpgradeError> {
+    if known_revision(target).is_none() {
+        return Err(UpgradeError::UnknownTargetRevision(target));
+    }
+    if let Some(source) = declared_source
+        && known_revision(source).is_none()
+    {
+        return Err(UpgradeError::UnknownSourceRevision(source));
+    }
+    // The corpus's current revision: the oldest one any file satisfies.
+    let detected = files
+        .iter()
+        .filter_map(|(path, text)| file_revision(text).map(|rev| (rev, path.clone())))
+        .min_by_key(|(rev, _)| *rev);
+    let detected_revision = detected.as_ref().map(|(rev, _)| *rev);
+    let lagging = detected.as_ref().map(|(_, path)| path.clone());
+    let source = declared_source.unwrap_or_else(|| detected_revision.unwrap_or(LATEST_REVISION));
+    if target < source {
+        return Err(UpgradeError::TargetBelowCurrent {
+            target,
+            current: source,
+            lagging,
+        });
+    }
+    // The steps to cross, in ascending revision order.
+    let steps: Vec<(u32, RevisionStep)> = REVISIONS
+        .iter()
+        .filter(|entry| entry.number > source && entry.number <= target)
+        .filter_map(|entry| entry.step.map(|step| (entry.number, step)))
+        .collect();
+    let mut planned = Vec::new();
+    let mut skipped = Vec::new();
+    for (path, text) in files {
+        match upgrade_file(path, text, &steps)? {
+            Some(file) => planned.push(file),
+            None => skipped.push(SkippedFile {
+                path: path.clone(),
+                reason: "not a corpus spec file (no frontmatter)",
+            }),
+        }
+    }
+    Ok(UpgradePlan {
+        source_revision: source,
+        target_revision: target,
+        files: planned,
+        skipped,
+    })
+}
+
+/// The per-file upgrade: the registered steps that still apply, in
+/// ascending revision order. `None` when the file is not a corpus spec
+/// file (no frontmatter) — it is skipped, never rewritten; a file that
+/// no step touches keeps its bytes exactly.
+fn upgrade_file(
+    path: &std::path::Path,
+    text: &str,
+    steps: &[(u32, RevisionStep)],
+) -> Result<Option<UpgradeFile>, UpgradeError> {
+    if file_revision(text).is_none() {
+        return Ok(None);
+    }
+    let mut content = text.to_string();
+    let mut applied = Vec::new();
+    for (revision, step) in steps {
+        if !step.pending(&content) {
+            continue;
+        }
+        content = step.apply(&content, path)?;
+        applied.push(*revision);
+    }
+    Ok(Some(UpgradeFile {
+        path: path.to_path_buf(),
+        changed: content != text,
+        content,
+        applied,
+    }))
 }
 
 /// Wrap a plain openspec delta into the Revision 19 pair: the delta text
@@ -538,5 +1021,158 @@ mod rekey_tests {
         assert!(!out.inserted_frontmatter);
         assert!(out.inserted_layers.is_empty());
         assert!(!out.inserted_mirror);
+    }
+}
+
+#[cfg(test)]
+mod revision_tests {
+    use super::*;
+    use crate::test_panic::UnwrapPanic;
+
+    /// A pre-Revision-18 corpus file — the 0.6.0-era dual-format shape.
+    fn legacy_file() -> String {
+        "---\nid: spec\nkind: intent\nstatement: \"THE legacy cap SHALL hold\"\n---\n\n\
+         ## Constraints\n\n\
+         | id | kind | expr | traces_to |\n\
+         |----|------|------|-----------|\n\
+         | c1 | invariant | `holds` | [[spec]] |\n\n\
+         ## Model\n\n\
+         ### States\n\n- `s1`\n\n\
+         ### Transitions\n\n\
+         | id | from | to | guard |\n\
+         |----|------|----|-------|\n\
+         | t1 | s1 | s1 | [[spec.c1]] |\n\n\
+         ## Properties\n\n\
+         | id | kind | derives_from | generator | predicate |\n\
+         |----|------|--------------|-----------|-----------|\n\
+         | p1 | unit | [[spec.c1]] | `g()` | `holds` |\n"
+            .to_string()
+    }
+
+    fn legacy_path() -> std::path::PathBuf {
+        std::path::PathBuf::from("corpus/legacy-cap/spec.md")
+    }
+
+    /// The registry covers the corpus's revision history without gaps.
+    #[test]
+    fn registry_covers_the_known_revision_range() {
+        let numbers: Vec<u32> = REVISIONS.iter().map(|e| e.number).collect();
+        let expected: Vec<u32> = (FIRST_REVISION..=LATEST_REVISION).collect();
+        assert_eq!(numbers, expected);
+        assert_eq!(known_revision(FIRST_REVISION).map(|e| e.number), Some(2));
+        assert!(known_revision(FIRST_REVISION - 1).is_none());
+        assert!(known_revision(LATEST_REVISION + 1).is_none());
+    }
+
+    /// The registry's latest revision is the one the binary embeds.
+    #[test]
+    fn registry_latest_matches_the_embedded_format_revision() {
+        let embedded = crate::guide::revision_number(crate::guide::FORMAT_REVISION).unwrap_p();
+        assert_eq!(embedded, LATEST_REVISION);
+    }
+
+    /// Every entry carries a change note; the dated entries are the ones
+    /// the format corpus dates.
+    #[test]
+    fn registry_entries_carry_a_note() {
+        for entry in REVISIONS {
+            assert!(
+                !entry.note.is_empty(),
+                "revision {} has no note",
+                entry.number
+            );
+        }
+        let dated: Vec<u32> = REVISIONS
+            .iter()
+            .filter(|e| e.date.is_some())
+            .map(|e| e.number)
+            .collect();
+        assert_eq!(dated, vec![16, 17, 18, 19, 20]);
+    }
+
+    /// Revision 18 is the only revision that needs a corpus rewrite —
+    /// the registry is thin by design.
+    #[test]
+    fn only_the_id_law_carries_a_step() {
+        let with_steps: Vec<u32> = REVISIONS
+            .iter()
+            .filter(|e| e.step.is_some())
+            .map(|e| e.number)
+            .collect();
+        assert_eq!(with_steps, vec![18]);
+    }
+
+    /// A file's revision is detected from its shape.
+    #[test]
+    fn file_revision_detects_the_pre_18_shape() {
+        assert_eq!(file_revision(&legacy_file()), Some(17));
+        let modern = legacy_file().replace("id: spec", "id: legacy.cap");
+        assert_eq!(file_revision(&modern), Some(LATEST_REVISION));
+        assert_eq!(file_revision("# just prose\n"), None);
+    }
+
+    /// The plan applies the registered steps in ascending revision order.
+    #[test]
+    fn plan_applies_the_registered_steps_in_order() {
+        let files = vec![(legacy_path(), legacy_file())];
+        let plan = plan_upgrade(&files, None, LATEST_REVISION).unwrap_p();
+        assert_eq!(plan.source_revision, 17);
+        assert_eq!(plan.target_revision, LATEST_REVISION);
+        assert_eq!(plan.files.len(), 1);
+        assert_eq!(plan.files[0].applied, vec![18]);
+        assert!(plan.files[0].changed);
+        assert!(plan.files[0].content.contains("id: legacy.cap\n"));
+        assert!(plan.files[0].content.contains("[[legacy.cap.c1]]"));
+    }
+
+    /// A file that needs no step keeps its bytes — CRLF endings and the
+    /// absent final terminator included.
+    #[test]
+    fn plan_leaves_an_unchanged_file_byte_identical() {
+        let modern =
+            "---\r\nid: notes\r\nkind: intent\r\nstatement: \"THE notes SHALL hold\"\r\n---\r\n";
+        let files = vec![(
+            std::path::PathBuf::from("corpus/notes.md"),
+            modern.to_string(),
+        )];
+        let plan = plan_upgrade(&files, None, LATEST_REVISION).unwrap_p();
+        assert!(!plan.files[0].changed);
+        assert_eq!(plan.files[0].content, modern);
+    }
+
+    /// The refusals: an unknown revision, and a target below the
+    /// corpus's current revision.
+    #[test]
+    fn plan_refuses_unknown_and_downgrade_requests() {
+        let files = vec![(legacy_path(), legacy_file())];
+        assert_eq!(
+            plan_upgrade(&files, None, 999),
+            Err(UpgradeError::UnknownTargetRevision(999))
+        );
+        assert_eq!(
+            plan_upgrade(&files, Some(999), LATEST_REVISION),
+            Err(UpgradeError::UnknownSourceRevision(999))
+        );
+        assert!(matches!(
+            plan_upgrade(&files, None, 16),
+            Err(UpgradeError::TargetBelowCurrent {
+                target: 16,
+                current: 17,
+                ..
+            })
+        ));
+    }
+
+    /// The upgrade never rewrites a plain delta — the wrap path's job.
+    #[test]
+    fn plan_skips_a_file_that_is_not_a_corpus_spec() {
+        let delta = "## ADDED Requirements\n\n### Requirement: W\nThe system SHALL w.\n";
+        let files = vec![(
+            std::path::PathBuf::from("corpus/delta.md"),
+            delta.to_string(),
+        )];
+        let plan = plan_upgrade(&files, None, LATEST_REVISION).unwrap_p();
+        assert!(plan.files.is_empty());
+        assert_eq!(plan.skipped.len(), 1);
     }
 }

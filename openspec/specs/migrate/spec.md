@@ -1,7 +1,7 @@
 ---
 id: migrate
 kind: intent
-statement: "WHEN an openspec delta file is migrated, THE migrate capability SHALL wrap it in place into the Revision 19 pair — leaving the plain delta byte-untouched and creating the sibling layer.md sidecar with generated frontmatter and wired scaffold layers — while refusing any file that is not a plain delta in need of a sidecar and supporting --rekey for id: spec legacy files."
+statement: "WHEN an openspec delta file is migrated, THE migrate capability SHALL wrap it in place into the Revision 19 pair — leaving the plain delta byte-untouched and creating the sibling layer.md sidecar with generated frontmatter and wired scaffold layers — while refusing any file that is not a plain delta in need of a sidecar, supporting --rekey for id: spec legacy files, and upgrading a corpus across the known format revisions when --to-revision names a target revision."
 ---
 
 # migrate Specification
@@ -27,6 +27,14 @@ author's job.
 | dry_run_writes_nothing  | invariant | `--dry-run emits the resulting pair content as data and never writes a file; the on-disk bytes are unchanged`                                                               | [[migrate]]  |
 | rekey_derives_real_id   | invariant | `--rekey derives the real id by the naming law — the parent directory name for a spec.md file (- ⇔ ., _ literal) — and replaces the frontmatter `id: spec` line with it; every [[spec]] ref re-keys to [[<derived-id>]] and every [[spec. prefix to [[<derived-id>.; every other byte stays untouched` | [[migrate]] |
 | rekey_refusals          | invariant | `--rekey on a file without frontmatter is refused (a plain delta takes the wrap path); on a spec.md with no derivable id (bare, or parent dir named `spec`) it is refused; on a file whose id is already not `spec` it is an idempotent no-op with a warning, never rewritten` | [[migrate]] |
+| upgrade_registry_core_owned | invariant | `the known format revisions resolve from a core-owned registry — each entry records the revision number, its date where the format corpus records one, a one-line change note, and an optional migration step; a revision whose change required no corpus rewrite carries no step and upgrades as a byte-stable no-op` | [[migrate]] |
+| upgrade_steps_applied_in_order | invariant | `the upgrade applies the registered steps for the revisions between the corpus's source revision and the target revision in ascending revision order — each step is shape-guarded, so a file that does not carry that step's pre-shape is not rewritten by it` | [[migrate]] |
+| upgrade_unknown_revision_refused | invariant | `an unknown source or target revision is refused (exit 2) with a labeled message naming the known revision range and a remediation hint — a refused upgrade writes no file` | [[migrate]] |
+| upgrade_no_downgrade | invariant | `a target revision below the corpus's current revision — the oldest revision still satisfied by a file in the supplied set — is refused (exit 2) with a labeled message naming the current revision and the file that still carries the older shape — a refused upgrade writes no file` | [[migrate]] |
+| upgrade_no_op_byte_identical | invariant | `a file that no registered step changes is never written — its bytes, its line endings and its final terminator are preserved exactly` | [[migrate]] |
+| upgrade_atomic_no_partial_write | invariant | `the upgrade is all-or-nothing — when any file in the supplied set cannot be upgraded, every file in the set stays unchanged` | [[migrate]] |
+| upgrade_scope_confined | invariant | `the upgrade reads and writes only the files under the supplied paths — it creates no file, so no sibling sidecar and no report file is ever written` | [[migrate]] |
+| upgrade_conflicting_modes_refused | invariant | `the migrate verb's modes are exclusive — --to-revision together with --rekey, and --write together with --dry-run, are refused (exit 2) with a labeled message; neither flag is ever silently ignored` | [[migrate]] |
 
 ## Model
 
@@ -37,6 +45,8 @@ author's job.
 - `written`
 - `refused`
 - `rekeyed`
+- `upgrading`
+- `upgraded`
 
 ### Transitions
 
@@ -50,6 +60,9 @@ author's job.
 | verify_green | written    | written   | [[migrate.scaffold_lints_clean]]  |
 | rekey_result | unwrapping | rekeyed   | [[migrate.rekey_derives_real_id]]  |
 | rekey_refuse | unwrapping | refused   | [[migrate.rekey_refusals]]  |
+| upgrade_begin | unwrapping | upgrading | [[migrate.upgrade_registry_core_owned]]  |
+| upgrade_applied | upgrading | upgraded | [[migrate.upgrade_steps_applied_in_order]]  |
+| upgrade_refuse | unwrapping | refused | [[migrate.upgrade_unknown_revision_refused]]  |
 
 ## Properties
 
@@ -64,6 +77,14 @@ author's job.
 | p_dry_run_writes_nothing  | unit | [[migrate.dry_run_writes_nothing]]  | `any_plain_delta()`              | `dry_run(file).disk_bytes == original.disk_bytes` |
 | p_rekey_derives_real_id   | unit | [[migrate.rekey_derives_real_id]] | `legacy_id_spec_dual_format_file()` | `rekey(file).id == parent_dir_derived ∧ refs re-keyed ∧ rest byte-identical` |
 | p_rekey_refusals          | unit | [[migrate.rekey_refusals]] | `plain_delta_or_bare_spec_md()` | `rekey(file) == refused ∧ disk_unchanged ∧ second_run_is_noop` |
+| p_upgrade_registry_core_owned | unit | [[migrate.upgrade_registry_core_owned]] | `known_revision(n)` | `∀ n ∈ registry: n.number is known ∧ (n.step absent ∨ n.step is shape-guarded)` |
+| p_upgrade_steps_applied_in_order | unit | [[migrate.upgrade_steps_applied_in_order]] | `upgrade(corpus, target)` | `applied_steps == the registry steps between the source revision and the target revision ∧ ascending` |
+| p_upgrade_unknown_revision_refused | unit | [[migrate.upgrade_unknown_revision_refused]] | `unknown_revision_request()` | `upgrade(corpus, target) == refused ∧ disk_unchanged` |
+| p_upgrade_no_downgrade | unit | [[migrate.upgrade_no_downgrade]] | `target_below_current_revision()` | `upgrade(corpus, target) == refused ∧ disk_unchanged` |
+| p_upgrade_no_op_byte_identical | unit | [[migrate.upgrade_no_op_byte_identical]] | `file_needing_no_step()` | `upgrade(file).bytes == original.bytes ∧ line_endings_preserved ∧ terminator_preserved` |
+| p_upgrade_atomic_no_partial_write | unit | [[migrate.upgrade_atomic_no_partial_write]] | `corpus_with_one_unupgradable_file()` | `upgrade(corpus) == refused ∧ every file byte-unchanged` |
+| p_upgrade_scope_confined | unit | [[migrate.upgrade_scope_confined]] | `corpus_under_supplied_paths()` | `written_paths ⊆ supplied_paths ∧ no file created` |
+| p_upgrade_conflicting_modes_refused | unit | [[migrate.upgrade_conflicting_modes_refused]] | `conflicting_mode_request()` | `upgrade(corpus, target) == refused ∧ disk_unchanged` |
 
 ## Requirements
 
@@ -165,3 +186,77 @@ data without writing the file.
 #### Scenario: Dry-run leaves disk untouched
 - **WHEN** `spk migrate --dry-run delta.md` runs
 - **THEN** the on-disk bytes are unchanged and the envelope data carries the would-be content
+
+### Requirement: Upgrade a corpus across the known format revisions
+The system SHALL support `spk migrate --to-revision <N> [--from-revision
+<R>] [--write] <paths...>`: the upgrade SHALL resolve the known format
+revisions from the core-owned registry, SHALL apply the registered
+migration steps for the revisions between the corpus's source revision
+and the target revision in ascending revision order, and SHALL report
+the outcome as envelope data. The upgrade SHALL NOT rewrite a file that
+no registered step changes.
+
+#### Scenario: Old-revision corpus upgrades to the target revision
+- **WHEN** `spk migrate --to-revision 20 --write <corpus>` runs on a corpus whose capability file still declares the pre-Revision-18 `id: spec` shape
+- **THEN** that file declares its parent-directory-derived id, its `[[spec…]]` refs read `[[<derived-id>…]]`, the corpus lints with zero findings, and the files that needed no step are byte-identical
+
+#### Scenario: The source revision is declared or detected
+- **WHEN** the upgrade runs over a corpus holding one file that still declares the pre-Revision-18 `id: spec` shape
+- **THEN** the corpus's source revision resolves to the oldest revision the supplied files still satisfy, or to the revision declared by `--from-revision`, and the envelope data names the resolved source and target revisions
+
+#### Scenario: Dry-run upgrade writes nothing
+- **WHEN** `spk migrate --to-revision 20 <corpus>` runs without `--write`
+- **THEN** the on-disk bytes are unchanged and the envelope data carries the would-be content of every file the upgrade would change
+
+#### Scenario: The upgrade never touches files outside the supplied paths
+- **WHEN** the upgrade runs over one directory of a corpus
+- **THEN** no file outside that directory changes and no file is created beside the upgraded ones
+
+#### Scenario: Conflicting modes are refused
+- **WHEN** the upgrade is asked for together with `--rekey` (a different mode of the verb), or with both `--write` and `--dry-run`
+- **THEN** the command fails (exit 2) with a labeled refusal, neither flag is silently ignored, and no file is changed
+
+### Requirement: The revision registry is core-owned and thin
+The system SHALL resolve the known format revisions from a core-owned
+registry that records, for each known revision, its number, its date
+(where the format corpus records one), a one-line change note, and an
+OPTIONAL migration step — a revision whose change required no corpus
+rewrite SHALL carry no step and SHALL upgrade as a byte-stable no-op.
+
+#### Scenario: Known revisions resolve from the registry
+- **WHEN** the upgrade resolves a target revision
+- **THEN** the registry names the known revision range and carries a date and a change note for every known revision it records
+
+### Requirement: Refusals label the unknown or impossible revision
+An unknown source or target revision SHALL be refused (exit 2) with a
+labeled message naming the known revision range and a remediation hint;
+a target revision below the corpus's current revision SHALL be refused
+(exit 2) with a labeled message naming the current revision and the
+file that still carries the older shape. No file SHALL be written by a
+refused upgrade.
+
+#### Scenario: Unknown target revision is refused
+- **WHEN** the upgrade is asked for a target revision outside the known range
+- **THEN** the command fails (exit 2) with a labeled refusal naming the known revision range and a remediation hint, and no file is changed
+
+#### Scenario: Unknown source revision is refused
+- **WHEN** the upgrade is given a `--from-revision` outside the known range
+- **THEN** the command fails (exit 2) with a labeled refusal naming the known revision range and a remediation hint, and no file is changed
+
+#### Scenario: Target below the current revision is refused
+- **WHEN** the upgrade is asked for a target revision below the corpus's current revision
+- **THEN** the command fails (exit 2) with a labeled refusal naming the current revision and the file that still carries the older shape, and no file is changed
+
+### Requirement: The upgrade is atomic, byte-stable and scope-confined
+The upgrade SHALL write only the files whose content a registered step
+changed, SHALL leave every other file byte-identical (its line endings
+and final terminator preserved), SHALL create no file, and SHALL write
+nothing at all when any file in the supplied set cannot be upgraded.
+
+#### Scenario: Unchanged files stay byte-identical
+- **WHEN** the upgrade runs over a corpus whose files need no step
+- **THEN** every file's bytes are unchanged — CRLF line endings and the absence of a final terminator are preserved exactly
+
+#### Scenario: A failed upgrade writes nothing
+- **WHEN** the upgrade runs over a set in which one file cannot be upgraded
+- **THEN** the command fails (exit 2) and every file in the set is unchanged

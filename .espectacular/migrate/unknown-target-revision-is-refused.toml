@@ -1,0 +1,9 @@
+id = "unknown-target-revision-is-refused"
+description = "add-revision-upgrade: an unknown target revision is refused and writes nothing"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "upgrade_unknown_target_revision_is_refused"

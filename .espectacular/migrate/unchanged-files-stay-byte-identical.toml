@@ -1,0 +1,15 @@
+id = "unchanged-files-stay-byte-identical"
+description = "add-revision-upgrade: a file that no registered step changes keeps its bytes, line endings and terminator"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "plan_leaves_an_unchanged_file_byte_identical"
+
+[[tests.cargo]]
+flags = "upgrade_old_corpus_upgrades_to_target_revision"
+
+[[tests.cargo]]
+flags = "upgrade_unchanged_files_are_byte_identical"

@@ -1,0 +1,15 @@
+id = "known-revisions-resolve-from-the-registry"
+description = "add-revision-upgrade: the known revisions, their dates and their change notes resolve from the core-owned registry"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.9.2"
+
+[[tests.cargo]]
+flags = "registry_covers_the_known_revision_range"
+
+[[tests.cargo]]
+flags = "registry_latest_matches_the_embedded_format_revision"
+
+[[tests.cargo]]
+flags = "registry_entries_carry_a_note"
