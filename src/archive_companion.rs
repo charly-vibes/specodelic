@@ -331,10 +331,19 @@ fn carries_dual_format(text: &str) -> bool {
 }
 
 /// Re-key a sidecar's identity for deployment: the frontmatter id line
-/// becomes the deployed spec id, and every `[[<sidecar_id>]]` /
-/// `[[<sidecar_id>.` reference follows (the `migrate --rekey` semantics
-/// applied at attach time — the sidecar's rows must point at the
-/// deployed file's own intent).
+/// becomes the deployed spec id, and the sidecar's whole identity
+/// namespace follows (the `migrate --rekey` semantics applied at attach
+/// time — the sidecar's rows must point at the deployed file's own
+/// intent, and its error labels must name the deployed file as their
+/// owner).
+///
+/// The namespace rewrite covers BOTH wiki-link forms
+/// (`[[<sidecar_id>]]`, `[[<sidecar_id>.*]]`) AND the bare label
+/// occurrences the error contract puts in an expr/predicate cell
+/// (`<owning-file-id>.<variant_head>(…)`, e.g.
+/// `c.layer.boom_failure(detail)`): a bare label carries no link
+/// brackets, so a link-only rewrite would deploy a label that still
+/// names the sidecar's id instead of the deployed file's own id.
 fn rekey_sidecar(sidecar_text: &str, sidecar_id: &str, spec_id: &str) -> String {
     let mut out = String::with_capacity(sidecar_text.len());
     let mut in_frontmatter = false;
@@ -351,11 +360,63 @@ fn rekey_sidecar(sidecar_text: &str, sidecar_id: &str, spec_id: &str) -> String 
             id_line_done = true;
             continue;
         }
-        let line = line.replace(&format!("[[{sidecar_id}."), &format!("[[{spec_id}."));
+        let line = rekey_namespace(line, sidecar_id, spec_id);
         let line = line.replace(&format!("[[{sidecar_id}]]"), &format!("[[{spec_id}]]"));
         out.push_str(&line);
     }
     out
+}
+
+/// Rewrite one line's identity namespace: every occurrence of
+/// `<sidecar_id>.` becomes `<spec_id>.` — the wiki-link forms
+/// (`[[c.layer.k1]]`) and the bare error-label forms
+/// (`c.layer.boom_failure(detail)`) alike.
+///
+/// The match is boundary-guarded on both sides, so nothing unrelated is
+/// ever mangled: the occurrence must start at an id boundary (the
+/// preceding character is not an id character — `c.layered.x` and
+/// `x.c.layer.x` are different ids) and must be followed by `.` plus an
+/// id-start character (the `<file-id>.<variant>` namespace form — a
+/// sentence-ending `c.layer.` or an already-deployed `c.boom_failure(…)`
+/// is left alone).
+fn rekey_namespace(line: &str, sidecar_id: &str, spec_id: &str) -> String {
+    if sidecar_id.is_empty() || sidecar_id == spec_id {
+        return line.to_string();
+    }
+    let mut out = String::with_capacity(line.len());
+    let mut at = 0usize;
+    while at < line.len() {
+        if line[at..].starts_with(sidecar_id) {
+            let end = at + sidecar_id.len();
+            let starts_at_boundary =
+                at == 0 || !line[..at].chars().next_back().is_some_and(is_id_char);
+            let names_a_variant = line[end..]
+                .strip_prefix('.')
+                .and_then(|rest| rest.chars().next())
+                .is_some_and(is_id_start);
+            if starts_at_boundary && names_a_variant {
+                out.push_str(spec_id);
+                at = end;
+                continue;
+            }
+        }
+        let ch = line[at..].chars().next().unwrap_or_default();
+        out.push(ch);
+        at += ch.len_utf8();
+    }
+    out
+}
+
+/// An id character: the bytes an id segment may be built from — the
+/// letters, digits, `_`, `-` and the `.` segment separator.
+fn is_id_char(ch: char) -> bool {
+    ch.is_alphanumeric() || ch == '_' || ch == '-' || ch == '.'
+}
+
+/// An id-start character: the first character of an id segment — a
+/// letter or `_` (a digit may not start a segment).
+fn is_id_start(ch: char) -> bool {
+    ch.is_alphabetic() || ch == '_'
 }
 
 /// Assemble the deployed dual-format spec: the sidecar's frontmatter

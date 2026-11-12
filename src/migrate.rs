@@ -699,6 +699,7 @@ pub fn migrate(text: &str, path: &std::path::Path) -> Result<WrapOutcome, Migrat
     let eol = if text.contains("\r\n") { "\r\n" } else { "\n" };
     let mut inserted_layers: Vec<&'static str> = Vec::new();
     let mut content = generated_frontmatter(eol, &sidecar_id);
+    content.push_str(&namespace_guidance(eol, &sidecar_id));
     for layer in ["## Constraints", "## Model", "## Properties"] {
         content.push_str(&scaffold_layer(layer, eol, &sidecar_id));
         inserted_layers.push(match layer {
@@ -769,6 +770,27 @@ fn generated_frontmatter(eol: &str, id: &str) -> String {
          kind: intent{eol}\
          statement: \"WHEN the migrated delta is elaborated, THE author SHALL replace this scaffold statement with the real requirement.\"{eol}\
          ---{eol}{eol}"
+    )
+}
+
+/// The scaffold's namespace guidance: error labels are file-id-namespaced
+/// (openspec/specs/error-contract), so an error Constraint's expr reads
+/// `<owning-file-id>.<variant_head>(field, …)` — and the owning id is
+/// THIS file's own id (the sidecar's `<parent-id>.layer`), never the
+/// parent capability's id. The archive companion re-keys that namespace
+/// to the deployed spec id when it attaches the layer, so a label
+/// authored here stays true in both places.
+///
+/// The guidance sits OUTSIDE the three layer tables: it teaches the
+/// author in the change directory and never reaches the deployed spec
+/// (the assembly carries the frontmatter and the three tables only).
+fn namespace_guidance(eol: &str, id: &str) -> String {
+    format!(
+        "<!-- Error labels are file-id-namespaced (error-contract): an error{eol}\
+         (effect) Constraint's expr reads `<owning-file-id>.<variant_head>(field, …)`{eol}\
+         and the owning id is THIS file's own id — `{id}.` — so a failure label{eol}\
+         here reads `{id}.<variant_head>(field, …)`. The archive companion re-keys{eol}\
+         that namespace to the deployed spec id when it attaches the layer. -->{eol}{eol}"
     )
 }
 
