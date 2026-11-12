@@ -12,7 +12,7 @@
   "expected_claim_ids": [],
   "invariants_checked": [],
   "outcome": "exploration_only",
-  "scope_sha256": "ef1e18720ffbc6758e3aa22c844e0228644ecf97429b15202acf751cb4d9df3f",
+  "scope_sha256": "2e40735d6b90f4529ef42d4c32e9a4eb7f0f9c6c948bc47962dd08b5d4e5263b",
   "states_explored": 6,
   "unchecked_claim_ids": [
     "compile_is_total",
@@ -22,6 +22,11 @@
     "fragment_hygiene",
     "fragment_language_closed",
     "fragment_law_rejected",
+    "fragments_section_opaque",
+    "helper_collision_labeled",
+    "helper_cycle_labeled",
+    "helper_hygiene_inherited",
+    "helper_reference_resolves",
     "invariant_fragment_opt_in",
     "kernel_binding_opaque",
     "kernel_expr_opt_in",
@@ -33,6 +38,7 @@
     "predicate_fragment_opt_in",
     "properties_to_proptest",
     "rust_back_compat",
+    "shared_fragment_defs",
     "unknown_tag_rejected"
   ]
 }
