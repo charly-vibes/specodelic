@@ -1129,6 +1129,74 @@ fn human_output_shows_rule_id() {
     );
 }
 
+/// specodelic-7c7: model_present promises no differential — an absent
+/// Model section and an empty-but-present one parse to the same empty
+/// states/transitions vectors, so both must produce the identical
+/// finding (label, message, exit code). The message states the
+/// presence requirement and the counts only; it must not claim that
+/// empty-but-present is treated differently from absent.
+#[test]
+fn model_present_absent_and_empty_produce_identical_finding() {
+    let absent =
+        "---\nid: absent_model\nkind: intent\nstatement: \"THE system SHALL exist\"\n---\n";
+    // Model section present but empty: States heading with no bullets,
+    // Transitions heading with a header-only table (no rows).
+    let empty_present = "---\nid: empty_model\nkind: intent\nstatement: \"THE system SHALL exist\"\n---\n\n## Model\n\n### States\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n";
+
+    let findings = |body: &str, name: &str| {
+        let dir = tempfile::tempdir().unwrap_p();
+        std::fs::write(dir.path().join(name), body).unwrap_p();
+        let out = spk()
+            .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
+            .output()
+            .unwrap_p();
+        assert_eq!(out.status.code(), Some(1), "{name}: lint must exit 1");
+        let json: serde_json::Value =
+            serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
+        json["data"]["issues"]
+            .as_array()
+            .unwrap_p()
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>()
+    };
+
+    let absent_issues = findings(absent, "absent_model.md");
+    let empty_issues = findings(empty_present, "empty_model.md");
+
+    for (name, issues) in [
+        ("absent", &absent_issues),
+        ("empty-but-present", &empty_issues),
+    ] {
+        assert_eq!(
+            issues.len(),
+            1,
+            "{name}: exactly one finding expected, got {issues:?}"
+        );
+        let issue = &issues[0];
+        assert_eq!(issue["rule_id"], "linter.model_present");
+        let msg = issue["message"].as_str().unwrap_p();
+        assert!(
+            msg.contains("0 states, 0 transitions"),
+            "{name}: counts must still be reported: {msg}"
+        );
+        assert!(
+            msg.contains("must exist"),
+            "{name}: remediation value must be retained: {msg}"
+        );
+        assert!(
+            !msg.contains("empty-but-present") && !msg.contains("beats absent"),
+            "{name}: no differential claim allowed: {msg}"
+        );
+    }
+
+    // the two cases are indistinguishable to a consumer: same message
+    assert_eq!(
+        absent_issues[0]["message"], empty_issues[0]["message"],
+        "absent and empty-but-present must produce the identical finding"
+    );
+}
+
 /// specodelic-d8c: the Reference Typing table is enforced by the linter —
 /// a guard citing a non-invariant constraint exits 1 with the labeled
 /// `linter.ref_kind_compatible` finding (JSON + human), and the clean

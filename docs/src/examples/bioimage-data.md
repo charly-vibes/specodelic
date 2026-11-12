@@ -94,7 +94,7 @@ spk lint plate7-ngff.md
 
 ```text
 lint: 1 file(s) linted, 1 finding(s), 0 advisory warning(s)
-  plate7-ngff.md [linter.model_present] Model section incomplete: 0 states, 0 transitions — both sections must exist (empty-but-present beats absent)
+  plate7-ngff.md [linter.model_present] Model section incomplete: 0 states, 0 transitions — both a States list and a Transitions table must exist
 → Run: fix the reported invariants — each rule's semantics: spk explain lint-rules
 ```
 

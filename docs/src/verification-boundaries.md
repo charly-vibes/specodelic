@@ -46,14 +46,17 @@ the rung where a MISSING constraint hides most comfortably.
 ### Rung 2 — well-modeled
 
 The file carries a Model section that is present and coherent: a States
-list and a Transitions table (`linter.model_present` — *"empty-but-present
-beats absent"*), every transition guarded (`guard_present`), every state
+list and a Transitions table (`linter.model_present` — *"the Model
+section must contain both a States list and a Transitions table"*),
+every transition guarded (`guard_present`), every state
 used, every endpoint declared (`linter.model_shape`). This is the
 precondition `spk model-check` imposes — *"`model_check` requires a
 complete Model section (`model_present`)"* (`spk explain lifecycle`).
 
-**Does not assure:** that the model says anything — an empty-but-present
-model lints. And a coherent model can still be the *wrong* model; only
+**Does not assure:** that the model says anything — the check is
+presence only: a token one-state model passes, and an empty-but-present
+Model section fails with the identical `model_present` finding as an
+absent one. And a coherent model can still be the *wrong* model; only
 rung 3 puts it under exploration.
 
 ### Rung 3 — checked-within-bounds

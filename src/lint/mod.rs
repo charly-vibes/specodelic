@@ -88,7 +88,7 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
     ),
     (
         "model_present",
-        "the Model section must contain both a States list and a Transitions table (empty-but-present beats absent)",
+        "the Model section must contain both a States list and a Transitions table",
     ),
     (
         "ears_syntax",

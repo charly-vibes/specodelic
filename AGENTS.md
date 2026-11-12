@@ -29,7 +29,7 @@ Write specs so `spk lint` passes; embedded format revision: specodelic.md Revisi
 - `linter.id_matches_file` — frontmatter `id` must equal the filename stem with `-` mapped to `.` (`_` is literal); a `spec.md` file derives its expected id from its parent directory (Revision 18)
 - `linter.unique_id` — every row id in a file must be unique across all of the file's tables
 - `linter.guard_required` — every transition must carry a non-null guard (a guard may be prose, or cite an invariant Constraint or a State — target typing is `ref_kind_compatible`'s beat)
-- `linter.model_present` — the Model section must contain both a States list and a Transitions table (empty-but-present beats absent)
+- `linter.model_present` — the Model section must contain both a States list and a Transitions table
 - `linter.ears_syntax` — the intent statement must contain an imperative `SHALL` and match one of the five EARS patterns
 - `linter.no_conjoined_id` — an id must not encode two capabilities joined by `and`/`or`
 - `linter.no_universal_in_id` — an id must not contain a universal token (all/every/any/always/never)

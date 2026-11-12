@@ -171,7 +171,7 @@ pub(crate) fn lint_model_family(spec: &Spec, report: &mut Report) {
     // model_present — States list and Transitions table both exist.
     if spec.states.is_empty() || spec.transitions.is_empty() {
         report.issues.push(Issue::new("model_present", file.clone(), format!(
-                "Model section incomplete: {} states, {} transitions — both sections must exist (empty-but-present beats absent)",
+                "Model section incomplete: {} states, {} transitions — both a States list and a Transitions table must exist",
                 spec.states.len(),
                 spec.transitions.len()
             )));

@@ -90,7 +90,7 @@ spk lint desk-risks.md
 
 ```text
 lint: 1 file(s) linted, 1 finding(s), 0 advisory warning(s)
-  desk-risks.md [linter.model_present] Model section incomplete: 0 states, 0 transitions — both sections must exist (empty-but-present beats absent)
+  desk-risks.md [linter.model_present] Model section incomplete: 0 states, 0 transitions — both a States list and a Transitions table must exist
 → Run: fix the reported invariants — each rule's semantics: spk explain lint-rules
 ```
 
@@ -164,7 +164,7 @@ Lint the file with the section in place, Model still missing:
 
 ```text
 lint: 1 file(s) linted, 1 finding(s), 1 advisory warning(s)
-  desk-risks.md [linter.model_present] Model section incomplete: 0 states, 0 transitions — both sections must exist (empty-but-present beats absent)
+  desk-risks.md [linter.model_present] Model section incomplete: 0 states, 0 transitions — both a States list and a Transitions table must exist
   advisory desk.risks [linter.observability] pack `quant.finance` activated for `desk.risks` (vocabulary match: quant.risk, quant.pricing, Limits, capped_by) — empty checked-set (no violations to report)
 → Run: fix the reported invariants — each rule's semantics: spk explain lint-rules
 ```

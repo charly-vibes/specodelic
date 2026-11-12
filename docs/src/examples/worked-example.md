@@ -64,7 +64,7 @@ spk lint reservation-order.md
 
 ```text
 lint: 1 file(s) linted, 1 finding(s), 0 advisory warning(s)
-  reservation-order.md [linter.model_present] Model section incomplete: 0 states, 0 transitions — both sections must exist (empty-but-present beats absent)
+  reservation-order.md [linter.model_present] Model section incomplete: 0 states, 0 transitions — both a States list and a Transitions table must exist
 → Run: fix the reported invariants — each rule's semantics: spk explain lint-rules
 ```
 
@@ -99,7 +99,7 @@ spk lint reservation-order.md
 
 ```text
 lint: 1 file(s) linted, 9 finding(s), 0 advisory warning(s)
-  reservation-order.md [linter.model_present] Model section incomplete: 0 states, 0 transitions — both sections must exist (empty-but-present beats absent)
+  reservation-order.md [linter.model_present] Model section incomplete: 0 states, 0 transitions — both a States list and a Transitions table must exist
   reservation-order.md [linter.total_refs] dangling reference `[[reservation.orders]]` from constraints.traces_to — target not defined in any spec file
   reservation.order [linter.coverage] constraint `all_or_nothing` has no deriving property — ∃ property.derives_from == `reservation.order.all_or_nothing` is required — write `[[reservation.order.all_or_nothing]]` in the property's derives_from cell
   reservation.order [linter.coverage] constraint `cancel_refunds_exactly_charged` has no deriving property — ∃ property.derives_from == `reservation.order.cancel_refunds_exactly_charged` is required — write `[[reservation.order.cancel_refunds_exactly_charged]]` in the property's derives_from cell
@@ -137,7 +137,7 @@ are next — the count dropped from 9 to 7, all of it the typo's:
 
 ```text
 lint: 1 file(s) linted, 7 finding(s), 0 advisory warning(s)
-  reservation-order.md [linter.model_present] Model section incomplete: 0 states, 0 transitions — both sections must exist (empty-but-present beats absent)
+  reservation-order.md [linter.model_present] Model section incomplete: 0 states, 0 transitions — both a States list and a Transitions table must exist
   reservation.order [linter.coverage] constraint `all_or_nothing` has no deriving property — ∃ property.derives_from == `reservation.order.all_or_nothing` is required — write `[[reservation.order.all_or_nothing]]` in the property's derives_from cell
   reservation.order [linter.coverage] constraint `cancel_refunds_exactly_charged` has no deriving property — ∃ property.derives_from == `reservation.order.cancel_refunds_exactly_charged` is required — write `[[reservation.order.cancel_refunds_exactly_charged]]` in the property's derives_from cell
   reservation.order [linter.coverage] constraint `charge_iff_fulfilled` has no deriving property — ∃ property.derives_from == `reservation.order.charge_iff_fulfilled` is required — write `[[reservation.order.charge_iff_fulfilled]]` in the property's derives_from cell
