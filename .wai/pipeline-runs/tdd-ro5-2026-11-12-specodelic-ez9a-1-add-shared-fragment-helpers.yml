@@ -1,0 +1,11 @@
+run_id: tdd-ro5-2026-11-12-specodelic-ez9a-1-add-shared-fragment-helpers
+pipeline: tdd-ro5
+topic: 'specodelic-ez9a.1: add-shared-fragment-helpers'
+created_at: '2026-11-12T18:36:40.074395269+00:00'
+current_step: 9
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
+bypasses: []

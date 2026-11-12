@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-12-specodelic-ez9a-1-add-shared-fragment-helpers, pipeline-step:orient]
+---
+
+ORIENT: ez9a.1 add-shared-fragment-helpers. E2 verdict = proposal stands. Key constraints discovered: (1) pretender file_lines_max=2300 enforced, compile.rs at 2299 — must relocate in-module fragment tests to tests/ for headroom; (2) verify.rs (out of scope) calls properties_to_proptest(spec) directly — signatures frozen, so labeled failures live in validate_fragments, emission resolves leniently (same contract as fragment_of); (3) links collected from every table cell — reference syntax must not use [[..]] (total_refs hazard): chose @name token, rewritten to ({ items name }) block-expr so BOTH property asserts and ModelIr invariants inline without touching model_check.rs; (4) warnings channel = Compiled.warnings carried through write_artifacts into cmd_compile's existing warnings vec (no corpus.rs edit needed); (5) linter already treats unknown ## sections as opaque — spec.rs only captures fragments_body verbatim.

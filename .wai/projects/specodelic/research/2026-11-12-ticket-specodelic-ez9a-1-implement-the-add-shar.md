@@ -1,0 +1,5 @@
+---
+tags: [pipeline-step:select-ticket, pipeline-run:epic-orchestrator-2026-11-12-specodelic-ez9a-1-add-shared-fragment-helpers, pipeline-run:epic-orchestrator-2026-11-12-specodelic-4und-kernel-coverage-of-fragments]
+---
+
+TICKET: specodelic-ez9a.1 - implement the add-shared-fragment-helpers change (openspec/changes/add-shared-fragment-helpers/: proposal + design + specs/compile delta + tasks 1.1-1.6 RED / 2.1-2.3 GREEN / 3.1-3.2 refactor / 4.1 layer+archive). Selected now: E2 gate (4und) closed with verdict 'proposal stands as written' (14.3% < 70%); scope note + F1/F2 findings (8mta/9o1h) are out of scope. Change adds optional per-file ## Fragments section (def <name>: + fenced rust body), name resolution with labeled failures (unknown ref, collision with generated-prefix symbols, cycles), inline-at-use-site emission, dead-helper warning, inherited hygiene, byte-preservation for absent sections; linter treats section as opaque prose (1.6); layer sidecar convention = specs/compile/layer.md (archive_companion.rs:489).
