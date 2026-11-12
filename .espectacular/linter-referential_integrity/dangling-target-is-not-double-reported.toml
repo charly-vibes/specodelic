@@ -1,0 +1,9 @@
+id = "dangling-target-is-not-double-reported"
+description = "Contract test binding the deployed scenario to its cargo test"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "dangling_target_stays_total_refs_beat"

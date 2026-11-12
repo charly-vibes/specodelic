@@ -34,6 +34,7 @@ Write specs so `spk lint` passes; embedded format revision: specodelic.md Revisi
 - `linter.no_conjoined_id` — an id must not encode two capabilities joined by `and`/`or`
 - `linter.no_universal_in_id` — an id must not contain a universal token (all/every/any/always/never)
 - `linter.total_refs` — every structured-field [[link]] must resolve to a definition somewhere in the corpus (Revision 18: all files resolve corpus-wide — the former `id: spec` self-containment retired)
+- `linter.ref_kind_compatible` — every resolved [[link]] in a Reference Typing field must target a kind-compatible row — read from the Schema-as-data table, not hardcoded per field; dangling targets stay `total_refs`' beat, from/to stays `every_transition_valid`'s (openspec/specs/linter-referential_integrity/spec.md)
 - `linter.coverage` — every constraint must have a deriving property (`∃ property.derives_from == <constraint>`)
 - `linter.no_orphan_property` — every property must derive from at least one constraint
 - `linter.law_cases` — every law-kind property must enumerate its required cases as **name:** labels in its own predicate — the identity and associativity floor is mandatory, extra named cases are checkable declarations

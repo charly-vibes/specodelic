@@ -1,0 +1,9 @@
+id = "kind-compatible-references-lint-clean"
+description = "Contract test binding the deployed scenario to its cargo test"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "ref_kind_clean_baseline_lints_clean"

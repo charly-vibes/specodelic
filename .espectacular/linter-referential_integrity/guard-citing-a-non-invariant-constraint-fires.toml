@@ -1,0 +1,9 @@
+id = "guard-citing-a-non-invariant-constraint-fires"
+description = "Contract test binding the deployed scenario to its cargo test"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "guard_citing_advisory_constraint_fires"

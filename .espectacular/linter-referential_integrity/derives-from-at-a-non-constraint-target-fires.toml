@@ -1,0 +1,9 @@
+id = "derives-from-at-a-non-constraint-target-fires"
+description = "Contract test binding the deployed scenario to its cargo test"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "derives_from_state_from_unit_property_fires"

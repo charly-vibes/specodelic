@@ -1,0 +1,9 @@
+id = "uses-targeting-a-non-profile-file-fires"
+description = "Contract test binding the deployed scenario to its cargo test"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "uses_non_profile_file_fires"

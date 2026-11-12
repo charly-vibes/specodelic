@@ -49,19 +49,19 @@
 
 ## 4. Refactor — separate commit
 
-- [ ] 4.1 Tidy pass: pretender ratchets hold (`pretender check`), no
+- [x] 4.1 Tidy pass: pretender ratchets hold (`pretender check`), no
       per-field match arms introduced, `just ci` green.
 
 ## 5. Dual-format layer (fail-closed gate)
 
-- [ ] 5.1 Wrap the delta: `spk migrate` scaffolds the `layer.md` sidecar
+- [x] 5.1 Wrap the delta: `spk migrate` scaffolds the `layer.md` sidecar
       for `specs/linter-referential_integrity/spec.md`.
-- [ ] 5.2 Deploy ONLY via `just archive-change id=add-ref-kind-enforcement`
+- [x] 5.2 Deploy ONLY via `just archive-change id=add-ref-kind-enforcement`
       (never hand-edit `openspec/specs/`).
-- [ ] 5.3 Author `.espectacular/` contract TOMLs for the change's
+- [x] 5.3 Author `.espectacular/` contract TOMLs for the change's
       scenarios in the archive commit.
-- [ ] 5.4 `spk init --force` refreshes the AGENTS.md managed rule catalog;
+- [x] 5.4 `spk init --force` refreshes the AGENTS.md managed rule catalog;
       `git diff AGENTS.md` is catalog-only.
-- [ ] 5.5 Gates: `just test` green, `just ci` green, `ah check` no NEW
+- [x] 5.5 Gates: `just test` green, `just ci` green, `ah check` no NEW
       findings, `openspec validate --all --strict` clean, `just lint-specs`
       clean.
