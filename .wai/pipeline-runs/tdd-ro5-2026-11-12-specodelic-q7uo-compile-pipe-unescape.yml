@@ -1,0 +1,11 @@
+run_id: tdd-ro5-2026-11-12-specodelic-q7uo-compile-pipe-unescape
+pipeline: tdd-ro5
+topic: 'specodelic-q7uo: compile pipe unescape'
+created_at: '2026-11-12T17:46:52.656223204+00:00'
+current_step: 9
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
+bypasses: []
