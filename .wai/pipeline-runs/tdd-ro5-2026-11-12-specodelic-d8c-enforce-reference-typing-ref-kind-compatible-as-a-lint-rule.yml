@@ -2,7 +2,7 @@ run_id: tdd-ro5-2026-11-12-specodelic-d8c-enforce-reference-typing-ref-kind-comp
 pipeline: tdd-ro5
 topic: 'specodelic-d8c: enforce Reference Typing (ref_kind_compatible) as a lint rule'
 created_at: '2026-11-12T01:18:51.602051135+00:00'
-current_step: 8
+current_step: 9
 approvals: {}
 epic: null
 child_issues: []
