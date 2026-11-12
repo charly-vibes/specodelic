@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-12-specodelic-814-guard-typing-rust-escape-hatch, pipeline-step:plan]
+---
+
+specodelic-814 plan. Desired: guard row states both regimes — prose-only guard → exploration-only, invariants_checked: [] honestly; **rust:** fragment (Revision 15) → executed natively, no_counterexample honestly earned. Out of scope: other corpus files, openspec change proposal, docs hand-edits (generated). Test shape (RED→GREEN mapped honestly, docs edit): RED = grep assertion pinning both-regime wording on the guard row (currently bare 'machine-uninterpreted' — fails); GREEN = same assertion passes after the cell rewrite + Revision 20 heading + FORMAT_REVISION bump (drift guard format_revision_matches_corpus requires equality, so bump 19→20 in src/guide.rs) + literal pins updated (tests/cli/model_check.rs x3, tests/cli/feedback_init.rs x1). Narrow: cargo test format_revision_matches_corpus + the four cli pins. Full: just ci. Files: openspec/specs/specodelic/spec.md (guard row + Revision 20 heading), src/guide.rs (FORMAT_REVISION), 4 test literals, AGENTS.md via spk init --force, docs via just docs-build.

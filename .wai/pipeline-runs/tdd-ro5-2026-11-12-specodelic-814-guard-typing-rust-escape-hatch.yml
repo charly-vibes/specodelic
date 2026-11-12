@@ -1,0 +1,11 @@
+run_id: tdd-ro5-2026-11-12-specodelic-814-guard-typing-rust-escape-hatch
+pipeline: tdd-ro5
+topic: 'specodelic-814: guard-typing rust escape hatch'
+created_at: '2026-11-12T20:03:48.482742985+00:00'
+current_step: 9
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
+bypasses: []
