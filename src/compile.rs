@@ -577,12 +577,373 @@ fn emitter_gate_error(row_id: &str, lang: FragmentLang) -> CompileError {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Shared fragment definitions (## Fragments, add-shared-fragment-helpers)
+// ---------------------------------------------------------------------------
+
+/// One shared helper from the file's optional `## Fragments` section:
+/// the `def <name>:` line's name plus the fenced rust body, captured
+/// verbatim (extraction stays textual — design decision of record). A
+/// fragment cell in the same file references a helper with the `@name`
+/// token; compile inlines the referenced body at every use site as a
+/// `({ <items> <name> })` block expression, so a predicate assertion and
+/// an invariant fragment in the ModelIR carry their helpers identically.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FragmentDef {
+    name: String,
+    body: String,
+}
+
+/// A labeled `## Fragments` failure — same stage as fragment extraction
+/// (compile_is_total: one stage names the failure).
+fn helper_error(reason: impl std::fmt::Display) -> CompileError {
+    CompileError {
+        stage: "fragment_extraction".into(),
+        message: format!(
+            "## Fragments: {reason} — fix the section or the @name reference (shared fragment definitions, add-shared-fragment-helpers)"
+        ),
+    }
+}
+
+fn is_ident_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '_'
+}
+
+/// Parse the `## Fragments` body: `def <name>:` lines, each followed by
+/// a fenced rust body. Lines that are neither defs nor fence content are
+/// opaque prose (the linter's discipline — never parsed). Malformed defs
+/// (bad name shape, missing fence or body, duplicate name) fail labeled.
+fn fragment_defs(spec: &Spec) -> Result<Vec<FragmentDef>, CompileError> {
+    let text = &spec.fragments_body;
+    if text.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut defs: Vec<FragmentDef> = Vec::new();
+    let mut lines = text.lines().peekable();
+    while let Some(line) = lines.next() {
+        let Some(rest) = line.trim().strip_prefix("def ") else {
+            continue;
+        };
+        let name = rest.trim();
+        let Some(name) = name.strip_suffix(':').map(str::trim) else {
+            return Err(helper_error(format!(
+                "malformed def line `{line}` — the shape is `def <name>:`"
+            )));
+        };
+        let shape_ok = name
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+            && name.chars().all(is_ident_char);
+        if !shape_ok {
+            return Err(helper_error(format!(
+                "malformed helper name `{name}` — names are Rust identifiers ([A-Za-z_][A-Za-z0-9_]*)"
+            )));
+        }
+        if defs.iter().any(|d| d.name == name) {
+            return Err(helper_error(format!(
+                "duplicate helper name `{name}` — references resolve to the single definition"
+            )));
+        }
+        // Skip blank lines to the opening fence, then collect the body
+        // to the closing fence.
+        let mut body = String::new();
+        let mut open = false;
+        for l in lines.by_ref() {
+            let t = l.trim();
+            if !open {
+                if t.starts_with("```") {
+                    open = true;
+                } else if !t.is_empty() {
+                    return Err(helper_error(format!(
+                        "def `{name}` has no fenced body — write ```rust fences around the helper's Rust items"
+                    )));
+                }
+            } else if t.starts_with("```") {
+                open = false;
+                break;
+            } else {
+                body.push_str(l);
+                body.push('\n');
+            }
+        }
+        if open {
+            return Err(helper_error(format!("def `{name}` has an unclosed fence")));
+        }
+        let body = body.trim_end().to_string();
+        if body.is_empty() {
+            return Err(helper_error(format!("def `{name}` has an empty body")));
+        }
+        defs.push(FragmentDef {
+            name: name.to_string(),
+            body,
+        });
+    }
+    Ok(defs)
+}
+
+/// `@name` occurrences in a fragment or helper body: `@` at a word
+/// boundary (never preceded by an identifier char) followed by an
+/// identifier. Rust's pattern-binding `@` (`x @ Some(_)`) is always
+/// preceded by an identifier and followed by a pattern, so it never
+/// scans as a helper reference. The textual scan shares the hygiene
+/// check's deliberately conservative imprecision (documented of record).
+fn helper_refs(text: &str) -> Vec<String> {
+    let mut refs = Vec::new();
+    let mut rest = text;
+    while let Some(at) = rest.find('@') {
+        let boundary = rest[..at]
+            .chars()
+            .next_back()
+            .is_none_or(|c| !is_ident_char(c));
+        let after = &rest[at + 1..];
+        let name: String = after.chars().take_while(|&c| is_ident_char(c)).collect();
+        let ident_start = name
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_');
+        if boundary && ident_start {
+            let len = name.len();
+            refs.push(name);
+            rest = &after[len..];
+        } else {
+            rest = after;
+        }
+    }
+    refs
+}
+
+/// Rewrite every `@name` token in `text` through `f`, keeping all other
+/// bytes verbatim (single source of truth for the reference syntax —
+/// validation and emission cannot drift on what counts as a reference).
+fn rewrite_helper_refs(
+    text: &str,
+    mut f: impl FnMut(&str) -> Result<String, CompileError>,
+) -> Result<String, CompileError> {
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(at) = rest.find('@') {
+        let after = &rest[at + 1..];
+        let name: String = after.chars().take_while(|&c| is_ident_char(c)).collect();
+        let boundary = out.chars().next_back().is_none_or(|c| !is_ident_char(c));
+        let ident_start = name
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_');
+        if boundary && ident_start {
+            out.push_str(&rest[..at]);
+            out.push_str(&f(&name)?);
+            rest = &after[name.len()..];
+        } else {
+            out.push_str(&rest[..=at]);
+            rest = after;
+        }
+    }
+    out.push_str(rest);
+    Ok(out)
+}
+
+/// Memoized helper expansion: a referenced def inlines as
+/// `({ <body with its own @refs expanded> <name> })` — Rust items are
+/// legal inside a block expression, so the rewrite is valid wherever the
+/// fragment itself is (assertion operand, ModelIR invariant). Memoizing
+/// keeps chains linear; the visiting stack turns mutual references into
+/// the labeled cycle failure.
+struct HelperExpander<'a> {
+    defs: &'a [FragmentDef],
+    memo: BTreeMap<String, String>,
+}
+
+impl<'a> HelperExpander<'a> {
+    fn new(defs: &'a [FragmentDef]) -> Self {
+        Self {
+            defs,
+            memo: BTreeMap::new(),
+        }
+    }
+
+    fn def(&self, name: &str) -> Result<&'a FragmentDef, CompileError> {
+        self.defs.iter().find(|d| d.name == name).ok_or_else(|| {
+            helper_error(format!(
+                "unknown fragment helper reference `@{name}` — no `def {name}:` in this file's `## Fragments` section"
+            ))
+        })
+    }
+
+    fn expand(&mut self, name: &str, stack: &mut Vec<String>) -> Result<String, CompileError> {
+        if let Some(memo) = self.memo.get(name) {
+            return Ok(memo.clone());
+        }
+        if let Some(pos) = stack.iter().position(|n| n == name) {
+            let mut chain: Vec<String> = stack[pos..].to_vec();
+            chain.push(name.to_string());
+            return Err(helper_error(format!(
+                "helper reference cycle: `{}` — inlining terminates by construction; break the cycle",
+                chain.join("` -> `")
+            )));
+        }
+        let body = self.def(name)?.body.clone();
+        stack.push(name.to_string());
+        let expanded = rewrite_helper_refs(&body, |r| {
+            let inner = self.expand(r, stack)?;
+            Ok(format!("({{{inner} {r}}})"))
+        })?;
+        stack.pop();
+        let out = format!("({{{expanded}\n{name}}})");
+        self.memo.insert(name.to_string(), out.clone());
+        Ok(out)
+    }
+}
+
+/// The fragment texts that may carry `@name` helper references: non-law
+/// Property predicates and invariant-kind Constraint exprs that opted in
+/// with the `**rust:**` marker (law rows and guards can never reach
+/// here — their rejection rows run first in `validate_fragments`).
+fn fragment_cell_texts(spec: &Spec) -> Vec<String> {
+    let mut texts = Vec::new();
+    for p in &spec.properties {
+        if p.cells.get("kind").map(String::as_str) == Some("law") {
+            continue;
+        }
+        if let Some(text) = fragment_of(p.cells.get("predicate").map(String::as_str).unwrap_or(""))
+        {
+            texts.push(text);
+        }
+    }
+    for c in &spec.constraints {
+        if c.cells.get("kind").map(String::as_str) == Some("invariant")
+            && let Some(text) = fragment_of(c.cells.get("expr").map(String::as_str).unwrap_or(""))
+        {
+            texts.push(text);
+        }
+    }
+    texts
+}
+
+/// Symbols the props emitter generates at the block's scope. A helper
+/// colliding with one would silently shadow it inside the emitted block
+/// — the labeled-failure list (design decision: collision, never shadow).
+fn generated_symbol_names(spec: &Spec) -> BTreeSet<String> {
+    let mut names: BTreeSet<String> = ["spec_gen".to_string(), "todo_predicate".to_string()]
+        .into_iter()
+        .collect();
+    for p in &spec.properties {
+        for b in blocks_for_row(p.id.clone(), p.cells.get("kind").map(String::as_str), p) {
+            names.insert(b.fn_name);
+        }
+    }
+    names
+}
+
+/// `v0`, `v1`, … — the strategy-binding namespace proptest! generates.
+fn is_generated_binding(name: &str) -> bool {
+    name.len() >= 2 && name.starts_with('v') && name[1..].chars().all(|c| c.is_ascii_digit())
+}
+
+/// The `## Fragments` half of fragment validation (runs first inside
+/// `validate_fragments`, same stage): malformed defs, name collisions
+/// with generated symbols, the inherited `FRAGMENT_BANNED` hygiene on
+/// every helper body, unknown `@name` references from any fragment cell
+/// or helper body, and reference cycles.
+fn validate_fragment_helpers(spec: &Spec) -> Result<(), CompileError> {
+    let defs = fragment_defs(spec)?;
+    let generated = generated_symbol_names(spec);
+    for d in &defs {
+        if generated.contains(&d.name) {
+            return Err(helper_error(format!(
+                "helper `{}` collides with the generated symbol `{}` — rename the helper; a silent shadow is never allowed",
+                d.name, d.name
+            )));
+        }
+        if is_generated_binding(&d.name) {
+            return Err(helper_error(format!(
+                "helper `{}` collides with the generated symbol `{0}` (the strategy-binding namespace v0, v1, …) — rename the helper; a silent shadow is never allowed",
+                d.name
+            )));
+        }
+        if let Some(token) = hygiene_violation(&d.body) {
+            return Err(helper_error(format!(
+                "helper `{}` body contains banned token `{token}` (fragment_hygiene — helper bodies inherit the fragment token ban verbatim; the check is defense-in-depth, not a sandbox)",
+                d.name
+            )));
+        }
+    }
+    let mut expander = HelperExpander::new(&defs);
+    for text in fragment_cell_texts(spec)
+        .iter()
+        .chain(defs.iter().map(|d| &d.body))
+    {
+        for r in helper_refs(text) {
+            expander.expand(&r, &mut Vec::new())?;
+        }
+    }
+    Ok(())
+}
+
+/// Resolve and inline a fragment's `@name` helper references: each
+/// referenced body expands at the use site (see `HelperExpander`), every
+/// other byte is preserved. The fast path (no defs, no `@`) returns the
+/// text unchanged — the pure-widening byte-preservation contract.
+fn inline_helper_refs(spec: &Spec, fragment: &str) -> Result<String, CompileError> {
+    let defs = fragment_defs(spec)?;
+    if defs.is_empty() || !fragment.contains('@') {
+        return Ok(fragment.to_string());
+    }
+    let mut expander = HelperExpander::new(&defs);
+    rewrite_helper_refs(fragment, |r| expander.expand(r, &mut Vec::new()))
+}
+
+/// The lenient counterpart for extraction contexts that only ever see
+/// compile-validated input — the same contract as `fragment_of`:
+/// `compile_spec` has already failed labeled on the malformed section,
+/// so an error here can only come from a direct unvalidated call, and
+/// leaving the reference marker in the text fails visibly downstream
+/// (the artifact does not compile), never silently drops it.
+fn inline_helpers_lenient(spec: &Spec, fragment: &str) -> String {
+    inline_helper_refs(spec, fragment).unwrap_or_else(|_| fragment.to_string())
+}
+
+/// Dead-helper warnings (the scenario's "unused definition warns"): a
+/// def reachable from no fragment cell — directly or through other defs
+/// — is dead weight; warned on the warnings channel, never a failure.
+fn helper_warnings(spec: &Spec) -> Vec<String> {
+    let Ok(defs) = fragment_defs(spec) else {
+        return Vec::new();
+    };
+    if defs.is_empty() {
+        return Vec::new();
+    }
+    let mut live: BTreeSet<String> = BTreeSet::new();
+    let mut stack: Vec<String> = fragment_cell_texts(spec)
+        .iter()
+        .flat_map(|t| helper_refs(t))
+        .collect();
+    while let Some(name) = stack.pop() {
+        if !live.insert(name.clone()) {
+            continue;
+        }
+        if let Some(d) = defs.iter().find(|d| d.name == name) {
+            stack.extend(helper_refs(&d.body));
+        }
+    }
+    defs.iter()
+        .filter(|d| !live.contains(&d.name))
+        .map(|d| {
+            format!(
+                "dead helper `{}` in `## Fragments` — referenced by zero fragment cells; remove it or reference it as @{} (add-shared-fragment-helpers)",
+                d.name, d.name
+            )
+        })
+        .collect()
+}
+
 /// Every fragment-bearing cell in the spec is validated labeled before
 /// any artifact is emitted (compile_is_total): single non-empty marker,
 /// hygiene, and the three rejection rows — law-kind Property predicates,
 /// non-invariant Constraint exprs, and Transition guards (no binding over
 /// the program-counter model — deferred of record).
 pub fn validate_fragments(spec: &Spec) -> Result<(), CompileError> {
+    validate_fragment_helpers(spec)?;
     for p in &spec.properties {
         let predicate = p.cells.get("predicate").cloned().unwrap_or_default();
         let kind = p.cells.get("kind").cloned().unwrap_or_default();
@@ -784,7 +1145,10 @@ pub fn extract_model_ir(spec: &Spec) -> ModelIr {
             fragment_of(c.cells.get("expr").map(String::as_str).unwrap_or("")).map(|fragment| {
                 InvariantIr {
                     id: c.id.clone(),
-                    fragment,
+                    // Shared helpers inline here too (add-shared-fragment-
+                    // helpers): the block-expression rewrite keeps the IR
+                    // fragment self-contained wherever model_check wraps it.
+                    fragment: inline_helpers_lenient(spec, &fragment),
                 }
             })
         })
@@ -894,6 +1258,16 @@ pub fn properties_to_proptest(spec: &Spec) -> String {
         while !used.insert(b.fn_name.clone()) {
             b.fn_name = format!("{base}_{n}");
             n += 1;
+        }
+    }
+    // Shared fragment definitions (add-shared-fragment-helpers): a
+    // predicate fragment's `@name` references inline each referenced
+    // helper body at the use site — self-contained per-row blocks, the
+    // inline-not-shared-module decision of record. The fast path leaves
+    // markerless fragments byte-identical.
+    for b in &mut blocks {
+        if let Some(fragment) = b.fragment.as_mut() {
+            *fragment = inline_helpers_lenient(spec, fragment);
         }
     }
 
@@ -1299,6 +1673,12 @@ pub struct Compiled {
     /// The extracted Model IR (stands in for the model module until the
     /// backend decision; preserves state/transition ids).
     pub model_ir: ModelIr,
+    /// Non-fatal compile findings (add-shared-fragment-helpers): a
+    /// `## Fragments` def reachable from no fragment cell — the
+    /// dead-helper warning rides the existing warnings channel
+    /// (`Written::warnings`), never the issues channel and never a
+    /// failure. Empty for files without the section (pure widening).
+    pub warnings: Vec<String>,
 }
 
 /// A labeled, single failure — never a silent partial result.
@@ -1404,7 +1784,7 @@ pub fn write_artifacts_into(
     let toml_path = dir.join(format!("{stem}.toml"));
     let props_path = dir.join(format!("{stem}_props.rs"));
     let tla_path = dir.join(format!("{stem}.tla"));
-    let (props, warnings) = match rustfmt_clean(compiled.props.clone()) {
+    let (props, mut warnings) = match rustfmt_clean(compiled.props.clone()) {
         Ok(formatted) => (formatted, Vec::new()),
         Err(e) => (
             compiled.props.clone(),
@@ -1414,6 +1794,10 @@ pub fn write_artifacts_into(
             )],
         ),
     };
+    // Compile's own non-fatal findings (the dead-helper warning) ride
+    // the same channel as the rustfmt fallback — one warnings channel,
+    // never the issues channel (add-shared-fragment-helpers).
+    warnings.splice(0..0, compiled.warnings.iter().cloned());
     std::fs::write(&toml_path, &compiled.toml)
         .map_err(|e| format!("could not write {}: {e}", toml_path.display()))?;
     std::fs::write(&props_path, &props)
@@ -1486,6 +1870,7 @@ pub fn compile_spec(spec: &Spec) -> Result<Compiled, CompileError> {
     let model_ir = extract_model_ir(spec);
     let props = properties_to_proptest(spec);
     let tla = model_to_tla(spec);
+    let warnings = helper_warnings(spec);
 
     // no_semantic_drift — re-parsing the TOML and re-emitting it yields
     // output identical to the original compile.
@@ -1536,6 +1921,7 @@ pub fn compile_spec(spec: &Spec) -> Result<Compiled, CompileError> {
         props,
         tla,
         model_ir,
+        warnings,
     })
 }
 

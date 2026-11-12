@@ -95,6 +95,11 @@ const HELPERS_BASE: &str = "---\nid: demo.helpers\nkind: intent\nstatement: \"TH
 
 const IS_SHORT_DEF: &str = "\n## Fragments\n\ndef is_short:\n\n```rust\nfn is_short(s: &str) -> bool { s.len() < 3 }\n```\n";
 
+/// The base with `p1`/`p2`'s marker predicates replaced by prose — the
+/// failure-mode builders compose their own `## Fragments` sections and
+/// reference sets, so the base must not drag `@is_short` into them.
+const HELPERS_QUIET: &str = "---\nid: demo.helpers\nkind: intent\nstatement: \"THE system SHALL work\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| a | invariant | `state != \"blackhole\"` | [[demo.helpers]] |\n| b | effect | `y fires` | [[demo.helpers]] |\n\n## Model\n\n### States\n\n- s1\n- s2 (emits: `[[demo.helpers.b]]`)\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t1 | s1 | s2 | [[demo.helpers.a]] |\n| t2 | s2 | s1 | `done` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p1 | unit | [[demo.helpers.a]] | `word()` | `check(v0) == ok` |\n| p2 | unit | [[demo.helpers.a]] | `word()` | `check(v0) == ok` |\n| p3 | unit | [[demo.helpers.b]] | `word()` | `check(v0) == ok` |\n";
+
 fn helpers_spec() -> Spec {
     parse_str(&format!("{HELPERS_BASE}{IS_SHORT_DEF}")).unwrap_p()
 }
@@ -113,9 +118,10 @@ fn with_predicate(fragment: &str) -> Spec {
 }
 
 /// The base spec with the single `is_short` def replaced by an
-/// arbitrary `## Fragments` section body.
+/// arbitrary `## Fragments` section body (over the quiet base, so the
+/// only `@name` references in play are the custom section's own).
 fn with_fragment_section(section: &str) -> Spec {
-    parse_str(&format!("{HELPERS_BASE}\n## Fragments\n\n{section}")).unwrap_p()
+    parse_str(&format!("{HELPERS_QUIET}\n## Fragments\n\n{section}")).unwrap_p()
 }
 
 // --- task 1.1: helper inlines at each use site --------------------------
@@ -134,14 +140,18 @@ fn helper_inlines_at_each_use_site() {
         compiled.props
     );
     assert!(
-        !compiled.props.contains("@is_short"),
-        "no reference marker survives emission:\n{}",
+        compiled
+            .props
+            .lines()
+            .filter(|l| l.contains('@'))
+            .all(|l| l.trim_start().starts_with("// predicate:")),
+        "@ survives only in the verbatim row-quote metadata comments:\n{}",
         compiled.props
     );
     // the reference is rewritten to the defined item, never an
     // indirection through a generated symbol.
     assert!(
-        compiled.props.contains("is_short })(&v0)"),
+        compiled.props.contains("is_short})(&v0)"),
         "rewritten to the inlined item value: {}",
         compiled.props
     );
@@ -210,9 +220,13 @@ fn helper_cycle_fails_labeled_naming_the_cycle() {
 fn transitive_helper_chain_inlines_fully() {
     // Scenario "Transitive reference inlines fully": p1 -> @is_a,
     // is_a -> @is_b, is_b -> @is_c: all three bodies at the use site.
+    let text = HELPERS_QUIET.replace(
+        "| p1 | unit | [[demo.helpers.a]] | `word()` | `check(v0) == ok` |",
+        "| p1 | unit | [[demo.helpers.a]] | `word()` | `**rust:** @is_a(&v0)` |",
+    );
     let spec = parse_str(&format!(
         "{}\n## Fragments\n\ndef is_a:\n\n```rust\nfn is_a(s: &str) -> bool {{ @is_b(s) && !s.is_empty() }}\n```\n\ndef is_b:\n\n```rust\nfn is_b(s: &str) -> bool {{ @is_c(s) }}\n```\n\ndef is_c:\n\n```rust\nfn is_c(s: &str) -> bool {{ s.len() < 3 }}\n```\n",
-        text_with_predicate("@is_a(&v0)")
+        text
     ))
     .unwrap_p();
     let compiled = compile_spec(&spec).unwrap_p();
@@ -227,7 +241,15 @@ fn transitive_helper_chain_inlines_fully() {
             compiled.props
         );
     }
-    assert!(!compiled.props.contains('@'), "no marker survives");
+    assert!(
+        compiled
+            .props
+            .lines()
+            .filter(|l| l.contains('@'))
+            .all(|l| l.trim_start().starts_with("// predicate:")),
+        "@ survives only in the verbatim row-quote metadata comments:\n{}",
+        compiled.props
+    );
 }
 
 // --- scenario: unknown reference fails labeled --------------------------
@@ -248,12 +270,12 @@ fn unknown_helper_reference_fails_labeled() {
 
 #[test]
 fn unused_helper_warns_on_the_warnings_channel_and_succeeds() {
-    let spec = with_fragment_section(
-        "def is_short:\n\n```rust\nfn is_short(s: &str) -> bool { s.len() < 3 }\n```\n\ndef is_unused:\n\n```rust\nfn is_unused() -> bool { true }\n```\n",
-    );
-    // p1/p2 no longer reference is_short in this variant? They do —
-    // with_fragment_section only replaces the defs; the base's @is_short
-    // references stay live. is_unused is the dead one.
+    // The full base (p1/p2 reference @is_short) plus a second def
+    // nothing references — is_short stays live, is_unused is the dead one.
+    let spec = parse_str(&format!(
+        "{HELPERS_BASE}{IS_SHORT_DEF}\ndef is_unused:\n\n```rust\nfn is_unused() -> bool {{ true }}\n```\n"
+    ))
+    .unwrap_p();
     let compiled = compile_spec(&spec).unwrap_p();
     let dir = std::env::temp_dir().join(format!("spk-frag-warn-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

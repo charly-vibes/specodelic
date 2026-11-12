@@ -131,6 +131,13 @@ pub struct Spec {
     /// format doc and the code cannot drift. Empty when the file has no
     /// such section (only the format doc itself carries one).
     pub reference_typing_body: String,
+    /// Body of `## Fragments` captured verbatim (add-shared-fragment-
+    /// helpers, specodelic-ez9a.1): the optional per-file shared-helper
+    /// section — `def <name>:` lines plus fenced rust bodies. The linter
+    /// never parses it (opaque prose: no frontmatter, tables, or typed
+    /// references); compile's extraction is the only consumer. Empty
+    /// when the file carries no such section.
+    pub fragments_body: String,
     /// All `[[wiki-links]]` found in *structured* fields (frontmatter and
     /// table cells) — never prose. Each link is the raw inner text, which may
     /// be a file id (`specodelic`), a row id (`specodelic.model_present`), or
@@ -274,6 +281,7 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
         modified_requirements_body: String::new(),
         requirements_body: String::new(),
         reference_typing_body: String::new(),
+        fragments_body: String::new(),
         links: vec![],
     };
     spec.links.extend(frontmatter_links(text, &spec.intent.id));
@@ -308,6 +316,13 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
         if ctx.in_reference_typing {
             spec.reference_typing_body.push_str(line.trim_end());
             spec.reference_typing_body.push('\n');
+        }
+        // Fragments capture: same verbatim discipline — the section is
+        // opaque prose to every consumer except compile's helper
+        // extraction (add-shared-fragment-helpers).
+        if ctx.in_fragments {
+            spec.fragments_body.push_str(line.trim_end());
+            spec.fragments_body.push('\n');
         }
 
         match ctx.current_table {
@@ -546,6 +561,7 @@ struct SectionCtx {
     current_table: TableKind,
     in_states: bool,
     in_reference_typing: bool,
+    in_fragments: bool,
     dual_section: u8, // 0 none · 1 ADDED Requirements · 2 Requirements · 3 MODIFIED Requirements
 }
 
@@ -594,6 +610,7 @@ impl SectionCtx {
         }
         self.in_states = false;
         self.in_reference_typing = false;
+        self.in_fragments = h == "Fragments";
     }
 
     fn on_h3(&mut self, h: &str) {

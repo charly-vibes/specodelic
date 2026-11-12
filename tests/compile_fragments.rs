@@ -11,8 +11,8 @@
 //! at its size ratchet; nothing here reaches crate-private items.
 
 use specodelic::compile::{
-    ConstraintsDoc, FragmentLang, InvariantIr, compile_spec, extract_model_ir, fragment_of_strict,
-    model_to_tla, properties_to_proptest,
+    ConstraintsDoc, InvariantIr, compile_spec, extract_model_ir, fragment_of_strict, model_to_tla,
+    properties_to_proptest,
 };
 use specodelic::spec::{Spec, parse_str};
 
