@@ -1,0 +1,5 @@
+---
+tags: [pipeline-step:select-ticket, pipeline-run:epic-orchestrator-2026-11-12-specodelic-4und-kernel-coverage-of-fragments, pipeline-run:epic-orchestrator-2026-11-12-specodelic-q7uo-compile-pipe-unescape]
+---
+
+TICKET: specodelic-4und - experiment E2 (kernel coverage of fragments) gates add-shared-fragment-helpers (ez9a.1). Selected now: only unblocked item ahead of the ez9a.1->lf3 chain; measurement ticket (no product code). INPUT RECOVERED: study bundle path was abbreviated claude/56d084d5.../ in whisper notes; full path reconstructed from the 2026-10-24 session transcript: /var/home/sasha/cotorreo/raw/_conversations/claude/56d084d5-6e1c-407f-afba-b2fe244f101f/artifacts/specodelic_bundle_v3.tar.gz (1.1MB, harness/ python helpers k04 fsm k11 bowl k07 sk k05 bowlspec scale mutA/B/C rev6 + run.sh; PARTIAL report + bowling semantic report alongside; manifest.json). Measures: % helpers replaceable by kernel grammar + citation algebra, residual fragment bytes, detection parity; falsifiable rule >=70% of non-arithmetic helpers kernel-expressible -> rescope/supersede add-shared-fragment-helpers, else proposal stands; n=1-author label + artifact bundle required.

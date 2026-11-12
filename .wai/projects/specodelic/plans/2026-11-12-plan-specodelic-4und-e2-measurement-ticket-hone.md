@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-12-specodelic-4und-kernel-coverage-of-fragments, pipeline-step:plan]
+---
+
+PLAN specodelic-4und E2 (measurement ticket — honest mapping: plan step = re-expression method, no red/green TDD cycles fabricated). Method: (1) classify every harness helper structural|arithmetic|oracle|scaffolding; (2) for each STRUCTURAL helper write the kernel/citation re-expression as scratch probe specs under /var/tmp/4und-probes (zero product/corpus edits); (3) run built binary (target/debug/specodelic, v0.12.1) orchestrate on baseline+mutant pairs mirroring bundle fixtures (k04 a1/a2/a3, k08 w1/w2/w3, k07 e1/e3); (4) parity = exit-code + claim status vs bundle logs/helper outcomes; probes that cannot run recorded not-run with reason; (5) apply >=70% falsifiable rule; (6) report to .wai/projects/specodelic/research/2026-11-12-4und-experiment-e2-kernel-coverage-report.md. Narrow cmd: spk orchestrate /var/tmp/4und-probes/<case>. Full verification: bundle log diff + rule arithmetic. Out of scope: src/tests/openspec edits, fragment-helper implementation.
