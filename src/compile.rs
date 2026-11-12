@@ -82,7 +82,15 @@ fn constraints_doc(spec: &Spec) -> ConstraintsDoc {
             .map(|r| ConstraintToml {
                 id: r.id.clone(),
                 kind: r.cells.get("kind").cloned().unwrap_or_default(),
-                expr: r.cells.get("expr").cloned().unwrap_or_default(),
+                // The expr cell is where a `**rust:**` invariant fragment
+                // lives; the toml carries cell content, not markdown
+                // transport, so the pipe escape is undone here too
+                // (specodelic-q7uo). Identity for cells without the escape.
+                expr: r
+                    .cells
+                    .get("expr")
+                    .map(|c| unescape_cell_pipes(c))
+                    .unwrap_or_default(),
                 traces_to: r.cells.get("traces_to").cloned().unwrap_or_default(),
                 binding: kernel_binding_of_row(
                     r.cells.get("kind").map(String::as_str),
@@ -392,6 +400,21 @@ pub const FRAGMENT_BANNED: &[&str] = &[
     "Command",
 ];
 
+/// Unescape the table-cell pipe escape (`\|` → `|`) at the
+/// extraction/emission boundary (specodelic-q7uo, catitas A1): the parser
+/// splits cells on unescaped pipes and keeps the escape sequence in the
+/// cell text (guide.md's cell rule), so a fragment authored with `\|\|`,
+/// `\|=`, or a closure `\|x\|` would otherwise emit Rust that does not
+/// compile. The escape is markdown table transport, never fragment
+/// content. A literal two-character replacement — the parser performs no
+/// other unescaping, so this is the exact inverse of the cell rule (the
+/// same shape as packs.rs's own cell-split protection, a different path).
+/// Identity for text without the escape, so pre-existing artifacts stay
+/// byte-identical.
+fn unescape_cell_pipes(text: &str) -> String {
+    text.replace("\\|", "|")
+}
+
 /// Strict fragment parse: `Ok(None)` when the cell carries no marker in
 /// fragment position (unchanged pre-Revision-15 behavior),
 /// `Ok(Some(fragment))` for exactly one fragment-position marker with a
@@ -436,7 +459,13 @@ pub fn fragment_of_strict(cell: &str) -> Result<Option<Fragment>, String> {
             } else {
                 Ok(Some(Fragment {
                     lang,
-                    text: fragment.to_string(),
+                    // Unescape the cell's pipe transport (`\|`) here, at
+                    // the single place fragment text is produced, so every
+                    // downstream consumer — `_props.rs` assertions, the
+                    // `.tla` manifest, the model-check scratch crate,
+                    // audit/conform evidence — sees the same unescaped
+                    // Rust (specodelic-q7uo).
+                    text: unescape_cell_pipes(fragment),
                 }))
             }
         }

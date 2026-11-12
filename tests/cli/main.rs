@@ -51,6 +51,7 @@ mod citation_resolution;
 mod compile;
 mod conform;
 mod feedback_init;
+mod fragment_unescape;
 mod graph_projection;
 mod graph_views;
 mod hooks_hostile_output;
