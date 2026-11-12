@@ -2,7 +2,7 @@ run_id: tdd-ro5-2026-11-11-specodelic-gheu-extract-report-diff-into-testable-uni
 pipeline: tdd-ro5
 topic: 'specodelic-gheu: extract report-diff into testable unit'
 created_at: '2026-11-11T17:40:04.592904870+00:00'
-current_step: 8
+current_step: 9
 approvals: {}
 epic: null
 child_issues: []

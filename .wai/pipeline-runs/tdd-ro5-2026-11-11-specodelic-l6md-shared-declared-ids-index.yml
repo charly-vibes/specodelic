@@ -2,7 +2,7 @@ run_id: tdd-ro5-2026-11-11-specodelic-l6md-shared-declared-ids-index
 pipeline: tdd-ro5
 topic: 'specodelic-l6md: shared declared-ids index'
 created_at: '2026-11-11T20:43:51.846936380+00:00'
-current_step: 8
+current_step: 9
 approvals: {}
 epic: null
 child_issues: []
