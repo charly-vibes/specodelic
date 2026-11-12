@@ -12,7 +12,7 @@
   "expected_claim_ids": [],
   "invariants_checked": [],
   "outcome": "exploration_only",
-  "scope_sha256": "edeb2420ea9601ecd4f8b59b60bb344d302d5cd293e94f12e449d2a75d460920",
+  "scope_sha256": "ef1e18720ffbc6758e3aa22c844e0228644ecf97429b15202acf751cb4d9df3f",
   "states_explored": 9,
   "unchecked_claim_ids": [
     "blast_radii_recorded_pre_merge",

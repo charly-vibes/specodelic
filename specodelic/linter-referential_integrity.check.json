@@ -12,12 +12,20 @@
   "expected_claim_ids": [],
   "invariants_checked": [],
   "outcome": "exploration_only",
-  "scope_sha256": "edeb2420ea9601ecd4f8b59b60bb344d302d5cd293e94f12e449d2a75d460920",
+  "scope_sha256": "ef1e18720ffbc6758e3aa22c844e0228644ecf97429b15202acf751cb4d9df3f",
   "states_explored": 7,
   "unchecked_claim_ids": [
+    "corpus_stays_green",
+    "dangling_is_total_refs",
+    "from_to_not_duplicated",
+    "member_arm_types_row",
     "ref_kind_compatible",
     "ref_resolves",
+    "schema_is_decision",
+    "severity_error",
+    "typed_columns_only",
     "unique_across_repo",
-    "unique_within_file"
+    "unique_within_file",
+    "uses_types_frontmatter"
   ]
 }
