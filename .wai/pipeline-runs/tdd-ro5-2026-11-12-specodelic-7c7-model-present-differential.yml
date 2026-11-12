@@ -1,0 +1,11 @@
+run_id: tdd-ro5-2026-11-12-specodelic-7c7-model-present-differential
+pipeline: tdd-ro5
+topic: 'specodelic-7c7: model_present differential'
+created_at: '2026-11-12T16:51:42.190404268+00:00'
+current_step: 9
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
+bypasses: []
