@@ -775,6 +775,7 @@ pub(crate) fn write_fiber_kind_consumer(path: &std::path::Path, id: &str, uses: 
              \n| id | kind | expr | traces_to | uses |\n\
              |----|------|------|-----------|------|\n\
              | c1 | {fiber} | `holds` | [[{id}]] | {uses} |\n\
+             | c0 | invariant | `gates` | [[{id}]] | |\n\
              \n## Model\n\
              \n### States\n\
              \n- s1\n\
@@ -782,11 +783,12 @@ pub(crate) fn write_fiber_kind_consumer(path: &std::path::Path, id: &str, uses: 
              \n### Transitions\n\
              \n| id | from | to | guard |\n\
              |----|------|----|-------|\n\
-             | t | s1 | s2 | [[{id}.c1]] |\n\
+             | t | s1 | s2 | [[{id}.c0]] |\n\
              \n## Properties\n\
              \n| id | kind | derives_from | generator | predicate |\n\
              |----|------|--------------|-----------|------------|\n\
-             | p | {fiber} | [[{id}.c1]] | `g()` | `x` |\n"
+             | p | {fiber} | [[{id}.c1]] | `g()` | `x` |\n\
+             | p0 | unit | [[{id}.c0]] | `g()` | `y` |\n"
         ),
     )
     .unwrap_p();

@@ -1129,6 +1129,89 @@ fn human_output_shows_rule_id() {
     );
 }
 
+/// specodelic-d8c: the Reference Typing table is enforced by the linter —
+/// a guard citing a non-invariant constraint exits 1 with the labeled
+/// `linter.ref_kind_compatible` finding (JSON + human), and the clean
+/// twin corpus exits 0.
+#[test]
+fn lint_ref_kind_guard_violation_fires_labeled() {
+    let mk = |guard: &str| {
+        let dir = tempfile::tempdir().unwrap_p();
+        std::fs::write(
+            dir.path().join("rk-t.md"),
+            format!(
+                "---\nid: rk.t\nkind: intent\nstatement: \"THE rk SHALL type\"\n---\n\
+                 \n## Constraints\n\
+                 \n| id | kind | expr | traces_to |\n\
+                 |----|------|------|-----------|\n\
+                 | inv | invariant | `x` | [[rk.t]] |\n\
+                 | soft | advisory | `hint` | [[rk.t]] |\n\
+                 \n## Model\n\
+                 \n### States\n\
+                 \n- s1\n\
+                 \n### Transitions\n\
+                 \n| id | from | to | guard |\n\
+                 |----|------|----|-------|\n\
+                 | ok | s1 | s1 | {guard} |\n\
+                 \n## Properties\n\
+                 \n| id | kind | derives_from | generator | predicate |\n\
+                 |----|------|--------------|-----------|------------|\n\
+                 | p_inv | unit | [[rk.t.inv]] | `g()` | `x` |\n\
+                 | p_soft | unit | [[rk.t.soft]] | `g()` | `x` |\n"
+            ),
+        )
+        .unwrap_p();
+        dir
+    };
+    // Violating corpus: guard → advisory constraint.
+    let dir = mk("[[rk.t.soft]]");
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
+        .output()
+        .unwrap_p();
+    assert_eq!(out.status.code(), Some(1), "typing violation exits 1");
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
+    let hit = issues
+        .iter()
+        .find(|i| i["rule_id"] == "linter.ref_kind_compatible")
+        .unwrap_or_else(|| panic!("labeled ref_kind_compatible finding: {issues:?}"));
+    assert!(
+        hit["message"].as_str().unwrap_p().contains("[[rk.t.soft]]"),
+        "finding names the target"
+    );
+    assert!(
+        hit["message"]
+            .as_str()
+            .unwrap_p()
+            .contains("Reference Typing"),
+        "finding carries a remediation hint naming the table"
+    );
+    assert!(
+        !hit["rule_semantics"].as_str().unwrap_p().is_empty(),
+        "finding carries the rule semantics"
+    );
+    let human = spk()
+        .args(["lint", dir.path().to_str().unwrap_p(), "--human"])
+        .output()
+        .unwrap_p();
+    assert!(
+        String::from_utf8(human.stdout)
+            .unwrap_p()
+            .contains("linter.ref_kind_compatible"),
+        "human output shows the rule id"
+    );
+    // Clean twin: guard → invariant constraint exits 0.
+    let clean = mk("[[rk.t.inv]]");
+    let out = spk()
+        .args(["lint", clean.path().to_str().unwrap_p(), "--json"])
+        .output()
+        .unwrap_p();
+    assert_eq!(out.status.code(), Some(0), "clean twin exits 0");
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    assert!(json["data"]["issues"].as_array().unwrap_p().is_empty());
+}
+
 #[test]
 fn explain_lint_rules_renders_the_rule_catalog() {
     // `explain lint-rules` renders from the same table the linter emits

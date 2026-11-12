@@ -21,7 +21,8 @@ mod rules;
 // Moved to submodules (specodelic-g17 file_lines split) — re-imported so
 // existing call sites (lint_one, lint_all, advisory_findings, tests) stay put.
 pub(crate) use graph::{
-    Index, declared_rows, lint_graph_shape, lint_references, resolves_row, transition_ids,
+    Index, declared_rows, lint_graph_shape, lint_ref_kinds, lint_references, resolves_row,
+    transition_ids,
 };
 pub(crate) use observability::{lint_coverage, lint_observability};
 pub(crate) use rules::{
@@ -104,6 +105,10 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
     (
         "total_refs",
         "every structured-field [[link]] must resolve to a definition somewhere in the corpus (Revision 18: all files resolve corpus-wide — the former `id: spec` self-containment retired)",
+    ),
+    (
+        "ref_kind_compatible",
+        "every resolved [[link]] in a Reference Typing field must target a kind-compatible row — read from the Schema-as-data table, not hardcoded per field; dangling targets stay `total_refs`' beat, from/to stays `every_transition_valid`'s (openspec/specs/linter-referential_integrity/spec.md)",
     ),
     (
         "coverage",
@@ -263,6 +268,7 @@ pub fn lint_corpus(specs: &[Spec]) -> Report {
         lint_one(spec, specs, &mut report);
     }
     lint_references(specs, &mut report);
+    lint_ref_kinds(specs, &mut report);
     lint_coverage(specs, &mut report);
     lint_graph_shape(specs, &mut report);
     lint_observability(specs, &mut report);
@@ -315,13 +321,15 @@ pub fn frontmatter_findings(specs: &[Spec]) -> Vec<Issue> {
 }
 
 /// `linter-referential_integrity.md` — unique ids per file plus the
-/// corpus-wide reference rules (`total_refs`, `no_self_ref`).
+/// corpus-wide reference rules (`total_refs`, `ref_kind_compatible`,
+/// `no_self_ref`).
 pub fn referential_findings(specs: &[Spec]) -> Vec<Issue> {
     let mut report = empty_report(specs.len());
     for spec in specs {
         lint_referential_family(spec, &mut report);
     }
     lint_references(specs, &mut report);
+    lint_ref_kinds(specs, &mut report);
     report.issues
 }
 
@@ -688,6 +696,12 @@ mod tests {
             spec_at(
                 "---\nid: k.made\nkind: intent\nstatement: \"THE kinds SHALL stay closed\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | made_up | `x` | [[k.made]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | `x` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | audit | [[k.made.c]] | `g()` | `x` |\n",
                 "k-made.md",
+            ),
+            // fires ref_kind_compatible (specodelic-d8c): a guard citing
+            // an advisory constraint — target typing is this rule's beat.
+            spec_at(
+                "---\nid: rk.bad\nkind: intent\nstatement: \"THE rk SHALL type\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| inv | invariant | `x` | [[rk.bad]] |\n| soft | advisory | `y` | [[rk.bad]] |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| ok | s1 | s1 | [[rk.bad.soft]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_inv | unit | [[rk.bad.inv]] | `g()` | `x` |\n| p_soft | unit | [[rk.bad.soft]] | `g()` | `x` |\n",
+                "rk-bad.md",
             ),
             // fires schema_matches_typing_table (add-acset-core task 2.4):
             // a file with the format doc's id whose Reference Typing table
@@ -1203,7 +1217,7 @@ mod tests {
             "dual_format_valid retired from the catalog"
         );
         let drifted = spec_at(
-            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds BUT THE MIRROR DRIFTED\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[spec]] |\n",
+            "---\nid: spec\nkind: intent\nstatement: \"THE change SHALL be dual-format\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\none holds\n\n## Requirements\n\n### Requirement: One\none holds BUT THE MIRROR DRIFTED\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | [[spec]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[spec.c]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[spec.c]] | `g()` | `x` |\n",
             "spec.md",
         );
         let report = lint_corpus(&[drifted]);
@@ -1882,6 +1896,9 @@ mod tests {
 
     #[path = "revision18.rs"]
     mod revision18;
+
+    #[path = "ref_kind.rs"]
+    mod ref_kind;
 }
 
 #[cfg(test)]

@@ -4,6 +4,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use super::super::acset::schema::{self, Endpoint};
+use super::super::graph::NodeKind;
 use super::super::spec::Spec;
 use super::{Issue, Report};
 
@@ -642,6 +644,165 @@ pub(crate) fn lint_references(specs: &[Spec], report: &mut Report) {
                     .push(Issue::new("total_refs", file.clone(), msg));
             }
         }
+    }
+}
+
+/// ref_kind_compatible — the Reference Typing table read as a gate
+/// (specodelic-d8c). Every resolved `[[link]]` in a schema-typed column
+/// must target a kind-compatible row; the decision is the Schema's
+/// (`typing_table_is_data`), so this rule and `spk graph` cannot disagree
+/// about what the table means. Skips mirror `lint_references`:
+/// metasyntactic targets, section anchors, and unresolved targets (the
+/// `total_refs` beat — typing never double-reports a dangling target).
+/// `from`/`to` are not link columns here: their State typing stays
+/// `every_transition_valid`'s beat. Member-arm targets (`file.row.member`)
+/// canonicalize to the row and are typed as the row — the stricter of the
+/// graph and oracle derivations.
+pub(crate) fn lint_ref_kinds(specs: &[Spec], report: &mut Report) {
+    let schema = schema::canonical();
+    let index = Index::build(specs);
+    let endpoints = TypedEndpoints::build(specs);
+    // The typed reference columns: the schema's morphism columns, derived
+    // once — a new Reference Typing row needs no change here.
+    let typed_columns: BTreeSet<&str> = schema.morphisms.iter().map(|m| m.column).collect();
+    for spec in specs {
+        let file = spec
+            .path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| format!("<{}>", spec.intent.id));
+        for link in &spec.links {
+            // A column with no schema rows is not a typed reference field
+            // (frontmatter, expr/predicate/generator cells — format prose).
+            if !typed_columns.contains(link.column.as_str()) {
+                continue;
+            }
+            // Metasyntactic examples (`[[id]]`, `[[...]]`) are documentation.
+            if is_metasyntactic(&link.target, &index) {
+                continue;
+            }
+            // Unresolved targets are `total_refs`' beat — one finding per
+            // dangling target, never a duplicate typing finding.
+            let Some(target) = endpoints.resolve(&index, &spec.intent.id, &link.target) else {
+                continue;
+            };
+            // The row carrying the reference (the Appears-on side).
+            let source = endpoints
+                .rows
+                .get(&format!("{}.{}", spec.intent.id, link.source));
+            if let Some(reason) =
+                schema::typing_violation(&schema, &link.column, source.cloned(), target.clone())
+            {
+                let msg = format!(
+                    "typed reference `[[{}]]` from {}.{} ({}) violates Reference Typing: {reason} — retarget the reference or fix the row's kind (see the Reference Typing table: spk explain references)",
+                    link.target, spec.intent.id, link.source, link.column
+                );
+                report
+                    .issues
+                    .push(Issue::new("ref_kind_compatible", file.clone(), msg));
+            }
+        }
+    }
+}
+
+/// The endpoint index for [`lint_ref_kinds`]: what each resolvable id
+/// types as. File ids map to their Intent **with the frontmatter kind**
+/// (`intent`/`profile` — the schema's `uses` row refines the target with
+/// `kind == profile`, which the graph's bare `NodeKind::Intent` mapping
+/// loses); `file.row` keys map to the row's layer and kind cell.
+struct TypedEndpoints {
+    files: BTreeMap<String, Endpoint>,
+    rows: BTreeMap<String, Endpoint>,
+}
+
+impl TypedEndpoints {
+    fn build(specs: &[Spec]) -> TypedEndpoints {
+        let mut files = BTreeMap::new();
+        let mut rows = BTreeMap::new();
+        for spec in specs {
+            files.insert(
+                spec.intent.id.clone(),
+                Endpoint {
+                    object: "Intent".into(),
+                    kind: spec.intent.kind.clone(),
+                    describe: NodeKind::Intent.describe(),
+                },
+            );
+            let file = &spec.intent.id;
+            for r in &spec.constraints {
+                rows.insert(
+                    format!("{file}.{}", r.id),
+                    row_endpoint(NodeKind::Constraint(r.kind.clone().unwrap_or_default())),
+                );
+            }
+            for r in &spec.properties {
+                rows.insert(
+                    format!("{file}.{}", r.id),
+                    row_endpoint(NodeKind::Property(r.kind.clone().unwrap_or_default())),
+                );
+            }
+            for r in &spec.states {
+                rows.insert(format!("{file}.{}", r.id), row_endpoint(NodeKind::State));
+            }
+            for t in &spec.transitions {
+                rows.insert(
+                    format!("{file}.{}", t.id),
+                    row_endpoint(NodeKind::Transition),
+                );
+            }
+        }
+        TypedEndpoints { files, rows }
+    }
+
+    /// Resolve one link target to its endpoint — the `Index::resolves`
+    /// order: exact file id wins, then every dot split last to first with
+    /// the member arm canonicalizing to its row. Section anchors
+    /// (`model.state`/`model.transition`) name no row: `None` (the graph
+    /// types them as unresolvable-to-a-kind too).
+    fn resolve<'a>(
+        &'a self,
+        index: &Index,
+        source_file: &str,
+        target: &str,
+    ) -> Option<&'a Endpoint> {
+        if let Some(e) = self.files.get(target) {
+            return Some(e);
+        }
+        if !target.contains('.') {
+            // Dotless non-file targets were metasyntactic-skipped; the
+            // bare-local arm stays as the safety net (specodelic-15g).
+            return self.rows.get(&format!("{source_file}.{target}"));
+        }
+        let dots: Vec<usize> = target.match_indices('.').map(|(i, _)| i).collect();
+        for i in dots.into_iter().rev() {
+            let (file_id, rest) = (&target[..i], &target[i + 1..]);
+            let Some(rows) = index.files.get(file_id) else {
+                continue;
+            };
+            if rows.contains(rest) {
+                return self.rows.get(&format!("{file_id}.{rest}"));
+            }
+            if rest == "model.state" || rest == "model.transition" {
+                return None;
+            }
+            if let Some((row_id, _member)) = rest.split_once('.')
+                && rows.contains(row_id)
+            {
+                return self.rows.get(&format!("{file_id}.{row_id}"));
+            }
+        }
+        None
+    }
+}
+
+/// The Endpoint vocabulary for one row node — byte-identical reasons with
+/// the graph report (`describe()` interpolation comes from the same
+/// `NodeKind` source).
+fn row_endpoint(kind: NodeKind) -> Endpoint {
+    Endpoint {
+        object: kind.object().to_string(),
+        kind: kind.kind_cell().to_string(),
+        describe: kind.describe(),
     }
 }
 

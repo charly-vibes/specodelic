@@ -752,6 +752,7 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
             &[
                 "find:linter.no_self_ref",
                 "find:linter.single_root_reachable",
+                "find:linter.ref_kind_compatible",
                 "graph.typing",
             ],
         ),
@@ -766,6 +767,7 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
             &[
                 "find:linter.acyclic",
                 "find:linter.single_root_reachable",
+                "find:linter.ref_kind_compatible",
                 "graph.typing",
             ],
         ),
@@ -779,7 +781,11 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
             // exists to cycle. The constraints remain an island
             // unreachable from the intent (single_root_reachable).
             vec![("d.cycle.md", CYCLE_DERIVES.to_string())],
-            &["find:linter.single_root_reachable", "graph.typing"],
+            &[
+                "find:linter.single_root_reachable",
+                "find:linter.ref_kind_compatible",
+                "graph.typing",
+            ],
         ),
         case(
             "single_root_island",
@@ -818,7 +824,11 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
                     ),
                 ),
             )],
-            &["find:linter.no_orphan_property", "graph.typing"],
+            &[
+                "find:linter.no_orphan_property",
+                "find:linter.ref_kind_compatible",
+                "graph.typing",
+            ],
         ),
     ];
     assert_ne!(slice.len(), 0, "syntax/integrity slice must never go empty");
@@ -935,7 +945,11 @@ fn cases_graph_surfaces() -> Vec<Case> {
             // stranded by the wrong-file traces_to also ride the
             // advisory tier — their only tie is the cross-file ref the
             // old some-intent reading false-resolved silently.
-            &["graph.typing", "warn:linter.single_root_reachable"],
+            &[
+                "find:linter.ref_kind_compatible",
+                "graph.typing",
+                "warn:linter.single_root_reachable",
+            ],
         ),
         case(
             "graph_supersedes_cycle",

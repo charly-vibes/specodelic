@@ -128,7 +128,7 @@ fn rekey_rewrites_legacy_dual_format_file() {
          | id | kind | expr | traces_to |\n\
          |----|------|------|-----------|\n\
          | c1 | invariant | `x` | [[spec]] |\n\
-         | c2 | invariant | `y` | [[spec.c1]] |\n\n\
+         | c2 | invariant | `y` | [[spec]] |\n\n\
          ## Model\n\n\
          ### States\n\n- `s1`\n\n\
          ### Transitions\n\n\
