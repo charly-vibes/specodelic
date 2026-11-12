@@ -1,0 +1,13 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-12-specodelic-75m-revision-upgrade-tooling, pipeline-step:fix-review]
+---
+
+RO5U-FIXES: rule-of-5 review findings fixed in the add-revision-upgrade change.
+M1 (medium) FIXED — src/main.rs::cmd_migrate_verb now refuses --rekey together with --to-revision (exit 2, labeled message, remediation hint naming both modes) instead of silently ignoring --rekey. Locked by the new test tests/cli/migrate_upgrade.rs::upgrade_rekey_and_to_revision_conflict_is_refused; the spec side (delta scenario 'Conflicting modes are refused' + the layer's upgrade_conflicting_modes_refused constraint and p_upgrade_conflicting_modes_refused property) now states the behavior; the layer lints clean.
+M2 (medium) FIXED (documentation) — design.md D6 now states that the atomicity covers the planning phase while the write phase writes file by file (an IO failure part-way leaves the already-written files upgraded; a re-run is idempotent), and that the spec laws are planning-scoped and hold as written. The design's D9 refusal table now names both flag conflicts.
+L1 (low) FIXED — the '// The steps to cross, in ascending revision order.' comment in src/migrate.rs::plan_upgrade no longer trails the downgrade if-block's closing brace; it sits above the 'let steps' binding.
+L2 (low) FIXED — src/migrate.rs gained UpgradeError::UnreadableFrontmatter (a frontmatter with no closing fence is no longer reported as a non-derivable id); the CLI maps it to the hint 'close the frontmatter fence (---) so the id line can be read'. The branch was unreachable before (a step only applies to a file whose frontmatter carries an id line), so no behavior changes.
+L3 (low) FIXED (documentation) — design.md D2 now states that the detection is only as sharp as the registered step boundaries (a corpus older than Revision 18 reads as Revision 17), so the contract is not read as a full version detector.
+L4 (low) TRACKED, no fix — an unreadable file (a dangling symlink) refuses the whole upgrade with exit 2 and writes nothing; verified manually against /tmp. A regression test would need a unix-only dangling-symlink fixture, so it is left as a manual check rather than a brittle platform-dependent test.
+EXTRA (not in the review) — the previously untested --write/--dry-run conflict is now locked by tests/cli/migrate_upgrade.rs::upgrade_write_and_dry_run_conflict_is_refused.
+Gates after the fixes: cargo fmt (clean); cargo build (exit 0); cargo test --test cli migrate (21 passed, 0 failed); cargo test --lib migrate (24 passed, 0 failed); openspec validate add-revision-upgrade --strict (valid); spk lint on the change's layer sidecar (issues: []); pretender check (exit 0; src/migrate.rs, src/main.rs and tests/cli/migrate_upgrade.rs all green).
