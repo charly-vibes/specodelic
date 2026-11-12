@@ -1,0 +1,9 @@
+id = "unused-definition-warns"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.0"
+
+[[tests.cargo]]
+flags = "unused_helper_warns_on_the_warnings_channel_and_succeeds"

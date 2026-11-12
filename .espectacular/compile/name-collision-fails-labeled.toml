@@ -1,0 +1,9 @@
+id = "name-collision-fails-labeled"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.0"
+
+[[tests.cargo]]
+flags = "helper_name_collision_with_generated_symbol_fails_labeled"

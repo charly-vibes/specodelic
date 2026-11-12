@@ -1,0 +1,9 @@
+id = "helper-inlines-at-each-use-site"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.0"
+
+[[tests.cargo]]
+flags = "helper_inlines_at_each_use_site"

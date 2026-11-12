@@ -1,0 +1,9 @@
+id = "helper-cycle-fails-labeled"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.0"
+
+[[tests.cargo]]
+flags = "helper_cycle_fails_labeled_naming_the_cycle"

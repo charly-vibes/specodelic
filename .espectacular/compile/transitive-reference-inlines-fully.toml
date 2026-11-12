@@ -1,0 +1,9 @@
+id = "transitive-reference-inlines-fully"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.0"
+
+[[tests.cargo]]
+flags = "transitive_helper_chain_inlines_fully"
