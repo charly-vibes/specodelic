@@ -1,0 +1,5 @@
+---
+tags: [pipeline-step:spawn-subagent, pipeline-run:epic-orchestrator-2026-11-12-specodelic-75m-revision-upgrade-tooling, pipeline-run:epic-orchestrator-2026-11-12-specodelic-75m-revision-upgrade-tooling, pipeline-step:spawn-subagent]
+---
+
+SPAWN: session=subagent:specodelic-75m:spec-first-red-green-archive (pi, pty; first spawn died zero-progress on kimi 429 5h quota, respawned on minimax/minimax-m2.7) report=commit bd98e34 (21 files +2181/-20): core REVISIONS registry Rev 2-20 (only Rev 18 carries the id-law step), pure seam file_revision/plan_upgrade/upgrade_file/UpgradeError, EOL-preserving transform, migrate verb --to-revision wiring, 12 RED-first integration tests + 9 unit tests, change add-revision-upgrade archived with layer sidecar, 11 contract TOMLs; all 12 tasks ticked; gates: just ci exit 0 (ah check 638/0), lint 0/48, openspec 53/53, pretender green, Ro5 0 crit/0 high; caveats: write phase non-atomic on I/O failure (planning atomic, rerun idempotent), unreadable-file refusal untested (platform-dependent fixture) tracked; precedent clippy flag tests/cli/lint.rs:1158 pre-existing, outside ci.

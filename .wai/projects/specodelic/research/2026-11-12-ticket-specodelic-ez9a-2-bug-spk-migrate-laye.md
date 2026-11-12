@@ -1,0 +1,5 @@
+---
+tags: [pipeline-step:select-ticket, pipeline-run:epic-orchestrator-2026-11-12-specodelic-ez9a-2-migrate-namespace-bug, pipeline-run:epic-orchestrator-2026-11-12-specodelic-75m-revision-upgrade-tooling]
+---
+
+TICKET: specodelic-ez9a.2 - [bug] spk migrate layer-scaffold namespace: repro_hash f29f4cf1f143d662 (no stored procedure; discovered during d8c archive). Measured at HEAD (75m code): spk migrate on a plain delta writes a sibling layer.md scaffold with id <cap>.layer and [[<cap>.layer.*]] links; the sidecar lints clean standalone. The deploy assembly (src/archive_companion.rs assemble->rekey_sidecar) rewrites ONLY the id: line and [[sidecar_id.*]] / [[sidecar_id]] wikilink occurrences - NOT bare non-link label occurrences (error-contract labels like <sidecar_id>.x_failure(detail) in expr cells). Post-archive the deployed spec can therefore carry .layer-namespaced error labels -> error_labels/namespace lint failure. Selected now: last implementation bug in the epic queue; small (P3), files src/migrate.rs + src/archive_companion.rs. Repro seed verified: /var/tmp/ez9a2 wrap produced widget.cap.layer scaffold.

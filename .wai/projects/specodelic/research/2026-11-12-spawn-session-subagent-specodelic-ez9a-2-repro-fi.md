@@ -1,0 +1,5 @@
+---
+tags: [pipeline-step:spawn-subagent, pipeline-run:epic-orchestrator-2026-11-12-specodelic-ez9a-2-migrate-namespace-bug, pipeline-run:epic-orchestrator-2026-11-12-specodelic-ez9a-2-migrate-namespace-bug]
+---
+
+SPAWN: session=subagent:specodelic-ez9a.2:repro-fix-regression (pi, pty, minimax-m2.7) report=commit 1e27571: root cause = archive_companion rekey_sidecar rewrote only id: line + [[sidecar_id.*]] wikilinks, so bare error labels (<owning-id>.<variant>(...)) deployed un-rekeyed under the sidecar id; fix re-keys bare error-label occurrences at attach; scaffold now emits one-line guidance outside the layer tables (never reaches deployed spec; a real error row would contradict the one-state model or add advisories); new tests/namespace_handover.rs drives public seams migrate::migrate + archive_companion::restore and pins deployed bytes (RED before: .layer. label remnant; GREEN after: deployed id); migrate::rekey --rekey deliberately untouched (byte-pin); deviation note: error_expr_shape is tier-2, not enforced by spk lint today, so the RED signal is deployed bytes not a lint finding; no push/bd/wai close.
