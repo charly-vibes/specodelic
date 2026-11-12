@@ -21,31 +21,31 @@ one-line semantics, and a remediation hint.
   `effect`
 - **THEN** lint exits 1 with a `linter.ref_kind_compatible` finding
 
-#### Scenario: traces_to at a kind-incompatible target fires
+#### Scenario: Constraint traces rejected
 
 - **WHEN** a constraint's `traces_to` cell cites a row that is not an Intent
 - **THEN** lint exits 1 with a `linter.ref_kind_compatible` finding
 
-#### Scenario: derives_from at a non-constraint target fires
+#### Scenario: Derives-from at a non-constraint target fires
 
 - **WHEN** a `unit` property's `derives_from` cell cites a row that is not
   a constraint (a law may derive from the law-Property it restates)
 - **THEN** lint exits 1 with a `linter.ref_kind_compatible` finding
 
-#### Scenario: supersedes across kinds fires
+#### Scenario: Supersedes across kinds rejected
 
 - **WHEN** a `supersedes` cell cites a row of a different kind than the row
   carrying it
 - **THEN** lint exits 1 with a `linter.ref_kind_compatible` finding
 
-#### Scenario: satisfies and observes at wrong-kind contracts fire
+#### Scenario: Satisfies and observes at wrong-kind contracts fire
 
 - **WHEN** a `satisfies` cell cites a non-`extension_point` constraint, or
   an `observes` cell cites a non-`effect` constraint
 - **THEN** lint exits 1 with a `linter.ref_kind_compatible` finding naming
   the requirement
 
-#### Scenario: uses targeting a non-profile file fires
+#### Scenario: Uses targeting a non-profile file fires
 
 - **WHEN** a `uses` cell cites a file whose frontmatter kind is not
   `profile`
@@ -60,7 +60,7 @@ one-line semantics, and a remediation hint.
   their row)
 - **THEN** lint reports no `ref_kind_compatible` findings
 
-#### Scenario: Dangling targets stay total_refs' beat
+#### Scenario: Dangling target is not double-reported
 
 - **WHEN** a typed cell cites an id that resolves to no row or file
 - **THEN** exactly the `linter.total_refs` finding fires — no duplicate
