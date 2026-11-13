@@ -2,7 +2,7 @@ run_id: tdd-ro5-2026-11-13-specodelic-8mta-resolve-check-kernel-id-literals
 pipeline: tdd-ro5
 topic: 'specodelic-8mta: resolve-check kernel id literals'
 created_at: '2026-11-13T20:30:39.113638582+00:00'
-current_step: 8
+current_step: 9
 approvals: {}
 epic: null
 child_issues: []
