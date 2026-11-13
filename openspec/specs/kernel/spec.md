@@ -81,7 +81,10 @@ Every kernel evaluation SHALL report an explicit three-valued status —
 `verified`, `counterexample`, `unknown` — where `unknown` is honest
 (the claim could not be discharged) and propagates under Kleene rules;
 no evaluation path SHALL coerce `unknown` to `pass` or to
-`counterexample`.
+`counterexample`. An id literal naming no declared id of the
+evaluation corpus evaluates `unknown` with a labeled reason naming
+it — never a vacuous verdict — and the same rule applies to
+`reachable`'s target id.
 
 #### Scenario: Honest unknown propagates
 - **WHEN** a composite claim contains an undischargable subclaim

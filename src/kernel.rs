@@ -47,7 +47,7 @@
 //! compile byte-identically; they are phase 6's migration targets,
 //! not phase 3's.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::acset::instance::Instance;
 use crate::acset::query;
@@ -710,6 +710,11 @@ pub struct KernelEnv {
     /// I(k): the instance's node ids, grouped by schema object —
     /// Intent ids are the file ids; row ids are file-qualified.
     members: BTreeMap<String, Vec<String>>,
+    /// Every declared node id of the evaluation corpus (Intent ids are
+    /// file ids; row ids are file-qualified) — the resolution set for
+    /// id literals (specodelic-8mta). A `BTreeSet` lookup, never a
+    /// linear scan per evaluation.
+    declared: BTreeSet<String>,
 }
 
 impl KernelEnv {
@@ -721,7 +726,8 @@ impl KernelEnv {
             .iter()
             .map(|o| (o.to_string(), Vec::new()))
             .collect();
-        for (node, kind) in kind_index(specs) {
+        let kinds = kind_index(specs);
+        for (node, kind) in &kinds {
             let object = match kind {
                 crate::graph::NodeKind::Intent => "Intent",
                 crate::graph::NodeKind::Constraint(_) => "Constraint",
@@ -729,12 +735,24 @@ impl KernelEnv {
                 crate::graph::NodeKind::State => "State",
                 crate::graph::NodeKind::Transition => "Transition",
             };
-            members.entry(object.to_string()).or_default().push(node);
+            members
+                .entry(object.to_string())
+                .or_default()
+                .push(node.clone());
         }
         for v in members.values_mut() {
             v.sort();
         }
-        KernelEnv { instance, members }
+        // The declared-id resolution set (specodelic-8mta): every node
+        // the corpus declares — Intent ids (file ids) and the
+        // file-qualified row ids. An id literal that names none of
+        // them resolves to nothing and cannot be discharged.
+        let declared: BTreeSet<String> = kinds.keys().cloned().collect();
+        KernelEnv {
+            instance,
+            members,
+            declared,
+        }
     }
 
     /// I(k) for one object — the bounded quantifier domain. An unknown
@@ -754,50 +772,91 @@ impl KernelEnv {
         scope.get(var).cloned()
     }
 
+    /// Does this corpus DECLARE the id? The resolution test for id
+    /// literals (specodelic-8mta) — a `BTreeSet` lookup, never a
+    /// linear scan per evaluation.
+    fn declares(&self, id: &str) -> bool {
+        self.declared.contains(id)
+    }
+
     /// Evaluate a term to its bounded value. A projection on a missing
     /// node or an unresolved reference is the dangling value — a value,
     /// never a crash (`dangling_is_a_value`).
-    fn term_value(&self, scope: &BTreeMap<String, String>, term: &Term) -> TermVal {
+    ///
+    /// The value comes with its labeled reason (specodelic-8mta): an
+    /// id literal that names no declared id of the evaluation corpus
+    /// resolves to nothing, so the term is `unknown` with a reason
+    /// naming the literal. Every other cause keeps the generic reason
+    /// the comparison path already carried.
+    fn term_value(
+        &self,
+        scope: &BTreeMap<String, String>,
+        term: &Term,
+    ) -> (TermVal, Option<String>) {
         match term {
-            Term::Var(v) => match self.bind(scope, v) {
-                Some(id) => TermVal::Id(id),
-                // Unbound vars cannot survive parse-time row-typing; an
-                // unknown variable in a hand-built expression is honest
-                // unknown, never a fabricated verdict.
-                None => TermVal::Unknown,
-            },
-            Term::Id(id) => TermVal::Id(id.clone()),
-            Term::Int(n) => TermVal::Int(*n),
-            Term::Card(object) => TermVal::Int(self.members.get(object).map_or(0, Vec::len) as i64),
-            Term::Proj(v, m) => match self.bind(scope, v) {
-                Some(id) => match self.instance.index_of(&id) {
-                    Some(from) => {
-                        let hit = self
-                            .instance
-                            .morphism_values(m)
-                            .into_iter()
-                            .find(|(f, _)| *f == from)
-                            .and_then(|(_, t)| t);
-                        match hit {
-                            Some(to) => TermVal::Id(self.instance.id_of(to).to_string()),
-                            // No stored value from this node — dangling
-                            // or absent; both are ⊥ here.
-                            None => TermVal::Dangling,
-                        }
-                    }
+            Term::Var(v) => (
+                match self.bind(scope, v) {
+                    Some(id) => TermVal::Id(id),
+                    // Unbound vars cannot survive parse-time row-typing; an
+                    // unknown variable in a hand-built expression is honest
+                    // unknown, never a fabricated verdict.
                     None => TermVal::Unknown,
                 },
-                None => TermVal::Unknown,
-            },
-            Term::Dangling => TermVal::Dangling,
+                None,
+            ),
+            // An id literal is RESOLVED against the corpus: it must name
+            // a declared id (Intent ids are file ids; row ids are
+            // file-qualified). An unresolvable literal cannot be
+            // discharged — honest unknown with a labeled reason, never
+            // a comparison against a string that matches nothing
+            // (specodelic-8mta: the vacuous-verified hazard).
+            Term::Id(id) => {
+                if self.declares(id) {
+                    (TermVal::Id(id.clone()), None)
+                } else {
+                    (TermVal::Unknown, Some(unresolved_id_reason(id)))
+                }
+            }
+            Term::Int(n) => (TermVal::Int(*n), None),
+            Term::Card(object) => (
+                TermVal::Int(self.members.get(object).map_or(0, Vec::len) as i64),
+                None,
+            ),
+            Term::Proj(v, m) => (
+                match self.bind(scope, v) {
+                    Some(id) => match self.instance.index_of(&id) {
+                        Some(from) => {
+                            let hit = self
+                                .instance
+                                .morphism_values(m)
+                                .into_iter()
+                                .find(|(f, _)| *f == from)
+                                .and_then(|(_, t)| t);
+                            match hit {
+                                Some(to) => TermVal::Id(self.instance.id_of(to).to_string()),
+                                // No stored value from this node — dangling
+                                // or absent; both are ⊥ here.
+                                None => TermVal::Dangling,
+                            }
+                        }
+                        None => TermVal::Unknown,
+                    },
+                    None => TermVal::Unknown,
+                },
+                None,
+            ),
+            Term::Dangling => (TermVal::Dangling, None),
         }
     }
 
     /// Compare two term values under `==` — Kleene: a type mismatch
     /// (id vs integer) cannot be discharged and is `unknown`, never a
     /// fabricated verdict. The unknown carries its labeled reason
-    /// (specodelic-7gh): what could not be discharged, and why.
-    fn eq(&self, a: &TermVal, b: &TermVal) -> (ThreeValued, Option<String>) {
+    /// (specodelic-7gh): what could not be discharged, and why. A
+    /// term-level cause (an unresolvable id literal, specodelic-8mta)
+    /// outranks the generic mismatch text — the reason names the
+    /// literal, not "mismatched values".
+    fn eq(&self, a: &TermVal, b: &TermVal, cause: Option<String>) -> (ThreeValued, Option<String>) {
         match (a, b) {
             (TermVal::Int(x), TermVal::Int(y)) if x == y => (ThreeValued::Verified, None),
             (TermVal::Int(_), TermVal::Int(_)) => (ThreeValued::Counterexample, None),
@@ -810,18 +869,26 @@ impl KernelEnv {
             }
             _ => (
                 ThreeValued::Unknown,
-                Some(
+                Some(cause.unwrap_or_else(|| {
                     "equality cannot be discharged: the compared terms have mismatched or indeterminate values (id vs integer, or an unbound variable / projection on a missing node)"
-                        .to_string(),
-                ),
+                        .to_string()
+                })),
             ),
         }
     }
 
     /// Ordering comparison — integers only in v0; an id has no order
     /// (honest unknown), and anything touching dangling or a
-    /// type-mismatch is unknown, labeled with why (specodelic-7gh).
-    fn cmp(&self, op: CmpOp, a: &TermVal, b: &TermVal) -> (ThreeValued, Option<String>) {
+    /// type-mismatch is unknown, labeled with why (specodelic-7gh). A
+    /// term-level cause (an unresolvable id literal) outranks the
+    /// generic text — the reason names the literal.
+    fn cmp(
+        &self,
+        op: CmpOp,
+        a: &TermVal,
+        b: &TermVal,
+        cause: Option<String>,
+    ) -> (ThreeValued, Option<String>) {
         match (a, b) {
             (TermVal::Int(x), TermVal::Int(y)) => {
                 let holds = match op {
@@ -838,10 +905,10 @@ impl KernelEnv {
             }
             _ => (
                 ThreeValued::Unknown,
-                Some(
+                Some(cause.unwrap_or_else(|| {
                     "ordering comparison requires integer values — an id or an indeterminate term has no order"
-                        .to_string(),
-                ),
+                        .to_string()
+                })),
             ),
         }
     }
@@ -920,6 +987,14 @@ impl KernelEnv {
                 match reached {
                     Err(errs) => traversal_unknown(&format!("reachable({from}, {to}, {m})"), errs),
                     Ok(set) => {
+                        // The target is resolve-checked too (specodelic-8mta):
+                        // a target that names no declared id could never
+                        // match, and reading that as a refutation would
+                        // report a claim that was never checked. The
+                        // seed's own unknown path above is untouched.
+                        if !self.declares(to) {
+                            return (ThreeValued::Unknown, Some(unresolved_id_reason(to)));
+                        }
                         if set.contains(to) {
                             (ThreeValued::Verified, None)
                         } else {
@@ -929,14 +1004,14 @@ impl KernelEnv {
                 }
             }
             Atomic::Eq(lhs, rhs) => {
-                let a = self.term_value(scope, lhs);
-                let b = self.term_value(scope, rhs);
-                self.eq(&a, &b)
+                let (a, ra) = self.term_value(scope, lhs);
+                let (b, rb) = self.term_value(scope, rhs);
+                self.eq(&a, &b, ra.or(rb))
             }
             Atomic::Cmp(lhs, op, rhs) => {
-                let a = self.term_value(scope, lhs);
-                let b = self.term_value(scope, rhs);
-                self.cmp(*op, &a, &b)
+                let (a, ra) = self.term_value(scope, lhs);
+                let (b, rb) = self.term_value(scope, rhs);
+                self.cmp(*op, &a, &b, ra.or(rb))
             }
         }
     }
@@ -1077,6 +1152,17 @@ enum TermVal {
     /// The value could not be determined — honest unknown, never a
     /// fabricated verdict.
     Unknown,
+}
+
+/// The labeled reason for an id literal that resolves to no declared id
+/// of the evaluation corpus (specodelic-8mta) — the ONE text both the
+/// comparison path and `reachable`'s target check carry. It names the
+/// offending literal and the rule that resolves it, so a reader can
+/// fix the cell instead of guessing.
+fn unresolved_id_reason(id: &str) -> String {
+    format!(
+        "id literal `{id}` resolves to no declared id in this corpus — id literals must be file-qualified (e.g. `file.row`)"
+    )
 }
 
 // ---------------------------------------------------------------------------

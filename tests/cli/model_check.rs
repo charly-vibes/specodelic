@@ -866,6 +866,43 @@ fn unknown_kernel_claim_prevents_clean() {
 }
 
 #[test]
+fn unresolvable_id_literal_claim_is_unknown_with_a_named_reason() {
+    // specodelic-8mta (E2 finding F1): a kernel id literal that names
+    // no declared id of the invocation corpus (`s2` — the declared
+    // state is `cul.s2`) cannot be discharged. The claim is `unknown`
+    // with a labeled reason naming the literal — never a vacuous
+    // counterexample (which read as a refutation of a claim that was
+    // never checked) and never a vacuous verified.
+    let td = tempfile::tempdir().unwrap_p();
+    let spec = td.path().join("cul.md");
+    let rows = "| ka | invariant | `**kernel:** ∃ t ∈ Transition: t.to == s2` | [[cul]] |\n";
+    write_claim_spec(&spec, "cul", rows, &claim_props("cul", &["ka"]), "ka");
+    let out = td.path().join("out");
+    claim_compile(spec.to_str().unwrap_p(), &out);
+    let (code, json) = claim_mc_json(spec.to_str().unwrap_p(), &out);
+    // An unknown claim is exploration_only — a NON-failure outcome;
+    // exit 0 stays (verify rejects the gate).
+    assert_eq!(code, Some(0));
+    assert_eq!(json["data"]["outcome"], "exploration_only");
+    let entry = json["data"]["checked"][0]["invariant_statuses"]
+        .as_array()
+        .unwrap_p()
+        .iter()
+        .find(|s| s["id"] == "ka")
+        .unwrap_p()
+        .clone();
+    assert_eq!(entry["status"], "unknown");
+    let reason = entry["reason"]
+        .as_str()
+        .unwrap_or_else(|| panic!("an unresolvable id literal claim carries no reason: {entry}"));
+    assert!(
+        reason.contains("`s2`"),
+        "the reason must name the offending literal: {reason}"
+    );
+    assert_eq!(claim_report(&out, "cul")["outcome"], "exploration_only");
+}
+
+#[test]
 fn missing_evidence_citation_prevents_clean_and_names_the_reason() {
     // A property row has no same-run invariant evidence — the required
     // claim is unknown with the labeled reason, so the aggregate is

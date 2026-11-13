@@ -380,6 +380,14 @@ the full closed atomic set. Every atomic names its proven grounding
 so evaluation is total over finite instances and `unknown` never
 coerces to pass.
 
+An id literal is resolved against the evaluation corpus: it must name
+a declared id (Intent ids are the file ids; row ids are file-qualified
+— `file.row`). A literal that resolves to no declared id — an
+unqualified `both_go`, or a typo'd `file.both_gooo` — cannot be
+discharged: it evaluates `unknown` with a labeled reason naming the
+literal, never a vacuous `verified` or `counterexample`. The same
+rule applies to `reachable`'s target id.
+
 ## Shared fragment definitions (`## Fragments`, folded summary)
 
 A spec file may carry an optional `## Fragments` section of named

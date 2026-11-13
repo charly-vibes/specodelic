@@ -1,7 +1,8 @@
 //! Purpose: single home of the kernel fixture corpora consumed by the
 //! Tier B integration tests — `tests/kernel_grounding.rs` (per-atomic
-//! grounding agreement) and `tests/kernel_status.rs` (three-valued
-//! status chain end-to-end).
+//! grounding agreement), `tests/kernel_status.rs` (three-valued
+//! status chain end-to-end), and `tests/kernel_literals.rs` (id-literal
+//! resolution).
 //!
 //! Responsibilities: hold each corpus constant verbatim (byte-identical
 //! to its pre-move definition, ids unchanged) so every existing
@@ -51,6 +52,17 @@ pub const CHAIN: &[&str] = &[
     "---\nid: demo.chn.a\nkind: intent\nstatement: \"THE a SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | supersedes |\n|----|------|------|-----------|------------|\n| na | invariant | `holds na` | [[demo.chn.a]] | [[demo.chn.b.nb]] |\n",
     "---\nid: demo.chn.b\nkind: intent\nstatement: \"THE b SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | supersedes |\n|----|------|------|-----------|------------|\n| nb | invariant | `holds nb` | [[demo.chn.b]] | [[demo.chn.c.nc]] |\n",
     "---\nid: demo.chn.c\nkind: intent\nstatement: \"THE c SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| nc | invariant | `holds nc` | [[demo.chn.c]] |\n",
+];
+
+/// A corpus with a state machine — one transition `go` from `start` to
+/// `both_go`, guarded by the constraint `t1` — the shape id literals
+/// address: the declared ids are the file-qualified ones
+/// (`demo.traf`, `demo.traf.t1`, `demo.traf.go`, `demo.traf.start`,
+/// `demo.traf.both_go`); the bare names `start`/`both_go` name no
+/// declared id and are therefore unresolvable literals
+/// (specodelic-8mta).
+pub const TRAFFIC: &[&str] = &[
+    "---\nid: demo.traf\nkind: intent\nstatement: \"THE traffic SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| t1 | invariant | `the transition reaches both_go` | [[demo.traf]] |\n\n## Model\n\n### States\n\n- `start`\n- `both_go`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| go | start | both_go | [[demo.traf.t1]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p1 | unit | [[demo.traf.t1]] | `arb()` | `true` |\n",
 ];
 
 /// An acyclic corpus whose supersedes references all resolve — the
