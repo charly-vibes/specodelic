@@ -533,10 +533,25 @@ proptest! {
 
 // id: silently_shrunk_id_set_rejected
 // generator: `(r, r')` where a 𝒦-governed id-set member was removed with no Revision heading
-// predicate: `check(revisions) == failed`
+// predicate: `**rust:** { let before = specodelic::fixtures::specs::materialize("revision_before_governed_id_set_change").expect("the prior revision materializes"); let after = specodelic::fixtures::specs::materialize("revision_after_id_set_member_removed").expect("the current revision materializes"); let findings = specodelic::lint::revision::check_pair(&before, &after).expect("the revision pair parses"); findings.iter().any(|f| f.change == specodelic::lint::revision::ChangeKind::Removed && f.member == "s2") }` — `check(revisions) == failed`
 #[test]
 fn silently_shrunk_id_set_rejected() {
-    todo_predicate!("`check(revisions) == failed`");
+    assert!(
+        {
+            let before =
+                specodelic::fixtures::specs::materialize("revision_before_governed_id_set_change")
+                    .expect("the prior revision materializes");
+            let after =
+                specodelic::fixtures::specs::materialize("revision_after_id_set_member_removed")
+                    .expect("the current revision materializes");
+            let findings = specodelic::lint::revision::check_pair(&before, &after)
+                .expect("the revision pair parses");
+            findings.iter().any(|f| {
+                f.change == specodelic::lint::revision::ChangeKind::Removed && f.member == "s2"
+            })
+        },
+        "predicate `silently_shrunk_id_set_rejected` violated (executable fragment)",
+    );
 }
 
 proptest! {

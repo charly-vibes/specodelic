@@ -63,10 +63,11 @@ statement: "WHEN a user submits a paid order, THE system SHALL record the order.
 
 ## Constraints
 
-| id | kind | expr | traces_to |
-|----|------|------|-----------|
-| recorded | invariant | `recorded == submitted` | [[clean]] |
-| notify | effect | `notify(recorded)` | [[clean]] |
+| id | kind | expr | traces_to | observes |
+|----|------|------|-----------|----------|
+| recorded | invariant | `recorded == submitted` | [[clean]] | |
+| notify | effect | `notify(recorded)` | [[clean]] | |
+| notified | invariant | `the notification is observed` | [[clean]] | [[clean.notify]] |
 
 ## Model
 
@@ -83,10 +84,11 @@ statement: "WHEN a user submits a paid order, THE system SHALL record the order.
 
 ## Properties
 
-| id | kind | derives_from | generator | predicate | observes |
-|----|------|--------------|-----------|-----------|----------|
-| recorded_once | unit | [[clean.recorded]] | `arbitrary_order()` | `record(o) == o.recorded` | |
-| notify_sent | unit | [[clean.notify]] | `arbitrary_order()` | `sent(o) == o.recorded` | [[clean.notify]] |
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|------------|
+| recorded_once | unit | [[clean.recorded]] | `arbitrary_order()` | `record(o) == o.recorded` |
+| notify_sent | unit | [[clean.notify]] | `arbitrary_order()` | `sent(o) == o.recorded` |
+| notified_once | unit | [[clean.notified]] | `arbitrary_order()` | `notified(o) == o` |
 "#;
 
 /// [`CLEAN`] renamed to file id `b` — a second clean corpus file.
@@ -100,10 +102,11 @@ statement: "WHEN a user submits a paid order, THE system SHALL record the order.
 
 ## Constraints
 
-| id | kind | expr | traces_to |
-|----|------|------|-----------|
-| recorded | invariant | `recorded == submitted` | [[b]] |
-| notify | effect | `notify(recorded)` | [[b]] |
+| id | kind | expr | traces_to | observes |
+|----|------|------|-----------|----------|
+| recorded | invariant | `recorded == submitted` | [[b]] | |
+| notify | effect | `notify(recorded)` | [[b]] | |
+| notified | invariant | `the notification is observed` | [[b]] | [[b.notify]] |
 
 ## Model
 
@@ -120,10 +123,11 @@ statement: "WHEN a user submits a paid order, THE system SHALL record the order.
 
 ## Properties
 
-| id | kind | derives_from | generator | predicate | observes |
-|----|------|--------------|-----------|-----------|----------|
-| recorded_once | unit | [[b.recorded]] | `arbitrary_order()` | `record(o) == o.recorded` | |
-| notify_sent | unit | [[b.notify]] | `arbitrary_order()` | `sent(o) == o.recorded` | [[b.notify]] |
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|------------|
+| recorded_once | unit | [[b.recorded]] | `arbitrary_order()` | `record(o) == o.recorded` |
+| notify_sent | unit | [[b.notify]] | `arbitrary_order()` | `sent(o) == o.recorded` |
+| notified_once | unit | [[b.notified]] | `arbitrary_order()` | `notified(o) == o` |
 "#;
 
 /// A clean dual-format file: `id: spec`, self-contained refs, mirrored
@@ -379,11 +383,11 @@ statement: "WHEN a user submits a paid order, THE system SHALL record the order.
 
 ## Constraints
 
-| id | kind | expr | traces_to |
-|----|------|------|-----------|
-| recorded | invariant | `recorded == submitted` | [[clean]] |
-| a.reject | effect | `err_a()` | [[clean]] |
-| b.reject | effect | `err_b()` | [[clean]] |
+| id | kind | expr | traces_to | observes |
+|----|------|------|-----------|----------|
+| recorded | invariant | `recorded == submitted` | [[clean]] | [[clean.a.reject]], [[clean.b.reject]] |
+| a.reject | effect | `err_a()` | [[clean]] | |
+| b.reject | effect | `err_b()` | [[clean]] | |
 
 ## Model
 
@@ -404,11 +408,11 @@ statement: "WHEN a user submits a paid order, THE system SHALL record the order.
 
 ## Properties
 
-| id | kind | derives_from | generator | predicate | observes |
-|----|------|--------------|-----------|-----------|----------|
-| recorded_once | unit | [[clean.recorded]] | `arbitrary_order()` | `record(o) == o.recorded` | |
-| a_reject_cover | unit | [[clean.a.reject]] | `arbitrary_o()` | `a(o) == o` | [[clean.a.reject]] |
-| b_reject_cover | unit | [[clean.b.reject]] | `arbitrary_o()` | `b(o) == o` | [[clean.b.reject]] |
+| id | kind | derives_from | generator | predicate |
+|----|------|--------------|-----------|------------|
+| recorded_once | unit | [[clean.recorded]] | `arbitrary_order()` | `record(o) == o.recorded` |
+| a_reject_cover | unit | [[clean.a.reject]] | `arbitrary_o()` | `a(o) == o` |
+| b_reject_cover | unit | [[clean.b.reject]] | `arbitrary_o()` | `b(o) == o` |
 "#;
 
 /// Failure-shape fixture whose failure transition carries NO guard:
@@ -784,6 +788,10 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
             &[
                 "find:linter.single_root_reachable",
                 "find:linter.ref_kind_compatible",
+                // derives_from appears on Property rows only, so the
+                // Constraint row carrying it also breaks the closed
+                // row shape.
+                "find:linter.row_shape_closed",
                 "graph.typing",
             ],
         ),
@@ -792,15 +800,25 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
             vec![(
                 "clean.md",
                 CLEAN.replace(
-                    "| notify | effect | `notify(recorded)` | [[clean]] |",
-                    "| floating | effect | `float(x)` | |",
+                    "| notify | effect | `notify(recorded)` | [[clean]] | |",
+                    "| floating | effect | `float(x)` | | |",
                 )
                 .replace(
-                    "| notify_sent | unit | [[clean.notify]] | `arbitrary_order()` | `sent(o) == o.recorded` | [[clean.notify]] |",
-                    "| floater | unit | [[clean.floating]] | `arbitrary_x()` | `f(x) == x` | [[clean.floating]] |",
+                    "| notified | invariant | `the notification is observed` | [[clean]] | [[clean.notify]] |",
+                    "| notified | invariant | `the notification is observed` | [[clean]] | |",
+                )
+                .replace(
+                    "| notify_sent | unit | [[clean.notify]] | `arbitrary_order()` | `sent(o) == o.recorded` |",
+                    "| floater | unit | [[clean.floating]] | `arbitrary_x()` | `f(x) == x` |",
                 ),
             )],
-            &["find:linter.single_root_reachable"],
+            // The stranded `floating` effect loses its observer with the
+            // notify row, so the advisory observability warning rides
+            // along with the island finding.
+            &[
+                "find:linter.single_root_reachable",
+                "warn:linter.observability",
+            ],
         ),
         // -- linter-coverage --------------------------------------------------------------------
         case(
@@ -820,7 +838,7 @@ fn cases_syntax_and_integrity() -> Vec<Case> {
                 CLEAN.replace(
                     ORPHAN_FREE_PROPERTY,
                     &format!(
-                        "{ORPHAN_FREE_PROPERTY}| extra_rule | unit | [[clean.recorded_once]] | `arbitrary_x()` | `x(o) == o` | |\n"
+                        "{ORPHAN_FREE_PROPERTY}| extra_rule | unit | [[clean.recorded_once]] | `arbitrary_x()` | `x(o) == o` |\n"
                     ),
                 ),
             )],
@@ -1009,7 +1027,7 @@ statement: "WHEN the derivation graph is walked, THE system SHALL order it."
 
 /// The `recorded_once` property line of [`CLEAN`] — the deriving property
 /// that covers the `recorded` invariant.
-const ORPHAN_FREE_PROPERTY: &str = "| recorded_once | unit | [[clean.recorded]] | `arbitrary_order()` | `record(o) == o.recorded` | |\n";
+const ORPHAN_FREE_PROPERTY: &str = "| recorded_once | unit | [[clean.recorded]] | `arbitrary_order()` | `record(o) == o.recorded` |\n";
 
 /// The Model section of [`CLEAN`] (removed whole for `model_missing`).
 const MODEL_SECTION: &str = "## Model\n\n### States\n\n- `open`\n- `logged`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| record | open | logged | [[clean.recorded]] |\n\n";

@@ -18,6 +18,10 @@ pub(crate) fn lint_schema_shape_family(spec: &Spec, corpus: &[Spec], report: &mu
     let property_closed =
         |k: &str| crate::guide::PROPERTY_KINDS.contains(&k) || fiber_kinds.contains(&k);
     let file_id = &spec.intent.id;
+    // row_shape_closed — every row's field set is closed (the kinds.md
+    // `*_row_shape` constraints, decided against the Schema-as-data's
+    // reference columns).
+    super::row_shape::lint_row_shape(spec, corpus, report);
     for c in &spec.constraints {
         if !constraint_closed(c.kind.as_deref().unwrap_or("")) {
             report.issues.push(Issue::new(

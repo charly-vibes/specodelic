@@ -203,4 +203,11 @@ proptest! {
     fn release_docs_match_implemented_capabilities(v0 in spec_gen::docs_built_for_a_release()) {
         todo_predicate!("`version derives from Cargo metadata ∧ pending capabilities not advertised as implemented`");
     }
+    // id: properties_scope_isolated
+    // generator: `run_with(properties_failed: true, model_run: missing)`
+    // predicate: `the scoped verdict reports properties_failed exactly when a compiled block failed ∧ a missing or stale model run never produces it ∧ the scoped verdict never reports verified`
+    #[test]
+    fn properties_scope_isolated(v0 in spec_gen::run_with()) {
+        todo_predicate!("`the scoped verdict reports properties_failed exactly when a compiled block failed ∧ a missing or stale model run never produces it ∧ the scoped verdict never reports verified`");
+    }
 }

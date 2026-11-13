@@ -65,3 +65,9 @@ id = "assurance_views_agree"
 kind = "invariant"
 expr = "`CLI JSON, human output, and the persisted report agree on evaluated, unchecked, and blocking claims — no view reports verified while another names a blocker — and release documentation distinguishes structural lint, bounded model exploration, verified declared claims, and external application-test binding without advertising pending capabilities as implemented`"
 traces_to = "[[verify]]"
+
+[[constraints]]
+id = "properties_scope_verdict"
+kind = "invariant"
+expr = "`a properties-only scope verdict reports properties_failed exactly when a compiled proptest! block failed, and never for a missing or stale model run — the scoped verdict reads the properties stage alone, so a skipped model stage can neither hide nor fake a properties failure; and the scoped verdict never reports verified, leaving the verified transition's both_gates_required conjunction unchanged`"
+traces_to = "[[verify]]"

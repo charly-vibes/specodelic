@@ -16,6 +16,8 @@ use crate::spec::Spec;
 
 mod graph;
 mod observability;
+pub mod revision;
+mod row_shape;
 mod rules;
 
 // Moved to submodules (specodelic-g17 file_lines split) — re-imported so
@@ -185,6 +187,10 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
     (
         "property_kind_closed",
         "every Property row's kind must be in {unit, law} — an unreadable kind cell is outside the closed set (openspec/specs/linter-schema_shape/spec.md)",
+    ),
+    (
+        "row_shape_closed",
+        "every Constraint/Property/State/Transition row's field set must be exactly the base fields its kind declares plus the typed reference columns the Reference Typing table declares — an undeclared column is a finding; the reference columns are read from the Schema-as-data, never a hardcoded list (openspec/specs/kinds/spec.md constraint_row_shape / state_row_shape / transition_row_shape / property_row_shape)",
     ),
     (
         "pack_shape",
@@ -696,6 +702,13 @@ mod tests {
             spec_at(
                 "---\nid: k.made\nkind: intent\nstatement: \"THE kinds SHALL stay closed\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | made_up | `x` | [[k.made]] |\n\n## Model\n\n### States\n\n- `s1`\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | `x` |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | audit | [[k.made.c]] | `g()` | `x` |\n",
                 "k-made.md",
+            ),
+            // fires row_shape_closed (specodelic-3632): a Constraint
+            // table carrying an EXTRA column (`guard`) — a field the
+            // Constraint row shape does not declare.
+            spec_at(
+                "---\nid: rs.shape\nkind: intent\nstatement: \"THE rs SHALL stay shaped\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to | guard |\n|----|------|------|-----------|-------|\n| c | invariant | `x` | [[rs.shape]] | |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | `x` |\n",
+                "rs-shape.md",
             ),
             // fires ref_kind_compatible (specodelic-d8c): a guard citing
             // an advisory constraint — target typing is this rule's beat.

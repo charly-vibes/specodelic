@@ -35,3 +35,51 @@ id = "resolution_failure"
 kind = "effect"
 expr = "`linter.referential_integrity.resolution_failure(detail)`"
 traces_to = "[[linter.referential_integrity]]"
+
+[[constraints]]
+id = "schema_is_decision"
+kind = "invariant"
+expr = "`the allowed targets for a typed field are read from the canonical Schema via its typing check — no per-field match arm exists in the lint rule`"
+traces_to = "[[linter.referential_integrity]]"
+
+[[constraints]]
+id = "typed_columns_only"
+kind = "invariant"
+expr = "`the rule walks only links whose column carries schema morphism rows — frontmatter, expr, predicate, and generator cells are format prose, never typed references`"
+traces_to = "[[linter.referential_integrity]]"
+
+[[constraints]]
+id = "dangling_is_total_refs"
+kind = "invariant"
+expr = "`a typed link that resolves to no row or file produces exactly the dangling finding — typing never double-reports an unresolved target`"
+traces_to = "[[linter.referential_integrity]]"
+
+[[constraints]]
+id = "severity_error"
+kind = "invariant"
+expr = "`a kind-incompatible resolved target is an issues-channel finding (exit 1) — the invariant gates the checker's accept transition, never the warnings channel`"
+traces_to = "[[linter.referential_integrity]]"
+
+[[constraints]]
+id = "member_arm_types_row"
+kind = "invariant"
+expr = "`a member-arm target (file.row.member) canonicalizes to file.row and is typed as the row's kind — the stricter of the graph and oracle derivations`"
+traces_to = "[[linter.referential_integrity]]"
+
+[[constraints]]
+id = "uses_types_frontmatter"
+kind = "invariant"
+expr = "`a file-id target under uses is typed as Intent with the file's frontmatter kind — a non-profile target fires, a profile pack id stays clean`"
+traces_to = "[[linter.referential_integrity]]"
+
+[[constraints]]
+id = "from_to_not_duplicated"
+kind = "invariant"
+expr = "`from/to State typing stays the model-shape checker's beat — this rule adds no second finding for the same cell`"
+traces_to = "[[linter.referential_integrity]]"
+
+[[constraints]]
+id = "corpus_stays_green"
+kind = "invariant"
+expr = "`the rule firing over the repo's own corpus yields zero findings — dogfooding is the gate`"
+traces_to = "[[linter.referential_integrity]]"

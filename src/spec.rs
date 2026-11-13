@@ -138,6 +138,14 @@ pub struct Spec {
     /// references); compile's extraction is the only consumer. Empty
     /// when the file carries no such section.
     pub fragments_body: String,
+    /// The revision numbers of the file's `## Revision N` headings, in
+    /// document order — the revision-pair seam's record of which
+    /// revisions a file has been amended under (openspec/specs/specodelic/spec.md
+    /// `append_only_variants`: a governed id-set grows only under a new
+    /// Revision heading). Not serialized: the heading numbers are a
+    /// parse-time reading, not part of the file's structured content.
+    #[serde(skip_serializing)]
+    pub revision_headings: Vec<u32>,
     /// All `[[wiki-links]]` found in *structured* fields (frontmatter and
     /// table cells) — never prose. Each link is the raw inner text, which may
     /// be a file id (`specodelic`), a row id (`specodelic.model_present`), or
@@ -269,6 +277,7 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
         requirements_body: String::new(),
         reference_typing_body: String::new(),
         fragments_body: String::new(),
+        revision_headings: vec![],
         links: vec![],
     };
     spec.links.extend(frontmatter_links(text, &spec.intent.id));
@@ -353,9 +362,12 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
 fn push_state_row(spec: &mut Spec, line: &str, line_start: usize) {
     let t = line.trim();
     let bullet = t.trim_start_matches("- ").trim();
-    let (id, emits) = parse_state_bullet(bullet);
+    let (id, emits, extras) = parse_state_bullet(bullet);
     let mut cells = BTreeMap::new();
     cells.insert("id".into(), id.clone());
+    for (name, value) in extras {
+        cells.insert(name, value);
+    }
     let (id_span, emits_at) = state_bullet_spans(line, line_start);
     if let Some(e) = emits {
         cells.insert("emits".into(), e.clone());
@@ -572,6 +584,15 @@ impl SectionCtx {
     }
 
     fn on_h2(&mut self, h: &str, spec: &mut Spec) {
+        // The revision-pair seam's record: a `## Revision N` heading
+        // numbers the amendment a governed id-set may grow under
+        // (`append_only_variants`). Read here, where the headings are
+        // recognized, so the seam never re-scans the text.
+        if let Some(number) = h.strip_prefix("Revision ")
+            && let Ok(n) = number.trim().parse::<u32>()
+        {
+            spec.revision_headings.push(n);
+        }
         self.dual_section = match h {
             "ADDED Requirements" => 1,
             "Requirements" => 2,
@@ -676,7 +697,17 @@ pub(crate) fn parse_row(line: &str) -> Result<Vec<String>, String> {
 
 /// Parse a States bullet: ``- `active` `` or ``- `cancel_requested` (emits: `[[x.y]]`)``.
 /// Ids are backticked or bare; `emits` is a parenthesized suffix.
-fn parse_state_bullet(bullet: &str) -> (String, Option<String>) {
+/// Parse one `### States` bullet into its id, its optional `emits`
+/// field, and any other named field the bullet's tail carries.
+///
+/// A State row's field set is exactly {id, emits?} (openspec/specs/kinds/spec.md
+/// `state_row_shape`) — so a tail that names a field the kind does not
+/// declare is surfaced as an extra cell on the row instead of being
+/// swallowed as an `emits` value: the row-shape rule
+/// (`linter.row_shape_closed`) reads the extra cell and rejects it.
+/// The `emits` reading is unchanged: a bare value, an `emits: X` pair,
+/// or an `— emits X` tail all name the same optional field.
+fn parse_state_bullet(bullet: &str) -> (String, Option<String>, Vec<(String, String)>) {
     let bullet = bullet.trim().trim_start_matches('`').trim();
     // forms: "`id`" / "id" / "`id` (emits: X)" / "id — emits X"
     let (head, rest) = match bullet.find(['`', ' ', '(']) {
@@ -694,18 +725,46 @@ fn parse_state_bullet(bullet: &str) -> (String, Option<String>) {
         },
     };
     let id = head.trim().trim_matches('`').to_string();
-    let emits = rest.and_then(|r| {
-        let r = r.trim_start_matches(['(', '—', '-', ':']).trim();
-        let r = r
-            .strip_prefix("emits:")
-            .or_else(|| r.strip_prefix("emits"))
-            .unwrap_or(r)
-            .trim();
-        let r = r.trim_end_matches(')').trim();
-        let r = r.trim_matches('`').trim();
-        (!r.is_empty()).then(|| r.to_string())
-    });
-    (id, emits)
+    let Some(rest) = rest else {
+        return (id, None, vec![]);
+    };
+    let tail = rest.trim_start_matches(['(', '—', '-', ':']).trim();
+    // The historical `emits` reading first: an `emits:`/`emits` prefix
+    // (with or without a colon) names the optional field.
+    let after_emits = tail
+        .strip_prefix("emits:")
+        .or_else(|| tail.strip_prefix("emits"));
+    if let Some(value) = after_emits {
+        let value = value.trim();
+        let value = value.trim_end_matches(')').trim();
+        let value = value.trim_matches('`').trim();
+        let emits = (!value.is_empty()).then(|| value.to_string());
+        return (id, emits, vec![]);
+    }
+    // A named tail field (`kind: moore`) — a field the State kind does
+    // not declare, surfaced as an extra cell for the row-shape rule.
+    if let Some((name, value)) = named_tail(tail) {
+        let value = value.strip_suffix(')').unwrap_or(value.as_str()).trim();
+        return (id, None, vec![(name, value.to_string())]);
+    }
+    // Anything else keeps the historical reading: the tail IS the
+    // optional field's value.
+    let value = tail.trim_end_matches(')').trim();
+    let value = value.trim_matches('`').trim();
+    let emits = (!value.is_empty()).then(|| value.to_string());
+    (id, emits, vec![])
+}
+
+/// A named tail field of a State bullet: the `name` a `name: value`
+/// tail declares and its value. `None` when the tail is not a named
+/// field (a bare value, a link, prose).
+fn named_tail(tail: &str) -> Option<(String, String)> {
+    let (name, value) = tail.split_once(':')?;
+    let name = name.trim();
+    if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        return None;
+    }
+    Some((name.to_string(), value.trim().to_string()))
 }
 
 /// Extract every `[[link]]` from a structured cell, with backtick awareness

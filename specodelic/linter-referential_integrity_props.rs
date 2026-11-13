@@ -55,6 +55,38 @@ pub mod spec_gen {
     pub fn resolution_failure_raised() -> impl Strategy<Value = String> {
         Just("resolution_failure_raised".into())
     }
+
+    pub fn arbitrary_typed_link() -> impl Strategy<Value = String> {
+        Just("arbitrary_typed_link".into())
+    }
+
+    pub fn links_in_untyped_cells() -> impl Strategy<Value = String> {
+        Just("links_in_untyped_cells".into())
+    }
+
+    pub fn typed_cell_with_dangling_target() -> impl Strategy<Value = String> {
+        Just("typed_cell_with_dangling_target".into())
+    }
+
+    pub fn violating_corpus() -> impl Strategy<Value = String> {
+        Just("violating_corpus".into())
+    }
+
+    pub fn member_arm_links() -> impl Strategy<Value = String> {
+        Just("member_arm_links".into())
+    }
+
+    pub fn uses_links() -> impl Strategy<Value = String> {
+        Just("uses_links".into())
+    }
+
+    pub fn transition_with_ghost_endpoint() -> impl Strategy<Value = String> {
+        Just("transition_with_ghost_endpoint".into())
+    }
+
+    pub fn arbitrary_well_formed_corpus() -> impl Strategy<Value = String> {
+        Just("arbitrary_well_formed_corpus".into())
+    }
 }
 
 proptest! {
@@ -130,5 +162,61 @@ proptest! {
     #[test]
     fn resolution_failure_label_asserted(v0 in spec_gen::resolution_failure_raised()) {
         todo_predicate!("`error_label == \"linter.referential_integrity.resolution_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+    }
+    // id: p_schema_decision
+    // generator: `arbitrary_typed_link()`
+    // predicate: `the lint verdict matches the graph report on the same link`
+    #[test]
+    fn p_schema_decision(v0 in spec_gen::arbitrary_typed_link()) {
+        todo_predicate!("`the lint verdict matches the graph report on the same link`");
+    }
+    // id: p_typed_only
+    // generator: `links_in_untyped_cells()`
+    // predicate: `no finding names an untyped column`
+    #[test]
+    fn p_typed_only(v0 in spec_gen::links_in_untyped_cells()) {
+        todo_predicate!("`no finding names an untyped column`");
+    }
+    // id: p_dangling_once
+    // generator: `typed_cell_with_dangling_target()`
+    // predicate: `findings == [the dangling finding]`
+    #[test]
+    fn p_dangling_once(v0 in spec_gen::typed_cell_with_dangling_target()) {
+        todo_predicate!("`findings == [the dangling finding]`");
+    }
+    // id: p_severity
+    // generator: `violating_corpus()`
+    // predicate: `exit code 1 ∧ finding on the issues channel`
+    #[test]
+    fn p_severity(v0 in spec_gen::violating_corpus()) {
+        todo_predicate!("`exit code 1 ∧ finding on the issues channel`");
+    }
+    // id: p_member_arm
+    // generator: `member_arm_links()`
+    // predicate: `typed as the canonical row's kind`
+    #[test]
+    fn p_member_arm(v0 in spec_gen::member_arm_links()) {
+        todo_predicate!("`typed as the canonical row's kind`");
+    }
+    // id: p_uses_profile
+    // generator: `uses_links()`
+    // predicate: `profile target passes ∧ intent target fires`
+    #[test]
+    fn p_uses_profile(v0 in spec_gen::uses_links()) {
+        todo_predicate!("`profile target passes ∧ intent target fires`");
+    }
+    // id: p_from_to_once
+    // generator: `transition_with_ghost_endpoint()`
+    // predicate: `exactly the model-shape finding fires`
+    #[test]
+    fn p_from_to_once(v0 in spec_gen::transition_with_ghost_endpoint()) {
+        todo_predicate!("`exactly the model-shape finding fires`");
+    }
+    // id: p_enforcement_clean
+    // generator: `arbitrary_well_formed_corpus()`
+    // predicate: `exit 0 ∧ zero typing findings`
+    #[test]
+    fn p_enforcement_clean(v0 in spec_gen::arbitrary_well_formed_corpus()) {
+        todo_predicate!("`exit 0 ∧ zero typing findings`");
     }
 }

@@ -280,7 +280,7 @@ fn contains_word(haystack: &str, token: &str) -> bool {
 /// first char): a dotted prose token never yields one, so the
 /// vocabulary-orphan signal stays structured-position-only and
 /// false-positive-free (specodelic-erd).
-fn namespace_of(token: &str) -> Option<String> {
+pub fn namespace_of(token: &str) -> Option<String> {
     let ident = |s: &str| {
         s.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
             && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')

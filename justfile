@@ -147,12 +147,17 @@ verify-properties *paths:
 
 # The scoped properties gate for the migrated corpus files (specodelic-lf3):
 # it fails IFF the PROPERTIES gate failed for
-# openspec/specs/compile/spec.md or openspec/specs/packs/spec.md —
+# openspec/specs/compile/spec.md, openspec/specs/packs/spec.md,
+# openspec/specs/specodelic/spec.md or openspec/specs/kinds/spec.md —
 # "failed" means a compiled proptest! block failed. It never fails on a
 # skipped, stale or missing MODEL stage (the model gate's state rides its
 # own envelope field) and it never claims `verified`: the scoped
 # properties-only verdict leaves verify's `both_gates_required`
 # conjunction untouched — a properties pass here is not a file verdict.
+# The PROPERTIES stage itself must be a PASS, not merely "not failed":
+# a stale, missing or uncompilable artifact means no block was judged
+# (the corpus could not even be compiled), and a gate that passes on an
+# unjudged stage is a green light with nothing behind it.
 # cargo run (never a PATH spk) so the gate can never hit a stale
 # installed binary; the verify command's own exit code (1 on any blocked
 # file) is deliberately ignored — this gate is scoped to the properties
@@ -160,12 +165,12 @@ verify-properties *paths:
 verify-specs:
     #!/usr/bin/env bash
     set -euo pipefail
-    out="$(cargo run -q -- verify --json openspec/specs/compile/spec.md openspec/specs/packs/spec.md 2>/dev/null || true)"
+    out="$(cargo run -q -- verify --json openspec/specs/compile/spec.md openspec/specs/packs/spec.md openspec/specs/specodelic/spec.md openspec/specs/kinds/spec.md 2>/dev/null || true)"
     if [ -z "$out" ]; then
         echo "verify-specs: the verify command produced no output — the properties stage could not be judged" >&2
         exit 1
     fi
-    printf '%s' "$out" | python3 -c 'import json,sys; data=(json.load(sys.stdin) or {}).get("data") or {}; files=(data.get("verified") or [])+(data.get("blocked") or []); bad=[f for f in files if ((f.get("properties") or {}).get("state"))=="failed"]; [print("properties failed: {} — {}".format(f.get("file"), (f.get("properties") or {}).get("detail"))) for f in bad]; sys.exit(1 if bad else 0)'
+    printf '%s' "$out" | python3 -c 'import json,sys; data=(json.load(sys.stdin) or {}).get("data") or {}; files=(data.get("verified") or [])+(data.get("blocked") or []); bad=[f for f in files if ((f.get("properties") or {}).get("state"))!="pass"]; [print("properties not passed: {} — {}: {}".format(f.get("file"), (f.get("properties") or {}).get("state"), (f.get("properties") or {}).get("detail") or f.get("message"))) for f in bad]; sys.exit(1 if bad else 0)'
 
 # The corpus-backed capability dirs — the files that were the specs/
 # corpus before the single-tree migration (specodelic-jf1). compile and

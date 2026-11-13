@@ -69,11 +69,11 @@ checkable fact instead of an unstated assumption.
 |-----------------------------------------|------|-----------------------------------------|---------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | unknown_kind_rejected                    | unit | [[kinds.kind_enum_closed]]             | `row_belonging_to_a_sixth_section()` | `**rust:** { let text = v0.as_str(); let schema = specodelic::acset::schema::canonical(); let mut widened = schema.clone(); widened.objects.insert(specodelic::acset::schema::ObjectId::new("Actions")); let rejected = specodelic::acset::schema::check(&widened).is_err(); let closed = specodelic::acset::schema::check(&schema).is_ok(); rejected && closed && text.contains("## Actions") }` — `check(row) == failed` |
 | intent_missing_statement_rejected        | unit | [[kinds.intent_row_shape]]             | `intent_row_without_statement()` | `**rust:** { let mut missing = false; if let Err(err) = specodelic::spec::parse_str(&v0) { missing = format!("{err:?}").contains("statement"); } missing }` — `check(row) == failed` |
-| constraint_row_extra_field_rejected      | unit | [[kinds.constraint_row_shape]]         | `constraint_row_with(extra_field: "guard")`                          | `check(row) == failed`                                                                                                                                                                                |
-| state_row_with_extra_field_rejected      | unit | [[kinds.state_row_shape]]              | `state_row_with(extra_field: "kind")`                                | `check(row) == failed`                                                                                                                                                                                |
+| constraint_row_extra_field_rejected      | unit | [[kinds.constraint_row_shape]]         | `constraint_row_with_extra_field(extra_field: "guard")`                          | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.row_shape_closed") }` — `check(row) == failed`                                                                                                                                                                                |
+| state_row_with_extra_field_rejected      | unit | [[kinds.state_row_shape]]              | `state_row_with_extra_field(extra_field: "kind")`                                | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.row_shape_closed") }` — `check(row) == failed`                                                                                                                                                                                |
 | transition_missing_guard_rejected        | unit | [[kinds.transition_row_shape]]         | `transition_row_without_guard()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.guard_required") }` — `check(row) == failed` |
 | property_row_bad_subkind_rejected        | unit | [[kinds.property_row_shape]]           | `property_row_with_kind_audit()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.property_kind_closed") }` — `check(row) == failed` |
-| subkind_addition_without_revision_rejected | unit | [[kinds.kind_field_extensible]]      | `diff_adding_subkind_value_with_no_new_Revision_heading()`           | `check(diff) == failed`                                                                                                                                                                               |
+| subkind_addition_without_revision_rejected | unit | [[kinds.kind_field_extensible]]      | `diff_adding_subkind_value_with_no_new_Revision_heading()`           | `**rust:** { let before = specodelic::fixtures::specs::materialize("revision_before_governed_id_set_change").expect("the prior revision materializes"); let after = v0.as_str(); let findings = specodelic::lint::revision::check_pair(&before, after).expect("the revision pair parses"); findings.iter().any(|f| f.change == specodelic::lint::revision::ChangeKind::GrownSilently && f.member == "advisory") }` — `check(diff) == failed`                                                                                                                                                                               |
 | constraint_row_advisory_accepted         | unit | [[kinds.constraint_row_shape]]         | `constraint_row_with_kind_advisory()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed` |
 | constraint_row_effect_accepted           | unit | [[kinds.constraint_row_shape]]         | `constraint_row_with_kind_effect()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed` |
 | state_row_emits_accepted                 | unit | [[kinds.state_row_shape]]              | `state_row_with_effect_emits()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed` |
@@ -137,6 +137,22 @@ matching top-level invariants (`constraint_kind_closed`,
 same session:** `linter-schema_shape.md` now owns and enforces both — see
 its `kind_ok` transition and the two `..._kind_invalid_rejected`
 properties.
+
+**The four `*_row_shape` constraints above are now decided, not just
+stated (2026-11-13, ticket `specodelic-3632`):** they were constraints
+without an enforcing checker — a Constraint row carrying an extra column
+(`guard`) or a State bullet carrying an extra field (`kind`) parsed
+without a finding, so the corpus could not decide the rows that claim
+those shapes are rejected. `linter.row_shape_closed` (family
+`linter-schema_shape`) now decides them: a row's field set must be
+exactly its kind's base fields plus the typed reference columns the
+Reference Typing table declares — an undeclared column is a finding. The
+reference-column half is read live from the Schema-as-data (never a
+hardcoded list that could drift); the base-field half mirrors the four
+constraints above. Checked against `specodelic.md`'s constraint list
+first (AGENTS.md check #3): the claim was already stated here, so no new
+corpus constraint was invented — the rule enforces the existing rows, it
+does not add a claim of its own.
 
 ## Revision 2
 
@@ -310,13 +326,13 @@ Every property row SHALL be verified by exactly one dedicated scenario;
 
 #### Scenario: constraint_row_extra_field_rejected
 
-- **WHEN** `constraint_row_with(extra_field: "guard")`
+- **WHEN** `constraint_row_with_extra_field(extra_field: "guard")`
 - **THEN** `check(row) == failed`
 - **VERIFIES** [[kinds.constraint_row_extra_field_rejected]]
 
 #### Scenario: state_row_with_extra_field_rejected
 
-- **WHEN** `state_row_with(extra_field: "kind")`
+- **WHEN** `state_row_with_extra_field(extra_field: "kind")`
 - **THEN** `check(row) == failed`
 - **VERIFIES** [[kinds.state_row_with_extra_field_rejected]]
 

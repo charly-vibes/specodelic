@@ -107,18 +107,40 @@ fn every_generator_name_in_the_corpus_resolves_to_a_fixture() {
 }
 
 #[test]
-fn the_unmigrated_rows_are_the_documented_four() {
+fn no_corpus_row_is_left_on_the_placeholder() {
     let ids = unmigrated_rows();
-    assert_eq!(
-        ids,
-        vec![
-            "silently_shrunk_id_set_rejected".to_string(),
-            "constraint_row_extra_field_rejected".to_string(),
-            "state_row_with_extra_field_rejected".to_string(),
-            "subkind_addition_without_revision_rejected".to_string(),
-        ],
-        "the rows without an honest tool seam — each keeps the todo_predicate! placeholder"
+    assert!(
+        ids.is_empty(),
+        "every property row of the two corpus files carries an executable predicate: {ids:?}"
     );
+}
+
+/// The four rows that used to sit on the honest `todo_predicate!`
+/// placeholder now carry executable predicates over real fixtures.
+#[test]
+fn the_four_previously_blocked_rows_are_executable() {
+    for id in [
+        "silently_shrunk_id_set_rejected",
+        "constraint_row_extra_field_rejected",
+        "state_row_with_extra_field_rejected",
+        "subkind_addition_without_revision_rejected",
+    ] {
+        let mut found = false;
+        for corpus in [SPECODELIC, KINDS] {
+            let spec = parse_str(corpus).expect("the corpus file parses");
+            for row in &spec.properties {
+                if row.id == id {
+                    found = true;
+                    let predicate = row.cells.get("predicate").cloned().unwrap_or_default();
+                    assert!(
+                        predicate.contains("**rust:**"),
+                        "row `{id}` must carry an executable predicate"
+                    );
+                }
+            }
+        }
+        assert!(found, "row `{id}` exists in one of the two corpus files");
+    }
 }
 
 #[test]
@@ -429,6 +451,86 @@ fn the_failing_property_gate_reports_a_failure() {
     assert!(
         really_fails,
         "the compiled artifact must really carry a failing assertion"
+    );
+}
+
+/// The extra-Constraint-column fixture: the row-shape rule must reject
+/// a column the kind's field set does not declare (`guard` is a
+/// Transition field, never a Constraint one).
+#[test]
+fn the_extra_constraint_column_fixture_is_detected() {
+    let text = specs::materialize("constraint_row_with_extra_field").expect("materializes");
+    let spec = parse_str(&text).expect("parses");
+    assert!(
+        specs::rule_fired(&spec, "linter.row_shape_closed"),
+        "an undeclared Constraint column must fire the row-shape rule: {:?}",
+        specs::lint_issues(&spec)
+    );
+}
+
+/// The extra-State-field fixture: the row-shape rule must reject a
+/// State bullet carrying a field the kind's field set does not declare
+/// (`kind` — states are named variants, never a typed column).
+#[test]
+fn the_extra_state_field_fixture_is_detected() {
+    let text = specs::materialize("state_row_with_extra_field").expect("materializes");
+    let spec = parse_str(&text).expect("parses");
+    assert!(
+        specs::rule_fired(&spec, "linter.row_shape_closed"),
+        "an undeclared State field must fire the row-shape rule: {:?}",
+        specs::lint_issues(&spec)
+    );
+}
+
+/// The silent subkind growth: a kind value-set that grew with no new
+/// `## Revision N` heading is a finding.
+#[test]
+fn the_silent_subkind_growth_is_detected() {
+    let before =
+        specs::materialize("revision_before_governed_id_set_change").expect("materializes");
+    let after = specs::materialize("diff_adding_subkind_value_with_no_new_Revision_heading")
+        .expect("materializes");
+    let findings =
+        specodelic::lint::revision::check_pair(&before, &after).expect("the revision pair parses");
+    assert!(
+        findings.iter().any(|f| {
+            f.change == specodelic::lint::revision::ChangeKind::GrownSilently
+                && f.member == "advisory"
+        }),
+        "the silent kind-value growth must be found: {findings:?}"
+    );
+}
+
+/// The shrunk id-set: a governed id-set member removed between the two
+/// revisions is a finding.
+#[test]
+fn the_shrunk_id_set_is_detected() {
+    let before =
+        specs::materialize("revision_before_governed_id_set_change").expect("materializes");
+    let after = specs::materialize("revision_after_id_set_member_removed").expect("materializes");
+    let findings =
+        specodelic::lint::revision::check_pair(&before, &after).expect("the revision pair parses");
+    assert!(
+        findings.iter().any(|f| {
+            f.change == specodelic::lint::revision::ChangeKind::Removed && f.member == "s2"
+        }),
+        "the removed id-set member must be found: {findings:?}"
+    );
+}
+
+/// The acceptance side: the same growth carried by a new `## Revision N`
+/// heading is allowed — the seam must not fire on a declared change.
+#[test]
+fn a_declared_subkind_growth_passes() {
+    let before =
+        specs::materialize("revision_before_governed_id_set_change").expect("materializes");
+    let after = specs::materialize("revision_after_subkind_value_added_with_revision_heading")
+        .expect("materializes");
+    let findings =
+        specodelic::lint::revision::check_pair(&before, &after).expect("the revision pair parses");
+    assert!(
+        findings.is_empty(),
+        "a growth carried by a new Revision heading is allowed: {findings:?}"
     );
 }
 

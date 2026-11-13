@@ -38,12 +38,18 @@ pub mod spec_gen {
         )
     }
 
-    pub fn constraint_row_with() -> impl Strategy<Value = String> {
-        Just("constraint_row_with".into())
+    pub fn constraint_row_with_extra_field() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("constraint_row_with_extra_field")
+                .expect("the constraint_row_with_extra_field fixture materializes"),
+        )
     }
 
-    pub fn state_row_with() -> impl Strategy<Value = String> {
-        Just("state_row_with".into())
+    pub fn state_row_with_extra_field() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("state_row_with_extra_field")
+                .expect("the state_row_with_extra_field fixture materializes"),
+        )
     }
 
     pub fn transition_row_without_guard() -> impl Strategy<Value = String> {
@@ -62,7 +68,14 @@ pub mod spec_gen {
 
     pub fn diff_adding_subkind_value_with_no_new_Revision_heading() -> impl Strategy<Value = String>
     {
-        Just("diff_adding_subkind_value_with_no_new_Revision_heading".into())
+        Just(
+            specodelic::fixtures::materialize(
+                "diff_adding_subkind_value_with_no_new_Revision_heading",
+            )
+            .expect(
+                "the diff_adding_subkind_value_with_no_new_Revision_heading fixture materializes",
+            ),
+        )
     }
 
     pub fn constraint_row_with_kind_advisory() -> impl Strategy<Value = String> {
@@ -165,18 +178,24 @@ proptest! {
         );
     }
     // id: constraint_row_extra_field_rejected
-    // generator: `constraint_row_with(extra_field: "guard")`
-    // predicate: `check(row) == failed`
+    // generator: `constraint_row_with_extra_field(extra_field: "guard")`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.row_shape_closed") }` — `check(row) == failed`
     #[test]
-    fn constraint_row_extra_field_rejected(v0 in spec_gen::constraint_row_with()) {
-        todo_predicate!("`check(row) == failed`");
+    fn constraint_row_extra_field_rejected(v0 in spec_gen::constraint_row_with_extra_field()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.row_shape_closed") },
+            "predicate `constraint_row_extra_field_rejected` violated (executable fragment)",
+        );
     }
     // id: state_row_with_extra_field_rejected
-    // generator: `state_row_with(extra_field: "kind")`
-    // predicate: `check(row) == failed`
+    // generator: `state_row_with_extra_field(extra_field: "kind")`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.row_shape_closed") }` — `check(row) == failed`
     #[test]
-    fn state_row_with_extra_field_rejected(v0 in spec_gen::state_row_with()) {
-        todo_predicate!("`check(row) == failed`");
+    fn state_row_with_extra_field_rejected(v0 in spec_gen::state_row_with_extra_field()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.row_shape_closed") },
+            "predicate `state_row_with_extra_field_rejected` violated (executable fragment)",
+        );
     }
     // id: transition_missing_guard_rejected
     // generator: `transition_row_without_guard()`
@@ -200,10 +219,13 @@ proptest! {
     }
     // id: subkind_addition_without_revision_rejected
     // generator: `diff_adding_subkind_value_with_no_new_Revision_heading()`
-    // predicate: `check(diff) == failed`
+    // predicate: `**rust:** { let before = specodelic::fixtures::specs::materialize("revision_before_governed_id_set_change").expect("the prior revision materializes"); let after = v0.as_str(); let findings = specodelic::lint::revision::check_pair(&before, after).expect("the revision pair parses"); findings.iter().any(|f| f.change == specodelic::lint::revision::ChangeKind::GrownSilently && f.member == "advisory") }` — `check(diff) == failed`
     #[test]
     fn subkind_addition_without_revision_rejected(v0 in spec_gen::diff_adding_subkind_value_with_no_new_Revision_heading()) {
-        todo_predicate!("`check(diff) == failed`");
+        assert!(
+            { let before = specodelic::fixtures::specs::materialize("revision_before_governed_id_set_change").expect("the prior revision materializes"); let after = v0.as_str(); let findings = specodelic::lint::revision::check_pair(&before, after).expect("the revision pair parses"); findings.iter().any(|f| f.change == specodelic::lint::revision::ChangeKind::GrownSilently && f.member == "advisory") },
+            "predicate `subkind_addition_without_revision_rejected` violated (executable fragment)",
+        );
     }
     // id: constraint_row_advisory_accepted
     // generator: `constraint_row_with_kind_advisory()`

@@ -577,6 +577,125 @@ fn sixth_section() -> String {
     text
 }
 
+/// The fixture whose Constraint table carries an EXTRA column
+/// (`guard`) — a field the Constraint row shape does not declare
+/// (openspec/specs/kinds/spec.md `constraint_row_shape`).
+fn constraint_row_with_extra_field() -> String {
+    spec_text_with_header(
+        "fx",
+        "THE fx SHALL hold",
+        "| id | kind | expr | traces_to | guard |\n|----|------|------|-----------|-------|\n",
+        &[
+            "| c1 | invariant | `the fixture holds` | [[fx]] | |",
+            "| c2 | invariant | `the guard cites this` | [[fx]] | |",
+        ],
+        &["- s1", "- s2"],
+        &[("t1", "s1", "s2", "[[fx.c2]]")],
+        &[
+            ("p1", "unit", "[[fx.c1]]", "`fx()`", "`the fixture holds`"),
+            (
+                "p2",
+                "unit",
+                "[[fx.c2]]",
+                "`fx()`",
+                "`the guard cites this`",
+            ),
+        ],
+        "",
+    )
+}
+
+/// The fixture whose State bullet carries an EXTRA field (`kind`) —
+/// a field the State row shape does not declare (states are named
+/// variants, never a typed column).
+fn state_row_with_extra_field() -> String {
+    spec_text(
+        "fx",
+        "THE fx SHALL hold",
+        &[
+            "| c1 | invariant | `the fixture holds` | [[fx]] |",
+            "| c2 | invariant | `the guard cites this` | [[fx]] |",
+        ],
+        &["- s1", "- s2 (kind: moore)"],
+        &[("t1", "s1", "s2", "[[fx.c2]]")],
+        &[
+            ("p1", "unit", "[[fx.c1]]", "`fx()`", "`the fixture holds`"),
+            (
+                "p2",
+                "unit",
+                "[[fx.c2]]",
+                "`fx()`",
+                "`the guard cites this`",
+            ),
+        ],
+        "",
+    )
+}
+
+/// One revision of the revision-pair fixture file: the states it
+/// declares, the constraint kinds it carries, and the revision
+/// headings it has been amended under.
+///
+/// The two sides of a revision pair are two revisions of ONE file —
+/// the pair is what the revision-diff seam reads.
+fn revision_text(states: &[&str], kinds: &[&str], revisions: &[u32]) -> String {
+    let mut text = String::from(
+        "---\nid: rv\nkind: intent\nstatement: \"THE rv SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n",
+    );
+    for (i, kind) in kinds.iter().enumerate() {
+        text.push_str(&format!("| c{i} | {kind} | `holds` | [[rv]] |\n"));
+    }
+    text.push_str("\n## Model\n\n### States\n\n");
+    for state in states {
+        text.push_str(&format!("- {state}\n"));
+    }
+    let last = states.last().copied().unwrap_or("s1");
+    text.push_str(&format!(
+            "\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t1 | s1 | {last} | `holds` |\n"
+        ));
+    text.push_str(
+            "\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n",
+        );
+    for i in 0..kinds.len() {
+        text.push_str(&format!(
+            "| p{i} | unit | [[rv.c{i}]] | `g()` | `holds` |\n"
+        ));
+    }
+    for n in revisions {
+        text.push_str(&format!(
+            "\n## Revision {n}\n\nThe recorded revision: the file was amended under it.\n"
+        ));
+    }
+    text
+}
+
+/// The revision BEFORE a governed id-set change: one constraint kind
+/// (`invariant`), two states, no Revision heading. It is the prior
+/// side of both revision pairs: the subkind addition and the
+/// removed state id.
+fn revision_before() -> String {
+    revision_text(&["s1", "s2"], &["invariant"], &[])
+}
+
+/// The revision AFTER the subkind addition, with NO new Revision
+/// heading — the silent growth the seam must reject.
+fn revision_after_silent_subkind() -> String {
+    revision_text(&["s1", "s2"], &["invariant", "advisory"], &[])
+}
+
+/// The revision AFTER the same subkind addition, carried by a new
+/// `## Revision 2` heading — the declared growth the seam must
+/// accept.
+fn revision_after_declared_subkind() -> String {
+    revision_text(&["s1", "s2"], &["invariant", "advisory"], &[2])
+}
+
+/// The revision AFTER the state id `s2` was removed — the shrunk
+/// governed id-set the seam must reject.
+fn revision_after_removed_state() -> String {
+    revision_text(&["s1"], &["invariant"], &[])
+}
+
 /// The fixture whose Property row carries a kind outside the closed
 /// set — the kind-assignment failure.
 fn made_up_property_kind() -> String {
@@ -933,6 +1052,24 @@ const REGISTRY: &[Entry] = &[
     ("two_specs_identical_except_rationale_prose", with_rationale),
     ("property_row_with_kind_audit", made_up_property_kind),
     ("row_belonging_to_a_sixth_section", sixth_section),
+    (
+        "constraint_row_with_extra_field",
+        constraint_row_with_extra_field,
+    ),
+    ("state_row_with_extra_field", state_row_with_extra_field),
+    (
+        "diff_adding_subkind_value_with_no_new_Revision_heading",
+        revision_after_silent_subkind,
+    ),
+    ("revision_before_governed_id_set_change", revision_before),
+    (
+        "revision_after_subkind_value_added_with_revision_heading",
+        revision_after_declared_subkind,
+    ),
+    (
+        "revision_after_id_set_member_removed",
+        revision_after_removed_state,
+    ),
     ("kind_assignment_failure_raised", made_up_property_kind),
     ("shape_check_failure_raised", undeclared_target),
     ("spec_repo_with_traces_cycle", traces_cycle),
