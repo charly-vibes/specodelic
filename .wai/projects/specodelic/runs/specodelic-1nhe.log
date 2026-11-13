@@ -1,0 +1,43 @@
+Implementation complete. All three commits landed locally; nothing was pushed and the ticket was left open.
+
+## Report
+
+**Commits**
+
+| commit | content |
+|---|---|
+| `28e55e99` | `refactor(compile): move the in-module test block to src/compile/tests.rs` |
+| `f1d5698f` | `feat(law): format Revision 21 — per-case fragment bodies on law-kind rows` (src, corpus specs, tests, guide/STATUS/CHANGELOG, managed `AGENTS.md`, regenerated artifacts) |
+| `71928083` | `chore(beads): file specodelic-vjem — the compiled corpus artifacts are stale` (+ export refresh) |
+| `4e75c155` | `chore(wai): record the specodelic-1nhe tdd-ro5 pipeline evidence` |
+
+Branch `main` is ahead of `origin/main` by 6 (3 lead commits + 3 above). No push, no ticket close.
+
+**Design of record**
+
+- **One shared parser** — `src/law.rs` is the single Revision 21 law-cell grammar: `**name:**` = case label (enumeration of record, unchanged), `**name::**` = case body introducer, fragment markers in fragment position under a case key become that case's body. The linter's `law_cases` rule and the compiler's block expansion both read it, so they cannot disagree on case identity; known tags (`**rust:**`, `**py:**`, `**ts:**`) are never counted as labels.
+- **Emission** — one block per enumerated case: a case with a body gets that body verbatim, a case without one keeps the honest `todo_predicate!` placeholder. A per-case body reaches the same emitter/hygiene/helper rules as a unit fragment (helpers inline at the use site, unresolvable references fail labeled, body-only helpers are live, not dead).
+- **Labeled failures** — unassociated fragment, duplicate body for one case, body naming an unenumerated case, empty body, case key introducing no body, case key on a non-law row (the specific case-grammar failure precedes the generic closed-tag scan).
+- **Widening** — Revision 20 inputs stay valid; pre-Revision law-row artifact bytes are unchanged. The closed tag set has one home (`law::FRAGMENT_TAGS`); `FragmentLang::parse` defers to it.
+- **Artifacts are tool-owned** — regenerated with `spk compile` / `spk model-check`, never hand-edited.
+
+**Gate results**
+
+- `just ci` → exit 0 (fmt, clippy `-D warnings`, tests, release build, lint, model-check, verify-specs, docs, packs, guards, `ah check`).
+- `cargo test --test law_case_bodies` → `16 passed; 0 failed`.
+- `spk lint openspec/specs` → 48 files, `issues: []`.
+- `just verify-specs` → exit 0.
+- `ah check --run-tests --all-tests` → `OK — 641 passed, 0 findings`.
+- `python3 scripts/spec_validate.py` → `53 passed, 0 failed`.
+- Pre-commit gate on every commit → all 9 gate steps green.
+
+**Deviations**
+
+- Review findings were fixed during the RO5U pass, not after it: the helper rule did not reach per-case bodies (1 high), the closed tag set had two homes, an unknown body tag fell through silently to Rust, the failure messages named a rule id (`law_case_bodies`) absent from the corpus, and an empty body / bodyless case key compiled silently (4 medium). One low finding was kept on purpose: the emitted `// predicate:` comment quotes the whole cell (byte-compatibility).
+- The tracked `specodelic/verify.toml`, `verify_props.rs` and `linter-referential_integrity.*` artifacts are stale against the corpus (other tickets' rows). A whole-corpus regeneration would have fixed them; the change was scoped to the files this ticket touched, and the drift was filed as `specodelic-vjem` instead of folded in.
+- No corpus law row was migrated to per-case bodies (explicit anti-goal), so the new arm is exercised by the tests and fixtures, not by a corpus row.
+- `.wai/pipeline-runs/epic-orchestrator-…yml` and `.wai/resources/pipelines/.last-run` were restored to their committed state so the lead's own run pointer is untouched; the lead's `spawn-pending` record and run log were left untracked for the lead to commit.
+
+**Next action**
+
+The lead's `verify-subagent` step: `git log 53fe1f66..HEAD` over the three commits, re-run the gate set at HEAD, then push and close `specodelic-1nhe`.
