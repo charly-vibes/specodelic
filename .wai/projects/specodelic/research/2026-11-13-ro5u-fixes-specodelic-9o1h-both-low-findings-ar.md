@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-13-specodelic-9o1h-compose-kernel-outcomes-into-the-citation-algebra, pipeline-step:fix-review]
+---
+
+RO5U-FIXES (specodelic-9o1h): both LOW findings are fixed in commit 44d7267 — (1) the kernel-evidence lookup is total now (.get(idx).and_then(...)), so a short evidence slice degrades to 'no kernel evidence' instead of panicking with an index-out-of-bounds, and the alignment contract (one map per spec, in specs order) is documented on apply_corpus_resolution; (2) the new parameter's contract is documented. A regression test pins the degradation: tests/citation_algebra.rs::a_missing_kernel_evidence_map_degrades_to_no_evidence_never_a_panic. No CRITICAL, HIGH, or MEDIUM findings. Gates after the fixes: cargo test --test citation_algebra 13 passed; cargo test --test cli 332 passed (1 ignored, pre-existing); cargo clippy -- -D warnings clean; pretender check exit 0; the pre-commit hook suite (ah-check, ddl-ah-check, ddl-pretender-gate, ddl-spk-lint, gate-drill-lock, pretender-gate, pretender-pin, sibling-blockers, specodelic-gates) green on every commit.

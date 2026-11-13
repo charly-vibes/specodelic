@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-13-specodelic-9o1h-compose-kernel-outcomes-into-the-citation-algebra, pipeline-step:red]
+---
+
+RED: command=cargo test --test cli -- <7 new specodelic-9o1h tests> — expected failure=the citation algebra resolves only EXEC outcomes. 6 of 7 FAIL for the expected missing behavior: (1) exec_and_kernel_citation_verifies_and_the_file_goes_clean: outcome exploration_only != no_counterexample; (2) unknown_kernel_claim_leaves_the_citing_citation_unknown_with_the_kernel_reason: reason 'composed ∧ over unknown: missing target `ka`' does not name the kernel cause `s2`; (3) counterexample_kernel_claim_makes_the_citing_citation_a_counterexample: kc unknown, not counterexample; (4) unsupported_kernel_claim_keeps_the_citing_citation_unknown_on_tlc: reason 'missing target `ka`' does not name the unsupported label; (5) cli_and_orchestrate_views_agree_on_cross_evaluator_composition: kc unknown; (6) qualified_cross_file_citation_composes_the_other_files_kernel_claim: kc unknown != verified. The 7th (non_composed_citation_legs_keep_their_statuses_and_reasons) is a REGRESSION PIN of unchanged behavior and passes on HEAD by design.
