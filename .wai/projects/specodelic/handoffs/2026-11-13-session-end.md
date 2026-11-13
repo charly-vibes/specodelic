@@ -35,23 +35,9 @@ phase: research
 ### git_status
 
 ```
- M .wai/pipeline-runs/epic-orchestrator-2026-11-13-specodelic-u7kc-verify-runner-seams.yml
-?? .wai/pipeline-runs/epic-orchestrator-2026-11-13-specodelic-lf3-migrate-compile-properties.yml
-?? .wai/pipeline-runs/tdd-ro5-2026-11-13-specodelic-lf3-migrate-compile-properties.yml
-?? .wai/projects/specodelic/briefs/specodelic-lf3-compile.md
-?? .wai/projects/specodelic/designs/2026-11-13-green-src-lib-rs-s-fixtures-module-now-carries-a.md
-?? .wai/projects/specodelic/designs/2026-11-13-refactor-src-lib-rs-s-fixtures-module-had-exactly.md
-?? .wai/projects/specodelic/plans/2026-11-13-brief-wai-projects-specodelic-briefs-specodelic-4.md
-?? .wai/projects/specodelic/plans/2026-11-13-plan-desired-behavior-every-one-of-the-35-prope.md
-?? .wai/projects/specodelic/research/2026-11-13-gates-landed-owner-authorized-scoped-first-pri.md
-?? .wai/projects/specodelic/research/2026-11-13-orient-specodelic-lf3-run-2-scoped-migration-of.md
-?? .wai/projects/specodelic/research/2026-11-13-quality-ledger-changed-openspec-specs-compile-s.md
-?? .wai/projects/specodelic/research/2026-11-13-red-command-cargo-test-test-compile-fixtures-ex.md
-?? .wai/projects/specodelic/research/2026-11-13-ro5u-fixes-all-critical-high-medium-findings-from.md
-?? .wai/projects/specodelic/research/2026-11-13-ship-449aa5b0-seams-e2e3e4c4-records-f197.md
-?? .wai/projects/specodelic/research/2026-11-13-ticket-specodelic-lf3-run-2-owner-authorized-sco.md
-?? .wai/projects/specodelic/reviews/2026-11-13-lf3-compile-properties-ro5u.md
-?? .wai/projects/specodelic/reviews/2026-11-13-ro5u-review-of-the-specodelic-lf3-compile-property.md
+ M .wai/pipeline-runs/epic-orchestrator-2026-11-13-specodelic-lf3-migrate-packs-properties.yml
+ M .wai/projects/specodelic/.pending-resume
+?? .wai/projects/specodelic/research/2026-11-13-ship-c34a864c-16-row-packs-migration-55f058c0.md
 ?? .wai/resources/pipelines/.last-run
 ```
 
@@ -77,6 +63,7 @@ phase: research
 ○ specodelic-0mn1 P3 [bug] ah sync refuses self-hosting corpora: per-file lint can never be clean (total_refs is corpus-wide)
 ○ specodelic-0xnd P3 import acset.generic as openspec change — schema-parametric incidence core, GATED on adjacency-graph benchmark (external handoff, at/arltificial/renzi)
 ○ specodelic-18mt P3 conform: optional expect field on scenario records — negative probes classify as agreements (gh-18 item 7)
+○ specodelic-1nhe P3 format Revision: law-kind property rows may carry per-case fragment bodies (M4 — unblocks specodelic/kinds migration)
 ○ specodelic-2fp1 P3 docs: preservation recipe — conform twice + verdict diff (simplification review)
 ○ specodelic-3a8 P3 refactor: decouple dual-format (openspec) metadata from core Spec parse — adapter layer
 ○ specodelic-3xc P3 decide: fan-in multiplicity rule — state_view counts (source,field) pairs, traceability_view counts distinct sources (B3)
@@ -103,10 +90,9 @@ phase: research
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 43 issues (43 open, 0 in progress)
+Total: 44 issues (44 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
-
 ```
 
