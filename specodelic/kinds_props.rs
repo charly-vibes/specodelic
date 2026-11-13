@@ -25,11 +25,17 @@ pub mod spec_gen {
     use super::*;
 
     pub fn row_belonging_to_a_sixth_section() -> impl Strategy<Value = String> {
-        Just("row_belonging_to_a_sixth_section".into())
+        Just(
+            specodelic::fixtures::materialize("row_belonging_to_a_sixth_section")
+                .expect("the row_belonging_to_a_sixth_section fixture materializes"),
+        )
     }
 
-    pub fn intent_row_without() -> impl Strategy<Value = String> {
-        Just("intent_row_without".into())
+    pub fn intent_row_without_statement() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("intent_row_without_statement")
+                .expect("the intent_row_without_statement fixture materializes"),
+        )
     }
 
     pub fn constraint_row_with() -> impl Strategy<Value = String> {
@@ -40,12 +46,18 @@ pub mod spec_gen {
         Just("state_row_with".into())
     }
 
-    pub fn transition_row_without() -> impl Strategy<Value = String> {
-        Just("transition_row_without".into())
+    pub fn transition_row_without_guard() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("transition_row_without_guard")
+                .expect("the transition_row_without_guard fixture materializes"),
+        )
     }
 
-    pub fn property_row_with() -> impl Strategy<Value = String> {
-        Just("property_row_with".into())
+    pub fn property_row_with_kind_audit() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("property_row_with_kind_audit")
+                .expect("the property_row_with_kind_audit fixture materializes"),
+        )
     }
 
     pub fn diff_adding_subkind_value_with_no_new_Revision_heading() -> impl Strategy<Value = String>
@@ -53,41 +65,104 @@ pub mod spec_gen {
         Just("diff_adding_subkind_value_with_no_new_Revision_heading".into())
     }
 
+    pub fn constraint_row_with_kind_advisory() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("constraint_row_with_kind_advisory")
+                .expect("the constraint_row_with_kind_advisory fixture materializes"),
+        )
+    }
+
+    pub fn constraint_row_with_kind_effect() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("constraint_row_with_kind_effect")
+                .expect("the constraint_row_with_kind_effect fixture materializes"),
+        )
+    }
+
+    pub fn state_row_with_effect_emits() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("state_row_with_effect_emits")
+                .expect("the state_row_with_effect_emits fixture materializes"),
+        )
+    }
+
+    pub fn state_row_without_emits() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("state_row_without_emits")
+                .expect("the state_row_without_emits fixture materializes"),
+        )
+    }
+
+    pub fn state_row_with_invariant_emits() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("state_row_with_invariant_emits")
+                .expect("the state_row_with_invariant_emits fixture materializes"),
+        )
+    }
+
+    pub fn constraint_row_with_kind_extension_point() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("constraint_row_with_kind_extension_point")
+                .expect("the constraint_row_with_kind_extension_point fixture materializes"),
+        )
+    }
+
     pub fn arbitrary_well_formed_row_of_one_kind() -> impl Strategy<Value = String> {
-        Just("arbitrary_well_formed_row_of_one_kind".into())
+        Just(
+            specodelic::fixtures::materialize("arbitrary_well_formed_row_of_one_kind")
+                .expect("the arbitrary_well_formed_row_of_one_kind fixture materializes"),
+        )
     }
 
     pub fn arbitrary_row_of_one_kind() -> impl Strategy<Value = String> {
-        Just("arbitrary_row_of_one_kind".into())
+        Just(
+            specodelic::fixtures::materialize("arbitrary_row_of_one_kind")
+                .expect("the arbitrary_row_of_one_kind fixture materializes"),
+        )
     }
 
-    pub fn arbitrary_id_rename() -> impl Strategy<Value = String> {
-        Just("arbitrary_id_rename".into())
+    pub fn kinds_rename_id() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("kinds_rename_id")
+                .expect("the kinds_rename_id fixture materializes"),
+        )
     }
 
     pub fn kind_assignment_failure_raised() -> impl Strategy<Value = String> {
-        Just("kind_assignment_failure_raised".into())
+        Just(
+            specodelic::fixtures::materialize("kind_assignment_failure_raised")
+                .expect("the kind_assignment_failure_raised fixture materializes"),
+        )
     }
 
     pub fn shape_check_failure_raised() -> impl Strategy<Value = String> {
-        Just("shape_check_failure_raised".into())
+        Just(
+            specodelic::fixtures::materialize("shape_check_failure_raised")
+                .expect("the shape_check_failure_raised fixture materializes"),
+        )
     }
 }
 
 proptest! {
     // id: unknown_kind_rejected
-    // generator: `row_belonging_to_a_sixth_section("Actions")`
-    // predicate: `check(row) == failed`
+    // generator: `row_belonging_to_a_sixth_section()`
+    // predicate: `**rust:** { let text = v0.as_str(); let schema = specodelic::acset::schema::canonical(); let mut widened = schema.clone(); widened.objects.insert(specodelic::acset::schema::ObjectId::new("Actions")); let rejected = specodelic::acset::schema::check(&widened).is_err(); let closed = specodelic::acset::schema::check(&schema).is_ok(); rejected && closed && text.contains("## Actions") }` — `check(row) == failed`
     #[test]
     fn unknown_kind_rejected(v0 in spec_gen::row_belonging_to_a_sixth_section()) {
-        todo_predicate!("`check(row) == failed`");
+        assert!(
+            { let text = v0.as_str(); let schema = specodelic::acset::schema::canonical(); let mut widened = schema.clone(); widened.objects.insert(specodelic::acset::schema::ObjectId::new("Actions")); let rejected = specodelic::acset::schema::check(&widened).is_err(); let closed = specodelic::acset::schema::check(&schema).is_ok(); rejected && closed && text.contains("## Actions") },
+            "predicate `unknown_kind_rejected` violated (executable fragment)",
+        );
     }
     // id: intent_missing_statement_rejected
-    // generator: `intent_row_without("statement")`
-    // predicate: `check(row) == failed`
+    // generator: `intent_row_without_statement()`
+    // predicate: `**rust:** { let mut missing = false; if let Err(err) = specodelic::spec::parse_str(&v0) { missing = format!("{err:?}").contains("statement"); } missing }` — `check(row) == failed`
     #[test]
-    fn intent_missing_statement_rejected(v0 in spec_gen::intent_row_without()) {
-        todo_predicate!("`check(row) == failed`");
+    fn intent_missing_statement_rejected(v0 in spec_gen::intent_row_without_statement()) {
+        assert!(
+            { let mut missing = false; if let Err(err) = specodelic::spec::parse_str(&v0) { missing = format!("{err:?}").contains("statement"); } missing },
+            "predicate `intent_missing_statement_rejected` violated (executable fragment)",
+        );
     }
     // id: constraint_row_extra_field_rejected
     // generator: `constraint_row_with(extra_field: "guard")`
@@ -104,18 +179,24 @@ proptest! {
         todo_predicate!("`check(row) == failed`");
     }
     // id: transition_missing_guard_rejected
-    // generator: `transition_row_without("guard")`
-    // predicate: `check(row) == failed`
+    // generator: `transition_row_without_guard()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.guard_required") }` — `check(row) == failed`
     #[test]
-    fn transition_missing_guard_rejected(v0 in spec_gen::transition_row_without()) {
-        todo_predicate!("`check(row) == failed`");
+    fn transition_missing_guard_rejected(v0 in spec_gen::transition_row_without_guard()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.guard_required") },
+            "predicate `transition_missing_guard_rejected` violated (executable fragment)",
+        );
     }
     // id: property_row_bad_subkind_rejected
-    // generator: `property_row_with(kind: "audit")`
-    // predicate: `check(row) == failed`
+    // generator: `property_row_with_kind_audit()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.property_kind_closed") }` — `check(row) == failed`
     #[test]
-    fn property_row_bad_subkind_rejected(v0 in spec_gen::property_row_with()) {
-        todo_predicate!("`check(row) == failed`");
+    fn property_row_bad_subkind_rejected(v0 in spec_gen::property_row_with_kind_audit()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.property_kind_closed") },
+            "predicate `property_row_bad_subkind_rejected` violated (executable fragment)",
+        );
     }
     // id: subkind_addition_without_revision_rejected
     // generator: `diff_adding_subkind_value_with_no_new_Revision_heading()`
@@ -125,82 +206,115 @@ proptest! {
         todo_predicate!("`check(diff) == failed`");
     }
     // id: constraint_row_advisory_accepted
-    // generator: `constraint_row_with(kind: "advisory")`
-    // predicate: `check(row) == passed`
+    // generator: `constraint_row_with_kind_advisory()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed`
     #[test]
-    fn constraint_row_advisory_accepted(v0 in spec_gen::constraint_row_with()) {
-        todo_predicate!("`check(row) == passed`");
+    fn constraint_row_advisory_accepted(v0 in spec_gen::constraint_row_with_kind_advisory()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) },
+            "predicate `constraint_row_advisory_accepted` violated (executable fragment)",
+        );
     }
     // id: constraint_row_effect_accepted
-    // generator: `constraint_row_with(kind: "effect")`
-    // predicate: `check(row) == passed`
+    // generator: `constraint_row_with_kind_effect()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed`
     #[test]
-    fn constraint_row_effect_accepted(v0 in spec_gen::constraint_row_with()) {
-        todo_predicate!("`check(row) == passed`");
+    fn constraint_row_effect_accepted(v0 in spec_gen::constraint_row_with_kind_effect()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) },
+            "predicate `constraint_row_effect_accepted` violated (executable fragment)",
+        );
     }
     // id: state_row_emits_accepted
-    // generator: `state_row_with(emits: an_effect_kind_constraint_id)`
-    // predicate: `check(row) == passed`
+    // generator: `state_row_with_effect_emits()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed`
     #[test]
-    fn state_row_emits_accepted(v0 in spec_gen::state_row_with()) {
-        todo_predicate!("`check(row) == passed`");
+    fn state_row_emits_accepted(v0 in spec_gen::state_row_with_effect_emits()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) },
+            "predicate `state_row_emits_accepted` violated (executable fragment)",
+        );
     }
     // id: state_row_without_emits_still_passes
-    // generator: `state_row_with(fields: {id})` — no `emits`
-    // predicate: `check(row) == passed` — `emits` is optional, not a second required field
+    // generator: `state_row_without_emits()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed` — `emits` is optional, not a second required field
     #[test]
-    fn state_row_without_emits_still_passes(v0 in spec_gen::state_row_with()) {
-        todo_predicate!("`check(row) == passed` — `emits` is optional, not a second required field");
+    fn state_row_without_emits_still_passes(v0 in spec_gen::state_row_without_emits()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) },
+            "predicate `state_row_without_emits_still_passes` violated (executable fragment)",
+        );
     }
     // id: state_row_emits_wrong_kind_rejected
-    // generator: `state_row_with(emits: an_invariant_kind_constraint_id)`
-    // predicate: `check(row) == failed`
+    // generator: `state_row_with_invariant_emits()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") }` — `check(row) == failed`
     #[test]
-    fn state_row_emits_wrong_kind_rejected(v0 in spec_gen::state_row_with()) {
-        todo_predicate!("`check(row) == failed`");
+    fn state_row_emits_wrong_kind_rejected(v0 in spec_gen::state_row_with_invariant_emits()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") },
+            "predicate `state_row_emits_wrong_kind_rejected` violated (executable fragment)",
+        );
     }
     // id: constraint_row_extension_point_accepted
-    // generator: `constraint_row_with(kind: "extension_point")`
-    // predicate: `check(row) == passed`
+    // generator: `constraint_row_with_kind_extension_point()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed`
     #[test]
-    fn constraint_row_extension_point_accepted(v0 in spec_gen::constraint_row_with()) {
-        todo_predicate!("`check(row) == passed`");
+    fn constraint_row_extension_point_accepted(v0 in spec_gen::constraint_row_with_kind_extension_point()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) },
+            "predicate `constraint_row_extension_point_accepted` violated (executable fragment)",
+        );
     }
     // id: well_formed_row_passes
     // generator: `arbitrary_well_formed_row_of_one_kind()`
-    // predicate: `check(row) == passed`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed`
     #[test]
     fn well_formed_row_passes(v0 in spec_gen::arbitrary_well_formed_row_of_one_kind()) {
-        todo_predicate!("`check(row) == passed`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) },
+            "predicate `well_formed_row_passes` violated (executable fragment)",
+        );
     }
     // id: kind_shape_naturality
     // case: identity
-    // generator: `arbitrary_row_of_one_kind(), arbitrary_id_rename()`
-    // predicate: **identity:** `assigned_kind(rename(row,a,a)) == assigned_kind(row)`  **associativity:** `assigned_kind(rename(rename(row,a,b),b,c)) == assigned_kind(rename(row,a,c))` — renaming a row's id never changes which of the five kinds it belongs to
+    // generator: `arbitrary_row_of_one_kind(), kinds_rename_id()`
+    // predicate: **identity:** `assigned_kind(rename(row,a,a)) == assigned_kind(row)`  **associativity:** `assigned_kind(rename(rename(row,a,b),b,c)) == assigned_kind(rename(row,a,c))` — renaming a row's id never changes which of the five kinds it belongs to  **identity::** `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let outcome = specodelic::rename::run(&files, &v1, &v1).expect("the identity rename succeeds"); let kind = spec.properties.first().expect("the fixture carries a Property row").kind.clone().unwrap_or_default(); outcome.writes.is_empty() && kind == "unit" }` **associativity::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let first = specodelic::rename::run(&files, &v1, "fx.p_mid").expect("the first rename succeeds"); let mid_files = vec![(std::path::PathBuf::from("fx.md"), first.writes[0].1.clone())]; let second = specodelic::rename::run(&mid_files, "fx.p_mid", "fx.p_final").expect("the second rename succeeds"); let chained = specodelic::spec::parse_str(&second.writes[0].1).expect("the renamed fixture parses"); let direct = specodelic::rename::run(&files, &v1, "fx.p_final").expect("the direct rename succeeds"); let direct_spec = specodelic::spec::parse_str(&direct.writes[0].1).expect("the renamed fixture parses"); let kind_of = |s: &specodelic::spec::Spec| s.properties.iter().find(|r| r.id == "p_final").and_then(|r| r.kind.clone()).unwrap_or_default(); kind_of(&chained) == kind_of(&direct_spec) && kind_of(&chained) == "unit" }`
     #[test]
-    fn kind_shape_naturality_identity(v0 in spec_gen::arbitrary_row_of_one_kind(), v1 in spec_gen::arbitrary_id_rename()) {
-        todo_predicate!("**identity:** `assigned_kind(rename(row,a,a)) == assigned_kind(row)`  **associativity:** `assigned_kind(rename(rename(row,a,b),b,c)) == assigned_kind(rename(row,a,c))` — renaming a row's id never changes which of the five kinds it belongs to");
+    fn kind_shape_naturality_identity(v0 in spec_gen::arbitrary_row_of_one_kind(), v1 in spec_gen::kinds_rename_id()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let outcome = specodelic::rename::run(&files, &v1, &v1).expect("the identity rename succeeds"); let kind = spec.properties.first().expect("the fixture carries a Property row").kind.clone().unwrap_or_default(); outcome.writes.is_empty() && kind == "unit" },
+            "predicate `kind_shape_naturality` violated (executable fragment)",
+        );
     }
     // id: kind_shape_naturality
     // case: associativity
-    // generator: `arbitrary_row_of_one_kind(), arbitrary_id_rename()`
-    // predicate: **identity:** `assigned_kind(rename(row,a,a)) == assigned_kind(row)`  **associativity:** `assigned_kind(rename(rename(row,a,b),b,c)) == assigned_kind(rename(row,a,c))` — renaming a row's id never changes which of the five kinds it belongs to
+    // generator: `arbitrary_row_of_one_kind(), kinds_rename_id()`
+    // predicate: **identity:** `assigned_kind(rename(row,a,a)) == assigned_kind(row)`  **associativity:** `assigned_kind(rename(rename(row,a,b),b,c)) == assigned_kind(rename(row,a,c))` — renaming a row's id never changes which of the five kinds it belongs to  **identity::** `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let outcome = specodelic::rename::run(&files, &v1, &v1).expect("the identity rename succeeds"); let kind = spec.properties.first().expect("the fixture carries a Property row").kind.clone().unwrap_or_default(); outcome.writes.is_empty() && kind == "unit" }` **associativity::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let first = specodelic::rename::run(&files, &v1, "fx.p_mid").expect("the first rename succeeds"); let mid_files = vec![(std::path::PathBuf::from("fx.md"), first.writes[0].1.clone())]; let second = specodelic::rename::run(&mid_files, "fx.p_mid", "fx.p_final").expect("the second rename succeeds"); let chained = specodelic::spec::parse_str(&second.writes[0].1).expect("the renamed fixture parses"); let direct = specodelic::rename::run(&files, &v1, "fx.p_final").expect("the direct rename succeeds"); let direct_spec = specodelic::spec::parse_str(&direct.writes[0].1).expect("the renamed fixture parses"); let kind_of = |s: &specodelic::spec::Spec| s.properties.iter().find(|r| r.id == "p_final").and_then(|r| r.kind.clone()).unwrap_or_default(); kind_of(&chained) == kind_of(&direct_spec) && kind_of(&chained) == "unit" }`
     #[test]
-    fn kind_shape_naturality_associativity(v0 in spec_gen::arbitrary_row_of_one_kind(), v1 in spec_gen::arbitrary_id_rename()) {
-        todo_predicate!("**identity:** `assigned_kind(rename(row,a,a)) == assigned_kind(row)`  **associativity:** `assigned_kind(rename(rename(row,a,b),b,c)) == assigned_kind(rename(row,a,c))` — renaming a row's id never changes which of the five kinds it belongs to");
+    fn kind_shape_naturality_associativity(v0 in spec_gen::arbitrary_row_of_one_kind(), v1 in spec_gen::kinds_rename_id()) {
+        assert!(
+            { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let first = specodelic::rename::run(&files, &v1, "fx.p_mid").expect("the first rename succeeds"); let mid_files = vec![(std::path::PathBuf::from("fx.md"), first.writes[0].1.clone())]; let second = specodelic::rename::run(&mid_files, "fx.p_mid", "fx.p_final").expect("the second rename succeeds"); let chained = specodelic::spec::parse_str(&second.writes[0].1).expect("the renamed fixture parses"); let direct = specodelic::rename::run(&files, &v1, "fx.p_final").expect("the direct rename succeeds"); let direct_spec = specodelic::spec::parse_str(&direct.writes[0].1).expect("the renamed fixture parses"); let kind_of = |s: &specodelic::spec::Spec| s.properties.iter().find(|r| r.id == "p_final").and_then(|r| r.kind.clone()).unwrap_or_default(); kind_of(&chained) == kind_of(&direct_spec) && kind_of(&chained) == "unit" },
+            "predicate `kind_shape_naturality` violated (executable fragment)",
+        );
     }
     // id: kind_assignment_failure_label_asserted
     // generator: `kind_assignment_failure_raised()`
-    // predicate: `error_label == "kinds.kind_assignment_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let fired = specodelic::fixtures::specs::rule_fired(&spec, "linter.property_kind_closed"); let sites = specodelic::fixtures::specs::label_sites("kinds", "kinds.kind_assignment_failure").expect("the corpus text is readable"); fired && sites.constraint_row && sites.property_row && sites.note }` — `error_label == "kinds.kind_assignment_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
     #[test]
     fn kind_assignment_failure_label_asserted(v0 in spec_gen::kind_assignment_failure_raised()) {
-        todo_predicate!("`error_label == \"kinds.kind_assignment_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let fired = specodelic::fixtures::specs::rule_fired(&spec, "linter.property_kind_closed"); let sites = specodelic::fixtures::specs::label_sites("kinds", "kinds.kind_assignment_failure").expect("the corpus text is readable"); fired && sites.constraint_row && sites.property_row && sites.note },
+            "predicate `kind_assignment_failure_label_asserted` violated (executable fragment)",
+        );
     }
     // id: shape_check_failure_label_asserted
     // generator: `shape_check_failure_raised()`
-    // predicate: `error_label == "kinds.shape_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let fired = specodelic::fixtures::specs::rule_fired(&spec, "linter.every_transition_valid"); let sites = specodelic::fixtures::specs::label_sites("kinds", "kinds.shape_check_failure").expect("the corpus text is readable"); fired && sites.constraint_row && sites.property_row && sites.note }` — `error_label == "kinds.shape_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
     #[test]
     fn shape_check_failure_label_asserted(v0 in spec_gen::shape_check_failure_raised()) {
-        todo_predicate!("`error_label == \"kinds.shape_check_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let fired = specodelic::fixtures::specs::rule_fired(&spec, "linter.every_transition_valid"); let sites = specodelic::fixtures::specs::label_sites("kinds", "kinds.shape_check_failure").expect("the corpus text is readable"); fired && sites.constraint_row && sites.property_row && sites.note },
+            "predicate `shape_check_failure_label_asserted` violated (executable fragment)",
+        );
     }
 }

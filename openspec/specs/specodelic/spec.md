@@ -141,36 +141,36 @@ ears-syntax / schema-shape) run independently of each other.
 
 | id                    | kind | derives_from                            | generator                                       | predicate                                                                                                                                          |
 |------------------------|------|--------------------------------------------|----------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
-| referential_integrity  | unit | [[specodelic.total_refs]]                | `arbitrary_spec_file()`                           | `∀ ref ∈ file: lookup(ref) ≠ None`                                                                                                                      |
-| acyclicity             | unit | [[specodelic.acyclic_traces]]             | `arbitrary_spec_repo()`                           | `is_dag(traces_to_graph(repo))`                                                                                                                          |
-| rename_naturality      | law  | [[specodelic.unique_id]]                  | `arbitrary_spec_repo(), arbitrary_id_rename()`    | **identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))` |
-| filename_convention    | unit | [[specodelic.id_matches_file]]            | `(id, mismatched_filename)` pairs                 | `check(id, filename) == failed`                                                                                                                          |
-| typing_enforced        | unit | [[specodelic.ref_kind_compatible]]        | `guard_field_pointing_at_a_property_row()`        | `check(file) == failed`                                                                                                                                  |
-| own_intent_reachable   | unit | [[specodelic.single_root_reachable]]      | `spec_repo_with(disconnected_constraint_cluster: true)` | `check(repo) == failed`                                                                                                                             |
-| model_well_formed      | unit | [[specodelic.every_transition_valid]]     | `spec_file_with(transition.to_not_in_states: true)` | `check(file) == failed`                                                                                                                                |
-| advisory_cannot_gate   | unit | [[specodelic.ref_kind_compatible]]        | `guard_field_pointing_at_an_advisory_constraint()` | `check(file) == failed`                                                                                                                                  |
-| state_guard_citation_accepted | unit | [[specodelic.ref_kind_compatible]] | `transition_guard_citing_a_declared_state()` | `check(file) == passed` — the "has reached state X" guard pattern (Revision 12); a State target gates nothing, it records progress — but it is a legal typed citation |
-| supersedes_cross_kind_rejected | unit | [[specodelic.ref_kind_compatible]] | `constraint_row_with(supersedes: a_property_row_id)` | `check(file) == failed`                                                                                                                                |
-| constraint_derives_from_rejected | unit | [[specodelic.ref_kind_compatible]] | `constraint_row_with(derives_from: a_constraint_row_id)` | `check(file) == failed` — the Appears-on column is normative, not descriptive: `derives_from` appears on Property rows only (decided of record 2026-10-01, `specodelic-huf`; a constraint is derived FROM by properties, it does not derive), and `ref_kind_compatible` reads the column source-side the same way it already reads `supersedes`' same-kind rule |
-| supersedes_cycle_rejected | unit | [[specodelic.supersedes_acyclic]]     | `spec_repo_with(supersedes_cycle: length ≥ 2)`     | `check(repo) == failed`                                                                                                                                  |
-| no_stored_superseded_flag | unit | [[specodelic.no_boolean_columns]]     | `schema_with(explicit is_superseded: bool column)` | `check(schema) == rejected` — supersession status is derived (`superseded(x) ⟺ ∃ y. y.supersedes ∋ x`), never stored                                     |
-| emits_cannot_target_non_effect | unit | [[specodelic.ref_kind_compatible]] | `emits_field_pointing_at_an_invariant_constraint()` | `check(file) == failed` — same shape as `advisory_cannot_gate`, mirrored onto the other direction of the kind-split |
-| satisfies_wrong_kind_rejected | unit | [[specodelic.ref_kind_compatible]] | `satisfies_field_pointing_at_an_invariant_constraint()` | `check(file) == failed` — same shape as `advisory_cannot_gate` and `emits_cannot_target_non_effect`, mirrored onto the third kind-typed reference field |
-| extension_point_needs_no_reachability_carveout | unit | [[specodelic.single_root_reachable]] | `constraint_row_with(satisfies: an_extension_point_in_another_file, traces_to: own_file_intent)` | `check(row) == passed` — `satisfies` adds no reachability obligation; the row is reachable the ordinary way, through its own `traces_to` |
-| frontmatter_missing_field_rejected | unit | [[specodelic.frontmatter_valid]] | `frontmatter_missing(one of id, kind, statement)` | `check(file) == failed` |
-| guardless_transition_rejected | unit | [[specodelic.guard_required]] | `transition_row_with(empty guard cell)` | `check(file) == failed` |
-| non_ears_statement_rejected | unit | [[specodelic.ears_statement]] | `statement_outside_the_five_ears_patterns("the system should maybe work")` | `check(file) == failed` |
-| multi_intent_join_rejected | unit | [[specodelic.one_capability_per_row]] | `row_id_joined_to_two_intents_via_and()` | `check(file) == failed` |
-| coverage_gap_flagged | unit | [[specodelic.coverage]] | `spec_file_with(constraint_with_no_deriving_property: true)` | `lint(file) reports rule == failed` |
-| law_missing_case_rejected | unit | [[specodelic.law_requires_cases]] | `law_property_missing("associativity")` | `check(file) == failed` |
-| orphan_state_rejected | unit | [[specodelic.every_state_used]] | `state_appearing_in_no_transition()` | `check(file) == failed` |
-| missing_model_section_rejected | unit | [[specodelic.model_present]] | `spec_file_without_states_or_transitions()` | `check(file) == failed` |
-| invariant_violation_blocks_verify | unit | [[specodelic.no_counterexample]] | `model_with_a_violated_invariant()` | `check(model_check) == failed` |
-| failing_proptest_blocks_verify | unit | [[specodelic.properties_pass]] | `compiled_proptest_block_that_fails()` | `check(verify) == failed` |
-| prose_does_not_affect_lint | unit | [[specodelic.prose_untouched]] | `two_specs_identical_except_rationale_prose()` | `lint(a) == lint(b)` — differing prose never changes a lint result |
+| referential_integrity  | unit | [[specodelic.total_refs]]                | `specodelic_spec_file()` | `**rust:** { let base = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let broken_text = specodelic::fixtures::specs::materialize("spec_file_with_dangling_reference").expect("the dangling fixture materializes"); let broken = specodelic::spec::parse_str(&broken_text).expect("the dangling fixture parses"); !specodelic::fixtures::specs::rule_fired(&base, "linter.total_refs") && specodelic::fixtures::specs::rule_fired(&broken, "linter.total_refs") }` — `∀ ref ∈ file: lookup(ref) ≠ None` |
+| acyclicity             | unit | [[specodelic.acyclic_traces]]             | `specodelic_spec_repo()` | `**rust:** { let repo = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let cyclic_text = specodelic::fixtures::specs::materialize("spec_repo_with_traces_cycle").expect("the cycle fixture materializes"); let cyclic = specodelic::spec::parse_str(&cyclic_text).expect("the cycle fixture parses"); !specodelic::fixtures::specs::rule_fired(&repo, "linter.acyclic") && specodelic::fixtures::specs::rule_fired(&cyclic, "linter.acyclic") }` — `is_dag(traces_to_graph(repo))` |
+| rename_naturality      | law  | [[specodelic.unique_id]]                  | `specodelic_spec_repo(), specodelic_rename_id()` | **identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`  **identity::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let outcome = specodelic::rename::run(&files, &v1, &v1).expect("the identity rename succeeds"); outcome.writes.is_empty() }` **associativity::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let first = specodelic::rename::run(&files, &v1, "fx.p_mid").expect("the first rename succeeds"); let mid_files = vec![(std::path::PathBuf::from("fx.md"), first.writes[0].1.clone())]; let second = specodelic::rename::run(&mid_files, "fx.p_mid", "fx.p_final").expect("the second rename succeeds"); let direct = specodelic::rename::run(&files, &v1, "fx.p_final").expect("the direct rename succeeds"); second.writes[0].1 == direct.writes[0].1 }` **naturality::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let original = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let renamed = specodelic::rename::run(&files, &v1, "fx.p_renamed").expect("the rename succeeds"); let renamed_spec = specodelic::spec::parse_str(&renamed.writes[0].1).expect("the renamed fixture parses"); let before = specodelic::compile::compile_spec(&original).expect("the original compiles"); let after = specodelic::compile::compile_spec(&renamed_spec).expect("the renamed spec compiles"); after.toml == before.toml.replace("p_rename_me", "p_renamed") && after.props == before.props.replace("p_rename_me", "p_renamed") && after.tla == before.tla.replace("p_rename_me", "p_renamed") }` |
+| filename_convention    | unit | [[specodelic.id_matches_file]]            | `(id, mismatched_filename)` pairs | `**rust:** { let text = specodelic::fixtures::specs::materialize("specodelic_spec_file").expect("the fixture materializes"); let mut spec = specodelic::spec::parse_str(&text).expect("the fixture parses"); spec.path = Some(std::path::PathBuf::from("other-name.md")); specodelic::fixtures::specs::rule_fired(&spec, "linter.id_matches_file") }` — `check(id, filename) == failed` |
+| typing_enforced        | unit | [[specodelic.ref_kind_compatible]]        | `specodelic_property_row_guard()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") }` — `check(file) == failed` |
+| own_intent_reachable   | unit | [[specodelic.single_root_reachable]]      | `spec_repo_with_disconnected_constraint_cluster()` | `**rust:** { let clean = specodelic::spec::parse_str(&specodelic::fixtures::specs::materialize("specodelic_spec_repo").expect("the fixture materializes")).expect("the fixture parses"); let repo = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); !specodelic::fixtures::specs::rule_fired(&clean, "linter.single_root_reachable") && specodelic::fixtures::specs::rule_fired(&repo, "linter.single_root_reachable") }` — `check(repo) == failed` |
+| model_well_formed      | unit | [[specodelic.every_transition_valid]]     | `spec_file_with_transition_target_not_in_states()` | `**rust:** { let clean = specodelic::spec::parse_str(&specodelic::fixtures::specs::materialize("specodelic_spec_file").expect("the fixture materializes")).expect("the fixture parses"); let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); !specodelic::fixtures::specs::rule_fired(&clean, "linter.every_transition_valid") && specodelic::fixtures::specs::rule_fired(&spec, "linter.every_transition_valid") }` — `check(file) == failed` |
+| advisory_cannot_gate   | unit | [[specodelic.ref_kind_compatible]]        | `guard_field_pointing_at_an_advisory_constraint()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") }` — `check(file) == failed` |
+| state_guard_citation_accepted | unit | [[specodelic.ref_kind_compatible]] | `transition_guard_citing_a_declared_state()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(file) == passed` — the "has reached state X" guard pattern (Revision 12); a State target gates nothing, it records progress — but it is a legal typed citation |
+| supersedes_cross_kind_rejected | unit | [[specodelic.ref_kind_compatible]] | `constraint_row_with_supersedes_property_row()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") }` — `check(file) == failed` |
+| constraint_derives_from_rejected | unit | [[specodelic.ref_kind_compatible]] | `constraint_row_with_derives_from_column()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") }` — `check(file) == failed` — the Appears-on column is normative, not descriptive: `derives_from` appears on Property rows only (decided of record 2026-10-01, `specodelic-huf`; a constraint is derived FROM by properties, it does not derive), and `ref_kind_compatible` reads the column source-side the same way it already reads `supersedes`' same-kind rule |
+| supersedes_cycle_rejected | unit | [[specodelic.supersedes_acyclic]]     | `spec_repo_with_supersedes_cycle()` | `**rust:** { let repo = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let instance = specodelic::acset::instance::Instance::from_specs(std::slice::from_ref(&repo)); let cyclic = specodelic::acset::query::cyclic_nodes(&instance, &["supersedes"]).expect("the supersedes query runs"); !cyclic.is_empty() }` — `check(repo) == failed` |
+| no_stored_superseded_flag | unit | [[specodelic.no_boolean_columns]]     | `schema_with_is_superseded_column()` | `**rust:** { let schema = specodelic::acset::schema::canonical(); let stored = schema.morphisms.iter().any(|m| m.column == "is_superseded"); let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let instance = specodelic::acset::instance::Instance::from_specs(std::slice::from_ref(&spec)); let superseded = specodelic::acset::query::forward_closure(&instance, &["fx.c2"], &["supersedes"]).expect("the supersedes query runs"); !stored && superseded.contains("fx.c1") }` — `check(schema) == rejected` — supersession status is derived (`superseded(x) ⟺ ∃ y. y.supersedes ∋ x`), never stored |
+| emits_cannot_target_non_effect | unit | [[specodelic.ref_kind_compatible]] | `emits_field_pointing_at_an_invariant_constraint()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") }` — `check(file) == failed` — same shape as `advisory_cannot_gate`, mirrored onto the other direction of the kind-split |
+| satisfies_wrong_kind_rejected | unit | [[specodelic.ref_kind_compatible]] | `satisfies_field_pointing_at_an_invariant_constraint()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") }` — `check(file) == failed` — same shape as `advisory_cannot_gate` and `emits_cannot_target_non_effect`, mirrored onto the third kind-typed reference field |
+| extension_point_needs_no_reachability_carveout | unit | [[specodelic.single_root_reachable]] | `constraint_row_satisfying_a_foreign_extension_point()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let host_text = specodelic::fixtures::specs::materialize("foreign_file_declaring_an_extension_point").expect("the fixture materializes"); let host = specodelic::spec::parse_str(&host_text).expect("the fixture parses"); let corpus = vec![spec, host]; !specodelic::fixtures::specs::rule_fired_in(&corpus, "linter.single_root_reachable") }` — `check(row) == passed` — `satisfies` adds no reachability obligation; the row is reachable the ordinary way, through its own `traces_to` |
+| frontmatter_missing_field_rejected | unit | [[specodelic.frontmatter_valid]] | `frontmatter_missing_statement()` | `**rust:** { let mut missing = false; if let Err(err) = specodelic::spec::parse_str(&v0) { missing = format!("{err:?}").contains("statement"); } missing }` — `check(file) == failed` |
+| guardless_transition_rejected | unit | [[specodelic.guard_required]] | `transition_row_with_empty_guard()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.guard_required") }` — `check(file) == failed` |
+| non_ears_statement_rejected | unit | [[specodelic.ears_statement]] | `statement_outside_the_five_ears_patterns()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ears_syntax") }` — `check(file) == failed` |
+| multi_intent_join_rejected | unit | [[specodelic.one_capability_per_row]] | `row_id_joined_to_two_intents_via_and()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.no_conjoined_id") }` — `check(file) == failed` |
+| coverage_gap_flagged | unit | [[specodelic.coverage]] | `spec_file_with_coverage_gap()` | `**rust:** { let clean = specodelic::spec::parse_str(&specodelic::fixtures::specs::materialize("specodelic_spec_file").expect("the fixture materializes")).expect("the fixture parses"); let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); !specodelic::fixtures::specs::rule_fired(&clean, "linter.coverage") && specodelic::fixtures::specs::rule_fired(&spec, "linter.coverage") }` — `lint(file) reports rule == failed` |
+| law_missing_case_rejected | unit | [[specodelic.law_requires_cases]] | `law_property_missing_associativity()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.law_cases") }` — `check(file) == failed` |
+| orphan_state_rejected | unit | [[specodelic.every_state_used]] | `state_appearing_in_no_transition()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.every_state_used") }` — `check(file) == failed` |
+| missing_model_section_rejected | unit | [[specodelic.model_present]] | `spec_file_without_states_or_transitions()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.model_present") }` — `check(file) == failed` |
+| invariant_violation_blocks_verify | unit | [[specodelic.no_counterexample]] | `model_with_a_violated_invariant()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let ir = specodelic::compile::extract_model_ir(&spec); let tla = specodelic::compile::model_to_tla(&spec); let bound = specodelic::model_check::Bound { max_depth: 10, max_states: Some(100), timeout_secs: Some(120) }; let report = specodelic::model_check::run_executable(&ir, tla.as_bytes(), &bound).expect("the executable-invariant run reports"); report.outcome == specodelic::model_check::Outcome::CounterexampleFound && report.violated_invariant_id.as_deref() == Some("c1") }` — `check(model_check) == failed` |
+| failing_proptest_blocks_verify | unit | [[specodelic.properties_pass]] | `compiled_proptest_block_that_fails()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let cell = spec.properties.first().expect("the fixture carries a Property row").cells.get("predicate").cloned().unwrap_or_default(); let fragment = specodelic::compile::fragment_of_strict(&cell).expect("the predicate parses").expect("the predicate carries a fragment"); let verdict = specodelic::fixtures::specs::failing_properties_verdict().expect("the properties gate runs over the fixture"); verdict.0 == "properties_failed" && verdict.1 && fragment.text.contains("false") }` — `check(verify) == failed` |
+| prose_does_not_affect_lint | unit | [[specodelic.prose_untouched]] | `two_specs_identical_except_rationale_prose()` | `**rust:** { let with = v0.as_str(); let without = specodelic::fixtures::specs::strip_rationale(with); let a = specodelic::spec::parse_str(with).expect("the rationale fixture parses"); let b = specodelic::spec::parse_str(&without).expect("the stripped fixture parses"); specodelic::fixtures::specs::lint_issues(&a) == specodelic::fixtures::specs::lint_issues(&b) }` — `lint(a) == lint(b)` — differing prose never changes a lint result |
 | silently_shrunk_id_set_rejected | unit | [[specodelic.append_only_variants]] | `(r, r')` where a 𝒦-governed id-set member was removed with no Revision heading | `check(revisions) == failed` |
-| constraint_kind_out_of_set_rejected | unit | [[specodelic.constraint_kind_closed]] | `constraint_row_with(kind: "made_up")` | `check(file) == failed` |
-| property_kind_out_of_set_rejected | unit | [[specodelic.property_kind_closed]] | `property_row_with(kind: "audit")` | `check(file) == failed` |
+| constraint_kind_out_of_set_rejected | unit | [[specodelic.constraint_kind_closed]] | `constraint_row_with_kind_made_up()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.constraint_kind_closed") }` — `check(file) == failed` |
+| property_kind_out_of_set_rejected | unit | [[specodelic.property_kind_closed]] | `property_row_with_kind_audit()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.property_kind_closed") }` — `check(file) == failed` |
 
 ## Notes
 
@@ -1036,19 +1036,19 @@ Every property row SHALL be verified by exactly one dedicated scenario;
 
 #### Scenario: referential_integrity
 
-- **WHEN** `arbitrary_spec_file()`
+- **WHEN** `specodelic_spec_file()`
 - **THEN** `∀ ref ∈ file: lookup(ref) ≠ None`
 - **VERIFIES** [[specodelic.referential_integrity]]
 
 #### Scenario: acyclicity
 
-- **WHEN** `arbitrary_spec_repo()`
+- **WHEN** `specodelic_spec_repo()`
 - **THEN** `is_dag(traces_to_graph(repo))`
 - **VERIFIES** [[specodelic.acyclicity]]
 
 #### Scenario: rename_naturality
 
-- **WHEN** `arbitrary_spec_repo(), arbitrary_id_rename()`
+- **WHEN** `specodelic_spec_repo(), specodelic_rename_id()`
 - **THEN** **identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`
 - **VERIFIES** [[specodelic.rename_naturality]]
 
@@ -1060,19 +1060,19 @@ Every property row SHALL be verified by exactly one dedicated scenario;
 
 #### Scenario: typing_enforced
 
-- **WHEN** `guard_field_pointing_at_a_property_row()`
+- **WHEN** `specodelic_property_row_guard()`
 - **THEN** `check(file) == failed`
 - **VERIFIES** [[specodelic.typing_enforced]]
 
 #### Scenario: own_intent_reachable
 
-- **WHEN** `spec_repo_with(disconnected_constraint_cluster: true)`
+- **WHEN** `spec_repo_with_disconnected_constraint_cluster()`
 - **THEN** `check(repo) == failed`
 - **VERIFIES** [[specodelic.own_intent_reachable]]
 
 #### Scenario: model_well_formed
 
-- **WHEN** `spec_file_with(transition.to_not_in_states: true)`
+- **WHEN** `spec_file_with_transition_target_not_in_states()`
 - **THEN** `check(file) == failed`
 - **VERIFIES** [[specodelic.model_well_formed]]
 
@@ -1090,25 +1090,25 @@ Every property row SHALL be verified by exactly one dedicated scenario;
 
 #### Scenario: supersedes_cross_kind_rejected
 
-- **WHEN** `constraint_row_with(supersedes: a_property_row_id)`
+- **WHEN** `constraint_row_with_supersedes_property_row()`
 - **THEN** `check(file) == failed`
 - **VERIFIES** [[specodelic.supersedes_cross_kind_rejected]]
 
 #### Scenario: constraint_derives_from_rejected
 
-- **WHEN** `constraint_row_with(derives_from: a_constraint_row_id)`
+- **WHEN** `constraint_row_with_derives_from_column()`
 - **THEN** `check(file) == failed` — the Appears-on column is normative, not descriptive: `derives_from` appears on Property rows only (decided of record 2026-10-01, `specodelic-huf`; a constraint is derived FROM by properties, it does not derive), and `ref_kind_compatible` reads the column source-side the same way it already reads `supersedes`' same-kind rule
 - **VERIFIES** [[specodelic.constraint_derives_from_rejected]]
 
 #### Scenario: supersedes_cycle_rejected
 
-- **WHEN** `spec_repo_with(supersedes_cycle: length ≥ 2)`
+- **WHEN** `spec_repo_with_supersedes_cycle()`
 - **THEN** `check(repo) == failed`
 - **VERIFIES** [[specodelic.supersedes_cycle_rejected]]
 
 #### Scenario: no_stored_superseded_flag
 
-- **WHEN** `schema_with(explicit is_superseded: bool column)`
+- **WHEN** `schema_with_is_superseded_column()`
 - **THEN** `check(schema) == rejected` — supersession status is derived (`superseded(x) ⟺ ∃ y. y.supersedes ∋ x`), never stored
 - **VERIFIES** [[specodelic.no_stored_superseded_flag]]
 
@@ -1126,25 +1126,25 @@ Every property row SHALL be verified by exactly one dedicated scenario;
 
 #### Scenario: extension_point_needs_no_reachability_carveout
 
-- **WHEN** `constraint_row_with(satisfies: an_extension_point_in_another_file, traces_to: own_file_intent)`
+- **WHEN** `constraint_row_satisfying_a_foreign_extension_point()`
 - **THEN** `check(row) == passed` — `satisfies` adds no reachability obligation; the row is reachable the ordinary way, through its own `traces_to`
 - **VERIFIES** [[specodelic.extension_point_needs_no_reachability_carveout]]
 
 #### Scenario: frontmatter_missing_field_rejected
 
-- **WHEN** `frontmatter_missing(one of id, kind, statement)`
+- **WHEN** `frontmatter_missing_statement()`
 - **THEN** `check(file) == failed`
 - **VERIFIES** [[specodelic.frontmatter_missing_field_rejected]]
 
 #### Scenario: guardless_transition_rejected
 
-- **WHEN** `transition_row_with(empty guard cell)`
+- **WHEN** `transition_row_with_empty_guard()`
 - **THEN** `check(file) == failed`
 - **VERIFIES** [[specodelic.guardless_transition_rejected]]
 
 #### Scenario: non_ears_statement_rejected
 
-- **WHEN** `statement_outside_the_five_ears_patterns("the system should maybe work")`
+- **WHEN** `statement_outside_the_five_ears_patterns()`
 - **THEN** `check(file) == failed`
 - **VERIFIES** [[specodelic.non_ears_statement_rejected]]
 
@@ -1156,13 +1156,13 @@ Every property row SHALL be verified by exactly one dedicated scenario;
 
 #### Scenario: coverage_gap_flagged
 
-- **WHEN** `spec_file_with(constraint_with_no_deriving_property: true)`
+- **WHEN** `spec_file_with_coverage_gap()`
 - **THEN** `lint(file) reports rule == failed`
 - **VERIFIES** [[specodelic.coverage_gap_flagged]]
 
 #### Scenario: law_missing_case_rejected
 
-- **WHEN** `law_property_missing("associativity")`
+- **WHEN** `law_property_missing_associativity()`
 - **THEN** `check(file) == failed`
 - **VERIFIES** [[specodelic.law_missing_case_rejected]]
 
@@ -1204,13 +1204,13 @@ Every property row SHALL be verified by exactly one dedicated scenario;
 
 #### Scenario: constraint_kind_out_of_set_rejected
 
-- **WHEN** `constraint_row_with(kind: "made_up")`
+- **WHEN** `constraint_row_with_kind_made_up()`
 - **THEN** `check(file) == failed`
 - **VERIFIES** [[specodelic.constraint_kind_out_of_set_rejected]]
 
 #### Scenario: property_kind_out_of_set_rejected
 
-- **WHEN** `property_row_with(kind: "audit")`
+- **WHEN** `property_row_with_kind_audit()`
 - **THEN** `check(file) == failed`
 - **VERIFIES** [[specodelic.property_kind_out_of_set_rejected]]
 

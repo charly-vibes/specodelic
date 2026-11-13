@@ -67,23 +67,23 @@ checkable fact instead of an unstated assumption.
 
 | id                                    | kind | derives_from                       | generator                                                      | predicate                                                                                                                                                                                             |
 |-----------------------------------------|------|-----------------------------------------|---------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| unknown_kind_rejected                    | unit | [[kinds.kind_enum_closed]]             | `row_belonging_to_a_sixth_section("Actions")`                        | `check(row) == failed`                                                                                                                                                                                |
-| intent_missing_statement_rejected        | unit | [[kinds.intent_row_shape]]             | `intent_row_without("statement")`                                    | `check(row) == failed`                                                                                                                                                                                |
+| unknown_kind_rejected                    | unit | [[kinds.kind_enum_closed]]             | `row_belonging_to_a_sixth_section()` | `**rust:** { let text = v0.as_str(); let schema = specodelic::acset::schema::canonical(); let mut widened = schema.clone(); widened.objects.insert(specodelic::acset::schema::ObjectId::new("Actions")); let rejected = specodelic::acset::schema::check(&widened).is_err(); let closed = specodelic::acset::schema::check(&schema).is_ok(); rejected && closed && text.contains("## Actions") }` — `check(row) == failed` |
+| intent_missing_statement_rejected        | unit | [[kinds.intent_row_shape]]             | `intent_row_without_statement()` | `**rust:** { let mut missing = false; if let Err(err) = specodelic::spec::parse_str(&v0) { missing = format!("{err:?}").contains("statement"); } missing }` — `check(row) == failed` |
 | constraint_row_extra_field_rejected      | unit | [[kinds.constraint_row_shape]]         | `constraint_row_with(extra_field: "guard")`                          | `check(row) == failed`                                                                                                                                                                                |
 | state_row_with_extra_field_rejected      | unit | [[kinds.state_row_shape]]              | `state_row_with(extra_field: "kind")`                                | `check(row) == failed`                                                                                                                                                                                |
-| transition_missing_guard_rejected        | unit | [[kinds.transition_row_shape]]         | `transition_row_without("guard")`                                    | `check(row) == failed`                                                                                                                                                                                |
-| property_row_bad_subkind_rejected        | unit | [[kinds.property_row_shape]]           | `property_row_with(kind: "audit")`                                   | `check(row) == failed`                                                                                                                                                                                |
+| transition_missing_guard_rejected        | unit | [[kinds.transition_row_shape]]         | `transition_row_without_guard()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.guard_required") }` — `check(row) == failed` |
+| property_row_bad_subkind_rejected        | unit | [[kinds.property_row_shape]]           | `property_row_with_kind_audit()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.property_kind_closed") }` — `check(row) == failed` |
 | subkind_addition_without_revision_rejected | unit | [[kinds.kind_field_extensible]]      | `diff_adding_subkind_value_with_no_new_Revision_heading()`           | `check(diff) == failed`                                                                                                                                                                               |
-| constraint_row_advisory_accepted         | unit | [[kinds.constraint_row_shape]]         | `constraint_row_with(kind: "advisory")`                              | `check(row) == passed`                                                                                                                                                                                |
-| constraint_row_effect_accepted           | unit | [[kinds.constraint_row_shape]]         | `constraint_row_with(kind: "effect")`                                | `check(row) == passed`                                                                                                                                                                                |
-| state_row_emits_accepted                 | unit | [[kinds.state_row_shape]]              | `state_row_with(emits: an_effect_kind_constraint_id)`                | `check(row) == passed`                                                                                                                                                                                |
-| state_row_without_emits_still_passes     | unit | [[kinds.state_row_shape]]              | `state_row_with(fields: {id})` — no `emits`                          | `check(row) == passed` — `emits` is optional, not a second required field                                                                                                                            |
-| state_row_emits_wrong_kind_rejected      | unit | [[kinds.state_row_shape]]              | `state_row_with(emits: an_invariant_kind_constraint_id)`             | `check(row) == failed`                                                                                                                                                                                |
-| constraint_row_extension_point_accepted  | unit | [[kinds.constraint_row_shape]]         | `constraint_row_with(kind: "extension_point")`                       | `check(row) == passed`                                                                                                                                                                                |
-| well_formed_row_passes                   | unit | [[kinds.kind_enum_closed]]             | `arbitrary_well_formed_row_of_one_kind()`                            | `check(row) == passed`                                                                                                                                                                                |
-| kind_shape_naturality                    | law  | [[kinds.kind_enum_closed]]             | `arbitrary_row_of_one_kind(), arbitrary_id_rename()`                 | **identity:** `assigned_kind(rename(row,a,a)) == assigned_kind(row)`  **associativity:** `assigned_kind(rename(rename(row,a,b),b,c)) == assigned_kind(rename(row,a,c))` — renaming a row's id never changes which of the five kinds it belongs to |
-| kind_assignment_failure_label_asserted | unit | [[kinds.kind_assignment_failure]] | `kind_assignment_failure_raised()` | `error_label == "kinds.kind_assignment_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
-| shape_check_failure_label_asserted | unit | [[kinds.shape_check_failure]] | `shape_check_failure_raised()` | `error_label == "kinds.shape_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| constraint_row_advisory_accepted         | unit | [[kinds.constraint_row_shape]]         | `constraint_row_with_kind_advisory()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed` |
+| constraint_row_effect_accepted           | unit | [[kinds.constraint_row_shape]]         | `constraint_row_with_kind_effect()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed` |
+| state_row_emits_accepted                 | unit | [[kinds.state_row_shape]]              | `state_row_with_effect_emits()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed` |
+| state_row_without_emits_still_passes     | unit | [[kinds.state_row_shape]]              | `state_row_without_emits()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed` — `emits` is optional, not a second required field |
+| state_row_emits_wrong_kind_rejected      | unit | [[kinds.state_row_shape]]              | `state_row_with_invariant_emits()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") }` — `check(row) == failed` |
+| constraint_row_extension_point_accepted  | unit | [[kinds.constraint_row_shape]]         | `constraint_row_with_kind_extension_point()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed` |
+| well_formed_row_passes                   | unit | [[kinds.kind_enum_closed]]             | `arbitrary_well_formed_row_of_one_kind()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(row) == passed` |
+| kind_shape_naturality                    | law  | [[kinds.kind_enum_closed]]             | `arbitrary_row_of_one_kind(), kinds_rename_id()` | **identity:** `assigned_kind(rename(row,a,a)) == assigned_kind(row)`  **associativity:** `assigned_kind(rename(rename(row,a,b),b,c)) == assigned_kind(rename(row,a,c))` — renaming a row's id never changes which of the five kinds it belongs to  **identity::** `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let outcome = specodelic::rename::run(&files, &v1, &v1).expect("the identity rename succeeds"); let kind = spec.properties.first().expect("the fixture carries a Property row").kind.clone().unwrap_or_default(); outcome.writes.is_empty() && kind == "unit" }` **associativity::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let first = specodelic::rename::run(&files, &v1, "fx.p_mid").expect("the first rename succeeds"); let mid_files = vec![(std::path::PathBuf::from("fx.md"), first.writes[0].1.clone())]; let second = specodelic::rename::run(&mid_files, "fx.p_mid", "fx.p_final").expect("the second rename succeeds"); let chained = specodelic::spec::parse_str(&second.writes[0].1).expect("the renamed fixture parses"); let direct = specodelic::rename::run(&files, &v1, "fx.p_final").expect("the direct rename succeeds"); let direct_spec = specodelic::spec::parse_str(&direct.writes[0].1).expect("the renamed fixture parses"); let kind_of = |s: &specodelic::spec::Spec| s.properties.iter().find(|r| r.id == "p_final").and_then(|r| r.kind.clone()).unwrap_or_default(); kind_of(&chained) == kind_of(&direct_spec) && kind_of(&chained) == "unit" }` |
+| kind_assignment_failure_label_asserted | unit | [[kinds.kind_assignment_failure]] | `kind_assignment_failure_raised()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let fired = specodelic::fixtures::specs::rule_fired(&spec, "linter.property_kind_closed"); let sites = specodelic::fixtures::specs::label_sites("kinds", "kinds.kind_assignment_failure").expect("the corpus text is readable"); fired && sites.constraint_row && sites.property_row && sites.note }` — `error_label == "kinds.kind_assignment_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
+| shape_check_failure_label_asserted | unit | [[kinds.shape_check_failure]] | `shape_check_failure_raised()` | `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let fired = specodelic::fixtures::specs::rule_fired(&spec, "linter.every_transition_valid"); let sites = specodelic::fixtures::specs::label_sites("kinds", "kinds.shape_check_failure").expect("the corpus text is readable"); fired && sites.constraint_row && sites.property_row && sites.note }` — `error_label == "kinds.shape_check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
 
 **Fiber-kind extension of the base subkind sets (2026-10-03, beads
@@ -298,13 +298,13 @@ Every property row SHALL be verified by exactly one dedicated scenario;
 
 #### Scenario: unknown_kind_rejected
 
-- **WHEN** `row_belonging_to_a_sixth_section("Actions")`
+- **WHEN** `row_belonging_to_a_sixth_section()`
 - **THEN** `check(row) == failed`
 - **VERIFIES** [[kinds.unknown_kind_rejected]]
 
 #### Scenario: intent_missing_statement_rejected
 
-- **WHEN** `intent_row_without("statement")`
+- **WHEN** `intent_row_without_statement()`
 - **THEN** `check(row) == failed`
 - **VERIFIES** [[kinds.intent_missing_statement_rejected]]
 
@@ -322,13 +322,13 @@ Every property row SHALL be verified by exactly one dedicated scenario;
 
 #### Scenario: transition_missing_guard_rejected
 
-- **WHEN** `transition_row_without("guard")`
+- **WHEN** `transition_row_without_guard()`
 - **THEN** `check(row) == failed`
 - **VERIFIES** [[kinds.transition_missing_guard_rejected]]
 
 #### Scenario: property_row_bad_subkind_rejected
 
-- **WHEN** `property_row_with(kind: "audit")`
+- **WHEN** `property_row_with_kind_audit()`
 - **THEN** `check(row) == failed`
 - **VERIFIES** [[kinds.property_row_bad_subkind_rejected]]
 
@@ -340,37 +340,37 @@ Every property row SHALL be verified by exactly one dedicated scenario;
 
 #### Scenario: constraint_row_advisory_accepted
 
-- **WHEN** `constraint_row_with(kind: "advisory")`
+- **WHEN** `constraint_row_with_kind_advisory()`
 - **THEN** `check(row) == passed`
 - **VERIFIES** [[kinds.constraint_row_advisory_accepted]]
 
 #### Scenario: constraint_row_effect_accepted
 
-- **WHEN** `constraint_row_with(kind: "effect")`
+- **WHEN** `constraint_row_with_kind_effect()`
 - **THEN** `check(row) == passed`
 - **VERIFIES** [[kinds.constraint_row_effect_accepted]]
 
 #### Scenario: state_row_emits_accepted
 
-- **WHEN** `state_row_with(emits: an_effect_kind_constraint_id)`
+- **WHEN** `state_row_with_effect_emits()`
 - **THEN** `check(row) == passed`
 - **VERIFIES** [[kinds.state_row_emits_accepted]]
 
 #### Scenario: state_row_without_emits_still_passes
 
-- **WHEN** `state_row_with(fields: {id})` — no `emits`
+- **WHEN** `state_row_without_emits()` — no `emits`
 - **THEN** `check(row) == passed` — `emits` is optional, not a second required field
 - **VERIFIES** [[kinds.state_row_without_emits_still_passes]]
 
 #### Scenario: state_row_emits_wrong_kind_rejected
 
-- **WHEN** `state_row_with(emits: an_invariant_kind_constraint_id)`
+- **WHEN** `state_row_with_invariant_emits()`
 - **THEN** `check(row) == failed`
 - **VERIFIES** [[kinds.state_row_emits_wrong_kind_rejected]]
 
 #### Scenario: constraint_row_extension_point_accepted
 
-- **WHEN** `constraint_row_with(kind: "extension_point")`
+- **WHEN** `constraint_row_with_kind_extension_point()`
 - **THEN** `check(row) == passed`
 - **VERIFIES** [[kinds.constraint_row_extension_point_accepted]]
 
@@ -382,7 +382,7 @@ Every property row SHALL be verified by exactly one dedicated scenario;
 
 #### Scenario: kind_shape_naturality
 
-- **WHEN** `arbitrary_row_of_one_kind(), arbitrary_id_rename()`
+- **WHEN** `arbitrary_row_of_one_kind(), kinds_rename_id()`
 - **THEN** **identity:** `assigned_kind(rename(row,a,a)) == assigned_kind(row)`  **associativity:** `assigned_kind(rename(rename(row,a,b),b,c)) == assigned_kind(rename(row,a,c))` — renaming a row's id never changes which of the five kinds it belongs to
 - **VERIFIES** [[kinds.kind_shape_naturality]]
 

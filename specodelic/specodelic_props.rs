@@ -24,309 +24,510 @@ macro_rules! todo_predicate {
 pub mod spec_gen {
     use super::*;
 
-    pub fn arbitrary_spec_file() -> impl Strategy<Value = String> {
-        Just("arbitrary_spec_file".into())
+    pub fn specodelic_spec_file() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("specodelic_spec_file")
+                .expect("the specodelic_spec_file fixture materializes"),
+        )
     }
 
-    pub fn arbitrary_spec_repo() -> impl Strategy<Value = String> {
-        Just("arbitrary_spec_repo".into())
+    pub fn specodelic_spec_repo() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("specodelic_spec_repo")
+                .expect("the specodelic_spec_repo fixture materializes"),
+        )
     }
 
-    pub fn arbitrary_id_rename() -> impl Strategy<Value = String> {
-        Just("arbitrary_id_rename".into())
+    pub fn specodelic_rename_id() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("specodelic_rename_id")
+                .expect("the specodelic_rename_id fixture materializes"),
+        )
     }
 
-    pub fn guard_field_pointing_at_a_property_row() -> impl Strategy<Value = String> {
-        Just("guard_field_pointing_at_a_property_row".into())
+    pub fn specodelic_property_row_guard() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("specodelic_property_row_guard")
+                .expect("the specodelic_property_row_guard fixture materializes"),
+        )
     }
 
-    pub fn spec_repo_with() -> impl Strategy<Value = String> {
-        Just("spec_repo_with".into())
+    pub fn spec_repo_with_disconnected_constraint_cluster() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("spec_repo_with_disconnected_constraint_cluster")
+                .expect("the spec_repo_with_disconnected_constraint_cluster fixture materializes"),
+        )
     }
 
-    pub fn spec_file_with() -> impl Strategy<Value = String> {
-        Just("spec_file_with".into())
+    pub fn spec_file_with_transition_target_not_in_states() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("spec_file_with_transition_target_not_in_states")
+                .expect("the spec_file_with_transition_target_not_in_states fixture materializes"),
+        )
     }
 
     pub fn guard_field_pointing_at_an_advisory_constraint() -> impl Strategy<Value = String> {
-        Just("guard_field_pointing_at_an_advisory_constraint".into())
+        Just(
+            specodelic::fixtures::materialize("guard_field_pointing_at_an_advisory_constraint")
+                .expect("the guard_field_pointing_at_an_advisory_constraint fixture materializes"),
+        )
     }
 
     pub fn transition_guard_citing_a_declared_state() -> impl Strategy<Value = String> {
-        Just("transition_guard_citing_a_declared_state".into())
+        Just(
+            specodelic::fixtures::materialize("transition_guard_citing_a_declared_state")
+                .expect("the transition_guard_citing_a_declared_state fixture materializes"),
+        )
     }
 
-    pub fn constraint_row_with() -> impl Strategy<Value = String> {
-        Just("constraint_row_with".into())
+    pub fn constraint_row_with_supersedes_property_row() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("constraint_row_with_supersedes_property_row")
+                .expect("the constraint_row_with_supersedes_property_row fixture materializes"),
+        )
     }
 
-    pub fn schema_with() -> impl Strategy<Value = String> {
-        Just("schema_with".into())
+    pub fn constraint_row_with_derives_from_column() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("constraint_row_with_derives_from_column")
+                .expect("the constraint_row_with_derives_from_column fixture materializes"),
+        )
+    }
+
+    pub fn spec_repo_with_supersedes_cycle() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("spec_repo_with_supersedes_cycle")
+                .expect("the spec_repo_with_supersedes_cycle fixture materializes"),
+        )
+    }
+
+    pub fn schema_with_is_superseded_column() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("schema_with_is_superseded_column")
+                .expect("the schema_with_is_superseded_column fixture materializes"),
+        )
     }
 
     pub fn emits_field_pointing_at_an_invariant_constraint() -> impl Strategy<Value = String> {
-        Just("emits_field_pointing_at_an_invariant_constraint".into())
+        Just(
+            specodelic::fixtures::materialize("emits_field_pointing_at_an_invariant_constraint")
+                .expect("the emits_field_pointing_at_an_invariant_constraint fixture materializes"),
+        )
     }
 
     pub fn satisfies_field_pointing_at_an_invariant_constraint() -> impl Strategy<Value = String> {
-        Just("satisfies_field_pointing_at_an_invariant_constraint".into())
+        Just(
+            specodelic::fixtures::materialize(
+                "satisfies_field_pointing_at_an_invariant_constraint",
+            )
+            .expect("the satisfies_field_pointing_at_an_invariant_constraint fixture materializes"),
+        )
     }
 
-    pub fn frontmatter_missing() -> impl Strategy<Value = String> {
-        Just("frontmatter_missing".into())
+    pub fn constraint_row_satisfying_a_foreign_extension_point() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize(
+                "constraint_row_satisfying_a_foreign_extension_point",
+            )
+            .expect("the constraint_row_satisfying_a_foreign_extension_point fixture materializes"),
+        )
     }
 
-    pub fn transition_row_with() -> impl Strategy<Value = String> {
-        Just("transition_row_with".into())
+    pub fn frontmatter_missing_statement() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("frontmatter_missing_statement")
+                .expect("the frontmatter_missing_statement fixture materializes"),
+        )
+    }
+
+    pub fn transition_row_with_empty_guard() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("transition_row_with_empty_guard")
+                .expect("the transition_row_with_empty_guard fixture materializes"),
+        )
     }
 
     pub fn statement_outside_the_five_ears_patterns() -> impl Strategy<Value = String> {
-        Just("statement_outside_the_five_ears_patterns".into())
+        Just(
+            specodelic::fixtures::materialize("statement_outside_the_five_ears_patterns")
+                .expect("the statement_outside_the_five_ears_patterns fixture materializes"),
+        )
     }
 
     pub fn row_id_joined_to_two_intents_via_and() -> impl Strategy<Value = String> {
-        Just("row_id_joined_to_two_intents_via_and".into())
+        Just(
+            specodelic::fixtures::materialize("row_id_joined_to_two_intents_via_and")
+                .expect("the row_id_joined_to_two_intents_via_and fixture materializes"),
+        )
     }
 
-    pub fn law_property_missing() -> impl Strategy<Value = String> {
-        Just("law_property_missing".into())
+    pub fn spec_file_with_coverage_gap() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("spec_file_with_coverage_gap")
+                .expect("the spec_file_with_coverage_gap fixture materializes"),
+        )
+    }
+
+    pub fn law_property_missing_associativity() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("law_property_missing_associativity")
+                .expect("the law_property_missing_associativity fixture materializes"),
+        )
     }
 
     pub fn state_appearing_in_no_transition() -> impl Strategy<Value = String> {
-        Just("state_appearing_in_no_transition".into())
+        Just(
+            specodelic::fixtures::materialize("state_appearing_in_no_transition")
+                .expect("the state_appearing_in_no_transition fixture materializes"),
+        )
     }
 
     pub fn spec_file_without_states_or_transitions() -> impl Strategy<Value = String> {
-        Just("spec_file_without_states_or_transitions".into())
+        Just(
+            specodelic::fixtures::materialize("spec_file_without_states_or_transitions")
+                .expect("the spec_file_without_states_or_transitions fixture materializes"),
+        )
     }
 
     pub fn model_with_a_violated_invariant() -> impl Strategy<Value = String> {
-        Just("model_with_a_violated_invariant".into())
+        Just(
+            specodelic::fixtures::materialize("model_with_a_violated_invariant")
+                .expect("the model_with_a_violated_invariant fixture materializes"),
+        )
     }
 
     pub fn compiled_proptest_block_that_fails() -> impl Strategy<Value = String> {
-        Just("compiled_proptest_block_that_fails".into())
+        Just(
+            specodelic::fixtures::materialize("compiled_proptest_block_that_fails")
+                .expect("the compiled_proptest_block_that_fails fixture materializes"),
+        )
     }
 
     pub fn two_specs_identical_except_rationale_prose() -> impl Strategy<Value = String> {
-        Just("two_specs_identical_except_rationale_prose".into())
+        Just(
+            specodelic::fixtures::materialize("two_specs_identical_except_rationale_prose")
+                .expect("the two_specs_identical_except_rationale_prose fixture materializes"),
+        )
     }
 
-    pub fn property_row_with() -> impl Strategy<Value = String> {
-        Just("property_row_with".into())
+    pub fn constraint_row_with_kind_made_up() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("constraint_row_with_kind_made_up")
+                .expect("the constraint_row_with_kind_made_up fixture materializes"),
+        )
+    }
+
+    pub fn property_row_with_kind_audit() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("property_row_with_kind_audit")
+                .expect("the property_row_with_kind_audit fixture materializes"),
+        )
     }
 }
 
 proptest! {
     // id: referential_integrity
-    // generator: `arbitrary_spec_file()`
-    // predicate: `∀ ref ∈ file: lookup(ref) ≠ None`
+    // generator: `specodelic_spec_file()`
+    // predicate: `**rust:** { let base = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let broken_text = specodelic::fixtures::specs::materialize("spec_file_with_dangling_reference").expect("the dangling fixture materializes"); let broken = specodelic::spec::parse_str(&broken_text).expect("the dangling fixture parses"); !specodelic::fixtures::specs::rule_fired(&base, "linter.total_refs") && specodelic::fixtures::specs::rule_fired(&broken, "linter.total_refs") }` — `∀ ref ∈ file: lookup(ref) ≠ None`
     #[test]
-    fn referential_integrity(v0 in spec_gen::arbitrary_spec_file()) {
-        todo_predicate!("`∀ ref ∈ file: lookup(ref) ≠ None`");
+    fn referential_integrity(v0 in spec_gen::specodelic_spec_file()) {
+        assert!(
+            { let base = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let broken_text = specodelic::fixtures::specs::materialize("spec_file_with_dangling_reference").expect("the dangling fixture materializes"); let broken = specodelic::spec::parse_str(&broken_text).expect("the dangling fixture parses"); !specodelic::fixtures::specs::rule_fired(&base, "linter.total_refs") && specodelic::fixtures::specs::rule_fired(&broken, "linter.total_refs") },
+            "predicate `referential_integrity` violated (executable fragment)",
+        );
     }
     // id: acyclicity
-    // generator: `arbitrary_spec_repo()`
-    // predicate: `is_dag(traces_to_graph(repo))`
+    // generator: `specodelic_spec_repo()`
+    // predicate: `**rust:** { let repo = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let cyclic_text = specodelic::fixtures::specs::materialize("spec_repo_with_traces_cycle").expect("the cycle fixture materializes"); let cyclic = specodelic::spec::parse_str(&cyclic_text).expect("the cycle fixture parses"); !specodelic::fixtures::specs::rule_fired(&repo, "linter.acyclic") && specodelic::fixtures::specs::rule_fired(&cyclic, "linter.acyclic") }` — `is_dag(traces_to_graph(repo))`
     #[test]
-    fn acyclicity(v0 in spec_gen::arbitrary_spec_repo()) {
-        todo_predicate!("`is_dag(traces_to_graph(repo))`");
+    fn acyclicity(v0 in spec_gen::specodelic_spec_repo()) {
+        assert!(
+            { let repo = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let cyclic_text = specodelic::fixtures::specs::materialize("spec_repo_with_traces_cycle").expect("the cycle fixture materializes"); let cyclic = specodelic::spec::parse_str(&cyclic_text).expect("the cycle fixture parses"); !specodelic::fixtures::specs::rule_fired(&repo, "linter.acyclic") && specodelic::fixtures::specs::rule_fired(&cyclic, "linter.acyclic") },
+            "predicate `acyclicity` violated (executable fragment)",
+        );
     }
     // id: rename_naturality
     // case: identity
-    // generator: `arbitrary_spec_repo(), arbitrary_id_rename()`
-    // predicate: **identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`
+    // generator: `specodelic_spec_repo(), specodelic_rename_id()`
+    // predicate: **identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`  **identity::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let outcome = specodelic::rename::run(&files, &v1, &v1).expect("the identity rename succeeds"); outcome.writes.is_empty() }` **associativity::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let first = specodelic::rename::run(&files, &v1, "fx.p_mid").expect("the first rename succeeds"); let mid_files = vec![(std::path::PathBuf::from("fx.md"), first.writes[0].1.clone())]; let second = specodelic::rename::run(&mid_files, "fx.p_mid", "fx.p_final").expect("the second rename succeeds"); let direct = specodelic::rename::run(&files, &v1, "fx.p_final").expect("the direct rename succeeds"); second.writes[0].1 == direct.writes[0].1 }` **naturality::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let original = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let renamed = specodelic::rename::run(&files, &v1, "fx.p_renamed").expect("the rename succeeds"); let renamed_spec = specodelic::spec::parse_str(&renamed.writes[0].1).expect("the renamed fixture parses"); let before = specodelic::compile::compile_spec(&original).expect("the original compiles"); let after = specodelic::compile::compile_spec(&renamed_spec).expect("the renamed spec compiles"); after.toml == before.toml.replace("p_rename_me", "p_renamed") && after.props == before.props.replace("p_rename_me", "p_renamed") && after.tla == before.tla.replace("p_rename_me", "p_renamed") }`
     #[test]
-    fn rename_naturality_identity(v0 in spec_gen::arbitrary_spec_repo(), v1 in spec_gen::arbitrary_id_rename()) {
-        todo_predicate!("**identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`");
+    fn rename_naturality_identity(v0 in spec_gen::specodelic_spec_repo(), v1 in spec_gen::specodelic_rename_id()) {
+        assert!(
+            { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let outcome = specodelic::rename::run(&files, &v1, &v1).expect("the identity rename succeeds"); outcome.writes.is_empty() },
+            "predicate `rename_naturality` violated (executable fragment)",
+        );
     }
     // id: rename_naturality
     // case: associativity
-    // generator: `arbitrary_spec_repo(), arbitrary_id_rename()`
-    // predicate: **identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`
+    // generator: `specodelic_spec_repo(), specodelic_rename_id()`
+    // predicate: **identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`  **identity::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let outcome = specodelic::rename::run(&files, &v1, &v1).expect("the identity rename succeeds"); outcome.writes.is_empty() }` **associativity::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let first = specodelic::rename::run(&files, &v1, "fx.p_mid").expect("the first rename succeeds"); let mid_files = vec![(std::path::PathBuf::from("fx.md"), first.writes[0].1.clone())]; let second = specodelic::rename::run(&mid_files, "fx.p_mid", "fx.p_final").expect("the second rename succeeds"); let direct = specodelic::rename::run(&files, &v1, "fx.p_final").expect("the direct rename succeeds"); second.writes[0].1 == direct.writes[0].1 }` **naturality::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let original = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let renamed = specodelic::rename::run(&files, &v1, "fx.p_renamed").expect("the rename succeeds"); let renamed_spec = specodelic::spec::parse_str(&renamed.writes[0].1).expect("the renamed fixture parses"); let before = specodelic::compile::compile_spec(&original).expect("the original compiles"); let after = specodelic::compile::compile_spec(&renamed_spec).expect("the renamed spec compiles"); after.toml == before.toml.replace("p_rename_me", "p_renamed") && after.props == before.props.replace("p_rename_me", "p_renamed") && after.tla == before.tla.replace("p_rename_me", "p_renamed") }`
     #[test]
-    fn rename_naturality_associativity(v0 in spec_gen::arbitrary_spec_repo(), v1 in spec_gen::arbitrary_id_rename()) {
-        todo_predicate!("**identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`");
+    fn rename_naturality_associativity(v0 in spec_gen::specodelic_spec_repo(), v1 in spec_gen::specodelic_rename_id()) {
+        assert!(
+            { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let first = specodelic::rename::run(&files, &v1, "fx.p_mid").expect("the first rename succeeds"); let mid_files = vec![(std::path::PathBuf::from("fx.md"), first.writes[0].1.clone())]; let second = specodelic::rename::run(&mid_files, "fx.p_mid", "fx.p_final").expect("the second rename succeeds"); let direct = specodelic::rename::run(&files, &v1, "fx.p_final").expect("the direct rename succeeds"); second.writes[0].1 == direct.writes[0].1 },
+            "predicate `rename_naturality` violated (executable fragment)",
+        );
     }
     // id: rename_naturality
     // case: naturality
-    // generator: `arbitrary_spec_repo(), arbitrary_id_rename()`
-    // predicate: **identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`
+    // generator: `specodelic_spec_repo(), specodelic_rename_id()`
+    // predicate: **identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`  **identity::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let outcome = specodelic::rename::run(&files, &v1, &v1).expect("the identity rename succeeds"); outcome.writes.is_empty() }` **associativity::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let first = specodelic::rename::run(&files, &v1, "fx.p_mid").expect("the first rename succeeds"); let mid_files = vec![(std::path::PathBuf::from("fx.md"), first.writes[0].1.clone())]; let second = specodelic::rename::run(&mid_files, "fx.p_mid", "fx.p_final").expect("the second rename succeeds"); let direct = specodelic::rename::run(&files, &v1, "fx.p_final").expect("the direct rename succeeds"); second.writes[0].1 == direct.writes[0].1 }` **naturality::** `**rust:** { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let original = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let renamed = specodelic::rename::run(&files, &v1, "fx.p_renamed").expect("the rename succeeds"); let renamed_spec = specodelic::spec::parse_str(&renamed.writes[0].1).expect("the renamed fixture parses"); let before = specodelic::compile::compile_spec(&original).expect("the original compiles"); let after = specodelic::compile::compile_spec(&renamed_spec).expect("the renamed spec compiles"); after.toml == before.toml.replace("p_rename_me", "p_renamed") && after.props == before.props.replace("p_rename_me", "p_renamed") && after.tla == before.tla.replace("p_rename_me", "p_renamed") }`
     #[test]
-    fn rename_naturality_naturality(v0 in spec_gen::arbitrary_spec_repo(), v1 in spec_gen::arbitrary_id_rename()) {
-        todo_predicate!("**identity:** `rename(I, a, a) == I`  **associativity:** `rename(rename(I,a,b), b,c) == rename(I,a,c)`  **naturality:** `compile(rename(I)) == rename(compile(I))`");
+    fn rename_naturality_naturality(v0 in spec_gen::specodelic_spec_repo(), v1 in spec_gen::specodelic_rename_id()) {
+        assert!(
+            { let files = vec![(std::path::PathBuf::from("fx.md"), v0.as_str().to_string())]; let original = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let renamed = specodelic::rename::run(&files, &v1, "fx.p_renamed").expect("the rename succeeds"); let renamed_spec = specodelic::spec::parse_str(&renamed.writes[0].1).expect("the renamed fixture parses"); let before = specodelic::compile::compile_spec(&original).expect("the original compiles"); let after = specodelic::compile::compile_spec(&renamed_spec).expect("the renamed spec compiles"); after.toml == before.toml.replace("p_rename_me", "p_renamed") && after.props == before.props.replace("p_rename_me", "p_renamed") && after.tla == before.tla.replace("p_rename_me", "p_renamed") },
+            "predicate `rename_naturality` violated (executable fragment)",
+        );
     }
 }
 
 // id: filename_convention
 // generator: `(id, mismatched_filename)` pairs
-// predicate: `check(id, filename) == failed`
+// predicate: `**rust:** { let text = specodelic::fixtures::specs::materialize("specodelic_spec_file").expect("the fixture materializes"); let mut spec = specodelic::spec::parse_str(&text).expect("the fixture parses"); spec.path = Some(std::path::PathBuf::from("other-name.md")); specodelic::fixtures::specs::rule_fired(&spec, "linter.id_matches_file") }` — `check(id, filename) == failed`
 #[test]
 fn filename_convention() {
-    todo_predicate!("`check(id, filename) == failed`");
+    assert!(
+        {
+            let text = specodelic::fixtures::specs::materialize("specodelic_spec_file")
+                .expect("the fixture materializes");
+            let mut spec = specodelic::spec::parse_str(&text).expect("the fixture parses");
+            spec.path = Some(std::path::PathBuf::from("other-name.md"));
+            specodelic::fixtures::specs::rule_fired(&spec, "linter.id_matches_file")
+        },
+        "predicate `filename_convention` violated (executable fragment)",
+    );
 }
 
 proptest! {
     // id: typing_enforced
-    // generator: `guard_field_pointing_at_a_property_row()`
-    // predicate: `check(file) == failed`
+    // generator: `specodelic_property_row_guard()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") }` — `check(file) == failed`
     #[test]
-    fn typing_enforced(v0 in spec_gen::guard_field_pointing_at_a_property_row()) {
-        todo_predicate!("`check(file) == failed`");
+    fn typing_enforced(v0 in spec_gen::specodelic_property_row_guard()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") },
+            "predicate `typing_enforced` violated (executable fragment)",
+        );
     }
     // id: own_intent_reachable
-    // generator: `spec_repo_with(disconnected_constraint_cluster: true)`
-    // predicate: `check(repo) == failed`
+    // generator: `spec_repo_with_disconnected_constraint_cluster()`
+    // predicate: `**rust:** { let clean = specodelic::spec::parse_str(&specodelic::fixtures::specs::materialize("specodelic_spec_repo").expect("the fixture materializes")).expect("the fixture parses"); let repo = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); !specodelic::fixtures::specs::rule_fired(&clean, "linter.single_root_reachable") && specodelic::fixtures::specs::rule_fired(&repo, "linter.single_root_reachable") }` — `check(repo) == failed`
     #[test]
-    fn own_intent_reachable(v0 in spec_gen::spec_repo_with()) {
-        todo_predicate!("`check(repo) == failed`");
+    fn own_intent_reachable(v0 in spec_gen::spec_repo_with_disconnected_constraint_cluster()) {
+        assert!(
+            { let clean = specodelic::spec::parse_str(&specodelic::fixtures::specs::materialize("specodelic_spec_repo").expect("the fixture materializes")).expect("the fixture parses"); let repo = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); !specodelic::fixtures::specs::rule_fired(&clean, "linter.single_root_reachable") && specodelic::fixtures::specs::rule_fired(&repo, "linter.single_root_reachable") },
+            "predicate `own_intent_reachable` violated (executable fragment)",
+        );
     }
     // id: model_well_formed
-    // generator: `spec_file_with(transition.to_not_in_states: true)`
-    // predicate: `check(file) == failed`
+    // generator: `spec_file_with_transition_target_not_in_states()`
+    // predicate: `**rust:** { let clean = specodelic::spec::parse_str(&specodelic::fixtures::specs::materialize("specodelic_spec_file").expect("the fixture materializes")).expect("the fixture parses"); let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); !specodelic::fixtures::specs::rule_fired(&clean, "linter.every_transition_valid") && specodelic::fixtures::specs::rule_fired(&spec, "linter.every_transition_valid") }` — `check(file) == failed`
     #[test]
-    fn model_well_formed(v0 in spec_gen::spec_file_with()) {
-        todo_predicate!("`check(file) == failed`");
+    fn model_well_formed(v0 in spec_gen::spec_file_with_transition_target_not_in_states()) {
+        assert!(
+            { let clean = specodelic::spec::parse_str(&specodelic::fixtures::specs::materialize("specodelic_spec_file").expect("the fixture materializes")).expect("the fixture parses"); let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); !specodelic::fixtures::specs::rule_fired(&clean, "linter.every_transition_valid") && specodelic::fixtures::specs::rule_fired(&spec, "linter.every_transition_valid") },
+            "predicate `model_well_formed` violated (executable fragment)",
+        );
     }
     // id: advisory_cannot_gate
     // generator: `guard_field_pointing_at_an_advisory_constraint()`
-    // predicate: `check(file) == failed`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") }` — `check(file) == failed`
     #[test]
     fn advisory_cannot_gate(v0 in spec_gen::guard_field_pointing_at_an_advisory_constraint()) {
-        todo_predicate!("`check(file) == failed`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") },
+            "predicate `advisory_cannot_gate` violated (executable fragment)",
+        );
     }
     // id: state_guard_citation_accepted
     // generator: `transition_guard_citing_a_declared_state()`
-    // predicate: `check(file) == passed` — the "has reached state X" guard pattern (Revision 12); a State target gates nothing, it records progress — but it is a legal typed citation
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) }` — `check(file) == passed` — the "has reached state X" guard pattern (Revision 12); a State target gates nothing, it records progress — but it is a legal typed citation
     #[test]
     fn state_guard_citation_accepted(v0 in spec_gen::transition_guard_citing_a_declared_state()) {
-        todo_predicate!("`check(file) == passed` — the \"has reached state X\" guard pattern (Revision 12); a State target gates nothing, it records progress — but it is a legal typed citation");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::lint_clean(&spec) },
+            "predicate `state_guard_citation_accepted` violated (executable fragment)",
+        );
     }
     // id: supersedes_cross_kind_rejected
-    // generator: `constraint_row_with(supersedes: a_property_row_id)`
-    // predicate: `check(file) == failed`
+    // generator: `constraint_row_with_supersedes_property_row()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") }` — `check(file) == failed`
     #[test]
-    fn supersedes_cross_kind_rejected(v0 in spec_gen::constraint_row_with()) {
-        todo_predicate!("`check(file) == failed`");
+    fn supersedes_cross_kind_rejected(v0 in spec_gen::constraint_row_with_supersedes_property_row()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") },
+            "predicate `supersedes_cross_kind_rejected` violated (executable fragment)",
+        );
     }
     // id: constraint_derives_from_rejected
-    // generator: `constraint_row_with(derives_from: a_constraint_row_id)`
-    // predicate: `check(file) == failed` — the Appears-on column is normative, not descriptive: `derives_from` appears on Property rows only (decided of record 2026-10-01, `specodelic-huf`; a constraint is derived FROM by properties, it does not derive), and `ref_kind_compatible` reads the column source-side the same way it already reads `supersedes`' same-kind rule
+    // generator: `constraint_row_with_derives_from_column()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") }` — `check(file) == failed` — the Appears-on column is normative, not descriptive: `derives_from` appears on Property rows only (decided of record 2026-10-01, `specodelic-huf`; a constraint is derived FROM by properties, it does not derive), and `ref_kind_compatible` reads the column source-side the same way it already reads `supersedes`' same-kind rule
     #[test]
-    fn constraint_derives_from_rejected(v0 in spec_gen::constraint_row_with()) {
-        todo_predicate!("`check(file) == failed` — the Appears-on column is normative, not descriptive: `derives_from` appears on Property rows only (decided of record 2026-10-01, `specodelic-huf`; a constraint is derived FROM by properties, it does not derive), and `ref_kind_compatible` reads the column source-side the same way it already reads `supersedes`' same-kind rule");
+    fn constraint_derives_from_rejected(v0 in spec_gen::constraint_row_with_derives_from_column()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") },
+            "predicate `constraint_derives_from_rejected` violated (executable fragment)",
+        );
     }
     // id: supersedes_cycle_rejected
-    // generator: `spec_repo_with(supersedes_cycle: length ≥ 2)`
-    // predicate: `check(repo) == failed`
+    // generator: `spec_repo_with_supersedes_cycle()`
+    // predicate: `**rust:** { let repo = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let instance = specodelic::acset::instance::Instance::from_specs(std::slice::from_ref(&repo)); let cyclic = specodelic::acset::query::cyclic_nodes(&instance, &["supersedes"]).expect("the supersedes query runs"); !cyclic.is_empty() }` — `check(repo) == failed`
     #[test]
-    fn supersedes_cycle_rejected(v0 in spec_gen::spec_repo_with()) {
-        todo_predicate!("`check(repo) == failed`");
+    fn supersedes_cycle_rejected(v0 in spec_gen::spec_repo_with_supersedes_cycle()) {
+        assert!(
+            { let repo = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let instance = specodelic::acset::instance::Instance::from_specs(std::slice::from_ref(&repo)); let cyclic = specodelic::acset::query::cyclic_nodes(&instance, &["supersedes"]).expect("the supersedes query runs"); !cyclic.is_empty() },
+            "predicate `supersedes_cycle_rejected` violated (executable fragment)",
+        );
     }
     // id: no_stored_superseded_flag
-    // generator: `schema_with(explicit is_superseded: bool column)`
-    // predicate: `check(schema) == rejected` — supersession status is derived (`superseded(x) ⟺ ∃ y. y.supersedes ∋ x`), never stored
+    // generator: `schema_with_is_superseded_column()`
+    // predicate: `**rust:** { let schema = specodelic::acset::schema::canonical(); let stored = schema.morphisms.iter().any(|m| m.column == "is_superseded"); let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let instance = specodelic::acset::instance::Instance::from_specs(std::slice::from_ref(&spec)); let superseded = specodelic::acset::query::forward_closure(&instance, &["fx.c2"], &["supersedes"]).expect("the supersedes query runs"); !stored && superseded.contains("fx.c1") }` — `check(schema) == rejected` — supersession status is derived (`superseded(x) ⟺ ∃ y. y.supersedes ∋ x`), never stored
     #[test]
-    fn no_stored_superseded_flag(v0 in spec_gen::schema_with()) {
-        todo_predicate!("`check(schema) == rejected` — supersession status is derived (`superseded(x) ⟺ ∃ y. y.supersedes ∋ x`), never stored");
+    fn no_stored_superseded_flag(v0 in spec_gen::schema_with_is_superseded_column()) {
+        assert!(
+            { let schema = specodelic::acset::schema::canonical(); let stored = schema.morphisms.iter().any(|m| m.column == "is_superseded"); let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let instance = specodelic::acset::instance::Instance::from_specs(std::slice::from_ref(&spec)); let superseded = specodelic::acset::query::forward_closure(&instance, &["fx.c2"], &["supersedes"]).expect("the supersedes query runs"); !stored && superseded.contains("fx.c1") },
+            "predicate `no_stored_superseded_flag` violated (executable fragment)",
+        );
     }
     // id: emits_cannot_target_non_effect
     // generator: `emits_field_pointing_at_an_invariant_constraint()`
-    // predicate: `check(file) == failed` — same shape as `advisory_cannot_gate`, mirrored onto the other direction of the kind-split
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") }` — `check(file) == failed` — same shape as `advisory_cannot_gate`, mirrored onto the other direction of the kind-split
     #[test]
     fn emits_cannot_target_non_effect(v0 in spec_gen::emits_field_pointing_at_an_invariant_constraint()) {
-        todo_predicate!("`check(file) == failed` — same shape as `advisory_cannot_gate`, mirrored onto the other direction of the kind-split");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") },
+            "predicate `emits_cannot_target_non_effect` violated (executable fragment)",
+        );
     }
     // id: satisfies_wrong_kind_rejected
     // generator: `satisfies_field_pointing_at_an_invariant_constraint()`
-    // predicate: `check(file) == failed` — same shape as `advisory_cannot_gate` and `emits_cannot_target_non_effect`, mirrored onto the third kind-typed reference field
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") }` — `check(file) == failed` — same shape as `advisory_cannot_gate` and `emits_cannot_target_non_effect`, mirrored onto the third kind-typed reference field
     #[test]
     fn satisfies_wrong_kind_rejected(v0 in spec_gen::satisfies_field_pointing_at_an_invariant_constraint()) {
-        todo_predicate!("`check(file) == failed` — same shape as `advisory_cannot_gate` and `emits_cannot_target_non_effect`, mirrored onto the third kind-typed reference field");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ref_kind_compatible") },
+            "predicate `satisfies_wrong_kind_rejected` violated (executable fragment)",
+        );
     }
     // id: extension_point_needs_no_reachability_carveout
-    // generator: `constraint_row_with(satisfies: an_extension_point_in_another_file, traces_to: own_file_intent)`
-    // predicate: `check(row) == passed` — `satisfies` adds no reachability obligation; the row is reachable the ordinary way, through its own `traces_to`
+    // generator: `constraint_row_satisfying_a_foreign_extension_point()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let host_text = specodelic::fixtures::specs::materialize("foreign_file_declaring_an_extension_point").expect("the fixture materializes"); let host = specodelic::spec::parse_str(&host_text).expect("the fixture parses"); let corpus = vec![spec, host]; !specodelic::fixtures::specs::rule_fired_in(&corpus, "linter.single_root_reachable") }` — `check(row) == passed` — `satisfies` adds no reachability obligation; the row is reachable the ordinary way, through its own `traces_to`
     #[test]
-    fn extension_point_needs_no_reachability_carveout(v0 in spec_gen::constraint_row_with()) {
-        todo_predicate!("`check(row) == passed` — `satisfies` adds no reachability obligation; the row is reachable the ordinary way, through its own `traces_to`");
+    fn extension_point_needs_no_reachability_carveout(v0 in spec_gen::constraint_row_satisfying_a_foreign_extension_point()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let host_text = specodelic::fixtures::specs::materialize("foreign_file_declaring_an_extension_point").expect("the fixture materializes"); let host = specodelic::spec::parse_str(&host_text).expect("the fixture parses"); let corpus = vec![spec, host]; !specodelic::fixtures::specs::rule_fired_in(&corpus, "linter.single_root_reachable") },
+            "predicate `extension_point_needs_no_reachability_carveout` violated (executable fragment)",
+        );
     }
     // id: frontmatter_missing_field_rejected
-    // generator: `frontmatter_missing(one of id, kind, statement)`
-    // predicate: `check(file) == failed`
+    // generator: `frontmatter_missing_statement()`
+    // predicate: `**rust:** { let mut missing = false; if let Err(err) = specodelic::spec::parse_str(&v0) { missing = format!("{err:?}").contains("statement"); } missing }` — `check(file) == failed`
     #[test]
-    fn frontmatter_missing_field_rejected(v0 in spec_gen::frontmatter_missing()) {
-        todo_predicate!("`check(file) == failed`");
+    fn frontmatter_missing_field_rejected(v0 in spec_gen::frontmatter_missing_statement()) {
+        assert!(
+            { let mut missing = false; if let Err(err) = specodelic::spec::parse_str(&v0) { missing = format!("{err:?}").contains("statement"); } missing },
+            "predicate `frontmatter_missing_field_rejected` violated (executable fragment)",
+        );
     }
     // id: guardless_transition_rejected
-    // generator: `transition_row_with(empty guard cell)`
-    // predicate: `check(file) == failed`
+    // generator: `transition_row_with_empty_guard()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.guard_required") }` — `check(file) == failed`
     #[test]
-    fn guardless_transition_rejected(v0 in spec_gen::transition_row_with()) {
-        todo_predicate!("`check(file) == failed`");
+    fn guardless_transition_rejected(v0 in spec_gen::transition_row_with_empty_guard()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.guard_required") },
+            "predicate `guardless_transition_rejected` violated (executable fragment)",
+        );
     }
     // id: non_ears_statement_rejected
-    // generator: `statement_outside_the_five_ears_patterns("the system should maybe work")`
-    // predicate: `check(file) == failed`
+    // generator: `statement_outside_the_five_ears_patterns()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ears_syntax") }` — `check(file) == failed`
     #[test]
     fn non_ears_statement_rejected(v0 in spec_gen::statement_outside_the_five_ears_patterns()) {
-        todo_predicate!("`check(file) == failed`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.ears_syntax") },
+            "predicate `non_ears_statement_rejected` violated (executable fragment)",
+        );
     }
     // id: multi_intent_join_rejected
     // generator: `row_id_joined_to_two_intents_via_and()`
-    // predicate: `check(file) == failed`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.no_conjoined_id") }` — `check(file) == failed`
     #[test]
     fn multi_intent_join_rejected(v0 in spec_gen::row_id_joined_to_two_intents_via_and()) {
-        todo_predicate!("`check(file) == failed`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.no_conjoined_id") },
+            "predicate `multi_intent_join_rejected` violated (executable fragment)",
+        );
     }
     // id: coverage_gap_flagged
-    // generator: `spec_file_with(constraint_with_no_deriving_property: true)`
-    // predicate: `lint(file) reports rule == failed`
+    // generator: `spec_file_with_coverage_gap()`
+    // predicate: `**rust:** { let clean = specodelic::spec::parse_str(&specodelic::fixtures::specs::materialize("specodelic_spec_file").expect("the fixture materializes")).expect("the fixture parses"); let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); !specodelic::fixtures::specs::rule_fired(&clean, "linter.coverage") && specodelic::fixtures::specs::rule_fired(&spec, "linter.coverage") }` — `lint(file) reports rule == failed`
     #[test]
-    fn coverage_gap_flagged(v0 in spec_gen::spec_file_with()) {
-        todo_predicate!("`lint(file) reports rule == failed`");
+    fn coverage_gap_flagged(v0 in spec_gen::spec_file_with_coverage_gap()) {
+        assert!(
+            { let clean = specodelic::spec::parse_str(&specodelic::fixtures::specs::materialize("specodelic_spec_file").expect("the fixture materializes")).expect("the fixture parses"); let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); !specodelic::fixtures::specs::rule_fired(&clean, "linter.coverage") && specodelic::fixtures::specs::rule_fired(&spec, "linter.coverage") },
+            "predicate `coverage_gap_flagged` violated (executable fragment)",
+        );
     }
     // id: law_missing_case_rejected
-    // generator: `law_property_missing("associativity")`
-    // predicate: `check(file) == failed`
+    // generator: `law_property_missing_associativity()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.law_cases") }` — `check(file) == failed`
     #[test]
-    fn law_missing_case_rejected(v0 in spec_gen::law_property_missing()) {
-        todo_predicate!("`check(file) == failed`");
+    fn law_missing_case_rejected(v0 in spec_gen::law_property_missing_associativity()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.law_cases") },
+            "predicate `law_missing_case_rejected` violated (executable fragment)",
+        );
     }
     // id: orphan_state_rejected
     // generator: `state_appearing_in_no_transition()`
-    // predicate: `check(file) == failed`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.every_state_used") }` — `check(file) == failed`
     #[test]
     fn orphan_state_rejected(v0 in spec_gen::state_appearing_in_no_transition()) {
-        todo_predicate!("`check(file) == failed`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.every_state_used") },
+            "predicate `orphan_state_rejected` violated (executable fragment)",
+        );
     }
     // id: missing_model_section_rejected
     // generator: `spec_file_without_states_or_transitions()`
-    // predicate: `check(file) == failed`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.model_present") }` — `check(file) == failed`
     #[test]
     fn missing_model_section_rejected(v0 in spec_gen::spec_file_without_states_or_transitions()) {
-        todo_predicate!("`check(file) == failed`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.model_present") },
+            "predicate `missing_model_section_rejected` violated (executable fragment)",
+        );
     }
     // id: invariant_violation_blocks_verify
     // generator: `model_with_a_violated_invariant()`
-    // predicate: `check(model_check) == failed`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let ir = specodelic::compile::extract_model_ir(&spec); let tla = specodelic::compile::model_to_tla(&spec); let bound = specodelic::model_check::Bound { max_depth: 10, max_states: Some(100), timeout_secs: Some(120) }; let report = specodelic::model_check::run_executable(&ir, tla.as_bytes(), &bound).expect("the executable-invariant run reports"); report.outcome == specodelic::model_check::Outcome::CounterexampleFound && report.violated_invariant_id.as_deref() == Some("c1") }` — `check(model_check) == failed`
     #[test]
     fn invariant_violation_blocks_verify(v0 in spec_gen::model_with_a_violated_invariant()) {
-        todo_predicate!("`check(model_check) == failed`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let ir = specodelic::compile::extract_model_ir(&spec); let tla = specodelic::compile::model_to_tla(&spec); let bound = specodelic::model_check::Bound { max_depth: 10, max_states: Some(100), timeout_secs: Some(120) }; let report = specodelic::model_check::run_executable(&ir, tla.as_bytes(), &bound).expect("the executable-invariant run reports"); report.outcome == specodelic::model_check::Outcome::CounterexampleFound && report.violated_invariant_id.as_deref() == Some("c1") },
+            "predicate `invariant_violation_blocks_verify` violated (executable fragment)",
+        );
     }
     // id: failing_proptest_blocks_verify
     // generator: `compiled_proptest_block_that_fails()`
-    // predicate: `check(verify) == failed`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let cell = spec.properties.first().expect("the fixture carries a Property row").cells.get("predicate").cloned().unwrap_or_default(); let fragment = specodelic::compile::fragment_of_strict(&cell).expect("the predicate parses").expect("the predicate carries a fragment"); let verdict = specodelic::fixtures::specs::failing_properties_verdict().expect("the properties gate runs over the fixture"); verdict.0 == "properties_failed" && verdict.1 && fragment.text.contains("false") }` — `check(verify) == failed`
     #[test]
     fn failing_proptest_blocks_verify(v0 in spec_gen::compiled_proptest_block_that_fails()) {
-        todo_predicate!("`check(verify) == failed`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let cell = spec.properties.first().expect("the fixture carries a Property row").cells.get("predicate").cloned().unwrap_or_default(); let fragment = specodelic::compile::fragment_of_strict(&cell).expect("the predicate parses").expect("the predicate carries a fragment"); let verdict = specodelic::fixtures::specs::failing_properties_verdict().expect("the properties gate runs over the fixture"); verdict.0 == "properties_failed" && verdict.1 && fragment.text.contains("false") },
+            "predicate `failing_proptest_blocks_verify` violated (executable fragment)",
+        );
     }
     // id: prose_does_not_affect_lint
     // generator: `two_specs_identical_except_rationale_prose()`
-    // predicate: `lint(a) == lint(b)` — differing prose never changes a lint result
+    // predicate: `**rust:** { let with = v0.as_str(); let without = specodelic::fixtures::specs::strip_rationale(with); let a = specodelic::spec::parse_str(with).expect("the rationale fixture parses"); let b = specodelic::spec::parse_str(&without).expect("the stripped fixture parses"); specodelic::fixtures::specs::lint_issues(&a) == specodelic::fixtures::specs::lint_issues(&b) }` — `lint(a) == lint(b)` — differing prose never changes a lint result
     #[test]
     fn prose_does_not_affect_lint(v0 in spec_gen::two_specs_identical_except_rationale_prose()) {
-        todo_predicate!("`lint(a) == lint(b)` — differing prose never changes a lint result");
+        assert!(
+            { let with = v0.as_str(); let without = specodelic::fixtures::specs::strip_rationale(with); let a = specodelic::spec::parse_str(with).expect("the rationale fixture parses"); let b = specodelic::spec::parse_str(&without).expect("the stripped fixture parses"); specodelic::fixtures::specs::lint_issues(&a) == specodelic::fixtures::specs::lint_issues(&b) },
+            "predicate `prose_does_not_affect_lint` violated (executable fragment)",
+        );
     }
 }
 
@@ -340,17 +541,23 @@ fn silently_shrunk_id_set_rejected() {
 
 proptest! {
     // id: constraint_kind_out_of_set_rejected
-    // generator: `constraint_row_with(kind: "made_up")`
-    // predicate: `check(file) == failed`
+    // generator: `constraint_row_with_kind_made_up()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.constraint_kind_closed") }` — `check(file) == failed`
     #[test]
-    fn constraint_kind_out_of_set_rejected(v0 in spec_gen::constraint_row_with()) {
-        todo_predicate!("`check(file) == failed`");
+    fn constraint_kind_out_of_set_rejected(v0 in spec_gen::constraint_row_with_kind_made_up()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.constraint_kind_closed") },
+            "predicate `constraint_kind_out_of_set_rejected` violated (executable fragment)",
+        );
     }
     // id: property_kind_out_of_set_rejected
-    // generator: `property_row_with(kind: "audit")`
-    // predicate: `check(file) == failed`
+    // generator: `property_row_with_kind_audit()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.property_kind_closed") }` — `check(file) == failed`
     #[test]
-    fn property_kind_out_of_set_rejected(v0 in spec_gen::property_row_with()) {
-        todo_predicate!("`check(file) == failed`");
+    fn property_kind_out_of_set_rejected(v0 in spec_gen::property_row_with_kind_audit()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); specodelic::fixtures::specs::rule_fired(&spec, "linter.property_kind_closed") },
+            "predicate `property_kind_out_of_set_rejected` violated (executable fragment)",
+        );
     }
 }
