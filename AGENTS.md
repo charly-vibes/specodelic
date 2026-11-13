@@ -21,7 +21,7 @@
 
 This repo's `specs/`-style markdown spec files (YAML frontmatter +
 fixed-schema tables) are linted by `spk` (crates.io: specodelic).
-Write specs so `spk lint` passes; embedded format revision: specodelic.md Revision 20
+Write specs so `spk lint` passes; embedded format revision: specodelic.md Revision 21
 
 ### Lint rules (every violation names its `rule_id`)
 

@@ -260,6 +260,19 @@ corpus drift against their installed binary.
   executable slice. (Revisions 15–16 — executable predicate fragments
   and the closed fragment-tag grammar — live in `compile.md` and the
   changelog; their rows changed no id-set here.)
+- **Revision 21**: a law-kind Property row may carry one executable body
+  per named case — the case key `**name::**` followed by the fragment
+  marker in fragment position
+  (``**identity::** `**rust:** v0.len() >= 1` ``). The body is emitted
+  verbatim as that case's block body; a case with no body keeps the
+  `todo_predicate!` placeholder. The `**name:**` labels stay the
+  enumeration of record (a body never adds a case), the closed tag set,
+  the fragment-position rule and the hygiene list are unchanged, and one
+  shared parser (`law.rs`) backs both the linter's `law_cases` rule and
+  the compiler's block expansion. Normative rows live in `compile.md`
+  (`fragment_law_rejected`, `fragment_language_closed`,
+  `predicate_fragment_opt_in`, `properties_to_proptest`); this file's own
+  `law_requires_cases` row gains the body arm (no id-set change).
 
 ---
 

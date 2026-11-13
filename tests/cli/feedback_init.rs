@@ -85,7 +85,7 @@ fn init_injects_specodelic_block_into_agents_md() {
     // block content is self-describing: rule catalog + revision + commands
     assert!(agents.contains("linter.ears_syntax"));
     assert!(agents.contains("linter.frontmatter_valid"));
-    assert!(agents.contains("specodelic.md Revision 20"));
+    assert!(agents.contains("specodelic.md Revision 21"));
     assert!(agents.contains("spk lint"));
     let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
     assert_eq!(json["data"]["block"], "injected");

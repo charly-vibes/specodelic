@@ -174,18 +174,20 @@ pub(crate) fn lint_coverage(specs: &[Spec], report: &mut Report) {
 
         // every_law_has_cases (specodelic.md Revision 13) — a law-kind
         // row's required cases are whatever its predicate enumerates as
-        // `**name:**` case labels, parsed by spec::law_case_labels (the
+        // `**name:**` case labels, parsed by law::law_case_labels (the
         // same helper compile's block expansion consumes — the compiler
         // and the linter cannot disagree on what a case is). The
         // identity and associativity floor is mandatory; extra labels
         // are first-class checkable declarations. A prose mention of a
-        // case name is not an enumeration.
+        // case name is not an enumeration. Revision 21 keeps the labels
+        // the enumeration of record: a per-case body never adds a case,
+        // and the `**rust:**` fragment marker is never counted as one.
         for p in &spec.properties {
             if p.kind.as_deref() != Some("law") {
                 continue;
             }
             let predicate = p.cells.get("predicate").cloned().unwrap_or_default();
-            let labels: BTreeSet<String> = crate::spec::law_case_labels(&predicate)
+            let labels: BTreeSet<String> = crate::law::law_case_labels(&predicate)
                 .into_iter()
                 .map(|c| c.to_lowercase())
                 .collect();

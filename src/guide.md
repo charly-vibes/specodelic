@@ -87,7 +87,12 @@ Property row `kind` (`property_kind_closed`) — one of: {{property_kinds}}.
 - `unit` — one proptest block from the predicate.
 - `law` — the predicate expands into one block per named `**case:**`
   label; `law_requires_cases` demands at least `identity` and
-  `associativity` — a floor, not a ceiling.
+  `associativity` — a floor, not a ceiling. Since Revision 21 a case may
+  carry its own executable body under its case key (`**case::**`),
+  written as ``**identity::** `**rust:** v0.len() >= 1` ``: the body is
+  emitted verbatim as that case's block, and a case with no body keeps
+  the `todo_predicate!` placeholder. The labels stay the enumeration of
+  record — a body never adds a case.
 
 Closed sets grow only under a new `## Revision` heading, never silently
 (`append_only_variants`).

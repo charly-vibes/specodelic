@@ -107,7 +107,7 @@ fn upgrade_old_corpus_upgrades_to_target_revision() {
         .assert()
         .success()
         .stdout(contains("\"source_revision\":17"))
-        .stdout(contains("\"target_revision\":20"))
+        .stdout(contains("\"target_revision\":21"))
         .stdout(contains("\"files_changed\":1"));
     let upgraded = std::fs::read_to_string(&legacy).unwrap_p();
     assert!(upgraded.contains("id: legacy.cap\n"), "{upgraded}");
@@ -206,7 +206,7 @@ fn upgrade_unknown_target_revision_is_refused() {
         .failure()
         .code(2)
         .stdout(contains("999"))
-        .stdout(contains("2 to 20"))
+        .stdout(contains("2 to 21"))
         .stdout(contains("--version --json"));
     assert_eq!(std::fs::read(&legacy).unwrap_p(), before);
 }
@@ -221,7 +221,7 @@ fn upgrade_unknown_source_revision_is_refused() {
         .args([
             "migrate",
             "--to-revision",
-            "20",
+            "21",
             "--from-revision",
             "999",
             "--write",
@@ -231,7 +231,7 @@ fn upgrade_unknown_source_revision_is_refused() {
         .failure()
         .code(2)
         .stdout(contains("999"))
-        .stdout(contains("2 to 20"));
+        .stdout(contains("2 to 21"));
     assert_eq!(std::fs::read(&legacy).unwrap_p(), before);
 }
 

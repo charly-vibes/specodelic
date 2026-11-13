@@ -325,7 +325,13 @@ impl FragmentLang {
         }
     }
 
-    fn parse(tag: &str) -> Option<Self> {
+    /// Parse a marker tag. The closed set itself lives in
+    /// `law::FRAGMENT_TAGS` (Revision 21 — the one place the grammar
+    /// and the emitters meet), so the two can never drift apart.
+    pub(crate) fn parse(tag: &str) -> Option<Self> {
+        if !crate::law::FRAGMENT_TAGS.contains(&tag) {
+            return None;
+        }
         match tag {
             "rust" => Some(FragmentLang::Rust),
             "py" => Some(FragmentLang::Py),
@@ -800,16 +806,23 @@ impl<'a> HelperExpander<'a> {
 
 /// The fragment texts that may carry `@name` helper references: non-law
 /// Property predicates and invariant-kind Constraint exprs that opted in
-/// with the `**rust:**` marker (law rows and guards can never reach
-/// here — their rejection rows run first in `validate_fragments`).
+/// with the `**rust:**` marker, plus a law row's per-case bodies
+/// (Revision 21 — a body is a fragment like any other, so the helper
+/// rule reaches it; guards can never reach here — their rejection rows
+/// run first in `validate_fragments`).
 fn fragment_cell_texts(spec: &Spec) -> Vec<String> {
     let mut texts = Vec::new();
     for p in &spec.properties {
+        let predicate = p.cells.get("predicate").map(String::as_str).unwrap_or("");
         if p.cells.get("kind").map(String::as_str) == Some("law") {
+            texts.extend(
+                crate::law::law_case_bodies(predicate)
+                    .into_iter()
+                    .map(|b| b.text),
+            );
             continue;
         }
-        if let Some(text) = fragment_of(p.cells.get("predicate").map(String::as_str).unwrap_or(""))
-        {
+        if let Some(text) = fragment_of(predicate) {
             texts.push(text);
         }
     }
@@ -955,27 +968,67 @@ pub fn validate_fragments(spec: &Spec) -> Result<(), CompileError> {
         // closed set — never silence. Law-kind predicates are exempt:
         // their `**label:**` occurrences are the law-case grammar, not
         // fragment markers.
-        if kind != "law"
-            && let Some(tag) = unknown_tag_markers(&predicate).first()
-        {
-            return Err(fragment_error(
-                &p.id,
-                format!(
-                    "unknown fragment language tag `{tag}` — the closed tag set is {{rust, py, ts}} (fragment_language_closed)"
-                ),
-            ));
+        if kind != "law" {
+            // Revision 21: the per-case body grammar is law-only — a
+            // case key on a non-law row is a labeled failure, checked
+            // before the unknown-tag scan (the more specific defect
+            // first).
+            if let Some(failure) = crate::law::non_law_case_key_failure(&predicate) {
+                return Err(fragment_error(&p.id, &failure.message));
+            }
+            if let Some(tag) = unknown_tag_markers(&predicate).first() {
+                return Err(fragment_error(
+                    &p.id,
+                    format!(
+                        "unknown fragment language tag `{tag}` — the closed tag set is {{rust, py, ts}} (fragment_language_closed)"
+                    ),
+                ));
+            }
+        }
+        // Revision 21: a law-kind row's predicate carries one executable
+        // body per named case (the per-case body grammar). Every defect
+        // in that grammar — a fragment no case key introduces, a second
+        // body for one case, a body naming a case the row does not
+        // enumerate — is a labeled extraction failure. A case key on a
+        // non-law row is rejected the same way: the grammar is law-only.
+        if kind == "law" {
+            let cell = crate::law::parse_law_cell(&predicate);
+            if let Some(failure) = cell.failures.first() {
+                return Err(fragment_error(&p.id, &failure.message));
+            }
+            for body in &cell.bodies {
+                // The scanner only ever builds a body from a known tag,
+                // so this arm is defense in depth — and it fails
+                // labeled, never a silent fall-through to Rust.
+                let Some(lang) = FragmentLang::parse(&body.tag) else {
+                    return Err(fragment_error(
+                        &p.id,
+                        format!(
+                            "the body of the case `{}` names the unknown tag `{}` — the closed tag set is {{rust, py, ts}} (fragment_language_closed)",
+                            body.case, body.tag
+                        ),
+                    ));
+                };
+                if lang != FragmentLang::Rust {
+                    return Err(emitter_gate_error(&p.id, lang));
+                }
+                if let Some(token) = hygiene_violation(&shape_rust_body(&body.text)) {
+                    return Err(fragment_error(
+                        &p.id,
+                        format!(
+                            "the body of the case `{}` contains banned token `{token}` (fragment_hygiene — fragments are compiled Rust, never a sandbox)",
+                            body.case
+                        ),
+                    ));
+                }
+            }
+            continue;
         }
         match fragment_of_strict(&predicate) {
             Err(reason) => return Err(fragment_error(&p.id, reason)),
             Ok(Some(fragment)) => {
                 if fragment.lang != FragmentLang::Rust {
                     return Err(emitter_gate_error(&p.id, fragment.lang));
-                }
-                if kind == "law" {
-                    return Err(fragment_error(
-                        &p.id,
-                        "law-kind properties cannot carry **rust:** fragments — each required case needs its own body, and one fragment cannot honestly serve several named cases",
-                    ));
                 }
                 if let Some(token) = hygiene_violation(&fragment.text) {
                     return Err(fragment_error(
@@ -1420,20 +1473,23 @@ fn blocks_for_row(id: String, kind: Option<&str>, row: &crate::spec::Row) -> Vec
     let gens = generator_names(&generator);
     let base = sanitize_ident(&id);
     match kind {
-        Some("law") => required_law_cases(&predicate)
-            .into_iter()
-            .map(|case| PropBlock {
-                fn_name: format!("{base}_{}", sanitize_ident(&case)),
-                id: id.clone(),
-                case: Some(case),
-                // Law rows never carry fragments (fragment_law_rejected —
-                // compile_spec fails labeled before emission runs).
-                fragment: None,
-                generator: generator.clone(),
-                predicate: predicate.clone(),
-                gens: gens.clone(),
-            })
-            .collect(),
+        Some("law") => {
+            // Revision 21: the case's own body, when the cell carries
+            // one; a case without a body keeps the honest placeholder.
+            let bodies = law_case_fragments(&predicate);
+            required_law_cases(&predicate)
+                .into_iter()
+                .map(|case| PropBlock {
+                    fn_name: format!("{base}_{}", sanitize_ident(&case)),
+                    id: id.clone(),
+                    case: Some(case.clone()),
+                    fragment: bodies.get(&case).cloned(),
+                    generator: generator.clone(),
+                    predicate: predicate.clone(),
+                    gens: gens.clone(),
+                })
+                .collect()
+        }
         _ => vec![PropBlock {
             fn_name: base,
             id,
@@ -1444,6 +1500,16 @@ fn blocks_for_row(id: String, kind: Option<&str>, row: &crate::spec::Row) -> Vec
             gens,
         }],
     }
+}
+
+/// The per-case bodies of a law row's predicate cell: the case label →
+/// its body text, shaped like every other fragment (trimmed, the
+/// table-cell pipe escape undone).
+fn law_case_fragments(predicate: &str) -> BTreeMap<String, String> {
+    crate::law::law_case_bodies(predicate)
+        .into_iter()
+        .map(|body| (body.case, shape_rust_body(&body.text)))
+        .collect()
 }
 
 /// Generator identifiers in a generator cell: every `name(` occurrence.
@@ -1462,7 +1528,7 @@ fn generator_names(cell: &str) -> Vec<String> {
 /// Required cases for a law row: `**case:**` labels in the predicate;
 /// falls back to the `law_requires_cases` floor (identity, associativity).
 fn required_law_cases(predicate: &str) -> Vec<String> {
-    let cases = crate::spec::law_case_labels(predicate);
+    let cases = crate::law::law_case_labels(predicate);
     if cases.is_empty() {
         vec!["identity".into(), "associativity".into()]
     } else {

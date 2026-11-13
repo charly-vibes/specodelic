@@ -21,13 +21,13 @@ traces_to = "[[compile]]"
 [[constraints]]
 id = "properties_to_proptest"
 kind = "invariant"
-expr = "`each Property row compiles to one proptest! block: generator becomes the block's input strategy, predicate becomes its assertion body — verbatim as a **rust:** fragment when the row opts in ([[compile.predicate_fragment_opt_in]]), else the un-translated todo_predicate! placeholder that compiles here and fails only at execution; a law-kind property compiles to one block per case enumerated in its predicate's **name:** case labels (the identity and associativity floor is lint-enforced ahead of compile, specodelic.md Revision 13)`"
+expr = "`each Property row compiles to one proptest! block: generator becomes the block's input strategy, predicate becomes its assertion body — verbatim as a **rust:** fragment when the row opts in ([[compile.predicate_fragment_opt_in]]), else the un-translated todo_predicate! placeholder that compiles here and fails only at execution; a law-kind property compiles to one block per case enumerated in its predicate's **name:** case labels (the identity and associativity floor is lint-enforced ahead of compile, specodelic.md Revision 13) — Revision 21 gives each case its own body: the case's per-case body (a fragment marker under the case's key `**name::**`) becomes that case's block body verbatim, and a case with no body keeps the todo_predicate! placeholder`"
 traces_to = "[[compile]]"
 
 [[constraints]]
 id = "predicate_fragment_opt_in"
 kind = "invariant"
-expr = "`a Property's predicate cell may opt into executable translation with exactly one **rust:** marker and a non-empty fragment after it — the fragment is a Rust boolean expression emitted verbatim as the block's assertion body, the cell text after the marker — to the cell's end or the code span's closing backtick — is the fragment, binding the block's generated values (v0…, one per generator named in the generator cell, each a String); the marker opts in only in fragment position — starting the cell or immediately opening the fragment's code span, a backtick directly before it — an occurrence anywhere else (mid-span, as in the defining rows of this very table, or in prose between spans) is a mention of the mechanism and never extracts (specodelic-sd1); a cell with no marker compiles exactly as before (the placeholder) — pure widening, nothing valid before this Revision is invalidated`"
+expr = "`a Property's predicate cell may opt into executable translation with exactly one **rust:** marker and a non-empty fragment after it — the fragment is a Rust boolean expression emitted verbatim as the block's assertion body, the cell text after the marker — to the cell's end or the code span's closing backtick — is the fragment, binding the block's generated values (v0…, one per generator named in the generator cell, each a String); the marker opts in only in fragment position — starting the cell or immediately opening the fragment's code span, a backtick directly before it — an occurrence anywhere else (mid-span, as in the defining rows of this very table, or in prose between spans) is a mention of the mechanism and never extracts (specodelic-sd1); a cell with no marker compiles exactly as before (the placeholder) — pure widening, nothing valid before this Revision is invalidated; a law-kind Property row's predicate cell is the one cell that carries more than one marker: one per named case, each under its case key (`**name::**`), the case labels themselves staying the law-case grammar and never fragment markers (specodelic.md Revision 21)`"
 traces_to = "[[compile]]"
 
 [[constraints]]
@@ -39,7 +39,7 @@ traces_to = "[[compile]]"
 [[constraints]]
 id = "fragment_law_rejected"
 kind = "invariant"
-expr = "`a law-kind Property row's predicate cell must not carry a **rust:** fragment — each required case needs its own assertion body and one fragment cannot honestly serve several named cases; violation is a labeled extraction failure`"
+expr = "`a law-kind Property row's predicate cell carries at most one executable body per named case, each written under its case key (`**name::**`) — each required case needs its own assertion body and one fragment cannot honestly serve several named cases; a fragment that no case key introduces, a second body for one case, a body naming a case the row does not enumerate, an empty body, and a case key that introduces no body are each a labeled extraction failure naming the case, and a case key on a non-law row is rejected the same way — the per-case body grammar is law-only (specodelic.md Revision 21)`"
 traces_to = "[[compile]]"
 
 [[constraints]]
@@ -51,7 +51,7 @@ traces_to = "[[compile]]"
 [[constraints]]
 id = "fragment_language_closed"
 kind = "invariant"
-expr = "`the executable-fragment tag set is closed: a cell in fragment position may carry exactly one **rust:**, **py:**, or **ts:** marker per the grammar below — the same closed-set discipline as [[specodelic.property_kind_closed]] and [[specodelic.constraint_kind_closed]]; the fragment-position rule and the non-empty-fragment requirement carry over verbatim per tag, and **rust:** remains the fully specified case with byte-identical semantics (widening [[compile.predicate_fragment_opt_in]]/[[compile.invariant_fragment_opt_in]]'s grammar; [[specodelic-lf3]] Revision 16)`"
+expr = "`the executable-fragment tag set is closed: a cell in fragment position may carry exactly one **rust:**, **py:**, or **ts:** marker per the grammar below — one per cell, except a law-kind Property row's predicate cell, which carries one marker per named case (specodelic.md Revision 21) — the same closed-set discipline as [[specodelic.property_kind_closed]] and [[specodelic.constraint_kind_closed]]; the fragment-position rule and the non-empty-fragment requirement carry over verbatim per tag, and **rust:** remains the fully specified case with byte-identical semantics (widening [[compile.predicate_fragment_opt_in]]/[[compile.invariant_fragment_opt_in]]'s grammar; [[specodelic-lf3]] Revision 16)`"
 traces_to = "[[compile]]"
 
 [[constraints]]
@@ -124,4 +124,46 @@ traces_to = "[[compile]]"
 id = "emission_failure"
 kind = "effect"
 expr = "`compile.emission_failure(detail) — the emission stage failed because detail`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "shared_fragment_defs"
+kind = "invariant"
+expr = "`a spec file MAY carry an optional ## Fragments section of def <name>: lines each followed by a fenced rust body; any fragment cell in the same file MAY reference a definition by the @name token, and compile SHALL inline each referenced definition's body at every use site as a ({ <items> <name> }) block expression — per-row blocks stay self-contained (the inline-not-shared-module decision of record; add-shared-fragment-helpers)`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "helper_reference_resolves"
+kind = "invariant"
+expr = "`an @name reference naming no def in the file's ## Fragments section fails compile labeled at fragment_extraction, naming the unresolved reference — and a malformed or duplicate def line fails labeled the same way; never a silently ignored marker`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "helper_collision_labeled"
+kind = "invariant"
+expr = "`a def name colliding with a generated symbol — spec_gen, todo_predicate, an emitted block fn, or the v0, v1, … strategy-binding namespace — fails compile labeled naming both symbols; never a silent shadow`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "helper_hygiene_inherited"
+kind = "invariant"
+expr = "`a def body containing a fragment_hygiene banned token fails compile labeled naming the token — helper bodies inherit the fragment token ban verbatim, documented imprecision included (defense-in-depth, not a sandbox)`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "helper_cycle_labeled"
+kind = "invariant"
+expr = "`definitions referencing each other in a cycle fail compile labeled naming the cycle — inlining terminates by construction; an acyclic chain (a fragment references a helper that references another) inlines fully at the use site`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "dead_helper_warns"
+kind = "advisory"
+expr = "`a def reachable from no fragment cell — directly or transitively — is reported as a dead-helper warning on the compile warnings channel, and compile still succeeds: a warning, never a failure`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "fragments_section_opaque"
+kind = "invariant"
+expr = "`the linter treats ## Fragments as opaque prose — the section carries no frontmatter, tables, or typed references and disturbs no gating rule — and a file without the section compiles byte-identically to the pre-change compiler's output (pure widening)`"
 traces_to = "[[compile]]"

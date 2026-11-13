@@ -32,7 +32,7 @@ the project/format/tool/subject terminology).
 | ears_statement           | invariant | `intent.statement matches one of the 5 EARS patterns`                      | [[specodelic]]  |
 | one_capability_per_row   | invariant | `no row.id joins two intents via "and"/"or"`                               | [[specodelic]]  |
 | coverage                 | invariant | `**kernel:** ∀ c ∈ Constraint: ∃ p ∈ Property: p.derives_from == c`        | [[specodelic]]  |
-| law_requires_cases       | invariant | `∀ property where kind == "law": the property's predicate enumerates its required cases in machine-findable **name:** case-label form, and the label set includes identity and associativity` — a floor, not a ceiling: a given law may require further named cases (e.g. unit, counit, naturality, triangle identity) in addition, as extra case labels in the same form; a prose mention of a case name is not an enumeration | [[specodelic]]  |
+| law_requires_cases       | invariant | `∀ property where kind == "law": the property's predicate enumerates its required cases in machine-findable **name:** case-label form, and the label set includes identity and associativity` — a floor, not a ceiling: a given law may require further named cases (e.g. unit, counit, naturality, triangle identity) in addition, as extra case labels in the same form; a prose mention of a case name is not an enumeration; Revision 21 adds the per-case body form beside the labels — a case may carry its own executable body under its case key (`**name::**`) followed by the fragment marker in fragment position, and the labels stay the enumeration of record: a body never adds a case, never renames one, and never replaces the label (specodelic.md Revision 21) | [[specodelic]]  |
 | no_boolean_columns       | invariant | `schema defines no bool column type; states are named variants only`       | [[specodelic]]  |
 | append_only_variants     | invariant | `∀ id-set S governed by 𝒦 — a variant-table's ids (chiefly States), a Constraint/Property row's own `kind` value-set, or the Reference Typing table's field set — across revisions r < r': S(r) ⊆ S(r'), grown only under a new Revision heading, never silently; an existing member's typing may narrow only in the same Revision that introduces the kind-split it depends on, and only if the narrowing invalidates nothing valid at r` | [[specodelic]]  |
 | prose_untouched          | invariant | `parser never inspects rationale/description content`                      | [[specodelic]]  |
@@ -988,6 +988,44 @@ Constraint carrying a `**rust:**` fragment executes natively
 (model_check.md's `executable_invariants_execute`), where
 `no_counterexample` can be honestly earned. No typing rule, closed set,
 or table shape changes — wording sync only.
+
+## Revision 21 — 2026-11-13
+
+**Law-kind rows carry one executable body per named case**
+(`specodelic-1nhe`). A law Property row named its cases as `**name:**`
+labels (Revision 13) but could not say what each case *means*: the
+compiler emitted one `todo_predicate!` placeholder block per case, and a
+fragment on a law row was rejected outright — one fragment cannot
+honestly serve several named cases. The law was therefore executable
+only case by case, never at all.
+
+- **The labels stay the enumeration of record.** `**name:**` remains the
+  only thing that declares a case; the identity/associativity floor is
+  unchanged, and a body never adds, renames or replaces a case. A
+  `**rust:**` occurrence is a fragment marker, never a case label (the
+  shared parser in `law.rs` is what makes the linter's `law_cases` rule
+  and the compiler's block expansion agree on that).
+- **The per-case body.** A case carries its own executable body under a
+  case key — `**name::**` — followed by the fragment marker in fragment
+  position: ``**identity::** `**rust:** v0.len() >= 1` ``. The body is
+  emitted verbatim as that case's block body; a case with no body keeps
+  the honest `todo_predicate!` placeholder. The closed tag set, the
+  fragment-position rule, the hygiene list and the mention-vs-extraction
+  rule are unchanged — a body is a fragment like any other.
+- **The labeled failures.** A fragment no case key introduces, a second
+  body for one case, a body naming a case the row does not enumerate, an
+  empty body, a case key that introduces no body, and a case key on a
+  non-law row are each a labeled extraction failure naming the rule and
+  the offending case — never a silently ignored marker.
+
+One Constraint row reworded under this heading per `append_only_variants`
+(`law_requires_cases`); the row's case set is unchanged — the labels
+still enumerate, and the body form only ADDS an executable arm beside
+them, so nothing valid at Revision 20 is invalidated. The compile.md
+rows that stated the law-row rejection and the one-marker-per-cell rule
+are reworded to the same effect (compile.md's `fragment_law_rejected`,
+`fragment_language_closed`, `predicate_fragment_opt_in`,
+`properties_to_proptest`).
 
 ## Requirements
 

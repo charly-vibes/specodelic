@@ -27,6 +27,7 @@ pub mod guide;
 pub mod hooks;
 pub mod human;
 pub mod kernel;
+pub mod law;
 pub mod lint;
 pub mod merge;
 pub mod migrate;
