@@ -35,10 +35,8 @@ phase: research
 ### git_status
 
 ```
- M .wai/pipeline-runs/epic-orchestrator-2026-11-13-specodelic-lf3-migrate-packs-properties.yml
- M .wai/projects/specodelic/.pending-resume
-?? .wai/projects/specodelic/research/2026-11-13-ship-c34a864c-16-row-packs-migration-55f058c0.md
-?? .wai/resources/pipelines/.last-run
+ M .wai/pipeline-runs/epic-orchestrator-2026-11-13-specodelic-1nhe-law-kind-per-case-fragment-bodies.yml
+?? .wai/projects/specodelic/research/2026-11-13-ship-59136eb3-d774ee28-pushed-to-cv-charly-vibes.md
 ```
 
 ### open_issues
@@ -57,13 +55,13 @@ phase: research
 ○ specodelic-h5ks P2 lint: vacuity advisories — extension of specodelic-xci (catitas A2)
 ○ specodelic-l54a P2 docs: per-file ASCII state-machine views — unblocked by gently-hpd closure
 ○ specodelic-oeuz P2 docs: no gate on format-summary prose — 'four tables'/'Frontmatter'-for-'Intent' drift shipped to the site
+○ specodelic-vjem P2 chore(artifacts): regenerate the stale compiled corpus artifacts (verify, linter-referential_integrity)
 ○ specodelic-wq7n P2 [bug] audit: deployed spec Purpose is the archiver TBD placeholder
 ○ specodelic-xci P2 lint: advisory warnings for placeholder and tautology content (TODO cells, trivially-true predicates)
 ○ specodelic-ynfv P2 [bug] compile: emit rustfmt-clean *_props.rs — recompile churn trips consumer fmt gates (gh-15)
 ○ specodelic-0mn1 P3 [bug] ah sync refuses self-hosting corpora: per-file lint can never be clean (total_refs is corpus-wide)
 ○ specodelic-0xnd P3 import acset.generic as openspec change — schema-parametric incidence core, GATED on adjacency-graph benchmark (external handoff, at/arltificial/renzi)
 ○ specodelic-18mt P3 conform: optional expect field on scenario records — negative probes classify as agreements (gh-18 item 7)
-○ specodelic-1nhe P3 format Revision: law-kind property rows may carry per-case fragment bodies (M4 — unblocks specodelic/kinds migration)
 ○ specodelic-2fp1 P3 docs: preservation recipe — conform twice + verdict diff (simplification review)
 ○ specodelic-3a8 P3 refactor: decouple dual-format (openspec) metadata from core Spec parse — adapter layer
 ○ specodelic-3xc P3 decide: fan-in multiplicity rule — state_view counts (source,field) pairs, traceability_view counts distinct sources (B3)
@@ -94,5 +92,6 @@ Total: 44 issues (44 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
+
 ```
 
