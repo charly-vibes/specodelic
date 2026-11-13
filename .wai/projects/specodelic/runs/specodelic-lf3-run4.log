@@ -1,0 +1,29 @@
+The migration is complete and committed. Final report:
+
+## Report
+
+**Commits**
+- `004398e1` feat(specs): 43 of 47 specodelic + kinds property rows now carry executable `**rust:**` predicates — migrates the two corpus files' property cells to real tool calls, adds the `fixtures::specs` registry (45 real fixture builders) and `tests/specodelic_fixtures.rs` (22 tests), regenerates `specodelic/specodelic_props.rs`, `specodelic/kinds_props.rs` and the corpus-wide `specodelic/*.check.json` evidence.
+- `9d101620` chore(beads): record the lf3 run-4 progress note on specodelic-lf3 — the bead's note carries the honest state (43/47, the four blocked rows, the gate results).
+
+**Rows**
+- specodelic: 29/30 executable — `silently_shrunk_id_set_rejected` stays `todo_predicate!`: no API reads an id-set diff across revisions, so nothing can honestly decide its claim.
+- kinds: 14/17 executable — `constraint_row_extra_field_rejected`, `state_row_with_extra_field_rejected`, `subkind_addition_without_revision_rejected` stay `todo_predicate!`: the current lint path parses an extra Constraint column, an extra State field and a sixth section without a finding, and no API reads a revision diff.
+- Law rows carry Revision 21 per-case bodies: `rename_naturality` (identity, associativity, naturality), `kind_shape_naturality` (identity, associativity). The four placeholder rows are pinned by a test (`the_unmigrated_rows_are_the_documented_four`).
+
+**Gates run**
+- `just verify-specs` → exit 0 (scope unchanged: compile + packs). **Not** extended to the two migrated files — four rows still carry the honest placeholder, so extending it would make the gate red for a reason the tool cannot decide.
+- `just ci` → exit 0 (fmt-check, clippy `-D warnings`, 50 test suites, release build, openspec validate, lint, model-check, verify-specs, pretender, `ah check`).
+- `ah check --run-tests --all-tests` → OK, 641 passed, 0 findings.
+- `just lint-specs` → 48 files, 0 issues; `openspec validate --all --strict` → 53 passed, 0 failed.
+- Properties gate over the migrated files: 31 + 15 passing blocks, failing only the four placeholder rows. **Mutation proofs**: inverting `referential_integrity`'s defect-detection conjunct turned that block red in specodelic; inverting `transition_missing_guard_rejected`'s conjunct turned it red in kinds; a syntactically broken fragment turned the properties state `uncompilable` (never `verified`). Both files restored green afterwards.
+- `pretender check`: `src/lib.rs` green (2286 lines, under the 2300 ratchet).
+
+**Deviations**
+- `just verify-specs` left at its current scope — see above.
+- All 22 `specodelic/*.check.json` reports were committed, not just the two migrated ones: the `scope_sha256` digest covers the whole corpus, so committing only two would have left the other twenty stale and made `verify-specs` vacuous.
+- The fixture registry was compacted (flat `(name, builder)` table, re-wrapped docs, shorter fixture generator cell) to keep `src/lib.rs` under the structural ratchet; the regenerated artifacts are byte-identical after that refactor.
+- No push: the orchestrator owns the epic run's session close, and the repo policy requires explicit authorization for pushes.
+
+**Next**
+- Orchestrator: capture this report, advance the epic run, and close/keep `specodelic-lf3` open with the note that `verify-specs` still waits on the four rows. The follow-up ticket is: give those four claims a real seam (a row-shape linter rule for extra columns/State fields, and a revision-diff reader), migrate them, then extend `just verify-specs` to all four corpus files.
