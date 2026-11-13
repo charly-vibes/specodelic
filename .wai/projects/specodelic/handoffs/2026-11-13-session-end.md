@@ -35,22 +35,20 @@ phase: research
 ### git_status
 
 ```
- M .wai/pipeline-runs/epic-orchestrator-2026-11-13-specodelic-lf3-migrate-specodelic-kinds-properties-run-4.yml
-?? .wai/projects/specodelic/research/2026-11-13-ship-b048a048-b3d34903-pushed-main-origin-main.md
+ M .wai/pipeline-runs/epic-orchestrator-2026-11-13-specodelic-3632-lint-revision-seams-for-the-four-blocked-lf3-rows.yml
+?? .wai/projects/specodelic/research/2026-11-13-ship-1f6416c9-9539c9aa-on-main-includes-subagen.md
 ```
 
 ### open_issues
 
 ```
 ○ specodelic-1ey4 P2 verify: route verify stage artifact_paths through citation_corpus::artifact_dir — flat-path residual after yl39
-○ specodelic-3632 P2 lint+revision seams: the four lf3 rows stuck on todo_predicate! (extra row fields, revision diffs)
 ○ specodelic-39w P2 [bug] acset instance builder panics on model.state anchor links — uninterned pseudo-node
 ○ specodelic-3yt9 P2 audit: bind:<owner-id> row key can collide with an oracle corpus id in one report
 ○ specodelic-523w P2 [bug] compile: commands/corpus.rs (spk compile over a corpus) has no scope guard — later same-stem file silently wins
 ○ specodelic-5iez P2 conform: no explain topic — oracle JSONL schema, verdict taxonomy, permitted-requires-executable-claims rule undocumented (gh-18)
 ○ specodelic-8mta P2 kernel: unqualified/unresolvable id literals evaluate vacuously verified (E2 finding F1)
 ○ specodelic-9o1h P2 kernel: citation algebra cannot compose kernel-evaluated claims (E2 finding F2)
-○ specodelic-ez9a P2 [epic] epic: format completion — ref-kind enforcement, verify chain, migration
 ○ specodelic-f4sx P2 [bug] conform: single-file lint gate dangles corpus-wide refs; prose-dominated unknowns; undocumented trace schema (gh-17)
 ○ specodelic-gixd P2 audit: dedupe audit test fixtures cross-file (l6md RO5U L8 residual)
 ○ specodelic-h5ks P2 lint: vacuity advisories — extension of specodelic-xci (catitas A2)
@@ -89,7 +87,7 @@ phase: research
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 45 issues (45 open, 0 in progress)
+Total: 43 issues (43 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
