@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-13-specodelic-lf3-migrate-packs-properties, pipeline-step:ship-close]
+---
+
+SHIP-CLOSE (partial by owner scope): the packs migration is committed atomically as two commits on this branch — c34a864c 'feat(packs): the 16 pack property rows now carry executable **rust:** predicates' and 55f058c0 'refactor(packs): collapse the pack fixture templates and tighten two predicates'. The working tree carries only the pre-existing .wai pipeline bookkeeping (not authored as code by this run and deliberately left unstaged). DEVIATIONS from the pipeline's ship-close checklist, all by the owner's explicit scope for this run: (1) no git push — the owner excluded pushing from this run and the policy requires explicit authorization for a push; (2) no beads issue update — excluded by the owner; (3) no wai close — excluded by the owner; (4) no openspec change task to mark — the change is a corpus-file migration with no openspec/changes proposal. The commits are local and ready for the owner's review and push.
