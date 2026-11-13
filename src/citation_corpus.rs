@@ -22,6 +22,13 @@
 //! pinned per-run backend (`model_check.rs` is ratcheted), so per-run
 //! semantics stay untouched and corpus composition is a command-layer
 //! concern over the same citation algebra (`compile::evaluate_citation`).
+//!
+//! Cross-evaluator composition (specodelic-9o1h, E2 finding F2): a
+//! citation target resolves against the same invocation's EXEC outcomes
+//! AND the corpus-static KERNEL claim statuses — the algebra only
+//! CONSUMES statuses, it never re-evaluates a claim. The composition is
+//! one-way: the closed kernel grammar has no `[[..]]` references, so a
+//! kernel claim can never cite back and no new cycle rule is needed.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -156,13 +163,33 @@ pub fn run_backend_pass(
     runs
 }
 
+/// One corpus-static claim's same-invocation evidence: the claim's
+/// three-valued status and the labeled reason when it is not verified.
+/// The citation algebra CONSUMES these statuses — the kernel evaluator
+/// (`kernel::evaluate_corpus_claims`) owns the evaluation; the algebra
+/// never re-evaluates a claim.
+#[derive(Debug, Clone)]
+pub struct ClaimEvidence {
+    pub status: ThreeValued,
+    pub reason: Option<String>,
+}
+
 /// Command-path passes 2+3 core (design D9): resolve every citation
 /// over the whole corpus from same-run evidence and apply the resolved
 /// statuses to each successful report in place (replacing the per-file
 /// local resolution), so persisted reports and command output carry
 /// identical statuses. Returns the per-file resolved statuses with
 /// reasons for the command output.
-pub fn apply_corpus_resolution(specs: &[Spec], runs: &mut [FileRun]) -> Vec<Vec<ResolvedStatus>> {
+///
+/// `kernel_evidence` carries the corpus-static KERNEL claim statuses of
+/// the same invocation (specodelic-9o1h) — the second evidence source
+/// the citation algebra composes with the same-run EXEC outcomes. An
+/// empty map behaves exactly as before the composition.
+pub fn apply_corpus_resolution(
+    specs: &[Spec],
+    runs: &mut [FileRun],
+    kernel_evidence: &[BTreeMap<String, ClaimEvidence>],
+) -> Vec<Vec<ResolvedStatus>> {
     // Index alignment invariant: `run_backend_pass` pushes exactly one
     // `FileRun` per spec, in `specs` order, so `runs[idx]` always
     // corresponds to `specs[idx]`.
@@ -176,7 +203,14 @@ pub fn apply_corpus_resolution(specs: &[Spec], runs: &mut [FileRun]) -> Vec<Vec<
                     report
                         .invariant_statuses
                         .iter()
-                        .filter(|s| !ir.guard_citations.contains_key(&s.id))
+                        // Citation rows and kernel claims are NOT
+                        // executable evidence: each row carries exactly
+                        // one evaluator, so the exec map and the kernel
+                        // evidence map stay disjoint.
+                        .filter(|s| {
+                            !ir.guard_citations.contains_key(&s.id)
+                                && !ir.guard_kernel.contains_key(&s.id)
+                        })
                         .map(|s| (s.id.clone(), s.status))
                         .collect(),
                 );
@@ -184,7 +218,7 @@ pub fn apply_corpus_resolution(specs: &[Spec], runs: &mut [FileRun]) -> Vec<Vec<
             Err(_) => exec_maps.push(BTreeMap::new()),
         }
     }
-    let resolved_per_file = resolve_corpus_citations(specs, &exec_maps);
+    let resolved_per_file = resolve_corpus_citations(specs, &exec_maps, kernel_evidence);
     for (idx, run) in runs.iter_mut().enumerate() {
         if let Ok(report) = &mut run.result {
             let ir = compile::extract_model_ir(&specs[idx]);
@@ -276,7 +310,9 @@ impl ResolvedStatus {
 
 /// Resolve every citation invariant of every spec over the whole
 /// invocation corpus (design D9). `exec_outcomes` carries each file's
-/// same-run executable-invariant evidence keyed by local row id.
+/// same-run executable-invariant evidence keyed by local row id;
+/// `kernel_evidence` carries each file's corpus-static KERNEL claim
+/// evidence (specodelic-9o1h — the cross-evaluator composition).
 ///
 /// - Bare `[[row]]` resolves within the citing file.
 /// - Qualified `[[file.row]]` is one exact key match against the corpus
@@ -285,13 +321,17 @@ impl ResolvedStatus {
 ///   evidence.
 /// - Citations of citations resolve in dependency order; a cycle leaves
 ///   every participant `unknown` with a cycle reason.
+/// - A target resolves against the EXEC outcome first, then the KERNEL
+///   claim outcome of the same invocation (the two sets are disjoint —
+///   a row carries exactly one evaluator), then a citation row.
 /// - Missing targets and property rows (no same-run invariant evidence)
 ///   are `unknown` with a reason — never a pass.
 pub fn resolve_corpus_citations(
     specs: &[Spec],
     exec_outcomes: &[BTreeMap<String, ThreeValued>],
+    kernel_evidence: &[BTreeMap<String, ClaimEvidence>],
 ) -> Vec<Vec<ResolvedStatus>> {
-    let mut resolver = Resolver::new(specs, exec_outcomes);
+    let mut resolver = Resolver::new(specs, exec_outcomes, kernel_evidence);
     (0..specs.len())
         .map(|i| {
             let rows: Vec<String> = resolver.citations[i].keys().cloned().collect();
@@ -309,6 +349,10 @@ type Node = (usize, String);
 struct Resolver<'a> {
     specs: &'a [Spec],
     exec_outcomes: &'a [BTreeMap<String, ThreeValued>],
+    /// The corpus-static KERNEL claim evidence of the same invocation
+    /// (specodelic-9o1h) — the second evidence source a citation target
+    /// resolves against.
+    kernel_evidence: &'a [BTreeMap<String, ClaimEvidence>],
     /// Per file: the citation rows (id → verbatim cell).
     citations: Vec<BTreeMap<String, String>>,
     memo: BTreeMap<Node, ResolvedStatus>,
@@ -316,7 +360,11 @@ struct Resolver<'a> {
 }
 
 impl<'a> Resolver<'a> {
-    fn new(specs: &'a [Spec], exec_outcomes: &'a [BTreeMap<String, ThreeValued>]) -> Self {
+    fn new(
+        specs: &'a [Spec],
+        exec_outcomes: &'a [BTreeMap<String, ThreeValued>],
+        kernel_evidence: &'a [BTreeMap<String, ClaimEvidence>],
+    ) -> Self {
         let citations: Vec<BTreeMap<String, String>> = specs
             .iter()
             .map(|spec| compile::extract_model_ir(spec).guard_citations)
@@ -324,6 +372,7 @@ impl<'a> Resolver<'a> {
         Resolver {
             specs,
             exec_outcomes,
+            kernel_evidence,
             citations,
             memo: BTreeMap::new(),
             visiting: BTreeSet::new(),
@@ -410,9 +459,14 @@ impl<'a> Resolver<'a> {
     }
 
     /// Resolve one citation target. Bare names stay local to the citing
-    /// file; qualified names are exact corpus keys. The reason names the
-    /// cause: a missing target (no such invariant evidence in the run) or
-    /// a property row (model-check never executes properties).
+    /// file; qualified names are exact corpus keys. The evidence
+    /// precedence is EXEC outcome → KERNEL claim outcome → citation row
+    /// → property row → missing target; the exec and kernel sets are
+    /// disjoint (a row carries exactly one evaluator), so the order
+    /// documents intent. The reason names the cause: a missing target
+    /// (no such invariant evidence in the run), a property row (model-
+    /// check never executes properties), or the kernel claim's own
+    /// labeled reason.
     fn resolve_target(&mut self, target: &str, file_idx: usize) -> (ThreeValued, Option<String>) {
         let owner = match target.rsplit_once('.') {
             // Qualified: exactly one corpus file owns the target — the
@@ -429,6 +483,23 @@ impl<'a> Resolver<'a> {
         let (idx, row) = owner;
         if let Some(status) = self.exec_outcomes[idx].get(&row) {
             return (*status, None);
+        }
+        // Corpus-static kernel claim evidence (specodelic-9o1h): the
+        // citation consumes the kernel evaluator's status — it never
+        // re-evaluates the claim. One-way: a kernel claim carries no
+        // `[[..]]` reference, so this edge cannot cycle.
+        if let Some(evidence) = self.kernel_evidence[idx].get(&row) {
+            let reason = if evidence.status == ThreeValued::Unknown {
+                Some(match &evidence.reason {
+                    Some(r) => format!("kernel claim `{target}` is unknown: {r}"),
+                    None => format!(
+                        "kernel claim `{target}` is unknown — the kernel evaluator could not discharge it"
+                    ),
+                })
+            } else {
+                None
+            };
+            return (evidence.status, reason);
         }
         if self.citations[idx].contains_key(&row) {
             let resolved = self.resolve_citation_row(idx, &row);

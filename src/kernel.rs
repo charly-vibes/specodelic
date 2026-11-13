@@ -1342,6 +1342,28 @@ pub fn evaluate_corpus_claims(
     }
 }
 
+/// The same invocation's kernel-claim evidence for the citation algebra
+/// (specodelic-9o1h — the cross-evaluator composition): each claim's row
+/// id mapped to its three-valued status and labeled reason. The citation
+/// algebra only CONSUMES these statuses — the kernel evaluator owns the
+/// evaluation, and no claim is ever re-evaluated per citation.
+pub fn citation_evidence(
+    claims: &[CorpusClaimStatus],
+) -> BTreeMap<String, crate::citation_corpus::ClaimEvidence> {
+    claims
+        .iter()
+        .map(|c| {
+            (
+                c.id.clone(),
+                crate::citation_corpus::ClaimEvidence {
+                    status: c.status,
+                    reason: c.reason.clone(),
+                },
+            )
+        })
+        .collect()
+}
+
 /// The shared command-path corpus-status merge (§3.8 TIDY —
 /// specodelic-k3h): the ONE place the corpus identity rules live —
 /// which ids appear, which status each carries, which reason labels an

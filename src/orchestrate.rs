@@ -406,15 +406,25 @@ pub fn run_claim_gated_model_check(
     // resolution applied to every report before persistence (design D9):
     // the native CLI and orchestrate share this exact path.
     let mut runs = citation_corpus::run_backend_pass(specs, out_dir, bound, tlc);
-    let resolved_per_file = citation_corpus::apply_corpus_resolution(specs, &mut runs);
-    // The kernel corpus pass (§3.7, design D9): every opted-in kernel
-    // claim evaluated over the complete invocation corpus, or labeled
-    // unsupported on the incapable backend, appended to the same
-    // statuses the citations resolved into.
+    // The kernel corpus pass (§3.7, design D9) runs BEFORE the citation
+    // resolution: every opted-in kernel claim is evaluated over the
+    // complete invocation corpus (or labeled unsupported on the
+    // incapable backend), and its statuses are same-invocation
+    // evidence the citation algebra composes with (specodelic-9o1h —
+    // E2 finding F2). The claims are evaluated ONCE; the citation
+    // algebra only consumes the statuses.
     let kernel_claims = kernel::evaluate_corpus_claims(
         specs,
         kernel::CorpusBackend::from_tlc_presence(tlc.is_some()),
     );
+    let kernel_evidence: Vec<BTreeMap<String, citation_corpus::ClaimEvidence>> = kernel_claims
+        .iter()
+        .map(|claims| kernel::citation_evidence(claims))
+        .collect();
+    let resolved_per_file =
+        citation_corpus::apply_corpus_resolution(specs, &mut runs, &kernel_evidence);
+    // The kernel claims ride the same statuses the citations resolved
+    // into — appended exactly once by the shared merge below.
     // Scope/freshness binding (design D3 — specodelic-68m.3): every
     // file's report carries the SAME invocation digest — the structured
     // content of ALL parsed inputs plus the compiled artifacts consumed

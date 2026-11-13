@@ -744,3 +744,519 @@ fn qualified_citation_without_its_file_in_the_invocation_is_unknown() {
     assert!(!out.join("disc_b.check.json").exists());
     assert_status(&report_statuses(&out, "disc_a"), "c2", "unknown");
 }
+
+// ---- specodelic-9o1h: cross-evaluator citation composition (E2 F2) ----
+// A citation target resolves against the same invocation's EXEC outcomes
+// AND the corpus-static KERNEL claim statuses (E2 finding F2: the
+// algebra resolved EXEC outcomes only, so `[[exec]] ∧ [[kernel]]` was
+// undischargable and Rule 4 of the claim aggregate held the file at
+// exploration_only — it could never go clean).
+//
+// The composition is one-way — the closed kernel grammar has no `[[..]]`
+// references, so a kernel claim can never cite back and no new cycle
+// rule is needed — and every non-composed leg (exec-only citations,
+// citation-of-citation dependency order, cycles, missing targets,
+// property rows) keeps its exact status and reason.
+
+/// A lint-clean fixture with verbatim constraint rows, one coverage
+/// property per row, and the transition guard citing `guard_row`.
+fn write_kernel_citation_spec(
+    path: &std::path::Path,
+    id: &str,
+    rows: &str,
+    props: &str,
+    guard_row: &str,
+) {
+    std::fs::write(
+        path,
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"THE {id} SHALL carry cross-evaluator citation fixtures\"\n---\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             {rows}\
+             \n## Model\n\
+             \n### States\n\
+             \n- s1\n\
+             - s2\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t | s1 | s2 | [[{id}.{guard_row}]] |\n\
+             \n## Properties\n\
+             \n| id | kind | derives_from | generator | predicate |\n\
+             |----|------|--------------|-----------|-----------|\n\
+             {props}"
+        ),
+    )
+    .unwrap_p();
+}
+
+/// One coverage property row per named constraint row.
+fn kernel_citation_props(id: &str, rows: &[&str]) -> String {
+    rows.iter()
+        .map(|r| {
+            format!("| p_{r} | unit | [[{id}.{r}]] | `word()` | `**rust:** v0.len() >= 1` |\n")
+        })
+        .collect()
+}
+
+/// The persisted report's aggregate outcome for one stem.
+fn report_outcome(out: &std::path::Path, stem: &str) -> String {
+    let report: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap_p(),
+    )
+    .unwrap_p();
+    report["outcome"].as_str().unwrap_p().to_string()
+}
+
+/// The reason string of one status entry (empty when unlabeled).
+fn status_reason(entry: &serde_json::Value, id: &str) -> String {
+    entry["invariant_statuses"]
+        .as_array()
+        .unwrap_p()
+        .iter()
+        .find(|s| s["id"] == id)
+        .unwrap_or_else(|| panic!("no status entry for {id}: {entry}"))["reason"]
+        .as_str()
+        .unwrap_or_else(|| panic!("status {id} carries no reason: {entry}"))
+        .to_string()
+}
+
+/// The (id, status) pairs of one checked entry's statuses.
+fn checked_statuses(entry: &serde_json::Value) -> Vec<(String, String)> {
+    entry["invariant_statuses"]
+        .as_array()
+        .unwrap_p()
+        .iter()
+        .map(|s| {
+            (
+                s["id"].as_str().unwrap_p().to_string(),
+                s["status"].as_str().unwrap_p().to_string(),
+            )
+        })
+        .collect()
+}
+
+/// Run verify over one spec and return (exit code, parsed envelope).
+fn verify_json(spec: &str, out: &std::path::Path) -> (Option<i32>, serde_json::Value) {
+    let result = spk()
+        .args([
+            "verify",
+            spec,
+            "--json",
+            "--out-dir",
+            out.to_str().unwrap_p(),
+        ])
+        .output()
+        .unwrap_p();
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap_p();
+    (result.status.code(), json)
+}
+
+/// Run orchestrate over one spec and return the parsed envelope.
+fn orchestrate_json(spec: &str, out: &std::path::Path) -> serde_json::Value {
+    let result = spk()
+        .args([
+            "orchestrate",
+            spec,
+            "--json",
+            "--out-dir",
+            out.to_str().unwrap_p(),
+        ])
+        .output()
+        .unwrap_p();
+    serde_json::from_slice(&result.stdout).unwrap_p()
+}
+
+/// The constraint rows of the F2 acceptance fixture: one verified exec
+/// row, one verified kernel row, and one citation row over both.
+fn exec_and_kernel_rows(id: &str) -> String {
+    format!(
+        "| c1 | invariant | `**rust:** state != \"blackhole\"` | [[{id}]] |\n\
+         | ka | invariant | `**kernel:** |State| == 2` | [[{id}]] |\n\
+         | kc | invariant | `[[c1]] ∧ [[ka]]` | [[{id}]] |\n"
+    )
+}
+
+#[test]
+fn exec_and_kernel_citation_verifies_and_the_file_goes_clean() {
+    // THE F2 acceptance case: `[[exec]] ∧ [[kernel]]` composes across
+    // evaluators — both legs verify, so the citation row verifies, every
+    // required claim is discharged, and the file reports the clean
+    // aggregate. Before the composition the citation was unknown ("no
+    // same-run evidence") and the file was exploration_only — it could
+    // never go clean.
+    let td = tempfile::tempdir().unwrap_p();
+    let spec = td.path().join("cxv.md");
+    write_kernel_citation_spec(
+        &spec,
+        "cxv",
+        &exec_and_kernel_rows("cxv"),
+        &kernel_citation_props("cxv", &["c1", "ka", "kc"]),
+        "c1",
+    );
+    let specs = vec![spec.to_str().unwrap_p().to_string()];
+    let out = td.path().join("out");
+    compile_batch(&specs, &out);
+    let (code, json) = model_check_json(&specs, &out);
+    assert_eq!(code, Some(0), "a clean aggregate is a success: {json}");
+    assert_eq!(json["data"]["outcome"], "no_counterexample");
+    let statuses = checked_statuses(&json["data"]["checked"][0]);
+    assert!(
+        statuses.contains(&("c1".to_string(), "verified".to_string())),
+        "the exec leg verifies: {statuses:?}"
+    );
+    assert!(
+        statuses.contains(&("ka".to_string(), "verified".to_string())),
+        "the kernel leg verifies: {statuses:?}"
+    );
+    assert!(
+        statuses.contains(&("kc".to_string(), "verified".to_string())),
+        "the composed citation verifies: {statuses:?}"
+    );
+    // Every required claim is discharged — the aggregate is clean.
+    let expected: Vec<String> = json["data"]["checked"][0]["expected_claim_ids"]
+        .as_array()
+        .unwrap_p()
+        .iter()
+        .map(|s| s.as_str().unwrap_p().to_string())
+        .collect();
+    assert_eq!(expected, vec!["c1", "ka", "kc"]);
+    // The persisted report carries the same statuses and outcome.
+    assert_eq!(report_outcome(&out, "cxv"), "no_counterexample");
+    assert_status(&report_statuses(&out, "cxv"), "kc", "verified");
+    // The verify gate accepts the clean aggregate end to end.
+    let (vcode, vjson) = verify_json(spec.to_str().unwrap_p(), &out);
+    assert_eq!(vcode, Some(0), "{vjson}");
+    assert_eq!(vjson["data"]["status"], "verified");
+}
+
+#[test]
+fn unknown_kernel_claim_leaves_the_citing_citation_unknown_with_the_kernel_reason() {
+    // Kleene absorb across evaluators: an undischargable kernel claim
+    // keeps the citing citation unknown — never a pass — and the
+    // composed reason NAMES the kernel cause (the unresolvable literal),
+    // not a generic "missing target".
+    let td = tempfile::tempdir().unwrap_p();
+    let spec = td.path().join("cxk.md");
+    let rows = "| c1 | invariant | `**rust:** state != \"blackhole\"` | [[cxk]] |\n\
+                | ka | invariant | `**kernel:** ∃ t ∈ Transition: t.to == s2` | [[cxk]] |\n\
+                | kc | invariant | `[[c1]] ∧ [[ka]]` | [[cxk]] |\n";
+    write_kernel_citation_spec(
+        &spec,
+        "cxk",
+        rows,
+        &kernel_citation_props("cxk", &["c1", "ka", "kc"]),
+        "c1",
+    );
+    let specs = vec![spec.to_str().unwrap_p().to_string()];
+    let out = td.path().join("out");
+    compile_batch(&specs, &out);
+    let (code, json) = model_check_json(&specs, &out);
+    // specodelic-4v1 boundary: an unknown required claim is
+    // exploration_only — a NON-failure outcome; exit 0 stays.
+    assert_eq!(code, Some(0));
+    assert_eq!(json["data"]["outcome"], "exploration_only");
+    let checked = &json["data"]["checked"][0];
+    let statuses = checked_statuses(checked);
+    assert!(
+        statuses.contains(&("kc".to_string(), "unknown".to_string())),
+        "the citing citation stays unknown: {statuses:?}"
+    );
+    let reason = status_reason(checked, "kc");
+    assert!(
+        reason.contains("`s2`"),
+        "the composed reason names the kernel cause: {reason}"
+    );
+    assert!(
+        !reason.contains("missing target"),
+        "the citation resolved against the kernel claim — it is not a missing target: {reason}"
+    );
+    assert_eq!(report_outcome(&out, "cxk"), "exploration_only");
+}
+
+#[test]
+fn counterexample_kernel_claim_makes_the_citing_citation_a_counterexample() {
+    // Kleene dominance across evaluators: a refuted kernel claim makes
+    // the citing citation a counterexample, and Rule 2 of the aggregate
+    // names the CITATION row (the refuted required claim) — with no
+    // invented state trace.
+    let td = tempfile::tempdir().unwrap_p();
+    let spec = td.path().join("cxc.md");
+    let rows = "| c1 | invariant | `**rust:** state != \"blackhole\"` | [[cxc]] |\n\
+                | ka | invariant | `**kernel:** |State| == 999` | [[cxc]] |\n\
+                | kc | invariant | `[[c1]] ∧ [[ka]]` | [[cxc]] |\n";
+    write_kernel_citation_spec(
+        &spec,
+        "cxc",
+        rows,
+        &kernel_citation_props("cxc", &["c1", "ka", "kc"]),
+        "c1",
+    );
+    let specs = vec![spec.to_str().unwrap_p().to_string()];
+    let out = td.path().join("out");
+    compile_batch(&specs, &out);
+    let (code, json) = model_check_json(&specs, &out);
+    // specodelic-4v1: a refuted required claim is a failing aggregate.
+    assert_eq!(code, Some(1));
+    assert_eq!(json["data"]["outcome"], "counterexample_found");
+    let checked = &json["data"]["checked"][0];
+    let statuses = checked_statuses(checked);
+    assert!(
+        statuses.contains(&("kc".to_string(), "counterexample".to_string())),
+        "the citing citation is a counterexample: {statuses:?}"
+    );
+    // Rule 2 names the citation row — the refuted required claim.
+    assert_eq!(checked["violated_invariant_id"], "kc");
+    assert_eq!(report_outcome(&out, "cxc"), "counterexample_found");
+    let report: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(out.join("cxc.check.json")).unwrap_p())
+            .unwrap_p();
+    assert_eq!(report["violated_invariant_id"], "kc");
+    // No invented state trace: the citation counterexample carries claim
+    // evidence, not a fabricated BFS path.
+    assert!(report.get("trace").is_none() || report["trace"].is_null());
+}
+
+/// The TLC JVM test seam (the tlc_observability pattern): a fake `java`
+/// answering the `-version` probe and printing canned run output, plus a
+/// placeholder tla2tools.jar.
+#[cfg(unix)]
+fn tlc_seam(dir: &std::path::Path, run_output: &str) {
+    use std::os::unix::fs::PermissionsExt;
+    let shim = dir.join("fake-java.sh");
+    let script = format!(
+        "#!/bin/sh\nfor arg in \"$@\"; do case \"$arg\" in -version) echo 'TLC2 version 1.20.0 of 12 May 2024'; exit 0;; esac; done\ncat <<'TLCOUT'\n{run_output}\nTLCOUT\nexit 0\n"
+    );
+    std::fs::write(&shim, script).unwrap_p();
+    std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap_p();
+    std::fs::write(dir.join("tla2tools.jar"), b"placeholder").unwrap_p();
+}
+
+#[cfg(unix)]
+#[test]
+fn unsupported_kernel_claim_keeps_the_citing_citation_unknown_on_tlc() {
+    // The incapable-backend leg: TLC cannot evaluate kernel claims, so
+    // they come back labeled unsupported (unknown). The citing citation
+    // stays unknown with a composed reason naming the unsupported label
+    // — never verified, never a pass.
+    let td = tempfile::tempdir().unwrap_p();
+    let spec = td.path().join("cxt.md");
+    let rows = "| ka | invariant | `**kernel:** |State| == 2` | [[cxt]] |\n\
+                | kc | invariant | `[[ka]]` | [[cxt]] |\n";
+    write_kernel_citation_spec(
+        &spec,
+        "cxt",
+        rows,
+        &kernel_citation_props("cxt", &["ka", "kc"]),
+        "ka",
+    );
+    let specs = vec![spec.to_str().unwrap_p().to_string()];
+    let out = td.path().join("out");
+    compile_batch(&specs, &out);
+    tlc_seam(
+        td.path(),
+        "Model checking completed. No error has been found.\n7 states generated, 7 distinct states found, 0 states left on queue.",
+    );
+    let result = spk()
+        .args([
+            "model-check",
+            spec.to_str().unwrap_p(),
+            "--json",
+            "--out-dir",
+            out.to_str().unwrap_p(),
+            "--backend",
+            "tlc",
+            "--tlc-jar",
+            td.path().join("tla2tools.jar").to_str().unwrap_p(),
+        ])
+        .env(
+            "SPK_TLC_JAVA",
+            td.path().join("fake-java.sh").to_str().unwrap_p(),
+        )
+        .output()
+        .unwrap_p();
+    // specodelic-4v1 boundary: unsupported (unknown) claims are
+    // exploration_only — a NON-failure outcome; exit 0 stays.
+    assert_eq!(result.status.code(), Some(0));
+    let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap_p();
+    let checked = &json["data"]["checked"][0];
+    let statuses = checked_statuses(checked);
+    assert!(
+        statuses.contains(&("ka".to_string(), "unknown".to_string())),
+        "the kernel claim is labeled unsupported: {statuses:?}"
+    );
+    assert!(
+        statuses.contains(&("kc".to_string(), "unknown".to_string())),
+        "the citing citation stays unknown: {statuses:?}"
+    );
+    let reason = status_reason(checked, "kc");
+    assert!(
+        reason.contains("unsupported"),
+        "the composed reason names the unsupported label: {reason}"
+    );
+}
+
+#[test]
+fn cli_and_orchestrate_views_agree_on_cross_evaluator_composition() {
+    // Both views share the ONE command path (design D4): the CLI
+    // model-check envelope and the orchestrate model_check stage publish
+    // the same statuses and the same outcome for one fixture.
+    let td = tempfile::tempdir().unwrap_p();
+    let spec = td.path().join("cxv2.md");
+    write_kernel_citation_spec(
+        &spec,
+        "cxv2",
+        &exec_and_kernel_rows("cxv2"),
+        &kernel_citation_props("cxv2", &["c1", "ka", "kc"]),
+        "c1",
+    );
+    let specs = vec![spec.to_str().unwrap_p().to_string()];
+    let out = td.path().join("out");
+    compile_batch(&specs, &out);
+    let (_, json) = model_check_json(&specs, &out);
+    let cli_statuses = checked_statuses(&json["data"]["checked"][0]);
+    assert!(
+        cli_statuses.contains(&("kc".to_string(), "verified".to_string())),
+        "the CLI view verifies the composed citation: {cli_statuses:?}"
+    );
+
+    let orchestrated = td.path().join("orch");
+    let ojson = orchestrate_json(spec.to_str().unwrap_p(), &orchestrated);
+    let stages = ojson["data"]["stages"].as_array().unwrap_p();
+    let mc = stages
+        .iter()
+        .find(|s| s["stage"] == "model_check")
+        .unwrap_or_else(|| panic!("model_check stage missing: {stages:?}"));
+    assert_eq!(mc["status"], "passed", "the stage verdict: {mc}");
+    let stage_statuses = checked_statuses(&mc["detail"]["checked"][0]);
+    assert_eq!(
+        stage_statuses, cli_statuses,
+        "both views publish the same statuses"
+    );
+    assert_eq!(
+        mc["detail"]["checked"][0]["outcome"], json["data"]["checked"][0]["outcome"],
+        "both views publish the same outcome"
+    );
+}
+
+#[test]
+fn qualified_cross_file_citation_composes_the_other_files_kernel_claim() {
+    // The qualified spelling resolves against the OTHER file's kernel
+    // claim status of the same invocation — the cross-file leg of the
+    // composition.
+    let td = tempfile::tempdir().unwrap_p();
+    let b = td.path().join("cxk_b.md");
+    write_kernel_citation_spec(
+        &b,
+        "cxk_b",
+        "| kb | invariant | `**kernel:** acyclic(supersedes)` | [[cxk_b]] |\n",
+        &kernel_citation_props("cxk_b", &["kb"]),
+        "kb",
+    );
+    let a = td.path().join("cxk_a.md");
+    write_kernel_citation_spec(
+        &a,
+        "cxk_a",
+        "| c1 | invariant | `**rust:** state != \"blackhole\"` | [[cxk_a]] |\n\
+         | kc | invariant | `[[cxk_b.kb]]` | [[cxk_a]] |\n",
+        &kernel_citation_props("cxk_a", &["c1", "kc"]),
+        "c1",
+    );
+    let specs: Vec<String> = [a, b]
+        .iter()
+        .map(|p| p.to_str().unwrap_p().to_string())
+        .collect();
+    let out = td.path().join("out");
+    compile_batch(&specs, &out);
+    let (code, json) = model_check_json(&specs, &out);
+    assert_eq!(code, Some(0), "both files are clean: {json}");
+    // The citing file resolves the other file's kernel claim.
+    let statuses_a = json_statuses(&json, 0);
+    assert_status(&statuses_a, "kc", "verified");
+    assert_status(&statuses_a, "c1", "verified");
+    // The kernel claim itself still appears exactly once, in its own
+    // file — a citation row is never merged into it.
+    let statuses_b = json_statuses(&json, 1);
+    assert_eq!(
+        statuses_b.iter().filter(|(i, _)| i == "kb").count(),
+        1,
+        "the kernel claim appears exactly once: {statuses_b:?}"
+    );
+    assert_status(&statuses_b, "kb", "verified");
+    // The persisted reports agree with the CLI output.
+    assert_status(&report_statuses(&out, "cxk_a"), "kc", "verified");
+    assert_status(&report_statuses(&out, "cxk_b"), "kb", "verified");
+}
+
+#[test]
+fn non_composed_citation_legs_keep_their_statuses_and_reasons() {
+    // The regression pins: the composition adds an evidence source, it
+    // never rewrites the other legs. Exec-only citations, citation-of-
+    // citation dependency order, the cycle reason, the missing-target
+    // reason and the property-row reason are all unchanged, and the
+    // kernel claim still appears exactly once.
+    let td = tempfile::tempdir().unwrap_p();
+    let spec = td.path().join("cxr.md");
+    let rows = "| c1 | invariant | `**rust:** state != \"blackhole\"` | [[cxr]] |\n\
+                | ka | invariant | `**kernel:** |State| == 2` | [[cxr]] |\n\
+                | c2 | invariant | `[[c1]]` | [[cxr]] |\n\
+                | c3 | invariant | `[[c2]]` | [[cxr]] |\n\
+                | kg | invariant | `[[ghost]]` | [[cxr]] |\n\
+                | kp | invariant | `[[p_c1]]` | [[cxr]] |\n\
+                | cy1 | invariant | `[[cy2]]` | [[cxr]] |\n\
+                | cy2 | invariant | `[[cy1]]` | [[cxr]] |\n";
+    write_kernel_citation_spec(
+        &spec,
+        "cxr",
+        rows,
+        &kernel_citation_props("cxr", &["c1", "ka", "c2", "c3", "kg", "kp", "cy1", "cy2"]),
+        "c1",
+    );
+    let specs = vec![spec.to_str().unwrap_p().to_string()];
+    let out = td.path().join("out");
+    compile_batch(&specs, &out);
+    let (code, json) = model_check_json(&specs, &out);
+    // The unknown legs (cycle, missing target, property row) keep the
+    // aggregate at exploration_only — a NON-failure outcome; exit 0.
+    assert_eq!(code, Some(0));
+    let statuses = json_statuses(&json, 0);
+    assert_status(&statuses, "c1", "verified");
+    assert_status(&statuses, "c2", "verified");
+    assert_status(&statuses, "c3", "verified");
+    assert_status(&statuses, "ka", "verified");
+    assert_status(&statuses, "kg", "unknown");
+    assert_status(&statuses, "kp", "unknown");
+    assert_status(&statuses, "cy1", "unknown");
+    assert_status(&statuses, "cy2", "unknown");
+    // The kernel claim appears exactly once — the citation row is its
+    // own row.
+    assert_eq!(
+        statuses.iter().filter(|(i, _)| i == "ka").count(),
+        1,
+        "the kernel claim appears exactly once: {statuses:?}"
+    );
+    let reasons = json_reasons(&json, 0);
+    assert!(
+        reasons.iter().any(|r| r.to_lowercase().contains("cycle")),
+        "the cycle reason is unchanged: {reasons:?}"
+    );
+    assert!(
+        reasons.iter().any(|r| r.to_lowercase().contains("missing")),
+        "the missing-target reason is unchanged: {reasons:?}"
+    );
+    assert!(
+        reasons
+            .iter()
+            .any(|r| r.contains("same-run invariant evidence")),
+        "the property-row reason is unchanged: {reasons:?}"
+    );
+    // The persisted report carries the same statuses.
+    let report = report_statuses(&out, "cxr");
+    assert_status(&report, "c2", "verified");
+    assert_status(&report, "c3", "verified");
+    assert_status(&report, "ka", "verified");
+    assert_status(&report, "kg", "unknown");
+    assert_status(&report, "cy1", "unknown");
+}
