@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-13-specodelic-3632-lint-revision-seams-for-the-four-blocked-rows, pipeline-step:orient]
+---
+
+ORIENT: specodelic-3632 — four lf3 rows blocked on seams. kinds.constraint_row_extra_field_rejected (extra Constraint column), kinds.state_row_with_extra_field_rejected (extra State field), kinds.subkind_addition_without_revision_rejected + specodelic.silently_shrunk_id_set_rejected (revision-diff reader). Corpus: kinds.md declares the four row shapes (base fields + Reference Typing columns); specodelic.md's append_only_variants governs id-sets across revisions r<r'. Code: src/lint/rules.rs schema-shape family (constraint_kind_closed/property_kind_closed), src/acset/schema.rs Schema-as-data (Reference Typing rows per source object), src/spec.rs row cells (table headers land in Row.cells; Transition keeps cell_spans keys), src/lib.rs fixtures::specs registry (generator names must resolve), tests/specodelic_fixtures.rs harness (asserts the four rows are the unmigrated ones — must be updated). Gate: justfile verify-specs runs spk verify --json over [compile, packs] only.
