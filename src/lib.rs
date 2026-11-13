@@ -576,11 +576,23 @@ pub mod fixtures {
 
     /// The fixture named `name`'s concrete spec text — what a compiled
     /// property cell's strategy yields.
+    ///
+    /// The pack corpus file's fixtures live in [`packs`]: a pack
+    /// property row's input is a real workspace, not one spec text, so
+    /// its fixture is built by the pack registry's builder. Both
+    /// registries answer here — the compiler asks one question ("is
+    /// this generator a fixture?"), never two.
     pub fn materialize(name: &str) -> Option<String> {
-        lookup(name).map(|f| f.text.to_string())
+        lookup(name)
+            .map(|f| f.text.to_string())
+            .or_else(|| packs::materialize(name))
     }
 
-    /// Every fixture name in the registry.
+    /// Every fixture name in the compile registry.
+    ///
+    /// The pack registry's names live in [`packs::names`] — the two
+    /// registries carry different kinds of input (a spec text vs a
+    /// workspace), so each keeps its own name list.
     pub fn names() -> Vec<&'static str> {
         REGISTRY.iter().map(|f| f.name).collect()
     }
@@ -589,7 +601,494 @@ pub mod fixtures {
     /// generator whose name is a fixture name materializes through the
     /// registry; every other generator keeps its placeholder emission.
     pub fn is_known(name: &str) -> bool {
-        lookup(name).is_some()
+        lookup(name).is_some() || packs::lookup(name).is_some()
+    }
+
+    /// The pack corpus fixtures — the inputs the `packs` corpus file's
+    /// property rows materialize through.
+    ///
+    /// Purpose: the pack mechanism's claims are claims about the TOOL
+    /// (the workspace scanner, the pack pass, the base closed-set
+    /// walkers), never about generated values — so a pack property row's
+    /// input is a real workspace: real pack files and real consumer
+    /// specs on disk, which the real scanner and the real linter read.
+    ///
+    /// Responsibilities: hold the registry of named pack fixtures (one
+    /// per generator name `openspec/specs/packs/spec.md` names), build
+    /// the real pack and consumer file texts, and run a real corpus (an
+    /// on-disk, git-anchored workspace the tool's own pack pass reads).
+    ///
+    /// Rationale: an executable fragment may not read files or spawn
+    /// processes (`fragment_hygiene`), so the workspace seam lives HERE
+    /// — in the library the verify runner's scratch crate depends on —
+    /// and the fragment calls it. The corpus is built by the tool's own
+    /// parser and judged by the tool's own linter: no test doubles, no
+    /// re-implemented checkers.
+    pub mod packs {
+        use crate::lint::Report;
+        use crate::packs::PackInfo;
+        use crate::spec::Spec;
+        use std::path::PathBuf;
+        use std::sync::atomic::{AtomicU64, Ordering};
+
+        /// One named pack fixture: the generator name that materializes
+        /// it, and the builder that renders the real file text.
+        pub struct PackFixture {
+            /// The fixture's name — the generator name that materializes it.
+            pub name: &'static str,
+            /// One line: what the fixture is for.
+            pub summary: &'static str,
+            /// The builder that renders the fixture's real file text.
+            pub build: fn() -> String,
+        }
+
+        /// A well-formed pack file — `kind: profile`, the four standard
+        /// layers, and the six manifest tables.
+        fn build_pack_file() -> String {
+            pack_file("data.pack", 20)
+        }
+
+        /// A well-formed pack file, one of three in a workspace.
+        fn build_pack_file_alpha() -> String {
+            pack_file("alpha.pack", 20)
+        }
+
+        /// A well-formed pack file that declares one extra kind — the
+        /// shared vocabulary two packs claim.
+        fn build_pack_file_alpha_shared() -> String {
+            pack_file_with_kinds("alpha", 20, &["shared.tolerance"])
+        }
+
+        /// A pack-free consumer spec — the corpus that must lint
+        /// byte-identically with and without the pack mechanism.
+        fn build_consumer() -> String {
+            consumer_spec("consumer", "", "plain prose only")
+        }
+
+        /// A consumer whose `uses` edge targets a pack no workspace
+        /// declares — the orphan half of the vocabulary signal.
+        fn build_consumer_orphan() -> String {
+            consumer_spec(
+                "consumer",
+                "[[ghost.pack]]",
+                "ghost.pack vocabulary applies here",
+            )
+        }
+
+        /// A consumer whose `uses` edge targets a profile pack.
+        fn build_consumer_uses_pack() -> String {
+            consumer_spec("consumer", "[[data.pack]]", "plain prose only")
+        }
+
+        /// A well-formed pack file.
+        fn build_pack_file_alone() -> String {
+            pack_file("data.pack", 20)
+        }
+
+        /// A pack file pinned to an older base revision.
+        fn build_pack_file_older() -> String {
+            pack_file("data.pack", 10)
+        }
+
+        /// A well-formed pack file.
+        fn build_pack_file_enabled() -> String {
+            pack_file("data.pack", 20)
+        }
+
+        /// A pack file whose `## Kinds` row names a base closed-set
+        /// member — the narrowing rejection.
+        fn build_pack_file_narrowing() -> String {
+            pack_file_with_kinds("data.pack", 20, &["invariant"])
+        }
+
+        /// A well-formed pack file — the four layers.
+        fn build_pack_file_four_layer() -> String {
+            pack_file("data.pack", 20)
+        }
+
+        /// A well-formed pack file — the lifecycle machine.
+        fn build_pack_file_lifecycle() -> String {
+            pack_file("data.pack", 20)
+        }
+
+        /// A consumer whose Constraint row's `kind` cell carries a
+        /// pack-qualified fiber kind.
+        fn build_fiber_kind_consumer() -> String {
+            fiber_kind_consumer("consumer", "[[data.pack]]", "data.dataset")
+        }
+
+        /// The registry — one fixture per generator name the packs
+        /// corpus file's property table names.
+        const REGISTRY: &[PackFixture] = &[
+            PackFixture {
+                name: "pack_file_parsed_then_manifest_read",
+                summary: "a well-formed pack file with all six manifest tables",
+                build: build_pack_file,
+            },
+            PackFixture {
+                name: "corpus_with_n_profile_files",
+                summary: "a well-formed pack file, one of three in a workspace",
+                build: build_pack_file_alpha,
+            },
+            PackFixture {
+                name: "lint_subdirectory_with_pack_at_workspace_root",
+                summary: "a well-formed pack file at a workspace root",
+                build: build_pack_file,
+            },
+            PackFixture {
+                name: "corpus_linted_before_and_after_mechanism",
+                summary: "a pack-free consumer spec",
+                build: build_consumer,
+            },
+            PackFixture {
+                name: "two_packs_declare_identical_vocabulary_and_a_file_uses_it",
+                summary: "a pack file declaring the shared vocabulary token",
+                build: build_pack_file_alpha_shared,
+            },
+            PackFixture {
+                name: "corpus_using_vocabulary_without_pack",
+                summary: "a consumer whose `uses` edge targets an undeclared pack",
+                build: build_consumer_orphan,
+            },
+            PackFixture {
+                name: "file_with_uses_edge_to_profile_id",
+                summary: "a consumer whose `uses` edge targets a profile pack",
+                build: build_consumer_uses_pack,
+            },
+            PackFixture {
+                name: "pack_file_linted_alone",
+                summary: "a well-formed pack file",
+                build: build_pack_file_alone,
+            },
+            PackFixture {
+                name: "pack_pinned_to_older_revision",
+                summary: "a pack file pinned to an older base revision",
+                build: build_pack_file_older,
+            },
+            PackFixture {
+                name: "pack_enabled_without_instances",
+                summary: "a well-formed pack file, enabled by a consumer",
+                build: build_pack_file_enabled,
+            },
+            PackFixture {
+                name: "pack_removing_previously_declared_kind",
+                summary: "a pack file whose `## Kinds` row names a base kind",
+                build: build_pack_file_narrowing,
+            },
+            PackFixture {
+                name: "pack_parsed_as_standard_spec",
+                summary: "a well-formed pack file — the four layers",
+                build: build_pack_file_four_layer,
+            },
+            PackFixture {
+                name: "two_packs_claim_same_mechanism",
+                summary: "a pack file declaring the shared vocabulary token",
+                build: build_pack_file_alpha_shared,
+            },
+            PackFixture {
+                name: "guide_sets_compared_across_pack_enable",
+                summary: "a well-formed pack file",
+                build: build_pack_file,
+            },
+            PackFixture {
+                name: "pack_model_section_parsed",
+                summary: "a pack file with the full lifecycle machine",
+                build: build_pack_file_lifecycle,
+            },
+            PackFixture {
+                name: "base_table_kind_column_with_active_fiber_kind",
+                summary: "a consumer whose Constraint row carries a fiber kind",
+                build: build_fiber_kind_consumer,
+            },
+        ];
+
+        /// The registry — every named pack fixture, in registry order.
+        pub fn registry() -> &'static [PackFixture] {
+            REGISTRY
+        }
+
+        /// The pack fixture named `name`, if the registry carries one.
+        pub fn lookup(name: &str) -> Option<&'static PackFixture> {
+            REGISTRY.iter().find(|f| f.name == name)
+        }
+
+        /// The pack fixture named `name`'s real file text.
+        pub fn materialize(name: &str) -> Option<String> {
+            lookup(name).map(|f| (f.build)())
+        }
+
+        /// Every pack fixture name in the registry.
+        pub fn names() -> Vec<&'static str> {
+            REGISTRY.iter().map(|f| f.name).collect()
+        }
+
+        /// A well-formed pack file: `kind: profile` frontmatter, the four
+        /// standard layers, and the six manifest tables — the real input
+        /// the workspace scanner and the `pack_shape` rule read.
+        ///
+        /// `extra_kinds` are extra `## Kinds` rows: the shared token two
+        /// packs claim, or the base-kind row the narrowing rejection
+        /// fires on.
+        pub fn pack_file_with_kinds(id: &str, revision: u32, extra_kinds: &[&str]) -> String {
+            let mut kinds = format!("| {id}.tolerance | `an empirical bound` |\n");
+            for kind in extra_kinds {
+                kinds.push_str(&format!("| {kind} | `a declared pack kind` |\n"));
+            }
+            format!(
+                "---\nid: {id}\nkind: profile\nstatement: \"WHEN a workspace enables this pack, THE format SHALL provide the {id} vocabulary and its declared checkers\"\n---\n\
+                 \n## Constraints\n\
+                 \n| id | kind | expr | traces_to |\n\
+                 |----|------|------|-----------|\n\
+                 | vocab_declared | invariant | `the six manifest tables declare the vocabulary` | [[{id}]] |\n\
+                 \n## Model\n\
+                 \n### States\n\
+                 \n- draft\n- published\n- deprecated\n\
+                 \n### Transitions\n\
+                 \n| id | from | to | guard |\n\
+                 |----|------|----|-------|\n\
+                 | publish | draft | published | [[{id}.vocab_declared]] |\n\
+                 | deprecate | published | deprecated | [[{id}.vocab_declared]] |\n\
+                 \n## Properties\n\
+                 \n| id | kind | derives_from | generator | predicate |\n\
+                 |----|------|--------------|-----------|------------|\n\
+                 | p | unit | [[{id}.vocab_declared]] | `g()` | `the pack declares its vocabulary` |\n\
+                 \n## Sections\n\
+                 \n| section | row_shape |\n\
+                 |---------|-----------|\n\
+                 | Data | `\\| name \\| dtype \\|` |\n\
+                 \n## Kinds\n\
+                 \n| kind | vocabulary |\n\
+                 |------|------------|\n\
+                 {kinds}\
+                 \n## References\n\
+                 \n| field | resolves_to |\n\
+                 |-------|-------------|\n\
+                 | measures | `a {id}.tolerance kind row` |\n\
+                 \n## Checkers\n\
+                 \n| rule | semantics |\n\
+                 |------|-----------|\n\
+                 | {id}.bound_present | `every {id}.tolerance row carries a bound` |\n\
+                 \n## Floors\n\
+                 \n| kind | required_cases |\n\
+                 |------|----------------|\n\
+                 | {id}.tolerance | `identity` |\n\
+                 \n## Requires\n\
+                 \n| dep | revision |\n\
+                 |-----|----------|\n\
+                 | base | specodelic.md Revision {revision} |\n"
+            )
+        }
+
+        /// A well-formed pack file pinned to `revision`.
+        pub fn pack_file(id: &str, revision: u32) -> String {
+            pack_file_with_kinds(id, revision, &[])
+        }
+
+        /// A pack file in one lifecycle state (a single-state Model names
+        /// exactly where the pack stands — `draft` or `deprecated`).
+        pub fn pack_file_in_state(id: &str, revision: u32, state: &str) -> String {
+            format!(
+                "---\nid: {id}\nkind: profile\nstatement: \"WHEN a workspace enables this pack, THE format SHALL provide the {id} vocabulary and its declared checkers\"\n---\n\
+                 \n## Constraints\n\
+                 \n| id | kind | expr | traces_to |\n\
+                 |----|------|------|-----------|\n\
+                 | vocab_declared | invariant | `the six manifest tables declare the vocabulary` | [[{id}]] |\n\
+                 \n## Model\n\
+                 \n### States\n\
+                 \n- {state}\n\
+                 \n### Transitions\n\
+                 \n| id | from | to | guard |\n\
+                 |----|------|----|-------|\n\
+                 | hold | {state} | {state} | [[{id}.vocab_declared]] |\n\
+                 \n## Properties\n\
+                 \n| id | kind | derives_from | generator | predicate |\n\
+                 |----|------|--------------|-----------|------------|\n\
+                 | p | unit | [[{id}.vocab_declared]] | `g()` | `the pack declares its vocabulary` |\n\
+                 \n## Sections\n\
+                 \n| section | row_shape |\n\
+                 |---------|-----------|\n\
+                 | Data | `\\| name \\| dtype \\|` |\n\
+                 \n## Kinds\n\
+                 \n| kind | vocabulary |\n\
+                 |------|------------|\n\
+                 | {id}.tolerance | `an empirical bound` |\n\
+                 \n## References\n\
+                 \n| field | resolves_to |\n\
+                 |-------|-------------|\n\
+                 | measures | `a {id}.tolerance kind row` |\n\
+                 \n## Checkers\n\
+                 \n| rule | semantics |\n\
+                 |------|-----------|\n\
+                 | {id}.bound_present | `every {id}.tolerance row carries a bound` |\n\
+                 \n## Floors\n\
+                 \n| kind | required_cases |\n\
+                 |------|----------------|\n\
+                 | {id}.tolerance | `identity` |\n\
+                 \n## Requires\n\
+                 \n| dep | revision |\n\
+                 |-----|----------|\n\
+                 | base | specodelic.md Revision {revision} |\n"
+            )
+        }
+
+        /// The `uses`-column link cell for a pack id — the reference a
+        /// consumer declares to enable a pack.
+        ///
+        /// The link is BUILT here, never written into a corpus cell as
+        /// literal `[[...]]` text: a wiki link inside a structured cell
+        /// is the linter's `total_refs` beat, so a fragment that spelled
+        /// the link out would dangle against the corpus.
+        pub fn uses_link(pack_id: &str) -> String {
+            format!("[[{pack_id}]]")
+        }
+
+        /// A consumer intent spec: a lint-clean four-layer file whose
+        /// Constraint row carries a `uses` column (the declared pack
+        /// enablement) and whose expr carries the pack's vocabulary.
+        pub fn consumer_spec(id: &str, uses: &str, vocab: &str) -> String {
+            format!(
+                "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\
+                 \n## Constraints\n\
+                 \n| id | kind | expr | traces_to | uses |\n\
+                 |----|------|------|-----------|------|\n\
+                 | c1 | invariant | `{vocab}` | [[{id}]] | {uses} |\n\
+                 \n## Model\n\
+                 \n### States\n\
+                 \n- s1\n- s2\n\
+                 \n### Transitions\n\
+                 \n| id | from | to | guard |\n\
+                 |----|------|----|-------|\n\
+                 | t | s1 | s2 | [[{id}.c1]] |\n\
+                 \n## Properties\n\
+                 \n| id | kind | derives_from | generator | predicate |\n\
+                 |----|------|--------------|-----------|------------|\n\
+                 | p | unit | [[{id}.c1]] | `g()` | `the consumer holds` |\n"
+            )
+        }
+
+        /// A consumer whose Constraint row's `kind` cell carries a
+        /// pack-qualified fiber kind — the base closed-set walkers' fiber
+        /// arm.
+        pub fn fiber_kind_consumer(id: &str, uses: &str, kind: &str) -> String {
+            format!(
+                "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\
+                 \n## Constraints\n\
+                 \n| id | kind | expr | traces_to | uses |\n\
+                 |----|------|------|-----------|------|\n\
+                 | c1 | {kind} | `holds` | [[{id}]] | {uses} |\n\
+                 \n## Model\n\
+                 \n### States\n\
+                 \n- s1\n- s2\n\
+                 \n### Transitions\n\
+                 \n| id | from | to | guard |\n\
+                 |----|------|----|-------|\n\
+                 | t | s1 | s2 | [[{id}.c1]] |\n\
+                 \n## Properties\n\
+                 \n| id | kind | derives_from | generator | predicate |\n\
+                 |----|------|--------------|-----------|------------|\n\
+                 | p | unit | [[{id}.c1]] | `g()` | `the consumer holds` |\n"
+            )
+        }
+
+        /// A real workspace corpus: the files on disk under one root,
+        /// parsed with their paths set.
+        ///
+        /// The root is a fresh temp directory, git-anchored (a workspace
+        /// is a git repository — the pack scanner anchors its discovery
+        /// at the git toplevel), and every file is written to disk and
+        /// parsed from disk, so the real scanner and the real linter read
+        /// the files themselves.
+        pub struct Corpus {
+            root: PathBuf,
+            specs: Vec<Spec>,
+        }
+
+        impl Corpus {
+            /// Build the corpus: `files` are `(relative path, content)`
+            /// pairs, written under one workspace root.
+            pub fn new(files: &[(&str, &str)]) -> Corpus {
+                let root = unique_root();
+                std::fs::create_dir_all(&root).expect("the corpus root is created");
+                let _ = std::process::Command::new("git")
+                    .args(["init", "-q"])
+                    .current_dir(&root)
+                    .output();
+                let mut specs = Vec::with_capacity(files.len());
+                for (rel, text) in files {
+                    let path = root.join(rel);
+                    if let Some(parent) = path.parent() {
+                        std::fs::create_dir_all(parent)
+                            .expect("the corpus file's directory is created");
+                    }
+                    std::fs::write(&path, text).expect("the corpus file is written");
+                    let mut spec = crate::spec::parse_str(text).expect("the corpus file parses");
+                    spec.path = Some(path);
+                    specs.push(spec);
+                }
+                Corpus { root, specs }
+            }
+
+            /// The corpus's parsed files, in file order.
+            pub fn specs(&self) -> &[Spec] {
+                &self.specs
+            }
+
+            /// The real lint pass over the corpus.
+            pub fn lint(&self) -> Report {
+                crate::lint::lint_corpus(&self.specs)
+            }
+
+            /// The real pack discovery over the corpus.
+            pub fn discovered(&self) -> Vec<PackInfo> {
+                crate::packs::discover(&self.specs)
+            }
+
+            /// The corpus's lint findings, as `rule_id: message` strings.
+            pub fn issue_messages(&self) -> Vec<String> {
+                self.lint()
+                    .issues
+                    .iter()
+                    .map(|i| format!("{}: {}", i.rule_id, i.message))
+                    .collect()
+            }
+
+            /// The corpus's advisory findings, as `rule_id: message`
+            /// strings.
+            pub fn warning_messages(&self) -> Vec<String> {
+                self.lint()
+                    .warnings
+                    .iter()
+                    .map(|i| format!("{}: {}", i.rule_id, i.message))
+                    .collect()
+            }
+
+            /// The workspace root the corpus lives in.
+            pub fn root(&self) -> &std::path::Path {
+                &self.root
+            }
+        }
+
+        impl Drop for Corpus {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.root);
+            }
+        }
+
+        /// The corpus counter — every corpus gets its own root.
+        static CORPUS_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+        /// A fresh, unique workspace root under the system temp dir.
+        fn unique_root() -> PathBuf {
+            let n = CORPUS_COUNTER.fetch_add(1, Ordering::SeqCst);
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0);
+            std::env::temp_dir().join(format!(
+                "specodelic-pack-corpus-{}-{stamp}-{n}",
+                std::process::id()
+            ))
+        }
     }
 }
 

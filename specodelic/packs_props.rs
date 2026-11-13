@@ -25,182 +25,275 @@ pub mod spec_gen {
     use super::*;
 
     pub fn pack_file_parsed_then_manifest_read() -> impl Strategy<Value = String> {
-        Just("pack_file_parsed_then_manifest_read".into())
+        Just(
+            specodelic::fixtures::materialize("pack_file_parsed_then_manifest_read")
+                .expect("the pack_file_parsed_then_manifest_read fixture materializes"),
+        )
     }
 
     pub fn corpus_with_n_profile_files() -> impl Strategy<Value = String> {
-        Just("corpus_with_n_profile_files".into())
+        Just(
+            specodelic::fixtures::materialize("corpus_with_n_profile_files")
+                .expect("the corpus_with_n_profile_files fixture materializes"),
+        )
     }
 
     pub fn lint_subdirectory_with_pack_at_workspace_root() -> impl Strategy<Value = String> {
-        Just("lint_subdirectory_with_pack_at_workspace_root".into())
+        Just(
+            specodelic::fixtures::materialize("lint_subdirectory_with_pack_at_workspace_root")
+                .expect("the lint_subdirectory_with_pack_at_workspace_root fixture materializes"),
+        )
     }
 
     pub fn corpus_linted_before_and_after_mechanism() -> impl Strategy<Value = String> {
-        Just("corpus_linted_before_and_after_mechanism".into())
+        Just(
+            specodelic::fixtures::materialize("corpus_linted_before_and_after_mechanism")
+                .expect("the corpus_linted_before_and_after_mechanism fixture materializes"),
+        )
     }
 
     pub fn two_packs_declare_identical_vocabulary_and_a_file_uses_it(
     ) -> impl Strategy<Value = String> {
-        Just("two_packs_declare_identical_vocabulary_and_a_file_uses_it".into())
+        Just(specodelic::fixtures::materialize("two_packs_declare_identical_vocabulary_and_a_file_uses_it").expect("the two_packs_declare_identical_vocabulary_and_a_file_uses_it fixture materializes"))
     }
 
     pub fn corpus_using_vocabulary_without_pack() -> impl Strategy<Value = String> {
-        Just("corpus_using_vocabulary_without_pack".into())
+        Just(
+            specodelic::fixtures::materialize("corpus_using_vocabulary_without_pack")
+                .expect("the corpus_using_vocabulary_without_pack fixture materializes"),
+        )
     }
 
     pub fn file_with_uses_edge_to_profile_id() -> impl Strategy<Value = String> {
-        Just("file_with_uses_edge_to_profile_id".into())
+        Just(
+            specodelic::fixtures::materialize("file_with_uses_edge_to_profile_id")
+                .expect("the file_with_uses_edge_to_profile_id fixture materializes"),
+        )
     }
 
     pub fn pack_file_linted_alone() -> impl Strategy<Value = String> {
-        Just("pack_file_linted_alone".into())
+        Just(
+            specodelic::fixtures::materialize("pack_file_linted_alone")
+                .expect("the pack_file_linted_alone fixture materializes"),
+        )
     }
 
     pub fn pack_pinned_to_older_revision() -> impl Strategy<Value = String> {
-        Just("pack_pinned_to_older_revision".into())
+        Just(
+            specodelic::fixtures::materialize("pack_pinned_to_older_revision")
+                .expect("the pack_pinned_to_older_revision fixture materializes"),
+        )
     }
 
     pub fn pack_enabled_without_instances() -> impl Strategy<Value = String> {
-        Just("pack_enabled_without_instances".into())
+        Just(
+            specodelic::fixtures::materialize("pack_enabled_without_instances")
+                .expect("the pack_enabled_without_instances fixture materializes"),
+        )
     }
 
     pub fn pack_removing_previously_declared_kind() -> impl Strategy<Value = String> {
-        Just("pack_removing_previously_declared_kind".into())
+        Just(
+            specodelic::fixtures::materialize("pack_removing_previously_declared_kind")
+                .expect("the pack_removing_previously_declared_kind fixture materializes"),
+        )
     }
 
     pub fn pack_parsed_as_standard_spec() -> impl Strategy<Value = String> {
-        Just("pack_parsed_as_standard_spec".into())
+        Just(
+            specodelic::fixtures::materialize("pack_parsed_as_standard_spec")
+                .expect("the pack_parsed_as_standard_spec fixture materializes"),
+        )
     }
 
     pub fn two_packs_claim_same_mechanism() -> impl Strategy<Value = String> {
-        Just("two_packs_claim_same_mechanism".into())
+        Just(
+            specodelic::fixtures::materialize("two_packs_claim_same_mechanism")
+                .expect("the two_packs_claim_same_mechanism fixture materializes"),
+        )
     }
 
     pub fn guide_sets_compared_across_pack_enable() -> impl Strategy<Value = String> {
-        Just("guide_sets_compared_across_pack_enable".into())
+        Just(
+            specodelic::fixtures::materialize("guide_sets_compared_across_pack_enable")
+                .expect("the guide_sets_compared_across_pack_enable fixture materializes"),
+        )
     }
 
     pub fn pack_model_section_parsed() -> impl Strategy<Value = String> {
-        Just("pack_model_section_parsed".into())
+        Just(
+            specodelic::fixtures::materialize("pack_model_section_parsed")
+                .expect("the pack_model_section_parsed fixture materializes"),
+        )
     }
 
     pub fn base_table_kind_column_with_active_fiber_kind() -> impl Strategy<Value = String> {
-        Just("base_table_kind_column_with_active_fiber_kind".into())
+        Just(
+            specodelic::fixtures::materialize("base_table_kind_column_with_active_fiber_kind")
+                .expect("the base_table_kind_column_with_active_fiber_kind fixture materializes"),
+        )
     }
 }
 
 proptest! {
     // id: manifest_round_trips
     // generator: `pack_file_parsed_then_manifest_read()`
-    // predicate: `declared entries equal parsed manifest rows — no drift, no prose leakage`
+    // predicate: `**rust:** { let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str())]); let spec = corpus.specs().first().expect("the corpus carries the pack file"); let m = specodelic::packs::parse_manifest(spec); m.id == "data.pack" && m.lifecycle == "published" && m.sections == vec!["Data".to_string()] && m.kinds == vec!["data.pack.tolerance".to_string()] && m.references == vec!["measures".to_string()] && m.checkers == vec!["data.pack.bound_present".to_string()] && m.floors == vec!["data.pack.tolerance".to_string()] && m.requires.len() == 1 && m.requires[0].0 == "base" && m.requires[0].1.contains("Revision 20") }` — `declared entries equal parsed manifest rows — no drift, no prose leakage`
     #[test]
     fn manifest_round_trips(v0 in spec_gen::pack_file_parsed_then_manifest_read()) {
-        todo_predicate!("`declared entries equal parsed manifest rows — no drift, no prose leakage`");
+        assert!(
+            { let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str())]); let spec = corpus.specs().first().expect("the corpus carries the pack file"); let m = specodelic::packs::parse_manifest(spec); m.id == "data.pack" && m.lifecycle == "published" && m.sections == vec!["Data".to_string()] && m.kinds == vec!["data.pack.tolerance".to_string()] && m.references == vec!["measures".to_string()] && m.checkers == vec!["data.pack.bound_present".to_string()] && m.floors == vec!["data.pack.tolerance".to_string()] && m.requires.len() == 1 && m.requires[0].0 == "base" && m.requires[0].1.contains("Revision 20") },
+            "predicate `manifest_round_trips` violated (executable fragment)",
+        );
     }
     // id: discovery_finds_all_packs
     // generator: `corpus_with_n_profile_files()`
-    // predicate: `scan reports exactly n packs, order-independent`
+    // predicate: `**rust:** { let beta = specodelic::fixtures::packs::pack_file("beta.pack", 20); let gamma = specodelic::fixtures::packs::pack_file("gamma.pack", 20); let corpus = specodelic::fixtures::packs::Corpus::new(&[("alpha.pack.md", v0.as_str()), ("beta.pack.md", beta.as_str()), ("gamma.pack.md", gamma.as_str())]); let mut ids: Vec<String> = vec![]; for p in corpus.discovered() { ids.push(p.id.clone()); } let mut reversed = corpus.specs().to_vec(); reversed.reverse(); let mut reversed_ids: Vec<String> = vec![]; for p in specodelic::packs::discover(&reversed) { reversed_ids.push(p.id.clone()); } ids == vec!["alpha.pack".to_string(), "beta.pack".to_string(), "gamma.pack".to_string()] && reversed_ids == ids }` — `scan reports exactly n packs, order-independent`
     #[test]
     fn discovery_finds_all_packs(v0 in spec_gen::corpus_with_n_profile_files()) {
-        todo_predicate!("`scan reports exactly n packs, order-independent`");
+        assert!(
+            { let beta = specodelic::fixtures::packs::pack_file("beta.pack", 20); let gamma = specodelic::fixtures::packs::pack_file("gamma.pack", 20); let corpus = specodelic::fixtures::packs::Corpus::new(&[("alpha.pack.md", v0.as_str()), ("beta.pack.md", beta.as_str()), ("gamma.pack.md", gamma.as_str())]); let mut ids: Vec<String> = vec![]; for p in corpus.discovered() { ids.push(p.id.clone()); } let mut reversed = corpus.specs().to_vec(); reversed.reverse(); let mut reversed_ids: Vec<String> = vec![]; for p in specodelic::packs::discover(&reversed) { reversed_ids.push(p.id.clone()); } ids == vec!["alpha.pack".to_string(), "beta.pack".to_string(), "gamma.pack".to_string()] && reversed_ids == ids },
+            "predicate `discovery_finds_all_packs` violated (executable fragment)",
+        );
     }
     // id: subdir_lint_discovers_workspace_packs
     // generator: `lint_subdirectory_with_pack_at_workspace_root()`
-    // predicate: `pack discovered, its vocabulary checks run, zero orphan findings`
+    // predicate: `**rust:** { let consumer = specodelic::fixtures::packs::consumer_spec("consumer", "", "data.pack.tolerance applies here"); let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str()), ("work/consumer.md", consumer.as_str())]); let packs = corpus.discovered(); let warnings = corpus.warning_messages(); let issues = corpus.issue_messages(); let mut activated = false; for w in &warnings { if w.contains("activated") && w.contains("data.pack.tolerance") { activated = true; } } let mut orphan = false; for i in &issues { if i.contains("orphan_vocabulary") { orphan = true; } } packs.len() == 1 && packs[0].id == "data.pack" && activated && !orphan }` — `pack discovered, its vocabulary checks run, zero orphan findings`
     #[test]
     fn subdir_lint_discovers_workspace_packs(v0 in spec_gen::lint_subdirectory_with_pack_at_workspace_root()) {
-        todo_predicate!("`pack discovered, its vocabulary checks run, zero orphan findings`");
+        assert!(
+            { let consumer = specodelic::fixtures::packs::consumer_spec("consumer", "", "data.pack.tolerance applies here"); let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str()), ("work/consumer.md", consumer.as_str())]); let packs = corpus.discovered(); let warnings = corpus.warning_messages(); let issues = corpus.issue_messages(); let mut activated = false; for w in &warnings { if w.contains("activated") && w.contains("data.pack.tolerance") { activated = true; } } let mut orphan = false; for i in &issues { if i.contains("orphan_vocabulary") { orphan = true; } } packs.len() == 1 && packs[0].id == "data.pack" && activated && !orphan },
+            "predicate `subdir_lint_discovers_workspace_packs` violated (executable fragment)",
+        );
     }
     // id: no_pack_no_change
     // generator: `corpus_linted_before_and_after_mechanism()`
-    // predicate: `lint findings byte-identical for a corpus using no pack vocabulary`
+    // predicate: `**rust:** { let unrelated = specodelic::fixtures::packs::pack_file("other.pack", 20); let before = specodelic::fixtures::packs::Corpus::new(&[("consumer.md", v0.as_str())]); let after = specodelic::fixtures::packs::Corpus::new(&[("consumer.md", v0.as_str()), ("other.pack.md", unrelated.as_str())]); before.issue_messages() == after.issue_messages() && before.warning_messages() == after.warning_messages() && before.issue_messages().is_empty() && before.warning_messages().is_empty() }` — `lint findings byte-identical for a corpus using no pack vocabulary`
     #[test]
     fn no_pack_no_change(v0 in spec_gen::corpus_linted_before_and_after_mechanism()) {
-        todo_predicate!("`lint findings byte-identical for a corpus using no pack vocabulary`");
+        assert!(
+            { let unrelated = specodelic::fixtures::packs::pack_file("other.pack", 20); let before = specodelic::fixtures::packs::Corpus::new(&[("consumer.md", v0.as_str())]); let after = specodelic::fixtures::packs::Corpus::new(&[("consumer.md", v0.as_str()), ("other.pack.md", unrelated.as_str())]); before.issue_messages() == after.issue_messages() && before.warning_messages() == after.warning_messages() && before.issue_messages().is_empty() && before.warning_messages().is_empty() },
+            "predicate `no_pack_no_change` violated (executable fragment)",
+        );
     }
     // id: overlapping_vocabulary_activates_both
     // generator: `two_packs_declare_identical_vocabulary_and_a_file_uses_it()`
-    // predicate: `both packs' checkers run; findings attributed per pack`
+    // predicate: `**rust:** { let beta = specodelic::fixtures::packs::pack_file_with_kinds("beta", 20, &["shared.tolerance"]); let consumer = specodelic::fixtures::packs::consumer_spec("consumer", "", "shared.tolerance applies here"); let corpus = specodelic::fixtures::packs::Corpus::new(&[("alpha.md", v0.as_str()), ("beta.md", beta.as_str()), ("consumer.md", consumer.as_str())]); let warnings = corpus.warning_messages(); let issues = corpus.issue_messages(); let mut alpha_on = false; let mut beta_on = false; for w in &warnings { if w.contains("activated") && w.contains("shared.tolerance") { if w.contains("alpha") { alpha_on = true; } if w.contains("beta") { beta_on = true; } } } let mut orphan = false; for i in &issues { if i.contains("orphan_vocabulary") { orphan = true; } } alpha_on && beta_on && !orphan }` — `both packs' checkers run; findings attributed per pack`
     #[test]
     fn overlapping_vocabulary_activates_both(v0 in spec_gen::two_packs_declare_identical_vocabulary_and_a_file_uses_it()) {
-        todo_predicate!("`both packs' checkers run; findings attributed per pack`");
+        assert!(
+            { let beta = specodelic::fixtures::packs::pack_file_with_kinds("beta", 20, &["shared.tolerance"]); let consumer = specodelic::fixtures::packs::consumer_spec("consumer", "", "shared.tolerance applies here"); let corpus = specodelic::fixtures::packs::Corpus::new(&[("alpha.md", v0.as_str()), ("beta.md", beta.as_str()), ("consumer.md", consumer.as_str())]); let warnings = corpus.warning_messages(); let issues = corpus.issue_messages(); let mut alpha_on = false; let mut beta_on = false; for w in &warnings { if w.contains("activated") && w.contains("shared.tolerance") { if w.contains("alpha") { alpha_on = true; } if w.contains("beta") { beta_on = true; } } } let mut orphan = false; for i in &issues { if i.contains("orphan_vocabulary") { orphan = true; } } alpha_on && beta_on && !orphan },
+            "predicate `overlapping_vocabulary_activates_both` violated (executable fragment)",
+        );
     }
     // id: orphan_finding_names_pack
     // generator: `corpus_using_vocabulary_without_pack()`
-    // predicate: `failure finding names the candidate pack and both remediations, exit non-zero`
+    // predicate: `**rust:** { let corpus = specodelic::fixtures::packs::Corpus::new(&[("consumer.md", v0.as_str())]); let report = corpus.lint(); let issues = corpus.issue_messages(); let mut orphan = String::new(); for i in &issues { if i.contains("orphan_vocabulary") { orphan = i.clone(); } } report.failures() > 0 && !orphan.is_empty() && orphan.contains("ghost.pack") && orphan.contains("kind: profile") && orphan.contains("add/enable") && orphan.contains("fix the vocabulary") }` — `failure finding names the candidate pack and both remediations, exit non-zero`
     #[test]
     fn orphan_finding_names_pack(v0 in spec_gen::corpus_using_vocabulary_without_pack()) {
-        todo_predicate!("`failure finding names the candidate pack and both remediations, exit non-zero`");
+        assert!(
+            { let corpus = specodelic::fixtures::packs::Corpus::new(&[("consumer.md", v0.as_str())]); let report = corpus.lint(); let issues = corpus.issue_messages(); let mut orphan = String::new(); for i in &issues { if i.contains("orphan_vocabulary") { orphan = i.clone(); } } report.failures() > 0 && !orphan.is_empty() && orphan.contains("ghost.pack") && orphan.contains("kind: profile") && orphan.contains("add/enable") && orphan.contains("fix the vocabulary") },
+            "predicate `orphan_finding_names_pack` violated (executable fragment)",
+        );
     }
     // id: uses_edge_typing
     // generator: `file_with_uses_edge_to_profile_id()`
-    // predicate: `graph edge typed uses resolves to the profile id; wrong-kind targets violate typing`
+    // predicate: `**rust:** { let schema = specodelic::acset::schema::canonical(); let mut uses_profile = false; for m in &schema.morphisms { if m.column == "uses" { for r in &m.refinements { if r.kind == "profile" { uses_profile = true; } } } } let pack = specodelic::fixtures::packs::pack_file("data.pack", 20); let consumer = specodelic::fixtures::packs::consumer_spec("consumer", &specodelic::fixtures::packs::uses_link("data.pack"), "plain prose only"); let wrong = specodelic::fixtures::packs::consumer_spec("wrong", &specodelic::fixtures::packs::uses_link("consumer"), "plain prose only"); let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", pack.as_str()), ("consumer.md", consumer.as_str()), ("wrong.md", wrong.as_str())]); let report = corpus.lint(); let issues = corpus.issue_messages(); let mut pack_kind = String::new(); for s in corpus.specs() { if s.intent.id == "data.pack" { pack_kind = s.intent.kind.clone(); } } let mut violation = String::new(); for i in &issues { if i.contains("ref_kind_compatible") { violation = i.clone(); } } uses_profile && pack_kind == "profile" && !violation.is_empty() && violation.contains("uses") && violation.contains("profile") && !violation.contains("data.pack") }` — `graph edge typed uses resolves to the profile id; wrong-kind targets violate typing`
     #[test]
     fn uses_edge_typing(v0 in spec_gen::file_with_uses_edge_to_profile_id()) {
-        todo_predicate!("`graph edge typed uses resolves to the profile id; wrong-kind targets violate typing`");
+        assert!(
+            { let schema = specodelic::acset::schema::canonical(); let mut uses_profile = false; for m in &schema.morphisms { if m.column == "uses" { for r in &m.refinements { if r.kind == "profile" { uses_profile = true; } } } } let pack = specodelic::fixtures::packs::pack_file("data.pack", 20); let consumer = specodelic::fixtures::packs::consumer_spec("consumer", &specodelic::fixtures::packs::uses_link("data.pack"), "plain prose only"); let wrong = specodelic::fixtures::packs::consumer_spec("wrong", &specodelic::fixtures::packs::uses_link("consumer"), "plain prose only"); let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", pack.as_str()), ("consumer.md", consumer.as_str()), ("wrong.md", wrong.as_str())]); let report = corpus.lint(); let issues = corpus.issue_messages(); let mut pack_kind = String::new(); for s in corpus.specs() { if s.intent.id == "data.pack" { pack_kind = s.intent.kind.clone(); } } let mut violation = String::new(); for i in &issues { if i.contains("ref_kind_compatible") { violation = i.clone(); } } uses_profile && pack_kind == "profile" && !violation.is_empty() && violation.contains("uses") && violation.contains("profile") && !violation.contains("data.pack") },
+            "predicate `uses_edge_typing` violated (executable fragment)",
+        );
     }
     // id: pack_self_activation_absent
     // generator: `pack_file_linted_alone()`
-    // predicate: `its checkers report an empty checked-set; no orphan findings from the pack's own manifest rows`
+    // predicate: `**rust:** { let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str())]); let report = corpus.lint(); let mut self_activated = false; for w in &report.warnings { if w.message.contains("activated") { self_activated = true; } } report.issues.is_empty() && report.warnings.is_empty() && report.packs.len() == 1 && report.packs[0].id == "data.pack" && !self_activated }` — `its checkers report an empty checked-set; no orphan findings from the pack's own manifest rows`
     #[test]
     fn pack_self_activation_absent(v0 in spec_gen::pack_file_linted_alone()) {
-        todo_predicate!("`its checkers report an empty checked-set; no orphan findings from the pack's own manifest rows`");
+        assert!(
+            { let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str())]); let report = corpus.lint(); let mut self_activated = false; for w in &report.warnings { if w.message.contains("activated") { self_activated = true; } } report.issues.is_empty() && report.warnings.is_empty() && report.packs.len() == 1 && report.packs[0].id == "data.pack" && !self_activated },
+            "predicate `pack_self_activation_absent` violated (executable fragment)",
+        );
     }
     // id: skew_is_warning_not_failure
     // generator: `pack_pinned_to_older_revision()`
-    // predicate: `exit 0 with warning-channel advisory naming the pack's base pin and the corpus revision`
+    // predicate: `**rust:** { let consumer = specodelic::fixtures::packs::consumer_spec("consumer", &specodelic::fixtures::packs::uses_link("data.pack"), "plain prose only"); let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str()), ("consumer.md", consumer.as_str())]); let report = corpus.lint(); let corpus_rev = specodelic::guide::revision_number(specodelic::guide::FORMAT_REVISION).expect("the embedded format revision parses"); let mut skew = String::new(); for w in &report.warnings { if w.rule_id == "linter.skew_advisory" { skew = w.message.clone(); } } report.issues.is_empty() && report.failures() == 0 && !skew.is_empty() && skew.contains("Revision 10") && skew.contains(&format!("Revision {corpus_rev}")) }` — `exit 0 with warning-channel advisory naming the pack's base pin and the corpus revision`
     #[test]
     fn skew_is_warning_not_failure(v0 in spec_gen::pack_pinned_to_older_revision()) {
-        todo_predicate!("`exit 0 with warning-channel advisory naming the pack's base pin and the corpus revision`");
+        assert!(
+            { let consumer = specodelic::fixtures::packs::consumer_spec("consumer", &specodelic::fixtures::packs::uses_link("data.pack"), "plain prose only"); let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str()), ("consumer.md", consumer.as_str())]); let report = corpus.lint(); let corpus_rev = specodelic::guide::revision_number(specodelic::guide::FORMAT_REVISION).expect("the embedded format revision parses"); let mut skew = String::new(); for w in &report.warnings { if w.rule_id == "linter.skew_advisory" { skew = w.message.clone(); } } report.issues.is_empty() && report.failures() == 0 && !skew.is_empty() && skew.contains("Revision 10") && skew.contains(&format!("Revision {corpus_rev}")) },
+            "predicate `skew_is_warning_not_failure` violated (executable fragment)",
+        );
     }
     // id: empty_vocabulary_honest
     // generator: `pack_enabled_without_instances()`
-    // predicate: `checker reports empty checked-set; no fabricated findings`
+    // predicate: `**rust:** { let consumer = specodelic::fixtures::packs::consumer_spec("consumer", "", "data.pack.tolerance applies here"); let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str()), ("consumer.md", consumer.as_str())]); let report = corpus.lint(); let mut activated = String::new(); for w in &report.warnings { if w.message.contains("activated") { activated = w.message.clone(); } } report.issues.is_empty() && report.failures() == 0 && activated.contains("empty checked-set") && activated.contains("data.pack.tolerance") }` — `checker reports empty checked-set; no fabricated findings`
     #[test]
     fn empty_vocabulary_honest(v0 in spec_gen::pack_enabled_without_instances()) {
-        todo_predicate!("`checker reports empty checked-set; no fabricated findings`");
+        assert!(
+            { let consumer = specodelic::fixtures::packs::consumer_spec("consumer", "", "data.pack.tolerance applies here"); let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str()), ("consumer.md", consumer.as_str())]); let report = corpus.lint(); let mut activated = String::new(); for w in &report.warnings { if w.message.contains("activated") { activated = w.message.clone(); } } report.issues.is_empty() && report.failures() == 0 && activated.contains("empty checked-set") && activated.contains("data.pack.tolerance") },
+            "predicate `empty_vocabulary_honest` violated (executable fragment)",
+        );
     }
     // id: narrowing_rejected
     // generator: `pack_removing_previously_declared_kind()`
-    // predicate: `pack_shape fails naming the removed entry and the append-only law`
+    // predicate: `**rust:** { let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str())]); let report = corpus.lint(); let mut shape = String::new(); for i in &report.issues { if i.rule_id == "linter.pack_shape" && i.message.contains("narrowing rejected") { shape = i.message.clone(); } } report.failures() > 0 && shape.contains("invariant") && shape.contains("append_only_packs") }` — `pack_shape fails naming the removed entry and the append-only law`
     #[test]
     fn narrowing_rejected(v0 in spec_gen::pack_removing_previously_declared_kind()) {
-        todo_predicate!("`pack_shape fails naming the removed entry and the append-only law`");
+        assert!(
+            { let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str())]); let report = corpus.lint(); let mut shape = String::new(); for i in &report.issues { if i.rule_id == "linter.pack_shape" && i.message.contains("narrowing rejected") { shape = i.message.clone(); } } report.failures() > 0 && shape.contains("invariant") && shape.contains("append_only_packs") },
+            "predicate `narrowing_rejected` violated (executable fragment)",
+        );
     }
     // id: profile_file_is_four_layer
     // generator: `pack_parsed_as_standard_spec()`
-    // predicate: `all four layers parse from the pack file alone — no sidecar artifact needed`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the pack file parses"); spec.intent.kind == "profile" && !spec.intent.id.is_empty() && !spec.intent.statement.is_empty() && !spec.constraints.is_empty() && !spec.states.is_empty() && !spec.transitions.is_empty() && !spec.properties.is_empty() }` — `all four layers parse from the pack file alone — no sidecar artifact needed`
     #[test]
     fn profile_file_is_four_layer(v0 in spec_gen::pack_parsed_as_standard_spec()) {
-        todo_predicate!("`all four layers parse from the pack file alone — no sidecar artifact needed`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the pack file parses"); spec.intent.kind == "profile" && !spec.intent.id.is_empty() && !spec.intent.statement.is_empty() && !spec.constraints.is_empty() && !spec.states.is_empty() && !spec.transitions.is_empty() && !spec.properties.is_empty() },
+            "predicate `profile_file_is_four_layer` violated (executable fragment)",
+        );
     }
     // id: pack_vocabulary_qualified
     // generator: `two_packs_claim_same_mechanism()`
-    // predicate: `both packs' declared vocabulary resolves without cross-pack collision`
+    // predicate: `**rust:** { let beta = specodelic::fixtures::packs::pack_file_with_kinds("beta", 20, &["shared.tolerance"]); let consumer = specodelic::fixtures::packs::consumer_spec("consumer", "", "shared.tolerance applies here"); let corpus = specodelic::fixtures::packs::Corpus::new(&[("alpha.md", v0.as_str()), ("beta.md", beta.as_str()), ("consumer.md", consumer.as_str())]); let report = corpus.lint(); let packs = corpus.discovered(); let mut alpha_vocab = false; let mut beta_vocab = false; let mut alpha_id = String::new(); let mut beta_id = String::new(); for p in &packs { if p.id == "alpha" { alpha_id = p.id.clone(); for v in &p.vocabulary { if v == "shared.tolerance" { alpha_vocab = true; } } } if p.id == "beta" { beta_id = p.id.clone(); for v in &p.vocabulary { if v == "shared.tolerance" { beta_vocab = true; } } } } alpha_vocab && beta_vocab && alpha_id != beta_id && report.issues.is_empty() }` — `both packs' declared vocabulary resolves without cross-pack collision`
     #[test]
     fn pack_vocabulary_qualified(v0 in spec_gen::two_packs_claim_same_mechanism()) {
-        todo_predicate!("`both packs' declared vocabulary resolves without cross-pack collision`");
+        assert!(
+            { let beta = specodelic::fixtures::packs::pack_file_with_kinds("beta", 20, &["shared.tolerance"]); let consumer = specodelic::fixtures::packs::consumer_spec("consumer", "", "shared.tolerance applies here"); let corpus = specodelic::fixtures::packs::Corpus::new(&[("alpha.md", v0.as_str()), ("beta.md", beta.as_str()), ("consumer.md", consumer.as_str())]); let report = corpus.lint(); let packs = corpus.discovered(); let mut alpha_vocab = false; let mut beta_vocab = false; let mut alpha_id = String::new(); let mut beta_id = String::new(); for p in &packs { if p.id == "alpha" { alpha_id = p.id.clone(); for v in &p.vocabulary { if v == "shared.tolerance" { alpha_vocab = true; } } } if p.id == "beta" { beta_id = p.id.clone(); for v in &p.vocabulary { if v == "shared.tolerance" { beta_vocab = true; } } } } alpha_vocab && beta_vocab && alpha_id != beta_id && report.issues.is_empty() },
+            "predicate `pack_vocabulary_qualified` violated (executable fragment)",
+        );
     }
     // id: base_sets_unchanged_by_packs
     // generator: `guide_sets_compared_across_pack_enable()`
-    // predicate: `INTENT_KINDS and Reference Typing sets identical with and without packs discovered`
+    // predicate: `**rust:** { let mut before_typing: Vec<String> = vec![]; for r in specodelic::guide::REFERENCE_TYPING { before_typing.push(format!("{}:{}:{}", r.field, r.appears_on, r.resolves_to)); } let before_kinds = specodelic::guide::INTENT_KINDS.to_vec(); let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str())]); let report = corpus.lint(); let spec = corpus.specs().first().expect("the corpus carries the pack file"); let manifest = specodelic::packs::parse_manifest(spec); let mut after_typing: Vec<String> = vec![]; for r in specodelic::guide::REFERENCE_TYPING { after_typing.push(format!("{}:{}:{}", r.field, r.appears_on, r.resolves_to)); } let after_kinds = specodelic::guide::INTENT_KINDS.to_vec(); let mut widened = false; for k in &manifest.kinds { if after_kinds.contains(&k.as_str()) { widened = true; } } before_kinds == after_kinds && before_typing == after_typing && !widened && report.issues.is_empty() }` — `INTENT_KINDS and Reference Typing sets identical with and without packs discovered`
     #[test]
     fn base_sets_unchanged_by_packs(v0 in spec_gen::guide_sets_compared_across_pack_enable()) {
-        todo_predicate!("`INTENT_KINDS and Reference Typing sets identical with and without packs discovered`");
+        assert!(
+            { let mut before_typing: Vec<String> = vec![]; for r in specodelic::guide::REFERENCE_TYPING { before_typing.push(format!("{}:{}:{}", r.field, r.appears_on, r.resolves_to)); } let before_kinds = specodelic::guide::INTENT_KINDS.to_vec(); let corpus = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str())]); let report = corpus.lint(); let spec = corpus.specs().first().expect("the corpus carries the pack file"); let manifest = specodelic::packs::parse_manifest(spec); let mut after_typing: Vec<String> = vec![]; for r in specodelic::guide::REFERENCE_TYPING { after_typing.push(format!("{}:{}:{}", r.field, r.appears_on, r.resolves_to)); } let after_kinds = specodelic::guide::INTENT_KINDS.to_vec(); let mut widened = false; for k in &manifest.kinds { if after_kinds.contains(&k.as_str()) { widened = true; } } before_kinds == after_kinds && before_typing == after_typing && !widened && report.issues.is_empty() },
+            "predicate `base_sets_unchanged_by_packs` violated (executable fragment)",
+        );
     }
     // id: lifecycle_states_parsed
     // generator: `pack_model_section_parsed()`
-    // predicate: `each lifecycle state yields exactly its declared checking behavior`
+    // predicate: `**rust:** { let draft_pack = specodelic::fixtures::packs::pack_file_in_state("draft.pack", 20, "draft"); let old_pack = specodelic::fixtures::packs::pack_file_in_state("old.pack", 20, "deprecated"); let published_consumer = specodelic::fixtures::packs::consumer_spec("consumer", "", "data.pack.tolerance applies here"); let draft_consumer = specodelic::fixtures::packs::consumer_spec("consumer", "", "draft.pack.tolerance applies here"); let old_consumer = specodelic::fixtures::packs::consumer_spec("consumer", "", "old.pack.tolerance applies here"); let published = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str()), ("consumer.md", published_consumer.as_str())]); let draft = specodelic::fixtures::packs::Corpus::new(&[("draft.pack.md", draft_pack.as_str()), ("consumer.md", draft_consumer.as_str())]); let old = specodelic::fixtures::packs::Corpus::new(&[("old.pack.md", old_pack.as_str()), ("consumer.md", old_consumer.as_str())]); let published_report = published.lint(); let draft_report = draft.lint(); let old_report = old.lint(); let mut draft_named = false; for w in &draft_report.warnings { if w.message.contains("draft status") { draft_named = true; } } let mut old_named = false; for w in &old_report.warnings { if w.message.contains("deprecated") { old_named = true; } } let mut published_clean = true; for w in &published_report.warnings { if w.message.contains("draft status") { published_clean = false; } if w.message.contains("deprecated") { published_clean = false; } } published_report.packs[0].lifecycle == "published" && draft_report.packs[0].lifecycle == "draft" && old_report.packs[0].lifecycle == "deprecated" && draft_named && old_named && published_clean }` — `each lifecycle state yields exactly its declared checking behavior`
     #[test]
     fn lifecycle_states_parsed(v0 in spec_gen::pack_model_section_parsed()) {
-        todo_predicate!("`each lifecycle state yields exactly its declared checking behavior`");
+        assert!(
+            { let draft_pack = specodelic::fixtures::packs::pack_file_in_state("draft.pack", 20, "draft"); let old_pack = specodelic::fixtures::packs::pack_file_in_state("old.pack", 20, "deprecated"); let published_consumer = specodelic::fixtures::packs::consumer_spec("consumer", "", "data.pack.tolerance applies here"); let draft_consumer = specodelic::fixtures::packs::consumer_spec("consumer", "", "draft.pack.tolerance applies here"); let old_consumer = specodelic::fixtures::packs::consumer_spec("consumer", "", "old.pack.tolerance applies here"); let published = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", v0.as_str()), ("consumer.md", published_consumer.as_str())]); let draft = specodelic::fixtures::packs::Corpus::new(&[("draft.pack.md", draft_pack.as_str()), ("consumer.md", draft_consumer.as_str())]); let old = specodelic::fixtures::packs::Corpus::new(&[("old.pack.md", old_pack.as_str()), ("consumer.md", old_consumer.as_str())]); let published_report = published.lint(); let draft_report = draft.lint(); let old_report = old.lint(); let mut draft_named = false; for w in &draft_report.warnings { if w.message.contains("draft status") { draft_named = true; } } let mut old_named = false; for w in &old_report.warnings { if w.message.contains("deprecated") { old_named = true; } } let mut published_clean = true; for w in &published_report.warnings { if w.message.contains("draft status") { published_clean = false; } if w.message.contains("deprecated") { published_clean = false; } } published_report.packs[0].lifecycle == "published" && draft_report.packs[0].lifecycle == "draft" && old_report.packs[0].lifecycle == "deprecated" && draft_named && old_named && published_clean },
+            "predicate `lifecycle_states_parsed` violated (executable fragment)",
+        );
     }
     // id: fiber_kinds_typeable
     // generator: `base_table_kind_column_with_active_fiber_kind()`
-    // predicate: `the base closed-set walkers accept the pack-qualified kind when the pack is active; the same token without the pack fires the labeled finding (base ∪ active-pack-fiber, never narrower)`
+    // predicate: `**rust:** { let pack = specodelic::fixtures::packs::pack_file_with_kinds("data.pack", 20, &["data.dataset"]); let with_pack = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", pack.as_str()), ("consumer.md", v0.as_str())]); let without_pack = specodelic::fixtures::packs::Corpus::new(&[("consumer.md", v0.as_str())]); let active = with_pack.lint(); let inactive = without_pack.lint(); let mut active_closed = false; for i in &active.issues { if i.rule_id == "linter.constraint_kind_closed" { active_closed = true; } } let mut inactive_closed = false; for i in &inactive.issues { if i.rule_id == "linter.constraint_kind_closed" { inactive_closed = true; } } !active_closed && inactive_closed }` — `the base closed-set walkers accept the pack-qualified kind when the pack is active; the same token without the pack fires the labeled finding (base ∪ active-pack-fiber, never narrower)`
     #[test]
     fn fiber_kinds_typeable(v0 in spec_gen::base_table_kind_column_with_active_fiber_kind()) {
-        todo_predicate!("`the base closed-set walkers accept the pack-qualified kind when the pack is active; the same token without the pack fires the labeled finding (base ∪ active-pack-fiber, never narrower)`");
+        assert!(
+            { let pack = specodelic::fixtures::packs::pack_file_with_kinds("data.pack", 20, &["data.dataset"]); let with_pack = specodelic::fixtures::packs::Corpus::new(&[("data.pack.md", pack.as_str()), ("consumer.md", v0.as_str())]); let without_pack = specodelic::fixtures::packs::Corpus::new(&[("consumer.md", v0.as_str())]); let active = with_pack.lint(); let inactive = without_pack.lint(); let mut active_closed = false; for i in &active.issues { if i.rule_id == "linter.constraint_kind_closed" { active_closed = true; } } let mut inactive_closed = false; for i in &inactive.issues { if i.rule_id == "linter.constraint_kind_closed" { inactive_closed = true; } } !active_closed && inactive_closed },
+            "predicate `fiber_kinds_typeable` violated (executable fragment)",
+        );
     }
 }
