@@ -284,3 +284,23 @@ fn counterexample_kernel_claim_propagates_to_the_citing_citation() {
     let resolved = resolved_citation(&evidence);
     assert_eq!(resolved.status, ThreeValued::Counterexample);
 }
+
+#[test]
+fn a_missing_kernel_evidence_map_degrades_to_no_evidence_never_a_panic() {
+    // The alignment contract is one map per spec — but a caller that
+    // passes a short slice must degrade to "no kernel evidence", never
+    // to an index panic (the resolver's evidence lookup is total).
+    let spec = cross_evaluator_spec();
+    let resolved = specodelic::citation_corpus::resolve_corpus_citations(
+        std::slice::from_ref(&spec),
+        &exec_evidence(),
+        &[],
+    );
+    let citation = resolved[0].iter().find(|r| r.id == "kc").unwrap_p().clone();
+    assert_eq!(citation.status, ThreeValued::Unknown);
+    let reason = citation.reason.unwrap_p();
+    assert!(
+        reason.contains("missing target `ka`"),
+        "no kernel evidence means the pre-composition reason: {reason}"
+    );
+}

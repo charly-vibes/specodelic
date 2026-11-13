@@ -185,6 +185,11 @@ pub struct ClaimEvidence {
 /// the same invocation (specodelic-9o1h) — the second evidence source
 /// the citation algebra composes with the same-run EXEC outcomes. An
 /// empty map behaves exactly as before the composition.
+///
+/// Alignment invariant: `kernel_evidence` holds exactly one map per
+/// spec, in `specs` order — the same contract the EXEC map follows. A
+/// map that is missing for a file contributes no evidence for it (the
+/// resolver degrades to "no kernel evidence", never to a panic).
 pub fn apply_corpus_resolution(
     specs: &[Spec],
     runs: &mut [FileRun],
@@ -488,7 +493,11 @@ impl<'a> Resolver<'a> {
         // citation consumes the kernel evaluator's status — it never
         // re-evaluates the claim. One-way: a kernel claim carries no
         // `[[..]]` reference, so this edge cannot cycle.
-        if let Some(evidence) = self.kernel_evidence[idx].get(&row) {
+        if let Some(evidence) = self
+            .kernel_evidence
+            .get(idx)
+            .and_then(|file| file.get(&row))
+        {
             // Only an unknown rides a reason — the exec leg has the same
             // shape (a verified or refuted leg carries none).
             let reason = (evidence.status == ThreeValued::Unknown).then(|| {
