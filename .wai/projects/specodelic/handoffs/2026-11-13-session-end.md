@@ -35,8 +35,8 @@ phase: research
 ### git_status
 
 ```
- M .wai/pipeline-runs/epic-orchestrator-2026-11-13-specodelic-8mta-resolve-check-kernel-id-literals-e2-f1-vacuous-verified.yml
-?? .wai/projects/specodelic/research/2026-11-13-ship-pushed-4a9288b5-40a5a974-to-origin-main-de.md
+ M .wai/pipeline-runs/epic-orchestrator-2026-11-13-specodelic-9o1h-compose-kernel-outcomes-into-the-citation-algebra-e2-f2.yml
+?? .wai/projects/specodelic/research/2026-11-13-ship-pushed-f8d96a68-8c0c3528-to-origin-main-ec.md
 ?? .wai/resources/pipelines/.last-run
 ```
 
@@ -48,7 +48,6 @@ phase: research
 ○ specodelic-3yt9 P2 audit: bind:<owner-id> row key can collide with an oracle corpus id in one report
 ○ specodelic-523w P2 [bug] compile: commands/corpus.rs (spk compile over a corpus) has no scope guard — later same-stem file silently wins
 ○ specodelic-5iez P2 conform: no explain topic — oracle JSONL schema, verdict taxonomy, permitted-requires-executable-claims rule undocumented (gh-18)
-○ specodelic-9o1h P2 kernel: citation algebra cannot compose kernel-evaluated claims (E2 finding F2)
 ○ specodelic-f4sx P2 [bug] conform: single-file lint gate dangles corpus-wide refs; prose-dominated unknowns; undocumented trace schema (gh-17)
 ○ specodelic-gixd P2 audit: dedupe audit test fixtures cross-file (l6md RO5U L8 residual)
 ○ specodelic-h5ks P2 lint: vacuity advisories — extension of specodelic-xci (catitas A2)
@@ -87,7 +86,7 @@ phase: research
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 42 issues (42 open, 0 in progress)
+Total: 41 issues (41 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
