@@ -73,7 +73,7 @@ fn every_property_row_generator_resolves_to_a_pack_fixture() {
     for row in &spec.properties {
         let cell = row.cells.get("generator").cloned().unwrap_or_default();
         for name in generator_names(&cell) {
-            if !fixtures::packs::lookup(&name).is_some() && !missing.contains(&name) {
+            if fixtures::packs::lookup(&name).is_none() && !missing.contains(&name) {
                 missing.push(name);
             }
         }

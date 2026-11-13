@@ -670,29 +670,19 @@ pub mod fixtures {
         fn build_consumer_orphan() -> String {
             consumer_spec(
                 "consumer",
-                "[[ghost.pack]]",
+                &uses_link("ghost.pack"),
                 "ghost.pack vocabulary applies here",
             )
         }
 
         /// A consumer whose `uses` edge targets a profile pack.
         fn build_consumer_uses_pack() -> String {
-            consumer_spec("consumer", "[[data.pack]]", "plain prose only")
-        }
-
-        /// A well-formed pack file.
-        fn build_pack_file_alone() -> String {
-            pack_file("data.pack", 20)
+            consumer_spec("consumer", &uses_link("data.pack"), "plain prose only")
         }
 
         /// A pack file pinned to an older base revision.
         fn build_pack_file_older() -> String {
             pack_file("data.pack", 10)
-        }
-
-        /// A well-formed pack file.
-        fn build_pack_file_enabled() -> String {
-            pack_file("data.pack", 20)
         }
 
         /// A pack file whose `## Kinds` row names a base closed-set
@@ -701,20 +691,10 @@ pub mod fixtures {
             pack_file_with_kinds("data.pack", 20, &["invariant"])
         }
 
-        /// A well-formed pack file — the four layers.
-        fn build_pack_file_four_layer() -> String {
-            pack_file("data.pack", 20)
-        }
-
-        /// A well-formed pack file — the lifecycle machine.
-        fn build_pack_file_lifecycle() -> String {
-            pack_file("data.pack", 20)
-        }
-
         /// A consumer whose Constraint row's `kind` cell carries a
         /// pack-qualified fiber kind.
         fn build_fiber_kind_consumer() -> String {
-            fiber_kind_consumer("consumer", "[[data.pack]]", "data.dataset")
+            fiber_kind_consumer("consumer", &uses_link("data.pack"), "data.dataset")
         }
 
         /// The registry — one fixture per generator name the packs
@@ -758,7 +738,7 @@ pub mod fixtures {
             PackFixture {
                 name: "pack_file_linted_alone",
                 summary: "a well-formed pack file",
-                build: build_pack_file_alone,
+                build: build_pack_file,
             },
             PackFixture {
                 name: "pack_pinned_to_older_revision",
@@ -768,7 +748,7 @@ pub mod fixtures {
             PackFixture {
                 name: "pack_enabled_without_instances",
                 summary: "a well-formed pack file, enabled by a consumer",
-                build: build_pack_file_enabled,
+                build: build_pack_file,
             },
             PackFixture {
                 name: "pack_removing_previously_declared_kind",
@@ -778,7 +758,7 @@ pub mod fixtures {
             PackFixture {
                 name: "pack_parsed_as_standard_spec",
                 summary: "a well-formed pack file — the four layers",
-                build: build_pack_file_four_layer,
+                build: build_pack_file,
             },
             PackFixture {
                 name: "two_packs_claim_same_mechanism",
@@ -793,7 +773,7 @@ pub mod fixtures {
             PackFixture {
                 name: "pack_model_section_parsed",
                 summary: "a pack file with the full lifecycle machine",
-                build: build_pack_file_lifecycle,
+                build: build_pack_file,
             },
             PackFixture {
                 name: "base_table_kind_column_with_active_fiber_kind",
@@ -822,18 +802,15 @@ pub mod fixtures {
             REGISTRY.iter().map(|f| f.name).collect()
         }
 
-        /// A well-formed pack file: `kind: profile` frontmatter, the four
+        /// The pack file's text: `kind: profile` frontmatter, the four
         /// standard layers, and the six manifest tables — the real input
         /// the workspace scanner and the `pack_shape` rule read.
         ///
-        /// `extra_kinds` are extra `## Kinds` rows: the shared token two
+        /// `extra_kinds` are extra `## Kinds` rows (the shared token two
         /// packs claim, or the base-kind row the narrowing rejection
-        /// fires on.
-        pub fn pack_file_with_kinds(id: &str, revision: u32, extra_kinds: &[&str]) -> String {
-            let mut kinds = format!("| {id}.tolerance | `an empirical bound` |\n");
-            for kind in extra_kinds {
-                kinds.push_str(&format!("| {kind} | `a declared pack kind` |\n"));
-            }
+        /// fires on); `model` is the Model section — the lifecycle
+        /// machine, or a single-state stand.
+        fn pack_file_text(id: &str, revision: u32, extra_kinds: &str, model: &str) -> String {
             format!(
                 "---\nid: {id}\nkind: profile\nstatement: \"WHEN a workspace enables this pack, THE format SHALL provide the {id} vocabulary and its declared checkers\"\n---\n\
                  \n## Constraints\n\
@@ -841,65 +818,7 @@ pub mod fixtures {
                  |----|------|------|-----------|\n\
                  | vocab_declared | invariant | `the six manifest tables declare the vocabulary` | [[{id}]] |\n\
                  \n## Model\n\
-                 \n### States\n\
-                 \n- draft\n- published\n- deprecated\n\
-                 \n### Transitions\n\
-                 \n| id | from | to | guard |\n\
-                 |----|------|----|-------|\n\
-                 | publish | draft | published | [[{id}.vocab_declared]] |\n\
-                 | deprecate | published | deprecated | [[{id}.vocab_declared]] |\n\
-                 \n## Properties\n\
-                 \n| id | kind | derives_from | generator | predicate |\n\
-                 |----|------|--------------|-----------|------------|\n\
-                 | p | unit | [[{id}.vocab_declared]] | `g()` | `the pack declares its vocabulary` |\n\
-                 \n## Sections\n\
-                 \n| section | row_shape |\n\
-                 |---------|-----------|\n\
-                 | Data | `\\| name \\| dtype \\|` |\n\
-                 \n## Kinds\n\
-                 \n| kind | vocabulary |\n\
-                 |------|------------|\n\
-                 {kinds}\
-                 \n## References\n\
-                 \n| field | resolves_to |\n\
-                 |-------|-------------|\n\
-                 | measures | `a {id}.tolerance kind row` |\n\
-                 \n## Checkers\n\
-                 \n| rule | semantics |\n\
-                 |------|-----------|\n\
-                 | {id}.bound_present | `every {id}.tolerance row carries a bound` |\n\
-                 \n## Floors\n\
-                 \n| kind | required_cases |\n\
-                 |------|----------------|\n\
-                 | {id}.tolerance | `identity` |\n\
-                 \n## Requires\n\
-                 \n| dep | revision |\n\
-                 |-----|----------|\n\
-                 | base | specodelic.md Revision {revision} |\n"
-            )
-        }
-
-        /// A well-formed pack file pinned to `revision`.
-        pub fn pack_file(id: &str, revision: u32) -> String {
-            pack_file_with_kinds(id, revision, &[])
-        }
-
-        /// A pack file in one lifecycle state (a single-state Model names
-        /// exactly where the pack stands — `draft` or `deprecated`).
-        pub fn pack_file_in_state(id: &str, revision: u32, state: &str) -> String {
-            format!(
-                "---\nid: {id}\nkind: profile\nstatement: \"WHEN a workspace enables this pack, THE format SHALL provide the {id} vocabulary and its declared checkers\"\n---\n\
-                 \n## Constraints\n\
-                 \n| id | kind | expr | traces_to |\n\
-                 |----|------|------|-----------|\n\
-                 | vocab_declared | invariant | `the six manifest tables declare the vocabulary` | [[{id}]] |\n\
-                 \n## Model\n\
-                 \n### States\n\
-                 \n- {state}\n\
-                 \n### Transitions\n\
-                 \n| id | from | to | guard |\n\
-                 |----|------|----|-------|\n\
-                 | hold | {state} | {state} | [[{id}.vocab_declared]] |\n\
+                 \n{model}\
                  \n## Properties\n\
                  \n| id | kind | derives_from | generator | predicate |\n\
                  |----|------|--------------|-----------|------------|\n\
@@ -912,6 +831,7 @@ pub mod fixtures {
                  \n| kind | vocabulary |\n\
                  |------|------------|\n\
                  | {id}.tolerance | `an empirical bound` |\n\
+                 {extra_kinds}\
                  \n## References\n\
                  \n| field | resolves_to |\n\
                  |-------|-------------|\n\
@@ -929,6 +849,52 @@ pub mod fixtures {
                  |-----|----------|\n\
                  | base | specodelic.md Revision {revision} |\n"
             )
+        }
+
+        /// The Model section of a pack in one lifecycle state — the
+        /// single-state stand for `draft` and `deprecated`.
+        fn single_state_model(id: &str, state: &str) -> String {
+            format!(
+                "### States\n\
+                 \n- {state}\n\
+                 \n### Transitions\n\
+                 \n| id | from | to | guard |\n\
+                 |----|------|----|-------|\n\
+                 | hold | {state} | {state} | [[{id}.vocab_declared]] |\n"
+            )
+        }
+
+        /// The Model section of a pack in the full lifecycle machine.
+        fn lifecycle_model(id: &str) -> String {
+            format!(
+                "### States\n\
+                 \n- draft\n- published\n- deprecated\n\
+                 \n### Transitions\n\
+                 \n| id | from | to | guard |\n\
+                 |----|------|----|-------|\n\
+                 | publish | draft | published | [[{id}.vocab_declared]] |\n\
+                 | deprecate | published | deprecated | [[{id}.vocab_declared]] |\n"
+            )
+        }
+
+        /// A well-formed pack file with extra `## Kinds` rows.
+        pub fn pack_file_with_kinds(id: &str, revision: u32, extra_kinds: &[&str]) -> String {
+            let mut kinds = String::new();
+            for kind in extra_kinds {
+                kinds.push_str(&format!("| {kind} | `a declared pack kind` |\n"));
+            }
+            pack_file_text(id, revision, &kinds, &lifecycle_model(id))
+        }
+
+        /// A well-formed pack file pinned to `revision`.
+        pub fn pack_file(id: &str, revision: u32) -> String {
+            pack_file_with_kinds(id, revision, &[])
+        }
+
+        /// A pack file in one lifecycle state (a single-state Model names
+        /// exactly where the pack stands — `draft` or `deprecated`).
+        pub fn pack_file_in_state(id: &str, revision: u32, state: &str) -> String {
+            pack_file_text(id, revision, "", &single_state_model(id, state))
         }
 
         /// The `uses`-column link cell for a pack id — the reference a
@@ -944,14 +910,15 @@ pub mod fixtures {
 
         /// A consumer intent spec: a lint-clean four-layer file whose
         /// Constraint row carries a `uses` column (the declared pack
-        /// enablement) and whose expr carries the pack's vocabulary.
-        pub fn consumer_spec(id: &str, uses: &str, vocab: &str) -> String {
+        /// enablement) and whose Constraint `kind` cell carries
+        /// `kind`.
+        fn consumer_text(id: &str, uses: &str, kind: &str, expr: &str) -> String {
             format!(
                 "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\
                  \n## Constraints\n\
                  \n| id | kind | expr | traces_to | uses |\n\
                  |----|------|------|-----------|------|\n\
-                 | c1 | invariant | `{vocab}` | [[{id}]] | {uses} |\n\
+                 | c1 | {kind} | `{expr}` | [[{id}]] | {uses} |\n\
                  \n## Model\n\
                  \n### States\n\
                  \n- s1\n- s2\n\
@@ -966,28 +933,18 @@ pub mod fixtures {
             )
         }
 
+        /// A consumer intent spec whose Constraint row carries a
+        /// `uses` column (the declared pack enablement) and whose expr
+        /// carries the pack's vocabulary.
+        pub fn consumer_spec(id: &str, uses: &str, vocab: &str) -> String {
+            consumer_text(id, uses, "invariant", vocab)
+        }
+
         /// A consumer whose Constraint row's `kind` cell carries a
         /// pack-qualified fiber kind — the base closed-set walkers' fiber
         /// arm.
         pub fn fiber_kind_consumer(id: &str, uses: &str, kind: &str) -> String {
-            format!(
-                "---\nid: {id}\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\
-                 \n## Constraints\n\
-                 \n| id | kind | expr | traces_to | uses |\n\
-                 |----|------|------|-----------|------|\n\
-                 | c1 | {kind} | `holds` | [[{id}]] | {uses} |\n\
-                 \n## Model\n\
-                 \n### States\n\
-                 \n- s1\n- s2\n\
-                 \n### Transitions\n\
-                 \n| id | from | to | guard |\n\
-                 |----|------|----|-------|\n\
-                 | t | s1 | s2 | [[{id}.c1]] |\n\
-                 \n## Properties\n\
-                 \n| id | kind | derives_from | generator | predicate |\n\
-                 |----|------|--------------|-----------|------------|\n\
-                 | p | unit | [[{id}.c1]] | `g()` | `the consumer holds` |\n"
-            )
+            consumer_text(id, uses, kind, "holds")
         }
 
         /// A real workspace corpus: the files on disk under one root,
