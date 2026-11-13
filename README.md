@@ -48,7 +48,7 @@ $ specodelic archive-companion my-change   # archive with the dual-format layer 
 Domain packs: a workspace extends the format by adding `kind: profile`
 spec files (see the [packs spec](openspec/specs/packs/spec.md)) — no config, no
 registry; vocabulary use activates a pack's checks advisory-first. The
-five standard packs and the bioimage D6 pilot ship in-repo:
+six standard packs and the bioimage D6 pilot ship in-repo:
 [`packs/data-lineage.md`](packs/data-lineage.md) (a typed `## Data`
 table with lineage edges; external data standards are bridged through
 an opaque `binding` column, never absorbed),
@@ -67,7 +67,11 @@ outside the format, never absorbed),
 `## Interfaces` table with the `svc.compat` kind and a `published_as`
 reference field for cross-repo service contracts; OpenAPI/AsyncAPI/protobuf/
 JSON-Schema artifacts stay authoritative outside the format, never
-absorbed; still `draft` — activates advisory-first), and
+absorbed; still `draft` — activates advisory-first),
+[`packs/kernel-pack.md`](packs/kernel-pack.md) (the `kernel.binding`
+reference field and the `kernel.predicate` kind for the kernel's opaque
+claim carrier and pack-side predicates; checker languages stay
+authoritative outside the format, never absorbed), and
 [`packs/bioimage-data.md`](packs/bioimage-data.md) — the D6 pilot: a
 typed `## Axes` table with the `bioimage.transform` kind, the R2
 data-shaped predicate grammar as named checkers, and the mechanism's

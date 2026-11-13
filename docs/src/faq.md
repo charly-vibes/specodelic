@@ -169,7 +169,8 @@ division of ownership is in [tool relationships](tool-relationships.md).
 Through a [domain pack](specs/packs/spec.md): a `kind: profile` manifest
 declaring typed sections, fiber kinds, and reference fields — discovered
 by corpus scan, no config file. The [using packs guide](using-packs.md)
-walks the whole loop. Six packs ship in-repo — five standard
+walks the whole loop. Seven packs ship in-repo — six standard
 packs (`data.lineage`, `numeric.predicates`, `empirical.registry`,
-`quant.finance`, `svc.contracts` — the last still `draft`) plus the
-first cross-pack `## Requires` pilot (`bioimage.data`).
+`quant.finance`, `svc.contracts` — the last still `draft`, and
+`kernel.pack` — the kernel namespace's `kernel.binding` claim carrier)
+plus the first cross-pack `## Requires` pilot (`bioimage.data`).

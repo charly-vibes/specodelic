@@ -56,9 +56,10 @@ activates them when a file's vocabulary matches, and reports:
 - lifecycle/revision-skew advisories (draft packs activate advisory-first;
   a pack pinned to an older base `format_revision` is named)
 
-The five in-repo standard packs live in [`packs/`](https://github.com/charly-vibes/specodelic/tree/main/packs)
+The six in-repo standard packs live in [`packs/`](https://github.com/charly-vibes/specodelic/tree/main/packs)
 (`data.lineage`, `numeric.predicates`, `empirical.registry`,
-`quant.finance`, `svc.contracts` — the last still `draft`); a
+`quant.finance`, `svc.contracts` — the last still `draft`, and
+`kernel.pack` — the kernel namespace's `kernel.binding` claim carrier); a
 consuming file opts in by using the pack's vocabulary, or explicitly
 via a `uses` reference to the pack's frontmatter id.
 
