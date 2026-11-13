@@ -35,8 +35,9 @@ phase: research
 ### git_status
 
 ```
- M .wai/pipeline-runs/epic-orchestrator-2026-11-13-specodelic-3632-lint-revision-seams-for-the-four-blocked-lf3-rows.yml
-?? .wai/projects/specodelic/research/2026-11-13-ship-1f6416c9-9539c9aa-on-main-includes-subagen.md
+ M .wai/pipeline-runs/epic-orchestrator-2026-11-13-specodelic-8mta-resolve-check-kernel-id-literals-e2-f1-vacuous-verified.yml
+?? .wai/projects/specodelic/research/2026-11-13-ship-pushed-4a9288b5-40a5a974-to-origin-main-de.md
+?? .wai/resources/pipelines/.last-run
 ```
 
 ### open_issues
@@ -47,14 +48,12 @@ phase: research
 ○ specodelic-3yt9 P2 audit: bind:<owner-id> row key can collide with an oracle corpus id in one report
 ○ specodelic-523w P2 [bug] compile: commands/corpus.rs (spk compile over a corpus) has no scope guard — later same-stem file silently wins
 ○ specodelic-5iez P2 conform: no explain topic — oracle JSONL schema, verdict taxonomy, permitted-requires-executable-claims rule undocumented (gh-18)
-○ specodelic-8mta P2 kernel: unqualified/unresolvable id literals evaluate vacuously verified (E2 finding F1)
 ○ specodelic-9o1h P2 kernel: citation algebra cannot compose kernel-evaluated claims (E2 finding F2)
 ○ specodelic-f4sx P2 [bug] conform: single-file lint gate dangles corpus-wide refs; prose-dominated unknowns; undocumented trace schema (gh-17)
 ○ specodelic-gixd P2 audit: dedupe audit test fixtures cross-file (l6md RO5U L8 residual)
 ○ specodelic-h5ks P2 lint: vacuity advisories — extension of specodelic-xci (catitas A2)
 ○ specodelic-l54a P2 docs: per-file ASCII state-machine views — unblocked by gently-hpd closure
 ○ specodelic-oeuz P2 docs: no gate on format-summary prose — 'four tables'/'Frontmatter'-for-'Intent' drift shipped to the site
-○ specodelic-vjem P2 chore(artifacts): regenerate the stale compiled corpus artifacts (verify, linter-referential_integrity)
 ○ specodelic-wq7n P2 [bug] audit: deployed spec Purpose is the archiver TBD placeholder
 ○ specodelic-xci P2 lint: advisory warnings for placeholder and tautology content (TODO cells, trivially-true predicates)
 ○ specodelic-ynfv P2 [bug] compile: emit rustfmt-clean *_props.rs — recompile churn trips consumer fmt gates (gh-15)
@@ -69,6 +68,7 @@ phase: research
 ○ specodelic-60e P3 [bug] model-check: citation-counterexample claim records carry no reason (claim_report_schema F4/F6 follow-up)
 ○ specodelic-7e7b P3 decide: meter spk orchestrate wall-clock before changed-scoping work
 ○ specodelic-7nu4 P3 deps: migrate off serde_yaml_ng or track its unsafe-libyaml drop (RUSTSEC-2024-0375 currently ignored in deny.toml)
+○ specodelic-9ilm P3 decide: kernel resolves(m) verifies vacuously over an empty morphism population (8mta review M4)
 ○ specodelic-cbh P3 decide: kernel-grammar gate placement (lint vs compile) + derive TYPED_REFERENCE_COLUMNS from schema (F5 + Grok risk)
 ○ specodelic-cgfm P3 chore: backlog hygiene — 39 open issues missing template sections, 42 stale 14+ days, orphans heuristic false-positives
 ○ specodelic-dzn P3 Unify the struct-shape mirror: citation_corpus::ResolvedStatus vs kernel::CorpusClaimStatus
@@ -87,7 +87,7 @@ phase: research
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 43 issues (43 open, 0 in progress)
+Total: 42 issues (42 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
