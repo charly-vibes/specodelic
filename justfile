@@ -145,6 +145,27 @@ verify-properties *paths:
     out="$(cargo run -q -- verify --json "$@" 2>/dev/null || true)"
     printf '%s' "$out" | python3 -c 'import json,sys; data=(json.load(sys.stdin) or {}).get("data") or {}; files=(data.get("verified") or [])+(data.get("blocked") or []); bad=[f for f in files if ((f.get("properties") or {}).get("state"))=="failed"]; [print("properties failed: {} — {}".format(f.get("file"), (f.get("properties") or {}).get("detail"))) for f in bad]; sys.exit(1 if bad else 0)'
 
+# The scoped properties gate for the migrated corpus file (specodelic-lf3):
+# it fails IFF openspec/specs/compile/spec.md's PROPERTIES gate failed —
+# "failed" means a compiled proptest! block failed. It never fails on a
+# skipped, stale or missing MODEL stage (the model gate's state rides its
+# own envelope field) and it never claims `verified`: the scoped
+# properties-only verdict leaves verify's `both_gates_required`
+# conjunction untouched — a properties pass here is not a file verdict.
+# cargo run (never a PATH spk) so the gate can never hit a stale
+# installed binary; the verify command's own exit code (1 on any blocked
+# file) is deliberately ignored — this gate is scoped to the properties
+# stage.
+verify-specs:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out="$(cargo run -q -- verify --json openspec/specs/compile/spec.md 2>/dev/null || true)"
+    if [ -z "$out" ]; then
+        echo "verify-specs: the verify command produced no output — the properties stage could not be judged" >&2
+        exit 1
+    fi
+    printf '%s' "$out" | python3 -c 'import json,sys; data=(json.load(sys.stdin) or {}).get("data") or {}; files=(data.get("verified") or [])+(data.get("blocked") or []); bad=[f for f in files if ((f.get("properties") or {}).get("state"))=="failed"]; [print("properties failed: {} — {}".format(f.get("file"), (f.get("properties") or {}).get("detail"))) for f in bad]; sys.exit(1 if bad else 0)'
+
 # The corpus-backed capability dirs — the files that were the specs/
 # corpus before the single-tree migration (specodelic-jf1). compile and
 # model-check are per-file gates that refuse stateless specs, so the
@@ -372,7 +393,7 @@ stamp-artifacts:
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs sync-sections sync-sections-test summary-completeness check-explain-topic-docs pack-doc-counts lint-doc-examples doc-examples lint-baseline pretender-check guard-kernel-agreement guard-siblings guard-drill-lock guard-espectacular
+ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs verify-specs sync-sections sync-sections-test summary-completeness check-explain-topic-docs pack-doc-counts lint-doc-examples doc-examples lint-baseline pretender-check guard-kernel-agreement guard-siblings guard-drill-lock guard-espectacular
 
 # Structural-quality hard gate (pretender, gate mode — pretender.toml
 # thresholds are a ratchet: entries only move DOWN; never touch .git/hooks,

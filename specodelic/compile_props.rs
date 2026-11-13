@@ -25,282 +25,575 @@ pub mod spec_gen {
     use super::*;
 
     pub fn file_that_has_not_passed_lint() -> impl Strategy<Value = String> {
-        Just("file_that_has_not_passed_lint".into())
+        Just(
+            specodelic::fixtures::materialize("file_that_has_not_passed_lint")
+                .expect("the file_that_has_not_passed_lint fixture materializes"),
+        )
     }
 
     pub fn arbitrary_constraint_row() -> impl Strategy<Value = String> {
-        Just("arbitrary_constraint_row".into())
+        Just(
+            specodelic::fixtures::materialize("arbitrary_constraint_row")
+                .expect("the arbitrary_constraint_row fixture materializes"),
+        )
     }
 
     pub fn arbitrary_model_section() -> impl Strategy<Value = String> {
-        Just("arbitrary_model_section".into())
+        Just(
+            specodelic::fixtures::materialize("arbitrary_model_section")
+                .expect("the arbitrary_model_section fixture materializes"),
+        )
     }
 
-    pub fn arbitrary_property_row() -> impl Strategy<Value = String> {
-        Just("arbitrary_property_row".into())
+    pub fn property_row_with_one_property() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("property_row_with_one_property")
+                .expect("the property_row_with_one_property fixture materializes"),
+        )
     }
 
     pub fn law_property_row_with() -> impl Strategy<Value = String> {
-        Just("law_property_row_with".into())
+        Just(
+            specodelic::fixtures::materialize("law_property_row_with")
+                .expect("the law_property_row_with fixture materializes"),
+        )
     }
 
     pub fn arbitrary_linted_and_covered_file() -> impl Strategy<Value = String> {
-        Just("arbitrary_linted_and_covered_file".into())
+        Just(
+            specodelic::fixtures::materialize("arbitrary_linted_and_covered_file")
+                .expect("the arbitrary_linted_and_covered_file fixture materializes"),
+        )
     }
 
     pub fn extraction_stage_fails_on_row() -> impl Strategy<Value = String> {
-        Just("extraction_stage_fails_on_row".into())
+        Just(
+            specodelic::fixtures::materialize("extraction_stage_fails_on_row")
+                .expect("the extraction_stage_fails_on_row fixture materializes"),
+        )
     }
 
     pub fn emission_stage_fails() -> impl Strategy<Value = String> {
-        Just("emission_stage_fails".into())
+        Just(
+            specodelic::fixtures::materialize("emission_stage_fails")
+                .expect("the emission_stage_fails fixture materializes"),
+        )
     }
 
     pub fn property_row_with_rust_fragment() -> impl Strategy<Value = String> {
-        Just("property_row_with_rust_fragment".into())
+        Just(
+            specodelic::fixtures::materialize("property_row_with_rust_fragment")
+                .expect("the property_row_with_rust_fragment fixture materializes"),
+        )
     }
 
     pub fn property_row_without_fragment() -> impl Strategy<Value = String> {
-        Just("property_row_without_fragment".into())
+        Just(
+            specodelic::fixtures::materialize("property_row_without_fragment")
+                .expect("the property_row_without_fragment fixture materializes"),
+        )
     }
 
     pub fn property_row_with_two_generators() -> impl Strategy<Value = String> {
-        Just("property_row_with_two_generators".into())
+        Just(
+            specodelic::fixtures::materialize("property_row_with_two_generators")
+                .expect("the property_row_with_two_generators fixture materializes"),
+        )
     }
 
     pub fn revision_15_rust_fragment_cell() -> impl Strategy<Value = String> {
-        Just("revision_15_rust_fragment_cell".into())
+        Just(
+            specodelic::fixtures::materialize("revision_15_rust_fragment_cell")
+                .expect("the revision_15_rust_fragment_cell fixture materializes"),
+        )
     }
 
     pub fn property_row_with_marker_tag() -> impl Strategy<Value = String> {
-        Just("property_row_with_marker_tag".into())
+        Just(
+            specodelic::fixtures::materialize("property_row_with_marker_tag")
+                .expect("the property_row_with_marker_tag fixture materializes"),
+        )
     }
 
     pub fn property_row_with_mid_span_marker_tag() -> impl Strategy<Value = String> {
-        Just("property_row_with_mid_span_marker_tag".into())
+        Just(
+            specodelic::fixtures::materialize("property_row_with_mid_span_marker_tag")
+                .expect("the property_row_with_mid_span_marker_tag fixture materializes"),
+        )
     }
 
     pub fn law_row_with_fragment() -> impl Strategy<Value = String> {
-        Just("law_row_with_fragment".into())
+        Just(
+            specodelic::fixtures::materialize("law_row_with_fragment")
+                .expect("the law_row_with_fragment fixture materializes"),
+        )
     }
 
     pub fn fragment_with() -> impl Strategy<Value = String> {
-        Just("fragment_with".into())
+        Just(
+            specodelic::fixtures::materialize("fragment_with")
+                .expect("the fragment_with fixture materializes"),
+        )
     }
 
     pub fn transition_row_with_fragment_guard() -> impl Strategy<Value = String> {
-        Just("transition_row_with_fragment_guard".into())
+        Just(
+            specodelic::fixtures::materialize("transition_row_with_fragment_guard")
+                .expect("the transition_row_with_fragment_guard fixture materializes"),
+        )
     }
 
     pub fn effect_row_with_fragment() -> impl Strategy<Value = String> {
-        Just("effect_row_with_fragment".into())
+        Just(
+            specodelic::fixtures::materialize("effect_row_with_fragment")
+                .expect("the effect_row_with_fragment fixture materializes"),
+        )
     }
 
     pub fn invariant_cell_with_kernel_marker() -> impl Strategy<Value = String> {
-        Just("invariant_cell_with_kernel_marker".into())
+        Just(
+            specodelic::fixtures::materialize("invariant_cell_with_kernel_marker")
+                .expect("the invariant_cell_with_kernel_marker fixture materializes"),
+        )
     }
 
     pub fn invariant_cell_with_nonmember_atomic() -> impl Strategy<Value = String> {
-        Just("invariant_cell_with_nonmember_atomic".into())
+        Just(
+            specodelic::fixtures::materialize("invariant_cell_with_nonmember_atomic")
+                .expect("the invariant_cell_with_nonmember_atomic fixture materializes"),
+        )
     }
 
     pub fn constraint_row_with_arbitrary_binding_text() -> impl Strategy<Value = String> {
-        Just("constraint_row_with_arbitrary_binding_text".into())
+        Just(
+            specodelic::fixtures::materialize("constraint_row_with_arbitrary_binding_text")
+                .expect("the constraint_row_with_arbitrary_binding_text fixture materializes"),
+        )
     }
 
     pub fn external_checker_claiming_a_constraint() -> impl Strategy<Value = String> {
-        Just("external_checker_claiming_a_constraint".into())
+        Just(
+            specodelic::fixtures::materialize("external_checker_claiming_a_constraint")
+                .expect("the external_checker_claiming_a_constraint fixture materializes"),
+        )
+    }
+
+    pub fn spec_with_one_helper_and_two_referencing_fragments() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("spec_with_one_helper_and_two_referencing_fragments")
+                .expect(
+                    "the spec_with_one_helper_and_two_referencing_fragments fixture materializes",
+                ),
+        )
+    }
+
+    pub fn property_fragment_referencing() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("property_fragment_referencing")
+                .expect("the property_fragment_referencing fixture materializes"),
+        )
+    }
+
+    pub fn ghost() -> impl Strategy<Value = String> {
+        Just(specodelic::fixtures::materialize("ghost").expect("the ghost fixture materializes"))
+    }
+
+    pub fn helper_named() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("helper_named")
+                .expect("the helper_named fixture materializes"),
+        )
+    }
+
+    pub fn helper_body_with() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("helper_body_with")
+                .expect("the helper_body_with fixture materializes"),
+        )
+    }
+
+    pub fn mutually_referencing_helpers() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("mutually_referencing_helpers")
+                .expect("the mutually_referencing_helpers fixture materializes"),
+        )
+    }
+
+    pub fn spec_with_an_unreferenced_def() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("spec_with_an_unreferenced_def")
+                .expect("the spec_with_an_unreferenced_def fixture materializes"),
+        )
+    }
+
+    pub fn linted_and_covered_file_without_a_fragments_section() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize(
+                "linted_and_covered_file_without_a_fragments_section",
+            )
+            .expect("the linted_and_covered_file_without_a_fragments_section fixture materializes"),
+        )
+    }
+
+    pub fn linted_and_covered_file_with_a_fragments_section() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("linted_and_covered_file_with_a_fragments_section")
+                .expect(
+                    "the linted_and_covered_file_with_a_fragments_section fixture materializes",
+                ),
+        )
     }
 }
 
 proptest! {
     // id: precondition_violation_rejected
     // generator: `file_that_has_not_passed_lint()`
-    // predicate: `check(file) == failed`
+    // predicate: `**rust:** { let mut spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); spec.path = Some(std::path::PathBuf::from("file_that_has_not_passed_lint.md")); let report = specodelic::lint::lint_corpus(std::slice::from_ref(&spec)); match specodelic::compile::precondition_satisfied(&spec, &report) { Err(err) => err.stage == "precondition_satisfied" && err.message.contains("lint finding"), Ok(()) => false } }` — check(file) == failed — the fixture is given its file identity so the lint labels the finding the way the CLI labels a file on disk
     #[test]
     fn precondition_violation_rejected(v0 in spec_gen::file_that_has_not_passed_lint()) {
-        todo_predicate!("`check(file) == failed`");
+        assert!(
+            { let mut spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); spec.path = Some(std::path::PathBuf::from("file_that_has_not_passed_lint.md")); let report = specodelic::lint::lint_corpus(std::slice::from_ref(&spec)); match specodelic::compile::precondition_satisfied(&spec, &report) { Err(err) => err.stage == "precondition_satisfied" && err.message.contains("lint finding"), Ok(()) => false } },
+            "predicate `precondition_violation_rejected` violated (executable fragment)",
+        );
     }
     // id: toml_roundtrips
     // generator: `arbitrary_constraint_row()`
-    // predicate: `parse_toml(compile(row)) == row`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let doc = specodelic::compile::constraints_to_toml(&spec); let row = spec.constraints.first().expect("the fixture carries a Constraint row"); let cells = row.cells.clone(); let entry = format!("id = {:?}\nkind = {:?}\nexpr = {:?}\ntraces_to = {:?}\n", cells.get("id").cloned().unwrap_or_default(), cells.get("kind").cloned().unwrap_or_default(), cells.get("expr").cloned().unwrap_or_default(), cells.get("traces_to").cloned().unwrap_or_default()); doc.contains(&entry) && doc.matches("[[constraints]]").count() == 1 && specodelic::compile::compile_spec(&spec).is_ok() }` — parse_toml(compile(row)) == row
     #[test]
     fn toml_roundtrips(v0 in spec_gen::arbitrary_constraint_row()) {
-        todo_predicate!("`parse_toml(compile(row)) == row`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let doc = specodelic::compile::constraints_to_toml(&spec); let row = spec.constraints.first().expect("the fixture carries a Constraint row"); let cells = row.cells.clone(); let entry = format!("id = {:?}\nkind = {:?}\nexpr = {:?}\ntraces_to = {:?}\n", cells.get("id").cloned().unwrap_or_default(), cells.get("kind").cloned().unwrap_or_default(), cells.get("expr").cloned().unwrap_or_default(), cells.get("traces_to").cloned().unwrap_or_default()); doc.contains(&entry) && doc.matches("[[constraints]]").count() == 1 && specodelic::compile::compile_spec(&spec).is_ok() },
+            "predicate `toml_roundtrips` violated (executable fragment)",
+        );
     }
     // id: tla_disjunct_count_matches
     // generator: `arbitrary_model_section(n_transitions)`
-    // predicate: `count(disjuncts(compile(model).Next)) == n_transitions + 1` — the closing stuttering disjunct
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let tla = specodelic::compile::model_to_tla(&spec); let next = tla.split("Next ==").nth(1).expect("the module carries a Next action"); let mut disjuncts = 0usize; for line in next.lines() { if line.trim_start().starts_with("\\/") { disjuncts += 1; } } disjuncts == spec.transitions.len() + 1 }` — `count(disjuncts(compile(model).Next)) == n_transitions + 1` — the closing stuttering disjunct
     #[test]
     fn tla_disjunct_count_matches(v0 in spec_gen::arbitrary_model_section()) {
-        todo_predicate!("`count(disjuncts(compile(model).Next)) == n_transitions + 1` — the closing stuttering disjunct");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let tla = specodelic::compile::model_to_tla(&spec); let next = tla.split("Next ==").nth(1).expect("the module carries a Next action"); let mut disjuncts = 0usize; for line in next.lines() { if line.trim_start().starts_with("\\/") { disjuncts += 1; } } disjuncts == spec.transitions.len() + 1 },
+            "predicate `tla_disjunct_count_matches` violated (executable fragment)",
+        );
     }
     // id: output_function_covers_emitting_states_only
     // generator: `arbitrary_model_section(n_states_with_emits, n_states_without)`
-    // predicate: `domain(compile(model).Output) == the_states_with_emits` — no entry for the rest
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let tla = specodelic::compile::model_to_tla(&spec); let out = tla.split("Output ==").nth(1).expect("the module carries an Output function"); let body = out.split("====").next().unwrap_or_default(); let ir = specodelic::compile::extract_model_ir(&spec); let mut expected: Vec<String> = vec![]; for state in &spec.states { if state.cells.get("emits").is_some() { expected.push(state.id.clone()); } } let mut keys: Vec<String> = vec![]; for line in body.lines() { let trimmed = line.trim(); if trimmed.is_empty() { continue; } if let Some((key, _value)) = trimmed.split_once(" :> ") { keys.push(key.trim().trim_matches('"').to_string()); } } let mut values_ok = true; for (state, value) in &ir.emits_values { if !body.contains(&format!("{:?} :> {:?}", state, value)) { values_ok = false; } } keys == expected && values_ok && ir.emits.len() == expected.len() }` — `domain(compile(model).Output) == the_states_with_emits` — no entry for the rest
     #[test]
     fn output_function_covers_emitting_states_only(v0 in spec_gen::arbitrary_model_section()) {
-        todo_predicate!("`domain(compile(model).Output) == the_states_with_emits` — no entry for the rest");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let tla = specodelic::compile::model_to_tla(&spec); let out = tla.split("Output ==").nth(1).expect("the module carries an Output function"); let body = out.split("====").next().unwrap_or_default(); let ir = specodelic::compile::extract_model_ir(&spec); let mut expected: Vec<String> = vec![]; for state in &spec.states { if state.cells.get("emits").is_some() { expected.push(state.id.clone()); } } let mut keys: Vec<String> = vec![]; for line in body.lines() { let trimmed = line.trim(); if trimmed.is_empty() { continue; } if let Some((key, _value)) = trimmed.split_once(" :> ") { keys.push(key.trim().trim_matches('"').to_string()); } } let mut values_ok = true; for (state, value) in &ir.emits_values { if !body.contains(&format!("{:?} :> {:?}", state, value)) { values_ok = false; } } keys == expected && values_ok && ir.emits.len() == expected.len() },
+            "predicate `output_function_covers_emitting_states_only` violated (executable fragment)",
+        );
     }
     // id: proptest_block_per_property
-    // generator: `arbitrary_property_row()`
-    // predicate: `count(compile(row).blocks) ≥ 1`
+    // generator: `property_row_with_one_property()`
+    // predicate: `**rust:** specodelic::verify::blocks_from_source(&specodelic::compile::properties_to_proptest(&specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"))).len() >= 1`
     #[test]
-    fn proptest_block_per_property(v0 in spec_gen::arbitrary_property_row()) {
-        todo_predicate!("`count(compile(row).blocks) ≥ 1`");
+    fn proptest_block_per_property(v0 in spec_gen::property_row_with_one_property()) {
+        assert!(
+            specodelic::verify::blocks_from_source(&specodelic::compile::properties_to_proptest(&specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"))).len() >= 1,
+            "predicate `proptest_block_per_property` violated (executable fragment)",
+        );
     }
     // id: law_property_compiles_required_cases
     // generator: `law_property_row_with(cases: ["identity", "associativity"])`
-    // predicate: `count(compile(row).blocks) == 2`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.properties.first().expect("the fixture carries a Property row"); let predicate = row.cells.get("predicate").cloned().unwrap_or_default(); let src = specodelic::compile::properties_to_proptest(&spec); let blocks = specodelic::verify::blocks_from_source(&src); let mut cases = 0usize; for block in &blocks { if block.case.is_some() { cases += 1; } } let mut labels = 0usize; for label in ["**identity:**", "**associativity:**"] { if predicate.contains(label) { labels += 1; } } blocks.len() == cases && cases == 2 && labels == 2 }` — count(compile(row).blocks) == 2
     #[test]
     fn law_property_compiles_required_cases(v0 in spec_gen::law_property_row_with()) {
-        todo_predicate!("`count(compile(row).blocks) == 2`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.properties.first().expect("the fixture carries a Property row"); let predicate = row.cells.get("predicate").cloned().unwrap_or_default(); let src = specodelic::compile::properties_to_proptest(&spec); let blocks = specodelic::verify::blocks_from_source(&src); let mut cases = 0usize; for block in &blocks { if block.case.is_some() { cases += 1; } } let mut labels = 0usize; for label in ["**identity:**", "**associativity:**"] { if predicate.contains(label) { labels += 1; } } blocks.len() == cases && cases == 2 && labels == 2 },
+            "predicate `law_property_compiles_required_cases` violated (executable fragment)",
+        );
     }
     // id: compile_completes_or_fails_cleanly
     // generator: `arbitrary_linted_and_covered_file()`
-    // predicate: `compile(file) ∈ {all_three_artifacts, single_labeled_failure}` — never partial
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Ok(compiled) => !compiled.toml.is_empty() && !compiled.props.is_empty() && !compiled.tla.is_empty(), Err(err) => !err.stage.is_empty() && !err.message.is_empty() } }` — `compile(file) ∈ {all_three_artifacts, single_labeled_failure}` — never partial
     #[test]
     fn compile_completes_or_fails_cleanly(v0 in spec_gen::arbitrary_linted_and_covered_file()) {
-        todo_predicate!("`compile(file) ∈ {all_three_artifacts, single_labeled_failure}` — never partial");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Ok(compiled) => !compiled.toml.is_empty() && !compiled.props.is_empty() && !compiled.tla.is_empty(), Err(err) => !err.stage.is_empty() && !err.message.is_empty() } },
+            "predicate `compile_completes_or_fails_cleanly` violated (executable fragment)",
+        );
     }
     // id: id_preservation_holds
     // generator: `arbitrary_linted_and_covered_file()`
-    // predicate: `ids_in(file) ⊆ ids_in(compile(file))`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let compiled = specodelic::compile::compile_spec(&spec).expect("the fixture compiles"); let mut artifact_ids: Vec<String> = vec![]; for line in compiled.props.lines() { let trimmed = line.trim(); if let Some(rest) = trimmed.strip_prefix("// id: ") { artifact_ids.push(rest.trim().to_string()); } } for line in compiled.toml.lines() { let trimmed = line.trim(); if let Some(rest) = trimmed.strip_prefix("id = ") { artifact_ids.push(rest.trim().trim_matches('"').to_string()); } } let mut ok = compiled.toml.contains(&format!("source = {:?}", spec.intent.id)); for id in spec.defined_ids() { if !artifact_ids.contains(&id) && !compiled.tla.contains(id.as_str()) { ok = false; } } ok }` — ids_in(file) ⊆ ids_in(compile(file))
     #[test]
     fn id_preservation_holds(v0 in spec_gen::arbitrary_linted_and_covered_file()) {
-        todo_predicate!("`ids_in(file) ⊆ ids_in(compile(file))`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let compiled = specodelic::compile::compile_spec(&spec).expect("the fixture compiles"); let mut artifact_ids: Vec<String> = vec![]; for line in compiled.props.lines() { let trimmed = line.trim(); if let Some(rest) = trimmed.strip_prefix("// id: ") { artifact_ids.push(rest.trim().to_string()); } } for line in compiled.toml.lines() { let trimmed = line.trim(); if let Some(rest) = trimmed.strip_prefix("id = ") { artifact_ids.push(rest.trim().trim_matches('"').to_string()); } } let mut ok = compiled.toml.contains(&format!("source = {:?}", spec.intent.id)); for id in spec.defined_ids() { if !artifact_ids.contains(&id) && !compiled.tla.contains(id.as_str()) { ok = false; } } ok },
+            "predicate `id_preservation_holds` violated (executable fragment)",
+        );
     }
     // id: roundtrip_stable
     // generator: `arbitrary_linted_and_covered_file()`
-    // predicate: `compile(file) == compile(parse(compile(file)))`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let first = specodelic::compile::compile_spec(&spec).expect("the fixture compiles"); let reparsed = specodelic::spec::parse_str(&v0).expect("the fixture parses again"); let second = specodelic::compile::compile_spec(&reparsed).expect("the fixture compiles again"); first.toml == second.toml && first.props == second.props && first.tla == second.tla }` — compile(file) == compile(parse(compile(file))) — the executable form re-parses the spec text and compiles again, comparing the three artifacts byte for byte; the tool exposes no re-parse of a compiled artifact, so that half of the round trip is checked at the spec level
     #[test]
     fn roundtrip_stable(v0 in spec_gen::arbitrary_linted_and_covered_file()) {
-        todo_predicate!("`compile(file) == compile(parse(compile(file)))`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let first = specodelic::compile::compile_spec(&spec).expect("the fixture compiles"); let reparsed = specodelic::spec::parse_str(&v0).expect("the fixture parses again"); let second = specodelic::compile::compile_spec(&reparsed).expect("the fixture compiles again"); first.toml == second.toml && first.props == second.props && first.tla == second.tla },
+            "predicate `roundtrip_stable` violated (executable fragment)",
+        );
     }
     // id: extraction_failure_label_asserted
     // generator: `extraction_stage_fails_on_row()`
-    // predicate: `error_label == "compile.extraction_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("p_empty_fragment") && err.message.contains("row"), Ok(_) => false } }` — `error_label == "compile.extraction_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)
     #[test]
     fn extraction_failure_label_asserted(v0 in spec_gen::extraction_stage_fails_on_row()) {
-        todo_predicate!("`error_label == \"compile.extraction_failure\"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002)");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("p_empty_fragment") && err.message.contains("row"), Ok(_) => false } },
+            "predicate `extraction_failure_label_asserted` violated (executable fragment)",
+        );
     }
     // id: emission_failure_label_asserted
     // generator: `emission_stage_fails()`
-    // predicate: `error_label == "compile.emission_failure"` — same three-site rename rule (EDGE-002)
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "compile.emission_failure" && err.message.contains("add-py-fragment-emission"), Ok(_) => false } }` — `error_label == "compile.emission_failure"` — same three-site rename rule (EDGE-002)
     #[test]
     fn emission_failure_label_asserted(v0 in spec_gen::emission_stage_fails()) {
-        todo_predicate!("`error_label == \"compile.emission_failure\"` — same three-site rename rule (EDGE-002)");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "compile.emission_failure" && err.message.contains("add-py-fragment-emission"), Ok(_) => false } },
+            "predicate `emission_failure_label_asserted` violated (executable fragment)",
+        );
     }
     // id: fragment_body_emitted_verbatim
     // generator: `property_row_with_rust_fragment()`
-    // predicate: `the emitted block body contains the fragment verbatim`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.properties.first().expect("the fixture carries a Property row"); let cell = row.cells.get("predicate").cloned().unwrap_or_default(); let fragment = specodelic::compile::fragment_of_strict(&cell).expect("the predicate parses").expect("the predicate carries a fragment"); let src = specodelic::compile::properties_to_proptest(&spec); src.contains(&fragment.text) }` — the emitted block body contains the fragment verbatim
     #[test]
     fn fragment_body_emitted_verbatim(v0 in spec_gen::property_row_with_rust_fragment()) {
-        todo_predicate!("`the emitted block body contains the fragment verbatim`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.properties.first().expect("the fixture carries a Property row"); let cell = row.cells.get("predicate").cloned().unwrap_or_default(); let fragment = specodelic::compile::fragment_of_strict(&cell).expect("the predicate parses").expect("the predicate carries a fragment"); let src = specodelic::compile::properties_to_proptest(&spec); src.contains(&fragment.text) },
+            "predicate `fragment_body_emitted_verbatim` violated (executable fragment)",
+        );
     }
     // id: prose_predicate_stays_placeholder
     // generator: `property_row_without_fragment()`
-    // predicate: `compile(row).body contains todo_predicate!` — no widening of pre-Revision behavior
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.properties.first().expect("the fixture carries a Property row"); let cell = row.cells.get("predicate").cloned().unwrap_or_default(); let src = specodelic::compile::properties_to_proptest(&spec); specodelic::compile::fragment_of_strict(&cell).expect("the predicate parses").is_none() && src.contains("todo_predicate!") }` — `compile(row).body contains todo_predicate!` — no widening of pre-Revision behavior
     #[test]
     fn prose_predicate_stays_placeholder(v0 in spec_gen::property_row_without_fragment()) {
-        todo_predicate!("`compile(row).body contains todo_predicate!` — no widening of pre-Revision behavior");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.properties.first().expect("the fixture carries a Property row"); let cell = row.cells.get("predicate").cloned().unwrap_or_default(); let src = specodelic::compile::properties_to_proptest(&spec); specodelic::compile::fragment_of_strict(&cell).expect("the predicate parses").is_none() && src.contains("todo_predicate!") },
+            "predicate `prose_predicate_stays_placeholder` violated (executable fragment)",
+        );
     }
     // id: fragment_values_bind_generators
     // generator: `property_row_with_two_generators()`
-    // predicate: `the emitted block's args are v0, v1 — one per named generator, each a String`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.properties.first().expect("the fixture carries a Property row"); let cell = row.cells.get("generator").cloned().unwrap_or_default(); let src = specodelic::compile::properties_to_proptest(&spec); let mut names: Vec<String> = vec![]; for part in cell.split(',') { let name = part.trim().trim_matches('\u{60}').trim().trim_end_matches("()").trim().to_string(); if !name.is_empty() { names.push(name); } } let mut bound = 0usize; for name in &names { if src.contains(&format!("spec_gen::{}()", name)) { bound += 1; } } let mut args = 0usize; for line in src.lines() { if line.contains("v0 in spec_gen::") { args = line.matches(", v").count() + 1; } } names.len() == 2 && bound == 2 && args == 2 && src.contains("Value = String") }` — the emitted block's args are v0, v1 — one per named generator, each a String
     #[test]
     fn fragment_values_bind_generators(v0 in spec_gen::property_row_with_two_generators()) {
-        todo_predicate!("`the emitted block's args are v0, v1 — one per named generator, each a String`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.properties.first().expect("the fixture carries a Property row"); let cell = row.cells.get("generator").cloned().unwrap_or_default(); let src = specodelic::compile::properties_to_proptest(&spec); let mut names: Vec<String> = vec![]; for part in cell.split(',') { let name = part.trim().trim_matches('\u{60}').trim().trim_end_matches("()").trim().to_string(); if !name.is_empty() { names.push(name); } } let mut bound = 0usize; for name in &names { if src.contains(&format!("spec_gen::{}()", name)) { bound += 1; } } let mut args = 0usize; for line in src.lines() { if line.contains("v0 in spec_gen::") { args = line.matches(", v").count() + 1; } } names.len() == 2 && bound == 2 && args == 2 && src.contains("Value = String") },
+            "predicate `fragment_values_bind_generators` violated (executable fragment)",
+        );
     }
     // id: rust_fragment_semantics_unchanged
     // generator: `revision_15_rust_fragment_cell()`
-    // predicate: `extract(cell) == revision_15_extract(cell)` — byte-identical, pure widening
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.properties.first().expect("the fixture carries a Property row"); let cell = row.cells.get("predicate").cloned().unwrap_or_default(); let fragment = specodelic::compile::fragment_of_strict(&cell).expect("the predicate parses").expect("the predicate carries a fragment"); let after = cell.split("**rust:**").nth(1).expect("the cell carries the marker"); let expected = after.split('\u{60}').next().unwrap_or_default().trim(); fragment.text == expected && fragment.lang == specodelic::compile::FragmentLang::Rust }` — `extract(cell) == revision_15_extract(cell)` — byte-identical, pure widening
     #[test]
     fn rust_fragment_semantics_unchanged(v0 in spec_gen::revision_15_rust_fragment_cell()) {
-        todo_predicate!("`extract(cell) == revision_15_extract(cell)` — byte-identical, pure widening");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.properties.first().expect("the fixture carries a Property row"); let cell = row.cells.get("predicate").cloned().unwrap_or_default(); let fragment = specodelic::compile::fragment_of_strict(&cell).expect("the predicate parses").expect("the predicate carries a fragment"); let after = cell.split("**rust:**").nth(1).expect("the cell carries the marker"); let expected = after.split('\u{60}').next().unwrap_or_default().trim(); fragment.text == expected && fragment.lang == specodelic::compile::FragmentLang::Rust },
+            "predicate `rust_fragment_semantics_unchanged` violated (executable fragment)",
+        );
     }
     // id: unknown_tag_labeled
     // generator: `property_row_with_marker_tag("**go:")`
-    // predicate: `error_stage == fragment_extraction ∧ message names the tag and the closed set`
+    // predicate: `**rust:** { let mut spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let mut only_go: Vec<specodelic::spec::Row> = vec![]; for row in &spec.properties { if row.id == "p_go_tag" { only_go.push(row.clone()); } } spec.properties = only_go; match specodelic::compile::validate_fragments(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("go") && err.message.contains("rust, py, ts"), Ok(()) => false } }` — error_stage == fragment_extraction ∧ message names the tag and the closed set
     #[test]
     fn unknown_tag_labeled(v0 in spec_gen::property_row_with_marker_tag()) {
-        todo_predicate!("`error_stage == fragment_extraction ∧ message names the tag and the closed set`");
+        assert!(
+            { let mut spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let mut only_go: Vec<specodelic::spec::Row> = vec![]; for row in &spec.properties { if row.id == "p_go_tag" { only_go.push(row.clone()); } } spec.properties = only_go; match specodelic::compile::validate_fragments(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("go") && err.message.contains("rust, py, ts"), Ok(()) => false } },
+            "predicate `unknown_tag_labeled` violated (executable fragment)",
+        );
     }
     // id: non_fragment_tag_is_mention
     // generator: `property_row_with_mid_span_marker_tag("**py:")`
-    // predicate: `compile(row) == compile(row_without_marker)` — mid-span occurrence never extracts
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.properties.first().expect("the fixture carries a Property row"); let cell = row.cells.get("predicate").cloned().unwrap_or_default(); let compiled = specodelic::compile::compile_spec(&spec).expect("the fixture compiles — the mid-span mention never extracts"); specodelic::compile::fragment_of_strict(&cell).expect("the predicate parses").is_none() && compiled.props.contains("todo_predicate!") }` — `compile(row) == compile(row_without_marker)` — mid-span occurrence never extracts
     #[test]
     fn non_fragment_tag_is_mention(v0 in spec_gen::property_row_with_mid_span_marker_tag()) {
-        todo_predicate!("`compile(row) == compile(row_without_marker)` — mid-span occurrence never extracts");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.properties.first().expect("the fixture carries a Property row"); let cell = row.cells.get("predicate").cloned().unwrap_or_default(); let compiled = specodelic::compile::compile_spec(&spec).expect("the fixture compiles — the mid-span mention never extracts"); specodelic::compile::fragment_of_strict(&cell).expect("the predicate parses").is_none() && compiled.props.contains("todo_predicate!") },
+            "predicate `non_fragment_tag_is_mention` violated (executable fragment)",
+        );
     }
     // id: one_tag_extracts_per_cell
     // generator: `property_row_with_marker_tag("**py:")`
-    // predicate: `extract(cell) == Some(fragment_under("py"))` — a fragment-position cell extracts under exactly one tag from the closed set {rust, py, ts}; acceptance is grammar-level and emitter-independent
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let mut extracted = 0usize; let mut tag = ""; for row in &spec.properties { let cell = row.cells.get("predicate").cloned().unwrap_or_default(); if let Ok(Some(fragment)) = specodelic::compile::fragment_of_strict(&cell) { extracted += 1; tag = fragment.lang.tag(); } } extracted == 1 && tag == "py" }` — `extract(cell) == Some(fragment_under("py"))` — a fragment-position cell extracts under exactly one tag from the closed set {rust, py, ts}; acceptance is grammar-level and emitter-independent
     #[test]
     fn one_tag_extracts_per_cell(v0 in spec_gen::property_row_with_marker_tag()) {
-        todo_predicate!("`extract(cell) == Some(fragment_under(\"py\"))` — a fragment-position cell extracts under exactly one tag from the closed set {rust, py, ts}; acceptance is grammar-level and emitter-independent");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let mut extracted = 0usize; let mut tag = ""; for row in &spec.properties { let cell = row.cells.get("predicate").cloned().unwrap_or_default(); if let Ok(Some(fragment)) = specodelic::compile::fragment_of_strict(&cell) { extracted += 1; tag = fragment.lang.tag(); } } extracted == 1 && tag == "py" },
+            "predicate `one_tag_extracts_per_cell` violated (executable fragment)",
+        );
     }
     // id: missing_emitter_labeled
     // generator: `property_row_with_marker_tag("**py:")`
-    // predicate: `error_label == "compile.emission_failure" ∧ the remediation hint names the per-language emitter follow-up` — never a silent fall-through to Rust emission
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "compile.emission_failure" && err.message.contains("add-py-fragment-emission") && err.message.contains("py"), Ok(_) => false } }` — `error_label == "compile.emission_failure" ∧ the remediation hint names the per-language emitter follow-up` — never a silent fall-through to Rust emission
     #[test]
     fn missing_emitter_labeled(v0 in spec_gen::property_row_with_marker_tag()) {
-        todo_predicate!("`error_label == \"compile.emission_failure\" ∧ the remediation hint names the per-language emitter follow-up` — never a silent fall-through to Rust emission");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "compile.emission_failure" && err.message.contains("add-py-fragment-emission") && err.message.contains("py"), Ok(_) => false } },
+            "predicate `missing_emitter_labeled` violated (executable fragment)",
+        );
     }
     // id: law_fragment_labeled
     // generator: `law_row_with_fragment()`
-    // predicate: `error_stage == fragment_extraction`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("law"), Ok(_) => false } }` — error_stage == fragment_extraction
     #[test]
     fn law_fragment_labeled(v0 in spec_gen::law_row_with_fragment()) {
-        todo_predicate!("`error_stage == fragment_extraction`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("law"), Ok(_) => false } },
+            "predicate `law_fragment_labeled` violated (executable fragment)",
+        );
     }
     // id: hygiene_violation_labeled
     // generator: `fragment_with(banned_token: "std::fs")`
-    // predicate: `error_stage == fragment_extraction ∧ message names the token`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains(&["std", "fs"].join("::")), Ok(_) => false } }` — the banned token is assembled from its parts so this fragment stays hygiene-clean itself — error_stage == fragment_extraction ∧ message names the token
     #[test]
     fn hygiene_violation_labeled(v0 in spec_gen::fragment_with()) {
-        todo_predicate!("`error_stage == fragment_extraction ∧ message names the token`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains(&["std", "fs"].join("::")), Ok(_) => false } },
+            "predicate `hygiene_violation_labeled` violated (executable fragment)",
+        );
     }
     // id: guard_fragment_labeled
     // generator: `transition_row_with_fragment_guard()`
-    // predicate: `error_stage == fragment_extraction`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("guard"), Ok(_) => false } }` — error_stage == fragment_extraction
     #[test]
     fn guard_fragment_labeled(v0 in spec_gen::transition_row_with_fragment_guard()) {
-        todo_predicate!("`error_stage == fragment_extraction`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("guard"), Ok(_) => false } },
+            "predicate `guard_fragment_labeled` violated (executable fragment)",
+        );
     }
     // id: non_invariant_fragment_labeled
     // generator: `effect_row_with_fragment()`
-    // predicate: `error_stage == fragment_extraction`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("invariant"), Ok(_) => false } }` — error_stage == fragment_extraction
     #[test]
     fn non_invariant_fragment_labeled(v0 in spec_gen::effect_row_with_fragment()) {
-        todo_predicate!("`error_stage == fragment_extraction`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("invariant"), Ok(_) => false } },
+            "predicate `non_invariant_fragment_labeled` violated (executable fragment)",
+        );
     }
     // id: kernel_expr_extracts
     // generator: `invariant_cell_with_kernel_marker()`
-    // predicate: `the expression extracts under the closed grammar and evaluates to exactly one of verified, counterexample, unknown`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.constraints.first().expect("the fixture carries a Constraint row"); let cell = row.cells.get("expr").cloned().unwrap_or_default(); let expr = specodelic::kernel::parse_kernel_expr(&cell).expect("the kernel expression parses under the closed grammar").expect("the cell opts into kernel translation"); let env = specodelic::kernel::KernelEnv::from_specs(std::slice::from_ref(&spec)); let value = env.evaluate(&expr); matches!(value, specodelic::compile::ThreeValued::Verified) }` — the expression extracts under the closed grammar and evaluates to exactly one of verified, counterexample, unknown
     #[test]
     fn kernel_expr_extracts(v0 in spec_gen::invariant_cell_with_kernel_marker()) {
-        todo_predicate!("`the expression extracts under the closed grammar and evaluates to exactly one of verified, counterexample, unknown`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.constraints.first().expect("the fixture carries a Constraint row"); let cell = row.cells.get("expr").cloned().unwrap_or_default(); let expr = specodelic::kernel::parse_kernel_expr(&cell).expect("the kernel expression parses under the closed grammar").expect("the cell opts into kernel translation"); let env = specodelic::kernel::KernelEnv::from_specs(std::slice::from_ref(&spec)); let value = env.evaluate(&expr); matches!(value, specodelic::compile::ThreeValued::Verified) },
+            "predicate `kernel_expr_extracts` violated (executable fragment)",
+        );
     }
     // id: kernel_nonmember_labeled
     // generator: `invariant_cell_with_nonmember_atomic()`
-    // predicate: `error_stage == kernel_grammar ∧ the message names the offending atomic and the closed set`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "kernel_grammar" && err.message.contains("frobnicate"), Ok(_) => false } }` — error_stage == kernel_grammar ∧ the message names the offending atomic and the closed set
     #[test]
     fn kernel_nonmember_labeled(v0 in spec_gen::invariant_cell_with_nonmember_atomic()) {
-        todo_predicate!("`error_stage == kernel_grammar ∧ the message names the offending atomic and the closed set`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "kernel_grammar" && err.message.contains("frobnicate"), Ok(_) => false } },
+            "predicate `kernel_nonmember_labeled` violated (executable fragment)",
+        );
     }
     // id: binding_text_surfaces_verbatim
     // generator: `constraint_row_with_arbitrary_binding_text()`
-    // predicate: `the compiled TOML carries the binding cell text verbatim — no interpretation, no validation of its internals`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.constraints.first().expect("the fixture carries a Constraint row"); let binding = row.cells.get("kernel.binding").cloned().unwrap_or_default().trim().trim_matches('\u{60}').to_string(); let doc = specodelic::compile::constraints_to_toml(&spec); doc.contains(&format!("binding = {:?}", binding)) }` — the compiled TOML carries the binding cell text verbatim — no interpretation, no validation of its internals
     #[test]
     fn binding_text_surfaces_verbatim(v0 in spec_gen::constraint_row_with_arbitrary_binding_text()) {
-        todo_predicate!("`the compiled TOML carries the binding cell text verbatim — no interpretation, no validation of its internals`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.constraints.first().expect("the fixture carries a Constraint row"); let binding = row.cells.get("kernel.binding").cloned().unwrap_or_default().trim().trim_matches('\u{60}').to_string(); let doc = specodelic::compile::constraints_to_toml(&spec); doc.contains(&format!("binding = {:?}", binding)) },
+            "predicate `binding_text_surfaces_verbatim` violated (executable fragment)",
+        );
     }
     // id: claim_path_is_flags
     // generator: `external_checker_claiming_a_constraint()`
-    // predicate: `the claim is carried by contract-TOML flags binding; the toolchain builds no registry`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.constraints.first().expect("the fixture carries a Constraint row"); let binding = row.cells.get("kernel.binding").cloned().unwrap_or_default().trim().trim_matches('\u{60}').to_string(); let compiled = specodelic::compile::compile_spec(&spec).expect("the fixture compiles — the binding text is opaque, never interpreted"); compiled.toml.contains(&format!("binding = {:?}", binding)) && !compiled.props.contains(&binding) && !compiled.tla.contains(&binding) }` — the claim is carried by contract-TOML flags binding; the toolchain builds no registry
     #[test]
     fn claim_path_is_flags(v0 in spec_gen::external_checker_claiming_a_constraint()) {
-        todo_predicate!("`the claim is carried by contract-TOML flags binding; the toolchain builds no registry`");
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let row = spec.constraints.first().expect("the fixture carries a Constraint row"); let binding = row.cells.get("kernel.binding").cloned().unwrap_or_default().trim().trim_matches('\u{60}').to_string(); let compiled = specodelic::compile::compile_spec(&spec).expect("the fixture compiles — the binding text is opaque, never interpreted"); compiled.toml.contains(&format!("binding = {:?}", binding)) && !compiled.props.contains(&binding) && !compiled.tla.contains(&binding) },
+            "predicate `claim_path_is_flags` violated (executable fragment)",
+        );
+    }
+    // id: helper_inlines_at_each_use_site
+    // generator: `spec_with_one_helper_and_two_referencing_fragments()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let src = specodelic::compile::properties_to_proptest(&spec); let mut bodies = 0usize; let mut stray = 0usize; for line in src.lines() { if line.contains("fn shared_helper") { bodies += 1; } if line.contains(&format!("@{}", "shared_helper")) && !line.trim_start().starts_with("// predicate:") { stray += 1; } } bodies == 2 && stray == 0 }` — the helper body appears in the emitted props artifact once per use site, and no @name marker survives outside the verbatim row-quote metadata comments
+    #[test]
+    fn helper_inlines_at_each_use_site(v0 in spec_gen::spec_with_one_helper_and_two_referencing_fragments()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let src = specodelic::compile::properties_to_proptest(&spec); let mut bodies = 0usize; let mut stray = 0usize; for line in src.lines() { if line.contains("fn shared_helper") { bodies += 1; } if line.contains(&format!("@{}", "shared_helper")) && !line.trim_start().starts_with("// predicate:") { stray += 1; } } bodies == 2 && stray == 0 },
+            "predicate `helper_inlines_at_each_use_site` violated (executable fragment)",
+        );
+    }
+    // id: unknown_helper_reference_labeled
+    // generator: `property_fragment_referencing("@ghost(&v0)")`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("ghost"), Ok(_) => false } }` — error_stage == fragment_extraction ∧ the message names the unresolved reference
+    #[test]
+    fn unknown_helper_reference_labeled(v0 in spec_gen::property_fragment_referencing(), v1 in spec_gen::ghost()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("ghost"), Ok(_) => false } },
+            "predicate `unknown_helper_reference_labeled` violated (executable fragment)",
+        );
+    }
+    // id: helper_collision_labeled_asserted
+    // generator: `helper_named("v0")`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("v0") && err.message.contains("strategy-binding namespace"), Ok(_) => false } }` — error_stage == fragment_extraction ∧ the message names both the helper and the generated symbol
+    #[test]
+    fn helper_collision_labeled_asserted(v0 in spec_gen::helper_named()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("v0") && err.message.contains("strategy-binding namespace"), Ok(_) => false } },
+            "predicate `helper_collision_labeled_asserted` violated (executable fragment)",
+        );
+    }
+    // id: helper_hygiene_labeled
+    // generator: `helper_body_with(banned_token: "std::fs")`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains(&["std", "fs"].join("::")) && err.message.contains("fragment_hygiene"), Ok(_) => false } }` — the banned token is assembled from its parts so this fragment stays hygiene-clean itself — error_stage == fragment_extraction ∧ the message names the token and the fragment_hygiene rule
+    #[test]
+    fn helper_hygiene_labeled(v0 in spec_gen::helper_body_with()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains(&["std", "fs"].join("::")) && err.message.contains("fragment_hygiene"), Ok(_) => false } },
+            "predicate `helper_hygiene_labeled` violated (executable fragment)",
+        );
+    }
+    // id: helper_cycle_labeled_asserted
+    // generator: `mutually_referencing_helpers("is_a", "is_b")`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("is_a") && err.message.contains("is_b"), Ok(_) => false } }` — error_stage == fragment_extraction ∧ the message names the cycle; a transitive acyclic chain inlines all bodies at the use site
+    #[test]
+    fn helper_cycle_labeled_asserted(v0 in spec_gen::mutually_referencing_helpers()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); match specodelic::compile::compile_spec(&spec) { Err(err) => err.stage == "fragment_extraction" && err.message.contains("is_a") && err.message.contains("is_b"), Ok(_) => false } },
+            "predicate `helper_cycle_labeled_asserted` violated (executable fragment)",
+        );
+    }
+    // id: dead_helper_warns_asserted
+    // generator: `spec_with_an_unreferenced_def()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let compiled = specodelic::compile::compile_spec(&spec).expect("the fixture compiles — a dead helper warns, never fails"); let mut named = 0usize; for warning in &compiled.warnings { if warning.contains("unused_helper") { named += 1; } } named == 1 && compiled.warnings.len() == 1 }` — compile succeeds ∧ the warnings channel names the dead def ∧ referenced defs are not warned
+    #[test]
+    fn dead_helper_warns_asserted(v0 in spec_gen::spec_with_an_unreferenced_def()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let compiled = specodelic::compile::compile_spec(&spec).expect("the fixture compiles — a dead helper warns, never fails"); let mut named = 0usize; for warning in &compiled.warnings { if warning.contains("unused_helper") { named += 1; } } named == 1 && compiled.warnings.len() == 1 },
+            "predicate `dead_helper_warns_asserted` violated (executable fragment)",
+        );
+    }
+    // id: absent_section_preserves_bytes_p
+    // generator: `linted_and_covered_file_without_a_fragments_section()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let with_text = specodelic::fixtures::materialize("linted_and_covered_file_with_a_fragments_section").expect("the with-section fixture materializes"); let with_section = specodelic::spec::parse_str(&with_text).expect("the with-section fixture parses"); let without = specodelic::compile::compile_spec(&spec).expect("the without-section file compiles"); let with = specodelic::compile::compile_spec(&with_section).expect("the with-section file compiles"); without.toml == with.toml && without.props == with.props && without.tla == with.tla }` — every compiled artifact is byte-identical to the pre-change compiler's output for that file
+    #[test]
+    fn absent_section_preserves_bytes_p(v0 in spec_gen::linted_and_covered_file_without_a_fragments_section()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let with_text = specodelic::fixtures::materialize("linted_and_covered_file_with_a_fragments_section").expect("the with-section fixture materializes"); let with_section = specodelic::spec::parse_str(&with_text).expect("the with-section fixture parses"); let without = specodelic::compile::compile_spec(&spec).expect("the without-section file compiles"); let with = specodelic::compile::compile_spec(&with_section).expect("the with-section file compiles"); without.toml == with.toml && without.props == with.props && without.tla == with.tla },
+            "predicate `absent_section_preserves_bytes_p` violated (executable fragment)",
+        );
+    }
+    // id: fragments_section_lints_clean_p
+    // generator: `linted_and_covered_file_with_a_fragments_section()`
+    // predicate: `**rust:** { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let report = specodelic::lint::lint_corpus(std::slice::from_ref(&spec)); report.issues.len() == 0 }` — lint issues == 0 — the section is opaque prose, no gating rule disturbed
+    #[test]
+    fn fragments_section_lints_clean_p(v0 in spec_gen::linted_and_covered_file_with_a_fragments_section()) {
+        assert!(
+            { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let report = specodelic::lint::lint_corpus(std::slice::from_ref(&spec)); report.issues.len() == 0 },
+            "predicate `fragments_section_lints_clean_p` violated (executable fragment)",
+        );
     }
 }

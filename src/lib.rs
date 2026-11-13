@@ -73,85 +73,494 @@ pub mod fixtures {
         pub text: &'static str,
     }
 
-    /// A spec file with exactly one unit Property row — the input for
-    /// "a property row compiles to at least one proptest! block".
-    const PROPERTY_ROW_WITH_ONE_PROPERTY: &str = r#"---
-id: fixture.property_row
-kind: intent
-statement: "THE fixture SHALL carry exactly one unit Property row."
----
-
-## Constraints
-
-| id | kind | expr | traces_to |
-|----|------|------|------------|
-| c1 | invariant | `holds` | [[fixture.property_row]] |
-
-## Model
-
-### States
-
-- s1
-- s2
-
-### Transitions
-
-| id | from | to | guard |
-|----|------|----|-------|
-| t | s1 | s2 | [[fixture.property_row.c1]] |
-
-## Properties
-
-| id | kind | derives_from | generator | predicate |
-|----|------|--------------|-----------|------------|
-| p_one_property_row | unit | [[fixture.property_row.c1]] | `sample_row()` | `count(compile(row).blocks) >= 1` |
-"#;
-
-    /// A spec file whose transition names a target its States list does
-    /// not declare — the input for the linter's
-    /// `linter.every_transition_valid` rule.
-    const SPEC_FILE_WITH_UNDECLARED_TRANSITION_TARGET: &str = r#"---
-id: fixture.undeclared_target
-kind: intent
-statement: "THE fixture SHALL name a transition target its States list does not declare."
----
-
-## Constraints
-
-| id | kind | expr | traces_to |
-|----|------|------|------------|
-| c1 | invariant | `holds` | [[fixture.undeclared_target]] |
-
-## Model
-
-### States
-
-- s1
-
-### Transitions
-
-| id | from | to | guard |
-|----|------|----|-------|
-| t | s1 | s_never_declared | [[fixture.undeclared_target.c1]] |
-
-## Properties
-
-| id | kind | derives_from | generator | predicate |
-|----|------|--------------|-----------|------------|
-| p_declared_target | unit | [[fixture.undeclared_target.c1]] | `sample_row()` | `every transition target is a declared state` |
-"#;
+    /// Build a fixture's spec text — the real four-layer shape every
+    /// fixture shares: frontmatter, a Constraints table, a Model section
+    /// and a Properties table. The `constraints`, `states`,
+    /// `transitions` and `properties` arguments carry the table's ROWS
+    /// (the headers are added here, so a fixture never drifts from the
+    /// format); `fragments` carries an optional `## Fragments` section
+    /// (the opaque prose section compile's helper extraction reads).
+    ///
+    /// The two binding fixtures carry an extra `kernel.binding` column,
+    /// so their Constraints header differs; they use the explicit-header
+    /// arm (the header is the third argument).
+    macro_rules! fixture_spec {
+        (
+            $id:literal,
+            $statement:literal,
+            $constraints:literal,
+            $states:literal,
+            $transitions:literal,
+            $properties:literal
+            $(,)?
+        ) => {
+            fixture_spec!(
+                $id,
+                $statement,
+                "| id | kind | expr | traces_to |\n|----|------|------|------------|\n",
+                $constraints,
+                $states,
+                $transitions,
+                $properties,
+                ""
+            )
+        };
+        (
+            $id:literal,
+            $statement:literal,
+            $constraints:literal,
+            $states:literal,
+            $transitions:literal,
+            $properties:literal,
+            $fragments:literal
+            $(,)?
+        ) => {
+            fixture_spec!(
+                $id,
+                $statement,
+                "| id | kind | expr | traces_to |\n|----|------|------|------------|\n",
+                $constraints,
+                $states,
+                $transitions,
+                $properties,
+                $fragments
+            )
+        };
+        (
+            $id:literal,
+            $statement:literal,
+            $constraints_header:literal,
+            $constraints:literal,
+            $states:literal,
+            $transitions:literal,
+            $properties:literal,
+            $fragments:literal
+            $(,)?
+        ) => {
+            concat!(
+                "---\nid: ", $id, "\nkind: intent\nstatement: \"", $statement, "\"\n---\n\n",
+                "## Constraints\n\n", $constraints_header,
+                $constraints,
+                "\n## Model\n\n### States\n\n",
+                $states,
+                "\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n",
+                $transitions,
+                "\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n",
+                $properties,
+                "\n",
+                $fragments
+            )
+        };
+    }
 
     /// The registry — the one list of named fixtures.
+    ///
+    /// Every fixture is a REAL spec text: the real parser consumes it
+    /// and the real checkers judge it. The names are the generator names
+    /// the corpus's property rows name (`compile.md`'s 35 property rows
+    /// each name one), so a row's generator cell materializes the input
+    /// its claim is about.
     const REGISTRY: &[Fixture] = &[
         Fixture {
             name: "property_row_with_one_property",
             summary: "a spec file with exactly one unit Property row",
-            text: PROPERTY_ROW_WITH_ONE_PROPERTY,
+            text: fixture_spec!(
+                "fixture.property_row",
+                "THE fixture SHALL carry exactly one unit Property row.",
+                "| c1 | invariant | `holds` | [[fixture.property_row]] |\n",
+                "- s1\n- s2\n",
+                "| t | s1 | s2 | [[fixture.property_row.c1]] |\n",
+                "| p_one_property_row | unit | [[fixture.property_row.c1]] | `sample_row()` | `count(compile(row).blocks) >= 1` |\n",
+            ),
         },
         Fixture {
             name: "spec_file_with_undeclared_transition_target",
             summary: "a spec file whose transition target its States list never declares",
-            text: SPEC_FILE_WITH_UNDECLARED_TRANSITION_TARGET,
+            text: fixture_spec!(
+                "fixture.undeclared_target",
+                "THE fixture SHALL name a transition target its States list does not declare.",
+                "| c1 | invariant | `holds` | [[fixture.undeclared_target]] |\n",
+                "- s1\n",
+                "| t | s1 | s_never_declared | [[fixture.undeclared_target.c1]] |\n",
+                "| p_declared_target | unit | [[fixture.undeclared_target.c1]] | `sample_row()` | `every transition target is a declared state` |\n",
+            ),
+        },
+        Fixture {
+            name: "file_that_has_not_passed_lint",
+            summary: "a spec file with one lint finding — its transition names an undeclared state",
+            text: fixture_spec!(
+                "fixture.not_linted",
+                "THE fixture SHALL carry a lint finding the compiler refuses to compile.",
+                "| c_one | invariant | `holds` | [[fixture.not_linted]] |\n",
+                "- s1\n",
+                "| t_one | s1 | s_never_declared | [[fixture.not_linted.c_one]] |\n",
+                "| p_one | unit | [[fixture.not_linted.c_one]] | `sample()` | `the constraint holds` |\n",
+            ),
+        },
+        Fixture {
+            name: "arbitrary_constraint_row",
+            summary: "a spec file carrying exactly one Constraint row",
+            text: fixture_spec!(
+                "fixture.constraint_row",
+                "THE fixture SHALL carry exactly one Constraint row.",
+                "| c_one | invariant | `the constraint holds` | [[fixture.constraint_row]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.constraint_row.c_one]] |\n",
+                "| p_one | unit | [[fixture.constraint_row.c_one]] | `sample()` | `the constraint holds` |\n",
+            ),
+        },
+        Fixture {
+            name: "arbitrary_model_section",
+            summary: "a spec file whose Model has two states (one emitting) and two transitions",
+            text: fixture_spec!(
+                "fixture.model_section",
+                "THE fixture SHALL carry a Model section with two transitions and one emitting state.",
+                "| c_one | invariant | `the constraint holds` | [[fixture.model_section]] |\n\
+                 | c_effect | effect | `the effect fires` | [[fixture.model_section]] |\n",
+                "- s1\n- s2 (emits: `[[fixture.model_section.c_effect]]`)\n",
+                "| t_one | s1 | s2 | [[fixture.model_section.c_one]] |\n\
+                 | t_two | s2 | s1 | [[fixture.model_section.c_one]] |\n",
+                "| p_one | unit | [[fixture.model_section.c_one]] | `sample()` | `the constraint holds` |\n\
+                 | p_effect | unit | [[fixture.model_section.c_effect]] | `sample()` | `the effect fires` |\n",
+            ),
+        },
+        Fixture {
+            name: "law_property_row_with",
+            summary: "a spec file whose Property row is law-kind with the identity and associativity cases",
+            text: fixture_spec!(
+                "fixture.law_row",
+                "THE fixture SHALL carry one law-kind Property row with its required cases.",
+                "| c_one | invariant | `holds` | [[fixture.law_row]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.law_row.c_one]] |\n",
+                "| p_law | law | [[fixture.law_row.c_one]] | `sample()` | **identity:** `f(a) == a` **associativity:** `f(f(a)) == f(a)` |\n",
+            ),
+        },
+        Fixture {
+            name: "arbitrary_linted_and_covered_file",
+            summary: "a lint-clean, coverage-clean spec file the compiler accepts",
+            text: fixture_spec!(
+                "fixture.covered_file",
+                "THE fixture SHALL lint clean and carry coverage for its constraint.",
+                "| c_one | invariant | `the constraint holds` | [[fixture.covered_file]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.covered_file.c_one]] |\n",
+                "| p_one | unit | [[fixture.covered_file.c_one]] | `sample()` | `the constraint holds` |\n",
+            ),
+        },
+        Fixture {
+            name: "extraction_stage_fails_on_row",
+            summary: "a spec file whose Property row carries an empty **rust:** fragment",
+            text: fixture_spec!(
+                "fixture.empty_fragment",
+                "THE fixture SHALL carry a Property row whose fragment is empty.",
+                "| c_one | invariant | `holds` | [[fixture.empty_fragment]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.empty_fragment.c_one]] |\n",
+                "| p_empty_fragment | unit | [[fixture.empty_fragment.c_one]] | `sample()` | `**rust:**` |\n",
+            ),
+        },
+        Fixture {
+            name: "emission_stage_fails",
+            summary: "a spec file whose Property row carries a **py:** fragment (no emitter yet)",
+            text: fixture_spec!(
+                "fixture.py_fragment",
+                "THE fixture SHALL carry a Property row with a py-tagged fragment.",
+                "| c_one | invariant | `holds` | [[fixture.py_fragment]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.py_fragment.c_one]] |\n",
+                "| p_py_fragment | unit | [[fixture.py_fragment.c_one]] | `sample()` | `**py:** py_predicate()` |\n",
+            ),
+        },
+        Fixture {
+            name: "property_row_with_rust_fragment",
+            summary: "a spec file whose Property row opts into executable translation with a **rust:** fragment",
+            text: fixture_spec!(
+                "fixture.rust_fragment",
+                "THE fixture SHALL carry a Property row with a rust-tagged fragment.",
+                "| c_one | invariant | `holds` | [[fixture.rust_fragment]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.rust_fragment.c_one]] |\n",
+                "| p_rust_fragment | unit | [[fixture.rust_fragment.c_one]] | `sample()` | `**rust:** verbatim_marker == \"verbatim\"` |\n",
+            ),
+        },
+        Fixture {
+            name: "property_row_without_fragment",
+            summary: "a spec file whose Property row carries prose only (no fragment marker)",
+            text: fixture_spec!(
+                "fixture.prose_predicate",
+                "THE fixture SHALL carry a Property row with a prose predicate.",
+                "| c_one | invariant | `holds` | [[fixture.prose_predicate]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.prose_predicate.c_one]] |\n",
+                "| p_prose | unit | [[fixture.prose_predicate.c_one]] | `sample()` | `the prose predicate holds` |\n",
+            ),
+        },
+        Fixture {
+            name: "property_row_with_two_generators",
+            summary: "a spec file whose Property row names two generators",
+            text: fixture_spec!(
+                "fixture.two_generators",
+                "THE fixture SHALL carry a Property row with two named generators.",
+                "| c_one | invariant | `holds` | [[fixture.two_generators]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.two_generators.c_one]] |\n",
+                "| p_two_generators | unit | [[fixture.two_generators.c_one]] | `g_one(), g_two()` | `the prose predicate holds` |\n",
+            ),
+        },
+        Fixture {
+            name: "revision_15_rust_fragment_cell",
+            summary: "a spec file whose Property row carries a Revision-15 shaped **rust:** cell",
+            text: fixture_spec!(
+                "fixture.revision_15",
+                "THE fixture SHALL carry a Revision-15 shaped rust fragment cell.",
+                "| c_one | invariant | `holds` | [[fixture.revision_15]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.revision_15.c_one]] |\n",
+                "| p_revision_15 | unit | [[fixture.revision_15.c_one]] | `sample()` | `**rust:** revision_marker == \"r15\"` |\n",
+            ),
+        },
+        Fixture {
+            name: "property_row_with_marker_tag",
+            summary: "a spec file with one unknown-tag row (**go:**) and one py-tagged row (**py:**) — the py row comes first, so the emitter gate fires before the unknown-tag rejection",
+            text: fixture_spec!(
+                "fixture.marker_tags",
+                "THE fixture SHALL carry an unknown-tag row and a py-tagged row.",
+                "| c_one | invariant | `holds` | [[fixture.marker_tags]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.marker_tags.c_one]] |\n",
+                "| p_py_tag | unit | [[fixture.marker_tags.c_one]] | `sample()` | `**py:** py_predicate()` |\n\
+                 | p_go_tag | unit | [[fixture.marker_tags.c_one]] | `sample()` | `**go:** go_predicate()` |\n",
+            ),
+        },
+        Fixture {
+            name: "property_row_with_mid_span_marker_tag",
+            summary: "a spec file whose Property row mentions **py:** mid-span (never a fragment position)",
+            text: fixture_spec!(
+                "fixture.mid_span_marker",
+                "THE fixture SHALL mention the py marker mid-span in a Property row.",
+                "| c_one | invariant | `holds` | [[fixture.mid_span_marker]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.mid_span_marker.c_one]] |\n",
+                "| p_mid_span | unit | [[fixture.mid_span_marker.c_one]] | `sample()` | `count(x) == 1 **py:** is only a mention` |\n",
+            ),
+        },
+        Fixture {
+            name: "law_row_with_fragment",
+            summary: "a spec file whose law-kind Property row carries a **rust:** fragment",
+            text: fixture_spec!(
+                "fixture.law_fragment",
+                "THE fixture SHALL carry a law-kind Property row with a rust fragment.",
+                "| c_one | invariant | `holds` | [[fixture.law_fragment]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.law_fragment.c_one]] |\n",
+                "| p_law_fragment | law | [[fixture.law_fragment.c_one]] | `sample()` | `**rust:** law_marker == \"x\"` **identity:** `f(a) == a` **associativity:** `f(f(a)) == f(a)` |\n",
+            ),
+        },
+        Fixture {
+            name: "fragment_with",
+            summary: "a spec file whose Property fragment carries the banned token std::fs",
+            text: fixture_spec!(
+                "fixture.banned_token",
+                "THE fixture SHALL carry a Property fragment with a banned token.",
+                "| c_one | invariant | `holds` | [[fixture.banned_token]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.banned_token.c_one]] |\n",
+                "| p_banned | unit | [[fixture.banned_token.c_one]] | `sample()` | `**rust:** std::fs::read_to_string(\"x\").is_ok()` |\n",
+            ),
+        },
+        Fixture {
+            name: "transition_row_with_fragment_guard",
+            summary: "a spec file whose Transition guard carries a **rust:** fragment",
+            text: fixture_spec!(
+                "fixture.guard_fragment",
+                "THE fixture SHALL carry a Transition guard with a rust fragment.",
+                "| c_one | invariant | `holds` | [[fixture.guard_fragment]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | `**rust:** guard_marker == \"x\"` |\n",
+                "| p_guard | unit | [[fixture.guard_fragment.c_one]] | `sample()` | `the prose predicate holds` |\n",
+            ),
+        },
+        Fixture {
+            name: "effect_row_with_fragment",
+            summary: "a spec file whose effect-kind Constraint carries a **rust:** fragment",
+            text: fixture_spec!(
+                "fixture.effect_fragment",
+                "THE fixture SHALL carry an effect Constraint with a rust fragment.",
+                "| c_one | invariant | `holds` | [[fixture.effect_fragment]] |\n\
+                 | c_effect | effect | `**rust:** effect_marker == \"x\"` | [[fixture.effect_fragment]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.effect_fragment.c_one]] |\n",
+                "| p_one | unit | [[fixture.effect_fragment.c_one]] | `sample()` | `the constraint holds` |\n\
+                 | p_effect | unit | [[fixture.effect_fragment.c_effect]] | `sample()` | `the effect fires` |\n",
+            ),
+        },
+        Fixture {
+            name: "invariant_cell_with_kernel_marker",
+            summary: "a spec file whose invariant Constraint opts into kernel translation",
+            text: fixture_spec!(
+                "fixture.kernel_marker",
+                "THE fixture SHALL carry an invariant Constraint with a kernel expression.",
+                "| c_kernel | invariant | `**kernel:** |State| == 2` | [[fixture.kernel_marker]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.kernel_marker.c_kernel]] |\n",
+                "| p_kernel | unit | [[fixture.kernel_marker.c_kernel]] | `sample()` | `the constraint holds` |\n",
+            ),
+        },
+        Fixture {
+            name: "invariant_cell_with_nonmember_atomic",
+            summary: "a spec file whose invariant Constraint opts into a kernel expression with a non-member atomic",
+            text: fixture_spec!(
+                "fixture.kernel_nonmember",
+                "THE fixture SHALL carry a kernel expression with a non-member atomic.",
+                "| c_kernel | invariant | `**kernel:** frobnicate(x)` | [[fixture.kernel_nonmember]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.kernel_nonmember.c_kernel]] |\n",
+                "| p_kernel | unit | [[fixture.kernel_nonmember.c_kernel]] | `sample()` | `the constraint holds` |\n",
+            ),
+        },
+        Fixture {
+            name: "constraint_row_with_arbitrary_binding_text",
+            summary: "a spec file whose Constraint row carries an arbitrary kernel.binding text",
+            text: fixture_spec!(
+                "fixture.arbitrary_binding",
+                "THE fixture SHALL carry a Constraint row with an arbitrary binding text.",
+                "| id | kind | expr | traces_to | kernel.binding |\n|----|------|------|------------|----------------|\n",
+                "| c_one | invariant | `holds` | [[fixture.arbitrary_binding]] | `arbitrary binding text 42 == answer` |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.arbitrary_binding.c_one]] |\n",
+                "| p_one | unit | [[fixture.arbitrary_binding.c_one]] | `sample()` | `the constraint holds` |\n",
+                ""
+            ),
+        },
+        Fixture {
+            name: "external_checker_claiming_a_constraint",
+            summary: "a spec file whose Constraint row binds an external checker's claim",
+            text: fixture_spec!(
+                "fixture.external_claim",
+                "THE fixture SHALL carry a Constraint row bound to an external checker.",
+                "| id | kind | expr | traces_to | kernel.binding |\n|----|------|------|------------|----------------|\n",
+                "| c_one | invariant | `holds` | [[fixture.external_claim]] | `pytest -k external_claim tests/test_claims.py::test_external_claim` |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.external_claim.c_one]] |\n",
+                "| p_one | unit | [[fixture.external_claim.c_one]] | `sample()` | `the constraint holds` |\n",
+                ""
+            ),
+        },
+        Fixture {
+            name: "spec_with_one_helper_and_two_referencing_fragments",
+            summary: "a spec file with one `## Fragments` helper and two fragments referencing it",
+            text: fixture_spec!(
+                "fixture.one_helper",
+                "THE fixture SHALL carry one shared helper two fragments reference.",
+                "| c_one | invariant | `holds` | [[fixture.one_helper]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.one_helper.c_one]] |\n",
+                "| p_first | unit | [[fixture.one_helper.c_one]] | `sample()` | `**rust:** @shared_helper(&v0)` |\n\
+                 | p_second | unit | [[fixture.one_helper.c_one]] | `sample()` | `**rust:** @shared_helper(&v0)` |\n",
+                "## Fragments\n\ndef shared_helper:\n```rust\nfn shared_helper(text: &str) -> bool {\n    text.contains(\"fixture\")\n}\n```\n",
+            ),
+        },
+        Fixture {
+            name: "property_fragment_referencing",
+            summary: "a spec file whose Property fragment references an undefined helper",
+            text: fixture_spec!(
+                "fixture.unknown_helper",
+                "THE fixture SHALL carry a fragment referencing an undefined helper.",
+                "| c_one | invariant | `holds` | [[fixture.unknown_helper]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.unknown_helper.c_one]] |\n",
+                "| p_ghost | unit | [[fixture.unknown_helper.c_one]] | `sample()` | `**rust:** @ghost(&v0)` |\n",
+            ),
+        },
+        Fixture {
+            name: "ghost",
+            summary: "a spec file whose Property row references the undefined ghost helper (the corpus's generator cell for that row names `ghost` as a second generator)",
+            text: fixture_spec!(
+                "fixture.ghost_helper",
+                "THE fixture SHALL carry a fragment referencing the undefined ghost helper.",
+                "| c_one | invariant | `holds` | [[fixture.ghost_helper]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.ghost_helper.c_one]] |\n",
+                "| p_ghost | unit | [[fixture.ghost_helper.c_one]] | `sample()` | `**rust:** @ghost(&v0)` |\n",
+            ),
+        },
+        Fixture {
+            name: "helper_named",
+            summary: "a spec file whose `## Fragments` helper is named v0 (the strategy-binding namespace)",
+            text: fixture_spec!(
+                "fixture.helper_collision",
+                "THE fixture SHALL carry a helper whose name collides with a generated symbol.",
+                "| c_one | invariant | `holds` | [[fixture.helper_collision]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.helper_collision.c_one]] |\n",
+                "| p_one | unit | [[fixture.helper_collision.c_one]] | `sample()` | `the prose predicate holds` |\n",
+                "## Fragments\n\ndef v0:\n```rust\nfn v0(text: &str) -> bool {\n    text.is_empty()\n}\n```\n",
+            ),
+        },
+        Fixture {
+            name: "helper_body_with",
+            summary: "a spec file whose `## Fragments` helper body carries the banned token std::fs",
+            text: fixture_spec!(
+                "fixture.helper_hygiene",
+                "THE fixture SHALL carry a helper body with a banned token.",
+                "| c_one | invariant | `holds` | [[fixture.helper_hygiene]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.helper_hygiene.c_one]] |\n",
+                "| p_one | unit | [[fixture.helper_hygiene.c_one]] | `sample()` | `the prose predicate holds` |\n",
+                "## Fragments\n\ndef dirty_helper:\n```rust\nfn dirty_helper(text: &str) -> bool {\n    std::fs::read_to_string(text).is_ok()\n}\n```\n",
+            ),
+        },
+        Fixture {
+            name: "mutually_referencing_helpers",
+            summary: "a spec file whose two `## Fragments` helpers reference each other",
+            text: fixture_spec!(
+                "fixture.helper_cycle",
+                "THE fixture SHALL carry two helpers that reference each other.",
+                "| c_one | invariant | `holds` | [[fixture.helper_cycle]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.helper_cycle.c_one]] |\n",
+                "| p_one | unit | [[fixture.helper_cycle.c_one]] | `sample()` | `the prose predicate holds` |\n",
+                "## Fragments\n\ndef is_a:\n```rust\nfn is_a(text: &str) -> bool {\n    @is_b(text)\n}\n```\n\ndef is_b:\n```rust\nfn is_b(text: &str) -> bool {\n    @is_a(text)\n}\n```\n",
+            ),
+        },
+        Fixture {
+            name: "spec_with_an_unreferenced_def",
+            summary: "a spec file with one `## Fragments` helper no fragment cell references",
+            text: fixture_spec!(
+                "fixture.dead_helper",
+                "THE fixture SHALL carry a helper no fragment cell references.",
+                "| c_one | invariant | `holds` | [[fixture.dead_helper]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.dead_helper.c_one]] |\n",
+                "| p_one | unit | [[fixture.dead_helper.c_one]] | `sample()` | `the prose predicate holds` |\n",
+                "## Fragments\n\ndef unused_helper:\n```rust\nfn unused_helper(text: &str) -> bool {\n    text.is_empty()\n}\n```\n",
+            ),
+        },
+        Fixture {
+            name: "linted_and_covered_file_without_a_fragments_section",
+            summary: "the lint-clean covered file, with no Fragments section at all",
+            text: fixture_spec!(
+                "fixture.covered_file",
+                "THE fixture SHALL carry no Fragments section.",
+                "| c_one | invariant | `the constraint holds` | [[fixture.covered_file]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.covered_file.c_one]] |\n",
+                "| p_one | unit | [[fixture.covered_file.c_one]] | `sample()` | `the constraint holds` |\n",
+            ),
+        },
+        Fixture {
+            name: "linted_and_covered_file_with_a_fragments_section",
+            summary: "the same lint-clean covered file, plus a Fragments section the linter treats as opaque prose",
+            text: fixture_spec!(
+                "fixture.covered_file",
+                "THE fixture SHALL carry a Fragments section the linter treats as opaque prose.",
+                "| c_one | invariant | `the constraint holds` | [[fixture.covered_file]] |\n",
+                "- s1\n- s2\n",
+                "| t_one | s1 | s2 | [[fixture.covered_file.c_one]] |\n",
+                "| p_one | unit | [[fixture.covered_file.c_one]] | `sample()` | `the constraint holds` |\n",
+                "## Fragments\n\ndef opaque_helper:\n```rust\nfn opaque_helper(text: &str) -> bool {\n    text.is_empty()\n}\n```\n",
+            ),
         },
     ];
 
