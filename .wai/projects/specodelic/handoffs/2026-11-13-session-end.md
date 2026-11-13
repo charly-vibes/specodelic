@@ -35,14 +35,15 @@ phase: research
 ### git_status
 
 ```
- M .wai/pipeline-runs/epic-orchestrator-2026-11-13-specodelic-1nhe-law-kind-per-case-fragment-bodies.yml
-?? .wai/projects/specodelic/research/2026-11-13-ship-59136eb3-d774ee28-pushed-to-cv-charly-vibes.md
+ M .wai/pipeline-runs/epic-orchestrator-2026-11-13-specodelic-lf3-migrate-specodelic-kinds-properties-run-4.yml
+?? .wai/projects/specodelic/research/2026-11-13-ship-b048a048-b3d34903-pushed-main-origin-main.md
 ```
 
 ### open_issues
 
 ```
 ○ specodelic-1ey4 P2 verify: route verify stage artifact_paths through citation_corpus::artifact_dir — flat-path residual after yl39
+○ specodelic-3632 P2 lint+revision seams: the four lf3 rows stuck on todo_predicate! (extra row fields, revision diffs)
 ○ specodelic-39w P2 [bug] acset instance builder panics on model.state anchor links — uninterned pseudo-node
 ○ specodelic-3yt9 P2 audit: bind:<owner-id> row key can collide with an oracle corpus id in one report
 ○ specodelic-523w P2 [bug] compile: commands/corpus.rs (spk compile over a corpus) has no scope guard — later same-stem file silently wins
@@ -88,10 +89,9 @@ phase: research
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 44 issues (44 open, 0 in progress)
+Total: 45 issues (45 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
-
 ```
 
