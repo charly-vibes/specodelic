@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:epic-orchestrator-2026-11-13-specodelic-1nhe-law-kind-per-case-fragment-bodies, pipeline-step:spawn-subagent]
+---
+
+GREEN: specodelic-1nhe Revision 21 — src/law.rs is the ONE shared law-cell parser (case labels via **name:**, case keys via **name::**, per-case bodies via the fragment marker in fragment position under the key; a known tag is never a label). src/compile.rs consumes it: validate_fragments rejects a law cell whose grammar is broken (unassociated fragment, duplicate body, unknown case, empty body, key with no body) and applies the emitter gate + fragment_hygiene per body; blocks_for_row emits one block per enumerated case, the case's own body verbatim, todo_predicate! where a case has none. src/lint/observability.rs now reads crate::law::law_case_labels (shared with compile — the linter and the compiler cannot disagree on what a case is). cargo test --test law_case_bodies: 13 passed; cargo test: all green; just lint-specs ok; just verify-specs exit 0.

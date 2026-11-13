@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-13-specodelic-1nhe-law-kind-per-case-fragment-bodies, pipeline-step:fix-review]
+---
+
+RO5U-FIXES: specodelic-1nhe — High (1) fixed: law rows now contribute their per-case bodies to compile's fragment_cell_texts, so the helper rule reaches a body — an @name inlines at the use site, an unresolvable one fails labeled at fragment_extraction, and a helper used only by a body is no longer reported dead; three tests pin it (tests/law_case_bodies.rs). Medium (2) fixed: FragmentLang::parse defers to law::FRAGMENT_TAGS — one closed set. (3) fixed: an unknown body tag fails labeled instead of falling through to Rust. (4) fixed: the labeled failures name the corpus rule fragment_law_rejected. (5) fixed: an empty body and a case key that introduces no body are labeled failures naming the case (tests added). Low (6) kept on purpose (the // predicate: comment quotes the cell verbatim — byte-compatibility). Out of scope (7) left to the owning tickets. After the fixes: cargo test green (16 law_case_bodies tests), just ci exit 0, lint 0 issues, verify-specs exit 0, ah check --run-tests --all-tests 641/0, openspec validate 53/53.
