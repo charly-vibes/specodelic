@@ -1,0 +1,5 @@
+---
+tags: [pipeline-step:select-ticket, pipeline-run:epic-orchestrator-2026-11-13-specodelic-lf3-migrate-compile-properties, pipeline-run:epic-orchestrator-2026-11-13-specodelic-u7kc-verify-runner-seams]
+---
+
+TICKET: specodelic-lf3 run 2 (owner-authorized scoped-first) - scope: openspec/specs/compile/spec.md (35 property rows, 0 law rows) - the only core format file without law rows (specodelic 1 law, kinds 1 law -> those stay blocked on the M4 format Revision). Harness prerequisite specodelic-u7kc is LANDED (449aa5b0): P1 tool path-dep seam, P2 pub fixtures builder API, P3 scope_verdict properties-only verdict; demonstration row proptest_block_per_property already calls the real tool over a materialized fixture. Target: migrate all 35 compile property rows to **rust:** fragments that call the tool (no re-implementations, no Just(name)/true scaffolds), extend src/lib.rs fixtures with the builders the generator cells name, wire a verify-specs recipe scoped to compile into just ci with the properties-only verdict (never weakening both_gates_required), meter: spk verify openspec/specs/compile/spec.md clean (properties pass + model current) and spk lint at 0.

@@ -1,0 +1,5 @@
+---
+tags: [pipeline-step:spawn-subagent, pipeline-run:epic-orchestrator-2026-11-13-specodelic-lf3-migrate-compile-properties, pipeline-run:epic-orchestrator-2026-11-13-specodelic-lf3-migrate-compile-properties, pipeline-step:spawn-subagent]
+---
+
+SPAWN: session=subagent:specodelic-lf3:migrate-compile-properties (pi, pty, minimax-m2.7) report=commit 861491e1: all 35 compile property rows migrated to **rust:** fragments calling the real tool over fixture-built inputs (fixtures registry extended in src/lib.rs), tests/compile_fixtures.rs corpus<->registry correspondence + lints + failing-fixture reality, recipe verify-specs added (compile-scoped, properties-only verdict, wired into just ci after model-check-specs), artifacts regenerated (compile_props.rs 35 assert blocks, compile.check.json); verification: 35/35 blocks pass, just verify-specs exit 0 and exit 1 on a deliberately broken fragment (gate really gates), model gate honestly exploration_only (native backend never reports no_counterexample - pre-existing, not weakened), Ro5 1 high/2 med/4 low all high+med fixed; no push/bd/wai close.

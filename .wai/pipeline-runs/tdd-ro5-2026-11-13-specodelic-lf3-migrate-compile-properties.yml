@@ -1,0 +1,11 @@
+run_id: tdd-ro5-2026-11-13-specodelic-lf3-migrate-compile-properties
+pipeline: tdd-ro5
+topic: 'specodelic-lf3: migrate compile properties'
+created_at: '2026-11-13T14:23:50.965980760+00:00'
+current_step: 9
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
+bypasses: []
