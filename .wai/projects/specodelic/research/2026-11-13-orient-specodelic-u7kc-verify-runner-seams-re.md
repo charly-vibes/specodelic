@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:epic-orchestrator-2026-11-13-specodelic-u7kc-verify-runner-seams, pipeline-step:spawn-subagent]
+---
+
+ORIENT: specodelic-u7kc (verify runner seams) — read src/verify.rs (SCRATCH_MANIFEST=proptest-only, CargoRunner, PropertiesRunner seam, evaluate_properties_gate, verdict precedence), src/compile.rs (properties_to_proptest emits spec_gen::<name>() = Just(name), FRAGMENT_BANNED), src/lib.rs, openspec/specs/{verify,compile}/spec.md, archive_companion.rs (sidecar layer re-attach), justfile (archive-change recipe), deny.toml; wai search 'verify runner' + 'fixture'; measured: scratch crate cannot depend on the tool (path-dep experiment in /var/tmp/spk-exp builds + calls specodelic::lint::lint_corpus offline in 16s); plan: P1 tool-dependency seam (conditional [dependencies] specodelic path dep), P2 specodelic::fixtures registry materialized by the emitted strategy, P3 properties-only scoped verdict in verify.rs + a just recipe gating on the envelope's properties.state; files allowed: src/verify.rs, src/lib.rs (fixtures only), src/compile.rs, tests/**, openspec/changes/add-verify-runner-seams/**, corpus only via just archive-change

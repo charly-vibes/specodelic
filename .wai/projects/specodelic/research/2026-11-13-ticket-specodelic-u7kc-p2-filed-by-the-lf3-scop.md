@@ -1,0 +1,5 @@
+---
+tags: [pipeline-step:select-ticket, pipeline-run:epic-orchestrator-2026-11-13-specodelic-u7kc-verify-runner-seams, pipeline-run:epic-orchestrator-2026-11-13-specodelic-u7kc-verify-runner-seams, pipeline-step:select-ticket]
+---
+
+TICKET: specodelic-u7kc (P2, filed by the lf3 scoped run) - build the three runner seams that block honest executable corpus property cells: P1 scratch crate gets a path dependency on the specodelic lib (src/verify.rs SCRATCH_MANIFEST; env!CARGO_MANIFEST_DIR) so a fragment can call the real checker; P2 a property fixture API materializing generator-named fixtures (spec_file_with(...) etc.) as concrete inputs (choose minimal shape: in-corpus fixtures vs a lib builder module; record the design in the change); P3 a properties-only scope verdict for the CI recipe (fails only on properties.state == failed, never on a skipped/stale model stage, never weakening both_gates_required). Acceptance includes migrating >=1 compile property row to a **rust:** fragment that CALLS the tool and passes with a real strategy (no Just(name), no checker re-implementation) and just ci green. lib already exposes pub mod lint/compile/graph/packs/verify/spec.
