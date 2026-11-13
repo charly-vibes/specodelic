@@ -489,16 +489,16 @@ impl<'a> Resolver<'a> {
         // re-evaluates the claim. One-way: a kernel claim carries no
         // `[[..]]` reference, so this edge cannot cycle.
         if let Some(evidence) = self.kernel_evidence[idx].get(&row) {
-            let reason = if evidence.status == ThreeValued::Unknown {
-                Some(match &evidence.reason {
+            // Only an unknown rides a reason — the exec leg has the same
+            // shape (a verified or refuted leg carries none).
+            let reason = (evidence.status == ThreeValued::Unknown).then(|| {
+                match &evidence.reason {
                     Some(r) => format!("kernel claim `{target}` is unknown: {r}"),
                     None => format!(
                         "kernel claim `{target}` is unknown — the kernel evaluator could not discharge it"
                     ),
-                })
-            } else {
-                None
-            };
+                }
+            });
             return (evidence.status, reason);
         }
         if self.citations[idx].contains_key(&row) {
