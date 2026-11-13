@@ -2,7 +2,7 @@ run_id: tdd-ro5-2026-11-13-specodelic-9o1h-compose-kernel-outcomes-into-the-cita
 pipeline: tdd-ro5
 topic: 'specodelic-9o1h: compose kernel outcomes into the citation algebra'
 created_at: '2026-11-13T22:27:26.871574027+00:00'
-current_step: 8
+current_step: 9
 approvals: {}
 epic: null
 child_issues: []
