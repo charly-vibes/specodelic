@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:epic-orchestrator-2026-11-13-specodelic-9o1h-compose-kernel-outcomes-into-the-citation-algebra-e2-f2, pipeline-step:select-ticket]
+---
+
+TICKET: specodelic-9o1h — compose kernel outcomes into the citation algebra (E2 F2). Selected as queue head: P2 honesty/usability gap; 8mta (F1) shipped earlier today; 9ilm (M4) is a P3 decision; jwjj P3. Drift check: NOT implemented — src/citation_corpus.rs Resolver consults exec_outcomes only (resolve_target: exec map -> citation rows -> property -> missing) and apply_corpus_resolution builds exec_maps from report statuses excluding citation rows; kernel claims are evaluated later in orchestrate::run_claim_gated_model_check and only appended by merge_corpus_statuses, so a citation of a kernel claim is 'missing target' -> unknown -> Rule 4 exploration_only (E2 report §5 measurement). Blast radius: no existing test pins cross-evaluator composition; kernel claims are already corpus-static (no [[..]] in the kernel grammar), so composition is one-way. Claimed specodelic-9o1h.
