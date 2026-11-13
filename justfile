@@ -122,6 +122,29 @@ lint-deltas:
 model-check-specs:
     cargo run -q -- model-check {{CORPUS_DIRS}}
 
+# The properties-only verify gate (add-verify-runner-seams, P3): a scoped
+# CI gate that fails IFF some file's PROPERTIES gate failed. It never
+# fails on a skipped, stale or missing MODEL stage — the model gate's
+# state rides its own envelope field — and it never claims `verified`.
+# The per-file `properties.state` is exactly the signal ("failed" iff a
+# compiled block failed). cargo run (never a PATH spk) so the gate can
+# never hit a stale installed binary; the verify command's own exit code
+# (1 on any blocked file) is deliberately ignored — this gate is scoped
+# to the properties stage.
+verify-properties *paths:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # just interpolates the variadic parameter into the script text (the
+    # recipe's arguments are not shell positional parameters) — split them
+    # back into the script's own argument list.
+    set -- {{paths}}
+    if [ "$#" -eq 0 ]; then
+        echo "usage: just verify-properties <spec files...>" >&2
+        exit 2
+    fi
+    out="$(cargo run -q -- verify --json "$@" 2>/dev/null || true)"
+    printf '%s' "$out" | python3 -c 'import json,sys; data=(json.load(sys.stdin) or {}).get("data") or {}; files=(data.get("verified") or [])+(data.get("blocked") or []); bad=[f for f in files if ((f.get("properties") or {}).get("state"))=="failed"]; [print("properties failed: {} — {}".format(f.get("file"), (f.get("properties") or {}).get("detail"))) for f in bad]; sys.exit(1 if bad else 0)'
+
 # The corpus-backed capability dirs — the files that were the specs/
 # corpus before the single-tree migration (specodelic-jf1). compile and
 # model-check are per-file gates that refuse stateless specs, so the

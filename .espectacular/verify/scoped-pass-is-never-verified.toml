@@ -1,0 +1,9 @@
+id = "scoped-pass-is-never-verified"
+description = "The properties-only scope verdict reports properties_passed, never verified; the verified transition keeps both gates required."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "properties_scope_pass_is_never_verified"

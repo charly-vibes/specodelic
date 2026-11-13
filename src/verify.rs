@@ -6,20 +6,29 @@
 //! evaluate the properties gate (staleness by comparing the on-disk
 //! `*_props.rs` artifact's block metadata against what the current spec
 //! regenerates, then really executing every compiled proptest! block
-//! through a runner seam), evaluate the model gate (`RunReport` from
+//! through a runner seam — a scratch crate that depends on the tool
+//! itself when the compiled artifact calls it, so a `**rust:**` fragment
+//! can assert the REAL checker's verdict), evaluate the model gate
+//! (`RunReport` from
 //! `<stem>.check.json` must be current — its `artifact_sha256` must match
 //! the on-disk `<stem>.tla` — and its outcome must be
 //! `no_counterexample`), and combine the two gates into the single
-//! verdict `openspec/specs/verify/spec.md` calls `verified`. Rationale: neither gate
+//! verdict `openspec/specs/verify/spec.md` calls `verified` (the
+//! properties-only scope verdict a scoped CI gate reads lives in
+//! `specodelic::scope_verdict`). Rationale: neither gate
 //! alone suffices (`both_gates_required`); un-translated predicates panic
 //! via `todo_predicate!` and are reported honestly as failures, never as
 //! skips; a stale artifact is a failure, not a cached pass
-//! (`properties_pass_reflects_latest_run`, `rerun_on_model_change`).
+//! (`properties_pass_reflects_latest_run`, `rerun_on_model_change`); and
+//! a scoped verdict that hid the properties stage behind the model stage
+//! could not gate a corpus run on the properties alone
+//! (`properties_scope_verdict`).
 
 use serde::{Deserialize, Serialize};
 
 use crate::compile;
 use crate::model_check::{self, Outcome, RunReport};
+use crate::scope_verdict::properties_verdict;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -172,6 +181,12 @@ pub struct PropertiesGate {
     pub blocks: Vec<BlockResult>,
 }
 
+/// The scope verdict API lives in the library root
+/// (`specodelic::scope_verdict`) — the scoped CI gate and a library
+/// consumer read the same mapping. Re-exported here so the verdict API
+/// stays reachable as `specodelic::verify::*`.
+pub use crate::scope_verdict::{VerifyScope, properties_only_verdict, verdict_in_scope};
+
 /// The single verdict `openspec/specs/verify/spec.md` names — `verified` exactly when
 /// both gates pass, else the blocking stage.
 #[derive(Debug, Clone, PartialEq)]
@@ -188,80 +203,47 @@ pub fn verdict(properties: &PropsGateState, model: &ModelGateState) -> Verdict {
     // Properties blockers first — both gates are always evaluated by the
     // caller; the verdict names the first blocking stage and never reads a
     // non-pass state as a pass.
-    let (status, message, hint) = match properties {
-        PropsGateState::Pass => match model {
-            ModelGateState::Clean => (
-                "verified",
-                "all compiled proptest! blocks passed and the current model run reported no_counterexample".to_string(),
-                "re-verify after any edit to the spec or its compiled artifacts — verified is not cached".to_string(),
-            ),
-            ModelGateState::NotClean {
-                outcome,
-                blocking_claims,
-                ..
-            } => (
-                "model_not_clean",
-                format!(
-                    "the most recent model-check run against the current artifact reported {outcome:?} — only no_counterexample verifies, and exploration_only is explicitly not clean (no invariant predicates were executed; give the model executable invariant fragments — the **rust:** marker, specodelic.md Revision 15 — and re-run){}",
-                    if blocking_claims.is_empty() {
-                        String::new()
-                    } else {
-                        format!(
-                            "; blocking claims: {}",
-                            blocking_claims.join(", ")
-                        )
-                    }
-                ),
-                "run: specodelic model-check with a backend that executes invariants, or treat the model as unverified".to_string(),
-            ),
-            ModelGateState::Stale { detail } => (
-                "stale_model_run",
-                format!(
-                    "the stored model-check run is not current evidence ({detail}) — a clean result on stale or foreign evidence is not clean"
-                ),
-                "run: specodelic model-check over the same file set and --out-dir as the original invocation, then verify again".to_string(),
-            ),
-            ModelGateState::Missing { detail } => (
-                "missing_model_run",
-                format!(
-                    "no readable model-check run report ({detail}) — verify never treats a skipped stage as passed"
-                ),
-                "run: specodelic model-check <files>".to_string(),
-            ),
-        },
-        PropsGateState::Failed(summary) => (
-            "properties_failed",
-            format!("{summary} — a partial pass is a failure of the property"),
-            "fix the failing predicates (see each block's detail for the shrunk failing input)".to_string(),
+    if let Some(blocker) = properties_verdict(properties) {
+        return blocker;
+    }
+    let (status, message, hint) = match model {
+        ModelGateState::Clean => (
+            "verified",
+            "all compiled proptest! blocks passed and the current model run reported no_counterexample".to_string(),
+            "re-verify after any edit to the spec or its compiled artifacts — verified is not cached".to_string(),
         ),
-        PropsGateState::Stale => (
-            "stale_properties_artifact",
-            "the on-disk *_props.rs artifact predates the current spec — properties from a stale artifact never count".to_string(),
-            "run: specodelic compile <files> to regenerate the artifact".to_string(),
-        ),
-        PropsGateState::MissingArtifact => (
-            "missing_properties_artifact",
-            "no compiled proptest artifact for this spec — verify consumes compile's output, it never re-compiles".to_string(),
-            "run: specodelic compile <files>".to_string(),
-        ),
-        PropsGateState::Uncompilable(output) => (
-            "properties_uncompilable",
-            "the *_props.rs artifact did not compile as a Rust test crate".to_string(),
-            format!("fix the artifact's Rust (first errors): {output}"),
-        ),
-        PropsGateState::RunnerUnavailable(detail) => (
-            "runner_unavailable",
-            "the properties gate executes the compiled proptest! blocks and needs the Rust toolchain".to_string(),
-            format!("install the Rust toolchain so cargo is on PATH ({detail})"),
-        ),
-        PropsGateState::TimedOut { secs, detail } => (
-            "properties_timed_out",
+        ModelGateState::NotClean {
+            outcome,
+            blocking_claims,
+            ..
+        } => (
+            "model_not_clean",
             format!(
-                "the cargo test run exceeded its {secs}s wall-clock bound and was killed — a hanging (likely pathological) predicate is an unbounded DoS on verify, and no block verdicts exist yet"
+                "the most recent model-check run against the current artifact reported {outcome:?} — only no_counterexample verifies, and exploration_only is explicitly not clean (no invariant predicates were executed; give the model executable invariant fragments — the **rust:** marker, specodelic.md Revision 15 — and re-run){}",
+                if blocking_claims.is_empty() {
+                    String::new()
+                } else {
+                    format!(
+                        "; blocking claims: {}",
+                        blocking_claims.join(", ")
+                    )
+                }
             ),
+            "run: specodelic model-check with a backend that executes invariants, or treat the model as unverified".to_string(),
+        ),
+        ModelGateState::Stale { detail } => (
+            "stale_model_run",
             format!(
-                "raise --timeout-secs (or pass --timeout-secs 0 to run unbounded) and re-run; the partial output names the block that hung: {detail}"
+                "the stored model-check run is not current evidence ({detail}) — a clean result on stale or foreign evidence is not clean"
             ),
+            "run: specodelic model-check over the same file set and --out-dir as the original invocation, then verify again".to_string(),
+        ),
+        ModelGateState::Missing { detail } => (
+            "missing_model_run",
+            format!(
+                "no readable model-check run report ({detail}) — verify never treats a skipped stage as passed"
+            ),
+            "run: specodelic model-check <files>".to_string(),
         ),
     };
     Verdict {
@@ -935,17 +917,44 @@ impl CargoRunner {
     ) -> Result<Vec<BlockResult>, RunnerError> {
         let _ = fs::create_dir_all(base.join("src"));
         let _ = fs::create_dir_all(base.join("tests"));
-        fs::write(base.join("Cargo.toml"), SCRATCH_MANIFEST).map_err(|e| {
+        // The tool-dependency seam: the artifact's own source says
+        // whether it calls the tool (`specodelic::…`) — only then does
+        // the scratch crate depend on the tool's lib. An artifact that
+        // does not call the tool keeps the base manifest byte-for-byte.
+        let source = fs::read_to_string(props_path).map_err(|e| {
+            RunnerError::Spawn(format!(
+                "could not read the compiled artifact {}: {e}",
+                props_path.display()
+            ))
+        })?;
+        let tool_root =
+            tool_dependency(&source).map_err(|detail| RunnerError::Compile { output: detail })?;
+        fs::write(
+            base.join("Cargo.toml"),
+            scratch_manifest(tool_root.as_deref()),
+        )
+        .map_err(|e| {
             RunnerError::Spawn(format!(
                 "could not write the scratch crate at {}: {e}",
                 base.display()
             ))
         })?;
         // Cache the resolved lockfile across invocations — no per-run
-        // index update.
+        // index update. When the tool dependency is needed and no
+        // lockfile is cached yet, seed the resolution from the tool's own
+        // lockfile so cargo resolves the tool's transitive dependencies
+        // from the pinned versions (offline-friendly resolution).
         let lock = scratch_base().join("Cargo.lock");
-        if lock.exists() {
-            let _ = fs::copy(&lock, base.join("Cargo.lock"));
+        let seed = if lock.exists() {
+            Some(lock.clone())
+        } else {
+            tool_root
+                .as_ref()
+                .map(|root| root.join("Cargo.lock"))
+                .filter(|p| p.is_file())
+        };
+        if let Some(seed) = seed {
+            let _ = fs::copy(&seed, base.join("Cargo.lock"));
         }
         // The staged test FILE name becomes the test binary name; unique
         // per invocation so parallel verifies sharing the target dir
@@ -1225,7 +1234,75 @@ fn prune_scratch(
     stats
 }
 
+/// The scratch crate's BASE manifest — `proptest` and nothing else.
+///
+/// The tool dependency is deliberately NOT here: it is added only when
+/// the staged artifact calls the tool (the tool-dependency seam —
+/// openspec/changes/add-verify-runner-seams design D1). An artifact
+/// that does not call the tool keeps this manifest byte-for-byte: no
+/// library build, no path resolution, no behavior change.
 const SCRATCH_MANIFEST: &str = "[package]\n\nname = \"specodelic-verify-scratch\"\n\nversion = \"0.0.0\"\n\nedition = \"2021\"\n\n\n[dev-dependencies]\n\nproptest = \"1\"\n";
+
+/// The token that marks a compiled artifact as calling the tool: a
+/// fragment (or a fixture-materializing strategy) that names
+/// `specodelic::…` needs the tool's lib in scope.
+const TOOL_CALL_TOKEN: &str = "specodelic::";
+
+/// The tool's crate root — the specodelic package that built this
+/// binary (`env!("CARGO_MANIFEST_DIR")`), overridable with
+/// `SPECODELIC_TOOL_PATH` for a binary built elsewhere (a release
+/// tarball's crate root is not on the user's disk).
+///
+/// `None` when the root is not usable (no `Cargo.toml` there): the
+/// runner then refuses to build a tool-calling artifact rather than
+/// pretending the tool was there.
+pub fn tool_crate_root() -> Option<PathBuf> {
+    let root = std::env::var_os("SPECODELIC_TOOL_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")));
+    if root.join("Cargo.toml").is_file() {
+        Some(root)
+    } else {
+        None
+    }
+}
+
+/// The tool dependency the staged artifact needs: `None` when the
+/// artifact does not call the tool, the tool's crate root when it does
+/// and the root is available, and a labeled reason when it does and the
+/// root is missing (a binary built on another machine).
+fn tool_dependency(source: &str) -> Result<Option<PathBuf>, String> {
+    if !source.contains(TOOL_CALL_TOKEN) {
+        return Ok(None);
+    }
+    tool_crate_root().map(Some).ok_or_else(|| {
+        format!(
+            "the compiled artifact calls the specodelic tool (`{TOOL_CALL_TOKEN}`), but the tool's crate root is not available here — point SPECODELIC_TOOL_PATH at the specodelic package root, or run a binary built from that package"
+        )
+    })
+}
+
+/// The scratch crate's manifest for one artifact: the base manifest plus
+/// the tool dependency when the artifact calls the tool.
+fn scratch_manifest(tool_root: Option<&Path>) -> String {
+    let mut manifest = String::from(SCRATCH_MANIFEST);
+    if let Some(root) = tool_root {
+        manifest.push_str("\n[dependencies]\n\n");
+        manifest.push_str(&format!(
+            "specodelic = {{ path = \"{}\" }}\n",
+            toml_path(root)
+        ));
+    }
+    manifest
+}
+
+/// A path as a TOML basic string: forward slashes (a TOML basic string
+/// treats a backslash as an escape) and no unescaped quote.
+fn toml_path(path: &Path) -> String {
+    path.to_string_lossy()
+        .replace('\\', "/")
+        .replace('"', "\\\"")
+}
 
 /// libtest per-block result: `test <fn> ... ok|FAILED`; failing blocks'
 /// captured output sits in a `---- <fn> stdout ----` section (panic

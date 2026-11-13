@@ -12,7 +12,7 @@
   "expected_claim_ids": [],
   "invariants_checked": [],
   "outcome": "exploration_only",
-  "scope_sha256": "2e40735d6b90f4529ef42d4c32e9a4eb7f0f9c6c948bc47962dd08b5d4e5263b",
+  "scope_sha256": "199cf0696eb9135f388f4f0630f9e6f08275076fb08674acd8171f94b4063239",
   "states_explored": 5,
   "unchecked_claim_ids": [
     "assurance_views_agree",
@@ -23,6 +23,7 @@
     "failure_reports_shrunk_counterexample",
     "law_cases_unexecuted",
     "properties_pass_reflects_latest_run",
+    "properties_scope_verdict",
     "required_claims_govern_acceptance",
     "verify_is_idempotent"
   ]

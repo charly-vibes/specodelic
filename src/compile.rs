@@ -1319,9 +1319,21 @@ pub fn properties_to_proptest(spec: &Spec) -> String {
              pub mod spec_gen {\n    use super::*;\n\n",
         );
         for g in &gens {
-            out.push_str(&format!(
-                "    pub fn {g}() -> impl Strategy<Value = String> {{\n        Just({g:?}.into())\n    }}\n\n"
-            ));
+            // A generator whose name is a FIXTURE name materializes
+            // through the tool's fixture registry — a real concrete
+            // input the real checker consumes (the fixture seam,
+            // openspec/changes/add-verify-runner-seams design D2).
+            // Every other generator keeps the placeholder emission
+            // byte-for-byte: the generator's own name.
+            if crate::fixtures::is_known(g) {
+                out.push_str(&format!(
+                    "    pub fn {g}() -> impl Strategy<Value = String> {{\n        Just(specodelic::fixtures::materialize({g:?}).expect(\"the {g} fixture materializes\"))\n    }}\n\n"
+                ));
+            } else {
+                out.push_str(&format!(
+                    "    pub fn {g}() -> impl Strategy<Value = String> {{\n        Just({g:?}.into())\n    }}\n\n"
+                ));
+            }
         }
         out.push_str("}\n\n");
     }

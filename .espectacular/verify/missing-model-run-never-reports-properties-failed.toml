@@ -1,0 +1,9 @@
+id = "missing-model-run-never-reports-properties-failed"
+description = "A missing or stale model-check run report never makes the properties-only scope verdict report properties_failed."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "properties_scope_ignores_a_missing_or_stale_model_run"

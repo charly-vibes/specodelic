@@ -1,9 +1,9 @@
 id = "proptest-block-per-property"
-description = ""
+description = "Each property row compiles to a dedicated proptest! block; the corpus row migrated to a real tool-calling fragment executes against the real compiler."
 archetype = "PF"
 status = "active"
 superseded_by = ""
-authored_with = "0.11.0"
+authored_with = "0.12.1"
 
 [[tests.cargo]]
-flags = "fragment_values_bind_generators_as_strings"
+flags = "corpus_property_row_executes_against_the_real_compiler"

@@ -196,7 +196,7 @@ wall-clock, caching, and toolchain stories.
 | toml_roundtrips                      | unit | [[compile.constraint_table_to_toml]]         | `arbitrary_constraint_row()`                                 | `parse_toml(compile(row)) == row`                                                |
 | tla_disjunct_count_matches           | unit | [[compile.model_to_tla]]                     | `arbitrary_model_section(n_transitions)`                     | `count(disjuncts(compile(model).Next)) == n_transitions + 1` — the closing stuttering disjunct |
 | output_function_covers_emitting_states_only | unit | [[compile.model_to_tla]]              | `arbitrary_model_section(n_states_with_emits, n_states_without)` | `domain(compile(model).Output) == the_states_with_emits` — no entry for the rest |
-| proptest_block_per_property          | unit | [[compile.properties_to_proptest]]           | `arbitrary_property_row()`                                   | `count(compile(row).blocks) ≥ 1`                                                |
+| proptest_block_per_property          | unit | [[compile.properties_to_proptest]]           | `property_row_with_one_property()`                            | `**rust:** specodelic::verify::blocks_from_source(&specodelic::compile::properties_to_proptest(&specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"))).len() >= 1` |
 | law_property_compiles_required_cases | unit | [[compile.properties_to_proptest]]           | `law_property_row_with(cases: ["identity", "associativity"])` | `count(compile(row).blocks) == 2`                                               |
 | compile_completes_or_fails_cleanly   | unit | [[compile.compile_is_total]]                 | `arbitrary_linted_and_covered_file()`                         | `compile(file) ∈ {all_three_artifacts, single_labeled_failure}` — never partial |
 | id_preservation_holds                | unit | [[compile.compile_preserves_ids]]            | `arbitrary_linted_and_covered_file()`                         | `ids_in(file) ⊆ ids_in(compile(file))`                                          |
@@ -262,8 +262,10 @@ Every property row SHALL be verified by exactly one dedicated scenario;
 
 #### Scenario: proptest_block_per_property
 
-- **WHEN** `arbitrary_property_row()`
-- **THEN** `count(compile(row).blocks) ≥ 1`
+- **WHEN** `property_row_with_one_property()` — a materialized fixture, not
+  the generator's own name
+- **THEN** `count(compile(row).blocks) >= 1` — the compiled `**rust:**`
+  fragment counts the blocks the real compiler emitted for the fixture
 - **VERIFIES** [[compile.proptest_block_per_property]]
 
 #### Scenario: law_property_compiles_required_cases

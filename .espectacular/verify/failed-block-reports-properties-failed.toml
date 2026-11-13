@@ -1,0 +1,9 @@
+id = "failed-block-reports-properties-failed"
+description = "A failed compiled proptest! block makes the properties-only scope verdict report properties_failed."
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "properties_scope_reports_failed_when_a_block_failed"
