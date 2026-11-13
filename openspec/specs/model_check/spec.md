@@ -206,6 +206,28 @@ and the identity law is the only scope law left, strictly stronger
 than the old pair (a same-id delta/deployed pair is now refused
 outright, where the old law's per-file exemption let them coexist).
 
+**Cross-evaluator citation composition (specodelic-9o1h, E2 finding F2).**
+A citation target resolves against the same invocation's evidence from
+BOTH evaluators: the same-run executable-invariant outcomes AND the
+corpus-static kernel-evaluated claim statuses. Before this rule the
+algebra consulted the executable outcomes only, so a citation over a
+kernel-evaluated claim was undischargable — `[[exec]] ∧ [[kernel]]`
+evaluated `unknown` ("no same-run evidence"), and Rule 4 of
+`claim_aggregate_governs` then held the file at `exploration_only`,
+which no amount of correct authoring could clear. The composition is
+one-way: the closed kernel grammar contains no `[[..]]` references, so
+a kernel claim can never cite back and no citation cycle arises from
+it. The Kleene discipline is unchanged across the evaluators — an
+`unknown` kernel claim keeps the citing citation `unknown`, with a
+reason naming the kernel cause; a refuted kernel claim makes the citing
+citation a `counterexample`, so Rule 2 names the citation row and no
+state trace is invented; and a backend that cannot evaluate kernel
+claims reports them as labeled unsupported, so a citation over such a
+claim stays `unknown` — never an implied pass. The aggregate itself is
+untouched: `claim_aggregate_governs` still governs the verdict, and
+every required claim must discharge for the file to report
+`no_counterexample`.
+
 **Revision-discipline note.** These rows deliberately do NOT touch
 `specodelic.md` (this file's scope-law revision rode specodelic.md
 Revision 18 without touching `no_counterexample`'s expr there):

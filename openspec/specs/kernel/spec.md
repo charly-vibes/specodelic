@@ -54,6 +54,21 @@ claim constraints without specodelic learning their language.
 | unknown_atomic_fails     | unit | [[kernel.kernel_grammar_closed]]        | `expression_with_nonmember_atomic()`  | `grammar rejects labeled, naming the atomic and the closed set`             |
 | binding_never_interpreted | unit | [[kernel.kernel_binding_opaque]]        | `constraint_with_arbitrary_binding_text()` | `binding cell contents surface verbatim; no parse, no interpretation`  |
 
+## Notes
+
+**Cross-evaluator composition (specodelic-9o1h, E2 finding F2).**
+A kernel claim's status is same-invocation evidence for the citation
+algebra: a citation over a kernel-evaluated claim resolves against that
+claim's status — `verified` discharges it, `unknown` keeps it `unknown`
+(with a reason naming the kernel cause, never a pass), and
+`counterexample` refutes it (the aggregate then names the citing
+citation row, with no invented state trace). The kernel grammar
+contains no `[[..]]` references, so a kernel claim can never cite back:
+the composition is one-way and introduces no citation cycle. A backend
+that cannot evaluate kernel claims reports them as labeled unsupported,
+and a citation over such a claim stays `unknown` — never an implied
+pass.
+
 ## Requirements
 
 ### Requirement: Decidable bounded kernel grammar
