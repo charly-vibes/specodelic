@@ -1,0 +1,11 @@
+run_id: epic-orchestrator-2026-11-13-specodelic-lf3-scoped-verify-migration
+pipeline: epic-orchestrator
+topic: 'specodelic-lf3: scoped verify migration'
+created_at: '2026-11-13T00:38:22.380872485+00:00'
+current_step: 5
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
+bypasses: []

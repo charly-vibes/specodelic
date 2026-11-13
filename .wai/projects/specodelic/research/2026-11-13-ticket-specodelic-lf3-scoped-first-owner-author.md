@@ -1,0 +1,5 @@
+---
+tags: [pipeline-step:select-ticket, pipeline-run:epic-orchestrator-2026-11-13-specodelic-lf3-scoped-verify-migration, pipeline-run:epic-orchestrator-2026-11-12-specodelic-04c-kernel-vocabulary-pack]
+---
+
+TICKET: specodelic-lf3 (scoped-first, owner-authorized) - wire spk verify specs into just ci after migrating corpus property cells to executable **rust:** fragments. Scope: four core format files (specodelic 30 property rows, kinds 17, packs 16, compile 35) + any smallest fully-expressible file if none of the four qualifies. MEASURED CONSTRAINT: the props scratch crate manifest is proptest-only (src/verify.rs SCRATCH_MANIFEST) with no dependency on the specodelic lib, and generator cells compile to Just(...) constants - so checker-behavior predicates (check(file) == failed style) are NOT honestly expressible without a runner-harness design change; pure text/format predicates may be. The run MUST measure row-by-row feasibility and migrate only honestly expressible rows; never write true/trivial placeholders; if no file qualifies fully, do NOT wire the gate - report the prerequisite and file the runner-readiness ticket.
