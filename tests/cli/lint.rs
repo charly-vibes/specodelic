@@ -160,7 +160,8 @@ fn lint_corpus_is_fully_clean() {
     // companion archive, 2026-10-19).
     // 48 = + the audit capability (add-evidence-audit companion archive,
     // specodelic-x0wy, 2026-11-11).
-    assert_eq!(data["files_linted"], 48);
+    // 49 = + the content-advisories checker (specodelic-xci).
+    assert_eq!(data["files_linted"], 49);
     let issues = data["issues"].as_array().unwrap_p();
     assert!(issues.is_empty(), "corpus lint findings: {issues:?}");
     assert_eq!(out.status.code(), Some(0));
@@ -1385,4 +1386,66 @@ fn help_does_not_leak_flattened_struct_docs_and_labels_orchestrate() {
         "orchestrate is implemented — no stub label: {orch}"
     );
     assert!(orch.contains("pipeline"), "help names the pipeline: {orch}");
+}
+
+/// specodelic-xci (RED first): an untouched scaffold (the stub statement,
+/// a `scaffold_*` row id, a TODO expr) and a `true` predicate are content
+/// advisories — the JSON envelope's
+/// `warnings` channel names both rules and the offending rows,
+/// `data.issues` stays empty, and the command exits 0. A filled-in
+/// spec emits neither advisory.
+#[test]
+fn lint_warns_on_scaffold_placeholder_and_tautology_but_exits_zero() {
+    let dir = tempfile::tempdir().unwrap_p();
+    std::fs::write(
+        dir.path().join("demo-thing.md"),
+        "---\nid: demo.thing\nkind: intent\nstatement: \"THE system SHALL …\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| scaffold_c1 | invariant | `TODO — what must always hold` | [[demo.thing]] |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[demo.thing.scaffold_c1]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p1 | unit | [[demo.thing.scaffold_c1]] | `g()` | `true` |\n",
+    )
+    .unwrap_p();
+    // A filled-in spec beside the scaffold: it must warn about nothing.
+    std::fs::write(
+        dir.path().join("clean.md"),
+        "---\nid: clean\nkind: intent\nstatement: \"THE clean SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | [[clean]] |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[clean.c]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[clean.c]] | `g()` | `x` |\n",
+    )
+    .unwrap_p();
+    let out = spk()
+        .args(["lint", dir.path().to_str().unwrap_p(), "--json"])
+        .output()
+        .unwrap_p();
+    assert_eq!(out.status.code(), Some(0), "advisories never gate");
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_p();
+    let issues = json["data"]["issues"].as_array().unwrap_p();
+    assert!(
+        issues.is_empty(),
+        "advisories must never ride the issues channel: {issues:?}"
+    );
+    let warnings: Vec<String> = json["warnings"]
+        .as_array()
+        .unwrap_p()
+        .iter()
+        .map(|w| w["message"].as_str().unwrap_or_default().to_string())
+        .collect();
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.contains("linter.placeholder_content") && w.contains("scaffold_c1")),
+        "the scaffold row warns on the warnings channel: {warnings:?}"
+    );
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.contains("linter.placeholder_content")
+                && (w.contains("demo.thing") || w.contains("THE system SHALL …"))),
+        "the stub statement is a placeholder too: {warnings:?}"
+    );
+    assert!(
+        warnings
+            .iter()
+            .any(|w| w.contains("linter.tautological_predicate") && w.contains("p1")),
+        "the true predicate warns on the warnings channel: {warnings:?}"
+    );
+    assert!(
+        warnings.iter().all(|w| !w.contains("clean.md")),
+        "a filled-in spec emits neither advisory: {warnings:?}"
+    );
 }

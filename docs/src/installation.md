@@ -49,7 +49,10 @@ spk lint order.cancel.md
 ```
 
 ```text
-lint: 1 file(s) linted, 0 finding(s), 0 advisory warning(s)
+lint: 1 file(s) linted, 0 finding(s), 3 advisory warning(s)
+  advisory order.cancel.md [linter.placeholder_content] intent statement is a whole-cell placeholder: THE system SHALL …
+  advisory order.cancel.md [linter.placeholder_content] constraint `c1` expr is a whole-cell placeholder: TODO — what must always hold
+  advisory order.cancel.md [linter.placeholder_content] property `p1` predicate is a whole-cell placeholder: TODO — the property holds
 → Run: specodelic graph
 ```
 
@@ -62,8 +65,11 @@ spk lint order.cancel.md
 ```
 
 ```text
-lint: 1 file(s) linted, 1 finding(s), 0 advisory warning(s)
+lint: 1 file(s) linted, 1 finding(s), 3 advisory warning(s)
   order.cancel [linter.single_root_reachable] 4 row(s) unreachable from any intent row — an orphaned island (traces_to/derives_from/guard/from-to/emits): order.cancel.c1, order.cancel.initial, order.cancel.p1, order.cancel.t1
+  advisory order.cancel.md [linter.placeholder_content] intent statement is a whole-cell placeholder: THE system SHALL …
+  advisory order.cancel.md [linter.placeholder_content] constraint `c1` expr is a whole-cell placeholder: TODO — what must always hold
+  advisory order.cancel.md [linter.placeholder_content] property `p1` predicate is a whole-cell placeholder: TODO — the property holds
 → Run: fix the reported invariants — each rule's semantics: spk explain lint-rules
 ```
 

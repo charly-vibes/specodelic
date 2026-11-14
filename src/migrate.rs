@@ -951,6 +951,28 @@ mod tests {
             "sidecar scaffold must lint clean: {:?}",
             report.issues.iter().map(|i| &i.message).collect::<Vec<_>>()
         );
+        // The real generator's signature is `scaffold_*` ids with bare
+        // `true` cells beside a prose statement — no stub, no TODO word.
+        // A signature that only accepted the stub would leave all three
+        // scaffold rows silent, so the advisory must name each one.
+        for id in [
+            "scaffold_constraint",
+            "scaffold_transition",
+            "scaffold_property",
+        ] {
+            assert!(
+                report
+                    .warnings
+                    .iter()
+                    .any(|w| w.rule_id == "linter.placeholder_content" && w.message.contains(id)),
+                "the sidecar's `{id}` row is a placeholder warning: {:?}",
+                report
+                    .warnings
+                    .iter()
+                    .map(|w| &w.message)
+                    .collect::<Vec<_>>()
+            );
+        }
     }
 }
 

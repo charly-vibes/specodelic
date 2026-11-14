@@ -1,0 +1,9 @@
+id = "warning-never-gates"
+description = "Content advisories stay on the warnings channel with exit 0"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "lint_warns_on_scaffold_placeholder_and_tautology_but_exits_zero"

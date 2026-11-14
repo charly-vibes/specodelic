@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-13-specodelic-xci-advisory-warnings-for-placeholder-and-tautology-content, pipeline-step:green]
+---
+
+GREEN: implemented content advisories in src/lint/content_advisories.rs (new) + mod/content_advisories declaration, two append-only RULE_TABLE entries, one lint_corpus call. Whole-cell detection only: placeholder words TODO/TBD/FIXME at cell start, the spk new stub statement, scaffold_* ids gated on a file-level scaffold signature (stub statement or a placeholder content cell) because the corpus legitimately has scaffold_teaches/scaffold_lints_clean rows; tautology is exact true/TRUE/True/⊤ or A == A with A an identifier. Warnings channel only via Issue::new; exit 0; no issues. Spec: openspec/specs/linter-content_advisories/spec.md (non-gating checker), specodelic.md prose lists it, docs SUMMARY entry added; corpus file count pin 48->49. Verified: cargo test --lib lint 102 passed; cargo test --test cli lint 53 passed; cargo run -- lint openspec/specs => issues 0, new-rule warnings 0; openspec validate --all --strict 54/54.

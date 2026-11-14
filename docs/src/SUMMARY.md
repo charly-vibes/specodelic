@@ -55,6 +55,7 @@
 - [linter.external_completeness](specs/linter-external_completeness/spec.md)
 - [linter.failure_shape](specs/linter-failure_shape/spec.md)
 - [linter.observability](specs/linter-observability/spec.md)
+- [linter.content_advisories](specs/linter-content_advisories/spec.md)
 
 # Architecture
 

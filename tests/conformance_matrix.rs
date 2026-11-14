@@ -905,6 +905,23 @@ fn cases_failure_and_completeness() -> Vec<Case> {
             )],
             &["warn:linter.observability"],
         ),
+        // -- linter-content_advisories (advisory) ------------------------------------------------------------
+        case(
+            "content_placeholder_is_advisory",
+            vec![(
+                "clean.md",
+                CLEAN.replace("`recorded == submitted`", "`TODO — fill me in`"),
+            )],
+            &["warn:linter.placeholder_content"],
+        ),
+        case(
+            "tautology_is_advisory",
+            vec![(
+                "clean.md",
+                CLEAN.replace("`record(o) == o.recorded`", "`true`"),
+            )],
+            &["warn:linter.tautological_predicate"],
+        ),
         // -- linter-external_completeness (checklists) ----------------------------------------------------------
         with_checklist(
             "checklist_malformed_missing_items",

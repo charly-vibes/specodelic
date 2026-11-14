@@ -1,0 +1,9 @@
+id = "fragment-interior-silent"
+description = "A legitimate executable fragment is never treated as a placeholder"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "fragment_interior_is_not_a_placeholder"

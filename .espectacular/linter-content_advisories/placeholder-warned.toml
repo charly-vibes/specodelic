@@ -1,0 +1,9 @@
+id = "placeholder-warned"
+description = "A whole-cell placeholder warns on the warnings channel, exit 0"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.1"
+
+[[tests.cargo]]
+flags = "content_placeholder_and_tautology_warn_never_fail"

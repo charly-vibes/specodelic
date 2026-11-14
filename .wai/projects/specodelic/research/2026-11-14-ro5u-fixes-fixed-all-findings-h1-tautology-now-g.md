@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-13-specodelic-xci-advisory-warnings-for-placeholder-and-tautology-content, pipeline-step:fix-review]
+---
+
+RO5U-FIXES: fixed all findings. H1 tautology now gated to property predicates and invariant constraint exprs (effect/advisory silent; tests). M1 removed statement tautology. H2 scaffold signature now = placeholder statement OR placeholder-or-tautology content cell, so spk migrate's scaffold_constraint/transition/property rows with true cells warn; migrate regression added; spec Purpose names the real producers. M2 model guards fixed. M3 isolated stub-signature scaffold-id warning test added. L1 two conformance-matrix cases added. L2 RULE_TABLE semantics updated. L3 table-driven TODO/TBD/FIXME and true/TRUE/True/⊤/x==x/**rust:** true tests. L4 advisory_findings now runs content advisories for spk orchestrate. Verified: cargo test --lib 436 passed; cargo test --test conformance_matrix 1 passed; cargo test --test cli lint 53 passed; cargo fmt clean; pretender check exit 0; openspec validate --all --strict 54/54; spk lint corpus 0 issues / 0 new-rule warnings.

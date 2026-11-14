@@ -121,10 +121,12 @@ in.
 | `linter-schema_shape.md`          | `append_only_variants`, `prose_untouched`, `constraint_kind_closed`, `property_kind_closed`, `kinds.constraint_row_shape`, `kinds.state_row_shape`, `kinds.transition_row_shape`, `kinds.property_row_shape` | `linter-frontmatter.md` (parallel to the referential/graph/model branch) |
 | `linter-coverage.md`              | `coverage`, `law_requires_cases`                                             | `linter-graph_shape.md`, `linter-model_shape.md` |
 
-Two further checker files exist but sit outside this table on purpose
+Three further checker files exist but sit outside this table on purpose
 (they are instances of the same format, just never gating):
 `linter-observability.md` — advisory findings on the warnings channel,
-exit 0 by its own `advisory_severity` invariant — and
+exit 0 by its own `advisory_severity` invariant —
+`linter-content_advisories.md` — whole-cell placeholder and tautology
+warnings, exit 0 by the same advisory contract — and
 `linter-external_completeness.md` — runs only when a repo declares an
 external checklist, and its outcome never gates per `orchestrate.md`'s
 `external_completeness_never_gating`. Their absence from the table is a

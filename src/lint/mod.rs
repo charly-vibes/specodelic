@@ -14,6 +14,7 @@ use std::collections::BTreeMap;
 use crate::checklist::{self, Checklist};
 use crate::spec::Spec;
 
+mod content_advisories;
 mod graph;
 mod observability;
 pub mod revision;
@@ -208,6 +209,14 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
         "schema_matches_typing_table",
         "when the lint target carries the format doc, its Reference Typing table must equal the Schema value row for row — the document and the code cannot drift; a corpus without the format doc is out of the gate's scope (no-op, never fabricated expected rows) (add-acset-core, linter-schema_shape family)",
     ),
+    (
+        "placeholder_content",
+        "a structured content cell must not be an untouched scaffold: its whole trimmed text is TODO/TBD/FIXME (optionally with a separator and a note), a row id begins with `scaffold_` in a file that still carries the scaffold signature (its intent statement is a placeholder, or a constraint expr / property predicate is a placeholder or a tautology), or the intent statement is a placeholder (`THE system SHALL …` or a placeholder word) — never a substring scan inside a `**rust:**` fragment; the real producers are the `spk new` stub/TODO cells and `spk migrate`'s `scaffold_constraint`/`scaffold_transition`/`scaffold_property` sidecar rows; advisory — warned on the warnings channel (exit 0), never a failure (openspec/specs/linter-content_advisories/spec.md)",
+    ),
+    (
+        "tautological_predicate",
+        "a property predicate or invariant constraint expr must not be trivially true: its whole trimmed text is `true`/`⊤`, or one identifier is compared equal to itself (`x == x`) — no calls, arithmetic, or compound expressions are judged, and an `effect`/`advisory` constraint expr is never judged; advisory — warned on the warnings channel (exit 0), never a failure (openspec/specs/linter-content_advisories/spec.md)",
+    ),
 ];
 
 /// The stable rule identifier for a bare rule name: `linter.<name>`.
@@ -228,8 +237,10 @@ pub fn rule_semantics(rule: &str) -> Option<&'static str> {
 pub struct Report {
     pub files_linted: usize,
     pub issues: Vec<Issue>,
-    /// Advisory findings (openspec/specs/linter-observability/spec.md): rendered onto
-    /// the success envelope's warnings channel, exit 0 — never counted
+    /// Advisory findings — `linter-observability` and
+    /// `linter-content_advisories` (openspec/specs/linter-observability/spec.md,
+    /// openspec/specs/linter-content_advisories/spec.md): rendered onto the
+    /// success envelope's warnings channel, exit 0 — never counted
     /// by [`Report::failures`]. The `Issue` model carries no severity,
     /// so advisory findings must not ride the issues channel.
     pub warnings: Vec<Issue>,
@@ -278,6 +289,7 @@ pub fn lint_corpus(specs: &[Spec]) -> Report {
     lint_coverage(specs, &mut report);
     lint_graph_shape(specs, &mut report);
     lint_observability(specs, &mut report);
+    content_advisories::lint_content_advisories(specs, &mut report);
     report.issues.extend(schema_drift_findings(specs));
     crate::packs::pack_pass(specs, &mut report);
     report
@@ -454,11 +466,16 @@ pub fn external_completeness_findings(
     (report.issues, report.checklists_declared)
 }
 
-/// Advisory findings (openspec/specs/linter-observability/spec.md) — warnings, never
-/// gate; the orchestrator surfaces them on the warnings channel.
+/// Advisory findings — warnings, never gate; the orchestrator surfaces
+/// them on the warnings channel. Two families ride this channel, so one
+/// pass over the corpus reports both:
+/// - `linter-observability` (openspec/specs/linter-observability/spec.md);
+/// - `linter-content_advisories` (openspec/specs/linter-content_advisories/spec.md)
+///   — placeholder cells, scaffold ids, and tautological predicates/exprs.
 pub fn advisory_findings(specs: &[Spec]) -> Vec<Issue> {
     let mut report = empty_report(specs.len());
     lint_observability(specs, &mut report);
+    content_advisories::lint_content_advisories(specs, &mut report);
     report.warnings
 }
 
@@ -728,6 +745,21 @@ mod tests {
                  |-------|------------|-----------------|\n\
                  | `guard` | Transition | an invariant Constraint — or a State |\n",
                 "specodelic.md",
+            ),
+            // fires placeholder_content (specodelic-xci): an untouched
+            // `spk new` scaffold row — a `scaffold_*` id carrying a
+            // TODO expr. Advisory-only; kept here so the catalog test
+            // covers the rule once it joins RULE_TABLE.
+            spec_at(
+                "---\nid: ph.fixture\nkind: intent\nstatement: \"THE ph SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| scaffold_c | invariant | `TODO — what must always hold` | [[ph.fixture]] |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[ph.fixture.scaffold_c]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[ph.fixture.scaffold_c]] | `g()` | `x` |\n",
+                "ph-fixture.md",
+            ),
+            // fires tautological_predicate (specodelic-xci): the whole
+            // predicate cell is `true` — a property that cannot fail.
+            // Advisory-only; same catalog-coverage purpose as above.
+            spec_at(
+                "---\nid: taut.fixture\nkind: intent\nstatement: \"THE taut SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| inv | invariant | `x` | [[taut.fixture]] |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[taut.fixture.inv]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[taut.fixture.inv]] | `g()` | `true` |\n",
+                "taut-fixture.md",
             ),
         ]
     }
@@ -1906,6 +1938,9 @@ mod tests {
             "dotted targets are never metasyntactic"
         );
     }
+
+    #[path = "content_advisories.rs"]
+    mod content_advisories;
 
     #[path = "revision18.rs"]
     mod revision18;
