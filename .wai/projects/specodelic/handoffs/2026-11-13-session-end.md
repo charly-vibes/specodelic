@@ -35,8 +35,7 @@ phase: research
 ### git_status
 
 ```
- M .wai/pipeline-runs/epic-orchestrator-2026-11-13-specodelic-9o1h-compose-kernel-outcomes-into-the-citation-algebra-e2-f2.yml
-?? .wai/projects/specodelic/research/2026-11-13-ship-pushed-f8d96a68-8c0c3528-to-origin-main-ec.md
+ M .wai/pipeline-runs/tdd-ro5-2026-11-13-specodelic-xci-advisory-warnings-for-placeholder-and-tautology-content.yml
 ?? .wai/resources/pipelines/.last-run
 ```
 
@@ -54,7 +53,6 @@ phase: research
 ○ specodelic-l54a P2 docs: per-file ASCII state-machine views — unblocked by gently-hpd closure
 ○ specodelic-oeuz P2 docs: no gate on format-summary prose — 'four tables'/'Frontmatter'-for-'Intent' drift shipped to the site
 ○ specodelic-wq7n P2 [bug] audit: deployed spec Purpose is the archiver TBD placeholder
-○ specodelic-xci P2 lint: advisory warnings for placeholder and tautology content (TODO cells, trivially-true predicates)
 ○ specodelic-ynfv P2 [bug] compile: emit rustfmt-clean *_props.rs — recompile churn trips consumer fmt gates (gh-15)
 ○ specodelic-0mn1 P3 [bug] ah sync refuses self-hosting corpora: per-file lint can never be clean (total_refs is corpus-wide)
 ○ specodelic-0xnd P3 import acset.generic as openspec change — schema-parametric incidence core, GATED on adjacency-graph benchmark (external handoff, at/arltificial/renzi)
@@ -86,7 +84,7 @@ phase: research
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 41 issues (41 open, 0 in progress)
+Total: 40 issues (40 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
