@@ -2,7 +2,7 @@ run_id: tdd-ro5-2026-11-14-specodelic-mlc-consolidate-the-outbound-leaf-carve-ou
 pipeline: tdd-ro5
 topic: 'specodelic-mlc: consolidate the outbound-leaf carve-out into one normative statement'
 created_at: '2026-11-14T02:46:35.105219540+00:00'
-current_step: 8
+current_step: 9
 approvals: {}
 epic: null
 child_issues: []
