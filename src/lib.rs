@@ -32,6 +32,7 @@ pub mod lint;
 pub mod merge;
 pub mod migrate;
 pub mod model_check;
+pub mod openspec_adapter;
 pub mod orchestrate;
 pub mod packs;
 pub mod parse;

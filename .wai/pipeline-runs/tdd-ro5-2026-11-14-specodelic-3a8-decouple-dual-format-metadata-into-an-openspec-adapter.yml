@@ -1,0 +1,11 @@
+run_id: tdd-ro5-2026-11-14-specodelic-3a8-decouple-dual-format-metadata-into-an-openspec-adapter
+pipeline: tdd-ro5
+topic: 'specodelic-3a8: decouple dual-format metadata into an openspec adapter'
+created_at: '2026-11-14T02:21:27.061558106+00:00'
+current_step: 8
+approvals: {}
+epic: null
+child_issues: []
+child_runs: []
+handoff_artifact: null
+bypasses: []

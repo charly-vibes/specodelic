@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-14-specodelic-3a8-decouple-dual-format-metadata-into-an-openspec-adapter, pipeline-step:quality-ledger]
+---
+
+QUALITY LEDGER — Changed: src/openspec_adapter.rs (new DualFormat + from_source + insert_into); src/lib.rs module; src/spec.rs removes the six dual fields, dual_section, capture_dual_body and on_h2 markers, and owns the shared frontmatter_lines offset; src/parse.rs parse_file_with_source; src/commands/corpus.rs cmd_parse merges the six historical keys; tests/spec_parse.rs + tests/cli/parse_dual.rs (registered in tests/cli/main.rs; moved out of the parse_misc ratchet). Verified: cargo test --lib 437 passed; cargo test --test spec_parse 10 passed; CLI parse parity passed; spk lint openspec 68 files 0 issues; pretender check exit 0. Review: RO5U 0 critical/0 high/0 medium/3 low — all fixed (shared frontmatter offset, stronger exact tests + plain-spec keys, stale comment). Risks: none known; the parse envelope is byte-compatible and the adapter is the only dual-format owner. Next: ship-close, then ticket mlc.

@@ -76,6 +76,12 @@ impl ParseCommandError {
 /// [`Spec::from_file`] with the hostile-input gates (design D1: no new
 /// IR, no transformation — the parsed `Spec` is emitted directly).
 pub fn parse_file(path: &Path) -> Result<Spec, ParseCommandError> {
+    parse_file_with_source(path).map(|(spec, _)| spec)
+}
+
+/// [`parse_file`], also returning the raw source text the spec was parsed
+/// from — the input the derived views (`openspec_adapter`) project over.
+pub fn parse_file_with_source(path: &Path) -> Result<(Spec, String), ParseCommandError> {
     let meta = std::fs::metadata(path).map_err(|_| ParseCommandError::NotFound {
         path: path.to_path_buf(),
     })?;
@@ -108,7 +114,7 @@ pub fn parse_file(path: &Path) -> Result<Spec, ParseCommandError> {
         })
         .map(|mut spec| {
             spec.path = Some(path.to_path_buf());
-            spec
+            (spec, text)
         })
 }
 

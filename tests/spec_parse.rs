@@ -90,3 +90,37 @@ fn backtick_commas_and_pipes_in_expr_cells_survive() {
             .contains("f(x) ∧ g(y)")
     );
 }
+
+/// specodelic-3a8 (RED): the openspec/dual-format view is an adapter over
+/// raw source, not metadata carried on the core `Spec`. The adapter must
+/// expose the same six fields the old parser fields did.
+#[test]
+fn dual_format_view_is_derived_from_source() {
+    use specodelic::openspec_adapter::DualFormat;
+
+    let source = "---\nid: demo.cap\nkind: intent\nstatement: \"THE demo SHALL hold\"\n---\n\n## ADDED Requirements\n\n### Requirement: One\nadded body\n\n## Requirements\n\n### Requirement: Two\ncapability body\n\n## MODIFIED Requirements\n\n### Requirement: Three\nmodified body\n";
+    let view = DualFormat::from_source(source);
+    assert!(view.has_added_requirements);
+    assert!(view.has_requirements_section);
+    assert!(view.has_modified_requirements);
+    assert_eq!(
+        view.added_requirements_body,
+        "\n### Requirement: One\nadded body\n\n"
+    );
+    assert_eq!(
+        view.requirements_body,
+        "\n### Requirement: Two\ncapability body\n\n"
+    );
+    assert_eq!(
+        view.modified_requirements_body,
+        "\n### Requirement: Three\nmodified body\n"
+    );
+    // A plain four-layer spec has an empty dual-format view.
+    let plain = DualFormat::from_source(SIMPLE);
+    assert!(!plain.has_added_requirements);
+    assert!(!plain.has_requirements_section);
+    assert!(!plain.has_modified_requirements);
+    assert!(plain.added_requirements_body.is_empty());
+    assert!(plain.requirements_body.is_empty());
+    assert!(plain.modified_requirements_body.is_empty());
+}

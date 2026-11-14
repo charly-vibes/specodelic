@@ -108,23 +108,6 @@ pub struct Spec {
     pub transitions: Vec<Transition>,
     /// `## Properties` rows.
     pub properties: Vec<Row>,
-    /// True when the raw text carries an `## ADDED Requirements` heading
-    /// (the openspec delta half of a dual-format file).
-    pub has_added_requirements: bool,
-    /// True when the raw text carries a `## Requirements` heading (the
-    /// specodelic capability half of a dual-format file).
-    pub has_requirements_section: bool,
-    /// Body of `## ADDED Requirements` (lines rstripped, joined) — the
-    /// drift check compares it against [`Spec::requirements_body`] (gh#4).
-    pub added_requirements_body: String,
-    /// True when the raw text carries a `## MODIFIED Requirements`
-    /// heading (update-law-named-cases: the repo's first MODIFIED
-    /// delta — the mirror rules treat it exactly like the ADDED one).
-    pub has_modified_requirements: bool,
-    /// Body of `## MODIFIED Requirements` (lines rstripped, joined).
-    pub modified_requirements_body: String,
-    /// Body of `## Requirements` (lines rstripped, joined).
-    pub requirements_body: String,
     /// Body of `### Reference Typing` captured verbatim (add-acset-core
     /// task 2.4) — the `schema_matches_typing_table` lint gate compares
     /// this section against [`crate::acset::schema::canonical`], so the
@@ -269,12 +252,6 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
         states: vec![],
         transitions: vec![],
         properties: vec![],
-        has_added_requirements: false,
-        has_requirements_section: false,
-        added_requirements_body: String::new(),
-        has_modified_requirements: false,
-        modified_requirements_body: String::new(),
-        requirements_body: String::new(),
         reference_typing_body: String::new(),
         fragments_body: String::new(),
         revision_headings: vec![],
@@ -291,10 +268,6 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
         let lineno = n + 1;
         let t = line.trim();
 
-        // Capture the requirement-section bodies (every line except the
-        // `## ` headings themselves; `### Requirement:` lines included).
-        ctx.capture_dual_body(&mut spec, t, line);
-
         if let Some(heading) = t.strip_prefix("## ") {
             ctx.on_h2(heading.trim(), &mut spec);
             headers = vec![];
@@ -307,8 +280,8 @@ pub fn parse_str(text: &str) -> Result<Spec, ParseError> {
         }
 
         // Reference Typing capture: headings above already `continue`d, so
-        // every line reaching here is section body — kept verbatim (the
-        // same rstripped discipline as the dual-section bodies).
+        // every line reaching here is section body — kept verbatim
+        // (rstripped, one line per newline).
         if ctx.in_reference_typing {
             spec.reference_typing_body.push_str(line.trim_end());
             spec.reference_typing_body.push('\n');
@@ -511,15 +484,44 @@ struct Frontmatter {
     consumed: usize,
 }
 
+/// How many leading lines the frontmatter block occupies, so a body scan
+/// starts exactly where [`parse_str`]'s body loop does — blank lines
+/// before the opening fence are allowed; an unclosed fence consumes
+/// through the end of the text. Shared by the parser and the openspec
+/// adapter so the body offset has one owner.
+pub(crate) fn frontmatter_lines(text: &str) -> usize {
+    let mut in_fm = false;
+    let mut saw_open = false;
+    let mut consumed = 0usize;
+    for seg in text.split_inclusive('\n') {
+        let t = seg.strip_suffix('\n').unwrap_or(seg).trim_end();
+        consumed += 1;
+        if !in_fm {
+            if t == "---" {
+                in_fm = true;
+                saw_open = true;
+                continue;
+            }
+            if t.trim().is_empty() {
+                continue;
+            }
+            break;
+        }
+        if t == "---" {
+            return consumed;
+        }
+    }
+    if saw_open { consumed } else { 0 }
+}
+
 fn parse_frontmatter(text: &str) -> Result<Frontmatter, ParseError> {
     let mut fm_raw = String::new();
     let mut in_fm = false;
     let mut saw_any = false;
-    let mut consumed = 0usize;
+    let consumed = frontmatter_lines(text);
     for seg in text.split_inclusive('\n') {
         let line = seg.strip_suffix('\n').unwrap_or(seg);
         let t = line.trim_end();
-        consumed += 1;
         if !in_fm && t == "---" {
             in_fm = true;
             saw_any = true;
@@ -561,28 +563,9 @@ struct SectionCtx {
     in_states: bool,
     in_reference_typing: bool,
     in_fragments: bool,
-    dual_section: u8, // 0 none · 1 ADDED Requirements · 2 Requirements · 3 MODIFIED Requirements
 }
 
 impl SectionCtx {
-    /// Capture the requirement-section bodies (every line except the
-    /// `## ` headings themselves; `### Requirement:` lines included).
-    fn capture_dual_body(&self, spec: &mut Spec, t: &str, line: &str) {
-        if t.starts_with("## ") {
-            return;
-        }
-        let target = match self.dual_section {
-            1 => Some(&mut spec.added_requirements_body),
-            2 => Some(&mut spec.requirements_body),
-            3 => Some(&mut spec.modified_requirements_body),
-            _ => None,
-        };
-        if let Some(body) = target {
-            body.push_str(line.trim_end());
-            body.push('\n');
-        }
-    }
-
     fn on_h2(&mut self, h: &str, spec: &mut Spec) {
         // The revision-pair seam's record: a `## Revision N` heading
         // numbers the amendment a governed id-set may grow under
@@ -593,29 +576,12 @@ impl SectionCtx {
         {
             spec.revision_headings.push(n);
         }
-        self.dual_section = match h {
-            "ADDED Requirements" => 1,
-            "Requirements" => 2,
-            "MODIFIED Requirements" => 3,
-            _ => 0,
-        };
         self.current_table = match h {
             "Constraints" => TableKind::Constraints,
             "Properties" => TableKind::Properties,
             "Model" => TableKind::Model,
             _ => TableKind::None,
         };
-        // Dual-format markers (spec-integration protocol): the
-        // openspec delta half and the capability-spec half.
-        if h == "ADDED Requirements" {
-            spec.has_added_requirements = true;
-        }
-        if h == "MODIFIED Requirements" {
-            spec.has_modified_requirements = true;
-        }
-        if h == "Requirements" {
-            spec.has_requirements_section = true;
-        }
         self.in_states = false;
         self.in_reference_typing = false;
         self.in_fragments = h == "Fragments";

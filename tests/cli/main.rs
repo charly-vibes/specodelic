@@ -61,6 +61,7 @@ mod migrate_upgrade;
 mod model_check;
 mod orchestrate_verify;
 mod pack_discovery;
+mod parse_dual;
 mod parse_misc;
 mod skill_install;
 mod tlc_observability;

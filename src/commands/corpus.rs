@@ -100,11 +100,15 @@ pub(crate) fn cmd_parse(
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) -> i32 {
-    match specodelic::parse::parse_file(std::path::Path::new(file)) {
-        Ok(spec) => {
+    match specodelic::parse::parse_file_with_source(std::path::Path::new(file)) {
+        Ok((spec, source)) => {
             // The parsed Spec is emitted directly (D1): every structured
-            // field, no filtering — consumers decide what they need.
-            let payload = serde_json::to_value(&spec).unwrap_or_default();
+            // field, no filtering — consumers decide what they need. The
+            // openspec dual-format view is a derived projection over the
+            // same source bytes, re-attached under its historical keys.
+            let mut payload = serde_json::to_value(&spec).unwrap_or_default();
+            specodelic::openspec_adapter::DualFormat::from_source(&source)
+                .insert_into(&mut payload);
             let out: Output<serde_json::Value> =
                 Output::success(payload).with_next_step(format!("run: specodelic lint {file}"));
             emit_report(
