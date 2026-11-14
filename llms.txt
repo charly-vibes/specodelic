@@ -15,9 +15,9 @@ The CLI binary is `spk` (crate: `specodelic`).
 
 ## Core concepts
 
-- **Four layers** — frontmatter, Constraints (invariant/advisory/effect/extension_point),
-  Model (states + guarded transitions), Properties (deriving, with
-  generator + predicate).
+- **Four layers** — Intent, Constraints, Model, Properties: `id`/`kind`/one
+  EARS `statement`; invariants/advisory/effect/extension points; states +
+  guarded transitions; derivations with generator + predicate.
 - **EARS statements** — the frontmatter `statement` must match one of
   the five EARS patterns.
 - **Closed kind sets** — row `kind` values are closed sets enforced
@@ -68,7 +68,7 @@ is small; `print.html` is the whole book in one page (~500 KB, roughly
 The format (read in this order):
 
 - [specodelic — the core format](https://charly-vibes.github.io/specodelic/specs/specodelic.html):
-  four layers (frontmatter, Constraints, Model, Properties), EARS
+  four layers (Intent, Constraints, Model, Properties), EARS
   statements, closed kind sets, reference typing — start here.
 - [kinds](https://charly-vibes.github.io/specodelic/specs/kinds.html):
   closed kind value sets for each table.

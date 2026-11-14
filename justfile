@@ -224,6 +224,10 @@ lint-baseline:
 summary-completeness:
     python3 scripts/check_summary_completeness.py .
 
+# Format-summary copies must name the four layers in order (specodelic-oeuz)
+format-summary:
+    python3 scripts/check_format_summary.py .
+
 # Explain-topic doc guard: README.md, docs/src/index.md and
 # docs/src/installation.md must agree with the served `spk explain`
 # TOPICS count parsed from src/guide.rs (README said six, index said
@@ -399,7 +403,7 @@ stamp-artifacts:
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs verify-specs sync-sections sync-sections-test summary-completeness check-explain-topic-docs pack-doc-counts lint-doc-examples doc-examples lint-baseline pretender-check guard-kernel-agreement guard-siblings guard-drill-lock guard-espectacular
+ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs verify-specs sync-sections sync-sections-test summary-completeness format-summary check-explain-topic-docs pack-doc-counts lint-doc-examples doc-examples lint-baseline pretender-check guard-kernel-agreement guard-siblings guard-drill-lock guard-espectacular
 
 # Structural-quality hard gate (pretender, gate mode — pretender.toml
 # thresholds are a ratchet: entries only move DOWN; never touch .git/hooks,

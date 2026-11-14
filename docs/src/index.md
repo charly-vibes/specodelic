@@ -40,7 +40,7 @@ verb. Questions a cold read asks are answered in the
 
 | Layer        | Carries                                                        | Checked by                    |
 |--------------|----------------------------------------------------------------|-------------------------------|
-| Intent (frontmatter) | `id`, `kind`, `statement` (one EARS sentence)  | `linter.frontmatter`          |
+| Intent       | `id`, `kind`, `statement` (one EARS sentence)  | `linter.frontmatter`          |
 | Constraints  | invariants and effects, `[[wiki-linked]]` traces                | `linter.schema_shape`, graph  |
 | Model        | states + guarded transitions (a state machine)                  | `linter.model_shape`          |
 | Properties   | deriving properties with generator + predicate                  | `linter.coverage`             |

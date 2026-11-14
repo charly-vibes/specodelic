@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-14-specodelic-oeuz-gate-the-format-summary-prose-across-docs-copies, pipeline-step:quality-ledger]
+---
+
+QUALITY LEDGER — Changed: scripts/check_format_summary.py (new stdlib fail-closed gate: index layer table, FAQ four-layer sentence, llms.txt + llm.txt four-layers blocks, book.toml description; canonical Intent/Constraints/Model/Properties in order; no frontmatter-as-Intent; content-based link-title exemption); scripts/test_check_format_summary.py (10 tests); docs/src/index.md, docs/src/faq.md, llms.txt, llm.txt (regenerated from llms.txt), book.toml; justfile format-summary recipe + ci wiring. Verified: python3 -m unittest scripts.test_check_format_summary 10 passed; python3 scripts/check_format_summary.py . exit 0; pretender check exit 0. Review: RO5U 0 critical/0 high/2 medium/0 low — both fixed (content-based link exemption + wrapped-block joining). Risks: the gate is phrase-anchored to four layers/four-layer; a rename of the trigger phrase is out of scope, matching the repo doc guards. Next: ship-close, then ticket 3a8.

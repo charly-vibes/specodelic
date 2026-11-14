@@ -18,9 +18,10 @@ substrate](design-canvas.md). For "which command when?", see the
 ### What is specodelic in one sentence?
 
 A specification format and CLI toolchain for AI agents: specs are plain
-markdown with a closed four-layer schema, checked by a linter that never
-reads your prose. [The introduction](index.md) and the
-[glossary](glossary.md) expand every term in that sentence.
+markdown with a closed four-layer schema — Intent, Constraints, Model,
+Properties — checked by a linter that never reads your prose. [The
+introduction](index.md) and the [glossary](glossary.md) expand every term
+in that sentence.
 
 ### Is this a documentation format or a testing tool?
 
