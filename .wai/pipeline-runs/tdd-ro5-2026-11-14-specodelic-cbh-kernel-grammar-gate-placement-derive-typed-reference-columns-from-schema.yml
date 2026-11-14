@@ -2,7 +2,7 @@ run_id: tdd-ro5-2026-11-14-specodelic-cbh-kernel-grammar-gate-placement-derive-t
 pipeline: tdd-ro5
 topic: 'specodelic-cbh: kernel-grammar gate placement + derive TYPED_REFERENCE_COLUMNS from schema'
 created_at: '2026-11-14T01:17:08.149985425+00:00'
-current_step: 8
+current_step: 9
 approvals: {}
 epic: null
 child_issues: []
