@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-14-specodelic-cbh-kernel-grammar-gate-placement-derive-typed-reference-columns-from-schema, pipeline-step:quality-ledger]
+---
+
+QUALITY LEDGER — Changed: src/graph.rs (LazyLock typed-reference set derived from acset::schema::canonical minus NON_GRAPH_COLUMNS [from,to,uses]; typed_reference_columns accessor; resolve_link uses it; gate test + restored classDef assertion); openspec/decisions/2026-11-14-kernel-grammar-gate-placement.md (new decision); openspec/specs/kernel/spec.md Notes; openspec/specs/AGENTS.md contributor guidance. Verified: cargo test --lib graph 20 passed; cargo test --test acset_parity 18 passed; cargo fmt --check 0; spk lint corpus 0 issues; graph corpus 1765 edges/0 dangling/0 typing violations (unchanged set). Review: RO5U 0 critical, 0 high, 2 medium, 2 low — all fixed (verify claim, deleted classDef assertion, tautological coverage loop, uses citation). Risks: none known; the decision deliberately keeps lint grammar-agnostic, so the compile/model-check gate is the authority and is documented. Next: ship-close, then ticket 9ilm.

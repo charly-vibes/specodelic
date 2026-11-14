@@ -26,6 +26,7 @@
 
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::LazyLock;
 
 use crate::acset::schema::{self, Endpoint, Schema};
 use crate::spec::{Link, Spec};
@@ -163,28 +164,40 @@ pub(crate) fn kind_index(specs: &[Spec]) -> BTreeMap<String, NodeKind> {
     idx
 }
 
-/// The closed union of typed reference columns the graph extracts edges
-/// from — `openspec/specs/graph/spec.md`'s `total_extraction`, whose authority is the
-/// Reference Typing table in `openspec/specs/specodelic/spec.md`. `satisfies` IS a typed
-/// field (Revision 7) even though graph.md's parenthetical enumeration
-/// predates it — `errors.md`'s `contract_satisfied_from_consumer` pins
-/// satisfies edges as extracted. A link in any OTHER column — `expr`,
+/// Schema reference columns the graph deliberately does NOT extract as
+/// links. `from`/`to` are owned by the transitions walk below (one edge
+/// per well-formed cell — the links loop must not double-record them);
+/// `uses` is an outbound leaf per `graph.md`'s `total_extraction` and
+/// `packs.md`, resolved by `total_refs`, never a graph edge. Every other
+/// Schema column is graph structure.
+pub(crate) const NON_GRAPH_COLUMNS: [&str; 3] = ["from", "to", "uses"];
+
+/// The typed reference columns the graph extracts edges from —
+/// `openspec/specs/graph/spec.md`'s `total_extraction`, whose authority
+/// is the Reference Typing table in
+/// `openspec/specs/specodelic/spec.md`. Derived from the Schema-as-data
+/// (`acset::schema::canonical`) minus [`NON_GRAPH_COLUMNS`], never a
+/// second hardcoded list: a Schema column added without graph extraction
+/// fails the `typed_reference_columns_derive_from_schema` gate rather
+/// than silently disappearing. A link in any OTHER column — `expr`,
 /// `predicate`, `generator`, frontmatter — is format documentation or a
 /// prose citation, not a reference field: it never becomes an edge, never
 /// dangles in the graph report, and never trips typing. Its resolution is
 /// `total_refs`' beat in the linter, which scopes over every link in the
-/// file (beads specodelic-mlg). `from`/`to` are absent here by design: the
-/// transitions walk below owns those fields (one edge per well-formed
-/// cell), so the links loop must not double-record them.
-pub(crate) const TYPED_REFERENCE_COLUMNS: [&str; 7] = [
-    "traces_to",
-    "derives_from",
-    "guard",
-    "supersedes",
-    "emits",
-    "satisfies",
-    "observes",
-];
+/// file (beads specodelic-mlg).
+static TYPED_REFERENCE_COLUMNS: LazyLock<BTreeSet<&'static str>> = LazyLock::new(|| {
+    schema::canonical()
+        .morphisms
+        .iter()
+        .map(|m| m.column)
+        .filter(|column| !NON_GRAPH_COLUMNS.contains(column))
+        .collect()
+});
+
+/// The derived typed-reference set (see [`TYPED_REFERENCE_COLUMNS`]).
+pub(crate) fn typed_reference_columns() -> &'static BTreeSet<&'static str> {
+    &TYPED_REFERENCE_COLUMNS
+}
 
 /// The Reference Typing check for one resolved link: `None` when the edge
 /// is allowed (or the column is not a typed reference field), `Some(reason)`
@@ -267,7 +280,7 @@ pub(crate) fn resolve_link(
     // total_extraction: only typed reference columns produce graph
     // structure. Links elsewhere (expr/predicate cells, frontmatter) are
     // the linter's `total_refs` beat — skipped entirely here.
-    if !TYPED_REFERENCE_COLUMNS.contains(&link.column.as_str()) {
+    if !typed_reference_columns().contains(link.column.as_str()) {
         return None;
     }
     let resolved = resolve(scoped_rows, file_id, &link.target);
@@ -1463,5 +1476,35 @@ mod tests {
         assert!(mermaid
             .contains("no_wiring[\"no_wiring: no constraints.satisfies edges — this corpus declares no inter-file wiring\"]:::violation"));
         assert!(mermaid.contains("classDef violation stroke:red,stroke-dasharray:5 5"));
+    }
+
+    /// specodelic-cbh: the graph's typed-reference set is DERIVED from the
+    /// Schema-as-data, never a second hardcoded list. Every canonical
+    /// column must be either extracted or on the explicit non-graph
+    /// exemption list, so a new Schema column cannot be silently dropped
+    /// from graph extraction.
+    #[test]
+    fn typed_reference_columns_derive_from_schema() {
+        let schema = crate::acset::schema::canonical();
+        let schema_cols: BTreeSet<&str> = schema.morphisms.iter().map(|m| m.column).collect();
+        let extracted = typed_reference_columns();
+        let exempt: BTreeSet<&str> = NON_GRAPH_COLUMNS.iter().copied().collect();
+        assert!(
+            exempt.is_subset(&schema_cols),
+            "NON_GRAPH_COLUMNS must name real Schema columns: {exempt:?} ⊄ {schema_cols:?}"
+        );
+        assert_eq!(
+            extracted,
+            &BTreeSet::from([
+                "traces_to",
+                "derives_from",
+                "guard",
+                "supersedes",
+                "emits",
+                "satisfies",
+                "observes",
+            ]),
+            "the derived set is the graph's typed-reference surface"
+        );
     }
 }

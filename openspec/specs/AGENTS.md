@@ -129,6 +129,9 @@ namespace segment, use `_` inside the segment, `-` only between segments.
 
 The tool is real: `spk` parses, lints, compiles, model-checks, verifies,
 renames, merges, and orchestrates — the binary dogfoods this very corpus
-(`just lint-specs`, `just ci`). What §4 tracks is the remaining unbuilt
-surface; check it before writing code that assumes a mechanism exists
-(or assumes one doesn't).
+(`just lint-specs`, `just ci`). Lint is not the kernel-grammar gate:
+`spk lint` validates structure/references; `spk compile` (and `just ci`)
+validates `**kernel:**` expression grammar, so a lint-clean kernel cell
+can still fail compile (specodelic-cbh decision). What §4 tracks is the
+remaining unbuilt surface; check it before writing code that assumes a
+mechanism exists (or assumes one doesn't).

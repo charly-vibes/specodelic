@@ -69,6 +69,18 @@ that cannot evaluate kernel claims reports them as labeled unsupported,
 and a citation over such a claim stays `unknown` — never an implied
 pass.
 
+**Kernel grammar is gated at compile (specodelic-cbh).** `spk lint`
+validates structure, references, and schema shape; it does not parse
+`**kernel:**` expressions. Grammar is checked by `spk compile` (and,
+inside `just ci`, by `spk model-check`'s `kernel_grammar` pre-check):
+`grammar_failures` rejects unknown atomics, malformed expressions, and
+wrong morphism arity with a labeled failure naming the atomic and the
+closed set. `spk verify` never re-compiles; it reports a kernel-cell edit
+only as stale evidence. A lint-clean kernel cell is not compile-valid
+until compile has accepted it; gate on `just ci`, not `just lint-specs`
+alone. The decision is recorded in
+`openspec/decisions/2026-11-14-kernel-grammar-gate-placement.md`.
+
 ## Requirements
 
 ### Requirement: Decidable bounded kernel grammar
