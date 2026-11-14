@@ -35,7 +35,7 @@ phase: research
 ### git_status
 
 ```
- M .wai/pipeline-runs/tdd-ro5-2026-11-14-specodelic-cbh-kernel-grammar-gate-placement-derive-typed-reference-columns-from-schema.yml
+ M .wai/pipeline-runs/tdd-ro5-2026-11-14-specodelic-9ilm-resolves-over-an-empty-morphism-population-is-vacuous-decide-and-document.yml
 ?? .wai/resources/pipelines/.last-run
 ```
 
@@ -65,7 +65,6 @@ phase: research
 ○ specodelic-60e P3 [bug] model-check: citation-counterexample claim records carry no reason (claim_report_schema F4/F6 follow-up)
 ○ specodelic-7e7b P3 decide: meter spk orchestrate wall-clock before changed-scoping work
 ○ specodelic-7nu4 P3 deps: migrate off serde_yaml_ng or track its unsafe-libyaml drop (RUSTSEC-2024-0375 currently ignored in deny.toml)
-○ specodelic-9ilm P3 decide: kernel resolves(m) verifies vacuously over an empty morphism population (8mta review M4)
 ○ specodelic-cgfm P3 chore: backlog hygiene — 39 open issues missing template sections, 42 stale 14+ days, orphans heuristic false-positives
 ○ specodelic-dzn P3 Unify the struct-shape mirror: citation_corpus::ResolvedStatus vs kernel::CorpusClaimStatus
 ○ specodelic-f046 P3 docs: detection-class table + ladder empirical cross-link (catitas C2+C3)
@@ -83,7 +82,7 @@ phase: research
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 39 issues (39 open, 0 in progress)
+Total: 38 issues (38 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
