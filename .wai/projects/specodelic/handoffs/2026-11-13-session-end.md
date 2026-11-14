@@ -35,7 +35,7 @@ phase: research
 ### git_status
 
 ```
- M .wai/pipeline-runs/tdd-ro5-2026-11-14-specodelic-oeuz-gate-the-format-summary-prose-across-docs-copies.yml
+ M .wai/pipeline-runs/tdd-ro5-2026-11-14-specodelic-3a8-decouple-dual-format-metadata-into-an-openspec-adapter.yml
 ?? .wai/resources/pipelines/.last-run
 ```
 
@@ -57,7 +57,6 @@ phase: research
 ○ specodelic-0xnd P3 import acset.generic as openspec change — schema-parametric incidence core, GATED on adjacency-graph benchmark (external handoff, at/arltificial/renzi)
 ○ specodelic-18mt P3 conform: optional expect field on scenario records — negative probes classify as agreements (gh-18 item 7)
 ○ specodelic-2fp1 P3 docs: preservation recipe — conform twice + verdict diff (simplification review)
-○ specodelic-3a8 P3 refactor: decouple dual-format (openspec) metadata from core Spec parse — adapter layer
 ○ specodelic-3xc P3 decide: fan-in multiplicity rule — state_view counts (source,field) pairs, traceability_view counts distinct sources (B3)
 ○ specodelic-5ae1 P3 [bug] pretender: vendor role lacks function-metric limits — vendored mermaid.min.js breaches 88 global thresholds when present locally, breaking tests/pretender_gate.rs head_passes_gate
 ○ specodelic-5tm7 P3 experiment E3: composition — state growth inlined vs hand-factored
@@ -81,7 +80,7 @@ phase: research
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 37 issues (37 open, 0 in progress)
+Total: 36 issues (36 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
