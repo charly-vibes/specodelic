@@ -35,7 +35,7 @@ phase: research
 ### git_status
 
 ```
- M .wai/pipeline-runs/tdd-ro5-2026-11-14-specodelic-9ilm-resolves-over-an-empty-morphism-population-is-vacuous-decide-and-document.yml
+ M .wai/pipeline-runs/tdd-ro5-2026-11-14-specodelic-oeuz-gate-the-format-summary-prose-across-docs-copies.yml
 ?? .wai/resources/pipelines/.last-run
 ```
 
@@ -51,7 +51,6 @@ phase: research
 ○ specodelic-gixd P2 audit: dedupe audit test fixtures cross-file (l6md RO5U L8 residual)
 ○ specodelic-h5ks P2 lint: vacuity advisories — extension of specodelic-xci (catitas A2)
 ○ specodelic-l54a P2 docs: per-file ASCII state-machine views — unblocked by gently-hpd closure
-○ specodelic-oeuz P2 docs: no gate on format-summary prose — 'four tables'/'Frontmatter'-for-'Intent' drift shipped to the site
 ○ specodelic-wq7n P2 [bug] audit: deployed spec Purpose is the archiver TBD placeholder
 ○ specodelic-ynfv P2 [bug] compile: emit rustfmt-clean *_props.rs — recompile churn trips consumer fmt gates (gh-15)
 ○ specodelic-0mn1 P3 [bug] ah sync refuses self-hosting corpora: per-file lint can never be clean (total_refs is corpus-wide)
@@ -82,7 +81,7 @@ phase: research
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 38 issues (38 open, 0 in progress)
+Total: 37 issues (37 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
