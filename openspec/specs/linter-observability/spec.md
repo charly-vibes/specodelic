@@ -6,8 +6,9 @@ statement: "WHEN a spec declares an effect Constraint, THE linter SHALL warn —
 
 # Linter: Observability
 
-`specodelic.md` Revision 9 added the `observes` typed reference (a
-Constraint row's outbound pointer to an effect Constraint, any file) —
+`specodelic.md` Revision 9 added the `observes` typed reference: a
+Constraint row's outbound pointer, per `specodelic.md`'s Reference Typing
+carve-out, to an effect Constraint in any file —
 the vocabulary for "this output must be observable". Vocabulary alone
 does not make observability a *checked* fact: nothing distinguishes an
 effect that something watches from one nobody declared an interest in.
@@ -18,7 +19,7 @@ Revision 7 precedent (`satisfies`) for typing and on
 ## Purpose
 
 `specodelic.md` Revision 9 added the `observes` typed reference (a
-Constraint row's outbound pointer to an effect Constraint, any file) —
+Constraint row's typed pointer to an effect Constraint, any file) —
 the vocabulary for "this output must be observable". Vocabulary alone
 does not make observability a *checked* fact: nothing distinguishes an
 effect that something watches from one nobody declared an interest in.

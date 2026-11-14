@@ -45,7 +45,7 @@ traces_to = "[[packs]]"
 [[constraints]]
 id = "uses_is_outbound_leaf"
 kind = "invariant"
-expr = "`the uses reference field appears as a set-valued column on any Constraint row and resolves to the intent of a kind: profile file (the pack's frontmatter id); it is an outbound leaf joining no reachability path and no acyclic edge set — nothing targets it, single_root_reachable needs no carve-out, mutual pack use is well-formed`"
+expr = "`the uses reference field appears as a set-valued column on any Constraint row and resolves to the intent of a kind: profile file (the pack's frontmatter id); it is an outbound leaf per specodelic.md's Reference Typing carve-out — nothing targets it, single_root_reachable needs no carve-out, mutual pack use is well-formed`"
 traces_to = "[[packs]]"
 
 [[constraints]]

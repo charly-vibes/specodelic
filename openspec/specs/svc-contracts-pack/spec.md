@@ -1,7 +1,7 @@
 ---
 id: svc.contracts.pack
 kind: intent
-statement: "WHEN a workspace enables the svc-contracts standard pack, THE format SHALL provide a namespaced ## Interfaces section whose rows carry name, kind, repo, binding, and evolution; a svc.compat kind with a compatibility case-label floor; and a published_as outbound-leaf reference field resolving to declared ## Interfaces rows of the same file — adding no cross-file edge and no consumer-listing field, with the binding and repo columns staying opaque and files using none of this vocabulary linting byte-identically."
+statement: "WHEN a workspace enables the svc-contracts standard pack, THE format SHALL provide a namespaced ## Interfaces section whose rows carry name, kind, repo, binding, and evolution; a svc.compat kind with a compatibility case-label floor; and a published_as reference field resolving to declared ## Interfaces rows of the same file — adding no cross-file edge and no consumer-listing field, with the binding and repo columns staying opaque and files using none of this vocabulary linting byte-identically."
 ---
 
 # svc-contracts-pack Specification
@@ -15,8 +15,8 @@ base format already carries the cross-file edges (`extension_point` +
 only a typed `## Interfaces` registry row (name, kind, repo, opaque
 binding to the authoritative external artifact, evolution mode), a
 `svc.compat` law kind whose floor forces the `added` and `removed`
-cases, and the `published_as` outbound leaf tying a contract row to its
-registry row. Checkers ship as declarations (honest-empty), as in the
+cases, and the `published_as` reference field tying a contract row to
+its registry row. Checkers ship as declarations (honest-empty), as in the
 existing standard packs.
 
 ## Constraints
@@ -25,7 +25,7 @@ existing standard packs.
 |---------------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------|
 | pack_file_declared        | invariant | `the svc-contracts standard pack is a kind: profile spec file at packs/svc-contracts.md (id svc.contracts) whose six manifest tables declare the Interfaces section, the svc.compat kind, the published_as reference field, two declaration-only checkers, the compat floor, and the specodelic.md Revision 18 base pin — discovered by corpus scan alone, no config file, no registry` | [[svc.contracts.pack]] |
 | interfaces_section_shape  | invariant | `Interfaces rows carry exactly name, kind, repo, binding, evolution; kind is closed per-pack to request, event, schema and evolution to additive, versioned, frozen — per-pack closed sets the mechanism does not check; repo and binding are opaque strings never parsed; no base closed set grows and no existing entry narrows`                                       | [[svc.contracts.pack]] |
-| published_as_outbound     | invariant | `published_as is a pack-added reference field resolving to an Interfaces row of the declaring file — an outbound leaf joining no reachability path and no acyclic edge set; its closure checker is declared, and reports an empty checked-set honestly when no Interfaces rows exist`                                                                              | [[svc.contracts.pack]] |
+| published_as_outbound     | invariant | `published_as is a pack-added reference field resolving to an Interfaces row of the declaring file; it is an outbound leaf per specodelic.md's Reference Typing carve-out; its closure checker is declared, and reports an empty checked-set honestly when no Interfaces rows exist`                                                                              | [[svc.contracts.pack]] |
 | compat_floor_declared     | invariant | `svc.compat laws enumerate the added and removed case labels per the pack floor, reusing the machine-findable bold-name case-label mechanism with a different required label set; the floor is a declaration the mechanism names and never executes`                                                                                                              | [[svc.contracts.pack]] |
 | no_new_cross_repo_edge    | invariant | `the pack declares no cross-file edge field and no field or section listing a contract's consumers: cross-repo edges stay the base satisfies and observes fields, and the provider-to-consumer direction stays derived from the graph, never authored (USAGE.md section 2.6)`                                                                                      | [[svc.contracts.pack]] |
 | vocabulary_prose_safe     | invariant | `no pack vocabulary token is a bare word that appears with exact case in the corpus prose of specs/ or openspec/specs/ — the token audit is recorded in the change design and re-run at landing`                                                                                                                                                                  | [[svc.contracts.pack]] |
@@ -93,10 +93,10 @@ opaque strings that the pack never parses.
 - **WHEN** a workspace uses `svc.compat` with no svc-contracts pack discovered or declared
 - **THEN** the orphan finding names the candidate namespace `svc` and both remediations, with non-zero exit
 
-### Requirement: published_as is a typed outbound leaf resolving to declared rows
+### Requirement: published_as is a typed reference field resolving to declared rows
 The pack SHALL add the `published_as` reference field, resolving to an
-`## Interfaces` row of the declaring file and joining no reachability
-path and no acyclic edge set, and SHALL declare the `svc.interface_closed`
+`## Interfaces` row of the declaring file (see the Reference Typing
+carve-out in `specodelic.md`), and SHALL declare the `svc.interface_closed`
 checker that reports an empty checked-set honestly when no `## Interfaces`
 rows exist.
 

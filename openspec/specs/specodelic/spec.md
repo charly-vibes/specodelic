@@ -81,6 +81,22 @@ is a [typed foreign key](theory.md#typed-foreign-keys-generating-morphisms).
 | `observes`    | Constraint, any file | Constraint, kind == `effect` only — a declared observable: an outbound pointer from the row that consumes/monitors the output to the effect row that publishes it, possibly cross-file. The row carrying `observes` still has its own ordinary `traces_to` pointing at its own file's Intent, so `single_root_reachable` needs no carve-out: `observes` is an extra outbound pointer, exactly like `guard`, `emits`, or `satisfies` — not a second reachability edge, and it joins no acyclic edge set (an observation claim is not a dependency; mutual cross-file observation is well-formed). Checking "every effect is observed" is `linter-observability.md`'s contract — advisory, never gating in this Revision |
 | `uses`        | Constraint, any file | Intent of a `kind: profile` file (the pack's frontmatter id) — set-valued (multiple `[[...]]` targets in one cell, like `traces_to`); declares a file's explicit pack enablement, upgradeable from vocabulary-triggered activation ([[packs]]). An outbound leaf joining no reachability path and no acyclic edge set — nothing targets it, `single_root_reachable` needs no carve-out, and mutual pack use (two files each `uses`-ing the other's pack) is well-formed (Revision 14) |
 
+**Outbound-leaf carve-out (Revision 22).** A typed reference whose target
+resolves to another file is an *outbound leaf*: it is never an own-file
+reachability path. `single_root_reachable` builds a file's primary linkage
+from its own `traces_to`/`derives_from` chains plus the file's own
+`from`/`to`/`guard`/`emits` links; a cross-file target is dropped from that
+graph. The fields this applies to are cross-file `guard` citations and the
+leaf fields `satisfies`, `observes`, `uses`, and pack reference fields that
+resolve to a declared row of the declaring file (opaque carriers such as
+`kernel.binding` are not references). The acyclic edge set is separate:
+constraint `traces_to` ∪ property `derives_from` ∪ `guard`-as-edge; a
+`guard` edge stays in that set even when its target is another file, while
+`satisfies`, `observes`, `uses`, and pack reference fields never join it.
+`total_refs` still requires every target to resolve; a dangling outbound
+leaf is a labeled finding. This paragraph is the single normative statement
+of the rule: other spec files point here instead of restating it.
+
 ## Model
 
 ### States
@@ -1028,6 +1044,19 @@ rows that stated the law-row rejection and the one-marker-per-cell rule
 are reworded to the same effect (compile.md's `fragment_law_rejected`,
 `fragment_language_closed`, `predicate_fragment_opt_in`,
 `properties_to_proptest`).
+
+## Revision 22 — 2026-11-14
+
+**The outbound-leaf carve-out has one normative home** (`specodelic-mlc`).
+The rule that cross-file typed edges (`guard` citations of foreign
+constraints, `satisfies`, `observes`, `uses`, and every pack-added
+reference field) are outbound leaves — never reachability paths, never
+acyclic-edge-set members — was restated in prose across the pack,
+observability, and graph-shape specs. It now lives once under Reference
+Typing; every other file carries at most one pointer naming that section.
+Prose-only consolidation: no id-set, typing, or checker semantics change.
+`FORMAT_REVISION` moves 21 → 22 so a consumer can detect the corpus
+wording change.
 
 ## Requirements
 

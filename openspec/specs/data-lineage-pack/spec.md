@@ -22,7 +22,7 @@ first real instance and the prerequisite for the bioimage D6 pilot.
 | process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[data.lineage.pack]] |
 | pack_file_declared       | invariant | `the data/lineage standard pack is a kind: profile spec file at packs/data-lineage.md (id data.lineage) whose six manifest tables declare the ## Data section, the data.dataset/data.artifact/data.environment kinds, the produces/produced_by/consumed_by reference fields, the data.lineage.closure checker, the artifact provenance floor, and the Revision 14 base pin` | [[data.lineage.pack]]  |
 | data_section_row_shape   | invariant | `## Data rows carry exactly \| name \| kind \| dtype \| units \| binding \| with kind closed to dataset, artifact, environment — a per-pack closed set; no base closed set grows and no existing entry narrows`                             | [[data.lineage.pack]]  |
-| lineage_edges_outbound   | invariant | `produces, produced_by, and consumed_by are pack-added reference fields resolving to a ## Data row of the declaring file — outbound leaves joining no reachability path and no acyclic edge set; a dangling lineage reference is a labeled finding naming the row id and both remediations, never a generic dangling message` | [[data.lineage.pack]]  |
+| lineage_edges_outbound   | invariant | `produces, produced_by, and consumed_by are pack-added reference fields resolving to a ## Data row of the declaring file; they are outbound leaves per specodelic.md's Reference Typing carve-out; a dangling lineage reference is a labeled finding naming the row id and both remediations, never a generic dangling message` | [[data.lineage.pack]]  |
 | binding_stays_external   | invariant | `the binding column carries a typed pointer to an external data standard and the format never parses it — no dtype enum, shape convention, or URI scheme joins a base closed set, and lint behavior is identical regardless of the binding target` | [[data.lineage.pack]]  |
 
 ## Model
@@ -92,10 +92,10 @@ grows no base closed set and narrows no existing base set entry.
 - **WHEN** a workspace uses `data.dataset` vocabulary with no data/lineage pack discovered or declared
 - **THEN** the orphan finding names the candidate pack `data.lineage` and both remediations, with non-zero exit
 
-### Requirement: Lineage edges are typed outbound leaves resolving to declared rows
+### Requirement: Lineage edges are typed reference fields resolving to declared rows
 The pack SHALL add `produces`, `produced_by`, and `consumed_by` reference
-fields, each resolving to a `## Data` row of the declaring file and
-joining no reachability path and no acyclic edge set, and SHALL declare a
+fields, each resolving to a `## Data` row of the declaring file (see the
+Reference Typing carve-out in `specodelic.md`), and SHALL declare a
 `data.lineage.closure` checker that reports an empty checked-set honestly
 when no `## Data` rows exist.
 

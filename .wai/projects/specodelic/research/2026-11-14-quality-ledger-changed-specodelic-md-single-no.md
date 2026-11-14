@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-14-specodelic-mlc-consolidate-the-outbound-leaf-carve-out-into-one-normative-statement, pipeline-step:quality-ledger]
+---
+
+QUALITY LEDGER — Changed: specodelic.md (single normative outbound-leaf paragraph under Reference Typing + Revision 22 heading); ten corpus files rewritten to one pointer each; src/guide.rs FORMAT_REVISION 22; src/migrate.rs LATEST_REVISION/registry/dated vector 22; CHANGELOG Revision 22; managed AGENTS block refreshed; test pins 21->22; tests/outbound_single_source.rs (standalone-outbound + restatement-phrase meter); specodelic/packs.toml regenerated. Verified: cargo test --test outbound_single_source 1 passed; cargo test --lib 437 passed; cargo test --test cli 334 passed; just lint-specs 49 files 0 issues; openspec validate --all --strict 54/54; guide/migrate lib tests pass. Review: RO5U 0 critical/2 high/2 medium/1 low — all fixed (meter blind spot, wrong graph statement, stale packs artifact, field-list scope, observability leaf pointer). Risks: FORMAT_REVISION bumped to 22 — consumers see the new corpus revision; no migration step needed (byte-stable). Next: ship-close, then ticket 0mn1.

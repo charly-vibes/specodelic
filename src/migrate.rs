@@ -174,7 +174,7 @@ pub fn rekey(text: &str, path: &std::path::Path) -> Result<MigrateOutcome, Migra
 pub const FIRST_REVISION: u32 = 2;
 
 /// The latest known format revision — the one this binary embeds.
-pub const LATEST_REVISION: u32 = 21;
+pub const LATEST_REVISION: u32 = 22;
 
 /// One known format revision in the core-owned registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -329,6 +329,12 @@ pub const REVISIONS: &[RevisionEntry] = &[
         number: 21,
         date: Some("2026-11-13"),
         note: "law-kind rows carry one executable body per named case",
+        step: None,
+    },
+    RevisionEntry {
+        number: 22,
+        date: Some("2026-11-14"),
+        note: "the outbound-leaf carve-out consolidates to one normative statement",
         step: None,
     },
 ];
@@ -1137,7 +1143,7 @@ mod revision_tests {
             .filter(|e| e.date.is_some())
             .map(|e| e.number)
             .collect();
-        assert_eq!(dated, vec![16, 17, 18, 19, 20, 21]);
+        assert_eq!(dated, vec![16, 17, 18, 19, 20, 21, 22]);
     }
 
     /// Revision 18 is the only revision that needs a corpus rewrite —

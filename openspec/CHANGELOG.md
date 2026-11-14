@@ -1,5 +1,20 @@
 # Changelog
 
+## Revision 22 — the outbound-leaf carve-out has one normative home (specodelic-mlc)
+
+- **docs(corpus):** the rule that cross-file typed edges (`guard`
+  citations of foreign constraints, `satisfies`, `observes`, `uses`, and
+  every pack-added reference field) are outbound leaves — never
+  reachability paths, never acyclic-edge-set members — moves to a single
+  normative paragraph under `specodelic.md`'s Reference Typing section.
+  Every pack, observability, and graph-shape file that restated it now
+  carries at most one pointer to that section. Prose-only: no id-set,
+  typing, checker, or graph semantics change.
+- **chore:** `FORMAT_REVISION` 21 → 22, the migrate registry gains the
+  Revision 22 entry (no migration step — crossing it is a byte-stable
+  no-op), and `tests/outbound_single_source.rs` enforces the one-home
+  meter.
+
 ## Revision 21 — law-kind rows carry one executable body per named case (specodelic-1nhe)
 
 - **feat(format):** a `kind = "law"` Property row may give each of its

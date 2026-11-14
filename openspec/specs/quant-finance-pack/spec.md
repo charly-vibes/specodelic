@@ -10,8 +10,8 @@ statement: "WHEN a workspace enables the quant-finance standard pack, THE format
 
 Ship the quant-finance standard pack: a typed `## Limits` section for
 bounded risk measures and pricing invariants, namespaced quant kinds, a
-kind-dependent risk case-label floor, and a `capped_by` outbound-leaf
-edge. Most of the vendor convergence already ships in the standard
+kind-dependent risk case-label floor, and a `capped_by` reference
+field. Most of the vendor convergence already ships in the standard
 packs — this pack declares only the vocabulary no standard pack
 carries, and requires `numeric.predicates` + `data.lineage` for the
 rest. It is the D6 second domain pack.
@@ -22,7 +22,7 @@ rest. It is the D6 second domain pack.
 |-----------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|
 | pack_file_declared    | invariant | `the quant-finance standard pack is a kind: profile spec file at packs/quant-finance.md (id quant.finance) whose six manifest tables declare the ## Limits section, the quant.risk and quant.pricing kinds, the capped_by reference field, the quant.limit_closed and quant.risk_labels checkers, the risk case-label floor, and the Revision 18 base pin plus the numeric.predicates and data.lineage pack deps` | [[quant.finance.pack]]  |
 | limits_section_shape  | invariant | `## Limits rows carry exactly \| name \| kind \| unit \| bound \| with kind closed to risk, pricing — a per-pack closed set; no base closed set grows and no existing entry narrows`                                                                                                       | [[quant.finance.pack]]  |
-| capped_by_outbound    | invariant | `capped_by is a pack-added reference field resolving to a ## Limits row of the declaring file — an outbound leaf joining no reachability path and no acyclic edge set; a dangling reference is a labeled finding naming the row id and both remediations, never a generic dangling message` | [[quant.finance.pack]]  |
+| capped_by_outbound    | invariant | `capped_by is a pack-added reference field resolving to a ## Limits row of the declaring file; it is an outbound leaf per specodelic.md's Reference Typing carve-out; a dangling reference is a labeled finding naming the row id and both remediations, never a generic dangling message` | [[quant.finance.pack]]  |
 | fixtures_stay_data    | invariant | `backtest fixtures and datasets are data.lineage ## Data rows — the pack declares no fixtures section and no second dataset vocabulary; the vendor Fixtures demand is satisfied by the required data.lineage pack`                                                                        | [[quant.finance.pack]]  |
 | vocabulary_prose_safe | invariant | `no pack vocabulary token is a bare English word that appears in corpus prose — the limit/confidence/Fixtures audit excluded them from vocabulary-carrying facets; horizon and confidence survive only as floor case labels, which the mechanism never scans`                             | [[quant.finance.pack]]  |
 
@@ -91,10 +91,10 @@ narrows no existing base set entry.
 - **WHEN** a workspace uses `quant.risk` vocabulary with no quant-finance pack discovered or declared
 - **THEN** the orphan finding names the candidate pack `quant.finance` and both remediations, with non-zero exit
 
-### Requirement: capped_by is a typed outbound leaf resolving to declared rows
+### Requirement: capped_by is a typed reference field resolving to declared rows
 The pack SHALL add the `capped_by` reference field, resolving to a
-`## Limits` row of the declaring file and joining no reachability path
-and no acyclic edge set, and SHALL declare the `quant.limit_closed`
+`## Limits` row of the declaring file (see the Reference Typing carve-out
+in `specodelic.md`), and SHALL declare the `quant.limit_closed`
 checker that reports an empty checked-set honestly when no `## Limits`
 rows exist.
 

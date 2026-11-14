@@ -28,7 +28,7 @@ mechanism (`packs.md`) interprets it.
 | process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[bioimage.data.pack]] |
 | pack_file_declared        | invariant | `the bioimage-data domain pack is a kind: profile spec file at packs/bioimage-data.md (id bioimage.data) whose six manifest tables declare the ## Axes section, the bioimage.transform kind, the same_shape_as reference field, the bioimage.dtype_is, bioimage.shape_eq, and bioimage.units_convertible checkers, the transform case-label floor, and the Requires table pinning base specodelic.md Revision 14 plus the data.lineage, numeric.predicates, and empirical.registry pack deps` | [[bioimage.data.pack]]  |
 | axes_section_shape        | invariant | `## Axes rows carry exactly \| name \| axis \| scale \| unit \| — the workspace's declared image axes (OME-NGFF-style semantics); the scale and unit columns are opaque prose the format never parses, and no base closed set grows and no existing entry narrows`                                                                                    | [[bioimage.data.pack]]  |
-| same_shape_as_cross_pack  | invariant | `same_shape_as is a pack-added reference field resolving to a ## Data row of the declaring file — the data-lineage pack's section, the pack's cross-pack-ness living in its Requires pack deps while the resolution stays intra-file, an outbound leaf joining no reachability path and no acyclic edge set; a dangling reference is a labeled finding naming the row id and both remediations, never a generic dangling message` | [[bioimage.data.pack]]  |
+| same_shape_as_cross_pack  | invariant | `same_shape_as is a pack-added reference field resolving to a ## Data row of the declaring file — the data-lineage pack's section, the pack's cross-pack-ness living in its Requires pack deps while the resolution stays intra-file; it is an outbound leaf per specodelic.md's Reference Typing carve-out; a dangling reference is a labeled finding naming the row id and both remediations, never a generic dangling message` | [[bioimage.data.pack]]  |
 | predicates_closed_named   | invariant | `the R2 data-shaped predicate grammar is declared as the named pack-qualified checkers bioimage.dtype_is, bioimage.shape_eq, and bioimage.units_convertible — a closed set over declared ## Data rows, declaration-only (the mechanism names them, never executes them), honest-empty with no ## Data rows, and the bare predicate tokens are never activation vocabulary` | [[bioimage.data.pack]]  |
 | transform_floor_kind_dependent | invariant | `the per-kind floor requires bioimage.transform properties to enumerate their preserves and dtype case labels — the kind-dependent floor the base law floor's non-universality critique motivated; the base law floor is byte-identical with the pack discovered, a kind with no declared floor inherits none, the floor is a floor not a ceiling (labels from consumed packs ride along additively), and floor labels are never activation vocabulary` | [[bioimage.data.pack]]  |
 | kind_column_typeable      | invariant | `when the pack is active, base-table kind columns accept its pack-qualified fiber kinds — property_kind_closed's effective set is base ∪ active-pack-fiber, never narrower; without the pack active the token stays outside the closed set and the labeled finding fires — never a silent pass` | [[bioimage.data.pack]]  |
@@ -109,12 +109,12 @@ and BioImage.IO authoritative as external standards.
 - **WHEN** a workspace uses `bioimage.transform` vocabulary with no bioimage-data pack discovered or declared
 - **THEN** the orphan finding names the candidate pack `bioimage.data` and both remediations, with non-zero exit
 
-### Requirement: same_shape_as is a typed outbound leaf resolving cross-pack, file-locally
+### Requirement: same_shape_as is a typed reference field resolving cross-pack, file-locally
 The pack SHALL add the `same_shape_as` reference field, resolving to a
 `## Data` row of the declaring file — the data-lineage pack's section —
 with the pack dependency living in the pack's `## Requires` table while
-the resolution itself stays intra-file, joining no reachability path and
-no acyclic edge set; a dangling reference is a labeled finding naming the
+the resolution itself stays intra-file (see the Reference Typing carve-out
+in `specodelic.md`); a dangling reference is a labeled finding naming the
 row id and both remediations.
 
 #### Scenario: Cross-pack section resolution stays file-local

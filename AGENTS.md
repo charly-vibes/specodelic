@@ -21,7 +21,7 @@
 
 This repo's `specs/`-style markdown spec files (YAML frontmatter +
 fixed-schema tables) are linted by `spk` (crates.io: specodelic).
-Write specs so `spk lint` passes; embedded format revision: specodelic.md Revision 21
+Write specs so `spk lint` passes; embedded format revision: specodelic.md Revision 22
 
 ### Lint rules (every violation names its `rule_id`)
 
@@ -54,10 +54,13 @@ Write specs so `spk lint` passes; embedded format revision: specodelic.md Revisi
 - `linter.no_duplicate_claim` — no two mapping rows may target the same checklist item — one claim per item, on the record
 - `linter.constraint_kind_closed` — every Constraint row's kind must be in {invariant, advisory, effect, extension_point} — an unreadable kind cell is outside the closed set (openspec/specs/linter-schema_shape/spec.md)
 - `linter.property_kind_closed` — every Property row's kind must be in {unit, law} — an unreadable kind cell is outside the closed set (openspec/specs/linter-schema_shape/spec.md)
+- `linter.row_shape_closed` — every Constraint/Property/State/Transition row's field set must be exactly the base fields its kind declares plus the typed reference columns the Reference Typing table declares — an undeclared column is a finding; the reference columns are read from the Schema-as-data, never a hardcoded list (openspec/specs/kinds/spec.md constraint_row_shape / state_row_shape / transition_row_shape / property_row_shape)
 - `linter.pack_shape` — a kind: profile pack file's manifest must carry all six facet tables (Sections/Kinds/References/Checkers/Floors/Requires) with well-formed two-column rows, its Kinds rows must be pack-qualified (never a base closed-set name — the narrowing rejection), and manifest tables may not appear on non-profile files (openspec/specs/packs/spec.md, Revision 14)
 - `linter.orphan_vocabulary` — orphan vocabulary is a labeled failure naming the candidate pack and both remediations (enable/declare the pack, or fix the vocabulary) — a declared uses edge targeting an id no discovered kind: profile pack carries, or a pack-qualified token used in a kind/field position with no discovered pack in its namespace (candidate prefix-derived when only the namespace is known) (openspec/specs/packs/spec.md, Revision 14)
 - `linter.skew_advisory` — a declared pack's Requires base pin older than the workspace corpus revision is a warnings-channel advisory naming the pack's base pin and the corpus revision — never silent, never failing (openspec/specs/packs/spec.md, Revision 14)
 - `linter.schema_matches_typing_table` — when the lint target carries the format doc, its Reference Typing table must equal the Schema value row for row — the document and the code cannot drift; a corpus without the format doc is out of the gate's scope (no-op, never fabricated expected rows) (add-acset-core, linter-schema_shape family)
+- `linter.placeholder_content` — a structured content cell must not be an untouched scaffold: its whole trimmed text is TODO/TBD/FIXME (optionally with a separator and a note), a row id begins with `scaffold_` in a file that still carries the scaffold signature (its intent statement is a placeholder, or a constraint expr / property predicate is a placeholder or a tautology), or the intent statement is a placeholder (`THE system SHALL …` or a placeholder word) — never a substring scan inside a `**rust:**` fragment; the real producers are the `spk new` stub/TODO cells and `spk migrate`'s `scaffold_constraint`/`scaffold_transition`/`scaffold_property` sidecar rows; advisory — warned on the warnings channel (exit 0), never a failure (openspec/specs/linter-content_advisories/spec.md)
+- `linter.tautological_predicate` — a property predicate or invariant constraint expr must not be trivially true: its whole trimmed text is `true`/`⊤`, or one identifier is compared equal to itself (`x == x`) — no calls, arithmetic, or compound expressions are judged, and an `effect`/`advisory` constraint expr is never judged; advisory — warned on the warnings channel (exit 0), never a failure (openspec/specs/linter-content_advisories/spec.md)
 
 ### Commands
 

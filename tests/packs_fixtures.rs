@@ -183,7 +183,7 @@ fn the_corpus_harness_reports_the_skew_advisory_on_the_warnings_channel() {
         .find(|w| w.rule_id == "linter.skew_advisory")
         .expect("the skew advisory fires");
     assert!(skew.message.contains("Revision 10"), "{}", skew.message);
-    assert!(skew.message.contains("Revision 21"), "{}", skew.message);
+    assert!(skew.message.contains("Revision 22"), "{}", skew.message);
 }
 
 #[test]

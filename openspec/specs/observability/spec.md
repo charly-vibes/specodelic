@@ -59,7 +59,7 @@ no hand-maintained tags that can drift from the edges.
 
 ## Requirements
 ### Requirement: Typed one-directional observes reference
-The system SHALL accept an optional `observes` reference on Constraint rows, typed as a one-directional outbound pointer from any Constraint to a Constraint with kind == `effect` on any file — mirroring the `satisfies` precedent — and SHALL reject any `observes` pointing at a non-effect row.
+The system SHALL accept an optional `observes` reference on Constraint rows, typed as a one-directional leaf pointer (the Reference Typing carve-out in `specodelic.md`) from any Constraint to a Constraint with kind == `effect` on any file — mirroring the `satisfies` precedent — and SHALL reject any `observes` pointing at a non-effect row.
 
 #### Scenario: Cross-file observation resolves
 - **WHEN** a Constraint row in file A carries `observes` pointing at an effect Constraint in file B

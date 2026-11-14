@@ -57,7 +57,7 @@ DAG" check, applied to specs instead of code modules.
 | dag_passes               | unit | [[linter.graph_shape.acyclic]]                    | `arbitrary_dag_shaped_repo()`                           | `check(repo) == passed`                                                    |
 | supersedes_cycle_rejected | unit | [[linter.graph_shape.supersedes_dag]]            | `spec_repo_with(supersedes_cycle: length ≥ 2)`          | `check(repo) == failed`                                                    |
 | supersedes_dag_ignores_traces_cycle | unit | [[linter.graph_shape.supersedes_dag]]  | `spec_repo_with(traces_to_cycle: true, supersedes: acyclic)` | `check(repo).supersedes_dag == passed` — the two graphs are checked independently; a cycle in one must not be attributed to the other |
-| derives_from_edges_property_sourced | unit | [[linter.graph_shape.acyclic]] | `spec_repo_with(constraint_row_carrying_derives_from: true)` | `check(repo) == failed` — the malformed edge is typing's finding (the graph layer reports it and records no edge), so it joins no acyclic edge set; the invariant and the checker now agree on the same closed edge set (specodelic-huf) |
+| derives_from_edges_property_sourced | unit | [[linter.graph_shape.acyclic]] | `spec_repo_with(constraint_row_carrying_derives_from: true)` | `check(repo) == failed` — the malformed edge is typing's finding (the graph layer reports it and records no edge), so it is not recorded in the acyclic edge set; the invariant and the checker now agree on the same closed edge set (specodelic-huf) |
 | topo_sort_naturality     | law  | [[linter.graph_shape.acyclic]]                    | `arbitrary_dag_repo(), arbitrary_id_rename()`           | **identity:** `topo_sort(rename(I, a, a)) == topo_sort(I)` — the rename identity case at the topo_sort observation point  **associativity:** `topo_sort(rename(rename(I, a, b), b, c)) == topo_sort(rename(I, a, c))` — the rename associativity case at the same point  **naturality:** `topo_sort(rename(I)) == rename(topo_sort(I))` — renaming a node doesn't change relative order of unrelated nodes |
 | check_failure_label_asserted | unit | [[linter.graph_shape.check_failure]] | `check_failure_raised()` | `error_label == "linter.graph_shape.check_failure"` — renaming the label touches the error Constraint, this property, and its note together (EDGE-002) |
 ## Notes
@@ -80,9 +80,9 @@ and the open question this file raised (any intent vs the file's own) was
 **decided of record 2026-09-30 (HITL `specodelic-mp1` row 8)**: reachability
 lands on the file's OWN intent through own-file primary linkage, with
 cross-file typed edges (`guard` citations of foreign constraints,
-`satisfies`, `observes`) counted as outbound leaves, never reachability
-paths — see `specodelic.md` Revision 10. This file's constraint expr
-reflects the decided reading.
+`satisfies`, `observes`) counted as outbound leaves per `specodelic.md`'s
+Reference Typing carve-out; see Revision 10 for the Revision 10 change.
+This file's constraint expr reflects the decided reading.
 
 `topo_sort_naturality` is included because the model-checking and
 PBT-generation pipeline both need a stable topological order to compile
@@ -170,7 +170,7 @@ Every property row SHALL be verified by exactly one dedicated scenario;
 #### Scenario: derives_from_edges_property_sourced
 
 - **WHEN** `spec_repo_with(constraint_row_carrying_derives_from: true)`
-- **THEN** `check(repo) == failed` — the malformed edge is typing's finding (the graph layer reports it and records no edge), so it joins no acyclic edge set; the invariant and the checker now agree on the same closed edge set (specodelic-huf)
+- **THEN** `check(repo) == failed` — the malformed edge is typing's finding (the graph layer reports it and records no edge), so it is not recorded in the acyclic edge set; the invariant and the checker now agree on the same closed edge set (specodelic-huf)
 - **VERIFIES** [[linter.graph_shape.derives_from_edges_property_sourced]]
 
 #### Scenario: topo_sort_naturality

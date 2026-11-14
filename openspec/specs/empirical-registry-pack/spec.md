@@ -25,7 +25,7 @@ bioimage D6 pilot consumes.
 | process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[empirical.registry.pack]] |
 | pack_file_declared       | invariant | `the empirical-registry standard pack is a kind: profile spec file at packs/empirical-registry.md (id empirical.registry) whose six manifest tables declare the ## StatTests section, the empirical.statistic kind, the tested_by reference field, the empirical.statistic_labels and empirical.stat_test_closed checkers, the statistic case-label floor, and the Revision 14 base pin` | [[empirical.registry.pack]]  |
 | stat_test_section_shape  | invariant | `## StatTests rows carry exactly \| name \| metric \| alpha \| window \| — the registry of the workspace's statistical tests; alpha and window columns are opaque prose the format never parses, and no base closed set grows and no existing entry narrows`                                                        | [[empirical.registry.pack]]  |
-| tested_by_outbound       | invariant | `tested_by is a pack-added reference field resolving to a ## StatTests row of the declaring file — an outbound leaf joining no reachability path and no acyclic edge set; a dangling reference is a labeled finding naming the row id and both remediations, never a generic dangling message`                       | [[empirical.registry.pack]]  |
+| tested_by_outbound       | invariant | `tested_by is a pack-added reference field resolving to a ## StatTests row of the declaring file; it is an outbound leaf per specodelic.md's Reference Typing carve-out; a dangling reference is a labeled finding naming the row id and both remediations, never a generic dangling message`                       | [[empirical.registry.pack]]  |
 | floors_are_additive      | invariant | `the per-kind floor requires statistic properties to enumerate their alpha and window case labels; the base law floor (identity/associativity) is byte-identical with the pack discovered, a kind with no declared floor inherits none, the base floor is a floor not a ceiling (a law-kind row using the pack's vocabulary may carry the labels additively), and floor labels are never activation vocabulary` | [[empirical.registry.pack]]  |
 | fiber_kinds_typeable     | invariant | `when the pack is active, base-table kind columns accept its pack-qualified fiber kinds — property_kind_closed's effective set is base ∪ active-pack-fiber, never narrower; without the pack active the token stays outside the closed set and the labeled finding fires — never a silent pass`                        | [[empirical.registry.pack]]  |
 | vocabulary_prose_safe    | invariant | `no pack vocabulary token is a bare English word that appears in corpus prose — window appears in corpus prose and is excluded from every vocabulary-carrying facet, surviving only as a floor case label and a table column; the kind is dotted; StatTests and tested_by are verified absent from the corpus`      | [[empirical.registry.pack]]  |
@@ -97,10 +97,10 @@ stay opaque prose the format never parses.
 - **WHEN** a workspace uses `empirical.statistic` vocabulary with no empirical-registry pack discovered or declared
 - **THEN** the orphan finding names the candidate pack `empirical.registry` and both remediations, with non-zero exit
 
-### Requirement: tested_by is a typed outbound leaf resolving to declared rows
+### Requirement: tested_by is a typed reference field resolving to declared rows
 The pack SHALL add the `tested_by` reference field, resolving to a
-`## StatTests` row of the declaring file and joining no reachability
-path and no acyclic edge set, and SHALL declare the
+`## StatTests` row of the declaring file (see the Reference Typing
+carve-out in `specodelic.md`), and SHALL declare the
 `empirical.stat_test_closed` checker that reports an empty checked-set
 honestly when no `## StatTests` rows exist.
 

@@ -10,7 +10,7 @@ statement: "WHEN a workspace enables the numeric-predicates standard pack, THE f
 
 Ship the numeric-predicates standard pack: a typed `## Quantities`
 table, namespaced numeric kinds, tolerance laws with their own case-label
-floor, and a `measured_by` outbound-leaf edge. Unit systems stay
+floor, and a `measured_by` reference field. Unit systems stay
 authoritative outside the format — the pack bridges, never absorbs. It
 is the second standard pack and, with the empirical-registry pack,
 completes what the bioimage D6 pilot consumes.
@@ -22,7 +22,7 @@ completes what the bioimage D6 pilot consumes.
 | process_lifecycle | invariant | `the capability advances through its declared lifecycle states under the repo's change process — each stage transition fires only when its stage gate holds` | [[numeric.predicates.pack]] |
 | pack_file_declared     | invariant | `the numeric-predicates standard pack is a kind: profile spec file at packs/numeric-predicates.md (id numeric.predicates) whose six manifest tables declare the ## Quantities section, the numeric.quantity/numeric.bound/numeric.tolerance kinds, the measured_by reference field, the numeric.quantity_closed and numeric.tolerance_labels checkers, the tolerance case-label floor, and the Revision 14 base pin` | [[numeric.predicates.pack]]  |
 | quantity_section_shape | invariant | `## Quantities rows carry exactly \| name \| kind \| unit \| domain \| with kind closed to quantity, bound, tolerance — a per-pack closed set; no base closed set grows and no existing entry narrows`                                                                                              | [[numeric.predicates.pack]]  |
-| measured_by_outbound   | invariant | `measured_by is a pack-added reference field resolving to a ## Quantities row of the declaring file — an outbound leaf joining no reachability path and no acyclic edge set; a dangling reference is a labeled finding naming the row id and both remediations, never a generic dangling message` | [[numeric.predicates.pack]]  |
+| measured_by_outbound   | invariant | `measured_by is a pack-added reference field resolving to a ## Quantities row of the declaring file; it is an outbound leaf per specodelic.md's Reference Typing carve-out; a dangling reference is a labeled finding naming the row id and both remediations, never a generic dangling message` | [[numeric.predicates.pack]]  |
 | units_stay_opaque      | invariant | `the unit and domain columns carry typed prose pointers (unit systems, domains of validity) that the format never parses — no unit system, conversion rule, or domain vocabulary joins a base closed set, and lint behavior is identical regardless of the unit system named` | [[numeric.predicates.pack]]  |
 | vocabulary_prose_safe  | invariant | `no pack vocabulary token is a bare English word that appears in corpus prose — the within/bound/against/unit/domain audit excluded them from vocabulary-carrying facets; bound and against survive only as floor case labels, which the mechanism never scans` | [[numeric.predicates.pack]]  |
 
@@ -96,10 +96,10 @@ closed set and narrows no existing base set entry.
 - **WHEN** a workspace uses `numeric.quantity` vocabulary with no numeric-predicates pack discovered or declared
 - **THEN** the orphan finding names the candidate pack `numeric.predicates` and both remediations, with non-zero exit
 
-### Requirement: measured_by is a typed outbound leaf resolving to declared rows
+### Requirement: measured_by is a typed reference field resolving to declared rows
 The pack SHALL add the `measured_by` reference field, resolving to a
-`## Quantities` row of the declaring file and joining no reachability
-path and no acyclic edge set, and SHALL declare the
+`## Quantities` row of the declaring file (see the Reference Typing
+carve-out in `specodelic.md`), and SHALL declare the
 `numeric.quantity_closed` checker that reports an empty checked-set
 honestly when no `## Quantities` rows exist.
 
