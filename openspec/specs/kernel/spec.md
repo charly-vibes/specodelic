@@ -81,6 +81,16 @@ until compile has accepted it; gate on `just ci`, not `just lint-specs`
 alone. The decision is recorded in
 `openspec/decisions/2026-11-14-kernel-grammar-gate-placement.md`.
 
+**An empty morphism population is vacuously verified (specodelic-9ilm).**
+`resolves(m)` ranges over the relation's defined values; a corpus with no
+values for `m` has no counterexample, so the atomic is `verified`, not
+`unknown`. `unknown` is reserved for claims the evaluator cannot
+discharge (an id literal naming no declared id, a `reachable` seed or
+target that is not an id of the instance, an unsupported backend). The reading is
+documented in
+`openspec/decisions/2026-11-14-resolves-empty-population.md` and pinned by
+`tests/kernel_status.rs::resolves_over_an_empty_morphism_population_is_vacuously_verified`.
+
 ## Requirements
 
 ### Requirement: Decidable bounded kernel grammar

@@ -145,3 +145,28 @@ fn empty_domain_quantifiers_decide_honestly() {
         assert_eq!(env.evaluate(&expr), expected, "claim {id}");
     }
 }
+
+#[test]
+fn resolves_over_an_empty_morphism_population_is_vacuously_verified() {
+    // specodelic-9ilm (8mta review M4): resolves(m) quantifies over the
+    // relation's DEFINED values; a corpus with no `uses` edges has none,
+    // so the universal is vacuously true — Verified, never Unknown.
+    // Unknown is reserved for claims the evaluator cannot discharge.
+    // The reading is documented in kernel.md's Notes and
+    // openspec/decisions/2026-11-14-resolves-empty-population.md.
+    let spec = parse_str(CLEAN).unwrap_p();
+    let env = KernelEnv::from_specs(std::slice::from_ref(&spec));
+    assert!(
+        env.instance()
+            .edges()
+            .iter()
+            .all(|e| !e.kind.ends_with(".uses")),
+        "the CLEAN fixture must stay free of `uses` values for this pin"
+    );
+    let expr = parse_kernel_str("resolves(uses)").unwrap_p().unwrap_p();
+    assert_eq!(
+        env.evaluate(&expr),
+        ThreeValued::Verified,
+        "an empty morphism population is vacuously verified"
+    );
+}

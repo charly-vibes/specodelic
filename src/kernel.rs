@@ -940,7 +940,10 @@ impl KernelEnv {
             Atomic::Resolves(m) => {
                 // Acset traversal: the morphism vector's `None` values
                 // are exactly the dangling references
-                // (`dangling_is_a_value`).
+                // (`dangling_is_a_value`). An empty population is
+                // vacuously verified — the universal ranges over the
+                // relation's defined values, and no values means no
+                // counterexample (specodelic-9ilm; kernel.md Notes).
                 if self
                     .instance
                     .morphism_values(m)
