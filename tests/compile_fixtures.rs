@@ -45,10 +45,11 @@ fn generator_names(cell: &str) -> Vec<String> {
             .into_iter()
             .rev()
             .collect();
-        if !name.is_empty() && name.chars().next().is_some_and(|c| c.is_ascii_alphabetic()) {
-            if !names.contains(&name) {
-                names.push(name);
-            }
+        if !name.is_empty()
+            && name.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+            && !names.contains(&name)
+        {
+            names.push(name);
         }
         rest = &rest[open + 1..];
     }
