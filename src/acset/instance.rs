@@ -434,7 +434,25 @@ impl Instance {
         // path silently keeps the first (`or_insert`); the builder
         // resolves identically and names the collision instead. The
         // intent-id aggregation itself is by design (#37), not a collision.
-        let (nodes, cells, collisions) = collect_nodes_and_cells(specs);
+        let (mut nodes, cells, collisions) = collect_nodes_and_cells(specs);
+        // Model anchors are a legal typed target kind: `graph::resolve`
+        // maps `[[model.state]]` / `[[model.transition]]` to
+        // `<file>.model.state|model.transition`, and the linter's corpus
+        // index promises the same spelling (`Index::resolves`). The node
+        // set must therefore carry every anchor the link walk can resolve
+        // — otherwise `intern_of` is handed an id the corpus legitimately
+        // produces (specodelic-39w: the panic was reachable from a
+        // lint-clean, compile-clean file).
+        for spec in specs {
+            let file_id = spec.intent.id.as_str();
+            for link in &spec.links {
+                if let Some(target) = graph::resolve(&file_rows, file_id, &link.target)
+                    && (target.ends_with(".model.state") || target.ends_with(".model.transition"))
+                {
+                    nodes.insert(target);
+                }
+            }
+        }
         let intern = Intern::build(&nodes);
 
         // The walk — the same shape graph::build walks: per spec, the
@@ -700,6 +718,44 @@ statement: "rows carry their cells"
         let cells = inst.cells("c1.r").expect("the row's cells are carried");
         assert_eq!(cells.get("kind").map(String::as_str), Some("invariant"));
         assert_eq!(cells.get("expr").map(String::as_str), Some("`x > 0`"));
+    }
+
+    /// specodelic-39w: a typed link to the model anchor is a legal target
+    /// (`graph::resolve` and the linter's index both promise
+    /// `<file>.model.state`), so the builder interns the pseudo-node
+    /// instead of panicking on an uninterned id.
+    #[test]
+    fn model_anchor_link_is_a_node_not_a_panic() {
+        let v = parse(
+            r#"---
+id: v
+kind: intent
+statement: "the model anchor is a legal typed target"
+---
+
+## Constraints
+
+| id | kind | expr | traces_to |
+|----|------|------|-----------|
+| c | invariant | `x == x` | [[model.state]] |
+"#,
+        );
+        let inst = Instance::from_specs(&[v]);
+        assert_eq!(
+            inst.dangling().len(),
+            0,
+            "the anchor resolves, never dangles"
+        );
+        assert_eq!(inst.stored(), 1, "the anchor edge is stored");
+        assert!(
+            inst.ids().iter().any(|id| id == "v.model.state"),
+            "the pseudo-node is interned: {:?}",
+            inst.ids()
+        );
+        assert!(
+            inst.edges().iter().any(|e| e.to == "v.model.state"),
+            "the recorded edge points at the anchor"
+        );
     }
 
     /// `dangling_is_a_value` (acset-core properties): one link resolving to

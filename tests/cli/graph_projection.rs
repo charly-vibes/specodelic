@@ -143,3 +143,68 @@ fn violations_corpus_json_mode_still_exits_1() {
         .unwrap_p();
     assert_eq!(out.status.code(), Some(1));
 }
+
+/// specodelic-39w: `[[model.state]]` is a documented legal typed target
+/// (`linter-referential_integrity`), so a corpus carrying one must graph —
+/// every projection used to panic at `acset/instance.rs:126` with exit 101
+/// and no envelope.
+#[test]
+fn model_anchor_link_graphs_without_panicking() {
+    let dir = tempfile::tempdir().unwrap_p();
+    let cap = dir.path().join("v-x");
+    std::fs::create_dir_all(&cap).unwrap_p();
+    std::fs::write(
+        cap.join("spec.md"),
+        "---\nid: v.x\nkind: intent\nstatement: \"WHEN the corpus is graphed THE v-x system SHALL resolve a typed model anchor.\"\n---\n\
+         \n# v.x Specification\n\
+         \n## Purpose\nModel anchor fixture.\n\
+         \n## Constraints\n\
+         \n| id | kind | expr | traces_to |\n\
+         |----|------|------|-----------|\n\
+         | c1 | invariant | `x == x` | [[v.x]] |\n\
+         | c2 | invariant | `y == y` | [[v.x]] ∧ [[model.state]] |\n\
+         \n## Model\n\
+         \n### States\n\
+         \n- idle\n\
+         \n### Transitions\n\
+         \n| id | from | to | guard |\n\
+         |----|------|----|-------|\n\
+         | t1 | idle | idle | [[v.x.c1]] |\n\
+         \n## Properties\n\
+         \n| id | kind | predicate | derives_from |\n\
+         |----|------|-----------|--------------|\n\
+         | p1 | unit | `x == x` | [[v.x.c1]] |\n\
+         | p2 | unit | `y == y` | [[v.x.c2]] |\n",
+    )
+    .unwrap_p();
+    let path = dir.path().to_str().unwrap_p();
+    for args in [
+        vec!["graph", path, "--json"],
+        vec!["graph", path, "--format", "edges"],
+        vec!["graph", path, "--format", "dot"],
+        vec!["graph", path, "--format", "mermaid"],
+    ] {
+        let out = spk().args(&args).output().unwrap_p();
+        assert_eq!(
+            out.status.code(),
+            Some(0),
+            "the model anchor must graph, not abort: {args:?} stderr={}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(
+            !String::from_utf8_lossy(&out.stderr).contains("panicked"),
+            "no panic may reach stderr: {args:?}"
+        );
+    }
+    let out = spk().args(["graph", path, "--json"]).output().unwrap_p();
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
+    assert!(
+        json["data"]["edges"]
+            .as_array()
+            .unwrap_p()
+            .iter()
+            .any(|e| e["to"] == "v.x.model.state"),
+        "the anchor edge is recorded: {json}"
+    );
+}
