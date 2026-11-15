@@ -484,6 +484,14 @@ fn main() {
     let mut stderr = std::io::stderr();
 
     let exit_code = run(&cli, format, verbosity, &mut stdout, &mut stderr);
+    // A report that could not be written is not a clean run: a consumer
+    // parsing a truncated envelope must see a non-zero exit
+    // (specodelic-nnbf). Broken pipes stay graceful (piping into `head`).
+    let exit_code = if REPORT_WRITE_FAILED.swap(false, std::sync::atomic::Ordering::SeqCst) {
+        exit_code.max(1)
+    } else {
+        exit_code
+    };
     std::process::exit(exit_code);
 }
 
@@ -1044,7 +1052,20 @@ pub(crate) fn collect_specs(paths: &[String]) -> Vec<std::path::PathBuf> {
             None => true,
         }
     }
-    fn walk(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) {
+    fn walk(
+        dir: &std::path::Path,
+        files: &mut Vec<std::path::PathBuf>,
+        visited: &mut std::collections::BTreeSet<std::path::PathBuf>,
+    ) {
+        // Build aliases: `is_dir()` follows directory symlinks, so a link
+        // back to an ancestor would recurse forever with no output at all
+        // (specodelic-p39i). Visited-set on the canonical path keeps
+        // legitimate symlinked trees supported and cuts cycles; a second
+        // link to an already-seen directory also stops duplicate reads.
+        let key = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
+        if !visited.insert(key) {
+            return;
+        }
         let mut entries: Vec<_> = std::fs::read_dir(dir)
             .into_iter()
             .flatten()
@@ -1055,7 +1076,7 @@ pub(crate) fn collect_specs(paths: &[String]) -> Vec<std::path::PathBuf> {
         for p in entries {
             if p.is_dir() {
                 if !skipped_dir(&p) {
-                    walk(&p, files);
+                    walk(&p, files, visited);
                 }
             } else if p.extension().is_some_and(|e| e == "md") {
                 files.push(p);
@@ -1064,11 +1085,12 @@ pub(crate) fn collect_specs(paths: &[String]) -> Vec<std::path::PathBuf> {
     }
     let roots = named_roots(paths);
     let mut files = vec![];
+    let mut visited = std::collections::BTreeSet::new();
     for root in roots {
         if root.is_dir() {
             // The root itself is never skipped (the user named it);
             // only nested directories are filtered.
-            walk(&root, &mut files);
+            walk(&root, &mut files, &mut visited);
         } else {
             files.push(root);
         }
@@ -1175,6 +1197,27 @@ pub(crate) fn parse_batch(
     (specs, checklists, notes, parse_errors)
 }
 
+/// Set when a report could not be written to stdout for a reason other
+/// than a consumer closing the pipe (specodelic-nnbf): a truncated
+/// envelope must never read as a clean run.
+static REPORT_WRITE_FAILED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// Classify one report write: `true` when the failure must fail the run.
+/// `BrokenPipe` is a consumer that stopped reading (`spk graph | head`),
+/// not a report-integrity problem — that stays a graceful exit 0.
+fn write_failed(result: std::io::Result<()>) -> bool {
+    match result {
+        Ok(()) => false,
+        Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => false,
+        Err(e) => {
+            use std::io::Write as _;
+            let _ = writeln!(std::io::stderr(), "report write failed: {e}");
+            true
+        }
+    }
+}
+
 fn emit_report<T: serde::Serialize + std::fmt::Debug>(
     out: Output<T>,
     human_text: Option<String>,
@@ -1183,14 +1226,61 @@ fn emit_report<T: serde::Serialize + std::fmt::Debug>(
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) {
+    let mut failed = false;
     if format == OutputFormat::Human {
         if let Some(text) = &human_text {
-            writeln!(stdout, "{text}").ok();
+            failed |= write_failed(writeln!(stdout, "{text}"));
         }
-        out.with_verbosity(Verbosity::MAX + 1)
-            .emit(VERSION, format, verbosity, stdout, stderr)
-            .ok();
+        failed |= write_failed(
+            out.with_verbosity(Verbosity::MAX + 1)
+                .emit(VERSION, format, verbosity, stdout, stderr),
+        );
     } else {
-        out.emit(VERSION, format, verbosity, stdout, stderr).ok();
+        failed |= write_failed(out.emit(VERSION, format, verbosity, stdout, stderr));
+    }
+    if failed {
+        REPORT_WRITE_FAILED.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn broken_pipe_is_not_a_report_write_failure() {
+        let epipe = std::io::Error::new(std::io::ErrorKind::BrokenPipe, "consumer left");
+        assert!(!write_failed(Err(epipe)), "`| head` stays a graceful exit");
+        assert!(!write_failed(Ok(())), "a completed write is not a failure");
+    }
+
+    #[test]
+    fn other_write_errors_fail_the_run() {
+        let failed = std::io::Error::other("no space");
+        assert!(
+            write_failed(Err(failed)),
+            "a truncated report must not exit 0 (specodelic-nnbf)"
+        );
+    }
+
+    /// specodelic-p39i: a directory symlink pointing back at an ancestor
+    /// used to recurse forever with no output; the walk now visits each
+    /// canonical directory once.
+    #[cfg(unix)]
+    #[test]
+    fn corpus_walk_terminates_on_a_symlink_cycle() {
+        let dir = std::env::temp_dir().join(format!("spk_loop_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let sub = dir.join("sub");
+        std::fs::create_dir_all(&sub).unwrap();
+        std::fs::write(
+            sub.join("d.md"),
+            "---\nid: d\nkind: intent\nstatement: \"THE d system SHALL exist.\"\n---\n",
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(&dir, sub.join("up")).unwrap();
+        let files = collect_specs(&[dir.display().to_string()]);
+        assert_eq!(files.len(), 1, "the cycle is cut: {files:?}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
