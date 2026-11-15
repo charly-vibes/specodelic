@@ -8,6 +8,12 @@ input). clap argument-parse failures also exit 2. The JSON envelope's
 a clean run — findings and failures never ride a success-shaped envelope
 (openspec/specs/errors/spec.md `envelope_error_kind` + `exit_code_mapping`).
 
+`101` is a Rust panic — an internal invariant violation, not a corpus
+verdict: it prints a panic message to stderr and **no envelope at all**.
+Treat it as a bug in the tool and report it; the envelope contract above
+does not cover it. Corpus shapes that reach a panic are fixed as bugs, so
+a `101` from a released binary is always worth an issue.
+
 All commands emit through the genesis envelope: JSON for pipes,
 human-readable for TTYs (`--human` / `--format json` to override).
 Failures carry a remediation hint. Hit jargon? The
@@ -22,6 +28,16 @@ other verb assumes (`spk explain lifecycle`).
 The gate. Runs every rule in the catalog over spec files (recursively;
 files without frontmatter are skipped with a warning). Each finding
 carries `rule_id` (`linter.<name>`) and `rule_semantics`.
+
+**Resolution scope.** Reference resolution is corpus-wide (Revision 18),
+so when the files you name live inside a `specs` tree, lint resolves
+their references against that whole tree while reporting findings only
+for the files you named (specodelic-f4sx: `spk lint openspec/specs/<cap>/spec.md`
+is clean when the corpus resolves it, which is what per-capability gates
+such as `ah sync` need). `files_linted` still counts the request, and a
+warning names the resolution corpus. Outside a `specs` tree the linted
+set IS the resolution corpus — a cross-file reference then dangles, and
+the hint tells you to lint the containing tree.
 
 - Spec: [linter rules](specs/linter-frontmatter/spec.md) (one file per rule family)
 
@@ -87,7 +103,10 @@ per row, dangling references, typing violations (the Reference Typing
 table — forbidden edges are reported, never recorded), and supersedes
 cycles. The rename/merge/refactor advisors build on it.
 
-**Text projections** (`--format edges|dot|mermaid`): `edges` writes the
+**Text projections** (`--format edges|dot|mermaid`) — note this `--format`
+is the projection selector, not the global output-format flag: JSON output
+is the global `--json` (`spk graph --format json` is an invocation error,
+exit 2): `edges` writes the
 raw six-column TSV edge list (source_id, source_kind, field, target_id,
 target_kind, annotation — every recorded edge one row, every typing
 violation one annotation row); `dot` and `mermaid` write byte-stable

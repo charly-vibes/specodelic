@@ -1,5 +1,29 @@
 # Changelog
 
+## unreleased — reliability fixes from the 2026-11-15 Rule-of-5 review
+
+- **fix(graph) — model anchors** (specodelic-39w): a typed
+  `[[model.state]]` / `[[model.transition]]` link is a documented legal
+  target; the acset builder now interns the `<file>.model.*` pseudo-nodes
+  instead of panicking (`uninterned node id`, exit 101 with no envelope).
+  `spk graph` records the anchor edge in every projection.
+- **fix(lint) — corpus-wide resolution for subset invocations**
+  (specodelic-f4sx): linting files inside a `specs` tree resolves their
+  references against that tree while reporting findings only for the files
+  that were named; `files_linted` still counts the request and a warning
+  names the resolution corpus. Per-capability gates (`ah sync`) can pass.
+- **fix(cli) — symlink cycles** (specodelic-p39i): the corpus walk visits
+  each canonical directory once, so a directory symlink back to an ancestor
+  no longer recurses forever with no output.
+- **fix(cli) — report write failures** (specodelic-nnbf): a non-EPIPE write
+  failure now fails the run (exit 1) instead of exiting 0 on a truncated
+  envelope; broken pipes (`spk graph | head`) stay graceful.
+- **docs(commands)**: exit `101` (panic, no envelope) documented; graph's
+  projection `--format` distinguished from the global output flag; lint's
+  resolution scope documented with the per-capability case.
+- **chore(tests)**: `cargo clippy --all-targets` is clean again (three
+  pre-existing lints outside the narrower `just lint` gate).
+
 ## #135 — v0.13.0: Revision 22 — evidence audit, typed-reference enforcement, and revision upgrades
 
 Release entry for everything since v0.12.1 (2026-10-21): format
