@@ -1,5 +1,103 @@
 # Changelog
 
+## #135 — v0.13.0: Revision 22 — evidence audit, typed-reference enforcement, and revision upgrades
+
+Release entry for everything since v0.12.1 (2026-10-21): format
+Revisions 20–22 and the five changes archived with them
+(add-evidence-audit, add-ref-kind-enforcement, add-revision-upgrade,
+add-shared-fragment-helpers, add-verify-runner-seams).
+
+- **feat(format) — Revision 20** (specodelic-814): the Reference Typing
+  guard cell names both regimes — prose-only stays exploration-only and
+  honestly uncounted, while a cited invariant Constraint carrying a
+  `**rust:**` fragment executes natively. Append-only; no id-set or
+  typing change.
+- **feat(format) — Revision 21** (specodelic-1nhe): a `kind = "law"`
+  Property row may give each of its named cases its own executable body
+  under the case key (`**name::**`). The `**name:**` labels stay the
+  enumeration of record, and one shared parser keeps the linter's
+  `law_cases` rule and the compiler's block expansion from disagreeing.
+- **docs(format) — Revision 22** (specodelic-mlc): the outbound-leaf
+  carve-out (cross-file typed edges are leaves, never reachability
+  paths, never acyclic-edge-set members) moves to a single normative
+  paragraph in `specodelic.md`; packs, observability and graph-shape
+  files point there. Prose-only.
+- **feat(lint) — Reference Typing enforced** (add-ref-kind-enforcement):
+  `linter.ref_kind_compatible` is now a real rule — typed links are
+  checked against the target row's kind, read from the Schema-as-data.
+  A kind-incompatible typed reference is a gating finding.
+- **feat(lint) — closed row shape** (`linter.row_shape_closed`, the
+  four `kinds.md`/`specodelic.md` row-shape rows): a row's field set
+  must be exactly its kind's base fields plus the typed reference
+  columns the Reference Typing table declares; the reference half
+  comes from the Schema, and a State bullet's named tail field
+  surfaces as an extra cell instead of being swallowed as an emits
+  value. New gating rule.
+- **feat(lint) — content advisories** (specodelic-xci): whole-cell
+  placeholders (TODO/TBD/FIXME, stub statements, `scaffold_*` ids in a
+  scaffold-signature file) and narrow tautologies (`true`/`⊤`,
+  `x == x`) warn on the warnings channel — exit 0, never a failure.
+  Fragment interiors and effect/advisory exprs are never judged.
+- **feat(audit) — the graded-evidence audit** (add-evidence-audit): new
+  verb `spk audit <file> --oracle <corpus.jsonl>` classifies every
+  oracle row into `{current, stale, unchecked, contradicted}`, each row
+  carrying both the audit class and the underlying conform verdict.
+  `--before <report>` diffs a prior report (same ⇒ current, worsened ⇒
+  stale, absent ⇒ new) with labeled refusals on scope/schema mismatch;
+  `--declare-expectation` records a baseline whose stale rows fail the
+  later diff. Exit 1 iff contradicted (or stale under a declaration),
+  2 on a gate/invocation/diff refusal, never nonzero on
+  unchecked/new.
+  Pack-check outcomes join as audit rows — an empty checked-set is
+  *unchecked*, never a pass — and the `binds_nothing` vacuity advisory
+  plus a per-file ladder-rung aggregate ride the report.
+- **feat(verify) — runner seams** (add-verify-runner-seams): the verify
+  scratch crate takes a path dependency on the tool exactly when the
+  artifact references `specodelic::`; the public
+  `specodelic::fixtures` registry (registry/lookup/materialize/names/
+  is_known) lets fixture-named generators materialize real four-layer
+  fixtures; `scope_verdict` reports a properties-only verdict that is
+  never `verified` and never fails on a skipped model stage. The
+  corpus's demonstration row now calls the real compiler.
+- **feat(compile) — shared fragment definitions**
+  (add-shared-fragment-helpers): an optional per-file `## Fragments`
+  section of `def <name>:` fenced rust bodies; a fragment cell
+  references a helper with `@name`, and compile inlines each referenced
+  body at its use sites. Labeled failures for malformed/duplicate defs,
+  symbol collisions, banned constructs, unknown references and cycles;
+  a def reachable from no cell is a dead-helper warning. `\|` escapes
+  are unescaped before emission.
+- **feat(migrate) — `spk migrate --to-revision <N>`**
+  (add-revision-upgrade): carries a corpus across the known format
+  revisions from the core-owned `REVISIONS` registry (now 2..22), with
+  per-file revision detection or `--from-revision`, shape-guarded steps
+  in ascending order, and a plan that writes only changed files. A dry
+  run unless `--write`; `--rekey`/`--to-revision` combinations refuse
+  labeled.
+- **feat(kernel) — resolve-checked id literals** (specodelic-8mta): an
+  id literal that names no declared node evaluates `unknown` with a
+  labeled reason naming the literal — never a vacuous `verified` over a
+  claim that was never checked.
+- **feat(citation) — kernel outcomes compose** (specodelic-9o1h): the
+  citation algebra consumes the same invocation's kernel claim statuses
+  as a second evidence source (exec → kernel → citation row → property
+  row → missing), so `[[exec]] ∧ [[kernel]]` can resolve instead of
+  staying unknown forever. One-way composition: the closed kernel
+  grammar has no back-references.
+- **feat(packs) — kernel vocabulary pack** (specodelic-04c): a standard
+  `kernel.pack` artifact ships beside the domain packs.
+- **feat(corpus) — executable predicates**: 43 of 47
+  `specodelic`+`kinds` Property rows, all 16 pack rows and all 35
+  compile rows now carry executable `**rust:**` predicates;
+  `just verify-specs` gates `[compile, packs, specodelic, kinds]` on
+  every file's properties state being exactly `pass`.
+- **fix(archive-companion)**: the sidecar's identity namespace is
+  re-keyed at attach, so deployed error labels live under the deployed
+  id.
+- **chore**: `FORMAT_REVISION` 19 → 22; the migrate registry records
+  Revisions 20–22; `spk graph` derives typed reference columns from the
+  Schema instead of a hardcoded list.
+
 ## Revision 22 — the outbound-leaf carve-out has one normative home (specodelic-mlc)
 
 - **docs(corpus):** the rule that cross-file typed edges (`guard`
