@@ -3,7 +3,148 @@ use crate::commands::{self, as_failure};
 use crate::{MAX_INPUT_BYTES, collect_specs, emit_report, openspec_tree_present, parse_batch};
 
 use genesis::guide::{Output, OutputFormat, Verbosity};
+use specodelic::checklist::Checklist;
+use specodelic::spec::Spec;
 use specodelic::{compile, conform, graph, human, lint, merge, rename};
+
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+
+/// One path's canonical spelling, falling back to the path itself when it
+/// cannot be canonicalized (a synthetic `<id>` anchor, a path deleted
+/// between walk and report).
+fn canonical_path(path: &Path) -> PathBuf {
+    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+}
+
+/// The `specs` tree the requested files live in, if any. Reference
+/// resolution is corpus-wide (Revision 18), so a subset invocation inside
+/// a corpus must resolve against the whole tree — otherwise a per-file
+/// gate (`ah sync`, a staged-file hook) can never be clean
+/// (specodelic-f4sx). The requested *findings* stay scoped to the files
+/// the caller named.
+fn containing_specs_root(specs: &[Spec]) -> Option<PathBuf> {
+    let mut roots: BTreeSet<PathBuf> = BTreeSet::new();
+    for spec in specs {
+        let Some(path) = spec.path.as_deref() else {
+            continue;
+        };
+        if let Some(root) = path
+            .ancestors()
+            .find(|a| a.file_name().and_then(|n| n.to_str()) == Some("specs"))
+        {
+            roots.insert(root.to_path_buf());
+        }
+    }
+    (roots.len() == 1).then(|| roots.into_iter().next().expect("one root"))
+}
+
+/// A finding's anchor key in either spelling the checkers use: the
+/// canonical file path, or (for the id-anchored advisory checkers) the
+/// bare intent id.
+fn anchor_key(file: &str) -> String {
+    canonical_path(Path::new(file)).display().to_string()
+}
+
+/// Keep only findings the invocation asked about: a finding anchored to a
+/// corpus file (or intent id) outside the requested scope is dropped;
+/// corpus-level findings (checks that anchor to no file, or to a pack)
+/// survive.
+fn scope_findings(
+    mut report: lint::Report,
+    scope: &BTreeSet<String>,
+    corpus: &BTreeSet<String>,
+) -> lint::Report {
+    let keep = |file: &str| {
+        if file.is_empty() {
+            return true;
+        }
+        let key = anchor_key(file);
+        !corpus.contains(&key) || scope.contains(&key)
+    };
+    report.issues.retain(|i| keep(&i.file));
+    report.warnings.retain(|w| keep(&w.file));
+    report
+}
+
+/// Every anchor spelling a spec set (and its manifests) can produce: the
+/// canonical path, and — for the id-anchored advisory checkers — the bare
+/// intent id.
+fn anchor_keys(specs: &[Spec], checklists: &[Checklist]) -> BTreeSet<String> {
+    let mut keys = BTreeSet::new();
+    for spec in specs {
+        keys.insert(spec.intent.id.clone());
+        if let Some(path) = spec.path.as_deref() {
+            keys.insert(anchor_key(&path.display().to_string()));
+        }
+    }
+    for checklist in checklists {
+        keys.insert(anchor_key(&checklist.path.display().to_string()));
+    }
+    keys
+}
+
+/// The outcome of corpus-wide resolution for a subset invocation.
+struct CorpusScope {
+    report: lint::Report,
+    /// True when references were resolved against a wider corpus.
+    resolved: bool,
+    /// Labeled notes to surface on the envelope's warnings channel.
+    notes: Vec<String>,
+    /// Resolution-corpus parse errors — surfaced as failures, never as a
+    /// silently partial index.
+    parse_errors: Vec<String>,
+}
+
+/// Resolve a subset invocation against its containing `specs` tree
+/// (specodelic-f4sx). A full-corpus invocation, or one outside any `specs`
+/// tree, is returned untouched.
+fn corpus_scoped_report(
+    requested: &[Spec],
+    requested_checklists: &[Checklist],
+    report: lint::Report,
+    verbosity: Verbosity,
+) -> CorpusScope {
+    let mut out = CorpusScope {
+        report,
+        resolved: false,
+        notes: vec![],
+        parse_errors: vec![],
+    };
+    let Some(root) = containing_specs_root(requested) else {
+        return out;
+    };
+    let (corpus_specs, corpus_checklists, _corpus_notes, corpus_errors) =
+        parse_batch(&[root.display().to_string()], verbosity);
+    if corpus_specs.len() <= requested.len() {
+        return out;
+    }
+    let scope = anchor_keys(requested, requested_checklists);
+    let corpus = anchor_keys(&corpus_specs, &corpus_checklists);
+    out.report = scope_findings(
+        lint::lint_all(&corpus_specs, &corpus_checklists),
+        &scope,
+        &corpus,
+    );
+    out.report.files_linted = requested.len();
+    out.report.checklists_declared = requested_checklists.len();
+    // A parse error in the resolution corpus means those rows are absent
+    // from the index — a bare subset lint would turn that into false
+    // dangling findings. Name it and fail the stage, exactly like a parse
+    // error in the requested set.
+    out.parse_errors = corpus_errors
+        .into_iter()
+        .map(|e| format!("corpus-wide resolution: {e}"))
+        .collect();
+    out.notes.push(format!(
+        "references resolved corpus-wide against {} file(s) under {} — findings scoped to the {} requested file(s)",
+        corpus_specs.len(),
+        root.display(),
+        requested.len()
+    ));
+    out.resolved = true;
+    out
+}
 
 pub(crate) fn cmd_lint(
     paths: &[String],
@@ -12,7 +153,7 @@ pub(crate) fn cmd_lint(
     stdout: &mut impl std::io::Write,
     stderr: &mut impl std::io::Write,
 ) -> i32 {
-    let (specs, checklists, notes, parse_errors) = parse_batch(paths, verbosity);
+    let (specs, checklists, mut notes, mut parse_errors) = parse_batch(paths, verbosity);
     if specs.is_empty() && checklists.is_empty() {
         // Never a silent ok:true on zero files — that's a false green
         // (beads specodelic-6pi). A declared checklist alone still gets
@@ -47,7 +188,20 @@ pub(crate) fn cmd_lint(
         // Invocation error (specodelic-7rr item 2): nothing was processed.
         return 2;
     }
-    let report = lint::lint_all(&specs, &checklists);
+    // Corpus-wide resolution for a subset invocation (specodelic-f4sx):
+    // when the requested files live inside a `specs` tree, resolve their
+    // references against that whole tree — findings stay scoped to the
+    // files the caller named. `files_linted` still counts the request.
+    let scoped = corpus_scoped_report(
+        &specs,
+        &checklists,
+        lint::lint_all(&specs, &checklists),
+        verbosity,
+    );
+    let report = scoped.report;
+    let resolved_corpus = scoped.resolved;
+    notes.extend(scoped.notes);
+    parse_errors.extend(scoped.parse_errors);
     let payload = serde_json::to_value(&report).unwrap_or_default();
     let failures = report.failures();
     let mut out = Output::success(payload.clone());
@@ -61,9 +215,18 @@ pub(crate) fn cmd_lint(
         out = out.with_warning(format!("{} [{}] {}", w.file, w.rule_id, w.message));
     }
     if failures > 0 {
-        out = out.with_next_step(
-            "fix the reported invariants — each rule's semantics: spk explain lint-rules",
-        );
+        let dangling = report
+            .issues
+            .iter()
+            .any(|i| i.rule_id == "linter.total_refs");
+        let hint = if dangling && !resolved_corpus {
+            // `total_refs` resolves against the linted set only; outside a
+            // `specs` tree the caller has to name the corpus themselves.
+            "fix the reported invariants — each rule's semantics: spk explain lint-rules; `total_refs` resolves against the linted set only, so lint the containing corpus tree (e.g. specodelic lint openspec/specs) to resolve cross-file references"
+        } else {
+            "fix the reported invariants — each rule's semantics: spk explain lint-rules"
+        };
+        out = out.with_next_step(hint);
     } else if !parse_errors.is_empty() {
         // specodelic-in9: parse errors are never a silent pass — even when
         // the rest of the batch linted clean, the stage fails so the

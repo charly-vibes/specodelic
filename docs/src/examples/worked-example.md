@@ -4,7 +4,7 @@ This page builds one small spec from nothing: a reservation service for a
 web shop. You will see the whole four-layer journey — **Intent →
 Constraints → Model → Properties** — and then the part most tutorials
 skip: the mistakes. Every lint finding below is real output from
-`specodelic 0.10.0` on the file as it stood at that moment; the fixes are
+`specodelic 0.13.0` on the file as it stood at that moment; the fixes are
 the fixes that were actually made. The finished spec lives at
 [`examples/reservation-order.md`](reservation-order.md) and lints clean —
 you can check that yourself with `spk lint docs/src/examples/reservation-order.md`
@@ -108,7 +108,7 @@ lint: 1 file(s) linted, 9 finding(s), 0 advisory warning(s)
   reservation.order [linter.coverage] constraint `held_or_converted` has no deriving property — ∃ property.derives_from == `reservation.order.held_or_converted` is required — write `[[reservation.order.held_or_converted]]` in the property's derives_from cell
   reservation.order [linter.coverage] constraint `release_is_total` has no deriving property — ∃ property.derives_from == `reservation.order.release_is_total` is required — write `[[reservation.order.release_is_total]]` in the property's derives_from cell
   reservation.order [linter.single_root_reachable] 1 row(s) unreachable from any intent row — an orphaned island (traces_to/derives_from/guard/from-to/emits): reservation.order.all_or_nothing
-→ Run: fix the reported invariants — each rule's semantics: spk explain lint-rules
+→ Run: fix the reported invariants — each rule's semantics: spk explain lint-rules; `total_refs` resolves against the linted set only, so lint the containing corpus tree (e.g. specodelic lint openspec/specs) to resolve cross-file references
 ```
 
 Stop and read what one typo bought. **Three different rules fired on one

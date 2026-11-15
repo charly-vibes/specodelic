@@ -1154,12 +1154,7 @@ fn model_present_absent_and_empty_produce_identical_finding() {
         assert_eq!(out.status.code(), Some(1), "{name}: lint must exit 1");
         let json: serde_json::Value =
             serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
-        json["data"]["issues"]
-            .as_array()
-            .unwrap_p()
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>()
+        json["data"]["issues"].as_array().unwrap_p().to_vec()
     };
 
     let absent_issues = findings(absent, "absent_model.md");
@@ -1447,5 +1442,128 @@ fn lint_warns_on_scaffold_placeholder_and_tautology_but_exits_zero() {
     assert!(
         warnings.iter().all(|w| !w.contains("clean.md")),
         "a filled-in spec emits neither advisory: {warnings:?}"
+    );
+}
+
+// ---- specodelic-f4sx: corpus-wide resolution for a subset invocation ----
+
+/// A lint-clean capability file. `property_from` names the constraint its
+/// property derives from — the cross-file link the corpus test exercises.
+fn write_capability_spec(cap: &std::path::Path, id: &str, name: &str, property_from: &str) {
+    std::fs::create_dir_all(cap).unwrap_p();
+    let constraint = format!("{id}.c1");
+    std::fs::write(
+        cap.join("spec.md"),
+        format!(
+            "---\nid: {id}\nkind: intent\nstatement: \"WHEN the {id} capability is linted THE {id} system SHALL resolve its references.\"\n---\n\
+             \n# {id} Specification\n\
+             \n## Purpose\n{name} fixture.\n\
+             \n## Constraints\n\
+             \n| id | kind | expr | traces_to |\n\
+             |----|------|------|-----------|\n\
+             | c1 | invariant | `x == x` | [[{id}]] |\n\
+             \n## Model\n\
+             \n### States\n\
+             \n- idle\n\
+             \n### Transitions\n\
+             \n| id | from | to | guard |\n\
+             |----|------|----|-------|\n\
+             | t1 | idle | idle | [[{constraint}]] |\n\
+             \n## Properties\n\
+             \n| id | kind | predicate | derives_from |\n\
+             |----|------|-----------|--------------|\n\
+             | p1 | unit | `x == x` | [[{constraint}]] |\n\
+             | p2 | unit | `x == x` | [[{property_from}]] |\n"
+        ),
+    )
+    .unwrap_p();
+}
+
+/// Linting one capability file inside a `specs` tree resolves its
+/// cross-file references against the tree — ah sync's per-capability gate
+/// can pass (specodelic-f4sx; it used to report 7 total_refs findings for
+/// any cross-file corpus).
+#[test]
+fn single_file_lint_inside_specs_tree_resolves_cross_file_refs() {
+    let dir = tempfile::tempdir().unwrap_p();
+    let specs = dir.path().join("corpus").join("specs");
+    write_capability_spec(&specs.join("a"), "a", "Alpha", "b.c1");
+    write_capability_spec(&specs.join("b"), "b", "Beta", "b.c1");
+    let target = specs.join("a").join("spec.md");
+    let out = spk()
+        .args(["lint", target.to_str().unwrap_p(), "--json"])
+        .output()
+        .unwrap_p();
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "cross-file refs resolve against the containing corpus: {json}"
+    );
+    assert_eq!(json["data"]["files_linted"], 1, "findings stay scoped");
+    assert_eq!(
+        json["data"]["issues"].as_array().unwrap_p().len(),
+        0,
+        "no dangling findings inside a resolvable corpus: {json}"
+    );
+    let warnings = json["warnings"].to_string();
+    assert!(
+        warnings.contains("resolved corpus-wide"),
+        "the resolution scope is named, never implicit: {warnings}"
+    );
+}
+
+/// The same shape outside any `specs` tree keeps the old semantics: the
+/// reference dangles because the caller never named the corpus, and the
+/// hint says how to fix it (specodelic-f4sx, clarity half).
+#[test]
+fn single_file_lint_outside_a_specs_tree_keeps_dangling_and_names_the_scope() {
+    let dir = tempfile::tempdir().unwrap_p();
+    let cap = dir.path().join("a");
+    write_capability_spec(&cap, "a", "Alpha", "b.c1");
+    let target = cap.join("spec.md");
+    let out = spk()
+        .args(["lint", target.to_str().unwrap_p(), "--json"])
+        .output()
+        .unwrap_p();
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
+    assert_eq!(out.status.code(), Some(1), "a genuinely dangling ref fails");
+    assert!(
+        json["hints"]
+            .to_string()
+            .contains("lint the containing corpus tree"),
+        "the scope hint names the fix: {json}"
+    );
+}
+
+/// Corpus-wide expansion must never turn a real dangling reference into a
+/// pass: a target defined nowhere in the tree still fails, and the
+/// finding stays anchored to the requested file.
+#[test]
+fn single_file_lint_inside_specs_tree_still_fails_for_a_ghost_target() {
+    let dir = tempfile::tempdir().unwrap_p();
+    let specs = dir.path().join("specs");
+    write_capability_spec(&specs.join("a"), "a", "Alpha", "a.ghost");
+    let target = specs.join("a").join("spec.md");
+    let out = spk()
+        .args(["lint", target.to_str().unwrap_p(), "--json"])
+        .output()
+        .unwrap_p();
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
+    assert_eq!(out.status.code(), Some(1), "a ghost target still fails");
+    let issues = json["data"]["issues"].as_array().unwrap_p();
+    assert!(
+        issues.iter().any(|i| i["rule_id"] == "linter.total_refs"
+            && i["message"].as_str().unwrap_or("").contains("ghost")),
+        "the ghost is named: {json}"
+    );
+    assert!(
+        issues
+            .iter()
+            .all(|i| i["file"].as_str().unwrap_or("").contains("a")),
+        "findings stay scoped to the requested file: {json}"
     );
 }

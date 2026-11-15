@@ -46,6 +46,17 @@ undocumented"):
 Row ids are single-segment: a dotted tail is always read as
 `row.member`, never as a dotted row id, so `[[a.b.c.d]]` does not
 resolve when file `a` declares only a row literally named `b.c`.
+
+**Invocation scope (2026-11-15, specodelic-f4sx):** resolution is
+corpus-wide, so a CLI invocation that names a subset still resolves
+against the containing `specs` tree — findings stay scoped to the named
+files, `files_linted` counts the request, and the warning channel names
+the resolution corpus. Outside a `specs` tree the linted set is the
+resolution corpus: a cross-file reference then dangles, and the hint
+names the containing-tree invocation as the fix. A parse error anywhere
+in the resolution corpus fails the run rather than yielding a partial
+index — never a false dangling verdict.
+
 ## Notes
 
 **Reference-typing reconciliation (2026-09-30, `specodelic-cxq`):** the
