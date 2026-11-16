@@ -1,0 +1,10 @@
+{
+  "name": "empty_domain_quantifiers",
+  "files": [
+    "---\nid: demo.agr.empty\nkind: intent\nstatement: \"THE empty SHALL exist\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| e1 | invariant | `**kernel:** ∀ t ∈ Transition: |Transition| == 0` | [[demo.agr.empty]] |\n| e2 | invariant | `**kernel:** ∃ t ∈ Transition: |Transition| == 0` | [[demo.agr.empty]] |\n"
+  ],
+  "expected": [
+    ["e1", "verified"],
+    ["e2", "counterexample"]
+  ]
+}

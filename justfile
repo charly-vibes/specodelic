@@ -422,6 +422,7 @@ pretender-check:
 # l8l's emitter lands and is never commented out.
 guard-kernel-agreement:
     cargo test --test kernel_agreement
+    cargo test --test kernel_agreement_py
 
 # Sibling-tool constraint guard (AGENTS.md hard blockers) — also wired into
 # pre-commit/pre-push via lefthook.yml and the .beads/hooks shim chain

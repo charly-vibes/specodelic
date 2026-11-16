@@ -9,8 +9,8 @@
 #[path = "common/mod.rs"]
 mod common;
 
-use assert_cmd::Command;
 use common::UnwrapPanic;
+use common::audit_fixtures::{CONFIRM_HAPPY, audit_json, compiled_out_dir, spk};
 use specodelic::audit::{self, AuditClass, AuditRecord, AuditReport};
 use specodelic::conform::{self, Verdict};
 use specodelic::spec;
@@ -77,7 +77,6 @@ statement: "THE system SHALL keep the ledger consistent"
 | confirm | held | confirmed | [[demo.audit.locked]] |
 "#;
 
-const CONFIRM_HAPPY: &str = r#"{"id": "confirm-happy", "setup": {"state": "held"}, "trace": [{"action": "confirm", "observations": {"status": "confirmed"}}]}"#;
 /// `undo` is no declared transition — uncovered (underspecified open-world).
 const UNCOVERED_LINE: &str =
     r#"{"id": "undo-undeclared", "setup": {"state": "held"}, "trace": [{"action": "undo"}]}"#;
@@ -508,56 +507,6 @@ statement: "THE system SHALL keep the ledger consistent"
 |----|------|--------------|-----------|------------|
 | p | unit | [[demo.audit_cli.locked]] | `g()` | `x` |
 "#;
-
-fn spk() -> Command {
-    Command::cargo_bin("specodelic").unwrap_p()
-}
-
-/// Compile the fixture spec into a temp out-dir (the reused gate
-/// requires current artifacts — audit never re-compiles, like conform).
-fn compiled_out_dir(dir: &std::path::Path, spec: &std::path::Path) -> String {
-    let out_dir = dir.join("out");
-    spk()
-        .args([
-            "compile",
-            spec.to_str().unwrap_p(),
-            "--json",
-            "--out-dir",
-            out_dir.to_str().unwrap_p(),
-        ])
-        .assert()
-        .success();
-    out_dir.to_str().unwrap_p().to_string()
-}
-
-fn audit_json(
-    spec: &std::path::Path,
-    corpus: &std::path::Path,
-    extra: &[&str],
-) -> (Option<i32>, serde_json::Value) {
-    let dir = spec.parent().unwrap_p().to_path_buf();
-    let out_dir = compiled_out_dir(dir.as_path(), spec);
-    let out = spk()
-        .args([
-            "audit",
-            spec.to_str().unwrap_p(),
-            "--oracle",
-            corpus.to_str().unwrap_p(),
-            "--out-dir",
-            &out_dir,
-            "--json",
-        ])
-        .args(extra)
-        .output()
-        .unwrap_p();
-    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_or_else(|e| {
-        panic!(
-            "audit emits a JSON envelope ({e}): {}",
-            String::from_utf8_lossy(&out.stdout)
-        )
-    });
-    (out.status.code(), json)
-}
 
 /// The envelope carries the audit report with scope fields and the
 /// class/verdict layers; a contradicted record fails the run (exit 1,
