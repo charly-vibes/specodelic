@@ -13,6 +13,10 @@ ignore = [
   # Tracked for migration — see specodelic-7nu4. 2026-10-13: advisory DB refresh flipped this
   # from pass to fail; the crate itself is sound for our use (parse+emit
   # of spec frontmatter, no untrusted input surface).
+  # 2026-11-15 decision (specodelic-7nu4, option c): accept the ignore with a
+  # standing review date. Revisit on 2027-04-13, or earlier when serde_yaml_ng
+  # publishes a libyaml-free release; do NOT migrate to serde_yaml (itself
+  # unmaintained).
   "RUSTSEC-2024-0449",
 ]
 

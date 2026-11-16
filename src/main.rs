@@ -304,7 +304,7 @@ enum Commands {
         /// Current spec tree (defaults to ./specs)
         paths: Vec<String>,
     },
-    /// Run the full pipeline: lint (Checker Ownership order) → compile
+    /// Run the full pipeline: parse → lint (Checker Ownership order) → compile
     /// → model_check → verify, gating each stage exactly as
     /// openspec/specs/orchestrate/spec.md specifies (rename is never part of a run)
     Orchestrate {

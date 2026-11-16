@@ -1046,3 +1046,17 @@ fn orchestrate_duplicate_stems_route_per_file_never_share_never_stale() {
     let written_first: Vec<Vec<String>> = compiled.iter().map(collect_written).collect();
     assert_eq!(written_first, written_again, "routing must be stable");
 }
+
+#[test]
+fn orchestrate_help_names_the_parse_stage() {
+    // specodelic-i51: the pipeline runs parse → lint → compile → model_check
+    // → verify (openspec/specs/orchestrate/spec.md:162-171), but the help
+    // text skipped the parse stage.
+    let out = spk().args(["orchestrate", "--help"]).output().unwrap_p();
+    assert!(out.status.success(), "orchestrate --help must exit 0");
+    let text = String::from_utf8(out.stdout).unwrap_p();
+    assert!(
+        text.contains("parse") && text.contains("lint") && text.contains("compile"),
+        "orchestrate --help must name the parse → lint → compile stages:\n{text}"
+    );
+}
