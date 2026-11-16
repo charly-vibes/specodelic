@@ -672,3 +672,44 @@ fn forbidden_state_scan_skips_comments_and_requires_the_state_binder() {
         );
     }
 }
+
+/// h5ks: a law-kind predicate is outside the fragment surface — its cell
+/// is the law-case grammar (the `**identity:**`/`**associativity:**`
+/// enumeration plus per-case bodies), never one executable fragment, so
+/// even a body carrying a `**rust:**` fragment that cites only locals
+/// earns no `fragment_binds_nothing`. The exemption follows the ROW'S
+/// KIND, not the file: a unit-kind sibling in the same spec still warns,
+/// and the file-scoped summary names the unit row alone.
+#[test]
+fn law_predicate_fragment_is_outside_the_vacuity_surface() {
+    let spec = spec_at(
+        "---\nid: law.exempt\nkind: intent\nstatement: \"THE law SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c | invariant | `x` | [[law.exempt]] |\n\n## Model\n\n### States\n\n- held\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | held | held | [[law.exempt.c]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| pl | law | [[law.exempt.c]] | `g()` | **identity:** **associativity:** **identity::** `**rust:** v0.len() >= 1` **associativity::** `**rust:** f(f(a)) == f(a)` |\n| pu | unit | [[law.exempt.c]] | `g()` | `**rust:** score >= 0` |\n",
+        "law-exempt.md",
+    );
+    let report = lint_all(std::slice::from_ref(&spec), &[]);
+    assert!(
+        report.issues.is_empty(),
+        "the law-bodies fixture is issue-clean: {:?}",
+        report.issues
+    );
+    let bind_hits: Vec<&Issue> = report
+        .warnings
+        .iter()
+        .filter(|w| w.rule_id == FRAGMENT_BINDS_NOTHING)
+        .collect();
+    assert_eq!(
+        bind_hits.len(),
+        1,
+        "exactly one file-scoped summary, got {:?}",
+        report.warnings
+    );
+    let summary = bind_hits[0].message.as_str();
+    assert!(
+        summary.contains("`pu`"),
+        "the unit-kind sibling still binds nothing and is named: {summary}"
+    );
+    assert!(
+        !summary.contains("`pl`"),
+        "the law-kind row's **rust:** bodies are outside the vacuity surface: {summary}"
+    );
+}

@@ -64,7 +64,7 @@ fn every_property_row_generator_resolves_to_a_fixture() {
     // generator's own name (a placeholder input).
     let text = std::fs::read_to_string(COMPILE_SPEC).unwrap_p();
     let spec = parse_str(&text).unwrap_p();
-    assert_eq!(spec.properties.len(), 35, "the compile file's 35 rows");
+    assert_eq!(spec.properties.len(), 39, "the compile file's 39 rows");
     let mut missing: Vec<String> = vec![];
     for row in &spec.properties {
         let cell = row.cells.get("generator").cloned().unwrap_or_default();

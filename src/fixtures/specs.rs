@@ -967,6 +967,33 @@ fn spec_text_with_header(
     text
 }
 
+/// A byte-clean single-file input whose filename stem is `id` — the
+/// materialized shape the compile stem rows name (collision pair member,
+/// distinct-stem member, repeated path argument).
+fn spec_file_named(id: &str) -> String {
+    let constraint = format!("| c1 | invariant | `the fixture holds` | [[{id}]] |");
+    let statement = format!("THE {id} SHALL hold");
+    spec_text(
+        id,
+        &statement,
+        &[&constraint],
+        &["- s1", "- s2"],
+        &[("t1", "s1", "s2", "[[c1]]")],
+        &[("p1", "unit", "[[c1]]", "`fx()`", "`the fixture holds`")],
+        "",
+    )
+}
+
+/// The collision pair's first member: a spec file named `pipeline.md`.
+fn spec_file_named_pipeline() -> String {
+    spec_file_named("pipeline")
+}
+
+/// The distinct-stem / repeated-path member: a spec file named `alpha.md`.
+fn spec_file_named_alpha() -> String {
+    spec_file_named("alpha")
+}
+
 // -----------------------------------------------------------------
 // The registry
 // -----------------------------------------------------------------
@@ -983,6 +1010,8 @@ fn spec_text_with_header(
 type Entry = (&'static str, fn() -> String);
 
 const REGISTRY: &[Entry] = &[
+    ("spec_file_named_pipeline", spec_file_named_pipeline),
+    ("spec_file_named_alpha", spec_file_named_alpha),
     ("specodelic_spec_file", base),
     ("specodelic_spec_repo", renameable),
     ("specodelic_rename_id", rename_target_id),

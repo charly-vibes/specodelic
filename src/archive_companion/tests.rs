@@ -280,6 +280,58 @@ fn restore_keeps_real_deployed_purpose_over_delta_purpose() {
 }
 
 #[test]
+fn restore_leaves_the_deployed_text_unchanged_when_the_delta_has_no_purpose() {
+    // The archived delta carries NO `## Purpose` section, so there is no
+    // prose to repair the archiver placeholder with. A companion rerun
+    // must succeed and leave the deployed spec byte-identical — the
+    // placeholder stands, nothing drifts, nothing crashes.
+    let no_purpose_delta = concat!(
+        "## ADDED Requirements\n\n",
+        "### Requirement: One holds\nThe system SHALL hold one.\n\n",
+        "#### Scenario: One\n- **WHEN** x\n- **THEN** y\n"
+    );
+    let root = tree_owned(&[
+        (
+            "openspec/changes/archive/2026-10-01-nopurpose/specs/c/spec.md".to_string(),
+            no_purpose_delta,
+        ),
+        (
+            "openspec/changes/archive/2026-10-01-nopurpose/specs/c/layer.md".to_string(),
+            SIDECAR,
+        ),
+        // the deployed spec openspec's archive applied from that delta
+        ("openspec/specs/c/spec.md".to_string(), PLACEHOLDER_DEPLOY),
+    ]);
+    let archive = resolve_archive_dir(root.path(), "nopurpose").unwrap_p();
+
+    // the deployed head openspec's archive applied (heading + the
+    // archiver placeholder) — the bytes a no-Purpose delta must not move
+    let pre_head = PLACEHOLDER_DEPLOY
+        .split("## Requirements")
+        .next()
+        .unwrap_p()
+        .trim();
+
+    // run 1: the layer attaches; the head keeps the placeholder because
+    // the archived delta offers no Purpose prose to replace it with
+    restore(root.path(), &archive).unwrap_p();
+    let deployed_path = root.path().join("openspec/specs/c/spec.md");
+    let before = fs::read_to_string(&deployed_path).unwrap_p();
+    assert!(
+        before.contains(pre_head),
+        "the deployed head must be untouched when the delta has no Purpose: {before}"
+    );
+
+    // rerun: no crash, no drift — the deployed bytes are left as they are
+    restore(root.path(), &archive).unwrap_p();
+    let after = fs::read_to_string(&deployed_path).unwrap_p();
+    assert_eq!(
+        after, before,
+        "a delta without Purpose must leave the deployed text byte-identical"
+    );
+}
+
+#[test]
 fn restore_new_capability_deploys_from_sidecar_tables() {
     // a cap with no pre-existing deployed spec at attach time: the
     // assembly is the sidecar layer alone (defensive; openspec's apply
