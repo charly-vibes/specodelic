@@ -1,0 +1,9 @@
+id = "scope-digest-hashes-routed-modules"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "verify_stage_artifact_paths_route_duplicate_stems_per_file"

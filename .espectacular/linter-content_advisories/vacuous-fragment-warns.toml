@@ -1,0 +1,9 @@
+id = "vacuous-fragment-warns"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "fragment_citing_no_model_element_warns_binds_nothing"

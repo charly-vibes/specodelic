@@ -67,6 +67,22 @@ pub mod spec_gen {
     pub fn docs_built_for_a_release() -> impl Strategy<Value = String> {
         Just("docs_built_for_a_release".into())
     }
+
+    pub fn duplicate_stem_corpus_with_no_reports_on_disk() -> impl Strategy<Value = String> {
+        Just("duplicate_stem_corpus_with_no_reports_on_disk".into())
+    }
+
+    pub fn duplicate_stem_corpus_with_reports_and_no_modules() -> impl Strategy<Value = String> {
+        Just("duplicate_stem_corpus_with_reports_and_no_modules".into())
+    }
+
+    pub fn duplicate_stem_pair_with_one_side_compiled() -> impl Strategy<Value = String> {
+        Just("duplicate_stem_pair_with_one_side_compiled".into())
+    }
+
+    pub fn corpus_with_distinct_artifact_stems() -> impl Strategy<Value = String> {
+        Just("corpus_with_distinct_artifact_stems".into())
+    }
 }
 
 proptest! {
@@ -209,5 +225,33 @@ proptest! {
     #[test]
     fn properties_scope_isolated(v0 in spec_gen::run_with()) {
         todo_predicate!("`the scoped verdict reports properties_failed exactly when a compiled block failed ∧ a missing or stale model run never produces it ∧ the scoped verdict never reports verified`");
+    }
+    // id: duplicate_stems_resolve_own_report
+    // generator: `duplicate_stem_corpus_with_no_reports_on_disk()`
+    // predicate: `the model gate names its OWN routed <stem>.check.json ∧ never the flat path`
+    #[test]
+    fn duplicate_stems_resolve_own_report(v0 in spec_gen::duplicate_stem_corpus_with_no_reports_on_disk()) {
+        todo_predicate!("`the model gate names its OWN routed <stem>.check.json ∧ never the flat path`");
+    }
+    // id: scope_digest_reads_routed_modules
+    // generator: `duplicate_stem_corpus_with_reports_and_no_modules()`
+    // predicate: `the scope digest names the first ROUTED <stem>.tla ∧ never the flat <stem>.tla`
+    #[test]
+    fn scope_digest_reads_routed_modules(v0 in spec_gen::duplicate_stem_corpus_with_reports_and_no_modules()) {
+        todo_predicate!("`the scope digest names the first ROUTED <stem>.tla ∧ never the flat <stem>.tla`");
+    }
+    // id: sibling_artifacts_never_satisfy
+    // generator: `duplicate_stem_pair_with_one_side_compiled()`
+    // predicate: `the uncompiled file's gates stay missing/stale — sibling artifacts never satisfy them`
+    #[test]
+    fn sibling_artifacts_never_satisfy(v0 in spec_gen::duplicate_stem_pair_with_one_side_compiled()) {
+        todo_predicate!("`the uncompiled file's gates stay missing/stale — sibling artifacts never satisfy them`");
+    }
+    // id: unique_stem_paths_flat
+    // generator: `corpus_with_distinct_artifact_stems()`
+    // predicate: `paths == <out_dir>/<stem>_props.rs ∧ <out_dir>/<stem>.check.json ∧ <out_dir>/<stem>.tla`
+    #[test]
+    fn unique_stem_paths_flat(v0 in spec_gen::corpus_with_distinct_artifact_stems()) {
+        todo_predicate!("`paths == <out_dir>/<stem>_props.rs ∧ <out_dir>/<stem>.check.json ∧ <out_dir>/<stem>.tla`");
     }
 }

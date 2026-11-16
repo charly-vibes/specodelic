@@ -1,0 +1,9 @@
+id = "narrow-state-surface"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "forbidden_state_scan_skips_comments_and_requires_the_state_binder"

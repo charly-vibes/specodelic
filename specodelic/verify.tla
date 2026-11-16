@@ -6,7 +6,7 @@
 \* No executable invariant fragments (Revision 15).
 
 \* Each State becomes a value in the state variable's range.
-StateValues == {"not_run", "running", "properties_evaluated", "verified", "failed"}
+StateValues == {"not_run", "routed", "running", "properties_evaluated", "verified", "failed"}
 
 VARIABLES vpc   \* the state variable (program counter)
 
@@ -18,8 +18,10 @@ TypeOK == vpc \in StateValues
 Init == vpc = "not_run"
 
 Next ==
-  \* begin: not_run -> running (guard: [[verify.blocks_run_to_completion]])
-  \/ vpc = "not_run" /\ vpc' = "running"
+  \* route: not_run -> routed (guard: [[verify.routed_artifact_resolution]] ∧ [[verify.unique_stem_layout_stable]])
+  \/ vpc = "not_run" /\ vpc' = "routed"
+  \* begin: routed -> running (guard: [[verify.blocks_run_to_completion]])
+  \/ vpc = "routed" /\ vpc' = "running"
   \* evaluate: running -> properties_evaluated (guard: `every compiled proptest! block has recorded pass or fail`)
   \/ vpc = "running" /\ vpc' = "properties_evaluated"
   \* accept: properties_evaluated -> verified (guard: [[verify.both_gates_required]] ∧ [[verify.properties_pass_reflects_latest_run]] ∧ [[verify.law_cases_unexecuted]] ∧ [[verify.required_claims_govern_acceptance]] ∧ [[verify.evidence_scope_bound]])
@@ -33,6 +35,6 @@ Next ==
 \* One entry per state with an `emits` field — domain is exactly
 \* the emitting states; each value is the effect-Constraint's expr.
 Output ==
-"failed" :> "`verify.verification_failure(detail)`"
+"failed" :> "`verify.verification_failure(detail) — the verification stage failed because detail; the failure rides the errors capability's published error contract (envelope kind, exit code, remediation hint)`"
 
 ============================================================================

@@ -1,0 +1,9 @@
+id = "expected-forbidden-agrees-with-the-oracle"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "conform_expected_forbidden_is_an_agreement_exit_0"

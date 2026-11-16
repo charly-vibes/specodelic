@@ -23,12 +23,15 @@ results, fragment/claim bindings, and prior audit reports.
 | binds_respect_sparse | invariant | `binds_nothing requires that the fragment or claim cites no declared model element — legitimately sparse models with declared elements are never flagged` | [[audit]] |
 | rung_derived      | invariant | `the summary's ladder rung is derived at report time from evidence actually present and never exceeds it — a rung without its evidence is impossible` | [[audit]] |
 | read_only         | invariant | `audit compiles nothing, writes no artifacts, and advances no lifecycle transition — refusal on ungated inputs is labeled with a remediation hint` | [[audit]] |
+| row_keys_unique | invariant | `the merged report carries no two rows with the same scenario_id: when a FOLDED row (bind:<owner-id>, pack:<pack_id>:<subject_id>) collides with a key already present, the folded row takes the first free ~<n> suffix (~2, ~3, …) while the oracle row keeps its corpus id verbatim; both rows survive with their own classes, so the prior diff's scenario_id lookup can never silently pick one and drop the other` | [[audit]] |
+| disambiguation_deterministic | invariant | `folded-row disambiguation is a pure function of the corpus rows — no counter, random state, or map-iteration order — so repeated assembly over identical inputs yields identical keys and byte-identical serialization, and a renamed row keeps its class: advisory rows stay advisory and the exit contract is untouched` | [[audit]] |
 
 ## Model
 
 ### States
 - `gated`
 - `classified`
+- `merged`
 - `diffed`
 - `reported`
 
@@ -37,7 +40,8 @@ results, fragment/claim bindings, and prior audit reports.
 | id        | from       | to         | guard                                                        |
 |-----------|------------|------------|--------------------------------------------------------------|
 | classify  | gated      | classified | [[audit.reuse_walk]] ∧ [[audit.closed_classes]]   |
-| diff      | classified | diffed     | [[audit.digest_bound_diff]]                             |
+| merge     | classified | merged     | [[audit.row_keys_unique]] ∧ [[audit.disambiguation_deterministic]]   |
+| diff      | merged     | diffed     | [[audit.digest_bound_diff]]                             |
 | report    | diffed     | reported   | [[audit.rung_derived]] ∧ [[audit.honesty_channels]] ∧ [[audit.read_only]] |
 
 ## Properties
@@ -51,6 +55,9 @@ results, fragment/claim bindings, and prior audit reports.
 | p_rung        | unit | [[audit.rung_derived]]        | `arbitrary_evidence_mix()`   | `rung == highest evidence-backed rung ∧ never exceeds it`     |
 | p_read_only   | unit | [[audit.read_only]]           | `ungated_input()`            | `labeled refusal ∧ corpus byte-identical ∧ zero records`      |
 | p_walk_reuse  | unit | [[audit.reuse_walk]]          | `arbitrary_classification_run()` | `audit classes match a conform-walk oracle reference run` |
+| p_unique_keys | unit | [[audit.row_keys_unique]] | `oracle_id_spelled_like_a_bind_row_key()` | `the oracle row keeps the corpus id verbatim ∧ the folded row is <id>~2 ∧ no two merged rows share a scenario_id` |
+| p_rows_survive | unit | [[audit.row_keys_unique]] | `merged_report_with_a_cross_kind_key_collision()` | `both rows survive with their own classes ∧ the renamed row stays advisory` |
+| p_deterministic | unit | [[audit.disambiguation_deterministic]] | `same_corpus_folded_twice()` | `merged keys are equal across runs — no counter or random suffix` |
 
 ## Requirements
 
@@ -133,3 +140,55 @@ outputs — never exceeding the evidence actually present.
 
 - **WHEN** no audit, conform, or verify evidence exists for a file
 - **THEN** its reported rung is 1 (lint-clean at most), stated as such
+
+### Requirement: Merged evidence row keys are unique
+
+The merged audit report SHALL never carry two rows with the same
+`scenario_id`: when a FOLDED row (`bind:<owner-id>` or
+`pack:<pack_id>:<subject_id>`) collides with a key already present — an oracle
+row whose corpus id is spelled exactly like a folded key included — the folded
+row SHALL take the first free `~<n>` suffix while the row already present
+keeps its id, both rows SHALL survive with their own classes and counts, and
+the exit contract SHALL be unchanged.
+
+#### Scenario: Oracle id spelled like a bind row key
+
+- **WHEN** an oracle corpus id equals a folded bind row's key
+  (`bind:locked`)
+- **THEN** the oracle row keeps `bind:locked` with its oracle class, the
+  folded row is emitted as `bind:locked~2` with class `binds_nothing`,
+  and both rows are present in the report
+
+#### Scenario: A pack row collision follows the same rule
+
+- **WHEN** a folded pack row's key collides with a key already in the
+  report
+- **THEN** the pack row takes the first free `~<n>` suffix and the row
+  already present keeps its id — no row is dropped or merged
+
+#### Scenario: No duplicate ids survive the merge
+
+- **WHEN** any folded row collides with an existing row key
+- **THEN** the merged report carries no duplicate `scenario_id`, so the
+  prior-report diff's `scenario_id` lookup always addresses exactly one
+  row
+
+### Requirement: Disambiguation is deterministic
+
+Folded-row disambiguation SHALL be a pure function of the corpus rows —
+no counters, random state, or map-iteration order — so repeated assembly
+over identical inputs yields identical keys and byte-identical
+serialization, and a `--before` diff keeps matching every oracle row by
+its recorded corpus id.
+
+#### Scenario: Same corpus merges to the same keys
+
+- **WHEN** the same oracle and folded rows are merged twice
+- **THEN** the two merged reports carry identical `scenario_id` sequences
+
+#### Scenario: Oracle evidence is never renamed
+
+- **WHEN** a suffix is assigned in a collision
+- **THEN** only the folded row is renamed; every oracle row keeps its
+  corpus id, so diffing against evidence recorded in a prior report still
+  resolves

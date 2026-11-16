@@ -1,0 +1,9 @@
+id = "family-partition"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "catalog_covers_every_rule_the_linter_can_emit"

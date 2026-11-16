@@ -1,0 +1,9 @@
+id = "law-predicate-not-judged"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "law_predicate_fragment_is_outside_the_vacuity_surface"

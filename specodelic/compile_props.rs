@@ -243,6 +243,20 @@ pub mod spec_gen {
                 ),
         )
     }
+
+    pub fn spec_file_named_pipeline() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("spec_file_named_pipeline")
+                .expect("the spec_file_named_pipeline fixture materializes"),
+        )
+    }
+
+    pub fn spec_file_named_alpha() -> impl Strategy<Value = String> {
+        Just(
+            specodelic::fixtures::materialize("spec_file_named_alpha")
+                .expect("the spec_file_named_alpha fixture materializes"),
+        )
+    }
 }
 
 proptest! {
@@ -594,6 +608,46 @@ proptest! {
         assert!(
             { let spec = specodelic::spec::parse_str(&v0).expect("the materialized fixture parses"); let report = specodelic::lint::lint_corpus(std::slice::from_ref(&spec)); report.issues.len() == 0 },
             "predicate `fragments_section_lints_clean_p` violated (executable fragment)",
+        );
+    }
+    // id: duplicate_stem_refused
+    // generator: `spec_file_named_pipeline()`
+    // predicate: `**rust:** { let a = specodelic::fixtures::specs::materialize("spec_file_named_pipeline").expect("fixture"); let mut sa = specodelic::spec::parse_str(&a).expect("parses"); sa.path = Some(std::path::PathBuf::from("/corpus/a/pipeline.md")); let mut sb = specodelic::spec::parse_str(&a).expect("parses"); sb.path = Some(std::path::PathBuf::from("/corpus/b/pipeline.md")); match specodelic::compile::artifact_stem_collision(&[sa, sb]) { Some((msg, hint)) => msg.contains("duplicate_artifact_stem") && msg.contains("/corpus/a/pipeline.md") && msg.contains("/corpus/b/pipeline.md") && hint.contains("rename"), None => false } }`
+    #[test]
+    fn duplicate_stem_refused(v0 in spec_gen::spec_file_named_pipeline()) {
+        assert!(
+            { let a = specodelic::fixtures::specs::materialize("spec_file_named_pipeline").expect("fixture"); let mut sa = specodelic::spec::parse_str(&a).expect("parses"); sa.path = Some(std::path::PathBuf::from("/corpus/a/pipeline.md")); let mut sb = specodelic::spec::parse_str(&a).expect("parses"); sb.path = Some(std::path::PathBuf::from("/corpus/b/pipeline.md")); match specodelic::compile::artifact_stem_collision(&[sa, sb]) { Some((msg, hint)) => msg.contains("duplicate_artifact_stem") && msg.contains("/corpus/a/pipeline.md") && msg.contains("/corpus/b/pipeline.md") && hint.contains("rename"), None => false } },
+            "predicate `duplicate_stem_refused` violated (executable fragment)",
+        );
+    }
+    // id: unique_stems_compile
+    // generator: `spec_file_named_alpha()`
+    // predicate: `**rust:** { let a = specodelic::fixtures::specs::materialize("spec_file_named_pipeline").expect("fixture"); let b = specodelic::fixtures::specs::materialize("spec_file_named_alpha").expect("fixture"); let mut sa = specodelic::spec::parse_str(&a).expect("parses"); sa.path = Some(std::path::PathBuf::from("/corpus/a/pipeline.md")); let mut sb = specodelic::spec::parse_str(&b).expect("parses"); sb.path = Some(std::path::PathBuf::from("/corpus/b/alpha.md")); specodelic::compile::artifact_stem_collision(&[sa, sb]).is_none() }`
+    #[test]
+    fn unique_stems_compile(v0 in spec_gen::spec_file_named_alpha()) {
+        assert!(
+            { let a = specodelic::fixtures::specs::materialize("spec_file_named_pipeline").expect("fixture"); let b = specodelic::fixtures::specs::materialize("spec_file_named_alpha").expect("fixture"); let mut sa = specodelic::spec::parse_str(&a).expect("parses"); sa.path = Some(std::path::PathBuf::from("/corpus/a/pipeline.md")); let mut sb = specodelic::spec::parse_str(&b).expect("parses"); sb.path = Some(std::path::PathBuf::from("/corpus/b/alpha.md")); specodelic::compile::artifact_stem_collision(&[sa, sb]).is_none() },
+            "predicate `unique_stems_compile` violated (executable fragment)",
+        );
+    }
+    // id: repeated_path_is_one_file
+    // generator: `spec_file_named_alpha()`
+    // predicate: `**rust:** { let a = specodelic::fixtures::specs::materialize("spec_file_named_alpha").expect("fixture"); let mut sa = specodelic::spec::parse_str(&a).expect("parses"); sa.path = Some(std::path::PathBuf::from("/corpus/alpha.md")); let mut sb = specodelic::spec::parse_str(&a).expect("parses"); sb.path = Some(std::path::PathBuf::from("/corpus/alpha.md")); specodelic::compile::artifact_stem_collision(&[sa, sb]).is_none() }`
+    #[test]
+    fn repeated_path_is_one_file(v0 in spec_gen::spec_file_named_alpha()) {
+        assert!(
+            { let a = specodelic::fixtures::specs::materialize("spec_file_named_alpha").expect("fixture"); let mut sa = specodelic::spec::parse_str(&a).expect("parses"); sa.path = Some(std::path::PathBuf::from("/corpus/alpha.md")); let mut sb = specodelic::spec::parse_str(&a).expect("parses"); sb.path = Some(std::path::PathBuf::from("/corpus/alpha.md")); specodelic::compile::artifact_stem_collision(&[sa, sb]).is_none() },
+            "predicate `repeated_path_is_one_file` violated (executable fragment)",
+        );
+    }
+    // id: refusal_names_label_and_remediation
+    // generator: `spec_file_named_pipeline()`
+    // predicate: `**rust:** { let a = specodelic::fixtures::specs::materialize("spec_file_named_pipeline").expect("fixture"); let mut sa = specodelic::spec::parse_str(&a).expect("parses"); sa.path = Some(std::path::PathBuf::from("/corpus/a/pipeline.md")); let mut sb = specodelic::spec::parse_str(&a).expect("parses"); sb.path = Some(std::path::PathBuf::from("/corpus/b/pipeline.md")); match specodelic::compile::artifact_stem_collision(&[sa, sb]) { Some((msg, hint)) => msg.contains("duplicate_artifact_stem") && msg.contains("/corpus/a/pipeline.md") && msg.contains("/corpus/b/pipeline.md") && hint.contains("rename"), None => false } }`
+    #[test]
+    fn refusal_names_label_and_remediation(v0 in spec_gen::spec_file_named_pipeline()) {
+        assert!(
+            { let a = specodelic::fixtures::specs::materialize("spec_file_named_pipeline").expect("fixture"); let mut sa = specodelic::spec::parse_str(&a).expect("parses"); sa.path = Some(std::path::PathBuf::from("/corpus/a/pipeline.md")); let mut sb = specodelic::spec::parse_str(&a).expect("parses"); sb.path = Some(std::path::PathBuf::from("/corpus/b/pipeline.md")); match specodelic::compile::artifact_stem_collision(&[sa, sb]) { Some((msg, hint)) => msg.contains("duplicate_artifact_stem") && msg.contains("/corpus/a/pipeline.md") && msg.contains("/corpus/b/pipeline.md") && hint.contains("rename"), None => false } },
+            "predicate `refusal_names_label_and_remediation` violated (executable fragment)",
         );
     }
 }

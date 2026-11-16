@@ -1,0 +1,9 @@
+id = "whole-token-citation"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "citation_proxy_ignores_literals_comments_and_short_ids"

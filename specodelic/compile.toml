@@ -51,13 +51,13 @@ traces_to = "[[compile]]"
 [[constraints]]
 id = "fragment_language_closed"
 kind = "invariant"
-expr = "`the executable-fragment tag set is closed: a cell in fragment position may carry exactly one **rust:**, **py:**, or **ts:** marker per the grammar below — one per cell, except a law-kind Property row's predicate cell, which carries one marker per named case (specodelic.md Revision 21) — the same closed-set discipline as [[specodelic.property_kind_closed]] and [[specodelic.constraint_kind_closed]]; the fragment-position rule and the non-empty-fragment requirement carry over verbatim per tag, and **rust:** remains the fully specified case with byte-identical semantics (widening [[compile.predicate_fragment_opt_in]]/[[compile.invariant_fragment_opt_in]]'s grammar; [[specodelic-lf3]] Revision 16)`"
+expr = "`the executable-fragment tag set is closed: a cell in fragment position may carry exactly one **rust:**, **py:**, or **ts:** marker per the grammar below — one per cell, except a law-kind Property row's predicate cell, which carries one marker per named case (specodelic.md Revision 21) — the same closed-set discipline as [[specodelic.property_kind_closed]] and [[specodelic.constraint_kind_closed]]; the fragment-position rule and the non-empty-fragment requirement carry over verbatim per tag, and **rust:** remains the fully specified case with byte-identical semantics (widening [[compile.predicate_fragment_opt_in]]/[[compile.invariant_fragment_opt_in]]'s grammar; specodelic-lf3 Revision 16)`"
 traces_to = "[[compile]]"
 
 [[constraints]]
 id = "unknown_tag_rejected"
 kind = "invariant"
-expr = "`a marker in fragment position whose tag is not in the closed set — **go:**, **java:**, any non-member — is a labeled extraction failure naming the unknown tag and the closed set, never a silently ignored marker (sd1's no-silent-markers discipline carried into the widened grammar; [[specodelic-lf3]] Revision 16)`"
+expr = "`a marker in fragment position whose tag is not in the closed set — **go:**, **java:**, any non-member — is a labeled extraction failure naming the unknown tag and the closed set, never a silently ignored marker (sd1's no-silent-markers discipline carried into the widened grammar; specodelic-lf3 Revision 16)`"
 traces_to = "[[compile]]"
 
 [[constraints]]
@@ -75,19 +75,19 @@ traces_to = "[[compile]]"
 [[constraints]]
 id = "rust_back_compat"
 kind = "invariant"
-expr = "`every cell that extracted a **rust:** fragment under Revision 15's grammar extracts a byte-identical fragment under the widened grammar, and a cell without any marker compiles exactly as before — pure widening, nothing valid at Revision 15 is invalidated ([[specodelic-lf3]] Revision 16)`"
+expr = "`every cell that extracted a **rust:** fragment under Revision 15's grammar extracts a byte-identical fragment under the widened grammar, and a cell without any marker compiles exactly as before — pure widening, nothing valid at Revision 15 is invalidated (specodelic-lf3 Revision 16)`"
 traces_to = "[[compile]]"
 
 [[constraints]]
 id = "no_emitter_labeled_failure"
 kind = "invariant"
-expr = "`a **py:** or **ts:** fragment in fragment position fails compile labeled, with a remediation hint naming the per-language emitter follow-up — executable emission for those languages is deferred of record ([[specodelic-lf3]] Revision 16, follow-ups add-py-fragment-emission/add-ts-fragment-emission); an accepted tag without an emitter would silently fall through to Rust, the vacuous outcome the closed set exists to prevent`"
+expr = "`a **py:** or **ts:** fragment in fragment position fails compile labeled, with a remediation hint naming the per-language emitter follow-up — executable emission for those languages is deferred of record (specodelic-lf3 Revision 16, follow-ups add-py-fragment-emission/add-ts-fragment-emission); an accepted tag without an emitter would silently fall through to Rust, the vacuous outcome the closed set exists to prevent`"
 traces_to = "[[compile]]"
 
 [[constraints]]
 id = "mention_not_extraction"
 kind = "invariant"
-expr = "`a **rust:**/**py:**/**ts:** occurrence anywhere other than fragment position — mid-span, as in the defining rows of this very table, or in prose between spans — is a mention of the mechanism and never extracts (sd1's rule carried into the widened grammar; [[specodelic-lf3]] Revision 16)`"
+expr = "`a **rust:**/**py:**/**ts:** occurrence anywhere other than fragment position — mid-span, as in the defining rows of this very table, or in prose between spans — is a mention of the mechanism and never extracts (sd1's rule carried into the widened grammar; specodelic-lf3 Revision 16)`"
 traces_to = "[[compile]]"
 
 [[constraints]]
@@ -115,15 +115,27 @@ expr = "`re-parsing a compiled artifact and re-emitting it yields output identic
 traces_to = "[[compile]]"
 
 [[constraints]]
+id = "artifact_stem_unique"
+kind = "invariant"
+expr = "`∀ literal compile invocation: two distinct collected files never produce one artifact stem — a corpus whose files collide is refused up front with the label duplicate_artifact_stem, naming both colliding file paths and a remediation hint, before lint, before every artifact write, and before the out-dir exists; a corpus whose stems are unique compiles unchanged, and one path collected twice (repeated argument or overlapping roots) is one file with one artifact set, never a collision`"
+traces_to = "[[compile]]"
+
+[[constraints]]
+id = "scope_refusal_envelope"
+kind = "invariant"
+expr = "`a duplicate-stem refusal rides the error envelope: the label names both colliding files, the remediation hint names the escape (rename one file or compile in separate --out-dir runs), exit is 2, zero artifacts are reported or written, and every parse/hostile-input note collected while building the corpus is re-attached to the refusal envelope — an early refusal never swallows a skipped file's note`"
+traces_to = "[[compile]]"
+
+[[constraints]]
 id = "extraction_failure"
 kind = "effect"
-expr = "`compile.extraction_failure(row_id, reason) — the extraction stage failed on row row_id because reason`"
+expr = "`compile.extraction_failure(row_id, reason) — the extraction stage failed on row row_id because reason; the failure rides the errors capability's published error contract (envelope kind, exit code, remediation hint)`"
 traces_to = "[[compile]]"
 
 [[constraints]]
 id = "emission_failure"
 kind = "effect"
-expr = "`compile.emission_failure(detail) — the emission stage failed because detail`"
+expr = "`compile.emission_failure(detail) — the emission stage failed because detail; the failure rides the errors capability's published error contract (envelope kind, exit code, remediation hint)`"
 traces_to = "[[compile]]"
 
 [[constraints]]

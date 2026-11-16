@@ -1,0 +1,9 @@
+id = "placeholder-replaced-on-rerun"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "restore_replaces_archiver_placeholder_with_delta_purpose"

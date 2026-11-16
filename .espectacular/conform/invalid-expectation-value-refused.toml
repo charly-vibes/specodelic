@@ -1,0 +1,9 @@
+id = "invalid-expectation-value-refused"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "invalid_expect_value_refused_with_remediation"

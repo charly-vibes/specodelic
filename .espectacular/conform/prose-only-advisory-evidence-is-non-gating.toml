@@ -1,0 +1,9 @@
+id = "prose-only-advisory-evidence-is-non-gating"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "prose_advisory_never_counts_as_a_failing_verdict"

@@ -1,0 +1,9 @@
+id = "no-duplicate-ids-survive-the-merge"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "oracle_row_id_colliding_with_a_bind_row_key_never_duplicates_scenario_ids"

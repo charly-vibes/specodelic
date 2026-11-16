@@ -1,0 +1,9 @@
+id = "unique-stems-compile-unchanged"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "distinct_artifact_stems_compile_every_file_with_exit_0"

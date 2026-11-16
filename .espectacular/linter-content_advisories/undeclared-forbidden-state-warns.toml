@@ -1,0 +1,9 @@
+id = "undeclared-forbidden-state-warns"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "invariant_citing_undeclared_forbidden_state_warns"

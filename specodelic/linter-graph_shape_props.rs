@@ -94,10 +94,10 @@ proptest! {
     }
     // id: derives_from_edges_property_sourced
     // generator: `spec_repo_with(constraint_row_carrying_derives_from: true)`
-    // predicate: `check(repo) == failed` — the malformed edge is typing's finding (the graph layer reports it and records no edge), so it joins no acyclic edge set; the invariant and the checker now agree on the same closed edge set (specodelic-huf)
+    // predicate: `check(repo) == failed` — the malformed edge is typing's finding (the graph layer reports it and records no edge), so it is not recorded in the acyclic edge set; the invariant and the checker now agree on the same closed edge set (specodelic-huf)
     #[test]
     fn derives_from_edges_property_sourced(v0 in spec_gen::spec_repo_with()) {
-        todo_predicate!("`check(repo) == failed` — the malformed edge is typing's finding (the graph layer reports it and records no edge), so it joins no acyclic edge set; the invariant and the checker now agree on the same closed edge set (specodelic-huf)");
+        todo_predicate!("`check(repo) == failed` — the malformed edge is typing's finding (the graph layer reports it and records no edge), so it is not recorded in the acyclic edge set; the invariant and the checker now agree on the same closed edge set (specodelic-huf)");
     }
     // id: topo_sort_naturality
     // case: identity

@@ -53,7 +53,7 @@ specodelic-54c6); the specification and layer do not describe it yet.
       `placeholder-repaired-on-rerun` → `restore_replaces_archiver_placeholder_with_delta_purpose`;
       `real-deployed-prose-preserved` → `restore_keeps_real_deployed_purpose_over_delta_purpose`;
       `delta-without-purpose-changes-nothing` →
-      `restore_assembles_dual_format_from_sidecar_and_applied_spec`.
+      `restore_leaves_the_deployed_text_unchanged_when_the_delta_has_no_purpose`.
 - [ ] 2.4 Deploy through the companion — `just archive-change
       id=harden-archive-companion` — so the deployed
       `openspec/specs/archive-companion/spec.md` is openspec's applied

@@ -1,7 +1,7 @@
 ---
 id: conform
 kind: intent
-statement: "WHEN conform runs against a lint-clean spec file with current compiled artifacts and an external scenario corpus, THE capability SHALL classify each oracle trace with a verdict from the closed taxonomy, SHALL forbid positively-contradicted traces in any invocation mode while reserving closed-world-declared forbidden for uncovered traces, SHALL keep underspecified, unknown, and unsupported distinct with reasons, and SHALL emit a scope-bound, deterministic report that never treats uninterpreted prose as checked or agreement on the corpus as behavioral equality."
+statement: "WHEN an oracle scenario record optionally declares `expect: forbidden` and conform classifies its trace, THE conform capability SHALL echo the declaration and its met or unmet outcome in the verdict record, SHALL account met expectations as non-gating agreement-tier evidence while keeping the mechanical verdict, SHALL account unmet expectations in the hard forbidden bucket so the run exits 1, SHALL preserve unchanged semantics for undeclared records, and SHALL account prose-only advisory records separately so they never gate."
 ---
 
 # conform Specification
@@ -21,53 +21,41 @@ declared scope.
 
 ## Constraints
 
-| id                            | kind      | expr                                                                                                                                                                                                                                                | traces_to    |
-|-------------------------------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
-| read_only_evaluation          | invariant | `conform consumes the parsed/linted/compiled spec artifacts and the scenario corpus as given; it never writes spec files, never generates or records traces, and never implements the domain system`                                                 | [[conform]]  |
-| closed_world_gated            | invariant | `forbidden verdicts come from exactly two rules, both recorded in the verdict record: a trace that violates a declared executable claim is forbidden in any invocation mode (the same fact model_check reports as counterexample_found); a trace no declared Model element or claim covers is forbidden only under an explicitly declared closed-world mode (--closed-world) and is underspecified in the default open-world mode — absence of coverage alone is never forbidden without the declaration` | [[conform]]  |
-| verdict_taxonomy_distinct     | invariant | `every trace receives exactly one verdict from the closed set {permitted, forbidden, underspecified, unknown, unsupported}: underspecified (no declared claim or Model element covers the trace) ≠ unknown (a claim covers it but is not interpretable) ≠ unsupported (the covering claim's evaluator kind is not executable in this run), each verdict record carrying its reason` | [[conform]]  |
-| prose_never_checked           | invariant | `verdicts derive only from structural Model facts and executable claims (kernel, rust: fragment, citation); a prose-only claim covering a trace contributes unknown with reasons — prose wording, a constraint's name, or a deriving Property never implies a permitted/forbidden judgment, mirroring required_claims_classified` | [[conform]]  |
-| verdict_report_schema         | invariant | `the run report declares its own conform-local report_schema_version, per-trace verdict records (scenario id, verdict, reason, evaluated claim ids, closed_world flag), an evidence_scope field stating agreement-on-corpus-not-equality, and a scope digest binding the parsed structured content and the consumed scenario corpus bytes — reordered CLI paths or prose edits preserve the digest, changed claims or scenarios never share one; re-running conform over unchanged inputs is byte-identical: verdict records sorted by scenario id, no timestamps, no iteration-order leakage` | [[conform]]  |
-| exit_code_verdict_mapping     | invariant | `exit 0 iff no verdict in the report is forbidden or unsupported; exit 1 iff any verdict is forbidden or unsupported; unknown and underspecified verdicts never affect the exit code and are surfaced with counts in both report views; invocation errors and gate refusals remain exit 2 without verdict records` | [[conform]]  |
-| artifact_gate                 | invariant | `conform runs only over a spec file that parses, lints clean, and has current compiled artifacts; an ungated invocation is refused with a remediation hint naming the failing stage — verdicts are never derived from stale or invalid artifacts`    | [[conform]]  |
-| lifecycle_outside             | invariant | `conform is an evaluation verb outside the artifact lifecycle: it never advances draft→parsed→linted→compiled→model_checked→verified, is never part of orchestrate, and a conform run never gates or blocks a lifecycle transition`                  | [[conform]]  |
+| id                       | kind      | expr                                                                                                                                                                                                                                                            | traces_to       |
+|--------------------------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------|
+| closed_expectation_schema | invariant | `the scenario schema accepts an optional expect drawn only from {forbidden}; an out-of-set value or an unknown field is a corpus_parse refusal naming the field, the closed set, and the one-JSON-object-per-line remediation — never a silent "no expectation"` | [[conform]] |
+| expectation_echoed       | invariant | `every verdict record echoes the declared expectation in expect and its qualification in expectation_met, both null when no declaration exists`                                                                                                                  | [[conform]] |
+| agreement_tier           | invariant | `a met expectation is counted in agreement_counts keyed by the verdict spelling, excluded from verdict_counts and from the forbidden + unsupported exit predicate, exits 0, and renders as the oracle agreeing`                                                  | [[conform]] |
+| unmet_gates              | invariant | `an unmet expectation keeps the mechanical verdict, leads its reason with the expectation_unmet marker, counts in the hard forbidden bucket, and exits 1`                                                                                                          | [[conform]] |
+| absence_preserved        | invariant | `records without expect keep their previous verdict, reason, count placement, gating, and rendering, differing only by the two new null fields`                                                                                                                  | [[conform]] |
+| advisory_non_gating      | invariant | `undeclared prose-only covering evidence keeps the closed unknown verdict, is marked advisory: true, counted in advisory_counts, excluded from verdict_counts and the exit predicate, and named non-gating in the human view`                                       | [[conform]] |
 
 ## Model
 
 ### States
-- `input_read`
-- `artifacts_gated`
-- `claims_classified`
-- `traces_classified`
+- `gated`
+- `classified`
+- `tiered`
 - `reported`
 
 ### Transitions
 
-| id               | from               | to                 | guard                                                                                                                        |
-|------------------|--------------------|--------------------|------------------------------------------------------------------------------------------------------------------------------|
-| gate_artifacts   | input_read         | artifacts_gated    | [[conform.artifact_gate]] ∧ `the target file parses, lints clean, and its compiled artifacts are current`                    |
-| classify_claims  | artifacts_gated    | claims_classified  | [[conform.prose_never_checked]] ∧ `each invariant claim is classified executable or prose-only with its evaluator kind`       |
-| classify_traces  | claims_classified  | traces_classified  | [[conform.verdict_taxonomy_distinct]] ∧ `every corpus trace has been assigned exactly one closed-taxonomy verdict with reason` |
-| emit_report      | traces_classified  | reported           | [[conform.verdict_report_schema]] ∧ `the report carries per-trace records, evidence_scope, and the scope digest`              |
+| id       | from       | to         | guard                                                                          |
+|----------|------------|------------|--------------------------------------------------------------------------------|
+| classify | gated      | classified | [[conform.closed_expectation_schema]] ∧ [[conform.expectation_echoed]] |
+| tier     | classified | tiered     | [[conform.agreement_tier]] ∧ [[conform.unmet_gates]]                |
+| report   | tiered     | reported   | [[conform.absence_preserved]] ∧ [[conform.advisory_non_gating]]    |
 
 ## Properties
 
-| id                              | kind | derives_from                          | generator                                        | predicate                                                                                                            |
-|---------------------------------|------|----------------------------------------|--------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
-| consumes_never_writes           | unit | [[conform.read_only_evaluation]]       | `conform_run_over_fixture_corpus()`              | `git status clean and spec bytes unchanged after the run — no artifact outside the report was written`                |
-| contradiction_forbidden_any_mode | unit | [[conform.closed_world_gated]]        | `contradicting_trace_without_closed_world()`     | `verdict == forbidden ∧ record.closed_world == false ∧ reason names the contradicted executable claim`                 |
-| closed_world_forbidden_recorded | unit | [[conform.closed_world_gated]]         | `uncovered_trace_with_closed_world()`            | `verdict == forbidden ∧ record.closed_world == true ∧ reason names the closed-world exhaustiveness declaration`        |
-| uncovered_trace_never_forbidden | unit | [[conform.closed_world_gated]]         | `uncovered_trace_without_closed_world()`         | `verdict == underspecified` — absence of coverage is never forbidden without the declaration                           |
-| taxonomy_is_total_and_distinct  | unit | [[conform.verdict_taxonomy_distinct]]  | `corpus_with_all_five_verdicts()`                | `each trace has exactly one verdict; all five values are reachable; no trace maps to two`                              |
-| prose_yields_unknown            | unit | [[conform.prose_never_checked]]        | `spec_with_prose_only_invariant()`               | `covering traces report unknown with reason naming the prose claim — never permitted/forbidden`                        |
-| unsupported_kind_named          | unit | [[conform.prose_never_checked]]        | `claim_with_unsupported_evaluator_kind()`        | `verdict == unsupported ∧ reason names the evaluator kind`                                                             |
-| report_schema_roundtrip         | unit | [[conform.verdict_report_schema]]      | `run_report_persisted_and_reread()`              | `report carries report_schema_version, per-trace records, evidence_scope, scope_sha256`                                |
-| digest_binds_scenarios          | unit | [[conform.verdict_report_schema]]      | `two_runs_differing_only_in_scenarios()`         | `different scenario bytes → different scope digest; identical inputs → identical digest`                               |
-| rerun_byte_identical            | unit | [[conform.verdict_report_schema]]      | `same_inputs_conformed_twice()`                  | `both reports byte-identical — records sorted by scenario id, no timestamps`                                           |
-| exit_codes_match_verdicts       | unit | [[conform.exit_code_verdict_mapping]]  | `reports_across_all_verdict_classes()`           | `exit code matches the mapping for each verdict-class composition`                                                     |
-| stale_artifacts_refused         | unit | [[conform.artifact_gate]]              | `spec_modified_after_compile()`                  | `invocation refused with remediation hint naming the stage — no verdict records emitted`                               |
-| lint_dirty_refused              | unit | [[conform.artifact_gate]]              | `spec_with_lint_findings()`                      | `invocation refused with hint to run spk lint — no verdict records emitted`                                            |
-| outside_lifecycle               | unit | [[conform.lifecycle_outside]]          | `orchestrate_run_with_conform_available()`       | `orchestrate never invokes conform; conform run leaves the artifact lifecycle stage unchanged`                         |
+| id         | kind | derives_from                                  | generator                     | predicate                                                                                                              |
+|------------|------|-----------------------------------------------|-------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| p_schema   | unit | [[conform.closed_expectation_schema]]   | `arbitrary_scenario_corpus()` | `invalid expect or unknown field ⇒ corpus_parse refusal naming field, closed set, and remediation; forbidden ⇒ parses`  |
+| p_echo     | unit | [[conform.expectation_echoed]]          | `arbitrary_declared_scenario()` | `record.expect equals the declaration ∧ record.expectation_met equals the verdict match`                              |
+| p_agreement | unit | [[conform.agreement_tier]]             | `met_forbidden_expectation()` | `agreement_counts counts the verdict ∧ verdict_counts excludes it ∧ exit 0`                                            |
+| p_unmet    | unit | [[conform.unmet_gates]]                 | `unmet_forbidden_expectation()` | `mechanical verdict retained ∧ reason leads expectation_unmet ∧ hard forbidden count grows ∧ exit 1`                  |
+| p_absence  | unit | [[conform.absence_preserved]]           | `arbitrary_undeclared_scenario()` | `expect null ∧ expectation_met null ∧ prior verdict, reason, count placement, and gating unchanged`                    |
+| p_advisory | unit | [[conform.advisory_non_gating]]         | `prose_only_covering_claim()` | `advisory true ∧ verdict unknown ∧ advisory_counts counted ∧ verdict_counts excluded ∧ exit 0`                          |
 
 ## Requirements
 
@@ -193,3 +181,104 @@ lifecycle transition, and SHALL NOT be part of `orchestrate` runs.
 #### Scenario: Conform does not advance lifecycle
 - **WHEN** conform completes over a `model_checked` artifact
 - **THEN** the artifact's lifecycle stage is unchanged after the run
+
+### Requirement: Scenario expectation declaration
+The oracle scenario corpus schema SHALL accept an optional, string-valued
+`expect` field drawn from the closed set {`forbidden`} on every
+`ScenarioTrace` record, SHALL keep `deny_unknown_fields`, and SHALL refuse a
+value outside the closed set or an unknown field as a `corpus_parse` schema
+error naming the offending field, the accepted closed set, and the
+one-JSON-object-per-line remediation hint — never silently treating an
+unrecognized expectation as "no expectation".
+
+#### Scenario: Expected forbidden declaration parses
+- **GIVEN** a scenario record with `"expect": "forbidden"`
+- **WHEN** the oracle corpus is parsed
+- **THEN** the record parses with its `id`, `setup`, `trace`, and the
+  declaration preserved, and the declaration is available to
+  classification
+
+#### Scenario: Invalid expectation value refused
+- **GIVEN** a scenario record whose `expect` value is not in the closed set
+  (for example `"banana"`)
+- **WHEN** the oracle corpus is parsed
+- **THEN** parsing fails with a `corpus_parse` schema error that names the
+  `expect` field, names the accepted closed set (`forbidden`) through the
+  serde unknown-variant path, and carries the one-JSON-object-per-line
+  remediation hint — never a silently ignored declaration
+
+#### Scenario: Unknown field still refused
+- **GIVEN** a scenario record carrying a field the schema does not declare
+  (for example `"expected": "confirmed"`)
+- **WHEN** the oracle corpus is parsed
+- **THEN** parsing fails with a `corpus_parse` refusal carrying the
+  remediation hint — adding `expect` does not open the record schema
+
+### Requirement: Expectation echo and agreement tier
+Every `VerdictRecord` SHALL echo the scenario's declared expectation in
+`expect` and the classification outcome in `expectation_met`, both `null`
+when none was declared. A verdict that meets its declaration SHALL count in
+`agreement_counts` rather than `verdict_counts`, SHALL NOT enter the
+`forbidden + unsupported` exit predicate, SHALL exit 0, and SHALL render as
+the oracle agreeing; a record without `expect` SHALL keep its previous
+verdict, reason, counts, gating, and rendering.
+
+#### Scenario: Expected forbidden agrees with the oracle
+- **GIVEN** a corpus whose scenario declares `expect: forbidden` and whose
+  trace the compiled Model forbids
+- **WHEN** conform classifies the trace and builds the report
+- **THEN** the record carries `verdict: forbidden`, `expect: forbidden`,
+  and `expectation_met: true`; the verdict is counted in
+  `agreement_counts` and absent from `verdict_counts`; the run exits 0;
+  and the human view states that the oracle agreed
+
+#### Scenario: Unexpected forbidden with no declaration fails the run
+- **GIVEN** a corpus whose scenario declares no `expect` and whose trace
+  contradicts an executable claim
+- **WHEN** conform classifies the trace and builds the report
+- **THEN** the record keeps `verdict: forbidden`, is counted in the hard
+  `verdict_counts`, the run exits 1, and no agreement tier is recorded
+
+#### Scenario: Absent declaration leaves the record unchanged
+- **GIVEN** a scenario record with no `expect` field
+- **WHEN** conform classifies it and builds the report
+- **THEN** its verdict, reason, count placement, gating, and human
+  rendering are those of the pre-expectation behavior, `expect` and
+  `expectation_met` are `null`, and its previously serialized fields are
+  unchanged apart from the two new `null` fields
+
+### Requirement: Unmet expectations are hard disagreements
+When a scenario declares an expectation and the classified verdict does
+not match it, the record SHALL retain its mechanical verdict and SHALL
+carry a reason that leads with the `expectation_unmet:` marker naming the
+declared expectation and the observed verdict. The report SHALL count the
+record in the hard `forbidden` bucket of `verdict_counts`, so the
+`forbidden + unsupported` exit predicate fires and the run exits 1 —
+never a silent pass and never a rewritten verdict.
+
+#### Scenario: Declared prohibition the Model permits fails the run
+- **GIVEN** a trace the compiled Model permits but whose scenario declares
+  `expect: forbidden`
+- **WHEN** conform classifies the trace and builds the report
+- **THEN** the record keeps `verdict: permitted` with
+  `expectation_met: false`, its reason leads with `expectation_unmet:` and
+  names the declared `forbidden` expectation, the report counts one hard
+  `forbidden`, and the run exits 1
+
+### Requirement: Advisory prose-only evidence tier
+A verdict record that declares no expectation and whose covering evidence
+is a prose-only claim SHALL set `advisory` to true, SHALL keep the closed
+verdict `unknown` with the `prose_claim_not_interpretable` reason naming the
+covering claim, and SHALL be counted in `advisory_counts` instead of
+`verdict_counts`; it SHALL NOT enter the `forbidden + unsupported` exit
+predicate, and the human view SHALL name the tier as non-gating and not a
+model judgment.
+
+#### Scenario: Prose-only advisory evidence is non-gating
+- **GIVEN** a corpus trace that declares no expectation and whose only
+  covering claim has a prose-only expr
+- **WHEN** conform classifies the trace and builds the report
+- **THEN** the record carries `verdict: unknown`, `advisory: true`, and a
+  `prose_claim_not_interpretable` reason naming the claim; the record is
+  counted in `advisory_counts` and absent from `verdict_counts`; the run
+  exits 0; and the human view names the advisory tier as non-gating

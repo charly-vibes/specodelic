@@ -1,0 +1,9 @@
+id = "real-deployed-prose-is-preserved"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "restore_keeps_real_deployed_purpose_over_delta_purpose"

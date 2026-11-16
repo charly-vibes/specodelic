@@ -43,9 +43,27 @@ expr = "`the verify runner bounds its cargo test run on a wall-clock clock (defa
 traces_to = "[[verify]]"
 
 [[constraints]]
+id = "routed_artifact_resolution"
+kind = "invariant"
+expr = "`every artifact location verify consumes for one spec — the <stem>_props.rs properties source, the <stem>.check.json model-check report, every <stem>.tla module the scope digest hashes, and therefore the digest's per-file artifact hashes — resolves through citation_corpus::artifact_dir, the ONE shared per-file routing decision the compile stage and the model-check backend pass already use; verify never re-derives an artifact directory of its own`"
+traces_to = "[[verify]]"
+
+[[constraints]]
+id = "no_cross_file_evidence"
+kind = "invariant"
+expr = "`a duplicate-stem corpus is read per file: each file's artifacts route under out_dir/<stem>/<encoded source path> injectively, so one file's gates read only its own artifacts and a same-stem sibling's report, module, or props source can never satisfy — or mask — them`"
+traces_to = "[[verify]]"
+
+[[constraints]]
+id = "unique_stem_layout_stable"
+kind = "invariant"
+expr = "`a corpus whose artifact stems are unique keeps the flat layout under out_dir — <stem>_props.rs, <stem>.check.json, <stem>.tla — byte-identically to the pre-routing layout, and a single-spec entry point treats its spec as its own corpus, so verified evidence paths are unchanged for non-colliding invocations`"
+traces_to = "[[verify]]"
+
+[[constraints]]
 id = "verification_failure"
 kind = "effect"
-expr = "`verify.verification_failure(detail)`"
+expr = "`verify.verification_failure(detail) — the verification stage failed because detail; the failure rides the errors capability's published error contract (envelope kind, exit code, remediation hint)`"
 traces_to = "[[verify]]"
 
 [[constraints]]

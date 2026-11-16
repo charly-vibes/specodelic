@@ -1,0 +1,9 @@
+id = "duplicate-stems-refuse-with-no-artifacts-written"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "duplicate_artifact_stem_is_a_labeled_scope_refusal_with_no_writes"

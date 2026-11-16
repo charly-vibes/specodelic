@@ -1,0 +1,9 @@
+id = "expected-forbidden-declaration-parses"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "expect_forbidden_accepted_by_the_schema"

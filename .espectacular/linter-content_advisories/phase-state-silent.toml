@@ -1,0 +1,9 @@
+id = "phase-state-silent"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "declared_forbidden_state_in_phase_model_stays_silent"

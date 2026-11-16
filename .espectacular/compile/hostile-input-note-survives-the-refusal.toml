@@ -1,0 +1,9 @@
+id = "hostile-input-note-survives-the-refusal"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "refusal_keeps_hostile_input_notes_in_the_envelope"

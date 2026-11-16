@@ -1,0 +1,9 @@
+id = "declared-prohibition-the-model-permits-fails-the-run"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "conform_unmet_forbidden_expectation_exits_1_with_labeled_reason"

@@ -1,0 +1,9 @@
+id = "unexpected-forbidden-with-no-declaration-fails-the-run"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "conform_record_without_expect_keeps_todays_semantics"

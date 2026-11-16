@@ -1,0 +1,9 @@
+id = "declared-element-sufficiency"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "path_qualified_api_call_exempts_binds_nothing"

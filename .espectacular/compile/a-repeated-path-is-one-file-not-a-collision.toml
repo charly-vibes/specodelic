@@ -1,0 +1,9 @@
+id = "a-repeated-path-is-one-file-not-a-collision"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "repeated_path_argument_is_not_a_stem_collision"

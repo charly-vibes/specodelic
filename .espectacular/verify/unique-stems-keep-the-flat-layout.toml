@@ -1,0 +1,9 @@
+id = "unique-stems-keep-the-flat-layout"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "verify_stage_artifact_paths_stay_flat_for_unique_stems"

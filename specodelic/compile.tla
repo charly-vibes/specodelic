@@ -18,7 +18,7 @@ TypeOK == vpc \in StateValues
 Init == vpc = "not_started"
 
 Next ==
-  \* begin: not_started -> extracting (guard: [[compile.precondition_satisfied]])
+  \* begin: not_started -> extracting (guard: [[compile.precondition_satisfied]] ∧ [[compile.artifact_stem_unique]])
   \/ vpc = "not_started" /\ vpc' = "extracting"
   \* extract_ok: extracting -> emitting (guard: [[compile.constraint_table_to_toml]] ∧ [[compile.model_to_tla]] ∧ [[compile.properties_to_proptest]])
   \/ vpc = "extracting" /\ vpc' = "emitting"
@@ -35,7 +35,7 @@ Next ==
 \* One entry per state with an `emits` field — domain is exactly
 \* the emitting states; each value is the effect-Constraint's expr.
 Output ==
-"emit_failed" :> "`compile.emission_failure(detail) — the emission stage failed because detail`" @@
-"extract_failed" :> "`compile.extraction_failure(row_id, reason) — the extraction stage failed on row row_id because reason`"
+"emit_failed" :> "`compile.emission_failure(detail) — the emission stage failed because detail; the failure rides the errors capability's published error contract (envelope kind, exit code, remediation hint)`" @@
+"extract_failed" :> "`compile.extraction_failure(row_id, reason) — the extraction stage failed on row row_id because reason; the failure rides the errors capability's published error contract (envelope kind, exit code, remediation hint)`"
 
 ============================================================================

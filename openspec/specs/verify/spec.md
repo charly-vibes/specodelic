@@ -104,7 +104,10 @@ lives here (see the Revision-discipline note there).
 | law_cases_unexecuted                   | invariant | `for a law-kind property compiled into multiple blocks (one per required case), all compiled blocks must pass — a partial pass (identity passes, associativity fails) is a failure of the property, not a partial success` | [[verify]] |          |
 | verify_is_idempotent                | invariant | `re-running verify against an unchanged compiled artifact yields the same pass/fail outcome as the prior run, even though proptest may resample inputs each run for coverage` | [[verify]] |          |
 | bounded_wall_clock                  | invariant | `the verify runner bounds its cargo test run on a wall-clock clock (default 600s, `--timeout-secs 0` disables the bound); a run exceeding the bound is killed and reported as a labeled timeout — never a silent hang, and never indistinguishable from a block failure` | [[verify]] |          |
-| verification_failure | effect | `verify.verification_failure(detail)` | [[verify]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| routed_artifact_resolution | invariant | `every artifact location verify consumes for one spec — the <stem>_props.rs properties source, the <stem>.check.json model-check report, every <stem>.tla module the scope digest hashes, and therefore the digest's per-file artifact hashes — resolves through citation_corpus::artifact_dir, the ONE shared per-file routing decision the compile stage and the model-check backend pass already use; verify never re-derives an artifact directory of its own` | [[verify]] | |
+| no_cross_file_evidence | invariant | `a duplicate-stem corpus is read per file: each file's artifacts route under out_dir/<stem>/<encoded source path> injectively, so one file's gates read only its own artifacts and a same-stem sibling's report, module, or props source can never satisfy — or mask — them` | [[verify]] | |
+| unique_stem_layout_stable | invariant | `a corpus whose artifact stems are unique keeps the flat layout under out_dir — <stem>_props.rs, <stem>.check.json, <stem>.tla — byte-identically to the pre-routing layout, and a single-spec entry point treats its spec as its own corpus, so verified evidence paths are unchanged for non-colliding invocations` | [[verify]] | |
+| verification_failure | effect | `verify.verification_failure(detail) — the verification stage failed because detail; the failure rides the errors capability's published error contract (envelope kind, exit code, remediation hint)` | [[verify]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 | required_claims_govern_acceptance    | invariant | `verify only transitions a file to verified when every required claim (model_check.md's required_claims_classified set) is verified in the current report AND every generated property block passes — a passing property run alone never covers an unknown, missing, or refuted claim; invalid or duplicate claim records are rejected as malformed evidence, never inferred as unknown success, and prose-only invariants stay unchecked` | [[verify]] |          |
 | evidence_scope_bound                 | invariant | `verify recomputes the scope digest and the required claim set from the current inputs and compares them against the stored report: old or unrecognized claim-schema versions, absent scope fingerprints, omitted or duplicate records, changed contributing inputs, or artifact mismatch fail with a rerun hint naming the model-check command — a stored report is never rewritten to manufacture evidence, and the digest binds structured content, not filesystem paths, so swapped reports from different scopes never verify` | [[verify]] |          |
 | assurance_views_agree                | invariant | `CLI JSON, human output, and the persisted report agree on evaluated, unchecked, and blocking claims — no view reports verified while another names a blocker — and release documentation distinguishes structural lint, bounded model exploration, verified declared claims, and external application-test binding without advertising pending capabilities as implemented` | [[verify]] |          |
@@ -114,6 +117,7 @@ lives here (see the Revision-discipline note there).
 
 ### States
 - `not_run`
+- `routed`
 - `running`
 - `properties_evaluated`
 - `verified`
@@ -123,7 +127,8 @@ lives here (see the Revision-discipline note there).
 
 | id       | from                 | to                   | guard                                                                                                       |
 |----------|----------------------|----------------------|--------------------------------------------------------------------------------------------------------------|
-| begin    | not_run              | running              | [[verify.blocks_run_to_completion]]                                                                          |
+| route    | not_run              | routed               | [[verify.routed_artifact_resolution]] ∧ [[verify.unique_stem_layout_stable]]                     |
+| begin    | routed               | running              | [[verify.blocks_run_to_completion]]                                                                          |
 | evaluate | running              | properties_evaluated | `every compiled proptest! block has recorded pass or fail`                                                    |
 | accept   | properties_evaluated | verified             | [[verify.both_gates_required]] ∧ [[verify.properties_pass_reflects_latest_run]] ∧ [[verify.law_cases_unexecuted]] ∧ [[verify.required_claims_govern_acceptance]] ∧ [[verify.evidence_scope_bound]] |
 | reject | properties_evaluated | failed | `¬([[verify.both_gates_required]] ∧ [[verify.properties_pass_reflects_latest_run]] ∧ [[verify.law_cases_unexecuted]] ∧ [[verify.required_claims_govern_acceptance]] ∧ [[verify.evidence_scope_bound]])` |
@@ -150,6 +155,10 @@ lives here (see the Revision-discipline note there).
 | views_agree_on_blockers             | unit | [[verify.assurance_views_agree]] | `run_with(required_unknown_claim_and_prose_invariant)` | `json.blockers == human.blockers == report.blockers ∧ unchecked sets agree` |
 | release_docs_match_implemented_capabilities | unit | [[verify.assurance_views_agree]] | `docs_built_for_a_release()` | `version derives from Cargo metadata ∧ pending capabilities not advertised as implemented` |
 | properties_scope_isolated             | unit | [[verify.properties_scope_verdict]] | `run_with(properties_failed: true, model_run: missing)` | `the scoped verdict reports properties_failed exactly when a compiled block failed ∧ a missing or stale model run never produces it ∧ the scoped verdict never reports verified` |
+| duplicate_stems_resolve_own_report | unit | [[verify.routed_artifact_resolution]] | `duplicate_stem_corpus_with_no_reports_on_disk()` | `the model gate names its OWN routed <stem>.check.json ∧ never the flat path` |
+| scope_digest_reads_routed_modules | unit | [[verify.routed_artifact_resolution]] | `duplicate_stem_corpus_with_reports_and_no_modules()` | `the scope digest names the first ROUTED <stem>.tla ∧ never the flat <stem>.tla` |
+| sibling_artifacts_never_satisfy | unit | [[verify.no_cross_file_evidence]] | `duplicate_stem_pair_with_one_side_compiled()` | `the uncompiled file's gates stay missing/stale — sibling artifacts never satisfy them` |
+| unique_stem_paths_flat | unit | [[verify.unique_stem_layout_stable]] | `corpus_with_distinct_artifact_stems()` | `paths == <out_dir>/<stem>_props.rs ∧ <out_dir>/<stem>.check.json ∧ <out_dir>/<stem>.tla` |
 
 ## Requirements
 
@@ -290,3 +299,41 @@ stage without the model stage hiding it.
 - **THEN** the properties-only scope verdict reports `properties_passed`,
   never `verified` — a properties-only pass can never be mistaken for a
   verified file
+
+### Requirement: Artifact locations share one routing decision
+
+`spk verify` SHALL resolve every artifact location it consumes — the
+`<stem>_props.rs` properties source, the `<stem>.check.json` model-check
+report, every `<stem>.tla` module the scope digest hashes, and the digest's
+per-file hashes — through `citation_corpus::artifact_dir`, the one shared
+per-file routing decision, so a duplicate-stem corpus routes per file under
+`out_dir/<stem>/<encoded source path>` injectively while a corpus-unique stem
+keeps the flat layout byte-identically.
+
+#### Scenario: Duplicate stems read their own report
+
+- **WHEN** a duplicate-stem corpus is verified with no reports on disk
+- **THEN** each file's model gate names its own routed
+  `<stem>.check.json` and never the flat path a same-stem sibling would
+  collapse onto
+
+#### Scenario: Scope digest hashes routed modules
+
+- **WHEN** the duplicate-stem corpus has reports present and modules
+  absent from disk
+- **THEN** the scope digest names the first routed `<stem>.tla` module
+  and never the flat `<stem>.tla` — no cross-read of a sibling's module
+
+#### Scenario: A sibling's artifacts never satisfy a gate
+
+- **WHEN** only one same-stem file of a duplicate-stem corpus has
+  artifacts on disk
+- **THEN** the other file's gates stay missing or stale — the sibling's
+  evidence is never read as this file's
+
+#### Scenario: Unique stems keep the flat layout
+
+- **WHEN** every file in the invocation has a distinct artifact stem
+- **THEN** the consumed paths are `<out_dir>/<stem>_props.rs`,
+  `<out_dir>/<stem>.check.json`, and `<out_dir>/<stem>.tla`, unchanged,
+  and a single-spec entry point treats its spec as its own corpus

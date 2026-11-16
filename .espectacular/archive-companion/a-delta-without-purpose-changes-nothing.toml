@@ -1,0 +1,9 @@
+id = "a-delta-without-purpose-changes-nothing"
+description = ""
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.2"
+
+[[tests.cargo]]
+flags = "restore_leaves_the_deployed_text_unchanged_when_the_delta_has_no_purpose"
