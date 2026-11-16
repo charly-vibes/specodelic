@@ -171,6 +171,15 @@ itself is the documentation. The catalog below is generated from the
 same table the linter uses — it enumerates exactly the rule ids this
 binary can emit.
 
+Advisory findings (the `linter-observability`, `linter-content_advisories`
+and `linter-packs` skew families) never gate: they ride the warnings
+channel and the run exits 0. In `--json` output the same advisory text
+appears twice by contract — once in the report payload (`data.warnings`,
+the per-file machine report) and once in the envelope's top-level
+`warnings` channel (the genesis envelope convention every command
+follows). The duplication is the contract, not a bug: a consumer may read
+either view, and neither is a projection of the other.
+
 {{lint_rules}}
 <!-- topic: dual-format -->
 # dual-format
@@ -411,3 +420,197 @@ mutually referencing defs (a cycle — inlining terminates by
 construction). A def reachable from no fragment cell is a dead helper:
 compile succeeds and the warning rides the warnings channel. A file
 without the section compiles byte-identically (pure widening).
+
+<!-- topic: oracle-records -->
+# oracle-records
+
+The `conform --oracle` corpus is JSONL: one JSON object per line, never a
+wrapper array. Each line is one scenario record:
+
+    {"id": "confirm-happy", "setup": {"state": "held"},
+     "trace": [{"action": "confirm", "observations": {"status": "confirmed"}}]}
+
+Record fields, required vs optional:
+
+- `id` — REQUIRED, and unique across the corpus. It keys the verdict
+  record and the deterministic report order (records are sorted by
+  scenario id). A line missing `id`, or repeating one already seen, is
+  refused at `corpus_parse` with the line number; evidence is never
+  silently overwritten.
+- `setup` — OPTIONAL object, default `{}`. Only its `state` entry is
+  interpreted: the value must name a declared Model `### States` entry,
+  and that state anchors the trace before its first step. Every other
+  key is a free-variable name, opaque to conform. No `setup`, or a
+  `state` the Model does not declare, leaves no anchor: in the default
+  open-world mode it is `underspecified`; only under the explicitly
+  declared `--closed-world` mode is it `forbidden`
+  (`closed_world_forbidden_recorded`) — see topic `verdict-taxonomy`.
+- `trace` — REQUIRED, an ordered array of steps. Order is the executed
+  order; conform never reorders or infers a step. An empty array is
+  legal: a zero-step trace from a declared state is explainable.
+- `expect` — OPTIONAL, closed set `{forbidden}` (gh-18 item 7): the
+  oracle's declared expectation for its own trace. `expect: forbidden`
+  marks an intentional negative probe — a trace the Model is supposed to
+  refuse. A matching `forbidden` verdict is agreement-tier
+  (`expectation_met: true`, counted in `agreement_counts`, never a hard
+  violation); a mismatch keeps the mechanical verdict and prepends the
+  distinct `expectation_unmet` reason marker. Any other spelling is a
+  `corpus_parse` refusal, never a silent "no expectation".
+
+Each step is `{action, observations?}`:
+
+- `action` — REQUIRED string, matched to a declared transition id/name
+  by trimmed string identity, never semantically.
+- `observations` — OPTIONAL object, default `{}`. Keys are free-variable
+  names (opaque to conform); each value is a string or an array of
+  strings naming a declared state or a declared effect. The field is
+  deliberately named `observations` — never `observes` — to avoid
+  colliding with the format's typed reference field of the same name
+  (design D3).
+
+Both the record and the step deserialize with `deny_unknown_fields`: a
+typo is a refused corpus, never an ignored field — a misspelled
+`observes` comes back as "unknown field `observes`, expected `action`
+or `observations`", naming the offending field and line. Blank lines are
+skipped; a completely empty corpus is valid and yields a report with
+zero records and the evidence_scope intact.
+
+Real records used by the engine tests (topic `verdict-taxonomy` names
+their verdicts):
+
+    {"id": "confirm-happy", "setup": {"state": "held"}, "trace": [{"action": "confirm", "observations": {"status": "confirmed"}}]}
+    {"id": "wrong-state-reopen", "setup": {"state": "held"}, "trace": [{"action": "reopen"}]}
+    {"id": "missing-expire", "setup": {"state": "held"}, "trace": [{"action": "expire"}]}
+    {"id": "expected-deny-confirm", "setup": {"state": "confirmed"}, "trace": [{"action": "confirm"}], "expect": "forbidden"}
+
+The first is covered by both the prose `audited` invariant and the
+executable `locked` one (topic `claim-executable`); the second exercises
+`reopen` from a state it is not declared from; the third names an action
+no transition declares. The fourth exercises `confirm` (declared
+`held → confirmed`) from `confirmed`, so the Model forbids the step and
+the matching `expect: forbidden` records agreement-tier
+`expectation_met: true` — an intentional negative probe, never a hard
+violation.
+
+<!-- topic: verdict-taxonomy -->
+# verdict-taxonomy
+
+Every oracle trace receives exactly one verdict from a closed set —
+totality is enforced, never coerced into a binary pass/fail. The default
+taxonomy is five values; a sixth exists only under the explicit
+`--structural-only` mode.
+
+- `permitted` — the walk explains the trace through declared transitions
+  AND every covering claim is executable with its guard enabled on each
+  step. An empty trace from a declared state is `permitted`.
+- `forbidden` — positive contradiction (`contradiction_forbidden_any_mode`,
+  in ANY invocation mode): a declared transition exercised from a state
+  it is not declared from, or a state observation naming a state other
+  than the transition's declared target. The reason names the
+  contradicted executable claim(s). Under the explicitly declared
+  `--closed-world` mode only, absence of coverage is also `forbidden`
+  (`closed_world_forbidden_recorded`).
+- `underspecified` — no declared Model element or claim covers the
+  trace: an undeclared action, an observation naming no declared state
+  or effect, or no/undeclared `setup.state`. In the default open-world
+  mode this is never `forbidden` (`uncovered_trace_never_forbidden`).
+- `unknown` — a claim covers the trace but is not interpretable by this
+  run: its expr is prose. Prose-dominated traces classify here — the
+  reason is `prose_claim_not_interpretable` and names the claim; the
+  record is advisory-tier (`advisory: true`), counted only in
+  `advisory_counts`, never in `verdict_counts`, and prose never implies
+  `permitted` or `forbidden`.
+- `unsupported` — the covering claim's evaluator kind exists in the
+  format but has no emitter in this run (`**py:**`/`**ts:**`); the
+  reason is `unsupported_evaluator_kind` and names the kind.
+- `agree` — `--structural-only` ONLY: the step sequence conforms to the
+  declared transition relation while a covering guard's expr is prose.
+  The reason is `structural_agree_prose_guard_unchecked` and still names
+  the uninterpreted guard, so the record never claims the prose
+  invariant was checked. The default mode keeps such traces `unknown`.
+
+Evaluation order matters: contradictions are decided during the walk;
+then the first covering claim that is unsupported or prose decides — a
+trace covered by BOTH a prose claim and an executable claim is `unknown`
+(or `agree` under `--structural-only`), never `permitted`.
+
+Every verdict record carries `scenario_id`, `verdict`, `reason`,
+`evaluated_claim_ids`, `closed_world`, and `advisory`; the report adds
+`report_schema_version`, the fixed `evidence_scope`, `scope_sha256`,
+`verdict_counts`, and `advisory_counts` (plus `agreement_counts` for
+met expectations). A prose-only `unknown` is advisory-tier —
+`advisory: true` — and is counted only in `advisory_counts`, never in
+`verdict_counts`.
+
+Exit status follows the hard `verdict_counts`: any `forbidden` or
+`unsupported` yields exit 1; `permitted`, `unknown`, `underspecified`,
+and `agree` alone yield exit 0 — advisory-tier coverage gaps stay
+visible, never fatal. A declared expectation is its own tier: an unmet
+`expect: forbidden` rides the hard forbidden count and exits 1 even
+when the mechanical verdict is `permitted` or an advisory `unknown`; a
+met expectation is agreement-tier (`expectation_met: true`) and never
+gates.
+
+Real classifications from the engine fixture corpus:
+
+| record `id` | verdict | reason rule |
+|-------------|---------|-------------|
+| `reopen-happy` | `permitted` | executable `locked` claim; the walk explains the step |
+| `wrong-state-reopen` | `forbidden` | `contradiction_forbidden_any_mode` |
+| `missing-expire` | `underspecified` | `uncovered_trace_never_forbidden` |
+| `confirm-happy` | `unknown` | `prose_claim_not_interpretable` (`audited`) |
+| `escalate-happy` | `unsupported` | `unsupported_evaluator_kind` (`py`) |
+
+<!-- topic: claim-executable -->
+# claim-executable
+
+The permitted-requires-executable-claims rule: `permitted` is reachable
+only when every claim covering the trace has an executable claim record.
+The rule ids are the ones the engine and its specs already use:
+`prose_never_checked` (the conform invariant — verdicts derive only from
+structural Model facts and executable claims), `required_claims_classified`
+(model_check's required/unchecked partition, reused rather than forked),
+and `required_claims_govern_acceptance` (verify's acceptance rule: a
+required claim must be verified before the file can become `verified`).
+
+Executable evaluator kinds — the required set:
+
+- `**rust:**` invariant fragment.
+- `**kernel:**` expression (the bounded min-expr kernel).
+- A pure citation expression, `[[a]] ∧ [[b]]`, resolved by the citation
+  algebra: citation-expr constraints are executable, not "prose with
+  links".
+
+Not executable:
+
+- Prose (no marker): classified `unchecked`, never required, never
+  implying a judgment. Remediation: make the claim interpretable —
+  rewrite the expr as a `**rust:**`, `**kernel:**`, or citation
+  expression — or accept that covering traces stay `unknown`.
+- `**py:**`/`**ts:**` fragments: grammar-valid, but no emitter exists in
+  this run. Remediation: use `**rust:**`/`**kernel:**`/citation now, or
+  wait for the labeled emitter follow-up. A covering claim of either kind
+  yields `unsupported`, never `permitted`.
+
+When the rule fires: after the walk has explained the trace, the first
+prose or unsupported covering claim decides the record. A prose claim
+yields `unknown` with `prose_claim_not_interpretable` (or `agree` with
+`structural_agree_prose_guard_unchecked` under `--structural-only`); a
+`py`/`ts` claim yields `unsupported` with `unsupported_evaluator_kind`.
+A trace covered by BOTH a prose claim and an executable claim is
+`unknown`/`agree`, never `permitted`. A contradiction is separate but
+also executable-claim bound: `forbidden` in any mode
+(`contradiction_forbidden_any_mode`), naming the contradicted executable
+claim.
+
+Consequence: out of the box, a fully prose spec can never yield
+`permitted` — every guard cites a prose invariant, so every fully
+covered trace is `unknown` and a conform run validates only
+Model-relation explainability. The record's `evaluated_claim_ids` names
+the claims actually evaluated, so a `permitted` record is auditable back
+to executable claim records.
+
+From the engine fixture corpus: `reopen-happy` is `permitted` because its
+covering claim `locked` is a `**rust:**` fragment; `confirm-happy` is
+`unknown` because its covering claim `audited` is prose; `escalate-happy`
+is `unsupported` because its covering claim `portable` is `**py:**`.

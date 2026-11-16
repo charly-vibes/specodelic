@@ -140,6 +140,18 @@ pub const TOPICS: &[(&str, &str)] = &[
         "conform",
         "conform — external-oracle trace conformance: oracle JSONL schema, verdict taxonomy, permitted-requires-executable-claims",
     ),
+    (
+        "oracle-records",
+        "Oracle JSONL records — fields, ordering, required vs optional",
+    ),
+    (
+        "verdict-taxonomy",
+        "Verdict taxonomy — the closed verdicts and their decision rules",
+    ),
+    (
+        "claim-executable",
+        "permitted requires executable claims — rule ids and remediation",
+    ),
 ];
 
 /// The graph-views primer body (add-graph-views task 3.4, D8) — appended
@@ -419,8 +431,9 @@ mod tests {
         // every declared topic renders non-empty (design Decision 2's
         // prose-drift test) — the count bumps with each append-only topic
         // (9th = graph-views, add-graph-views task 3.4; 10th = conform,
-        // specodelic-t0aj, gh-18)
-        assert_eq!(TOPICS.len(), 10);
+        // specodelic-t0aj, gh-18; 11th-13th = oracle-records,
+        // verdict-taxonomy, claim-executable, specodelic-5iez)
+        assert_eq!(TOPICS.len(), 13);
         for (id, _title) in TOPICS {
             let body = topic_body(id).unwrap_or_else(|| panic!("topic `{id}` missing"));
             assert!(!body.trim().is_empty(), "topic `{id}` body is empty");
@@ -934,12 +947,13 @@ mod tests {
     }
 
     /// The graph-views primer topic (add-graph-views task 3.4) must be
-    /// APPENDED — the packs topic keeps its index, and the new topic is
-    /// last, never renumbered (the TOPICS append-only law).
+    /// APPENDED — the packs topic keeps its index, and later topics never
+    /// renumber it (the TOPICS append-only law).
     #[test]
     fn graph_views_topic_is_appended_last() {
         // append-only order: graph-views is the 9th topic; conform
-        // (specodelic-t0aj, gh-18) appended after it — never renumbered
+        // (specodelic-t0aj, gh-18) appended after it, then the three
+        // conform-contract topics (specodelic-5iez) — never renumbered
         assert_eq!(
             TOPICS.iter().position(|(id, _)| *id == "graph-views"),
             Some(8),
@@ -947,13 +961,13 @@ mod tests {
         );
         assert_eq!(
             TOPICS.iter().position(|(id, _)| *id == "graph-views"),
-            Some(TOPICS.len() - 2),
-            "graph-views appears exactly once, before the appended conform topic"
+            Some(TOPICS.len() - 5),
+            "graph-views appears exactly once, before the appended conform and conform-contract topics"
         );
         assert_eq!(
             TOPICS.last().unwrap_p().0,
-            "conform",
-            "conform is the newest appended topic"
+            "claim-executable",
+            "claim-executable is the newest appended topic"
         );
     }
 
@@ -982,5 +996,137 @@ mod tests {
         }
         // No placeholder survives rendering (the same law as every topic).
         assert!(!body.contains("{{"), "a placeholder survived rendering");
+    }
+
+    /// specodelic-5iez: the conform oracle-record schema gets its own
+    /// discoverable topic — fields, step ordering, and required-vs-optional
+    /// taken from `src/conform.rs`'s `ScenarioTrace`/`TraceStep` serde
+    /// shapes (gh-18 item 1).
+    #[test]
+    fn oracle_records_topic_documents_the_jsonl_record_schema() {
+        let body = topic_body("oracle-records")
+            .unwrap_or_else(|| panic!("topic `oracle-records` must render"));
+        assert!(!body.trim().is_empty(), "oracle-records body is empty");
+        for anchor in [
+            "`id`",
+            "`setup`",
+            "`trace`",
+            "`action`",
+            "`observations`",
+            "deny_unknown_fields",
+            "never `observes`",
+        ] {
+            assert!(
+                body.contains(anchor),
+                "oracle-records topic must anchor `{anchor}` — the schema is \
+                 read off the real deserializer (gh-18 item 1)"
+            );
+        }
+        let lower = body.to_lowercase();
+        assert!(
+            lower.contains("required") && lower.contains("optional"),
+            "the topic must mark record fields required vs optional"
+        );
+    }
+
+    /// specodelic-5iez: the verdict taxonomy topic carries the closed set
+    /// and how prose-dominated unknowns classify (gh-18 item 2).
+    #[test]
+    fn verdict_taxonomy_topic_documents_the_closed_verdicts() {
+        let body = topic_body("verdict-taxonomy")
+            .unwrap_or_else(|| panic!("topic `verdict-taxonomy` must render"));
+        for verdict in [
+            "`permitted`",
+            "`forbidden`",
+            "`underspecified`",
+            "`unknown`",
+            "`unsupported`",
+            "`agree`",
+        ] {
+            assert!(
+                body.contains(verdict),
+                "verdict-taxonomy topic must name {verdict}"
+            );
+        }
+        for rule in [
+            "contradiction_forbidden_any_mode",
+            "closed_world_forbidden_recorded",
+            "uncovered_trace_never_forbidden",
+            "prose_claim_not_interpretable",
+            "unsupported_evaluator_kind",
+            "structural_agree_prose_guard_unchecked",
+        ] {
+            assert!(
+                body.contains(rule),
+                "verdict-taxonomy topic must name the reason rule `{rule}`"
+            );
+        }
+        assert!(
+            body.contains("Prose-dominated"),
+            "the topic must state how prose-dominated unknowns classify"
+        );
+    }
+
+    /// specodelic-5iez: the permitted-requires-executable-claims rule (its
+    /// rule ids, firing condition, and remediation) gets its own topic
+    /// (gh-18 item 3).
+    #[test]
+    fn claim_executable_topic_documents_the_permitted_rule() {
+        let body = topic_body("claim-executable")
+            .unwrap_or_else(|| panic!("topic `claim-executable` must render"));
+        for rule in [
+            "prose_never_checked",
+            "required_claims_classified",
+            "required_claims_govern_acceptance",
+        ] {
+            assert!(
+                body.contains(rule),
+                "claim-executable topic must name the rule id `{rule}`"
+            );
+        }
+        for executable in ["`**rust:**`", "`**kernel:**`", "citation"] {
+            assert!(
+                body.contains(executable),
+                "claim-executable topic must name the executable kind {executable}"
+            );
+        }
+        for emitterless in ["`**py:**`", "`**ts:**`"] {
+            assert!(
+                body.contains(emitterless),
+                "claim-executable topic must name the emitter-less kind {emitterless}"
+            );
+        }
+        assert!(
+            body.contains("Remediation"),
+            "the rule must ship its remediation"
+        );
+    }
+
+    /// specodelic-5iez (append-only law): the three conform-contract topics
+    /// are appended after `conform`, in order, so the no-arg topic list
+    /// serves them.
+    #[test]
+    fn conform_contract_topics_are_appended_after_conform() {
+        let expected = ["oracle-records", "verdict-taxonomy", "claim-executable"];
+        let conform_pos = TOPICS
+            .iter()
+            .position(|(id, _)| *id == "conform")
+            .expect("the conform topic keeps its index — append-only");
+        for (offset, id) in expected.iter().enumerate() {
+            let pos = TOPICS
+                .iter()
+                .position(|(topic, _)| *topic == *id)
+                .unwrap_or_else(|| panic!("topic `{id}` is not registered in TOPICS"));
+            assert_eq!(
+                pos,
+                conform_pos + 1 + offset,
+                "`{id}` appends after conform in declaration order — never renumbered"
+            );
+        }
+        assert_eq!(
+            TOPICS.len(),
+            conform_pos + 1 + expected.len(),
+            "the three conform-contract topics are the newest TOPICS entries"
+        );
     }
 }

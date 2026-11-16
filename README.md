@@ -149,8 +149,9 @@ CLI/envelope/self-healing infrastructure.
   `--view wiring` producer→consumer projection (see
   [graph views](docs/src/graph-views.md))
 - ✅ `new`, `doctor`, `completions`
-- ✅ `explain` — embedded AIX guide (ten topics: format/ears/kinds/
-  references/lifecycle/lint-rules/dual-format/packs/graph-views/conform)
+- ✅ `explain` — embedded AIX guide (thirteen topics:
+  format/ears/kinds/references/lifecycle/lint-rules/dual-format/packs/
+  graph-views/conform/oracle-records/verdict-taxonomy/claim-executable)
   plus `format_revision` in `--version --json`
 - ✅ `compile` — Constraints → TOML, Model → TLA+ module, Properties →
   proptest! scaffolding (backend-neutral ModelIR), byte-stable artifacts

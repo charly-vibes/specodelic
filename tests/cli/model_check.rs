@@ -374,7 +374,8 @@ fn explain_bare_lists_topics_append_only() {
         .collect();
     // append-only topic list: graph-views appended at the end
     // (add-graph-views task 3.4), then conform appended after it
-    // (specodelic-t0aj, gh-18) — existing topics keep their order
+    // (specodelic-t0aj, gh-18), then the conform-contract topics
+    // (specodelic-5iez) — existing topics keep their order
     assert_eq!(
         ids,
         [
@@ -387,7 +388,10 @@ fn explain_bare_lists_topics_append_only() {
             "dual-format",
             "packs",
             "graph-views",
-            "conform"
+            "conform",
+            "oracle-records",
+            "verdict-taxonomy",
+            "claim-executable"
         ]
     );
 }
@@ -2214,4 +2218,38 @@ fn explain_conform_topic_reachable_in_human_mode() {
     assert_eq!(out.status.code(), Some(0));
     let stdout = String::from_utf8(out.stdout).unwrap_p();
     assert!(stdout.contains("conform"), "human body: {stdout}");
+}
+
+// ---- conform contract explain topics (specodelic-5iez, gh-18) ----
+
+#[test]
+fn explain_conform_contract_topics_are_listed_and_served() {
+    // The meter: each subject has a topic discoverable in the no-arg
+    // topic list AND served by `spk explain <id>` — oracle record schema,
+    // verdict taxonomy, and the permitted-requires-executable-claims rule.
+    let listed = spk().args(["explain", "--json"]).output().unwrap_p();
+    assert_eq!(listed.status.code(), Some(0));
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(listed.stdout).unwrap_p()).unwrap_p();
+    let ids: Vec<&str> = json["data"]["topics"]
+        .as_array()
+        .unwrap_p()
+        .iter()
+        .map(|topic| topic["id"].as_str().unwrap_p())
+        .collect();
+    for topic in ["oracle-records", "verdict-taxonomy", "claim-executable"] {
+        assert!(
+            ids.contains(&topic),
+            "topic `{topic}` must be discoverable in `spk explain` (no args): {ids:?}"
+        );
+        let out = spk().args(["explain", topic, "--json"]).output().unwrap_p();
+        assert_eq!(out.status.code(), Some(0), "`spk explain {topic}` exits 0");
+        let body: serde_json::Value =
+            serde_json::from_str(&String::from_utf8(out.stdout).unwrap_p()).unwrap_p();
+        assert_eq!(body["data"]["topic"], topic);
+        assert!(
+            !body["data"]["body"].as_str().unwrap_p().trim().is_empty(),
+            "`spk explain {topic}` serves a non-empty body"
+        );
+    }
 }

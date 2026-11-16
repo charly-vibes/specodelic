@@ -117,7 +117,10 @@ model-check: 1 checked, 0 failed
 ```sh
 spk doctor        # diagnose the workspace (self-hosting vs consumer mode)
 spk init          # write the SPECODELIC managed block into AGENTS.md
-spk explain       # the embedded format guide — ten topics, no repo access needed
+spk explain       # the embedded format guide — thirteen topics
+                  # (format, ears, kinds, references, lifecycle, lint-rules,
+                  # dual-format, packs, graph-views, conform, oracle-records,
+                  # verdict-taxonomy, claim-executable), no repo access needed
 spk feedback      # send feedback about the tool
 ```
 
