@@ -1,28 +1,99 @@
 # Changelog
 
-## unreleased — reliability fixes from the 2026-11-15 Rule-of-5 review
+## #136 — v0.14.0: vacuity advisories, conform expectations, hardened tool edges
 
+Release entry for everything since v0.13.0 (2026-11-15): four archived
+changes (add-vacuity-advisories, add-conform-expectation,
+harden-archive-companion, harden-tool-edges), the Rule-of-5 reliability
+round, and the README front-door pass. Format revision stays 22 — the
+changes add advisories, additive record fields, and contracts for
+behavior that already shipped; no spec grammar moved.
+
+- **feat(conform) — oracle expectations and tiered verdict accounting**
+  (specodelic-f4sx, specodelic-18mt): scenario records accept an optional
+  `expect` field (closed set `{forbidden}`, still `deny_unknown_fields`).
+  A forbidden verdict matching the declaration is agreement-tier —
+  counted in `agreement_counts`, excluded from the hard verdict buckets,
+  exit 0; an unmet expectation keeps the mechanical verdict, prefixes its
+  reason with `expectation_unmet`, and stays gating (exit 1). Prose-only
+  covering claims keep verdict `unknown` but ride the advisory tier
+  (`advisory: true`, `advisory_counts`), so a prose-dominated corpus no
+  longer reads as hard unknowns. `VerdictRecord` gains `expect` and
+  `expectation_met` (null when undeclared); records without `expect` keep
+  today's semantics.
+- **feat(lint) — vacuity advisories** (specodelic-h5ks): two advisory
+  rules on the warnings channel, exit 0, one finding per subject.
+  `linter.fragment_binds_nothing`: a `**rust:**` fragment in an invariant
+  `expr` or a non-law property predicate that cites no declared model
+  element (whole-token matching; the intent id is excluded; law predicates
+  are outside the surface). `linter.vacuous_invariant`: a fragment's
+  `state != "<literal>"` comparison naming a state absent from
+  `Model/States`. Citation-versus-declaration only — declared elements
+  that are simply never exercised stay silent, so the rules are not
+  reachability or coverage checks.
+- **feat(explain) — oracle-contract topics** (specodelic-5iez,
+  specodelic-f4sx, specodelic-i51): three append-only topics
+  (`oracle-records`, `verdict-taxonomy`, `claim-executable`) document the
+  JSONL record fields including `expect`, the closed verdicts plus the
+  advisory tier and the declared-expectation exit rule, and the
+  permitted-requires-executable-claims rule. The `lint-rules` topic now
+  states the warnings-duplication contract (advisories ride the envelope
+  warnings channel and also appear in `data.warnings` by design);
+  `spk explain` serves thirteen topics.
+- **fix(compile) — duplicate artifact stems** (specodelic-523w): a corpus
+  whose distinct files map to one artifact stem is refused with
+  `artifact_stem_collision` before lint or any write, instead of
+  overwriting one file's artifacts with another's.
+- **fix(verify) — routed artifact resolution** (specodelic-1ey4): the
+  properties gate, the model-check report, and the scope digest resolve
+  every artifact through `artifact_dir`, so duplicate-stem corpora read
+  each file's own routed artifacts while corpus-unique stems keep the flat
+  layout byte-identical.
+- **fix(audit) — folded row keys** (specodelic-3yt9): the merged report
+  disambiguates row keys on collision instead of collapsing two records
+  into one.
+- **fix(archive-companion) — bounded archiver and honest failure**
+  (specodelic-54c6, specodelic-wq7n): the `openspec archive` child is
+  bounded (`DEFAULT_ARCHIVE_TIMEOUT_SECS`, `SPK_ARCHIVE_TIMEOUT_SECS`
+  override) with expiry as a labeled failure; rollback failures are
+  reported instead of dropped; placeholder head prose is derived rather
+  than carried forward.
 - **fix(graph) — model anchors** (specodelic-39w): a typed
-  `[[model.state]]` / `[[model.transition]]` link is a documented legal
-  target; the acset builder now interns the `<file>.model.*` pseudo-nodes
-  instead of panicking (`uninterned node id`, exit 101 with no envelope).
-  `spk graph` records the anchor edge in every projection.
+  `[[model.state]]` / `[[model.transition]]` link is interned as the
+  documented pseudo-node instead of panicking (`uninterned node id`, exit
+  101 with no envelope); the anchor edge appears in every projection.
 - **fix(lint) — corpus-wide resolution for subset invocations**
   (specodelic-f4sx): linting files inside a `specs` tree resolves their
   references against that tree while reporting findings only for the files
-  that were named; `files_linted` still counts the request and a warning
-  names the resolution corpus. Per-capability gates (`ah sync`) can pass.
-- **fix(cli) — symlink cycles** (specodelic-p39i): the corpus walk visits
-  each canonical directory once, so a directory symlink back to an ancestor
-  no longer recurses forever with no output.
-- **fix(cli) — report write failures** (specodelic-nnbf): a non-EPIPE write
-  failure now fails the run (exit 1) instead of exiting 0 on a truncated
-  envelope; broken pipes (`spk graph | head`) stay graceful.
-- **docs(commands)**: exit `101` (panic, no envelope) documented; graph's
-  projection `--format` distinguished from the global output flag; lint's
-  resolution scope documented with the per-capability case.
-- **chore(tests)**: `cargo clippy --all-targets` is clean again (three
-  pre-existing lints outside the narrower `just lint` gate).
+  named; `files_linted` still counts the request and a warning names the
+  resolution corpus. Per-capability gates (`ah sync`) can pass.
+- **fix(cli) — symlink cycles and truncated reports** (specodelic-p39i,
+  specodelic-nnbf): the corpus walk visits each canonical directory once,
+  so a symlink back to an ancestor no longer recurses forever; a non-EPIPE
+  write failure now fails the run (exit 1) instead of exiting 0 on a
+  truncated envelope, while broken pipes (`spk graph | head`) stay
+  graceful.
+- **fix(status) — claim reasons** (specodelic-60e, specodelic-dzn): a
+  citation resolving to a refuted rust-fragment invariant attaches a
+  self-naming reason instead of persisting a gating claim with none;
+  `citation_corpus` now defines `CorpusStatusRow` once and the kernel
+  re-exports it instead of mirroring its fields (serialized shape
+  unchanged).
+- **docs**: the README applies the dulce-de-leche §5.1 front-door contract
+  (specodelic-wvzt) — When to use, Quick start with captured output,
+  Common workflows, a Commands table, and first-screen FAQ/positioning
+  links; the command reference documents exit `101`, graph's projection
+  `--format`, and lint's resolution scope; the explain topic lists are
+  refreshed to thirteen.
+- **chore**: pretender excludes vendored assets by path shape
+  (specodelic-5ae1), audit fixtures and the Python kernel agreement
+  backend are deduped (specodelic-gixd, specodelic-y5x8), orchestrate help
+  and the orphan fixture are tidied (specodelic-i51, specodelic-7nu4), and
+  `cargo clippy --all-targets` is clean again.
+
+Changes archived with this release:
+add-vacuity-advisories, add-conform-expectation,
+harden-archive-companion, harden-tool-edges.
 
 ## #135 — v0.13.0: Revision 22 — evidence audit, typed-reference enforcement, and revision upgrades
 

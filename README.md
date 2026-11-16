@@ -9,7 +9,7 @@
 > (Constraints, state Model, Properties) plus a linter and verify pipeline, so a
 > spec can fail CI instead of silently underdetermining the build.
 >
-> **Status:** [experimental](docs/src/status.md) · v0.13.0, self-hosting round in progress ·
+> **Status:** [experimental](docs/src/status.md) · v0.14.0, self-hosting round in progress ·
 > [Motivation & design](docs/src/index.md) ·
 > [FAQ](docs/src/faq.md) ·
 > [When it fits — and when it doesn't](openspec/USAGE.md#positioning-what-the-format-assumes--and-when-not-to-use-it) ·
