@@ -152,9 +152,10 @@ trees ([merge](specs/merge/spec.md)).
 ### Where are the docs agents read without repo access?
 
 `spk explain` serves the distilled format guide from inside the binary —
-nine topics (`format`, `ears`, `kinds`, `references`, `lifecycle`,
-`lint-rules`, `dual-format`, `packs`, `graph-views`) — and `llms.txt` at
-the site root is the machine summary ([For agents](index.md#for-agents)).
+thirteen topics (`format`, `ears`, `kinds`, `references`, `lifecycle`,
+`lint-rules`, `dual-format`, `packs`, `graph-views`, `conform`,
+`oracle-records`, `verdict-taxonomy`, `claim-executable`) — and `llms.txt`
+at the site root is the machine summary ([For agents](index.md#for-agents)).
 
 ## Ecosystem
 
