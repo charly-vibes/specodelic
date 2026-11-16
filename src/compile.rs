@@ -1808,6 +1808,49 @@ pub fn precondition_satisfied(spec: &Spec, report: &Report) -> Result<(), Compil
 /// artifacts (which keeps every migrated corpus artifact's name stable:
 /// id `linter.graph_shape` → `linter-graph_shape`, exactly the old
 /// corpus file stem).
+/// The corpus-wide artifact-stem collision, if any (specodelic-523w).
+///
+/// Two specs whose [`artifact_stem`] agrees would write the same
+/// `<stem>.toml` / `<stem>_props.rs` / `<stem>.tla` into one out-dir, so
+/// the later file silently overwrote the earlier one's artifacts. The
+/// caller refuses up front with the returned `(message, hint)`: labeled
+/// `duplicate_artifact_stem`, naming both colliding files, with a
+/// remediation hint. One file collected twice (`spk compile a.md a.md`,
+/// overlapping roots) writes the same bytes into the same artifacts, so a
+/// repeat of the recorded canonical path is skipped — never a collision.
+pub fn canonical_artifact_path(path: &std::path::Path) -> std::path::PathBuf {
+    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+}
+
+pub fn artifact_stem_collision(specs: &[Spec]) -> Option<(String, String)> {
+    // Per stem: the first claimant's canonical identity (None for a
+    // pathless synthetic spec) and the display spelling the message uses.
+    let mut seen: std::collections::BTreeMap<String, (Option<std::path::PathBuf>, String)> =
+        Default::default();
+    for spec in specs {
+        let file = spec
+            .path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| format!("<{}>", spec.intent.id));
+        let identity = spec.path.as_ref().map(|p| canonical_artifact_path(p));
+        let stem = artifact_stem(spec);
+        if let Some((first_identity, first)) = seen.get(&stem) {
+            if identity.is_some() && first_identity.as_ref() == identity.as_ref() {
+                continue;
+            }
+            return Some((
+                format!(
+                    "duplicate_artifact_stem: artifact stem `{stem}` is produced by both {first} and {file} — they would write the same artifacts into one out-dir"
+                ),
+                "rename one of the colliding files (or compile them in separate --out-dir runs) so every artifact stem is unique".to_string(),
+            ));
+        }
+        seen.insert(stem, (identity, file));
+    }
+    None
+}
+
 pub fn artifact_stem(spec: &Spec) -> String {
     if spec
         .path
