@@ -24,9 +24,11 @@ exclude = [
   "./docs/**",
   "vendor/**",
   "./vendor/**",
+  "**/vendor/**",
   "node_modules/**",
   "./node_modules/**",
   "**/*_generated.*",
+  "**/*.min.js",
 ]
 
 [thresholds]
@@ -82,10 +84,11 @@ paths = ["tests/**", "tests/**/**", "**/tests/**"]
 
 [roles.script]
 paths = ["scripts/**", "examples/**"]
-# Vendored third-party assets (vendor/**): minified upstream libraries
-# (mermaid.min.js) are not project code — the exclude list filters them
-# from walk scans, but --staged still classifies them with role vendor,
-# so give that role its own loose limits. Ratchet note: new role block,
-# not headroom added to any existing entry.
-[thresholds.vendor]
-file_lines_max = 4000
+# Vendored third-party assets (specodelic-5ae1): excluded by PATH, not by
+# role limits. The pinned pretender 0.10.0 has no vendor threshold field —
+# its Thresholds struct knows only app/test/library/script/coupling/durations
+# — and Role::Vendor resolves to the app block, so even the file_lines_max
+# that used to sit here was inert. The `**/`-anchored exclude patterns above
+# also match absolute walk entries, which the `./`-anchored forms do not;
+# that is the shape the untracked mermaid bundle leaked through. No global
+# or app threshold was raised for this.

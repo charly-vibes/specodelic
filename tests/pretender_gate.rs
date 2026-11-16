@@ -90,6 +90,77 @@ fn seeded_violation_fails_gate() {
     let _ = fs::remove_dir_all(&dir);
 }
 
+/// Acceptance (specodelic-5ae1): a fetched-but-untracked vendored asset must
+/// not red the gate. `just docs-mermaid` writes vendor/mermaid.min.js (one
+/// minified, deeply nested line) and the gate has to absorb it.
+///
+/// Why this fails today: `[thresholds.vendor]` in pretender.toml carries only
+/// `file_lines_max`; the vendor role therefore still resolves
+/// cyclomatic/cognitive/abc/nesting/params from the global app block. The
+/// bundle's minified function blows past the project ratchet (measured: 88
+/// function-metric findings against the real mermaid.min.js). The asset is a
+/// single line, so `file_lines` (1) is never the finding — the function body
+/// is.
+#[test]
+fn vendor_minified_asset_passes_gate() {
+    if !pretender_available() {
+        eprintln!("skipping: pretender not on PATH");
+        return;
+    }
+    let dir = std::env::temp_dir().join(format!("pretender-vendor-test-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    write_or_panic(fs::create_dir_all(dir.join("vendor")), "create vendor dir");
+
+    // The real gate config, verbatim — thresholds are a shrink-only ratchet,
+    // so the fixture must measure against today's numbers, not a retyped copy.
+    let Ok(config) = fs::read_to_string(Path::new(manifest_dir()).join("pretender.toml")) else {
+        panic!("repo pretender.toml must be readable");
+    };
+    write_or_panic(
+        fs::write(dir.join("pretender.toml"), config),
+        "write config",
+    );
+
+    // Synthetic stand-in for the fetched bundle: one line, one deeply nested
+    // function. The long literal puts >4000 chars on that line while keeping
+    // the line count at 1, so the file level never trips; only a function
+    // metric can (31 branches vs the global cyclomatic_max of 20).
+    let mut asset = String::from("function t(e){");
+    for i in 0..30 {
+        asset.push_str(&format!("if(e[{i}]){{"));
+    }
+    asset.push('"');
+    asset.push_str(&"a".repeat(4200));
+    asset.push_str("\";}");
+    asset.push_str(&"}".repeat(30));
+    asset.push_str("}\n");
+    write_or_panic(
+        fs::write(dir.join("vendor/mermaid.min.js"), &asset),
+        "write vendor asset",
+    );
+
+    // Default walk from the fixture root: the config's relative vendor
+    // excludes already cover this shape (specodelic-m1rk), so it must pass
+    // and must keep passing if the exclude list is ever reworked.
+    let (code, out) = run_pretender(&dir, &["check"]);
+    assert_eq!(
+        code, 0,
+        "default walk must not lint vendored assets; output:\n{out}"
+    );
+
+    // Then the absolute checkout-path shape — how the bundle actually leaked:
+    // the config's vendor excludes are relative-anchored ("vendor/**",
+    // "./vendor/**"), so absolute walk entries escape them.
+    let fixture = dir.display().to_string();
+    let (code, out) = run_pretender(&dir, &["check", fixture.as_str()]);
+    assert_eq!(
+        code, 0,
+        "a present-but-untracked vendored asset must pass the gate; vendor role output:\n{out}"
+    );
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
 /// Constraint (AGENTS.md sibling-tool blockers): the gate config must never
 /// direct pretender to install git hooks — the toml carries no hook wiring,
 /// and `pretender hooks install` is forbidden in this repo (beads owns
@@ -106,4 +177,12 @@ fn gate_config_never_installs_hooks() {
         !configured.to_lowercase().contains("hook"),
         "pretender.toml must not configure hook installation (beads owns core.hooksPath); offending line(s): {configured}"
     );
+}
+
+/// Assert a scratch-fixture filesystem step without adding unwraps to the
+/// test-role metric budget (pretender's test thresholds cap unwraps at 5).
+fn write_or_panic(res: std::io::Result<()>, what: &str) {
+    if let Err(e) = res {
+        panic!("{what} failed: {e}");
+    }
 }
