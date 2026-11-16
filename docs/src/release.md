@@ -4,4 +4,4 @@
 > Do not hand-edit — the repo source files remain authoritative.
 
 - **Version:** v0.14.0
-- **Built from:** main @ c36830c
+- **Built from:** v0.14.0 @ ac7977e
