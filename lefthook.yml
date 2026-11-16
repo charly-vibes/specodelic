@@ -19,6 +19,8 @@ pre-commit:
     ah-check:
       run: ah check
 # ah:managed:end
+    bd:
+      run: bd hooks run pre-commit
     # <!-- SPK:START -->
     specodelic-gates:
       run: spk lint openspec
@@ -47,6 +49,8 @@ pre-push:
     ddl-ah-check:
       run: ah check
     # ddl:managed:end (pre-push)
+    bd:
+      run: bd hooks run pre-push
     sibling-blockers:
       run: scripts/guards/sibling-blockers.sh .
     gate-drill-lock:
