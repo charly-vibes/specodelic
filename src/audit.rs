@@ -409,9 +409,9 @@ pub fn pack_check_row(check: &PackCheck) -> AuditRecord {
 /// the report's canonical order — sorted by row key, the same
 /// discipline as [`build_report`], so serialization stays
 /// byte-identical across runs over identical inputs. One check per
-/// `(pack_id, subject_id)` is the caller's discipline: duplicate row
-/// keys are refused labeled if the merged report later feeds
-/// `--before` (the slice-1 prior-parse guard).
+/// `(pack_id, subject_id)` is the caller's discipline; should two rows
+/// still share a key (or one collide with an oracle row id), the fold
+/// disambiguates them deterministically — see [`fold_rows`].
 pub fn pack_check_rows(checks: &[PackCheck]) -> Vec<AuditRecord> {
     let mut rows: Vec<AuditRecord> = checks.iter().map(pack_check_row).collect();
     sort_rows(&mut rows);
@@ -428,9 +428,48 @@ pub fn pack_check_rows(checks: &[PackCheck]) -> Vec<AuditRecord> {
 /// silently dropped from the summary. The exit contract composes
 /// unchanged: all-unchecked pack rows stay exit 0 with counts
 /// surfaced; a violation row is contradicted evidence and fails the
-/// run. Duplicate row keys in `rows` pass through as-is here — the
-/// `--before` prior-parse guard refuses them labeled downstream.
+/// run.
+///
+/// Duplicate row keys never enter a merged report (specodelic-3yt9):
+/// an oracle corpus id is arbitrary user input, so one may be spelled
+/// exactly like an emitted row key (`bind:<owner-id>`,
+/// `pack:<pack_id>:<subject_id>`) — the diff lookup keys rows by
+/// scenario id, and a duplicate would silently pick whichever came
+/// first. On collision the FOLDED row yields, never the report's
+/// oracle row: its key gains the first free `~<n>` suffix (`~2`, `~3`,
+/// ...). Renaming folded rows only keeps every oracle row's recorded
+/// id intact — `--before` diffing matches prior evidence by that id,
+/// so renaming evidence would silently orphan it — and the suffix
+/// scheme is deterministic for a given corpus (no counters or random
+/// state), so serialization stays byte-identical across runs. Both
+/// rows survive and are counted; advisory classes and the exit
+/// contract are untouched. A labeled refusal was rejected: an oracle
+/// id that happens to spell a bind/pack key is a naming accident, not
+/// a reason to refuse an audit run.
 pub fn fold_rows(mut report: AuditReport, rows: Vec<AuditRecord>) -> AuditReport {
+    let mut taken: BTreeSet<String> = report
+        .records
+        .iter()
+        .map(|r| r.scenario_id.clone())
+        .collect();
+    let rows: Vec<AuditRecord> = rows
+        .into_iter()
+        .map(|mut row| {
+            if !taken.insert(row.scenario_id.clone()) {
+                let base = row.scenario_id.clone();
+                let mut n = 2usize;
+                loop {
+                    let candidate = format!("{base}~{n}");
+                    if taken.insert(candidate.clone()) {
+                        row.scenario_id = candidate;
+                        break;
+                    }
+                    n += 1;
+                }
+            }
+            row
+        })
+        .collect();
     report.records.extend(rows);
     sort_rows(&mut report.records);
     let (verdict_counts, class_counts) = recount(&report.records);
@@ -2117,6 +2156,98 @@ statement: "THE system SHALL keep the ledger consistent"
             ids.iter().filter(|id| id.starts_with("pack:")).count(),
             2,
             "both pack rows ride in the merged order"
+        );
+    }
+
+    /// The cross-kind row-key contract: an oracle corpus id is arbitrary
+    /// user input, so one spelled exactly like a bind row key
+    /// (`bind:<owner-id>`) must never leave TWO merged rows sharing a
+    /// `scenario_id`. The prior diff keys rows by scenario id and `find`
+    /// picks the first match, so a duplicate silently drops a row from
+    /// the comparison; the fix must either emit a deterministic
+    /// disambiguated bind key or refuse labeled naming the collision —
+    /// never merge a duplicate. Advisory-only: both rows still ride the
+    /// report and the exit contract is untouched.
+    #[test]
+    fn oracle_row_id_colliding_with_a_bind_row_key_never_duplicates_scenario_ids() {
+        // `locked`'s fragment (`status != "open"`) cites no declared
+        // model element, so this spec contributes the vacuity row keyed
+        // exactly `bind:locked` — the corpus id used below.
+        let spec = spec(SPEC);
+        let corpus_lines = [
+            r#"{"id": "bind:locked", "setup": {"state": "held"}, "trace": [{"action": "confirm", "observations": {"status": "confirmed"}}]}"#,
+        ];
+        let merged = fold_rows(oracle_report(&corpus_lines), bind_rows(&spec));
+        let ids: Vec<&str> = merged
+            .records
+            .iter()
+            .map(|r| r.scenario_id.as_str())
+            .collect();
+        // Rename direction (the design depends on it): the oracle row
+        // keeps its corpus id verbatim and the FOLDED bind row yields
+        // with the first free suffix — never the other way around, and
+        // no other suffix scheme.
+        assert_eq!(
+            ids,
+            vec!["bind:locked", "bind:locked~2"],
+            "the oracle row keeps `bind:locked` and the folded bind row yields with `~2`"
+        );
+        let Some(oracle_row) = merged
+            .records
+            .iter()
+            .find(|r| r.scenario_id == "bind:locked")
+        else {
+            panic!("the corpus id stays on a row");
+        };
+        assert_eq!(
+            oracle_row.class,
+            AuditClass::Current,
+            "the row keeping the corpus id is the oracle row, not the renamed bind row"
+        );
+        let Some(renamed_bind_row) = merged
+            .records
+            .iter()
+            .find(|r| r.scenario_id == "bind:locked~2")
+        else {
+            panic!("the folded bind row is present under the suffixed key");
+        };
+        assert_eq!(
+            renamed_bind_row.class,
+            AuditClass::BindsNothing,
+            "the suffixed key belongs to the folded binds_nothing row"
+        );
+        let mut seen = BTreeSet::new();
+        let duplicates: Vec<&str> = ids.iter().copied().filter(|id| !seen.insert(*id)).collect();
+        assert!(
+            duplicates.is_empty(),
+            "two audit rows share a scenario_id ({duplicates:?}) — an oracle id spelled like a bind row key must be disambiguated or refused labeled, never merged as a duplicate (the diff lookup would silently pick the first); keys: {ids:?}"
+        );
+        // A silent drop is not a fix: both the oracle row and the
+        // vacuity advisory row survive the merge.
+        assert_eq!(
+            merged.records.len(),
+            2,
+            "the oracle row and the bind row both ride the report: {ids:?}"
+        );
+        assert!(
+            merged
+                .records
+                .iter()
+                .any(|r| r.class == AuditClass::BindsNothing),
+            "the binds_nothing advisory row still surfaces: {merged:?}"
+        );
+        // Deterministic across runs: repeated assembly over identical
+        // inputs yields the same keys (a counter or random suffix is
+        // not a fix).
+        let again = fold_rows(oracle_report(&corpus_lines), bind_rows(&spec));
+        let again_ids: Vec<&str> = again
+            .records
+            .iter()
+            .map(|r| r.scenario_id.as_str())
+            .collect();
+        assert_eq!(
+            ids, again_ids,
+            "the merged keys are deterministic across runs"
         );
     }
 }
