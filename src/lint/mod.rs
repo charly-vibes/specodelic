@@ -217,6 +217,14 @@ pub const RULE_TABLE: &[(&str, &str)] = &[
         "tautological_predicate",
         "a property predicate or invariant constraint expr must not be trivially true: its whole trimmed text is `true`/`⊤`, or one identifier is compared equal to itself (`x == x`) — no calls, arithmetic, or compound expressions are judged, and an `effect`/`advisory` constraint expr is never judged; advisory — warned on the warnings channel (exit 0), never a failure (openspec/specs/linter-content_advisories/spec.md)",
     ),
+    (
+        "fragment_binds_nothing",
+        "an invariant constraint expr or a unit property predicate that carries a `**rust:**` fragment must cite at least one declared model element — a Model state or transition id, or a Constraint/Property row id of at least 3 characters (the intent id is not a model element; one-/two-character ids never satisfy the identifier check) — a fragment citing none is green yet vacuous: nothing was checked; citation is a textual proxy: string/char literals and `//` line comments are stripped for identifier coincidence, EXCEPT that a whole unescaped string literal whose content exactly equals a declared Model/States id IS a citation (an invariant comparing the `state` binder against a declared state is genuinely bound; literal equality is length-independent, and an UNDECLARED state literal never binds — that is `vacuous_invariant`'s surface), and a fragment containing a path-qualified `::` call is exempt (it invokes production code); a declared element that is simply never exercised is never flagged (citation-versus-declared-ids, never coverage-of-declared-ids); law-kind predicates are outside the surface; the finding is FILE-SCOPED: one summary warning per file names the count and every offending row id; advisory — warned on the warnings channel (exit 0), never a failure (openspec/specs/linter-content_advisories/spec.md, specodelic-h5ks)",
+    ),
+    (
+        "vacuous_invariant",
+        "an invariant constraint's `**rust:**` expr that forbids a state literal (`state != \"<state>\"`, or its mirror, with the binder named exactly `state` — `model.state`/`state.field`/`crate::state` are not judged) must name a state declared in `Model/States`; `//` line comments are skipped, so a commented-out comparison never warns — an undeclared forbidden state cannot exist, so the invariant is structurally vacuous; a DECLARED but unreachable phase state never warns, because a legitimate phase-style model may keep a defensive invariant over a phase its correct runs never enter (citation-versus-declared-ids, never reachability from any seed state — never a nudge off good design pressure); advisory — warned on the warnings channel (exit 0), never a failure (openspec/specs/linter-content_advisories/spec.md, specodelic-h5ks)",
+    ),
 ];
 
 /// The stable rule identifier for a bare rule name: `linter.<name>`.
@@ -471,7 +479,9 @@ pub fn external_completeness_findings(
 /// pass over the corpus reports both:
 /// - `linter-observability` (openspec/specs/linter-observability/spec.md);
 /// - `linter-content_advisories` (openspec/specs/linter-content_advisories/spec.md)
-///   — placeholder cells, scaffold ids, and tautological predicates/exprs.
+///   — placeholder cells, scaffold ids, tautological predicates/exprs,
+///   and the vacuity shapes (`fragment_binds_nothing`,
+///   `vacuous_invariant`, specodelic-h5ks).
 pub fn advisory_findings(specs: &[Spec]) -> Vec<Issue> {
     let mut report = empty_report(specs.len());
     lint_observability(specs, &mut report);
@@ -760,6 +770,21 @@ mod tests {
             spec_at(
                 "---\nid: taut.fixture\nkind: intent\nstatement: \"THE taut SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| inv | invariant | `x` | [[taut.fixture]] |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[taut.fixture.inv]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[taut.fixture.inv]] | `g()` | `true` |\n",
                 "taut-fixture.md",
+            ),
+            // fires fragment_binds_nothing (specodelic-h5ks): a property
+            // predicate fragment `flag != 0` cites none of the declared
+            // model ids (inv, s1, t, p) — green yet vacuous.
+            spec_at(
+                "---\nid: vac.fixture\nkind: intent\nstatement: \"THE vac SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| inv | invariant | `x` | [[vac.fixture]] |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[vac.fixture.inv]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p | unit | [[vac.fixture.inv]] | `g()` | `**rust:** flag != 0` |\n",
+                "vac-fixture.md",
+            ),
+            // fires vacuous_invariant (specodelic-h5ks): the invariant
+            // forbids `ghost_state`, which Model/States never declares —
+            // the bad state cannot exist. The fragment cites the declared
+            // `holds` constraint, so it does NOT also bind nothing.
+            spec_at(
+                "---\nid: vi.fixture\nkind: intent\nstatement: \"THE vi SHALL hold\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| holds | invariant | `x` | [[vi.fixture]] |\n| ghost | invariant | `**rust:** state != \"ghost_state\" && holds` | [[vi.fixture]] |\n\n## Model\n\n### States\n\n- s1\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s1 | [[vi.fixture.holds]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|------------|\n| p_holds | unit | [[vi.fixture.holds]] | `g()` | `x` |\n| p_ghost | unit | [[vi.fixture.ghost]] | `g()` | `x` |\n",
+                "vi-fixture.md",
             ),
         ]
     }
