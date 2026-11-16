@@ -15,7 +15,8 @@
 //! `no_counterexample`), and combine the two gates into the single
 //! verdict `openspec/specs/verify/spec.md` calls `verified` (the
 //! properties-only scope verdict a scoped CI gate reads lives in
-//! `specodelic::scope_verdict`). Rationale: neither gate
+//! `specodelic::scope_verdict`). Artifacts resolve through the shared
+//! `citation_corpus::artifact_dir` decision (specodelic-1ey4). Rationale: neither gate
 //! alone suffices (`both_gates_required`); un-translated predicates panic
 //! via `todo_predicate!` and are reported honestly as failures, never as
 //! skips; a stale artifact is a failure, not a cached pass
@@ -26,6 +27,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::citation_corpus;
 use crate::compile;
 use crate::model_check::{self, Outcome, RunReport};
 use crate::scope_verdict::properties_verdict;
@@ -289,7 +291,7 @@ pub fn evaluate_file_verdicts(
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|| format!("<{}>", spec.intent.id));
             let stem = artifact_stem(spec);
-            let properties = evaluate_properties_gate(spec, out_dir, runner);
+            let properties = evaluate_properties_gate_in_corpus(spec, specs, out_dir, runner);
             let model = evaluate_model_gate(spec, specs, out_dir, &stem);
             let verdict = verdict(&properties.state, &model);
             FileVerdict {
@@ -303,12 +305,7 @@ pub fn evaluate_file_verdicts(
         .collect()
 }
 
-/// The three artifact paths verify consumes for one spec.
-pub struct ArtifactPaths {
-    pub props: PathBuf,
-    pub check_report: PathBuf,
-    pub tla: PathBuf,
-}
+pub use crate::citation_corpus::{ArtifactPaths, artifact_paths};
 
 /// Artifact naming, mirroring `cmd_compile`/`cmd_model_check`. One
 /// implementation, shared with compile (specodelic-jf1: a spec.md file
@@ -316,14 +313,6 @@ pub struct ArtifactPaths {
 /// compile::artifact_stem the moment artifact naming changed).
 pub fn artifact_stem(spec: &crate::spec::Spec) -> String {
     crate::compile::artifact_stem(spec)
-}
-
-pub fn artifact_paths(out_dir: &Path, stem: &str) -> ArtifactPaths {
-    ArtifactPaths {
-        props: out_dir.join(format!("{stem}_props.rs")),
-        check_report: out_dir.join(format!("{stem}.check.json")),
-        tla: out_dir.join(format!("{stem}.tla")),
-    }
 }
 
 /// The model gate: `<stem>.check.json` must parse, carry the current
@@ -339,7 +328,8 @@ pub fn evaluate_model_gate(
     out_dir: &Path,
     stem: &str,
 ) -> ModelGateState {
-    let paths = artifact_paths(out_dir, stem);
+    let routed = citation_corpus::routed_artifact_dir(spec, specs, out_dir);
+    let paths = artifact_paths(&routed, stem);
     let bytes = match fs::read(&paths.check_report) {
         Ok(b) => b,
         Err(e) => {
@@ -404,7 +394,11 @@ pub fn evaluate_model_gate(
         std::collections::BTreeMap::new();
     for s in specs {
         let sstem = artifact_stem(s);
-        let tla_path = out_dir.join(format!("{sstem}.tla"));
+        let tla_path = artifact_paths(
+            &citation_corpus::routed_artifact_dir(s, specs, out_dir),
+            &sstem,
+        )
+        .tla;
         let tla = match fs::read(&tla_path) {
             Ok(b) => b,
             Err(e) => {
@@ -557,13 +551,35 @@ fn stored_claim_view(
 /// The properties gate: staleness by metadata comparison, then real
 /// execution of every block through the runner seam. A spec with no
 /// Property rows passes vacuously without invoking the runner.
+///
+/// The single-spec entry point treats the spec as its own corpus, so a
+/// corpus-unique stem keeps the flat layout. Callers holding the whole
+/// invocation (verify over a parsed corpus) use
+/// `evaluate_properties_gate_in_corpus` so duplicate stems resolve to
+/// each file's own routed artifacts.
 pub fn evaluate_properties_gate(
     spec: &crate::spec::Spec,
     out_dir: &Path,
     runner: &dyn PropertiesRunner,
 ) -> PropertiesGate {
+    evaluate_properties_gate_in_corpus(spec, std::slice::from_ref(spec), out_dir, runner)
+}
+
+/// [`evaluate_properties_gate`] over the whole invocation corpus: the
+/// artifact location is the shared `citation_corpus::artifact_dir`
+/// decision, which needs the corpus to know whether this spec's stem
+/// collides (specodelic-1ey4).
+pub fn evaluate_properties_gate_in_corpus(
+    spec: &crate::spec::Spec,
+    corpus: &[crate::spec::Spec],
+    out_dir: &Path,
+    runner: &dyn PropertiesRunner,
+) -> PropertiesGate {
     let stem = artifact_stem(spec);
-    let paths = artifact_paths(out_dir, &stem);
+    let paths = artifact_paths(
+        &citation_corpus::routed_artifact_dir(spec, corpus, out_dir),
+        &stem,
+    );
     let on_disk = match fs::read_to_string(&paths.props) {
         Ok(s) => s,
         Err(_) => {
