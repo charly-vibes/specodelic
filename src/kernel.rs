@@ -1197,41 +1197,19 @@ impl CorpusBackend {
     }
 }
 
+/// The kernel path's name for the shared corpus status record
+/// (specodelic-dzn): `citation_corpus::CorpusStatusRow` holds the ONE
+/// definition of the id/status/reason fields and of both serialized
+/// shapes — so a kernel claim and a resolved citation carrying the same
+/// outcome are literally the same record, never a field-level mirror.
+///
 /// One kernel claim's command-path status: the Constraints-table row id
 /// (within the file that declares it), its three-valued status, and the
 /// labeled reason whenever the status is not verified (specodelic-7gh —
-/// the unknown names its cause, the counterexample names itself). Mirrors the citation path's `ResolvedStatus` shape —
-/// the same command-output and persisted-report duality, merged through
-/// the one shared identity helper (`merge_corpus_statuses`, §3.8 TIDY).
-#[derive(Debug, Clone, PartialEq)]
-pub struct CorpusClaimStatus {
-    pub id: String,
-    pub status: ThreeValued,
-    pub reason: Option<String>,
-}
-
-impl CorpusClaimStatus {
-    /// The report shape — status only, no reason (RunReport keeps its
-    /// deployed schema; reasons surface in command output).
-    pub fn invariant_status(&self) -> crate::model_check::InvariantStatus {
-        crate::model_check::InvariantStatus {
-            id: self.id.clone(),
-            status: self.status,
-        }
-    }
-
-    /// The command-output shape: id, status, and the reason when present.
-    pub fn output_json(&self) -> serde_json::Value {
-        let mut entry = serde_json::json!({
-            "id": self.id,
-            "status": self.status,
-        });
-        if let Some(reason) = &self.reason {
-            entry["reason"] = serde_json::json!(reason);
-        }
-        entry
-    }
-}
+/// the unknown names its cause, the counterexample names itself). Both
+/// command paths merge it through the one shared identity helper
+/// (`merge_corpus_statuses`, §3.8 TIDY).
+pub use crate::citation_corpus::CorpusStatusRow as CorpusClaimStatus;
 
 /// The labeled kernel-grammar pre-check for the read paths that parse a
 /// spec after the fact (specodelic-m6k): every invariant-kind Constraint

@@ -12,7 +12,12 @@
 //!
 //! These are CLI assertions — real `specodelic` invocations, never a
 //! direct harness (the library-level chains live in `kernel_status.rs`
-//! and `citation_algebra.rs`).
+//! and `citation_algebra.rs`). The one exception is
+//! `corpus_status_record_shape_oracle` (specodelic-dzn): a library-level
+//! oracle pinning the exact serialized status-record shape the CLI
+//! fixtures assert behaviorally, so the shared-type unification of the
+//! kernel and citation status records cannot drift a field, a key
+//! spelling, or the reason-presence rule.
 
 #[path = "common/mod.rs"]
 mod common;
@@ -132,6 +137,148 @@ fn assert_exactly_once(list: &Value, id: &str, status: &str) {
 /// The persisted report's raw payload (byte string) for a stem.
 fn report_payload(out: &std::path::Path, stem: &str) -> String {
     std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap_p()
+}
+
+// ---- Scenario: record-shape oracle — the kernel path and the citation
+// ---- path carry ONE claim-report record ----
+
+// The labeled reasons the two paths attach to a not-verified outcome.
+const CITATION_REASON: &str = "citation target [[ghost]] is missing from the invocation corpus";
+const CLAIM_REASON: &str = "claim kb evaluated to counterexample over the invocation corpus";
+
+/// Record oracle (specodelic-dzn): a kernel claim and a resolved
+/// citation carrying the SAME outcome (id, status, reason) carry one
+/// record shape, and both paths serialize exactly two shapes —
+///
+/// * the command-output record: `id`, `status`, and `reason` only when
+///   the status is not verified (never an empty/`null` reason);
+/// * the persisted-report record: `id` and `status` only — the reason is
+///   dropped because `RunReport` keeps its deployed status-only schema.
+///
+/// Pinned as exact bytes (serde_json's map orders keys) so a refactor
+/// cannot rename, reorder, add or drop a field — the CLI fixtures above
+/// assert behavior, this oracle asserts the record shape they consume.
+#[test]
+fn corpus_status_record_shape_oracle() {
+    use specodelic::citation_corpus::ResolvedStatus;
+    use specodelic::compile::ThreeValued;
+    use specodelic::kernel::{CorpusClaimStatus, merge_corpus_statuses};
+    use specodelic::model_check::{Backend, Bound, Outcome, RunReport};
+
+    // Same corpus outcome on both paths: unknown, naming its cause.
+    let citation_cx = ResolvedStatus {
+        id: "cx".to_string(),
+        status: ThreeValued::Unknown,
+        reason: Some(CITATION_REASON.to_string()),
+    };
+    let claim_cx = CorpusClaimStatus {
+        id: "cx".to_string(),
+        status: ThreeValued::Unknown,
+        reason: Some(CITATION_REASON.to_string()),
+    };
+    // The command-output record: exact bytes, key order and all.
+    let output = r#"{"id":"cx","reason":"citation target [[ghost]] is missing from the invocation corpus","status":"unknown"}"#;
+    assert_eq!(
+        serde_json::to_string(&citation_cx.output_json()).unwrap_p(),
+        output,
+        "citation command-output record shape"
+    );
+    assert_eq!(
+        serde_json::to_string(&claim_cx.output_json()).unwrap_p(),
+        output,
+        "kernel command-output record shape"
+    );
+    assert_eq!(
+        citation_cx.output_json(),
+        claim_cx.output_json(),
+        "both paths publish the identical record"
+    );
+
+    // Same corpus outcome, verified: no reason field at all.
+    let citation_ok = ResolvedStatus {
+        id: "ka".to_string(),
+        status: ThreeValued::Verified,
+        reason: None,
+    };
+    let claim_ok = CorpusClaimStatus {
+        id: "ka".to_string(),
+        status: ThreeValued::Verified,
+        reason: None,
+    };
+    for record in [&citation_ok, &claim_ok] {
+        assert_eq!(
+            serde_json::to_string(&record.output_json()).unwrap_p(),
+            r#"{"id":"ka","status":"verified"}"#,
+            "verified command-output record shape"
+        );
+        assert!(
+            record.output_json().get("reason").is_none(),
+            "a verified record never carries a reason key: {record:?}"
+        );
+    }
+
+    // The persisted-report record: id + status, reason dropped on BOTH
+    // paths (the deployed `RunReport.invariant_statuses` schema).
+    let report_cx = r#"{"id":"cx","status":"unknown"}"#;
+    assert_eq!(
+        serde_json::to_string(&citation_cx.invariant_status()).unwrap_p(),
+        report_cx,
+        "citation persisted-report record shape"
+    );
+    assert_eq!(
+        serde_json::to_string(&claim_cx.invariant_status()).unwrap_p(),
+        report_cx,
+        "kernel persisted-report record shape"
+    );
+    assert_eq!(
+        citation_cx.invariant_status(),
+        claim_cx.invariant_status(),
+        "both paths persist the identical record"
+    );
+
+    // The merged command output over one corpus outcome: resolved
+    // citation `cx` (unknown, reason), kernel claims `ka` (verified) and
+    // `kb` (counterexample, reason) — resolved rows first (already in the
+    // report), kernel claims appended, reasons attached only where
+    // present, and the report keeping its status-only schema.
+    let claim_kb = CorpusClaimStatus {
+        id: "kb".to_string(),
+        status: ThreeValued::Counterexample,
+        reason: Some(CLAIM_REASON.to_string()),
+    };
+    let mut report = RunReport {
+        backend: Backend {
+            engine: specodelic::model_check::BACKEND_ENGINE.to_string(),
+            version: "0.1.0".to_string(),
+        },
+        bound: Bound::default(),
+        outcome: Outcome::CounterexampleFound,
+        invariants_checked: vec![],
+        invariant_statuses: vec![citation_cx.invariant_status()],
+        violated_invariant_id: Some("kb".to_string()),
+        trace: None,
+        artifact_sha256: "0".repeat(64),
+        states_explored: 0,
+    };
+    let entries = merge_corpus_statuses(
+        &mut report,
+        std::slice::from_ref(&citation_cx),
+        &[claim_ok, claim_kb],
+    );
+    assert_eq!(
+        serde_json::to_string(&entries).unwrap_p(),
+        concat!(
+            r#"[{"id":"cx","reason":"citation target [[ghost]] is missing from the invocation corpus","status":"unknown"},"#,
+            r#"{"id":"ka","status":"verified"},"#,
+            r#"{"id":"kb","reason":"claim kb evaluated to counterexample over the invocation corpus","status":"counterexample"}]"#
+        ),
+        "merged command-output entries"
+    );
+    assert_eq!(
+        serde_json::to_string(&report.invariant_statuses).unwrap_p(),
+        r#"[{"id":"cx","status":"unknown"},{"id":"ka","status":"verified"},{"id":"kb","status":"counterexample"}]"#,
+        "merged persisted-report statuses stay status-only"
+    );
 }
 
 // ---- Scenario: mixed corpus — CLI and orchestrate publish identical
@@ -292,4 +439,70 @@ fn two_file_corpus_cli_and_orchestrate_parity() {
             report_payload(&orch_out, stem)
         );
     }
+}
+
+// ---- Scenario: a citation of a refuted rust fragment carries a reason ----
+
+#[test]
+fn refuted_fragment_citation_persists_a_reason() {
+    // specodelic-60e: `bad` is a **rust:** invariant the executable run
+    // refutes and `cx` cites it. The citation resolves to
+    // counterexample — and claim_report_schema requires a reason on
+    // every not-verified claim, in BOTH the command output and the
+    // persisted qualified claim record.
+    let td = tempfile::tempdir().unwrap_p();
+    let spec = td.path().join("cite_reason.md");
+    let rows = "| bad | invariant | `**rust:** state != \"s2\"` | [[cite_reason]] |\n\
+                | cx | invariant | `[[bad]]` | [[cite_reason]] |\n";
+    let props = "| p_bad | unit | [[cite_reason.bad]] | `g()` | `x` |\n\
+                 | p_cx | unit | [[cite_reason.cx]] | `g()` | `x` |\n";
+    write_parity_fixture(&spec, "cite_reason", rows, props, "bad");
+    let s = spec.to_str().unwrap_p().to_string();
+    let out = td.path().join("out");
+    let specs = vec![s];
+    compile(&specs, &out);
+    let (code, json) = cli_model_check(&specs, &out);
+    assert_eq!(code, Some(1), "the refuted claim fails the aggregate");
+
+    let entries = status_entries(&json, 0);
+    let cx = entries
+        .as_array()
+        .unwrap_p()
+        .iter()
+        .find(|s| s["id"] == "cx")
+        .unwrap_p();
+    assert_eq!(
+        cx["status"], "counterexample",
+        "the citation follows the refuted target: {entries}"
+    );
+    let output_reason = cx["reason"]
+        .as_str()
+        .unwrap_or_else(|| panic!("citation counterexample has no reason: {cx}"));
+    assert!(!output_reason.is_empty(), "the reason is non-empty");
+    assert!(
+        output_reason.contains("bad"),
+        "the command-output reason names the refuted invariant: {output_reason}"
+    );
+
+    // The persisted report's qualified claim record carries the same
+    // status and an equally honest reason.
+    let report: Value = serde_json::from_str(&report_payload(&out, "cite_reason")).unwrap_p();
+    let claim = report["claims"]
+        .as_array()
+        .unwrap_p()
+        .iter()
+        .find(|c| c["id"] == "cx")
+        .unwrap_p();
+    assert_eq!(
+        claim["status"], "counterexample",
+        "the persisted claim follows the refuted target: {claim}"
+    );
+    let persisted_reason = claim["reason"]
+        .as_str()
+        .unwrap_or_else(|| panic!("persisted citation counterexample has no reason: {claim}"));
+    assert!(!persisted_reason.is_empty(), "the reason is non-empty");
+    assert!(
+        persisted_reason.contains("bad"),
+        "the persisted reason names the refuted invariant: {persisted_reason}"
+    );
 }

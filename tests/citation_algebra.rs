@@ -175,9 +175,10 @@ fn report_persists_per_invariant_status_with_honest_unknown() {
 // evidence source, it never rewrites the other legs, and an empty
 // kernel map behaves exactly as before the composition.
 
-/// The cross-evaluator fixture: one exec row, one kernel row, and one
-/// citation row over both.
-const CROSS_EVALUATOR_SPEC: &str = "---\nid: cx.algebra\nkind: intent\nstatement: \"THE cx SHALL compose evaluators\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `**rust:** state != \"blackhole\"` | [[cx.algebra]] |\n| ka | invariant | `**kernel:** |State| == 2` | [[cx.algebra]] |\n| kc | invariant | `[[c1]] ∧ [[ka]]` | [[cx.algebra]] |\n\n## Model\n\n### States\n\n- s1\n- s2\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s2 | [[cx.algebra.c1]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p_c1 | unit | [[cx.algebra.c1]] | `word()` | `**rust:** v0.len() >= 1` |\n| p_ka | unit | [[cx.algebra.ka]] | `word()` | `**rust:** v0.len() >= 1` |\n| p_kc | unit | [[cx.algebra.kc]] | `word()` | `**rust:** v0.len() >= 1` |\n";
+/// The cross-evaluator fixture: one exec row, one kernel row, one
+/// citation row over both, and one direct citation of the exec row
+/// (the refuted-rust-fragment reason seam).
+const CROSS_EVALUATOR_SPEC: &str = "---\nid: cx.algebra\nkind: intent\nstatement: \"THE cx SHALL compose evaluators\"\n---\n\n## Constraints\n\n| id | kind | expr | traces_to |\n|----|------|------|-----------|\n| c1 | invariant | `**rust:** state != \"blackhole\"` | [[cx.algebra]] |\n| ka | invariant | `**kernel:** |State| == 2` | [[cx.algebra]] |\n| kc | invariant | `[[c1]] ∧ [[ka]]` | [[cx.algebra]] |\n| cc | invariant | `[[c1]]` | [[cx.algebra]] |\n\n## Model\n\n### States\n\n- s1\n- s2\n\n### Transitions\n\n| id | from | to | guard |\n|----|------|----|-------|\n| t | s1 | s2 | [[cx.algebra.c1]] |\n\n## Properties\n\n| id | kind | derives_from | generator | predicate |\n|----|------|--------------|-----------|-----------|\n| p_c1 | unit | [[cx.algebra.c1]] | `word()` | `**rust:** v0.len() >= 1` |\n| p_ka | unit | [[cx.algebra.ka]] | `word()` | `**rust:** v0.len() >= 1` |\n| p_kc | unit | [[cx.algebra.kc]] | `word()` | `**rust:** v0.len() >= 1` |\n| p_cc | unit | [[cx.algebra.cc]] | `word()` | `**rust:** v0.len() >= 1` |\n";
 
 /// The parsed cross-evaluator fixture.
 fn cross_evaluator_spec() -> specodelic::spec::Spec {
@@ -302,5 +303,39 @@ fn a_missing_kernel_evidence_map_degrades_to_no_evidence_never_a_panic() {
     assert!(
         reason.contains("missing target `ka`"),
         "no kernel evidence means the pre-composition reason: {reason}"
+    );
+}
+
+#[test]
+fn refuted_rust_fragment_citation_target_carries_a_reason() {
+    // specodelic-60e: the claim_report_schema contract says a
+    // not-verified claim carries a reason. A citation of a rust-fragment
+    // invariant that the same run refuted resolves to counterexample —
+    // and that counterexample must name the refuted target, mirroring
+    // the kernel evaluator's 7gh counterexample reason.
+    let spec = cross_evaluator_spec();
+    let exec = vec![BTreeMap::from([(
+        "c1".to_string(),
+        ThreeValued::Counterexample,
+    )])];
+    let resolved = specodelic::citation_corpus::resolve_corpus_citations(
+        std::slice::from_ref(&spec),
+        &exec,
+        &kernel_evidence(),
+    );
+    let citation = resolved[0].iter().find(|r| r.id == "cc").unwrap_p().clone();
+    assert_eq!(
+        citation.status,
+        ThreeValued::Counterexample,
+        "the citation follows the refuted target: {citation:?}"
+    );
+    let reason = citation.reason.unwrap_p();
+    assert!(
+        !reason.is_empty(),
+        "a refuted citation carries a non-empty reason, never a bare status"
+    );
+    assert!(
+        reason.contains("c1"),
+        "the reason names the refuted invariant `c1`: {reason}"
     );
 }

@@ -12,10 +12,12 @@
 //!
 //! Responsibilities: `check_corpus_scope` (the pre-write scope guard);
 //! `artifact_dir` (the ONE shared per-file artifact routing decision —
-//! compile stage, backend pass and persisted report all resolve through
-//! it); `resolve_corpus_citations` (whole-corpus status resolution over
-//! same-run evidence only — no filesystem discovery, never a suffix
-//! match); `statuses_with_reasons` (the command-output shape).
+//! compile stage, backend pass, verify stage and persisted report all
+//! resolve through it) with `artifact_paths` (the flat-name join over
+//! that routed directory); `resolve_corpus_citations` (whole-corpus
+//! status resolution over same-run evidence only — no filesystem
+//! discovery, never a suffix match); `statuses_with_reasons` (the
+//! command-output shape).
 //! Rationale: the command path (native CLI and orchestrate) must publish
 //! one canonical status per citation invariant in both CLI output and
 //! persisted reports; resolution lives beside — never inside — the
@@ -89,6 +91,37 @@ pub fn artifact_dir(spec: &Spec, corpus: &[Spec], out_dir: &str) -> std::path::P
     std::path::Path::new(out_dir)
         .join(stem)
         .join(encode_routing_key(&key))
+}
+
+/// [`artifact_dir`], with the out-dir as a path: verify holds a `Path`
+/// while orchestrate holds its CLI string (specodelic-1ey4). The lossy
+/// bridge is exact for every UTF-8 path and matches `artifact_dir`'s own
+/// `display()`-based source-path key.
+pub(crate) fn routed_artifact_dir(
+    spec: &Spec,
+    corpus: &[Spec],
+    out_dir: &std::path::Path,
+) -> std::path::PathBuf {
+    artifact_dir(spec, corpus, &out_dir.to_string_lossy())
+}
+
+/// The three artifact paths one spec consumes, inside the directory
+/// [`artifact_dir`] chose.
+pub struct ArtifactPaths {
+    pub props: std::path::PathBuf,
+    pub check_report: std::path::PathBuf,
+    pub tla: std::path::PathBuf,
+}
+
+/// The three artifact paths for one spec, joined inside the routed dir —
+/// the flat-name join only; the directory decision stays [`artifact_dir`]'s
+/// (specodelic-1ey4).
+pub fn artifact_paths(dir: &std::path::Path, stem: &str) -> ArtifactPaths {
+    ArtifactPaths {
+        props: dir.join(format!("{stem}_props.rs")),
+        check_report: dir.join(format!("{stem}.check.json")),
+        tla: dir.join(format!("{stem}.tla")),
+    }
 }
 
 /// One file's backend run in a command invocation: identity (display
@@ -277,18 +310,29 @@ pub fn check_corpus_scope(specs: &[Spec]) -> Result<(), ScopeViolation> {
     Ok(())
 }
 
-/// One resolved citation status: the Constraints-table id, the
+/// One corpus status record: the Constraints-table row id, the
 /// three-valued status, and the reason when (and only when) the status
-/// is `unknown` for a namable cause (cycle, missing target, property
-/// row without same-run invariant evidence).
-#[derive(Debug, Clone)]
-pub struct ResolvedStatus {
+/// is not verified for a namable cause (cycle, missing target, property
+/// row without same-run invariant evidence, unparsable kernel cell).
+///
+/// The ONE definition (specodelic-dzn): the citation resolver's
+/// `ResolvedStatus` and the kernel claim evaluator's
+/// `kernel::CorpusClaimStatus` are this same type, so both command
+/// paths build the persisted-report record (`invariant_status`) and the
+/// command-output record (`output_json`) exactly once — the field set,
+/// the key spelling, the key order and the reason-presence rule cannot
+/// drift between the two paths.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CorpusStatusRow {
     pub id: String,
     pub status: ThreeValued,
     pub reason: Option<String>,
 }
 
-impl ResolvedStatus {
+/// The citation path's name for the shared corpus status record.
+pub type ResolvedStatus = CorpusStatusRow;
+
+impl CorpusStatusRow {
     /// The report shape — status only, no reason (RunReport keeps its
     /// deployed schema; reasons surface in command output).
     pub fn invariant_status(&self) -> InvariantStatus {
@@ -298,7 +342,7 @@ impl ResolvedStatus {
         }
     }
 
-    /// The command-output shape: id, status, and the unknown reason when
+    /// The command-output shape: id, status, and the labeled reason when
     /// present (design D9 — reasons surface in command output; the
     /// persisted report keeps its deployed status-only schema).
     pub fn output_json(&self) -> serde_json::Value {
@@ -331,6 +375,9 @@ impl ResolvedStatus {
 ///   a row carries exactly one evaluator), then a citation row.
 /// - Missing targets and property rows (no same-run invariant evidence)
 ///   are `unknown` with a reason — never a pass.
+/// - A target the same run refuted is `counterexample` with a
+///   self-naming reason (specodelic-60e — `claim_report_schema`
+///   requires a reason on every not-verified status).
 pub fn resolve_corpus_citations(
     specs: &[Spec],
     exec_outcomes: &[BTreeMap<String, ThreeValued>],
@@ -428,20 +475,25 @@ impl<'a> Resolver<'a> {
 
     /// Kleene evaluation with reasons: ∧ is counterexample-dominant and
     /// absorbs unknown; ¬ flips verified/counterexample and keeps
-    /// unknown. A reason rides along whenever the result stays unknown.
+    /// unknown. A direct exec refutation names itself, composed
+    /// unknowns name their cause, and verified rows carry none.
     fn evaluate(&mut self, expr: &CitationExpr, file_idx: usize) -> (ThreeValued, Option<String>) {
         match expr {
             CitationExpr::Cite(target) => self.resolve_target(target, file_idx),
             CitationExpr::Not(inner) => {
                 let (status, reason) = self.evaluate(inner, file_idx);
-                (
-                    match status {
-                        ThreeValued::Verified => ThreeValued::Counterexample,
-                        ThreeValued::Counterexample => ThreeValued::Verified,
-                        ThreeValued::Unknown => ThreeValued::Unknown,
-                    },
-                    reason.map(|r| format!("composed ¬ over unknown: {r}")),
-                )
+                match status {
+                    // ¬verified and ¬counterexample are decided verdicts
+                    // and carry no reason. In particular a refuted
+                    // inner cite's self-naming reason must not leak
+                    // onto the flipped verified row.
+                    ThreeValued::Verified => (ThreeValued::Counterexample, None),
+                    ThreeValued::Counterexample => (ThreeValued::Verified, None),
+                    ThreeValued::Unknown => (
+                        ThreeValued::Unknown,
+                        reason.map(|r| format!("composed ¬ over unknown: {r}")),
+                    ),
+                }
             }
             CitationExpr::And(a, b) => {
                 let (sa, ra) = self.evaluate(a, file_idx);
@@ -468,10 +520,12 @@ impl<'a> Resolver<'a> {
     /// precedence is EXEC outcome → KERNEL claim outcome → citation row
     /// → property row → missing target; the exec and kernel sets are
     /// disjoint (a row carries exactly one evaluator), so the order
-    /// documents intent. The reason names the cause: a missing target
-    /// (no such invariant evidence in the run), a property row (model-
-    /// check never executes properties), or the kernel claim's own
-    /// labeled reason.
+    /// documents intent. The reason names the cause: a refuted
+    /// executable invariant names itself (specodelic-60e — the
+    /// claim_report_schema contract requires a reason on every
+    /// not-verified status), a missing target (no such invariant
+    /// evidence in the run), a property row (model-check never executes
+    /// properties), or the kernel claim's own labeled reason.
     fn resolve_target(&mut self, target: &str, file_idx: usize) -> (ThreeValued, Option<String>) {
         let owner = match target.rsplit_once('.') {
             // Qualified: exactly one corpus file owns the target — the
@@ -487,7 +541,19 @@ impl<'a> Resolver<'a> {
         };
         let (idx, row) = owner;
         if let Some(status) = self.exec_outcomes[idx].get(&row) {
-            return (*status, None);
+            // specodelic-60e: the claim_report_schema contract requires
+            // a reason on every not-verified status. A refuted
+            // executable invariant names itself — mirroring the kernel
+            // evaluator's 7gh counterexample reason — so the citation
+            // claim (and the persisted qualified claim record) is never
+            // a bare `counterexample`. Verified stays unlabeled, and
+            // the exec leg's existing unknown behavior is unchanged.
+            let reason = (*status == ThreeValued::Counterexample).then(|| {
+                format!(
+                    "the claim evaluated to counterexample over the invocation corpus instance — the citation names a refuted rust-fragment claim `{target}`"
+                )
+            });
+            return (*status, reason);
         }
         // Corpus-static kernel claim evidence (specodelic-9o1h): the
         // citation consumes the kernel evaluator's status — it never
@@ -498,8 +564,8 @@ impl<'a> Resolver<'a> {
             .get(idx)
             .and_then(|file| file.get(&row))
         {
-            // Only an unknown rides a reason — the exec leg has the same
-            // shape (a verified or refuted leg carries none).
+            // Only an unknown rides a reason — a verified leg carries
+            // none, and a refuted exec leg names itself above.
             let reason = (evidence.status == ThreeValued::Unknown).then(|| {
                 match &evidence.reason {
                     Some(r) => format!("kernel claim `{target}` is unknown: {r}"),
@@ -512,10 +578,12 @@ impl<'a> Resolver<'a> {
         }
         if self.citations[idx].contains_key(&row) {
             let resolved = self.resolve_citation_row(idx, &row);
-            let reason = resolved
-                .reason
-                .clone()
-                .map(|r| format!("citation `{target}` is unknown: {r}"));
+            // An unknown names the citation edge; a counterexample
+            // already carries the refuted target's self-naming reason.
+            let reason = resolved.reason.clone().map(|r| match resolved.status {
+                ThreeValued::Unknown => format!("citation `{target}` is unknown: {r}"),
+                _ => r,
+            });
             return (resolved.status, reason);
         }
         if self.specs[idx].properties.iter().any(|p| p.id == row) {
