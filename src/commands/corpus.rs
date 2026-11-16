@@ -616,6 +616,46 @@ pub(crate) fn cmd_merge(
     if report.verdict == "merged" { 0 } else { 1 }
 }
 
+/// The compile scope law (specodelic-523w): artifact stems must be unique
+/// across one invocation. Two files whose `compile::artifact_stem`
+/// agrees write the same `<stem>.toml` / `<stem>_props.rs` / `<stem>.tla`
+/// into one out-dir, so the later file silently overwrote the earlier
+/// one's artifacts. The guard mirrors `citation_corpus::check_corpus_scope`'s
+/// `duplicate_corpus_identity`: labeled, naming both colliding files,
+/// with a remediation hint — and it fires before lint/compile/write and
+/// before the out-dir exists. One file collected twice (`spk compile
+/// a.md a.md`, overlapping roots) is the same bytes into the same
+/// artifacts, so a repeat of the recorded path is skipped, never a
+/// collision.
+fn artifact_stem_collision(specs: &[Spec]) -> Option<(String, String)> {
+    // Per stem: the first claimant's canonical identity (None for a
+    // pathless synthetic spec) and the display spelling the message uses.
+    let mut seen: std::collections::BTreeMap<String, (Option<PathBuf>, String)> =
+        Default::default();
+    for spec in specs {
+        let file = spec
+            .path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| format!("<{}>", spec.intent.id));
+        let identity = spec.path.as_ref().map(|p| canonical_path(p));
+        let stem = compile::artifact_stem(spec);
+        if let Some((first_identity, first)) = seen.get(&stem) {
+            if identity.is_some() && first_identity.as_ref() == identity.as_ref() {
+                continue;
+            }
+            return Some((
+                format!(
+                    "duplicate_artifact_stem: artifact stem `{stem}` is produced by both {first} and {file} — they would write the same artifacts into one out-dir"
+                ),
+                "rename one of the colliding files (or compile them in separate --out-dir runs) so every artifact stem is unique".to_string(),
+            ));
+        }
+        seen.insert(stem, (identity, file));
+    }
+    None
+}
+
 pub(crate) fn cmd_compile(
     paths: &[String],
     out_dir: &str,
@@ -625,6 +665,23 @@ pub(crate) fn cmd_compile(
     stderr: &mut impl std::io::Write,
 ) -> i32 {
     let (specs, _checklists, notes, _parse_errors) = parse_batch(paths, verbosity);
+
+    // Compile scope law (specodelic-523w): duplicate artifact stems are an
+    // invocation error refused up front — before lint, compile,
+    // write_artifacts, and before the out-dir is created — never a silent
+    // last-write-wins.
+    if let Some((message, hint)) = artifact_stem_collision(&specs) {
+        let mut out: Output<serde_json::Value> = Output::failure(message).with_next_step(hint);
+        // Hostile-input/parse notes name themselves even on the refusal
+        // (suz Ro5, CORR-001) — the same re-attachment as the adjacent
+        // empty-corpus refusal below.
+        for n in &notes {
+            out = out.with_warning(n.clone());
+        }
+        emit_report(out, None, format, verbosity, stdout, stderr);
+        return 2;
+    }
+
     if specs.is_empty() {
         let mut out: Output<serde_json::Value> =
             Output::failure("no spec files to compile").with_next_step(
@@ -646,7 +703,6 @@ pub(crate) fn cmd_compile(
     let mut compiled: Vec<serde_json::Value> = vec![];
     let mut failed: Vec<serde_json::Value> = vec![];
     let mut warnings: Vec<String> = notes;
-    let mut seen_stems: std::collections::BTreeMap<String, String> = Default::default();
     for spec in &specs {
         let file = spec
             .path
@@ -670,15 +726,6 @@ pub(crate) fn cmd_compile(
                         // The rustfmt fallback fact rides the existing
                         // warning channel (write_artifacts stays soft).
                         warnings.extend(result.warnings);
-                        // Two files with the same stem (different dirs)
-                        // would silently overwrite each other's artifacts.
-                        let stem = compile::artifact_stem(spec);
-                        if let Some(first) = seen_stems.get(&stem) {
-                            warnings.push(format!(
-                                "stem collision: `{stem}` artifacts from {first} and {file} share one out-dir — the later file wins",
-                            ));
-                        }
-                        seen_stems.insert(stem, file.clone());
                         // Envelope/disk note (gh-15): the payload carries
                         // the semantic artifact string while the on-disk
                         // _props.rs is the rustfmt-clean version — same
