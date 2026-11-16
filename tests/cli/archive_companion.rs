@@ -29,6 +29,22 @@ fn fixture(id: &str, delta: &str, sidecar: Option<&str>) -> tempfile::TempDir {
     root
 }
 
+/// Fixture: a fake repo root with an ACTIVE (not yet archived) change —
+/// the shape that sends `archive-companion` through the openspec
+/// invocation seam instead of the already-archived restore path.
+#[cfg(unix)]
+fn active_fixture(id: &str, delta: &str, sidecar: &str) -> tempfile::TempDir {
+    let root = tempfile::tempdir().unwrap_p();
+    std::fs::create_dir_all(root.path().join(".git")).unwrap_p();
+    let delta_path = root
+        .path()
+        .join(format!("openspec/changes/{id}/specs/c/spec.md"));
+    std::fs::create_dir_all(delta_path.parent().unwrap_p()).unwrap_p();
+    std::fs::write(&delta_path, delta).unwrap_p();
+    std::fs::write(delta_path.with_file_name("layer.md"), sidecar).unwrap_p();
+    root
+}
+
 /// A plain openspec delta (Revision 19): no frontmatter, no tables.
 const PLAIN_DELTA: &str =
     "## ADDED Requirements\n\n### Requirement: One holds\nThe system SHALL hold one.\n";
@@ -123,4 +139,139 @@ fn archive_companion_unknown_change_is_labeled_error() {
     let stderr = String::from_utf8(out.stderr).unwrap_p();
     assert!(stderr.contains("ghost-change"), "{stderr}");
     assert!(stderr.contains("openspec list"), "{stderr}");
+}
+
+// ---- specodelic-54c6: the invocation bound and the reported rollback ----
+
+/// A hung `openspec archive` must not block `spk archive-companion`
+/// forever: the invocation is bounded by wall clock, and expiry is a
+/// LABELED failure that names the bound command and the bound itself
+/// (specodelic-54c6).
+///
+/// Seam this test pins (none exists today — `openspec_archive_runner`
+/// waits on `Command::output()` with no bound): the production runner
+/// reads its bound from `SPK_ARCHIVE_TIMEOUT_SECS` (seconds; 1 here so
+/// the test stays fast). Green contract for the failure detail: it must
+/// name the command as `openspec archive <id> --yes` and the bound as
+/// `timed out after 1s`.
+#[cfg(unix)]
+#[test]
+fn archive_companion_bounds_hung_openspec_as_labeled_timeout() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = active_fixture("slow", PLAIN_DELTA, SIDECAR);
+    let bin = tempfile::tempdir().unwrap_p();
+    let openspec = bin.path().join("openspec");
+    let invoked = bin.path().join("invoked");
+    // Marks the invocation, then never returns within the bound (and
+    // outlives the red-stage hang).
+    std::fs::write(
+        &openspec,
+        format!("#!/bin/sh\n: > {}\nsleep 30\n", invoked.display()),
+    )
+    .unwrap_p();
+    std::fs::set_permissions(&openspec, std::fs::Permissions::from_mode(0o755)).unwrap_p();
+    let path = format!(
+        "{}:{}",
+        bin.path().display(),
+        std::env::var("PATH").unwrap_or_else(|_| "/usr/bin:/bin".to_string())
+    );
+
+    let out = spk()
+        .args(["archive-companion", "slow", "--json"])
+        .current_dir(root.path())
+        .env("PATH", path)
+        // The green stage's bound override: 1s keeps this test fast.
+        .env("SPK_ARCHIVE_TIMEOUT_SECS", "1")
+        // Test watchdog: the red run hangs here and is killed at 5s.
+        .timeout(std::time::Duration::from_secs(5))
+        .output()
+        .unwrap_p();
+    let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+
+    assert!(
+        invoked.exists(),
+        "the fixture `openspec` was never invoked — the PATH seam did not reach \
+         the production runner (test setup problem, not the bug under test)"
+    );
+    assert!(
+        out.status.code().is_some(),
+        "`spk archive-companion` did not return within the test watchdog: \
+         the openspec invocation is unbounded (SPK_ARCHIVE_TIMEOUT_SECS=1 was ignored); stderr: {stderr}"
+    );
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "a timed-out archiver is a labeled failure, never a hang and never a success: {stderr}"
+    );
+    assert!(
+        stderr.contains("openspec archive slow --yes"),
+        "the timeout must name the bound command: {stderr}"
+    );
+    assert!(
+        stderr.contains("timed out after 1s"),
+        "the timeout must name the bound it expired at (SPK_ARCHIVE_TIMEOUT_SECS=1): {stderr}"
+    );
+    assert!(
+        !root.path().join("openspec/specs").exists(),
+        "a timed-out archive must not proceed to the attach stage"
+    );
+}
+
+/// A revert that cannot restore its saved pre-run state must be REPORTED
+/// — error detail (or a warnings channel), never the silent `let _ =`
+/// discard in `revert()` (specodelic-54c6).
+///
+/// Scenario: the deployed target exists but is unreadable (mode 0200)
+/// inside a read-only capability dir (0555). The companion therefore
+/// cannot read the prior bytes (its rollback action becomes "remove
+/// what I wrote"), it CAN truncate-rewrite the file, the post-attach
+/// corpus lint then fails on the unreadable file, and the rollback's
+/// `remove_file` is denied by the read-only directory.
+///
+/// Green contract: the AttachViolation detail carries
+/// `rollback failed: <path>: <io error>` for every unrestorable entry.
+#[cfg(unix)]
+#[test]
+fn archive_companion_reports_failed_rollback() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = fixture("revx", PLAIN_DELTA, Some(SIDECAR));
+    let deployed_dir = root.path().join("openspec/specs/c");
+    let target = deployed_dir.join("spec.md");
+    std::fs::create_dir_all(&deployed_dir).unwrap_p();
+    std::fs::write(
+        &target,
+        "# c Specification\n\n## Requirements\n\n### Requirement: Old\nOld.\n",
+    )
+    .unwrap_p();
+    // Write-only file in a read-only dir: the forward write succeeds, the
+    // rollback's unlink is denied. Precondition: a non-root uid (the
+    // DAC-denial this test rides on — `just ci` and CI both run non-root).
+    std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o200)).unwrap_p();
+    std::fs::set_permissions(&deployed_dir, std::fs::Permissions::from_mode(0o555)).unwrap_p();
+
+    let out = spk()
+        .args(["archive-companion", "revx", "--json"])
+        .current_dir(root.path())
+        .timeout(std::time::Duration::from_secs(10))
+        .output()
+        .unwrap_p();
+    // Restore the fixture modes first so the tempdir can be removed.
+    std::fs::set_permissions(&deployed_dir, std::fs::Permissions::from_mode(0o755)).unwrap_p();
+
+    let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "the attach must still fail closed: {stderr}"
+    );
+    assert!(
+        stderr.contains("rollback failed"),
+        "a revert that cannot restore its saved state must be reported, not silently discarded: {stderr}"
+    );
+    assert!(
+        stderr.contains("openspec/specs/c/spec.md"),
+        "the failed rollback must name the unrestorable path: {stderr}"
+    );
 }

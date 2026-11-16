@@ -56,6 +56,17 @@ const APPLIED_DEPLOY: &str = concat!(
     "#### Scenario: One\n- **WHEN** x\n- **THEN** y\n"
 );
 
+/// The deployed spec openspec's archive writes when the delta carried
+/// NO Purpose prose: the 1.x shape with the archiver's TBD placeholder
+/// standing in for real purpose prose.
+const PLACEHOLDER_DEPLOY: &str = concat!(
+    "# c Specification\n\n",
+    "## Purpose\nTBD - created by archiving change add-evidence-audit. Update Purpose after archive.\n\n",
+    "## Requirements\n\n",
+    "### Requirement: One holds\nThe system SHALL hold one.\n\n",
+    "#### Scenario: One\n- **WHEN** x\n- **THEN** y\n"
+);
+
 /// A lint-clean `layer.md` sidecar: frontmatter (`id: c.layer`) + the
 /// three specodelic tables. Rows cite the sidecar's own intent (the
 /// refs the companion re-keys to the deployed id at attach time).
@@ -201,6 +212,70 @@ fn restore_assembles_dual_format_from_sidecar_and_applied_spec() {
     assert_eq!(
         fs::read_to_string(archive.join("specs/c/layer.md")).unwrap_p(),
         SIDECAR
+    );
+}
+
+#[test]
+fn restore_replaces_archiver_placeholder_with_delta_purpose() {
+    // The deployed head prose comes from openspec's applied archive of
+    // a delta that carried NO Purpose section, so it holds the
+    // archiver's TBD placeholder. The archived delta itself carries the
+    // real purpose prose; a companion rerun must derive the head prose
+    // from the delta instead of carrying the placeholder forward.
+    let root = tree_owned(&archived_fixtures("purpose"));
+    let archive = resolve_archive_dir(root.path(), "purpose").unwrap_p();
+    fs::create_dir_all(root.path().join("openspec/specs/c")).unwrap_p();
+    fs::write(
+        root.path().join("openspec/specs/c/spec.md"),
+        PLACEHOLDER_DEPLOY,
+    )
+    .unwrap_p();
+
+    restore(root.path(), &archive).unwrap_p();
+
+    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap_p();
+    assert!(
+        !deployed.contains("TBD - created by archiving"),
+        "the archiver placeholder must not survive a rerun: {deployed}"
+    );
+    assert!(
+        deployed.contains("## Purpose\nKeep the c capability thinkable-with.\n"),
+        "the deployed head prose must come from the archived delta: {deployed}"
+    );
+    assert_eq!(deployed, ASSEMBLED_DEPLOY);
+}
+
+#[test]
+fn restore_keeps_real_deployed_purpose_over_delta_purpose() {
+    // Complement guard: real (non-placeholder) deployed prose is the
+    // prose of record — a rerun must never displace it with the
+    // archived delta's Purpose prose.
+    let real_deploy = concat!(
+        "# c Specification\n\n",
+        "## Purpose\nDeployed prose is the prose of record.\n\n",
+        "## Requirements\n\n",
+        "### Requirement: One holds\nThe system SHALL hold one.\n\n",
+        "#### Scenario: One\n- **WHEN** x\n- **THEN** y\n"
+    );
+    let root = tree_owned(&archived_fixtures("real"));
+    let archive = resolve_archive_dir(root.path(), "real").unwrap_p();
+    fs::create_dir_all(root.path().join("openspec/specs/c")).unwrap_p();
+    fs::write(root.path().join("openspec/specs/c/spec.md"), real_deploy).unwrap_p();
+
+    restore(root.path(), &archive).unwrap_p();
+
+    let deployed = fs::read_to_string(root.path().join("openspec/specs/c/spec.md")).unwrap_p();
+    assert!(
+        deployed.contains("Deployed prose is the prose of record."),
+        "real deployed purpose prose must survive the rerun: {deployed}"
+    );
+    assert!(
+        !deployed.contains("Keep the c capability thinkable-with."),
+        "delta prose must not displace real deployed prose: {deployed}"
+    );
+    assert!(
+        deployed.contains("## Constraints"),
+        "the layer must still attach: {deployed}"
     );
 }
 

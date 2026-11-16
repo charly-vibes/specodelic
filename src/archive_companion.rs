@@ -7,7 +7,10 @@
 //! any delta whose `layer.md` sidecar is missing or unlintable BEFORE
 //! the destructive archive, invoke `openspec archive <id>` with DEFAULT
 //! spec application (plain deltas are openspec's native merge — the
-//! companion does not re-implement it, `openspec_not_forked` holds),
+//! companion does not re-implement it, `openspec_not_forked` holds)
+//! under a wall-clock bound (`SPK_ARCHIVE_TIMEOUT_SECS`, default
+//! [`DEFAULT_ARCHIVE_TIMEOUT_SECS`] — a hung archiver must never wedge
+//! the command),
 //! then re-attach the layer: prepend each archived sidecar's
 //! frontmatter + Constraints/Model/Properties tables (identity
 //! re-keyed to the deployed spec id) onto openspec's applied deployed
@@ -43,7 +46,11 @@
 //!   is refused.
 
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
+
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 
 use thiserror::Error;
 
@@ -87,6 +94,19 @@ pub enum CompanionError {
         change_id: String,
         /// openspec's own failure output (trimmed).
         failure_detail: String,
+    },
+    /// `openspec archive` did not exit within the wall-clock bound and
+    /// was killed: a hung archiver must never wedge `spk archive`. The
+    /// bound is a real archive budget, not a heartbeat — see
+    /// [`DEFAULT_ARCHIVE_TIMEOUT_SECS`] / `SPK_ARCHIVE_TIMEOUT_SECS`.
+    #[error(
+        "`openspec archive {change_id} --yes` timed out after {secs}s — the archiver did not exit within the wall-clock bound; it was killed (raise the bound with SPK_ARCHIVE_TIMEOUT_SECS, then re-run: spk archive-companion {change_id})"
+    )]
+    OpenSpecTimedOut {
+        /// The requested change id.
+        change_id: String,
+        /// The bound that expired, in seconds (rendered).
+        secs: u64,
     },
     /// One or more deltas cannot have their dual-format layer restored:
     /// no sibling `layer.md` sidecar, or a sidecar that fails parse or
@@ -419,6 +439,59 @@ fn is_id_start(ch: char) -> bool {
     ch.is_alphabetic() || ch == '_'
 }
 
+/// openspec's archive placeholder for a delta that carried no Purpose
+/// prose: `TBD - created by archiving change <id>. Update Purpose after
+/// archive.` Only the stable prefix is matched (the change id varies
+/// per archive).
+const ARCHIVER_PLACEHOLDER: &str = "TBD - created by archiving";
+
+/// The archived plain delta's Purpose prose — its `## Purpose` section
+/// verbatim (heading included) — or `None` when the delta carries no
+/// Purpose prose. `None` is a no-op: the deployed head stays as it is.
+fn purpose_of_delta(delta_text: &str) -> Option<String> {
+    let body = strip_frontmatter_block(delta_text).unwrap_or_else(|| delta_text.to_string());
+    let (start, end) = section_span(&body, "## Purpose")?;
+    let prose = body[start..end].trim();
+    if prose.is_empty() || prose == "## Purpose" {
+        return None;
+    }
+    Some(prose.to_string())
+}
+
+/// True when the deployed head's Purpose prose is NOT authored prose:
+/// the `## Purpose` section's body is empty or opens with openspec's
+/// archive placeholder, or the head itself is empty. A real
+/// (non-placeholder) Purpose is the prose of record and must be
+/// preserved.
+fn head_needs_delta_purpose(head: &str) -> bool {
+    let Some((start, end)) = section_span(head, "## Purpose") else {
+        return head.trim().is_empty();
+    };
+    let prose = head[start + "## Purpose".len()..end].trim();
+    prose.is_empty() || prose.starts_with(ARCHIVER_PLACEHOLDER)
+}
+
+/// The deployed head (everything before `## Requirements`): preserved
+/// verbatim when its Purpose is real or when the archived delta carries
+/// no Purpose prose; otherwise the delta's Purpose section replaces the
+/// placeholder/empty one, so a companion rerun stops re-deploying the
+/// archiver placeholder.
+fn derive_head(head: &str, delta_purpose: Option<&str>) -> String {
+    let Some(delta) = delta_purpose else {
+        return head.to_string();
+    };
+    if !head_needs_delta_purpose(head) {
+        return head.to_string();
+    }
+    match section_span(head, "## Purpose") {
+        Some((start, end)) => format!("{}{}{}", &head[..start], delta, &head[end..])
+            .trim()
+            .to_string(),
+        // An entirely empty head: the delta's Purpose is the whole head.
+        None => delta.to_string(),
+    }
+}
+
 /// Assemble the deployed dual-format spec: the sidecar's frontmatter
 /// (id re-keyed to `spec_id`) and three layer tables, merged onto
 /// openspec's applied deployed body — preserved verbatim (it IS the
@@ -427,15 +500,26 @@ fn is_id_start(ch: char) -> bool {
 /// bytes of every part are preserved; separators are normalized to
 /// blank lines so re-assembly is deterministic (rerun convergence to
 /// identical deployed bytes).
+///
+/// The head prose comes from the deployed body, except when it is
+/// openspec's archive placeholder (or empty): then the archived delta's
+/// `## Purpose` prose supplies it, so a rerun repairs the placeholder
+/// instead of carrying it forward.
 fn assemble(
     spec_id: &str,
     sidecar_text: &str,
     sidecar_id: &str,
     deployed_text: Option<&str>,
+    delta_text: Option<&str>,
 ) -> String {
     let rekeyed = rekey_sidecar(sidecar_text, sidecar_id, spec_id);
     let fm = frontmatter_block(&rekeyed).unwrap_or_default();
     let sidecar_body = strip_frontmatter_block(&rekeyed).unwrap_or_default();
+
+    // The archived delta's Purpose prose repairs a deployed head that
+    // openspec archived as the placeholder (the delta carried no Purpose
+    // at archive time). A delta without one leaves the head untouched.
+    let delta_purpose = delta_text.and_then(purpose_of_delta);
 
     // Sidecar tables in canonical order.
     let tables: Vec<String> = ["## Constraints", "## Model", "## Properties"]
@@ -449,15 +533,16 @@ fn assemble(
         let body = strip_frontmatter_block(deployed).unwrap_or_else(|| deployed.to_string());
         let body = strip_sections(&body, &["constraints", "model", "properties"]);
         if let Some((s, _e)) = section_span(&body, "## Requirements") {
-            let head = body[..s].trim().to_string();
+            let head = derive_head(body[..s].trim(), delta_purpose.as_deref());
             if !head.is_empty() {
                 parts.push(head);
             }
             parts.extend(tables);
             parts.push(body[s..].trim().to_string());
         } else {
-            if !body.trim().is_empty() {
-                parts.push(body.trim().to_string());
+            let head = derive_head(body.trim(), delta_purpose.as_deref());
+            if !head.is_empty() {
+                parts.push(head);
             }
             parts.extend(tables);
         }
@@ -625,11 +710,15 @@ pub fn restore(root: &Path, archive_dir: &Path) -> Result<Vec<PathBuf>, Companio
                 read_detail: source.to_string(),
             })?;
         let deployed_text = fs::read_to_string(&target).ok();
+        // The archived delta's Purpose prose is the repair source for a
+        // deployed head openspec left as the archive placeholder.
+        let delta_text = fs::read_to_string(&pair.delta).ok();
         let text = assemble(
             &spec_id,
             &sidecar_text,
             &pair.parsed.intent.id,
             deployed_text.as_deref(),
+            delta_text.as_deref(),
         );
         if let Err(detail) = assert_attached_shape(&cap, &text) {
             return Err(CompanionError::AttachViolation { cap, detail });
@@ -651,7 +740,16 @@ pub fn restore(root: &Path, archive_dir: &Path) -> Result<Vec<PathBuf>, Companio
         })
         .collect::<Result<Vec<_>, CompanionError>>()?;
     if let Err(detail) = lint_deployed_corpus(root) {
-        revert(&saved);
+        let rollback = revert(&saved);
+        // The primary violation stays first; a rollback that could not
+        // restore a file is part of the failure, never a silent discard
+        // (the tree then sits in neither the pre-run nor the assembled
+        // state, so hiding it would hide a corrupted deployed corpus).
+        let detail = if rollback.is_empty() {
+            detail
+        } else {
+            format!("{detail}; {}", rollback.join("; "))
+        };
         return Err(CompanionError::AttachViolation {
             cap: assembled[0].2.clone(),
             detail,
@@ -660,19 +758,22 @@ pub fn restore(root: &Path, archive_dir: &Path) -> Result<Vec<PathBuf>, Companio
     Ok(written)
 }
 
-/// Revert a set of writes: restore prior bytes, or remove files that
-/// did not exist before (best-effort pre-run state).
-fn revert(saved: &[(PathBuf, Option<String>)]) {
+/// Revert a set of writes: restore prior bytes, or remove files that did
+/// not exist before (pre-run state). Every failed restore is returned as
+/// a `rollback failed: <path>: <io error>` detail — a revert that could
+/// not restore its saved files is reported, never discarded.
+fn revert(saved: &[(PathBuf, Option<String>)]) -> Vec<String> {
+    let mut failures: Vec<String> = Vec::new();
     for (path, prior) in saved {
-        match prior {
-            Some(text) => {
-                let _ = fs::write(path, text);
-            }
-            None => {
-                let _ = fs::remove_file(path);
-            }
+        let result = match prior {
+            Some(text) => fs::write(path, text),
+            None => fs::remove_file(path),
+        };
+        if let Err(error) = result {
+            failures.push(format!("rollback failed: {}: {error}", path.display()));
         }
     }
+    failures
 }
 
 /// Post-attach shape assertion (design Decision 2 step 4, pre-write):
@@ -838,7 +939,12 @@ pub fn run(
     let archive_dir;
     if pending_archive {
         runner(root, change_id).map_err(|detail| {
-            if detail.starts_with("spawn") || detail.contains("No such file") {
+            if let Some(secs) = timed_out_secs(&detail) {
+                CompanionError::OpenSpecTimedOut {
+                    change_id: change_id.to_string(),
+                    secs,
+                }
+            } else if detail.starts_with("spawn") || detail.contains("No such file") {
                 CompanionError::OpenSpecMissing {
                     change_id: change_id.to_string(),
                     spawn_detail: detail,
@@ -895,23 +1001,150 @@ pub fn run(
     }
 }
 
+/// Default wall-clock bound for the openspec invocation. A real archive
+/// applies the delta merges across the corpus — seconds of work, not a
+/// heartbeat — so the default is generous; the point is only that a hung
+/// archiver must never wedge `spk archive` forever.
+pub const DEFAULT_ARCHIVE_TIMEOUT_SECS: u64 = 600;
+
+/// The bound override, read at invocation time (the `SPK_TLC_JAVA`-style
+/// documented ops/test seam): integer seconds. Unparsable or zero values
+/// fall back to [`DEFAULT_ARCHIVE_TIMEOUT_SECS`].
+pub const ARCHIVE_TIMEOUT_ENV: &str = "SPK_ARCHIVE_TIMEOUT_SECS";
+
+/// The seam protocol for a bound expiry: the production runner reports
+/// `timed out after <N>s` so `run` raises the labeled
+/// [`CompanionError::OpenSpecTimedOut`] variant instead of a generic
+/// failure (every other runner detail stays an `OpenSpecFailed`).
+const TIMED_OUT_DETAIL: &str = "timed out after ";
+
+/// The bound a runner detail reports as expired, when it is one (the
+/// [`TIMED_OUT_DETAIL`] protocol).
+fn timed_out_secs(detail: &str) -> Option<u64> {
+    detail
+        .strip_prefix(TIMED_OUT_DETAIL)?
+        .strip_suffix('s')?
+        .parse()
+        .ok()
+}
+
+/// The effective wall-clock bound for the archiver.
+fn archive_timeout() -> std::time::Duration {
+    std::env::var(ARCHIVE_TIMEOUT_ENV)
+        .ok()
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
+        .filter(|secs| *secs > 0)
+        .map(std::time::Duration::from_secs)
+        .unwrap_or(std::time::Duration::from_secs(DEFAULT_ARCHIVE_TIMEOUT_SECS))
+}
+
 /// The real openspec invocation (the seam's production
 /// implementation): `openspec archive <id> --yes` in the repo root —
 /// DEFAULT spec application (Revision 19: plain deltas are openspec's
 /// native merge; the companion re-attaches the layer afterwards),
 /// `--yes` because the companion already owns the decision to archive;
-/// stdout/stderr are captured for diagnosis.
+/// stdout/stderr are captured for diagnosis. The invocation runs under
+/// the wall-clock bound (`archive_timeout`): a hung archiver is killed
+/// and reported as an expiry, never waited on forever.
 pub fn openspec_archive_runner(root: &Path, change_id: &str) -> Result<(), String> {
-    let output = std::process::Command::new("openspec")
+    let bound = archive_timeout();
+    let mut command = std::process::Command::new("openspec");
+    command
         .args(["archive", change_id, "--yes"])
-        .current_dir(root)
-        .output()
-        .map_err(|e| format!("spawn failed: {e}"))?;
+        .current_dir(root);
+    let (output, expired) = run_bounded_archiver(&mut command, bound)?;
+    if expired {
+        return Err(format!("{TIMED_OUT_DETAIL}{}s", bound.as_secs()));
+    }
     if output.status.success() {
         Ok(())
     } else {
         Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
+}
+
+/// Run the archiver to completion under `bound`: both streams are
+/// drained concurrently with the `try_wait` poll (a verbose archiver can
+/// never wedge on a full pipe), and expiry kills the child's whole
+/// process group on unix so a wrapper shell cannot orphan its children
+/// past the deadline. Returns the captured output and whether the bound
+/// expired (the caller owns the labeled rendering).
+fn run_bounded_archiver(
+    command: &mut std::process::Command,
+    bound: std::time::Duration,
+) -> Result<(std::process::Output, bool), String> {
+    command
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    #[cfg(unix)]
+    command.process_group(0);
+    let mut child = command.spawn().map_err(|e| format!("spawn failed: {e}"))?;
+    let stdout_pipe = child.stdout.take();
+    let stderr_pipe = child.stderr.take();
+    let stdout_thread = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        if let Some(mut pipe) = stdout_pipe {
+            let _ = pipe.read_to_end(&mut buf);
+        }
+        buf
+    });
+    let stderr_thread = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        if let Some(mut pipe) = stderr_pipe {
+            let _ = pipe.read_to_end(&mut buf);
+        }
+        buf
+    });
+    let started = std::time::Instant::now();
+    let mut expired = false;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) => {
+                if started.elapsed() >= bound {
+                    expired = true;
+                    // Retried every poll: a failed kill must not leave
+                    // the loop spinning silently on an unkillable child.
+                    kill_archiver_tree(&mut child);
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            Err(e) => {
+                return Err(format!("spawn failed: could not wait on openspec: {e}"));
+            }
+        }
+    }
+    let status = child
+        .wait()
+        .map_err(|e| format!("spawn failed: could not reap openspec: {e}"))?;
+    let stdout = stdout_thread
+        .join()
+        .map_err(|_| "openspec stdout drain thread panicked".to_string())?;
+    let stderr = stderr_thread
+        .join()
+        .map_err(|_| "openspec stderr drain thread panicked".to_string())?;
+    let output = std::process::Output {
+        status,
+        stdout,
+        stderr,
+    };
+    Ok((output, expired))
+}
+
+/// Kill the archiver so the bound holds even when it spawned children:
+/// on unix the child owns a private process group (`process_group(0)`),
+/// so a group-wide SIGKILL takes out a wrapper shell's children too.
+/// Falls back to the direct-child kill when the group signal fails.
+fn kill_archiver_tree(child: &mut std::process::Child) {
+    #[cfg(unix)]
+    {
+        let pid = child.id() as i32;
+        // Negative pid == every process in that pid's group.
+        if unsafe { libc::kill(-pid, libc::SIGKILL) } == 0 {
+            return;
+        }
+    }
+    let _ = child.kill();
 }
 
 /// List the `specs/*/spec.md` deltas under a directory (sorted).
