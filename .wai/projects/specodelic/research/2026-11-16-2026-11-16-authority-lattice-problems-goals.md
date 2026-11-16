@@ -8,8 +8,9 @@ self-contained statement of (a) the problems the program exists to solve,
 (b) the desired end state, (c) what was rejected and why, and (d) the open
 decisions.
 
-**Amnesia-safe:** every claim below is either grounded in a cited repo file,
-a cited conversation transcript, or explicitly marked as inference.
+**Self-contained:** every claim below is grounded in a cited repo file, a
+cited conversation transcript, or explicitly marked as inference; the
+Provenance table gives full paths, and §3.1's shorthand refers to those rows.
 
 ## Provenance
 
@@ -89,8 +90,9 @@ The lattice, not a single file:
 
 ```mermaid
 flowchart LR
-  MD[Markdown tier<br/>EARS · scenarios · Model] -.->|promotion by replacement| CS[Contract suite<br/>one authority per claim]
-  CS -->|contracts run against| MD
+  MD[Markdown tier<br/>EARS · scenarios] -.->|promotion by replacement| CS[Contract suite<br/>one authority per claim]
+  MD -->|contains| M[Model<br/>adapter #0]
+  CS -->|contracts run against| M
   CS -->|compile| PR[Projections<br/>TLA+ · proptest scaffolding]
   CS -->|run via adapters| IM[Implementation]
   EX[Existing tests · oracle traces] -->|evidence| CK[check<br/>verdicts + ladder]
@@ -116,7 +118,8 @@ The roles:
 
 ### 2.2 Goals
 
-Status legend: **shipped** (observable today), **direction** (ratified in the
+Status legend: **shipped** (observable today), **partly shipped** (some
+surface exists, the full goal does not), **direction** (ratified in the
 Nov 11 decision, not implemented), **resolved** (design settled, not built),
 **open** (decision still pending).
 
@@ -126,7 +129,7 @@ Nov 11 decision, not implemented), **resolved** (design settled, not built),
 | G2 | **Independence** | Evidence must not be derived from the thing it judges. Contract suite authored against intent/oracle, run through DI adapters; `origin` separates `authored-from-intent` from `characterizing-observed`. | direction |
 | G3 | **Honest evidence limits** | Closed verdict taxonomy, scope digests, staleness, first-class `unknown`/`underspecified`; never a vacuous pass. | partly shipped (`verify`, `conform`, `audit`) |
 | G4 | **Drift impossible by construction** | No derived spec layer, no dual-format mirror, one-way citations; the artifact never has two authoritative copies. | direction |
-| G5 | **Compositional typed structure** | Contracts bind components; typed references; closures/blast radius; one vocabulary (`Reference/Relation/Observation/Assessment`) as a **computed** graph, never a stored second source. | adopted; graph/ACSet partly shipped |
+| G5 | **Compositional typed structure** | Contracts bind components; typed references; closures/blast radius; a computed graph over those references. The four-primitive vocabulary (`Reference/Relation/Observation/Assessment`) is a Nov 2 candidate, not adopted. | open (D-1); graph/ACSet partly shipped |
 | G6 | **Specs where meaning is authoritative; bindings near code** | External behavior lives in independent specs; local obligations live code-adjacent. | open (Nov 2 principle) |
 | G7 | **Architecture/C4 realization** | Components and realization edges; views generated from one snapshot; structure derived from source facts — never hand-drawn. | open (D-4, D-6, D-8) |
 | G8 | **Extension without editing** | Packs, kind narrowing, append-only tables; a consumer extends via typed references, never by editing the producer. | shipped (packs) |
@@ -134,7 +137,7 @@ Nov 11 decision, not implemented), **resolved** (design settled, not built),
 | G10 | **Pressure without implementation** | Contracts run against the Model exactly as against real adapters; a failing contract is a Model defect by default; speculative contracts are flagged and excluded from the normative set. | resolved |
 | G11 | **Progressive formalization** | Sketch → Model → tier 0 → tier 1; tier-0 "contract-verified" is complete; Models demand-gated by a recorded formalization trigger. | direction |
 | G12 | **Reviewability** | Markdown tier keeps EARS + scenarios + Model as reviewed intent; proposals carry rationale + markdown delta + contract diff, explicitly separated. | partly shipped (corpus/openspec) |
-| G13 | **Agent loop** | One binary + markdown: `spk new`, `check --draft`, `graph`; instant structural verdict and impact; no toolchain needed to sketch. | partly shipped |
+| G13 | **Agent loop** | One binary + markdown: `spk new`, `check --draft`, `graph`; instant structural verdict and impact; no toolchain needed to sketch. | partly shipped (`new`, `lint`, `graph`; `check` not built) |
 | G14 | **Small surface** | Three verbs: `check` (judge), `graph` (relate), `doctor` (advise); fuse, don't accrete. | resolved |
 | G15 | **Migration safety** | Preservation floor; in-flight work consumed, never abandoned; demotion earned by measured coverage, never a vote. | direction; step 1/5 |
 
@@ -251,7 +254,8 @@ Status: step 1 of 5 shipped (`add-evidence-audit`); steps 2–5 unstarted
 
 ## 4. Open decisions
 
-From the two grounding docs. None has a proposal yet; none should get one
+From the two grounding docs; D-10–D-13 come from the Nov 10 resolutions and
+the Nov 11 decision record. None has a proposal yet; none should get one
 until the question is answered.
 
 | ID | Question | Decider |
@@ -266,7 +270,7 @@ until the question is answered.
 | D-8 | First vertical slice target (Python/TS subproject vs advisory Rust slice). | Pick after D-6 resolves. |
 | D-9 | Map the six acceptance conditions to experiments E1–E4. | The mapping table itself; two conditions mapping to nothing is the gap list. |
 | D-10 | Exact contract-verdict mapping when `check` consumes the audit vocabulary. | No fourth vocabulary; write the mapping when the fusion change is proposed. |
-| D-11 | C4 context/container declaration home (carried D-4 from Nov 2). | Same as D-4. |
+| D-11 | C4 context/container views: which levels are declared, which are derived from source facts? | Draft one C4 view set and mark each element declared or derived; check for a second source. |
 | D-12 | "Contract suite" vs espectacular's "contract tests" naming collision. | One line in user-facing docs; no schema change. |
 | D-13 | Migration sequence ratification. | The sequence is recorded; step-gates are the real gate. |
 
