@@ -286,6 +286,50 @@ fn unknown_field_refused() {
     );
 }
 
+/// The additive `expect` field is accepted by the scenario schema: a
+/// negative probe declaring `expect: forbidden` parses (the field is
+/// optional and schema-strict, never an unknown field).
+#[test]
+fn expect_forbidden_accepted_by_the_schema() {
+    let corpus = parse_corpus(
+        r#"{"id": "probe", "setup": {"state": "confirmed"}, "trace": [{"action": "confirm"}], "expect": "forbidden"}"#,
+    )
+    .unwrap_p();
+    assert_eq!(corpus.len(), 1, "the expectation-bearing record parses");
+    assert_eq!(corpus[0].id, "probe");
+    assert_eq!(corpus[0].trace.len(), 1);
+}
+
+/// The optional `expect` field is a CLOSED set: a value outside it is a
+/// schema error through the serde path (deny_unknown_fields strictness is
+/// preserved — the field is additive, its value is not open-ended). The
+/// refusal names the field, the closed set, and the standardized
+/// remediation hint; an unrecognized expectation is never silently
+/// treated as "no expectation".
+#[test]
+fn invalid_expect_value_refused_with_remediation() {
+    let err = parse_corpus(
+        r#"{"id": "bad-expect", "setup": {"state": "held"}, "trace": [{"action": "confirm"}], "expect": "banana"}"#,
+    )
+    .unwrap_p_err();
+    assert_eq!(
+        err.stage, "corpus_parse",
+        "the serde refusal rides the corpus_parse stage: {err}"
+    );
+    assert!(
+        err.message.contains("expect"),
+        "refusal names the offending field: {err}"
+    );
+    assert!(
+        err.message.contains("unknown variant") || err.message.contains("forbidden"),
+        "refusal names the closed expectation set through the serde path: {err}"
+    );
+    assert!(
+        err.message.contains("one JSON object per line"),
+        "refusal carries the remediation hint: {err}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // 3.4 — zero-line corpus
 // ---------------------------------------------------------------------------

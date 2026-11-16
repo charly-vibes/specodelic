@@ -57,7 +57,9 @@ pub enum Verdict {
     /// claim or declare the trace's vocabulary.
     Underspecified,
     /// A claim covers the trace but its content is not interpretable by
-    /// this run (prose-only expr) — make the claim interpretable.
+    /// this run (prose-only expr) — an ADVISORY-tier record (see
+    /// [`VerdictRecord::advisory`]): make the claim interpretable. It
+    /// never reads as a hard model judgment and never gates.
     Unknown,
     /// The covering claim's evaluator kind exists in the format but is
     /// not executable in this run (e.g. `**py:**` — no emitter yet).
@@ -251,6 +253,34 @@ pub struct TraceStep {
     pub observations: BTreeMap<String, serde_json::Value>,
 }
 
+/// The closed set of expectations a scenario record may declare on its
+/// trace (gh-18 item 7). An expectation is the oracle's own claim about
+/// what the compiled Model SHOULD do with the trace: `forbidden` marks
+/// an intentional negative probe — a trace the Model is supposed to
+/// refuse. The set is closed and schema-strict: an unrecognized
+/// spelling is a `corpus_parse` refusal (the serde path names the
+/// variant), never silently treated as "no expectation".
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Expectation {
+    Forbidden,
+}
+
+impl Expectation {
+    /// The serde spelling — the one the report and the reason text use.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Expectation::Forbidden => "forbidden",
+        }
+    }
+}
+
+impl std::fmt::Display for Expectation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// One scenario: a unique id, the setup (opaque except for the initial
 /// state it names), and the ordered trace.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -260,6 +290,12 @@ pub struct ScenarioTrace {
     #[serde(default)]
     pub setup: BTreeMap<String, serde_json::Value>,
     pub trace: Vec<TraceStep>,
+    /// The oracle's declared expectation for this trace (gh-18 item 7).
+    /// Absent keeps today's semantics exactly: the verdict stands on its
+    /// own. `expect: forbidden` declares an intentional negative probe —
+    /// a forbidden verdict is then an AGREEMENT, not a disagreement.
+    #[serde(default)]
+    pub expect: Option<Expectation>,
 }
 
 /// Rule 1's verdict depends on the recorded declaration (design D2):
@@ -288,6 +324,9 @@ fn uncovered_record(
         reason,
         evaluated_claim_ids: evaluated,
         closed_world,
+        advisory: false,
+        expect: None,
+        expectation_met: None,
     }
 }
 
@@ -309,11 +348,13 @@ impl std::fmt::Display for ConformError {
 impl std::error::Error for ConformError {}
 
 /// Parse a JSONL scenario corpus: one object per line, each
-/// `{id, setup?, trace: [{action, observations?}]}`. Unknown fields and
-/// malformed lines are refused with a remediation hint, never silently
-/// ignored (design D3): missing `id` and duplicate ids are refused too —
-/// the report is keyed by scenario id, so a duplicate would silently
-/// overwrite evidence.
+/// `{id, setup?, trace: [{action, observations?}], expect?}`. Unknown
+/// fields and malformed lines are refused with a remediation hint, never
+/// silently ignored (design D3): missing `id` and duplicate ids are
+/// refused too — the report is keyed by scenario id, so a duplicate would
+/// silently overwrite evidence. `expect` is the closed expectation set
+/// (`forbidden`, gh-18 item 7); any other spelling is a schema refusal
+/// naming the field and the set, never a silent "no expectation".
 pub fn parse_corpus(jsonl: &str) -> Result<Vec<ScenarioTrace>, ConformError> {
     let mut out = Vec::new();
     let mut seen: BTreeSet<String> = BTreeSet::new();
@@ -325,7 +366,7 @@ pub fn parse_corpus(jsonl: &str) -> Result<Vec<ScenarioTrace>, ConformError> {
         let scenario: ScenarioTrace = serde_json::from_str(line).map_err(|e| ConformError {
             stage: "corpus_parse".into(),
             message: format!(
-                "line {}: {e} — fix the scenario record (one JSON object per line: {{id, setup?, trace}}; unknown fields are refused, never ignored)",
+                "line {}: {e} — fix the scenario record (one JSON object per line: {{id, setup?, trace, expect?}}; `expect` accepts only `forbidden`; unknown fields are refused, never ignored)",
                 n + 1
             ),
         })?;
@@ -333,7 +374,7 @@ pub fn parse_corpus(jsonl: &str) -> Result<Vec<ScenarioTrace>, ConformError> {
             return Err(ConformError {
                 stage: "corpus_parse".into(),
                 message: format!(
-                    "line {}: duplicate scenario id `{}` — scenario ids must be unique across the corpus (one JSON object per line: {{id, setup?, trace}}); rename or drop the duplicate record",
+                    "line {}: duplicate scenario id `{}` — scenario ids must be unique across the corpus (one JSON object per line: {{id, setup?, trace, expect?}}); rename or drop the duplicate record",
                     n + 1,
                     scenario.id
                 ),
@@ -591,7 +632,7 @@ pub fn run_with(
     let corpus = std::str::from_utf8(corpus_bytes).map_err(|e| ConformError {
         stage: "corpus_parse".into(),
         message: format!(
-            "scenario corpus is not valid UTF-8: {e} — fix the scenario record (one JSON object per line: {{id, setup?, trace}})"
+            "scenario corpus is not valid UTF-8: {e} — fix the scenario record (one JSON object per line: {{id, setup?, trace, expect?}})"
         ),
     })?;
     let scenarios = parse_corpus(corpus)?;
@@ -610,9 +651,11 @@ pub fn run_with(
 
 /// One trace's verdict record: the scenario it classifies, the verdict,
 /// the labeled reason (naming the rule and the claims/elements that
-/// produced it), the ids of the claims the run evaluated, and whether
-/// the invocation declared closed-world mode (recorded in EVERY record,
-/// never inferred — design D2).
+/// produced it), the ids of the claims the run evaluated, whether the
+/// invocation declared closed-world mode (recorded in EVERY record,
+/// never inferred — design D2), and whether the verdict is
+/// ADVISORY-tier (prose-only covering evidence: not interpretable as a
+/// hard model judgment, never gating).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerdictRecord {
     pub scenario_id: String,
@@ -620,6 +663,29 @@ pub struct VerdictRecord {
     pub reason: String,
     pub evaluated_claim_ids: Vec<String>,
     pub closed_world: bool,
+    /// True when the record's evidence was not interpretable as a hard
+    /// model judgment (a prose-only covering claim, rule 4). The closed
+    /// verdict vocabulary is unchanged — the record still carries
+    /// `unknown` — but advisory records are counted separately and never
+    /// enter the gating `forbidden + unsupported` exit predicate unless a
+    /// declared expectation is unmet (an unmet expectation deliberately
+    /// gates, even when the mechanical verdict is advisory-tier).
+    /// `#[serde(default)]` keeps pre-advisory reports deserializable.
+    #[serde(default)]
+    pub advisory: bool,
+    /// The expectation the scenario declared (gh-18 item 7), echoed in
+    /// the record so the report is self-describing. `None` = no
+    /// declaration — today's semantics, unchanged.
+    #[serde(default)]
+    pub expect: Option<Expectation>,
+    /// Whether the classified verdict matches the declared expectation.
+    /// `None` when no expectation was declared. A MET expectation is
+    /// AGREEMENT-tier: it never enters the hard gating counts and never
+    /// reads as a disagreement. An UNMET expectation is a genuine
+    /// disagreement — it gates the run (exit 1) with the distinct
+    /// `expectation_unmet` reason marker.
+    #[serde(default)]
+    pub expectation_met: Option<bool>,
 }
 
 /// Classify every corpus trace against the spec's compiled Model
@@ -646,11 +712,22 @@ pub struct VerdictRecord {
 ///    executable claim(s) covering the violated transition.
 /// 3. **Unsupported** — a covering claim's evaluator kind has no emitter
 ///    in this run (`**py:**`/`**ts:**`): `unsupported`, naming the kind.
-/// 4. **Unknown** — a covering claim is prose-only: `unknown`, naming
-///    the claim (prose never implies a permitted/forbidden judgment).
+/// 4. **Advisory unknown** — a covering claim is prose-only: `unknown`
+///    (the closed vocabulary is unchanged), marked `advisory: true`,
+///    naming the claim (prose never implies a permitted/forbidden
+///    judgment). Advisory-tier records never enter the hard
+///    `verdict_counts` or the gating `forbidden + unsupported` predicate
+///    — prose-heavy corpora stop reading as if they held disagreements.
 /// 5. **Permitted** — the walk explains the trace through declared
 ///    transitions and any executable covering claims are consistent
 ///    (their guards enabled each step).
+///
+/// After the mechanical verdict, a scenario's optional `expect`
+/// declaration (gh-18 item 7) labels the record: `expectation_met:
+/// Some(true)` when the verdict matches (agreement-tier — an intentional
+/// negative probe the Model correctly forbids), `Some(false)` when it
+/// does not (the reason then leads with the `expectation_unmet` marker).
+/// `None` keeps the record exactly as before the declaration existed.
 pub fn classify_traces(
     spec: &Spec,
     corpus: &[ScenarioTrace],
@@ -661,12 +738,13 @@ pub fn classify_traces(
 
 /// [`classify_traces`] with the invocation mode selected: the default
 /// (false) keeps the closed five-value verdict space — prose guards are
-/// `unknown`, never implied permitted or forbidden. The explicit
-/// structural-only mode (gh-17 friction 2, `--structural-only`) reports
-/// `agree` for traces whose step sequence conforms to the declared
-/// transition relation even when a covering guard's expr is prose — with
-/// a reason that STILL names the uninterpretable guard, so the record
-/// never claims the prose invariant was checked.
+/// advisory-tier `unknown` records, never implied permitted or
+/// forbidden. The explicit structural-only mode (gh-17 friction 2,
+/// `--structural-only`) reports `agree` for traces whose step sequence
+/// conforms to the declared transition relation even when a covering
+/// guard's expr is prose — with a reason that STILL names the
+/// uninterpretable guard, so the record never claims the prose invariant
+/// was checked.
 pub fn classify_traces_mode(
     spec: &Spec,
     corpus: &[ScenarioTrace],
@@ -689,8 +767,36 @@ struct DeclaredTransition {
 }
 
 /// The classified verdict for one scenario, by the rules documented on
-/// [`classify_traces`].
+/// [`classify_traces`], with the scenario's declared expectation applied
+/// (gh-18 item 7): a verdict matching `expect` is recorded as
+/// expectation-met AGREEMENT-tier; a mismatch keeps the mechanical
+/// verdict and prepends the distinct `expectation_unmet` marker. A
+/// record with no declaration is untouched — today's semantics exactly.
 fn classify_trace(
+    spec: &Spec,
+    ir: &ModelIr,
+    claims: &ClaimClassification,
+    scenario: &ScenarioTrace,
+    closed_world: bool,
+    structural_only: bool,
+) -> VerdictRecord {
+    let mut record = classify_trace_core(spec, ir, claims, scenario, closed_world, structural_only);
+    if let Some(expect) = scenario.expect {
+        let met = match expect {
+            Expectation::Forbidden => record.verdict == Verdict::Forbidden,
+        };
+        if !met {
+            record.reason = reason::expectation_unmet(expect, record.verdict, &record.reason);
+        }
+        record.expect = Some(expect);
+        record.expectation_met = Some(met);
+    }
+    record
+}
+
+/// The mechanical classification for one scenario, before the declared
+/// expectation is applied.
+fn classify_trace_core(
     spec: &Spec,
     ir: &ModelIr,
     claims: &ClaimClassification,
@@ -718,12 +824,21 @@ fn classify_trace(
     // Effect ids: the constraints the Model's `emits` references.
     let effects: BTreeSet<&str> = ir.emits.values().map(|v| v.trim()).collect();
 
-    let record = |verdict: Verdict, reason: String, evaluated: Vec<String>| VerdictRecord {
-        scenario_id: scenario.id.clone(),
-        verdict,
-        reason,
-        evaluated_claim_ids: evaluated,
-        closed_world,
+    let record = |verdict: Verdict,
+                  reason: String,
+                  evaluated: Vec<String>,
+                  advisory: bool|
+     -> VerdictRecord {
+        VerdictRecord {
+            scenario_id: scenario.id.clone(),
+            verdict,
+            reason,
+            evaluated_claim_ids: evaluated,
+            closed_world,
+            advisory,
+            expect: None,
+            expectation_met: None,
+        }
     };
 
     // Rule 1 (anchor): setup names the initial state; an absent or
@@ -775,6 +890,7 @@ fn classify_trace(
                 Verdict::Forbidden,
                 reason::contradiction_step(&t.id, &current, &guards),
                 evaluated,
+                false,
             );
         }
         // Rule 1/2 on observations: an observation value must name a
@@ -790,6 +906,7 @@ fn classify_trace(
                         Verdict::Forbidden,
                         reason::contradiction_observation(i + 1, value, &t.id, &t.to, &guards),
                         covering_ids(&guards),
+                        false,
                     );
                 }
             } else if !effects.contains(value) {
@@ -822,26 +939,31 @@ fn classify_trace(
             Verdict::Unsupported,
             reason::unsupported_kind(claim),
             covering_ids(&covering),
+            false,
         );
     }
-    // Rule 4: a prose-only covering claim is not interpretable — unknown,
-    // naming the claim; prose never implies a judgment. In the explicit
-    // structural-only mode the trace DOES conform to the declared
-    // transition relation at this point, so the verdict is `agree` — but
-    // the reason still names the uninterpretable guard (the record never
-    // claims the prose invariant was checked; gh-17 friction 2).
+    // Rule 4: prose-only covering evidence is not interpretable — the
+    // verdict stays `unknown` (closed vocabulary), but the record is
+    // ADVISORY-tier: it never reads as a hard model judgment and never
+    // enters the gating counts. In the explicit structural-only mode
+    // the trace DOES conform to the declared transition relation at
+    // this point, so the verdict is `agree` — but the reason still
+    // names the uninterpretable guard (the record never claims the
+    // prose invariant was checked; gh-17 friction 2).
     if let Some(claim) = covering.iter().find(|c| c.evaluator == Evaluator::Prose) {
         if structural_only {
             return record(
                 Verdict::Agree,
                 reason::structural_agree(claim),
                 covering_ids(&covering),
+                false,
             );
         }
         return record(
             Verdict::Unknown,
             reason::prose_not_interpretable(claim),
             covering_ids(&covering),
+            true,
         );
     }
     // Rule 5: the walk explains the trace; executable covering claims'
@@ -850,6 +972,7 @@ fn classify_trace(
         Verdict::Permitted,
         reason::permitted(&scenario.id, &exercised, &current, &covering),
         covering_ids(&covering),
+        false,
     )
 }
 
@@ -940,7 +1063,7 @@ fn cited_claim_ids(spec: &Spec, guard: &str) -> Vec<String> {
 /// The pure verdict-reason builders — testable without a spec, a corpus,
 /// or a walk.
 pub mod reason {
-    use super::ClassifiedClaim;
+    use super::{ClassifiedClaim, Expectation, Verdict};
 
     /// The executable-claim suffix a contradiction reason carries: names
     /// the contradicted executable claim id(s) covering the violated
@@ -1095,6 +1218,18 @@ pub mod reason {
             "permitted: trace through {steps} explainable by the declared Model's transition relation{claims}"
         )
     }
+
+    /// `expectation_unmet` — the scenario declared what the oracle
+    /// expected the Model to do and the mechanical verdict disagreed
+    /// (gh-18 item 7). The distinct marker leads the reason so an unmet
+    /// expectation is never confused with a plain verdict; it names the
+    /// declared expectation and the verdict that failed to match it,
+    /// followed by the mechanical verdict's own reason.
+    pub fn expectation_unmet(expect: Expectation, verdict: Verdict, detail: &str) -> String {
+        format!(
+            "expectation_unmet: the scenario declared `expect: {expect}` but the classified verdict is `{verdict}` — the oracle's expectation was not met; {detail}"
+        )
+    }
 }
 
 /// Evaluated claim ids, deduplicated in first-seen order.
@@ -1128,7 +1263,8 @@ pub const EVIDENCE_SCOPE: &str =
 /// The persisted conform run report (delta `verdict_report_schema`):
 /// carries its own schema version, the fixed evidence_scope statement,
 /// the scope digest, the recorded closed-world declaration (report
-/// header, D2), per-verdict counts, and the per-trace records sorted by
+/// header, D2), per-verdict counts (hard, advisory-tier, and
+/// agreement-tier separately), and the per-trace records sorted by
 /// scenario id. No timestamps, no iteration-order leakage — two runs
 /// over identical inputs serialize byte-identically.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1139,10 +1275,29 @@ pub struct ConformReport {
     /// The recorded invocation-mode declaration (report header, D2 —
     /// every record also carries it).
     pub closed_world: bool,
-    /// Verdict → count, keyed by the verdict's snake_case spelling;
+    /// HARD verdict → count, keyed by the verdict's snake_case spelling;
     /// surfaced in both views so unknown/underspecified coverage gaps are
     /// visible without gating (delta `exit_code_verdict_mapping`).
+    /// Advisory-tier records are excluded: they never read as a model
+    /// judgment and never enter the `forbidden + unsupported` exit
+    /// predicate.
     pub verdict_counts: BTreeMap<String, usize>,
+    /// ADVISORY verdict → count, same keying. Advisory records are the
+    /// prose-only covering claims (rule 4): the verdict vocabulary stays
+    /// closed (`unknown`), but the tier is counted separately so a
+    /// prose-dominated corpus never reads as a pile of hard unknowns.
+    /// `#[serde(default)]` keeps pre-advisory reports deserializable.
+    #[serde(default)]
+    pub advisory_counts: BTreeMap<String, usize>,
+    /// AGREEMENT verdict → count, same keying (gh-18 item 7): scenarios
+    /// whose declared expectation was MET. Agreement-tier records are
+    /// excluded from the hard `verdict_counts` and never enter the
+    /// gating `forbidden + unsupported` exit predicate — an intentional
+    /// negative probe is evidence the Model agrees, not a disagreement.
+    /// `#[serde(default)]` keeps reports without expectations
+    /// deserializable.
+    #[serde(default)]
+    pub agreement_counts: BTreeMap<String, usize>,
     /// Per-trace verdict records, sorted by scenario id.
     pub records: Vec<VerdictRecord>,
 }
@@ -1171,8 +1326,8 @@ pub fn scope_digest(spec: &Spec, corpus_bytes: &[u8]) -> String {
 
 /// Build the persisted report for one classification pass: classify every
 /// corpus trace (phase-1 engine), sort the records by scenario id,
-/// count verdicts, and bind the digest over the spec's structured
-/// content plus the exact corpus bytes consumed.
+/// count hard and advisory verdicts separately, and bind the digest over
+/// the spec's structured content plus the exact corpus bytes consumed.
 pub fn build_report(
     spec: &Spec,
     corpus_bytes: &[u8],
@@ -1194,8 +1349,41 @@ pub fn build_report_mode(
     let mut records = classify_traces_mode(spec, corpus, closed_world, structural_only);
     records.sort_by(|a, b| a.scenario_id.cmp(&b.scenario_id));
     let mut verdict_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut advisory_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut agreement_counts: BTreeMap<String, usize> = BTreeMap::new();
     for record in &records {
-        *verdict_counts
+        // A DECLARED expectation partitions the record before any other
+        // count (gh-18 item 7). A met expectation is agreement-tier
+        // evidence: counted separately, never a hard verdict, never
+        // gating. An unmet expectation is a genuine disagreement — it
+        // rides the hard `forbidden` bucket so the published exit
+        // predicate (`forbidden + unsupported`) fails the run while the
+        // record's mechanical verdict stays honest.
+        match record.expectation_met {
+            Some(true) => {
+                *agreement_counts
+                    .entry(record.verdict.as_str().to_string())
+                    .or_insert(0) += 1;
+                continue;
+            }
+            Some(false) => {
+                *verdict_counts
+                    .entry(Verdict::Forbidden.as_str().to_string())
+                    .or_insert(0) += 1;
+                continue;
+            }
+            None => {}
+        }
+        // Advisory-tier records are counted separately and NEVER enter
+        // the hard counts: the exit predicate (`forbidden + unsupported`)
+        // and the summary must not read prose-only evidence as a model
+        // judgment.
+        let counts = if record.advisory {
+            &mut advisory_counts
+        } else {
+            &mut verdict_counts
+        };
+        *counts
             .entry(record.verdict.as_str().to_string())
             .or_insert(0) += 1;
     }
@@ -1205,6 +1393,8 @@ pub fn build_report_mode(
         scope_sha256: scope_digest(spec, corpus_bytes),
         closed_world,
         verdict_counts,
+        advisory_counts,
+        agreement_counts,
         records,
     }
 }
@@ -1213,17 +1403,51 @@ pub fn build_report_mode(
 /// verbs: one text formatter rendered from the same report values the
 /// JSON envelope carries, so the two views cannot drift). Always carries
 /// the fixed `evidence_scope` statement (D6 — no view can omit it) and
-/// the unknown/underspecified counts.
+/// the unknown/underspecified counts; advisory-tier records are named
+/// on their own non-gating line, never folded into the hard counts, and
+/// met expectations (gh-18 item 7) are named as AGREED — an intentional
+/// negative probe the Model correctly forbids is never rendered as a
+/// disagreement.
 pub fn human_view(report: &ConformReport) -> String {
     let mut summary: Vec<String> = Vec::new();
     for (verdict, count) in &report.verdict_counts {
         summary.push(format!("{verdict} {count}"));
+    }
+    // Agreement-tier evidence reads as agreed in the summary line
+    // itself, never as an unexplained hard count (gh-18 item 7).
+    for (verdict, count) in &report.agreement_counts {
+        summary.push(format!("{verdict} {count} agreed"));
     }
     let mut out = format!(
         "conform: {} trace(s) — {}",
         report.records.len(),
         summary.join(", ")
     );
+    if !report.advisory_counts.is_empty() {
+        let advisory: Vec<String> = report
+            .advisory_counts
+            .iter()
+            .map(|(verdict, count)| format!("{verdict} {count}"))
+            .collect();
+        out.push_str(&format!(
+            "\n  advisory: {} (non-gating, not a model judgment)",
+            advisory.join(", ")
+        ));
+    }
+    if !report.agreement_counts.is_empty() {
+        // The agreement tier reads in words, never as a violation
+        // (gh-18 item 7): these are intentional probes whose declared
+        // expectation the compiled Model met.
+        let agreed: Vec<String> = report
+            .agreement_counts
+            .iter()
+            .map(|(verdict, count)| format!("{verdict} {count}"))
+            .collect();
+        out.push_str(&format!(
+            "\n  agreed: {} (the oracle asserts the Model forbids this — agreed, non-gating)",
+            agreed.join(", ")
+        ));
+    }
     out.push_str(&format!("\n  evidence_scope: {}", report.evidence_scope));
     out.push_str(&format!("\n  scope_sha256: {}", report.scope_sha256));
     out.push_str(&format!("\n  closed_world: {}", report.closed_world));

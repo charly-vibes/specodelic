@@ -3,7 +3,9 @@
 //! fixture JSONL corpus, evidence-class separation (design D2), and
 //! taxonomy totality. Pure library — no CLI.
 
-use specodelic::conform::{Verdict, classify_claims, classify_traces, parse_corpus};
+use specodelic::conform::{
+    Verdict, build_report, classify_claims, classify_traces, human_view, parse_corpus,
+};
 use specodelic::spec;
 
 // ---------------------------------------------------------------------------
@@ -43,6 +45,7 @@ statement: "THE system SHALL conform"
 | id | from | to | guard |
 |----|------|----|-------|
 | confirm | held | confirmed | [[demo.conform.locked]] ∧ [[demo.conform.audited]] |
+| audit | held | confirmed | [[demo.conform.audited]] |
 | reopen | confirmed | held | [[demo.conform.locked]] |
 | escalate | held | held | [[demo.conform.portable]] |
 | crosscheck | held | held | [[other.spec.audited]] |
@@ -375,5 +378,170 @@ fn foreign_citation_never_resolves_to_a_local_claim() {
         !records[0].reason.contains("audited"),
         "a foreign citation must not misattribute the local prose claim: {}",
         records[0].reason
+    );
+}
+
+// ---------------------------------------------------------------------------
+// f4sx item 2 — prose-only evidence degrades to the ADVISORY tier
+// ---------------------------------------------------------------------------
+//
+// The closed verdict vocabulary is unchanged: prose-only covering evidence
+// is still `Unknown` (prose is not interpretable — it neither permits nor
+// forbids). What changes is its TIER. The record carries an explicit
+// `advisory: true` marker and the report counts it in a separate
+// `advisory_counts` map keyed by the verdict's snake_case spelling,
+// EXCLUDED from the hard `verdict_counts`. Advisory unknowns therefore
+// never read as a contradiction and never enter the
+// `forbidden + unsupported` predicate `cmd_conform` uses to choose exit 1.
+//
+// Current behavior these tests pin against: every prose-only trace lands in
+// `verdict_counts["unknown"]` as if it were a hard verdict, and no advisory
+// marker or separate count exists anywhere in the envelope — so a
+// prose-heavy corpus' summary reads as if it carried unknowns/disagreements.
+
+/// Prose-only covering evidence → `Unknown` (vocabulary kept), marked
+/// `advisory: true` — advisory-tier, never a hard unknown, never a
+/// contradiction.
+#[test]
+fn prose_only_covering_claim_is_advisory_not_a_hard_unknown() {
+    let spec = fixture_spec();
+    let traces = corpus(&[
+        r#"{"id": "audit-prose", "setup": {"state": "held"}, "trace": [{"action": "audit"}]}"#,
+    ]);
+    let records = classify_traces(&spec, &traces, false);
+    assert_eq!(records.len(), 1);
+    let r = &records[0];
+    assert_eq!(
+        r.verdict,
+        Verdict::Unknown,
+        "the verdict vocabulary is unchanged: prose evidence is not interpretable"
+    );
+    assert!(
+        r.reason.contains("prose_claim_not_interpretable"),
+        "reason names the prose rule: {}",
+        r.reason
+    );
+    assert!(
+        r.reason.contains("audited"),
+        "reason names the prose claim: {}",
+        r.reason
+    );
+    assert!(
+        r.advisory,
+        "prose-only evidence must be advisory-tier, not a hard unknown: {r:?}"
+    );
+    assert_ne!(
+        r.verdict,
+        Verdict::Forbidden,
+        "advisory evidence is never a contradiction"
+    );
+}
+
+/// A prose-only corpus is advisory-only: the report counts it in
+/// `advisory_counts` (a separate envelope field), excludes it from the
+/// hard `verdict_counts`, and the `forbidden + unsupported` predicate
+/// `cmd_conform` uses for exit 1 does not fire.
+#[test]
+fn prose_advisory_never_counts_as_a_failing_verdict() {
+    let spec = fixture_spec();
+    let lines =
+        [r#"{"id": "audit-prose", "setup": {"state": "held"}, "trace": [{"action": "audit"}]}"#];
+    let bytes = lines.join("\n");
+    let traces = corpus(&lines);
+    let report = build_report(&spec, bytes.as_bytes(), &traces, false);
+
+    assert_eq!(
+        report.advisory_counts.get("unknown"),
+        Some(&1),
+        "the advisory tier is counted separately by verdict spelling: {:?}",
+        report.advisory_counts
+    );
+    assert_eq!(
+        report.verdict_counts.get("unknown"),
+        None,
+        "advisory unknowns must not pollute the hard verdict counts: {:?}",
+        report.verdict_counts
+    );
+    assert_eq!(
+        report.verdict_counts.get("forbidden"),
+        None,
+        "an advisory prose trace is never counted as a contradiction"
+    );
+    let gating: usize = ["forbidden", "unsupported"]
+        .iter()
+        .map(|key| report.verdict_counts.get(*key).copied().unwrap_or(0))
+        .sum();
+    assert_eq!(
+        gating, 0,
+        "advisory-only corpora never force a failing run summary"
+    );
+
+    // The distinction rides the ENVELOPE (data), not just Rust fields.
+    let json = serde_json::to_value(&report).expect("report serializes");
+    assert_eq!(
+        json["records"][0]["advisory"],
+        serde_json::json!(true),
+        "the record carries the advisory marker: {json}"
+    );
+    assert_eq!(
+        json["advisory_counts"]["unknown"],
+        serde_json::json!(1),
+        "the report carries the separate advisory count: {json}"
+    );
+
+    // The human summary names the advisory tier instead of hiding it in
+    // the hard verdict counts.
+    let human = human_view(&report);
+    assert!(
+        human.contains("advisory"),
+        "the human summary separates advisory from gating verdicts: {human}"
+    );
+}
+
+/// An executable claim that genuinely disagrees still contradicts
+/// (`forbidden`, not advisory) and still enters the failing predicate.
+#[test]
+fn executable_contradiction_still_counts_as_a_failing_verdict() {
+    let spec = fixture_spec();
+    let lines = [
+        r#"{"id": "wrong-state-reopen", "setup": {"state": "held"}, "trace": [{"action": "reopen"}]}"#,
+    ];
+    let bytes = lines.join("\n");
+    let traces = corpus(&lines);
+    let report = build_report(&spec, bytes.as_bytes(), &traces, false);
+
+    let r = report
+        .records
+        .iter()
+        .find(|r| r.scenario_id == "wrong-state-reopen")
+        .expect("the contradiction record exists");
+    assert_eq!(r.verdict, Verdict::Forbidden);
+    assert!(
+        r.reason.contains("contradiction_forbidden_any_mode") && r.reason.contains("locked"),
+        "the contradiction still names the executable claim: {}",
+        r.reason
+    );
+    assert!(
+        !r.advisory,
+        "an executable contradiction is gating, never advisory: {r:?}"
+    );
+    assert_eq!(
+        report.verdict_counts.get("forbidden"),
+        Some(&1),
+        "the contradiction is counted in the hard verdict counts: {:?}",
+        report.verdict_counts
+    );
+    assert_eq!(
+        report.advisory_counts.get("forbidden"),
+        None,
+        "a contradiction never lands in the advisory count"
+    );
+    let gating: usize = ["forbidden", "unsupported"]
+        .iter()
+        .map(|key| report.verdict_counts.get(*key).copied().unwrap_or(0))
+        .sum();
+    assert!(
+        gating > 0,
+        "a genuine executable disagreement still fails the run"
     );
 }

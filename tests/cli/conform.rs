@@ -87,6 +87,15 @@ const UNCOVERED_LINE: &str =
 /// from — positive contradiction, forbidden in ANY invocation mode.
 const CONTRADICTION_LINE: &str = r#"{"id": "confirm-from-wrong-state", "setup": {"state": "confirmed"}, "trace": [{"action": "confirm"}]}"#;
 
+/// An INTENTIONAL negative probe (gh-18 item 7): the same contradiction
+/// trace, now declaring `expect: forbidden` — the oracle asserts the
+/// Model forbids this step, so the forbidden verdict is an AGREEMENT.
+const EXPECTED_FORBIDDEN_LINE: &str = r#"{"id": "expected-deny-confirm", "setup": {"state": "confirmed"}, "trace": [{"action": "confirm"}], "expect": "forbidden"}"#;
+
+/// The same declaration over a trace the Model PERMITS — the expectation
+/// is unmet (the oracle expected prohibition, the Model allows the step).
+const UNMET_FORBIDDEN_EXPECTATION_LINE: &str = r#"{"id": "expected-deny-but-permitted", "setup": {"state": "held"}, "trace": [{"action": "confirm"}], "expect": "forbidden"}"#;
+
 /// Compile the fixture spec into a temp out-dir (the gate requires
 /// current artifacts — conform never re-compiles).
 fn compiled_out_dir(dir: &std::path::Path, spec: &std::path::Path) -> String {
@@ -217,6 +226,171 @@ fn conform_contradiction_forbidden_in_any_mode() {
     assert!(
         records[0]["reason"].as_str().unwrap_p().contains("locked"),
         "reason names the contradicted claim: {json}"
+    );
+}
+
+// ---- specodelic-18mt: optional `expect` on scenario records ----
+
+/// gh-18 item 7: an intentional negative probe declares `expect:
+/// forbidden`. The trace IS forbidden, so the per-expectation verdict
+/// record says the expectation was MET — the verdict is an AGREEMENT,
+/// not a model disagreement. The run exits 0, the hard verdict counts
+/// are not polluted, and neither envelope view says "the oracle
+/// disagrees with the declared model" (both must distinguish the
+/// agreement case).
+#[test]
+fn conform_expected_forbidden_is_an_agreement_exit_0() {
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
+    let spec = dir.path().join("demo.cli_conform.md");
+    std::fs::write(&spec, SPEC_TEXT).unwrap_p();
+    let corpus = dir.path().join("scenarios.jsonl");
+    std::fs::write(&corpus, format!("{EXPECTED_FORBIDDEN_LINE}\n")).unwrap_p();
+
+    let (code, json) = conform_json(&spec, &corpus, &[]);
+    assert_eq!(
+        code,
+        Some(0),
+        "an expected forbidden verdict must not fail the run: {json}"
+    );
+    assert_eq!(json["ok"], serde_json::json!(true), "{json}");
+    let data = &json["data"];
+    let record = &data["records"][0];
+    assert_eq!(record["scenario_id"], "expected-deny-confirm");
+    // The taxonomy is unchanged — the trace is still mechanically
+    // forbidden; the expectation tier is carried ALONGSIDE it.
+    assert_eq!(record["verdict"], "forbidden", "{json}");
+    assert_eq!(
+        record["expect"],
+        serde_json::json!("forbidden"),
+        "the record names the declared expectation it answered: {json}"
+    );
+    assert_eq!(
+        record["expectation_met"],
+        serde_json::json!(true),
+        "a matching verdict is recorded as expectation met: {json}"
+    );
+    // An expected forbidden is an agreement, not a hard violation: the
+    // negative probe does not pollute the gating verdict counts.
+    assert!(
+        data["verdict_counts"].get("forbidden").is_none(),
+        "expected forbiddens are agreement-tier, not hard verdicts: {json}"
+    );
+    // The agreement case is never reported as a model disagreement.
+    let rendered = serde_json::to_string(&json).unwrap_p();
+    assert!(
+        !rendered.contains("the oracle disagrees with the declared model"),
+        "an expected forbidden is not a disagreement: {json}"
+    );
+
+    // The human summary distinguishes the two cases in words: it says
+    // the oracle asserts the Model forbids this and AGREED — never the
+    // alarming disagreement line.
+    let out_dir = compiled_out_dir(dir.path(), &spec);
+    let out = spk()
+        .args([
+            "conform",
+            spec.to_str().unwrap_p(),
+            "--oracle",
+            corpus.to_str().unwrap_p(),
+            "--out-dir",
+            &out_dir,
+            "--human",
+        ])
+        .output()
+        .unwrap_p();
+    assert_eq!(out.status.code(), Some(0), "expected forbidden exits 0");
+    let text = String::from_utf8_lossy(&out.stdout).to_lowercase();
+    assert!(
+        text.contains("agreed"),
+        "summary states the expected prohibition was agreed: {text}"
+    );
+    assert!(
+        !text.contains("the oracle disagrees"),
+        "summary never reports an expected forbidden as disagreement: {text}"
+    );
+}
+
+/// The same declaration over a trace the Model permits: the expectation
+/// is UNMET. That is a genuine oracle/model disagreement — the record
+/// carries a distinct labeled reason (`expectation_unmet`, naming the
+/// declared expectation) and the run exits 1.
+#[test]
+fn conform_unmet_forbidden_expectation_exits_1_with_labeled_reason() {
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
+    let spec = dir.path().join("demo.cli_conform.md");
+    std::fs::write(&spec, SPEC_TEXT).unwrap_p();
+    let corpus = dir.path().join("scenarios.jsonl");
+    std::fs::write(&corpus, format!("{UNMET_FORBIDDEN_EXPECTATION_LINE}\n")).unwrap_p();
+
+    let (code, json) = conform_json(&spec, &corpus, &[]);
+    assert_eq!(
+        code,
+        Some(1),
+        "an unmet forbidden expectation fails the run: {json}"
+    );
+    assert_eq!(json["ok"], serde_json::json!(false), "{json}");
+    let data = &json["data"];
+    let record = &data["records"][0];
+    assert_eq!(record["scenario_id"], "expected-deny-but-permitted");
+    // The mechanical verdict is permitted — the declared expectation was
+    // not met.
+    assert_eq!(record["verdict"], "permitted", "{json}");
+    assert_eq!(record["expect"], serde_json::json!("forbidden"), "{json}");
+    assert_eq!(
+        record["expectation_met"],
+        serde_json::json!(false),
+        "a non-matching verdict is recorded as expectation unmet: {json}"
+    );
+    // A DISTINCT labeled reason — never the plain permitted reason, and
+    // never the contradiction reason (the Model did not forbid this).
+    let reason = record["reason"].as_str().unwrap_p();
+    assert!(
+        reason.contains("expectation_unmet"),
+        "unmet expectations carry their own reason marker: {reason}"
+    );
+    assert!(
+        reason.contains("forbidden"),
+        "the reason names the declared expectation: {reason}"
+    );
+}
+
+/// A record WITHOUT `expect` keeps today's semantics exactly: a
+/// contradiction is a hard forbidden verdict — counted in the hard
+/// verdict_counts, reported as "the oracle disagrees with the declared
+/// model", exit 1 — and the additive fields stay absent (null).
+#[test]
+fn conform_record_without_expect_keeps_todays_semantics() {
+    let dir = tempfile::tempdir_in(std::env::temp_dir()).unwrap_p();
+    let spec = dir.path().join("demo.cli_conform.md");
+    std::fs::write(&spec, SPEC_TEXT).unwrap_p();
+    let corpus = dir.path().join("scenarios.jsonl");
+    std::fs::write(&corpus, format!("{CONTRADICTION_LINE}\n")).unwrap_p();
+
+    let (code, json) = conform_json(&spec, &corpus, &[]);
+    assert_eq!(code, Some(1), "unexpected forbidden still fails: {json}");
+    assert_eq!(json["ok"], serde_json::json!(false), "{json}");
+    let data = &json["data"];
+    let record = &data["records"][0];
+    assert_eq!(record["verdict"], "forbidden", "{json}");
+    assert!(
+        record["expect"].is_null(),
+        "no declaration was made — no expectation is recorded: {json}"
+    );
+    assert!(
+        record["expectation_met"].is_null(),
+        "no declaration was made — no met/unmet tier is recorded: {json}"
+    );
+    assert_eq!(
+        data["verdict_counts"]["forbidden"], 1,
+        "an unexpected forbidden is still a hard verdict: {json}"
+    );
+    let warnings = json["warnings"].as_array().unwrap_p();
+    assert!(
+        warnings[0]["message"]
+            .as_str()
+            .unwrap_p()
+            .contains("the oracle disagrees with the declared model"),
+        "today's disagreement summary is unchanged: {json}"
     );
 }
 
