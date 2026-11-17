@@ -247,9 +247,9 @@ the ratified goals and the evidence.
 - **Citations.** No clause, DOI or percentage was verified. Clause-level claims
   (`NORMATIVE`) are unverified everywhere, including where a provider tagged
   them confidently and where an audit found a plausible fabrication.
-- **Provisional inputs.** M4 (4/5) and M5 (4/9) are below quorum; M1's
-  independence findings come from three providers while five transcripts exist
-  (§7). A memo built on them inherits their provisionality.
+- **Provisional inputs.** M4 (4 of 6) and M5 (4 of 9) are below quorum; M1 v2
+  covers four of seven attempted channels. A memo built on them inherits their
+  provisionality.
 - **Not measured here.** Corpus counts, ticket statuses and shipped-surface
   claims in this memo are as recorded in the source documents; nothing was
   re-derived for this pass.
@@ -261,12 +261,13 @@ the ratified goals and the evidence.
 1. **Answer D-1 with a change proposal, not a design doc.** Scope: add
    `inconclusive` to conform; make `stale` computed from the `(revision, scope)`
    relation; define `binds_nothing` as a citation test; document the five-axis
-   record and the two fields. Acceptance: one mapping table in the docs that
+   record and the three fields. Acceptance: one mapping table in the docs that
    equals the code, and `spk lint`/`audit`/`conform` agreeing on the same
    record (§3).
 2. **Answer D-9 by filing the matrix, then the two missing experiments.** E5
-   extraction-completeness, E6 second-copy audit (§4). Two conditions have no
-   test today; that is the finding, not a scheduling detail.
+   extraction-completeness, E6 second-copy audit (§4). Condition 1 has no
+   experiment, conditions 3 and 5 are structural-only; that is the finding, not
+   a scheduling detail.
 3. **Run M5's T1 clause audit before building anything on the axis names.**
    It is a document read, not an experiment, and it decides whether
    `inconclusive` is a borrow or a renaming.
