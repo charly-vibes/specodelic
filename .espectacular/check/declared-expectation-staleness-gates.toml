@@ -1,0 +1,17 @@
+id = "declared-expectation-staleness-gates"
+description = "When a row is `stale` and the prior report was recorded with `--declare-expectation`, the exit code is 1; without the declaration the same row is informational and the exit code is 0 (check / Exit contract)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the library pin fixes the exit predicate (the
+# function check calls with the prior's declared flag); the scenario pin
+# records both baseline kinds over one corpus, worsens a real row, and
+# asserts the stale class plus exit 1/0 per declaration.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "contract_declared_expectation_staleness_gates"
+
+[[tests.cargo]]
+flags = "exit_code_one_iff_contradicted_or_stale_under_declared_expectation"

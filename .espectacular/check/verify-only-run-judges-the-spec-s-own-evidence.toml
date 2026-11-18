@@ -1,0 +1,13 @@
+id = "verify-only-run-judges-the-spec-s-own-evidence"
+description = "A run with a current compiled artifact and a current model-check report and no `--oracle` emits the verify-stage rows (`verify:prop:*`, `verify:model`), a derived ladder rung, and the fixed evidence-scope statement saying only the spec's own evidence was consumed (check / Single judge verb over existing evidence)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the real CLI fixture (compiled, model-checked, no
+# oracle) asserts the verify-stage rows, rung 4 and the no-oracle scope
+# sentence in one report.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "verified_run_reports_rung_four_and_spec_internal_scope"

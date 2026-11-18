@@ -1,0 +1,12 @@
+id = "oracle-run-reuses-conform-s-walk"
+description = "An oracle run over the same inputs as `spk conform --oracle` emits each trace's row with exactly the verdict conform's walk produced for that trace id, so no second trace evaluator exists (check / Single judge verb over existing evidence)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — binds the check-level test that compares the rows
+# against `spk conform`'s own report for the same corpus.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "check_oracle_rows_match_the_conform_walk_verdicts"

@@ -37,6 +37,7 @@
 - [orchestrate](specs/orchestrate/spec.md)
 - [conform — external oracle evidence, outside the lifecycle](conform.md)
 - [conform — capability](specs/conform/spec.md)
+- [check — the judge verb](specs/check/spec.md)
 - [errors](specs/errors/spec.md)
 
 # Graph Views

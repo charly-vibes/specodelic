@@ -1,0 +1,16 @@
+id = "a-refuted-claim-is-a-contradiction"
+description = "A model report that found a counterexample, or whose required claim's status is not verified, emits `verify:model:<claim-id>` with verdict `forbidden` and class `contradicted`, and the run exits 1 (check / Verify-stage outcome mapping)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the unit pins the claim-keyed forbidden/contradicted
+# row; the scenario-contract CLI case relabels a real model-check run report
+# (every freshness field left real) and pins the exit code 1 the THEN declares.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "counterexample_claim_is_forbidden_and_named"
+
+[[tests.cargo]]
+flags = "contract_refuted_claim_is_forbidden_contradicted_and_exits_one"

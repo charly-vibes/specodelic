@@ -1,0 +1,16 @@
+id = "prior-report-overlays-are-currency-not-verdicts"
+description = "A row worsened since the prior report, or absent from it, is `stale` or `new` with its verdict unchanged; `stale` exits 1 only under a declared expectation, and `new` never affects the exit (check / Recorded and citation evidence mapping)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — binds the check-level `--before` pins: the
+# declined-expectation stale run (exit 1 vs informational 0) and the
+# prior-row-absent `new` run (verdict kept, exit untouched).
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "prior_overlay_labels_stale_without_changing_the_verdict"
+
+[[tests.cargo]]
+flags = "prior_overlay_labels_new_without_changing_the_verdict"

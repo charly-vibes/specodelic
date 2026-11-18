@@ -1,0 +1,17 @@
+id = "better-design-still-outranks-a-verify-pass"
+description = "When the current model-check run reported `counterexample_found`, the rung is 5 — a refuted claim is the design lesson — even though a passed property block supplied verify evidence, and `check` reports the ladder's own derivation unmodified (check / Ladder rung derived from evidence present)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the scenario-contract CLI case pins rung 5 over a
+# refuted real model report whose property block still passed; the pure-core
+# mix table pins counterexample+verify_pass => 5 (highest-evidence semantics),
+# which is the "does not override the ladder" arm no CLI input can reach.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "contract_counterexample_outranks_a_verify_pass_at_rung_five"
+
+[[tests.cargo]]
+flags = "rung_is_the_highest_evidence_backed_rung_across_mixes"

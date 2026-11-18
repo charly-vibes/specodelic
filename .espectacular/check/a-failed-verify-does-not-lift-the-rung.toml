@@ -1,0 +1,16 @@
+id = "a-failed-verify-does-not-lift-the-rung"
+description = "When the properties gate fails, the rung is derived from the remaining current evidence (the clean model-check report, rung 3) and never reports 4, stating the basis it did use (check / Ladder rung derived from evidence present)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the scenario-contract CLI case pins the exact rung
+# and its stated basis with a really failing block; the matrix case pins that
+# the failing run never reports 4.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "contract_failed_verify_rung_never_four_and_states_its_basis"
+
+[[tests.cargo]]
+flags = "failed_property_block_exits_one_and_does_not_lift_rung"

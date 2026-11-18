@@ -1,0 +1,15 @@
+id = "oracle-verdicts-carry-through"
+description = "A trace conform's walk returns `permitted` or `forbidden` for keeps its corpus id and that verdict, with class `current` or `contradicted` respectively, and the exit code is 0 or 1 (check / Recorded and citation evidence mapping)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — binds the mixed-corpus CLI test (both verdicts,
+# both classes) and the permitted-only test pinning the exit-0 half.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "oracle_contradiction_exits_one_with_both_layers"
+
+[[tests.cargo]]
+flags = "permitted_only_oracle_run_exits_zero_with_current_rows"

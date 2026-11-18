@@ -1,0 +1,12 @@
+id = "unchecked-oracle-verdicts-never-gate"
+description = "A trace whose verdict is `underspecified`, `unknown`, `unsupported`, or `agree` keeps that verdict, carries class `unchecked`, and leaves the exit code at 0 (check / Recorded and citation evidence mapping)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — binds the check-level test covering the
+# underspecified/unknown rows and the structural-only `agree` row.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "unchecked_oracle_verdicts_keep_their_verdict_without_gating"

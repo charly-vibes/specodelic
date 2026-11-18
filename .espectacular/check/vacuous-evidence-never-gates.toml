@@ -1,0 +1,12 @@
+id = "vacuous-evidence-never-gates"
+description = "An evidence unit citing no declared model element is a `binds_nothing` row on the warnings channel, counted in the summary, and the exit code is unchanged (check / Recorded and citation evidence mapping)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — binds the check-level test that asserts the bind
+# row, the summary count, the warnings-channel advisory and exit 0.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "vacuous_check_rows_ride_the_warnings_channel_without_gating"

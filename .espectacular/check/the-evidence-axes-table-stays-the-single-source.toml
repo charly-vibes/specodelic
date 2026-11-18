@@ -1,0 +1,13 @@
+id = "the-evidence-axes-table-stays-the-single-source"
+description = "The evidence-axes table stays the single source: `scripts/check_evidence_axes.py` passes over the tree with the documented verdict and audit-class axes unchanged and no new value row (check / One evidence vocabulary)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the scenario's THEN is asserted by the axes script
+# itself (it diffs the documented table against the Verdict/AuditClass code
+# enums), so the binding is the script rather than a cargo test.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.shell]]
+command = "python3 scripts/check_evidence_axes.py ."

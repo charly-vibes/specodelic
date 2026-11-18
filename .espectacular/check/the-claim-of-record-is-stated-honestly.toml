@@ -1,0 +1,14 @@
+id = "the-claim-of-record-is-stated-honestly"
+description = "Any report or its documentation describes what was established by stating that drift is visible and graded, and claims neither a second authoritative copy nor independent evidence (check / Scope boundary)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the scenario pin asserts the documentation's
+# graded-drift claim (a revision's dropped evidence is classified, never read
+# as green), the absence of the two overclaims from the pages that state what
+# `check` established, and the report's own runtime not-claim sentences.
+archetype = "CE"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "contract_documented_claim_of_record_is_drift_visible_and_graded"

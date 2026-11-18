@@ -1,0 +1,12 @@
+id = "no-oracle-states-its-scope"
+description = "A run that supplies no oracle corpus states the spec-internal evidence it consumed in the evidence-scope sentence, and the scope digest is the empty corpus's digest (check / Report interoperability and determinism)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the real CLI no-oracle fixture pins the fixed
+# scope sentence and the empty-corpus digest in the emitted report.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "verified_run_reports_rung_four_and_spec_internal_scope"

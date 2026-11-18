@@ -1,0 +1,16 @@
+id = "a-clean-model-report-is-current-evidence"
+description = "A current model report whose outcome is `no_counterexample` with every required claim verified emits the single row `verify:model` with verdict `permitted` and class `current`, and the run exits 0 (check / Verify-stage outcome mapping)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the unit pins the single clean-gate row; the real
+# CLI fixture (compiled + model-checked, both gates green) pins the same row in
+# the emitted report together with the exit code.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "clean_model_gate_is_one_permitted_row"
+
+[[tests.cargo]]
+flags = "verified_run_reports_rung_four_and_spec_internal_scope"

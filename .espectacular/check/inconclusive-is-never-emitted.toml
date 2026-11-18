@@ -1,0 +1,19 @@
+id = "inconclusive-is-never-emitted"
+description = "A run that cannot decide — a runner killed at its bound, a missing model report, or an undecidable claim — spells no `inconclusive` verdict: it either records the existing honest value (`unknown`, `unchecked`) or refuses with exit 2 (check / One evidence vocabulary)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the reserved value is asserted absent on all three
+# named paths: the killed-runner refusal, the missing-report refusal, and the
+# undecidable-claim row mapping.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "killed_runner_refuses_exit_two"
+
+[[tests.cargo]]
+flags = "missing_model_report_refuses_exit_two_with_hint"
+
+[[tests.cargo]]
+flags = "exploration_only_is_unknown_unchecked_never_a_pass"

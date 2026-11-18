@@ -1,0 +1,15 @@
+id = "a-failed-property-block-is-a-contradiction"
+description = "A compiled property block that fails emits `verify:prop:<block-id>` with verdict `forbidden` and class `contradicted`, the reason carrying the shrunk failing input, and the run exits 1 (check / Verify-stage outcome mapping)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the unit pins the row's verdict/class and the detail
+# in the reason; the CLI case pins the real failing block's row and exit 1.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "failed_block_is_forbidden_contradicted_and_carries_the_detail"
+
+[[tests.cargo]]
+flags = "failed_property_block_exits_one_and_does_not_lift_rung"

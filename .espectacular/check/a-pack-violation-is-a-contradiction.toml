@@ -1,0 +1,15 @@
+id = "a-pack-violation-is-a-contradiction"
+description = "A pack checker's violation over the judged file is a `forbidden` row with class `contradicted`, names the violated rule, and the run exits 1 (check / Recorded and citation evidence mapping)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — binds the pack-row unit pins: the row's real
+# verdict and violated-rule reason, and the exit-1 predicate over it.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "violation_rows_carry_the_real_verdict"
+
+[[tests.cargo]]
+flags = "pack_violation_rows_fail_the_run"

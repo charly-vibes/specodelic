@@ -1,0 +1,14 @@
+id = "honest-unchecked-run-exits-zero"
+description = "When every row is `unchecked` or `binds_nothing`, the exit code is 0 and the counts are surfaced in both output views (the JSON `class_counts` and the human class list) (check / Exit contract)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the pin composes the check verb's own row
+# production (an `exploration_only` model gate plus the citation-vacuity
+# rows), folds them through audit's report layer, and asserts the exit
+# predicate plus the counts in both views.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "contract_unchecked_run_exits_zero_with_counts_in_both_views"

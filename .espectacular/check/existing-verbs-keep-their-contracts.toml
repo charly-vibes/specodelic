@@ -1,0 +1,30 @@
+id = "existing-verbs-keep-their-contracts"
+description = "When the change lands, `verify`, `conform`, and `audit` keep their status strings, report schemas, and exit codes unchanged (check / Scope boundary)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — every entry is a landed contract of a composed
+# verb, unmodified by `check`: conform's report schema and its exit 1/exit 2
+# arms, verify's status strings (library and CLI labels), and audit's schema,
+# evidence-scope statement and exit 1. Non-regression archetype: these tests
+# existed before this capability and must keep passing.
+archetype = "NR"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "report_schema_roundtrip"
+
+[[tests.cargo]]
+flags = "conform_contradiction_forbidden_in_any_mode"
+
+[[tests.cargo]]
+flags = "conform_gate_refusal_exits_2_without_records"
+
+[[tests.cargo]]
+flags = "properties_scope_pass_is_never_verified"
+
+[[tests.cargo]]
+flags = "verify_requires_a_current_model_run"
+
+[[tests.cargo]]
+flags = "audit_cli_envelope_and_exit_1_on_contradicted"

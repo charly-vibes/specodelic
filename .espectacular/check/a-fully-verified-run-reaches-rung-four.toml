@@ -1,0 +1,15 @@
+id = "a-fully-verified-run-reaches-rung-four"
+description = "When every compiled property block passed and the current model-check report is clean with all required claims verified, the reported rung is 4 and its basis states the verify pass (check / Ladder rung derived from evidence present)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the scenario-contract CLI case pins rung 4 AND the
+# stated verify-pass basis; the matrix case pins rung 4 over the same fixture.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "contract_fully_verified_run_states_the_verify_pass_basis"
+
+[[tests.cargo]]
+flags = "verified_run_reports_rung_four_and_spec_internal_scope"

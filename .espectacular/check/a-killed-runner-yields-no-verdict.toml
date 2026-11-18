@@ -1,0 +1,13 @@
+id = "a-killed-runner-yields-no-verdict"
+description = "When the properties runner is killed at its wall-clock bound, no row and no verdict are emitted, the run reports a labeled termination naming the bound, and exits 2 (check / Non-judgement outcomes produce no row)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the CLI case kills a real sleeping property block
+# at a 2s bound and asserts the labeled termination naming that bound, zero
+# records, exit 2, and that the reserved value is never spelled.
+archetype = "BP"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "killed_runner_refuses_exit_two"

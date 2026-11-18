@@ -1,0 +1,16 @@
+id = "every-row-carries-both-layers"
+description = "Every record of any check report names both its verdict (one of conform's six declared spellings) and its audit class (one of audit's six declared spellings), in the JSON view and in the human view (check / One evidence vocabulary)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — binds the scenario contract test that pins the
+# closed sets in both output views, and the CLI matrix case that asserts every
+# record of a mixed (oracle + verify) report carries both keys.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "contract_every_row_carries_both_layers_in_both_views"
+
+[[tests.cargo]]
+flags = "oracle_contradiction_exits_one_with_both_layers"

@@ -1,0 +1,19 @@
+id = "knowledge-absence-is-not-a-contradiction"
+description = "A required claim whose status is `unknown`, or a model outcome of `exploration_only` or `timed_out`, emits row(s) with verdict `unknown` and class `unchecked`, counted in the summary, and the run exits 0 (check / Verify-stage outcome mapping)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the units pin the row mapping for exploration_only
+# and timed_out; the scenario-contract CLI case pins the `unknown` claim row,
+# its count in class_counts, and the exit code 0.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "exploration_only_is_unknown_unchecked_never_a_pass"
+
+[[tests.cargo]]
+flags = "timed_out_model_run_without_claims_is_one_unknown_row"
+
+[[tests.cargo]]
+flags = "contract_knowledge_absence_is_unknown_unchecked_and_exits_zero"

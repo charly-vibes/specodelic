@@ -1,0 +1,15 @@
+id = "an-empty-checked-set-is-not-a-pass"
+description = "A pack checker producing an empty checked-set yields an `agree` row with class `unchecked`, countable in the summary, and the exit code is 0 (check / Recorded and citation evidence mapping)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — binds the vacuous checked-set row pin and the
+# all-unchecked report test (counts surfaced, exit 0 in both modes).
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "empty_checked_set_is_unchecked_never_a_pass"
+
+[[tests.cargo]]
+flags = "all_unchecked_pack_rows_exit_zero_with_counts"

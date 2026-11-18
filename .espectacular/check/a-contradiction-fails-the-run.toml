@@ -1,0 +1,16 @@
+id = "a-contradiction-fails-the-run"
+description = "When any row is `contradicted`, the exit code is 1 in both output views (check / Exit contract)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the matrix case pins the JSON envelope and the
+# both-layer row; the scenario pin runs the same mixed oracle fixture in the
+# human view and asserts exit 1 plus the named contradicted row in each.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "contract_contradiction_fails_the_run_in_both_views"
+
+[[tests.cargo]]
+flags = "oracle_contradiction_exits_one_with_both_layers"

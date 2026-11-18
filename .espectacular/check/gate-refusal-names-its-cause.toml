@@ -1,0 +1,13 @@
+id = "gate-refusal-names-its-cause"
+description = "A spec file with lint findings, or one whose compiled artifacts are stale, refuses with a labeled `artifact_gate` error naming the failing gate and its remediation hint, emits zero records, and exits 2 (check / Single judge verb over existing evidence)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the scenario pin exercises both refusal branches
+# the requirement names (lint findings and stale artifacts) and asserts the
+# gate label, the remediation hint, zero records and exit 2 for each.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "contract_gate_refusal_names_the_gate_and_the_remedy"

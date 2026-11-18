@@ -1,0 +1,16 @@
+id = "a-passed-property-block-is-current-evidence"
+description = "A compiled property block that ran and passed emits `verify:prop:<block-id>` with verdict `permitted` and class `current`, and the run exits 0 (check / Verify-stage outcome mapping)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — binds the row-mapping unit for the key/verdict/class
+# and the verified CLI case that also asserts the exit code (0) and the row in
+# the emitted report.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "passed_block_is_permitted_current_evidence"
+
+[[tests.cargo]]
+flags = "verified_run_reports_rung_four_and_spec_internal_scope"

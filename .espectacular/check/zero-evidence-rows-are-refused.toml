@@ -1,0 +1,12 @@
+id = "zero-evidence-rows-are-refused"
+description = "A run whose requested evidence yields zero rows emits zero records and exits 2 — an evidence-less pass is impossible (check / Non-judgement outcomes produce no row)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — binds the empty-oracle-corpus refusal (zero
+# records, exit 2) over compiled, otherwise-judgeable inputs.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "empty_oracle_corpus_refuses_exit_two"

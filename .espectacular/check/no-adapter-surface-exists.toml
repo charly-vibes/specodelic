@@ -1,0 +1,18 @@
+id = "no-adapter-surface-exists"
+description = "When the command surface is inspected, no adapter, registry, or suite-binding flag exists, and the only execution path is verify's own bounded property runner (check / Scope boundary)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — the CLI matrix case asserts clap rejects an
+# `--adapter` argument and that `check --help` advertises neither an adapter
+# nor a registry flag; the killed-runner case proves the one execution path
+# is the bounded properties runner (a compiled block runs and is killed at
+# `--timeout-secs`), not a foreign suite.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "no_adapter_surface_exists"
+
+[[tests.cargo]]
+flags = "killed_runner_refuses_exit_two"

@@ -1,0 +1,11 @@
+id = "re-runs-are-byte-identical"
+description = "Judging the same inputs twice serializes identically — no timestamps, no iteration-order leakage, stable row order (check / Report interoperability and determinism)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — binds the determinism pin over two check runs.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "reruns_are_byte_identical"

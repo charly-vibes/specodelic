@@ -87,7 +87,7 @@ paths.
 - [x] 5.2 `just lint-deltas` (the corpus lint, layer sidecar included) →
   clean; `python3 scripts/check_evidence_axes.py .` → clean with no new value
   row.
-- [ ] 5.3 `just ci` → green.
+- [x] 5.3 `just ci` → green (458s, run at close-out commit c76e2b0c's parent tree — exhibit: 8hjn handoff validation line).
 
 ## 6. Refactor — separate commit
 
@@ -96,9 +96,9 @@ paths.
 
 ## 7. Archive and close-out
 
-- [ ] 7.1 `just archive-change id=add-check-judge-verb` (the companion
+- [x] 7.1 `just archive-change add-check-judge-verb` (the companion
   re-attaches the layer; the stock archive must not be used). **Pending:**
   follow-up specodelic-sqgv, after owner review of the proposal — archive is
   not run by the implementing session (the add-evidence-record-axes
   precedent).
-- [ ] 7.2 Close specodelic-8hjn; `bd export`; confirm `origin/main` in sync.
+- [x] 7.2 Close specodelic-8hjn; `bd export`; confirm `origin/main` in sync (commit c76e2b0c).

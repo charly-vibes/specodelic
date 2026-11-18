@@ -1,0 +1,12 @@
+id = "a-check-report-is-a-valid-prior"
+description = "`spk audit demo.md --oracle corpus.jsonl --before check-report.json` parses a check report as its prior and diffs it per row key with no schema divergence (check / Report interoperability and determinism)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of add-check-judge-verb — binds the interop test that feeds a check report
+# to `audit --before` and pins the both-ways prior compatibility.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "check_report_is_a_valid_audit_prior_and_sustained_contradiction_fails"

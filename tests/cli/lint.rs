@@ -161,7 +161,9 @@ fn lint_corpus_is_fully_clean() {
     // 48 = + the audit capability (add-evidence-audit companion archive,
     // specodelic-x0wy, 2026-11-11).
     // 49 = + the content-advisories checker (specodelic-xci).
-    assert_eq!(data["files_linted"], 49);
+    // 50 = + the check capability (add-check-judge-verb companion archive,
+    // specodelic-sqgv, 2026-11-18).
+    assert_eq!(data["files_linted"], 50);
     let issues = data["issues"].as_array().unwrap_p();
     assert!(issues.is_empty(), "corpus lint findings: {issues:?}");
     assert_eq!(out.status.code(), Some(0));
