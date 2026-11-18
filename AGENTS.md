@@ -285,6 +285,10 @@ written in the format it describes, at `openspec/specs/<dir>/spec.md`.
   Gate drills must go through `scripts/guards/gate-drill.sh` (worktree or
   advisory lock — specodelic-do8); see
   `openspec/decisions/2026-10-05-precommit-sweep-policy.md`.
+  Coverage or verification claims in a commit message must cite their
+  exhibit — test id, rule id, or run id; a claim that cannot quote its
+  evidence does not enter (method lesson: antithesis-skills inventory
+  2026-11-18, `.wai/resources/research/2026-11-18-antithesis-skills-method-inventory.md`).
 - **Quality gates**: `just ci` (fmt-check, clippy `-D warnings`, tests,
   release build) must pass before pushing.
 - **Test runner**: during iterative work, agents run `just test-smart`
