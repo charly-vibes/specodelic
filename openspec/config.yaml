@@ -35,9 +35,10 @@ context: |
   - Every capability spec under `openspec/specs/<cap>/spec.md` MUST be
     dual-format; `just sync-sections` fails CI on a frontmatter-less or
     table-less capability spec.
-  - Verification is bounded model checking of invariants a spec opts into
-    (`**rust:**` fragments); prose-only invariants stay explicitly unchecked.
-    It is never proof of application correctness.
+  - Verification is bounded model checking of the invariant claims a spec opts
+    into (`**rust:**` fragments); every opted-in invariant claim must verify
+    before a file verifies, and prose-only invariants stay explicitly
+    unchecked. It is never proof of application correctness.
   - Archive recipe: `openspec archive <id> --skip-specs`, then copy each
     dual-format delta verbatim into `openspec/specs/<cap>/spec.md`;
     `just archive-change id=<id>` does both. Archived deltas under

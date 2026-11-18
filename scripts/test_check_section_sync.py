@@ -158,11 +158,11 @@ class CapabilityFormatTest(unittest.TestCase):
 
     def test_non_capability_plain_markdown_is_exempt(self):
         # Only files under openspec/specs/<cap>/ are capability specs;
-        # project.md, archive files, etc. stay exempt.
+        # config files, archive files, etc. stay exempt.
         root = self.write({
-            "openspec/project.md": "# Project Context\n\nplain prose\n",
+            "openspec/notes.md": "# Project Context\n\nplain prose\n",
         })
-        self.assertEqual(css.check(root / "openspec/project.md"), [])
+        self.assertEqual(css.check(root / "openspec/notes.md"), [])
         return None  # explicit non-void: no self-field mutation
 
 

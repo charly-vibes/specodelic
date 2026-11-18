@@ -1244,7 +1244,7 @@ fn docs_carry_release_version_and_implemented_capability_status() {
     let docs = [
         "README.md",
         "docs/src/status.md",
-        "openspec/project.md",
+        "openspec/config.yaml",
         "openspec/STATUS.md",
     ];
     // Release-version statements only: `v<semver>` or `Version <semver>`
@@ -1279,7 +1279,7 @@ fn docs_carry_release_version_and_implemented_capability_status() {
     );
     for doc in [
         "docs/src/status.md",
-        "openspec/project.md",
+        "openspec/config.yaml",
         "openspec/STATUS.md",
     ] {
         let text = norm(&std::fs::read_to_string(root.join(doc)).unwrap_p());

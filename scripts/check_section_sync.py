@@ -78,7 +78,7 @@ def capability_problems(path: Path, text: str) -> list[str]:
         return [
             f"{path}: capability spec has no frontmatter — not a dual-format "
             "file (plain openspec regeneration output); see the migration "
-            "recipe in openspec/project.md: add id:spec frontmatter + "
+            "recipe in openspec/config.yaml: add id:spec frontmatter + "
             "## Constraints/## Model/## Properties, then the ## Requirements "
             "sibling (deltas: mirror the ADDED text; capability specs: keep "
             "## Requirements)"
@@ -86,7 +86,7 @@ def capability_problems(path: Path, text: str) -> list[str]:
     return [
         f"{path}: capability spec carries frontmatter but is missing the "
         "specodelic tables (## Constraints / ## Model / ## Properties) — "
-        "see the migration recipe in openspec/project.md"
+        "see the migration recipe in openspec/config.yaml"
     ]
 
 
