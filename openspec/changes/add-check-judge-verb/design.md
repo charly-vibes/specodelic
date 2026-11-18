@@ -116,6 +116,12 @@ Why these mappings are honest:
 | row worsened since the prior report | unchanged | unchanged | `stale` | 0 (1 under a declared expectation) |
 | row absent from the prior report | unchanged | unchanged | `new` | 0 |
 
+Rows that *improved* since the prior report (prior `contradicted`, now
+`agree`, or prior `stale`, now current) keep their verdict-derived class
+unchanged: v1 mints no improvement marker, and the only trace that a row was
+ever broken is the diff against the user-persisted prior report. That is a
+named limitation, not an accident — see D8 and task 4.2.
+
 **Non-judgements — no row, no verdict, exit 2:**
 
 | Condition | Why it is not a judgement |
@@ -228,6 +234,15 @@ foreign authority).
   writes nothing for `audit`.
 - **No new vocabulary:** `inconclusive`, `origin`, `binding_kind` stay reserved;
   the reserved-row triggers are corrected only where this change narrows them.
+- **No improvement attribution:** a row that was `contradicted` in the prior
+  report and is `agree` now keeps its derived class; the report mints no
+  marker for fixed-since-last-run (no new class value, no schema-v1 field).
+  Improvement is visible only by diffing the persisted prior report; a
+  dedicated improvement class is the first candidate for a future
+  `report_schema_version` 2. (Method lesson, antithesis-skills inventory
+  2026-11-18: a sweep that cannot distinguish "always agreed" from "agreed
+  after a fix" invites circular re-keying — recorded as a named limitation,
+  never silently accepted.)
 
 ## Risks
 

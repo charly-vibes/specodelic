@@ -71,7 +71,9 @@ paths.
   the capability spec's mapping table and exit contract; correct the
   `inconclusive` reserved row's trigger to the remaining producer (a contract
   suite that executes and cannot decide) and state that `check` does not
-  produce it.
+  produce it; state the improvement-attribution limitation (an improved row
+  keeps its derived class; history lives in the persisted prior report; no
+  dedicated class or field at schema v1) under §Known limitations.
 - [ ] 4.3 `docs/src/verification-boundaries.md`: rung 4 is reachable through
   `spk check`; `spk audit` keeps its documented ceiling until verify persists
   a report.
