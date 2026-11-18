@@ -8,23 +8,22 @@ Purpose:
     `AuditClass::of` mapping — failing CI when they drift.
 
 Responsibilities:
-    - Parse the two enums from src/conform.rs and src/audit.rs and every
-      `Verdict::X =>` arm of `AuditClass::of`.
+    - Parse `Verdict` from src/conform.rs and `AuditClass` plus every
+      `Verdict::X =>` arm of `AuditClass::of` from src/audit.rs.
     - Parse the axis table under `## The evidence-record axes`.
-    - Fail naming the divergent value when: a code value has no row; an
-      `implemented` row has no code value; a documented mapping differs
-      from the `of()` arm; a `reserved` row lacks its trigger or names a
-      value the code already declares; a value appears twice; or any
-      input is unparseable (fail-closed, never a silent pass).
+    - Fail naming the divergent value on: a code value with no row; an
+      `implemented` row with no code value; a documented mapping that
+      differs from the `of()` arm; a `reserved` row lacking its trigger
+      or naming a value the code already declares; a value appearing
+      twice; unparseable input (fail-closed, never a silent pass).
     - Emit the counts compared on success.
 
 Rationale:
     The vocabulary page is the source of truth the next change quotes;
     hand-maintained docs drifted before (the verdict list once omitted
     `agree`). Parse-and-compare follows the existing guard convention
-    (check_pack_doc_counts.py, check_section_sync.py): a small stdlib
-    script, fixtures in scripts/test_check_evidence_axes.py, wired into
-    `just ci`.
+    (check_pack_doc_counts.py, check_section_sync.py), with fixtures in
+    scripts/test_check_evidence_axes.py and `just ci` wiring.
 
 Usage: check_evidence_axes.py [ROOT]   (default: the repo root)
 Exit 0 = in sync; exit 1 = drift (each problem names its value and file).
@@ -54,33 +53,42 @@ def camel_to_snake(name: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
-def _enum_block(source: str, enum_name: str, label: str) -> str:
-    """The `pub enum <Name> { ... }` block (brace line to closing `}`)."""
-    lines = source.splitlines()
+def _bounded_block(lines: list[str], start_re: str, stop: str) -> str | None:
+    """Lines after the first line matching start_re, up to (excluding) the
+    line equal to stop — shared block-bounding for enum and of() bodies."""
     start = next((i for i, l in enumerate(lines)
-                  if re.match(rf"pub enum {enum_name}\b.*\{{", l.strip())), None)
+                  if re.match(start_re, l.strip())), None)
     if start is None:
-        raise Unparseable(
-            f"{label}: cannot extract 'pub enum {enum_name}' — expected a "
-            f"'pub enum {enum_name} {{' block with plain `Variant,` lines "
-            f"(doc comments allowed); {REMEDIATION}")
+        return None
     body: list[str] = []
     for line in lines[start + 1:]:
-        if line.rstrip() == "}":
+        if line.rstrip() == stop:
             break
         body.append(line)
     return "\n".join(body)
 
 
+def _enum_block(source: str, enum_name: str, label: str) -> str:
+    """The `pub enum <Name> { ... }` block (brace line to closing `}`)."""
+    body = _bounded_block(source.splitlines(),
+                          rf"pub enum {enum_name}\b.*\{{", "}")
+    if body is None:
+        raise Unparseable(
+            f"{label}: cannot extract 'pub enum {enum_name}' — expected a "
+            f"'pub enum {enum_name} {{' block with plain `Variant,` lines "
+            f"(doc comments allowed); {REMEDIATION}")
+    return body
+
+
 def parse_enum(source: str, enum_name: str, label: str) -> list[str]:
-    """Variant names of `pub enum <Name>`, in declaration order."""
+    """`pub enum <Name>` variant names, snake_cased, in declaration order."""
     names: list[str] = []
     for line in _enum_block(source, enum_name, label).splitlines():
         text = line.strip()
         if text and not text.startswith(("///", "//", "#[")):
             m = re.match(r"([A-Z][A-Za-z0-9_]*)[,;]?$", text)
             if m:
-                names.append(m.group(1))
+                names.append(camel_to_snake(m.group(1)))
     if not names:
         raise Unparseable(
             f"{label}: 'pub enum {enum_name}' block parsed to zero variants "
@@ -93,23 +101,18 @@ def parse_of_mapping(source: str) -> dict[str, str]:
 
     Arms are matched by splitting the fn body on `=>`: the verdicts of
     arm i are the `Verdict::X` tokens before the i-th `=>`, its class is
-    the first `AuditClass::Y` token after it. Grouped arms
-    (`Verdict::A | Verdict::B => AuditClass::C`) map every listed
-    verdict; `rank()`/`as_str()` arms outside `fn of` are never read.
+    the first `AuditClass::Y` token after it. Grouped arms map every
+    listed verdict; `rank()`/`as_str()` arms outside `fn of` are never
+    read.
     """
     lines = source.splitlines()
-    start = next((i for i, l in enumerate(lines)
-                  if "fn of(verdict: Verdict) -> AuditClass" in l), None)
-    if start is None:
+    body = _bounded_block(
+        lines, re.escape("fn of(verdict: Verdict) -> AuditClass"), "    }")
+    if body is None:
         raise Unparseable(
             "audit source: cannot extract 'AuditClass::of' — expected a "
             "'fn of(verdict: Verdict) -> AuditClass' match; " + REMEDIATION)
-    body: list[str] = []
-    for line in lines[start + 1:]:
-        if line.rstrip() == "    }":  # fn-of closing brace (impl indent)
-            break
-        body.append(line)
-    joined = " ".join(body)
+    joined = " ".join(body.splitlines())
     if "Verdict::" not in joined:
         raise Unparseable(
             "audit source: 'AuditClass::of' body has no 'Verdict::X =>' "
@@ -236,14 +239,12 @@ def _reserved_problems(row: dict[str, str],
 def check(root: Path) -> tuple[list[str], str]:
     """Return (problems, ok_line); ok_line is '' whenever problems exist."""
     try:
-        verdicts = [camel_to_snake(v) for v in
-                    parse_enum((root / CONFORM_REL).read_text(encoding="utf-8"),
-                               "Verdict", CONFORM_REL)]
-        audit_text = (root / AUDIT_REL).read_text(encoding="utf-8")
-        classes = [camel_to_snake(c) for c in
-                   parse_enum(audit_text, "AuditClass", AUDIT_REL)]
+        conform = (root / CONFORM_REL).read_text()
+        audit_text = (root / AUDIT_REL).read_text()
+        verdicts = parse_enum(conform, "Verdict", CONFORM_REL)
+        classes = parse_enum(audit_text, "AuditClass", AUDIT_REL)
         of_map = parse_of_mapping(audit_text)
-        rows = parse_table((root / DOCS_REL).read_text(encoding="utf-8"))
+        rows = parse_table((root / DOCS_REL).read_text())
     except Unparseable as exc:
         return [str(exc)], ""
 
@@ -285,8 +286,7 @@ def check(root: Path) -> tuple[list[str], str]:
 
 
 def main(argv: list[str]) -> int:
-    root = Path(argv[1]) if len(argv) > 1 else \
-        Path(__file__).resolve().parent.parent
+    root = Path(argv[1] if len(argv) > 1 else Path(__file__).parent.parent)
     problems, ok = check(root)
     for problem in problems:
         print(problem, file=sys.stderr)
