@@ -74,3 +74,7 @@ __pycache__/
 
 # tool data dirs (managed by `ddl init --gates`)
 .testaruda/
+
+# Hegel property engine failure database (tests/hegel_properties.rs) —
+# shrunk counterexample blobs, written on failure only
+.hegel/
