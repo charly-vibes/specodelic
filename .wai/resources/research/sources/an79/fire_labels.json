@@ -1,0 +1,17 @@
+[
+{"n":0,"repo":"testaruda","label":"C2","why":"wrong-target redirect (fix specs not evaluation ticket)"},
+{"n":1,"repo":"testaruda","label":"C1","why":"corrects agent's confusion about what the evaluation document is (artifact semantics)"},
+{"n":2,"repo":"testaruda","label":"C2","why":"ticket placement process (should all be in espectacular?)"},
+{"n":3,"repo":"testaruda","label":"C1","why":"synthetic fixtures vs real cloned repos — behavioral validation gap; agent reworks backend"},
+{"n":4,"repo":"testaruda","label":"C2","why":"repo-boundary overstep (editing testimonial, should ticket it)"},
+{"n":5,"repo":"testaruda","label":"N","why":"informational confirmation (ok the latest version is there)"},
+{"n":6,"repo":"tambor","label":"C2","why":"session-naming process practice"},
+{"n":7,"repo":"tambor","label":"N","why":"pacing instruction (stop after this ticket)"},
+{"n":8,"repo":"tambor","label":"C2","why":"focus redirect (look at this repo, not that one)"},
+{"n":9,"repo":"tambor","label":"C1","why":"defect in just-produced screenshots (rendering broken)"},
+{"n":10,"repo":"tambor","label":"C1","why":"rejects test-recipe choice — build/test semantics"},
+{"n":11,"repo":"wanna","label":"C1","why":"challenges unrequested code construction; agent concedes the leap"},
+{"n":12,"repo":"wanna","label":"N","why":"status/verification question"},
+{"n":13,"repo":"coffee","label":"C1","why":"build/serve behavior of dashboard should differ"},
+{"n":14,"repo":"coffee","label":"N","why":"task instruction; fired because 'no' prefix-matches 'now' — DETECTOR BUG, needs word-boundary match"}
+]

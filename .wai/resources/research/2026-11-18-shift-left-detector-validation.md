@@ -134,3 +134,67 @@ exchange context are in the archived sample.
 | 27 | wanna | `ok orchestrate the implementation` | N | no | task instruction (orchestrate) |
 | 28 | testaruda | `ok, can we run pretender check and ah check and start putting stricter` | N | no | new request: stricter gates |
 | 29 | tambor | `ok the screnshots are all scrambled` | C1 | no | defect in just-produced screenshots; agent output correction |
+
+## Full re-run: honest rates (detector-fire → human label → C1 count)
+
+Re-run 2026-11-18 (same session, design point 5) with the validated pattern set,
+E1/E6 filtering, both stores, across the five measured repos. **All 15 fires
+hand-labeled** — the complete loop, no sampling. Labels archived with evidence
+(`sources/an79/fire_labels.json`); summary in `rerun_summary.json`.
+
+| repo | human msgs (E1/E6-filtered) | C1 events | C1 rate |
+|---|---|---|---|
+| testaruda | 567 | 2 | 0.35% |
+| tambor | 222 | 2 | 0.9% |
+| wanna | 106 | 1 | 0.94% |
+| canticos | 59 | 0 | 0.0% |
+| coffee | 141 | 1 | 0.71% |
+
+Class split of the 15 fires: **6 C1, 5 C2, 4 N**.
+
+### What the honest numbers change vs the crude first pass
+
+- **coffee (plain control) is no longer 0**: one C1 (0.71%). The crude pass
+  reported 0/139 — its denominator missed fires, and the marker pool it scanned
+  was wrapper-filtered differently.
+- **canticos's denominator was 82% non-human**: 320 crude → 59 human messages
+  (transcript-dump sessions + wrappers). Its 0% now has a real denominator.
+- **testaruda drops**: 1.35% crude → 0.35% C1 — three of its fires are C2
+  (process corrections), one is an informational `ok the` confirmation.
+- **Direction**: spec repos 0.35–0.94% vs plain 0–0.71% — still weakly higher,
+  but on **six C1 events total across 1,095 messages**. That is not a citable
+  contrast; it is one ledger signal (correction rate) at noise scale.
+
+### Detector defect found by the re-run
+
+`no` raw-prefix-matches `now` (fire 14: "now orchestrate the implementation").
+Pattern matching needs word boundaries (`\b`-anchored), not `startswith`.
+Screening role absorbed it (hand-labeled N), but the fix belongs in the
+pattern spec before any future re-run.
+
+### Standing verdict (acceptance item 4, pending the remaining signals)
+
+On the correction-rate axis alone: **inconclusive** — all repos sit under 1%,
+differences rest on 6 events, and the ledger's other two signals (decision-doc
+amendments, cycle proxies) plus the pre/post-era split are not yet computed.
+No priority call on check/re29 should move on this evidence yet.
+
+### Fire-level labeled table (audit surface)
+
+| # | repo | label | rationale |
+|---|---|---|---|
+| 0 | testaruda | C2 | wrong-target redirect (fix specs not evaluation ticket) |
+| 1 | testaruda | C1 | corrects agent's confusion about what the evaluation document is (artifact semantics) |
+| 2 | testaruda | C2 | ticket placement process (should all be in espectacular?) |
+| 3 | testaruda | C1 | synthetic fixtures vs real cloned repos — behavioral validation gap; agent reworks backend |
+| 4 | testaruda | C2 | repo-boundary overstep (editing testimonial, should ticket it) |
+| 5 | testaruda | N | informational confirmation (ok the latest version is there) |
+| 6 | tambor | C2 | session-naming process practice |
+| 7 | tambor | N | pacing instruction (stop after this ticket) |
+| 8 | tambor | C2 | focus redirect (look at this repo, not that one) |
+| 9 | tambor | C1 | defect in just-produced screenshots (rendering broken) |
+| 10 | tambor | C1 | rejects test-recipe choice — build/test semantics |
+| 11 | wanna | C1 | challenges unrequested code construction; agent concedes the leap |
+| 12 | wanna | N | status/verification question |
+| 13 | coffee | C1 | build/serve behavior of dashboard should differ |
+| 14 | coffee | N | task instruction; fired because 'no' prefix-matches 'now' — DETECTOR BUG, needs word-boundary match |
