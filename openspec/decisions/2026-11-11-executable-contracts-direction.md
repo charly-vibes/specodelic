@@ -1,5 +1,10 @@
 # Decision: adopt the executable-contracts direction (contract suites as normative truth)
 
+*Status (2026-11-18): **direction superseded** by
+`2026-11-18-scope-a-specification-tool.md` — scope A is the product; steps
+2–5 below are demand-gated behind the entry condition recorded there. Step 1
+stands as shipped. Text below preserved as the record of what was ratified.*
+
 *Decision note, 2026-11-11. Grilling session over the grounded Nov 10
 external build spec (ChatGPT "Executable Specification Strategy",
 `6aedeb14`); the grounding and the session's resolutions are preserved in
