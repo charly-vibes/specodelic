@@ -430,6 +430,59 @@ they are spec-gap findings, not refutations.
 - Book: [conform — external oracle evidence](conform.md) (spec page lands
   with the corpus archive; see [book: verification boundaries](verification-boundaries.md))
 
+## `spk check <file> [--oracle scenarios.jsonl] [--before report.json]`
+
+**Use when:** you want one verdict over the evidence the spec actually has,
+instead of reading `verify`, `conform`, and `audit` separately. `check` is
+the single judge verb: one invocation runs conform's artifact gate,
+verify's both-gates evaluation (the compiled proptest blocks through
+verify's bounded runner, the model gate from the current
+`<stem>.check.json`), conform's trace walk when `--oracle` is supplied, and
+audit's classification, prior diff and ladder rung.
+
+It compiles nothing, writes no artifact, and executes nothing but the
+spec's own compiled properties — no contract suite, adapter registry,
+sidecar binding, or corpus demotion is involved. The only bound is the
+runner's: `--timeout-secs` (default 600, `0` unbounded); a run killed at
+the bound is a labeled termination, never a verdict.
+
+One vocabulary, no fourth entrant: every record carries a conform verdict
+(`permitted`, `forbidden`, `underspecified`, `unknown`, `unsupported`,
+`agree`) and an audit class (`current`, `stale`, `unchecked`,
+`contradicted`, `binds_nothing`, `new`). Verify-stage rows are keyed
+`verify:prop:<block-id>` and `verify:model[:<claim-id>]`:
+
+- a passed property block ⇒ `permitted` / `current`
+- a failed property block ⇒ `forbidden` / `contradicted`, reason carrying
+  the runner's shrunk input
+- a clean model run with every required claim verified ⇒ `permitted` /
+  `current`
+- `counterexample_found` or a refuted required claim ⇒ `forbidden` /
+  `contradicted`
+- an `unknown` claim, `exploration_only`, or model `timed_out` ⇒
+  `unknown` / `unchecked` (knowledge absence — countable, never a pass)
+- stale/missing/uncompilable properties artifacts, a missing or
+  scope-mismatched model report, a killed runner, a corpus or digest
+  refusal, or zero rows ⇒ **no row at all** (a refusal, never a verdict)
+
+Exit codes:
+
+| Code | Meaning |
+|------|---------|
+| `0` | a judgement was emitted and no `contradicted` row exists (and no `stale` row under a declared expectation) — including all-`unchecked`/`binds_nothing` runs |
+| `1` | a judgement was emitted and a `contradicted` row exists, or a declared-expectation `stale` row does — the contradicted set is classified before the `--before` overlay, so a sustained contradiction still fails |
+| `2` | **no judgement was emitted** — gate refusal, unavailable/terminated evidence, digest/schema refusal, zero rows, invocation error; never a pass, never a contradiction |
+
+The report is an audit report — same schema version, row layer and
+`scope_sha256` — so `spk audit --before <check-report>` and `spk check
+--before <audit-report>` both work. `check` writes nothing: redirect the
+JSON envelope to record a baseline. A fully green run reports
+`ladder_rung: 4` (`matches-oracle`), the rung `audit` cannot reach without
+persisted verify evidence. Without `--oracle` the evidence-scope field
+states that only the spec's own compiled evidence was consumed.
+
+- Book: [graded evidence — the audit verb](graded-evidence.md#the-judge-verb--spk-check)
+
 ## `spk parse <file>`
 
 **Use when:** a downstream tool or script needs one file's structured IR

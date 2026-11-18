@@ -30,6 +30,48 @@ remediation hint, never ignored. The gate is conform's, unchanged: the
 file must be lint-clean with current compiled artifacts in `--out-dir`
 (audit never re-compiles).
 
+## The judge verb — `spk check`
+
+`spk check <file>` is the one verb that answers "what do we know about this
+spec?" in a single invocation. It composes the producers above rather than
+adding a fourth: conform's artifact gate, `verify`'s both-gates evaluation
+(the compiled proptest blocks through verify's bounded runner, the model
+gate read from the current `<stem>.check.json`), conform's trace walk when
+`--oracle` is supplied, and audit's classification, prior diff and ladder
+rung. It compiles nothing, writes no artifact, and executes nothing but the
+spec's own compiled properties.
+
+The report **is** an audit report — same schema version, same row layer,
+same `scope_sha256` discipline — so the two verbs' reports are each other's
+`--before` priors. Verify-stage rows are keyed `verify:prop:<block-id>` and
+`verify:model[:<claim-id>]`; oracle, pack and binding rows keep their keys.
+
+One vocabulary, no fourth entrant. Every row carries a conform verdict and
+an audit class:
+
+| Producer outcome | Verdict | Audit class | Exit |
+|---|---|---|---|
+| property block passed | `permitted` | `current` | 0 |
+| property block failed | `forbidden` | `contradicted` | 1 |
+| model report clean, required claims verified | `permitted` | `current` | 0 |
+| model report `counterexample_found`, refuted claim | `forbidden` | `contradicted` | 1 |
+| required claim `unknown` | `unknown` | `unchecked` | 0 |
+| model report `exploration_only` / `timed_out` | `unknown` | `unchecked` | 0 |
+| oracle / pack / binding / prior overlays | unchanged | `AuditClass::of` (or `binds_nothing`/`stale`/`new`) | per the audit contract |
+
+Outcomes that are **not** judgements produce no row: a refused gate, a
+stale/missing/uncompilable properties artifact, a run killed at its bound,
+a missing or scope-mismatched model report, a corpus or digest refusal, or
+zero evidence rows. Exit codes: `0` judgement emitted, nothing
+contradicted; `1` a contradicted row exists, or a declared-expectation
+`stale` row; `2` no judgement was emitted — never a pass, never a
+contradiction. The contradicted set is the one classified **before** the
+prior-report overlay, so a `--before` run with a sustained contradiction
+still exits 1 even though the overlay relabels that row's currency.
+
+`inconclusive` stays reserved and is never spelled: a terminated property
+run is a recording class (X.290 6.5.1.4–6.5.1.6), not a verdict.
+
 ## The closed class vocabulary
 
 Every evidence row receives exactly one audit class from a closed set.
@@ -76,7 +118,7 @@ drifts from the code in either direction.
 | `permitted` | run status | `src/conform.rs` | implemented | `→ current` | — |
 | `forbidden` | run status | `src/conform.rs` | implemented | `→ contradicted` | — |
 | `agree` | run status | `src/conform.rs` | implemented | `→ unchecked` | — |
-| `inconclusive` | run status | ITU-T X.290 3.3.124, 6.5.1.3 (borrowed) | reserved | — | D-10 `check` fusion, or the first contract-suite runner — a run that executes and cannot decide |
+| `inconclusive` | run status | ITU-T X.290 3.3.124, 6.5.1.3 (borrowed) | reserved | — | the first contract-suite runner — a completed run that executes and cannot decide; `check` does not produce it (a killed runner is a recording class, not a verdict) |
 | `underspecified` | spec defect | `src/conform.rs` | implemented | `→ unchecked` | — |
 | `contradicted` | spec defect | `src/audit.rs` | implemented | — | — |
 | `binds_nothing` | spec defect | `src/audit.rs` | implemented | — | — |
@@ -229,6 +271,11 @@ outputs shown were captured at this HEAD. The commands use the demo
 spec and oracle corpus from [the example at the end of this page](#a-runnable-example-end-to-end).
 
 ### Rung 4 is unreachable through `spk audit` in v1
+
+`spk check` does reach rung 4: it runs verify's gates in the same
+invocation and feeds the live verdict into the derivation, so a fully green
+run reports `matches-oracle`. The limitation below is `spk audit`'s alone —
+it can read only persisted evidence.
 
 `spk verify` persists no report — its verdict is re-evaluated live every
 run ("verified is not cached" is verify's own hint), so the properties

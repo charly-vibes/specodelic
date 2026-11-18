@@ -89,6 +89,11 @@ exactly the ones the spec opted into; prose invariants are not checked at
 all. See the README's *Verification is not application testing* — a
 `verified` spec is an audited specification, not a tested system.
 
+`spk check` reaches this rung in one invocation: it runs verify's gates and
+feeds the live verdict into the report's rung derivation, so a fully green
+run reports `matches-oracle`. Through `spk audit` alone the rung stays 3,
+because a live verify verdict is not persisted evidence for audit to read.
+
 ### Rung 5 — better-design
 
 When `spk model-check` returns `counterexample_found`, the ladder's
