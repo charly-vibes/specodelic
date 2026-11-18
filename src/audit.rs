@@ -217,18 +217,41 @@ pub fn build_report(
     closed_world: bool,
     expectation_declared: bool,
 ) -> AuditReport {
-    let mut records: Vec<AuditRecord> = conform::classify_traces(spec, corpus, closed_world)
-        .into_iter()
-        .map(|v| {
-            audit_row(
-                v.scenario_id,
-                v.verdict,
-                v.reason,
-                v.evaluated_claim_ids,
-                v.closed_world,
-            )
-        })
-        .collect();
+    build_report_mode(
+        spec,
+        corpus_bytes,
+        corpus,
+        closed_world,
+        false,
+        expectation_declared,
+    )
+}
+
+/// [`build_report`] with conform's structural-only mode passed through:
+/// the check verb exposes conform's `--structural-only` opt-in, so its
+/// oracle rows are the same walk conform's own flag produces. Audit's
+/// two-argument call site keeps the default mode unchanged.
+pub fn build_report_mode(
+    spec: &Spec,
+    corpus_bytes: &[u8],
+    corpus: &[conform::ScenarioTrace],
+    closed_world: bool,
+    structural_only: bool,
+    expectation_declared: bool,
+) -> AuditReport {
+    let mut records: Vec<AuditRecord> =
+        conform::classify_traces_mode(spec, corpus, closed_world, structural_only)
+            .into_iter()
+            .map(|v| {
+                audit_row(
+                    v.scenario_id,
+                    v.verdict,
+                    v.reason,
+                    v.evaluated_claim_ids,
+                    v.closed_world,
+                )
+            })
+            .collect();
     sort_rows(&mut records);
     let (verdict_counts, class_counts) = recount(&records);
     AuditReport {
@@ -261,6 +284,22 @@ pub fn build_report(
 /// construction, never by per-site discipline — so adding a future row
 /// kind (binds_nothing slice 3, rung aggregate slice 4) is one call,
 /// not a copy of the walk-and-collect shape.
+pub fn row(
+    scenario_id: String,
+    verdict: Verdict,
+    reason: String,
+    evaluated_claim_ids: Vec<String>,
+    closed_world: bool,
+) -> AuditRecord {
+    audit_row(
+        scenario_id,
+        verdict,
+        reason,
+        evaluated_claim_ids,
+        closed_world,
+    )
+}
+
 fn audit_row(
     scenario_id: String,
     verdict: Verdict,
@@ -628,7 +667,9 @@ pub fn bind_rows(spec: &Spec) -> Vec<AuditRecord> {
 // the CLI handler, lib consumers) is unchanged.
 mod rung;
 
-pub use rung::{EvidenceMix, RungAggregate, rung_from_evidence, with_derived_rung};
+pub use rung::{
+    EvidenceMix, RungAggregate, rung_from_evidence, with_derived_rung, with_derived_rung_and,
+};
 
 // ---------------------------------------------------------------------------
 // The --before prior-report diff (design D1 — diff reports, not files)
@@ -835,12 +876,19 @@ pub fn run(
 /// the same report values the JSON envelope carries, so the two views
 /// cannot drift). Always carries the fixed `evidence_scope` statement.
 pub fn human_view(report: &AuditReport) -> String {
+    human_view_labelled("audit", report)
+}
+
+/// [`human_view`] under an explicit verb label: the check verb renders
+/// the same report through the same formatter, so the two verbs cannot
+/// tell different stories about one report shape.
+pub fn human_view_labelled(label: &str, report: &AuditReport) -> String {
     let mut classes: Vec<String> = Vec::new();
     for (class, count) in &report.class_counts {
         classes.push(format!("{class} {count}"));
     }
     let mut out = format!(
-        "audit: {} record(s) — {}",
+        "{label}: {} record(s) — {}",
         report.records.len(),
         classes.join(", ")
     );
@@ -886,8 +934,21 @@ pub fn emit_output(
     stdout: &mut impl Write,
     stderr: &mut impl Write,
 ) -> std::io::Result<()> {
+    emit_output_labelled(out, "audit", format, verbosity, stdout, stderr)
+}
+
+/// [`emit_output`] under an explicit verb label — the check verb emits
+/// the same report shape through the same rendering path.
+pub fn emit_output_labelled(
+    out: Output<AuditReport>,
+    label: &str,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl Write,
+    stderr: &mut impl Write,
+) -> std::io::Result<()> {
     if format == OutputFormat::Human {
-        writeln!(stdout, "{}", human_view(&out.data))?;
+        writeln!(stdout, "{}", human_view_labelled(label, &out.data))?;
         // Suppress the Debug data line so the human view is not followed
         // by a Rust dump — the same convention as conform::emit_output.
         out.with_verbosity(Verbosity::MAX + 1).emit(
@@ -914,9 +975,22 @@ pub fn emit_report_with(
     stdout: &mut impl Write,
     stderr: &mut impl Write,
 ) -> std::io::Result<()> {
+    emit_report_labelled(report, warnings, "audit", format, verbosity, stdout, stderr)
+}
+
+/// [`emit_report_with`] under an explicit verb label.
+pub fn emit_report_labelled(
+    report: &AuditReport,
+    warnings: Vec<String>,
+    label: &str,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl Write,
+    stderr: &mut impl Write,
+) -> std::io::Result<()> {
     let mut out = Output::success(report.clone());
     out.warnings.extend(warnings);
-    emit_output(out, format, verbosity, stdout, stderr)
+    emit_output_labelled(out, label, format, verbosity, stdout, stderr)
 }
 
 /// Emit a success report through [`emit_output`].
@@ -933,7 +1007,7 @@ pub fn emit_report(
 /// Emit a refusal (invocation error, gate refusal, zero records, diff
 /// refusal): an error-kind envelope carrying NO report — refusal paths
 /// emit zero records.
-fn emit_refusal(
+pub(crate) fn emit_refusal(
     stage_and_message: String,
     hint: &str,
     format: OutputFormat,
@@ -957,7 +1031,10 @@ fn emit_refusal(
 /// error while keeping the payload, message leading the warnings
 /// channel (specodelic-4v1 / envelope_error_kind) — a failed audit run
 /// never rides a success-shaped envelope.
-fn findings_failure<T: std::fmt::Debug>(mut out: Output<T>, message: String) -> Output<T> {
+pub(crate) fn findings_failure<T: std::fmt::Debug>(
+    mut out: Output<T>,
+    message: String,
+) -> Output<T> {
     out.is_error = true;
     out.warnings.insert(0, message);
     out.verbosity = 0;

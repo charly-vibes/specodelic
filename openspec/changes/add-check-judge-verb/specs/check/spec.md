@@ -180,8 +180,9 @@ exit 2; a verdict is never fabricated for evidence that was not obtained.
 
 `spk check` SHALL exit 0 when a judgement was emitted and the report carries
 no `contradicted` row (and no `stale` row under a declared expectation), 1
-when a judgement was emitted and at least one such row exists, and 2 when no
-judgement was emitted — with exit 2 never reading as a pass or a
+when a judgement was emitted and at least one such row exists (the
+contradicted set is classified before the prior-report overlay), and 2 when
+no judgement was emitted — with exit 2 never reading as a pass or a
 contradiction.
 
 #### Scenario: Honest unchecked run exits zero

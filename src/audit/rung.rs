@@ -192,17 +192,32 @@ fn current_check_evidence(spec: &Spec, out_dir: &std::path::Path) -> Option<mode
 /// drives the current one (the field is derived, not stored; its
 /// serde default exists only so old priors parse).
 pub fn with_derived_rung(
+    report: AuditReport,
+    spec: &Spec,
+    out_dir: &std::path::Path,
+) -> AuditReport {
+    with_derived_rung_and(report, spec, out_dir, false)
+}
+
+/// [`with_derived_rung`] with the run's own verify verdict supplied:
+/// the `check` verb executes verify's both-gates evaluation in the same
+/// invocation, so it can carry the evidence `audit` never has (rung 4,
+/// the matches-oracle rung). `audit` keeps calling the two-argument
+/// form — its documented ceiling is unchanged.
+pub fn with_derived_rung_and(
     mut report: AuditReport,
     spec: &Spec,
     out_dir: &std::path::Path,
+    verify_pass: bool,
 ) -> AuditReport {
     let mix = EvidenceMix {
         model_present: !spec.states.is_empty() && !spec.transitions.is_empty(),
         model_check: current_check_evidence(spec, out_dir),
         // The v1 honesty boundary (see [`EvidenceMix::verify_pass`]):
         // verify persists no report, so no audit input carries verify
-        // evidence — rung 4 stays unclaimable rather than guessed.
-        verify_pass: false,
+        // evidence — rung 4 stays unclaimable rather than guessed. The
+        // check verb passes its own live verdict here instead.
+        verify_pass,
     };
     report.ladder_rung = rung_from_evidence(&mix);
     report

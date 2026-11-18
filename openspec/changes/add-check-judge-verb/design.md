@@ -153,6 +153,12 @@ Rules stated as invariants, not conventions:
 - `unchecked`/`binds_nothing` are countable, never a pass, never a failure.
 - The class-to-exit mapping is a pure function of the merged report plus the
   prior declaration — one function, both output views.
+- **The contradicted set is classified before the `--before` overlay.** The
+  overlay relabels same-rank rows `current`, so a contradiction that persists
+  across two reports would otherwise vanish from the exit predicate. `check`
+  carries the pre-overlay fact into the exit; the report still shows the
+  overlay's currency classes (one report family). `spk audit` still has that
+  hole in diff mode — filed as specodelic-f1by, not silently changed here.
 - `verify`, `conform`, and `audit` keep their own exit codes and status
   strings. `check` changes none of them; it routes their refusals to 2 and
   their judgements to 0/1 by the mapping above.

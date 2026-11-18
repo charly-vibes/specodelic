@@ -269,6 +269,43 @@ enum Commands {
         #[arg(long, default_value = "specodelic")]
         out_dir: String,
     },
+    /// Judge one spec file with the single judge verb: conform's gate and
+    /// trace walk, verify's both-gates evaluation, and audit's
+    /// classification, diff and ladder rung — one row vocabulary, one
+    /// report, one exit contract. Exit 0/1 mean a judgement was emitted;
+    /// 2 means none was. READ-ONLY over evidence: it never compiles and
+    /// never writes an artifact.
+    Check {
+        /// The spec file to judge (exactly one)
+        spec_path: String,
+        /// Optional JSONL oracle corpus of recorded examples — when
+        /// omitted, only the spec's own compiled evidence is judged
+        #[arg(long)]
+        oracle: Option<String>,
+        /// A prior audit or check report (the JSON envelope a previous
+        /// run wrote): rows diff per key — same class ⇒ current,
+        /// worsened ⇒ stale, absent ⇒ new
+        #[arg(long)]
+        before: Option<String>,
+        /// Declare closed-world mode (passed through to conform's walk)
+        #[arg(long)]
+        closed_world: bool,
+        /// Structural-only mode (passed through to conform's walk)
+        #[arg(long)]
+        structural_only: bool,
+        /// Record the report as a declared expectation baseline: stale
+        /// rows fail a later run that uses it with --before
+        #[arg(long)]
+        declare_expectation: bool,
+        /// Directory holding the compiled artifacts (must match
+        /// compile's out-dir — check never re-compiles)
+        #[arg(long, default_value = "specodelic")]
+        out_dir: String,
+        /// Wall-clock bound in seconds on the properties runner; 0 runs
+        /// unbounded. A killed run is a labeled termination, not a verdict
+        #[arg(long, default_value_t = verify::DEFAULT_VERIFY_TIMEOUT_SECS)]
+        timeout_secs: u64,
+    },
     /// Rename a spec row id, updating the definition and every [[link]]
     /// atomically (all-or-nothing, verified against the linters)
     Rename {
@@ -832,6 +869,41 @@ fn cmd_migrate_upgrade(
     0
 }
 
+/// Group the `check` invocation's flags into its target struct (kept out
+/// of `run`'s match arm so the dispatcher's line count stays inside the
+/// pretender ratchet).
+fn cmd_check_command(
+    command: &Commands,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl std::io::Write,
+    stderr: &mut impl std::io::Write,
+) -> i32 {
+    let Commands::Check {
+        spec_path,
+        oracle,
+        before,
+        closed_world,
+        structural_only,
+        declare_expectation,
+        out_dir,
+        timeout_secs,
+    } = command
+    else {
+        unreachable!("cmd_check_command is called only for Commands::Check")
+    };
+    let target = specodelic::check::CheckTarget {
+        oracle: oracle.clone(),
+        before: before.clone(),
+        closed_world: *closed_world,
+        structural_only: *structural_only,
+        declare_expectation: *declare_expectation,
+        out_dir: out_dir.clone(),
+        timeout_secs: *timeout_secs,
+    };
+    specodelic::check::cmd_check(spec_path, target, format, verbosity, stdout, stderr)
+}
+
 fn run(
     cli: &Cli,
     format: OutputFormat,
@@ -929,6 +1001,9 @@ fn run(
             stdout,
             stderr,
         ),
+        Commands::Check { .. } => {
+            cmd_check_command(&cli.command, format, verbosity, stdout, stderr)
+        }
         Commands::Rename {
             old_id,
             new_id,
