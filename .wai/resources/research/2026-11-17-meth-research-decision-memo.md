@@ -264,6 +264,20 @@ the ratified goals and the evidence.
    record and the three fields. Acceptance: one mapping table in the docs that
    equals the code, and `spk lint`/`audit`/`conform` agreeing on the same
    record (§3).
+
+   **Shipped — add-evidence-record-axes (2026-11-18):** the record
+   specification and its drift gate landed (normative five-axis table in
+   `docs/src/graded-evidence.md` + `scripts/check_evidence_axes.py` in `just
+   ci`); no Rust behavior change. Scope resolved on the record:
+   `inconclusive` is **reserved**, not shipped — it enters `Verdict` only
+   when a producer exists (trigger: D-10 `check` fusion or the first
+   contract-suite runner — a run that executes and cannot decide);
+   `origin` is reserved to the annotation-syntax change; `binding_kind` to
+   the change whose `check` consumes sidecar bindings; `bound` points at the
+   existing `model_check::Bound` rather than duplicating it. `stale`/`new`
+   documented as computed `--before` overlays guarded by `scope_sha256`;
+   `binds_nothing` documented as the citation test. Follow-up trigger
+   tickets carry the reserved rows so none references a nonexistent change.
 2. **Answer D-9 by filing the matrix, then the two missing experiments.** E5
    extraction-completeness, E6 second-copy audit (§4). Condition 1 has no
    experiment, conditions 3 and 5 are structural-only; that is the finding, not

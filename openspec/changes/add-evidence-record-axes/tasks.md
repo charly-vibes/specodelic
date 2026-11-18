@@ -47,17 +47,19 @@ refactor step (5) is its own commit, never mixed with behavior.
 - [x] 4.1 Add `evidence-axes` recipe to `justfile` and place it in the `ci`
   chain; no separate test recipe (the `test_*.py` discovery covers 1.x).
 - [x] 4.2 `openspec validate add-evidence-record-axes --strict` → clean.
-- [ ] 4.3 `just ci` → green (gate included, docs table in place).
+- [x] 4.3 `just ci` → green (gate included, docs table in place).
 
 ## 5. Refactor — separate commit
 
-- [ ] 5.1 If row parsing and enum extraction duplicate normalization logic,
+- [x] 5.1 If row parsing and enum extraction duplicate normalization logic,
   extract it into two named functions with no behavior change; re-run 1.x + 4.3.
 
 ## 6. Close-out
 
-- [ ] 6.1 Update the D-1 row in `.wai/resources/research/2026-11-17-meth-research-decision-memo.md`
+- [x] 6.1 Update the D-1 row in `.wai/resources/research/2026-11-17-meth-research-decision-memo.md`
   §7.1 with the shipped scope and the reserved-value triggers.
-- [ ] 6.2 File the follow-up trigger tickets named in the `reserved` rows
+- [x] 6.2 File the follow-up trigger tickets named in the `reserved` rows
   (`inconclusive` producer, `origin` annotation syntax, `binding_kind` consumer)
   so no reserved row references a nonexistent change.
+  Done: specodelic-mn77 (inconclusive producer), specodelic-30s5 (origin
+  syntax), specodelic-yfib (binding_kind consumer).
