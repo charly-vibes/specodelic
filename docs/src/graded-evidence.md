@@ -47,8 +47,8 @@ never prose you must interpret.
 
 **The both-layer record.** Every record carries *both* layers: the audit
 class and the underlying conform verdict with its reason. audit rides
-conform's verdict taxonomy — `{permitted, forbidden, underspecified,
-unknown, unsupported}` — it never re-derives or reinterprets it; the
+conform's verdict taxonomy — the six values in the evidence-record
+axes table below — it never re-derives or reinterprets it; the
 audit class is the evidence-lifecycle layer on top. In the report a row
 looks like this (from a real run):
 
@@ -60,6 +60,79 @@ overbook-refused: current (underspecified) — uncovered_trace_never_forbidden:
 wrong-obs: contradicted (forbidden) — contradiction_forbidden_any_mode:
   step 1 observed state `open` but transition `confirm` declares target `held`
 ```
+
+## The evidence-record axes
+
+One record, five closed axes, three annotation fields. Each value
+appears exactly once, names the code that produces it, and is either
+`implemented` (the code declares it today) or `reserved` with the
+named trigger that will give it a producer — no placeholders, no dead
+capability. This table is normative and machine-checked:
+`scripts/check_evidence_axes.py` (wired into `just ci`) fails when it
+drifts from the code in either direction.
+
+| Value | Axis | Code source | Status | of() mapping | Trigger |
+|-------|------|-------------|--------|--------------|---------|
+| `permitted` | run status | `src/conform.rs` | implemented | `→ current` | — |
+| `forbidden` | run status | `src/conform.rs` | implemented | `→ contradicted` | — |
+| `agree` | run status | `src/conform.rs` | implemented | `→ unchecked` | — |
+| `inconclusive` | run status | ITU-T X.290 3.3.124, 6.5.1.3 (borrowed) | reserved | — | D-10 `check` fusion, or the first contract-suite runner — a run that executes and cannot decide |
+| `underspecified` | spec defect | `src/conform.rs` | implemented | `→ unchecked` | — |
+| `contradicted` | spec defect | `src/audit.rs` | implemented | — | — |
+| `binds_nothing` | spec defect | `src/audit.rs` | implemented | — | — |
+| `current` | currency | `src/audit.rs` | implemented | — | — |
+| `stale` | currency | `src/audit.rs` | implemented | — | — |
+| `new` | currency | `src/audit.rs` | implemented | — | — |
+| `unknown` | knowledge absence | `src/conform.rs` | implemented | `→ unchecked` | — |
+| `unchecked` | knowledge absence | `src/audit.rs` | implemented | — | — |
+| `unsupported` | scope exclusion | `src/conform.rs` | implemented | `→ unchecked` | — |
+| `origin` | annotation field | design only (Nov 11 decision) | reserved | — | the annotation-syntax change — lands with the change that first needs it |
+| `binding_kind` | annotation field | design only | reserved | — | the change that makes `check` consume sidecar bindings (D-10/D-12) |
+| `bound` | annotation field | `src/model_check.rs` | implemented | — | — |
+
+**The mapping is verdict-by-verdict.** `AuditClass::of`
+(`src/audit.rs`) is the only derivation: `permitted → current`,
+`forbidden → contradicted`, and `underspecified`, `unknown`,
+`unsupported`, `agree` all `→ unchecked`. `agree` is deliberately
+`unchecked`, not `current`: it is a pass **on the transition
+relation**, and its covering guard's expr is prose that was never
+interpreted — audit grades evidence *for a claim*, so an `agree` row
+records the absence of a passing verdict on the claim, never a pass.
+Reclassifying it would claim more than happened; the memo's "bounded
+pass" observation is what the `bound` field expresses, not a class
+change. `binds_nothing` is deliberately **not** derivable from a
+verdict: it is evidence-level vacuity from citation analysis
+(a fragment or claim citing no declared model element), not a verdict
+layer.
+
+**Currency is computed, never stored.** `stale`/`new` are diff
+overlays produced only by `audit --before` over two reports with equal
+`scope_sha256` — a fresh run cannot produce them, and a corpus change
+between runs is refused outright rather than silently diffed. The
+change-trigger relation is not novel: MoD 00-55 §4.7.1 status
+accounting via Kelly & McDermid (2001) and IEEE 828-2012 §10 both
+describe it; what this project adds is the mechanization over
+spec revisions.
+
+**`inconclusive` keeps its borrowed name.** ISO/IEC 9646-1 (ITU-T
+X.290) 3.3.124 defines it: *"neither a pass nor a fail verdict can be
+given"* (6.5.1.3). It enters `Verdict` only when a producer exists — a
+runner that executes a contract and cannot decide it. Adding it now
+would create an arm no code path can reach: a dead value that reads as
+capability. The standard's absence face — test-case error and abnormal
+termination (6.5.1.4–6.5.1.6) — is likewise a **recording** class,
+never a fourth verdict; `undefined` and `unknown` are not substitutes
+for either (an undecided run is not an absence).
+
+**Reserved fields stay out until their consumers exist.** `origin`
+(annotation of authoring lineage) and `binding_kind`
+(generated/manifest/mapping/attested) have no corpus record carrying
+them and no consumer distinguishing them; `bound` already exists as
+`model_check::Bound` in run reports, so the table points at that field
+rather than duplicating it — audit/conform records gain a bound only
+when a change reads one alongside a verdict. No always-null or
+constant field is added "to be useful later": noise that consumers
+learn to ignore is worse than absence.
 
 ## Honesty channels — countable, never a pass, never a failure
 
