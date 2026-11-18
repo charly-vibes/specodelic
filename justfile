@@ -251,6 +251,15 @@ check-explain-topic-docs:
 pack-doc-counts:
     python3 scripts/check_pack_doc_counts.py .
 
+# Evidence-axis drift guard (add-evidence-record-axes): the normative
+# five-axis table in docs/src/graded-evidence.md must match the code
+# closed sets (Verdict, AuditClass, AuditClass::of) in both directions;
+# reserved rows must carry triggers; unparseable input fails closed.
+# The stdlib unittest needs no separate recipe: sync-sections-test
+# discovers all scripts/test_*.py, including test_check_evidence_axes.py.
+evidence-axes:
+    python3 scripts/check_evidence_axes.py .
+
 # Tests for the section-sync script itself (stdlib unittest): drift
 # logic + the capability-format check (openspec/specs/<cap>/spec.md
 # must be dual-format — frontmatter-less capability specs fail CI;
@@ -403,7 +412,7 @@ stamp-artifacts:
 
 # === CI Pipeline ===
 
-ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs verify-specs sync-sections sync-sections-test summary-completeness format-summary check-explain-topic-docs pack-doc-counts lint-doc-examples doc-examples lint-baseline pretender-check guard-kernel-agreement guard-siblings guard-drill-lock guard-espectacular
+ci: fmt-check lint test build-release openspec-validate lint-deltas model-check-specs verify-specs sync-sections sync-sections-test summary-completeness format-summary check-explain-topic-docs pack-doc-counts evidence-axes lint-doc-examples doc-examples lint-baseline pretender-check guard-kernel-agreement guard-siblings guard-drill-lock guard-espectacular
 
 # Structural-quality hard gate (pretender, gate mode — pretender.toml
 # thresholds are a ratchet: entries only move DOWN; never touch .git/hooks,
