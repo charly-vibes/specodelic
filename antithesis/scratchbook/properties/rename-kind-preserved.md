@@ -110,12 +110,21 @@ fixture (out of scope, and it would not catch this).
   target the Intent id only.
 - Not done: no execution of the case. The prediction is a code-path argument;
   the property run is the missing confirmation.
+- 2026-11-18 (post-scratchbook): prediction VERIFIED against the CLI at
+  86088c65 — renaming `demo.probe.unit` → `demo.probe.chk` rewrote the row's
+  own and every other `kind` cell to `chk` (filed as specodelic-77mq). Fixed
+  in the same ticket: `renamable_cell` deny-set (`kind`, `expr`, `generator`,
+  `predicate`) shared by `collect_cell_repls` and `verify_roundtrip`'s cell
+  counters; predicted status above is historical (red at the pinned commit,
+  green after the fix). The any-cell question below is answered: intentional
+  for typed-reference columns, never for closed-enum/fragment columns.
 
 ## Assumptions and Open Questions
 
 - [ASSUMPTION] A row id equal to `invariant`/`unit` is a legitimate corpus for
   the property. If the product intends to forbid such ids, the fix is a new
   lint rule, and the property would then document that exclusion instead.
-- Open: is the any-cell rule intentional? If yes, the invariant should be
-  narrowed to "kind cells are excluded" and the code changed accordingly.
-  (needs human input)
+- Resolved: is the any-cell rule intentional? Partially — it is intentional
+  for typed-reference columns (`traces_to`, `derives_from`, `satisfies`) and
+  the row's own `id` cell; closed-enum (`kind`) and fragment columns
+  (`expr`/`generator`/`predicate`) are excluded (specodelic-77mq).

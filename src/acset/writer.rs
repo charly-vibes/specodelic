@@ -429,9 +429,20 @@ fn splice_replacements(source: &str, repls: &[(crate::spec::Span, String)]) -> S
     out
 }
 
-/// Cell replacements for one table row: every column whose parsed value
-/// equals the local id is rewritten through its recorded span (rename's
-/// any-cell rule). A matching cell without a span cannot realize the edit.
+/// Columns never treated as row-id references: `kind` is a closed enum
+/// (Constraints: invariant/advisory/effect/extension_point; Properties:
+/// unit/law) and `expr`/`generator`/`predicate` carry fragments — none is
+/// ever a reference to a row id. The row's own `id` cell stays a rewrite
+/// surface; every remaining column (traces_to, derives_from, satisfies,
+/// ...) is a typed reference and keeps the any-cell rule.
+fn renamable_cell(col: &str) -> bool {
+    !matches!(col, "kind" | "expr" | "generator" | "predicate")
+}
+
+/// Cell replacements for one table row: every renamable column whose
+/// parsed value equals the local id is rewritten through its recorded
+/// span (rename's any-cell rule). A matching cell without a span cannot
+/// realize the edit.
 fn collect_cell_repls(
     cells: &std::collections::BTreeMap<String, String>,
     cell_spans: &std::collections::BTreeMap<String, crate::spec::Span>,
@@ -440,7 +451,7 @@ fn collect_cell_repls(
     repls: &mut Vec<(crate::spec::Span, String)>,
 ) -> Result<(), WriterError> {
     for (col, value) in cells {
-        if value == lo {
+        if value == lo && renamable_cell(col) {
             match cell_spans.get(col) {
                 Some(sp) => repls.push((*sp, ln.to_string())),
                 None => {
@@ -577,14 +588,22 @@ fn verify_roundtrip(
             sp.constraints
                 .iter()
                 .chain(&sp.properties)
-                .filter(|r| r.cells.values().any(|v| v == lo))
+                .filter(|r| {
+                    r.cells
+                        .iter()
+                        .any(|(col, v)| renamable_cell(col) && v == lo)
+                })
                 .count()
         };
         let cells_new = |sp: &Spec, id: &str| -> usize {
             sp.constraints
                 .iter()
                 .chain(&sp.properties)
-                .filter(|r| r.cells.values().any(|v| v == id))
+                .filter(|r| {
+                    r.cells
+                        .iter()
+                        .any(|(col, v)| renamable_cell(col) && v == id)
+                })
                 .count()
         };
         stale("table cells", cells(&after))?;

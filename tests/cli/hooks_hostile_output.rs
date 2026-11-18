@@ -583,6 +583,68 @@ fn rename_of_a_row_rewrites_definition_and_all_refs() {
     );
 }
 
+/// Kind-collision fixture: a Properties row whose id equals a kind value
+/// (`unit`), an ordinary `unit`-kind row beside it, and a bare-id (no
+/// wiki-link) `traces_to` cell carrying the local id.
+fn write_kind_rename_fixture(dir: &tempfile::TempDir) {
+    std::fs::write(
+        dir.path().join("alpha.md"),
+        "---\nid: alpha\nkind: intent\nstatement: \"THE system SHALL hold\"\n---\n\n\
+         ## Constraints\n\n\
+         | id | kind | expr | traces_to |\n\
+         |----|------|------|-----------|\n\
+         | c0 | invariant | `x holds` | unit |\n\n\
+         ## Properties\n\n\
+         | id | kind | derives_from | generator | predicate |\n\
+         |----|------|--------------|-----------|-----------|\n\
+         | unit | unit | [[alpha.c0]] | `g()` | `x` |\n\
+         | p9 | unit | [[alpha.c0]] | `arbitrary_row()` | `check(x) == ok` |\n",
+    )
+    .unwrap_p();
+}
+
+/// kind_preserved_by_rename: renaming a row whose id equals a kind value
+/// rewrites the definition id cell but never any `kind` cell (closed
+/// enum), succeeds without a roundtrip refusal, and still rewrites a
+/// bare-id typed reference (traces_to) to the renamed row.
+#[test]
+fn rename_of_row_whose_id_is_a_kind_value_preserves_kind_cells() {
+    let dir = tempfile::tempdir().unwrap_p();
+    write_kind_rename_fixture(&dir);
+    let out = spk()
+        .args([
+            "rename",
+            "alpha.unit",
+            "alpha.chk",
+            dir.path().join("alpha.md").to_str().unwrap_p(),
+            "--json",
+        ])
+        .output()
+        .unwrap_p();
+    assert!(
+        out.status.success(),
+        "kind-collision rename must pass: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let alpha = std::fs::read_to_string(dir.path().join("alpha.md")).unwrap_p();
+    assert!(
+        alpha.contains("| chk | unit |"),
+        "renamed row's id rewritten, its own kind byte-identical: {alpha}"
+    );
+    assert!(
+        alpha.contains("| p9 | unit |"),
+        "other row's kind byte-identical: {alpha}"
+    );
+    assert!(
+        alpha.contains("| c0 | invariant | `x holds` | chk |"),
+        "bare-id traces_to ref rewritten: {alpha}"
+    );
+    assert!(
+        !alpha.contains("| unit | unit |"),
+        "no stale kind-collision row remains: {alpha}"
+    );
+}
+
 /// new_id_matches_filename: renaming a file's own Intent id also renames
 /// the file per the naming law (`-` ⇔ `.`), and cross-file refs follow.
 #[test]
