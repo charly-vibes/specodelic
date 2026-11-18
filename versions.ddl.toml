@@ -5,13 +5,14 @@
 # tests/standard_conformance.rs) requires this file to exist.
 #
 # §4 matrix row (specodelic): pretender ✅ · wai ✅ · bd ✅ · openspec ✅ · ddl ✅
-# openspec deliberately pinned to 1.14.2 — the spk gate's `openspec validate`
-# runs the 1.x CLI (managed blocks are not part of specodelic's contract;
-# the fleet 0.19.0 pin predates this repo's gate migration).
+# openspec pinned to 2.1.0 — artifacts live in openspec/config.yaml (no AGENTS
+# block since 1.0.0) and agent workflows are project skills in .agents/skills;
+# the spk gate's `openspec validate --all --strict` runs this CLI (ci.yml pins
+# the same version).
 
 [tools]
 wai = "2026.9.28"          # crates.io: wai-cli
 pretender = "0.10.0"        # crates.io
 dulce-de-leche = "0.7.0"   # crates.io (bin: ddl)
-openspec = "1.14.2"        # npm: @fission-ai/openspec — the gate's validate CLI (ci.yml pins this)
+openspec = "2.1.0"         # npm: @fission-ai/openspec — the gate's validate CLI (ci.yml pins this)
 bd = "1.3.0"               # beads — pinned GitHub release download (no versioned homebrew-core formula)

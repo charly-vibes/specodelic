@@ -10,10 +10,10 @@ green under 1.14.2 --strict (task 5's fixture gate). No version
 sniffing, no fallback invocation: this gate runs the bare
 `openspec` on PATH exactly once.
 
-Expected validator: @fission-ai/openspec@1.14.2. The contract is that
+Expected validator: @fission-ai/openspec@2.1.0. The contract is that
 `openspec` on PATH IS that pinned version — CI installs it globally
 (.github/workflows/ci.yml) and dev machines must too:
-`npm install -g @fission-ai/openspec@1.14.2`.
+`npm install -g @fission-ai/openspec@2.1.0`.
 
 Exit code is the validator's exit code — CI safe.
 
@@ -28,10 +28,10 @@ GATE_COMMAND = [
 ]
 
 REMEDIATION = (
-    "remediation hint: the gate runs the pinned 1.x validator "
+    "remediation hint: the gate runs the pinned validator "
     "(decision 2026-10-19-validate-pin-retired.md / GH-20); if `openspec` "
-    "on PATH is missing or not @fission-ai/openspec@1.14.2, run "
-    "`npm install -g @fission-ai/openspec@1.14.2`"
+    "on PATH is missing or not @fission-ai/openspec@2.1.0, run "
+    "`npm install -g @fission-ai/openspec@2.1.0`"
 )
 
 

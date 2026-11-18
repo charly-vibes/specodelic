@@ -99,11 +99,11 @@ graph-specs:
     cargo run -q -- graph openspec/specs
 
 # Validate every active change and every capability spec (openspec, strict,
-# non-interactive — CI safe). Plain pinned-1.x invocation (specodelic-s8fg
+# non-interactive — CI safe). Plain pinned invocation (specodelic-s8fg
 # task 6, decision 2026-10-19-validate-pin-retired.md): the 0.19.0 pin was
 # retired with the dual-format delta shape; `openspec` on PATH must BE
-# @fission-ai/openspec@1.14.2 (CI installs it; dev machines:
-# `npm install -g @fission-ai/openspec@1.14.2`).
+# @fission-ai/openspec@2.1.0 (CI installs it; dev machines:
+# `npm install -g @fission-ai/openspec@2.1.0`).
 openspec-validate:
     python3 scripts/spec_validate.py
 
