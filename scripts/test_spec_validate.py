@@ -106,7 +106,7 @@ class RunnerTest(unittest.TestCase):
             lines,
         )
         # the hint names the pinned validator so a drifted machine can fix it
-        self.assertTrue(any("1.14.2" in ln for ln in lines), lines)
+        self.assertTrue(any("2.1.0" in ln for ln in lines), lines)
         return None  # explicit non-void: no self-field mutation
 
     def test_exit_code_is_the_validators_exit_code(self):
