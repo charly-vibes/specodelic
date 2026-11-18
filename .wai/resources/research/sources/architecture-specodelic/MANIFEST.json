@@ -1,0 +1,19 @@
+{
+  "version": "0.1.0",
+  "status": "proposed",
+  "specs": [
+    "acset.generic",
+    "plan.observation",
+    "plan.interpretation",
+    "plan.topology",
+    "plan.geometry",
+    "plan.canvas",
+    "plan.views",
+    "plan.reconstruction",
+    "plan.validation"
+  ],
+  "source_archives": [
+    "specodelic-main(2)(1).zip",
+    "vision-platform-bundle.zip"
+  ]
+}
