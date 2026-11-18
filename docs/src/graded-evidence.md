@@ -65,12 +65,30 @@ a missing or scope-mismatched model report, a corpus or digest refusal, or
 zero evidence rows. Exit codes: `0` judgement emitted, nothing
 contradicted; `1` a contradicted row exists, or a declared-expectation
 `stale` row; `2` no judgement was emitted — never a pass, never a
-contradiction. The contradicted set is the one classified **before** the
-prior-report overlay, so a `--before` run with a sustained contradiction
-still exits 1 even though the overlay relabels that row's currency.
+contradiction. `check` decides its exit code on the contradicted set
+classified **before** the prior-report overlay, and the overlay itself never
+retires a contradiction (`diff_with_prior` preserves `contradicted` for both
+the held and the unseen row), so a `--before` run with a sustained
+contradiction exits 1 in either verb.
 
 `inconclusive` stays reserved and is never spelled: a terminated property
 run is a recording class (X.290 6.5.1.4–6.5.1.6), not a verdict.
+
+### The claim of record
+
+What `check` makes visible is drift between spec revisions: given a `--before`
+report, a row whose evidence dropped or worsened is classified `stale` and a
+row the prior report never saw is classified `new`, so dropped evidence is
+never read as green. A `stale` row is informational unless the baseline was
+recorded with `--declare-expectation`, in which case it fails the run; a
+`contradicted` row always fails, whatever the prior report said about it.
+
+The report is one run's account of what this revision's evidence established,
+never a second authoritative copy of anything.
+Agent-authored evidence is not independent evidence: no run claims behavioral
+equality — every report says so in its `evidence_scope` line — and a run
+without `--oracle` narrows the claim to the spec's own compiled evidence,
+disclaiming external-corpus agreement outright.
 
 ## The closed class vocabulary
 
@@ -215,7 +233,10 @@ it is data, not documentation, so no reformatting can strip it.
 a prior report: same class ⇒ `current`, dropped or worsened ⇒ `stale`,
 unseen by the prior ⇒ `new`. This makes revision preservation a
 by-product — re-running the audit after a spec edit classifies exactly
-which evidence went stale.
+which evidence went stale. The overlay never retires a contradiction: a
+`contradicted` row stays `contradicted` whatever the prior report said about
+it — held, graded differently, or unseen (a currency label never replaces
+live contradictory evidence), so a `--before` run still exits 1.
 
 Both reports carry a `scope_sha256` digest of the oracle corpus. A
 mismatch is a labeled refusal with zero classification emitted — audit

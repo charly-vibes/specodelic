@@ -750,6 +750,11 @@ pub(crate) fn ensure_diffable(
 /// by the [`AuditClass::rank`] order ⇒ `stale`. The `new` overlay is
 /// not a pairwise decision — a row the prior report never saw has no
 /// prior class to compare — so it stays in [`diff_with_prior`].
+/// This is a pure currency decision: a contradiction is not a
+/// currency question, so [`diff_with_prior`] keeps every row whose
+/// computed class was `contradicted` contradicted and this
+/// comparison's answer is discarded there — the currency decision
+/// alone never retires a failure.
 pub(crate) fn overlay_class(current: AuditClass, prior: AuditClass) -> AuditClass {
     if AuditClass::rank(current) > AuditClass::rank(prior) {
         AuditClass::Stale
@@ -762,20 +767,34 @@ pub(crate) fn overlay_class(current: AuditClass, prior: AuditClass) -> AuditClas
 /// prior report — same class ⇒ `current`, class dropped/worsened ⇒
 /// `stale`, improved ⇒ `current` (the evidence got better; it is
 /// current), no prior row ⇒ `new`; [`ensure_diffable`] refusals come
-/// first. Recomputes `class_counts` over the diffed classes.
+/// first. A contradiction is live evidence, never a currency label: a
+/// row the current run classifies `contradicted` stays `contradicted`
+/// whether the prior report held it or the prior report never saw it,
+/// so [`exit_code`] (which reads `Contradicted`) still fails the run
+/// (specodelic-f1by); every other row keeps the overlay semantics
+/// (held or improved ⇒ `current`, worsened ⇒ `stale`, unseen ⇒
+/// `new`). Recomputes `class_counts` over the diffed classes.
 pub fn diff_with_prior(
     mut current: AuditReport,
     prior: &AuditReport,
 ) -> Result<AuditReport, ConformError> {
     ensure_diffable(&current, prior)?;
     for record in &mut current.records {
-        record.class = match prior
+        let computed = record.class;
+        let overlaid = match prior
             .records
             .iter()
             .find(|r| r.scenario_id == record.scenario_id)
         {
             None => AuditClass::New,
-            Some(prior_row) => overlay_class(record.class, prior_row.class),
+            Some(prior_row) => overlay_class(computed, prior_row.class),
+        };
+        // A contradiction is live evidence, never a currency label: the diff
+        // never retires a failure (specodelic-f1by).
+        record.class = if computed == AuditClass::Contradicted {
+            AuditClass::Contradicted
+        } else {
+            overlaid
         };
     }
     let mut class_counts: BTreeMap<String, usize> = BTreeMap::new();
@@ -1335,11 +1354,14 @@ mod diff_tests {
         assert_eq!(diffed.class_counts.get("current"), Some(&2));
     }
 
-    /// Dropped/worsened class ⇒ `stale`, and the stale record carries
-    /// the CURRENT run's conform verdict — the audit rides the fresh
-    /// walk, never the prior report's verdicts.
+    /// Dropped class ⇒ `stale`, and the stale record carries the
+    /// CURRENT run's conform verdict — the audit rides the fresh walk,
+    /// never the prior report's verdicts. A row the current run grades
+    /// `contradicted` is live evidence, not a currency label: it stays
+    /// `contradicted` even though the prior report graded it `current`
+    /// (specodelic-f1by).
     #[test]
-    fn worsened_class_is_stale_carrying_the_current_verdict() {
+    fn worsened_class_is_stale_and_a_fresh_contradiction_stays_contradicted() {
         let prior = report(
             "digest",
             vec![
@@ -1367,9 +1389,11 @@ mod diff_tests {
             .iter()
             .find(|r| r.scenario_id == "worsened")
             .expect("diffed row for worsened present");
-        assert_eq!(worsened.class, AuditClass::Stale);
+        assert_eq!(worsened.class, AuditClass::Contradicted);
         assert_eq!(worsened.conform_verdict, Verdict::Forbidden);
-        assert_eq!(diffed.class_counts.get("stale"), Some(&2));
+        assert_eq!(diffed.class_counts.get("stale"), Some(&1));
+        assert_eq!(diffed.class_counts.get("contradicted"), Some(&1));
+        assert_eq!(exit_code(&diffed, false), 1);
     }
 
     /// A row the prior report never saw ⇒ `new` — fresh evidence is
@@ -2037,6 +2061,124 @@ statement: "THE system SHALL keep the ledger consistent"
             AuditClass::Current,
             "flagged-to-clean improved"
         );
+    }
+
+    /// A constructed report for the `--before` diff pins: only the
+    /// fields the diff reads carry meaning (digest + per-row classes);
+    /// everything else stays empty.
+    fn diff_fixture_report(digest: &str, rows: &[(&str, AuditClass, Verdict)]) -> AuditReport {
+        let mut report = shell();
+        report.scope_sha256 = digest.to_string();
+        report.records = rows
+            .iter()
+            .map(|(id, class, verdict)| AuditRecord {
+                scenario_id: (*id).to_string(),
+                class: *class,
+                conform_verdict: *verdict,
+                reason: "fixture".to_string(),
+                evaluated_claim_ids: Vec::new(),
+                closed_world: false,
+            })
+            .collect();
+        report
+    }
+
+    fn diffed_class(diffed: &AuditReport, id: &str) -> AuditClass {
+        diffed
+            .records
+            .iter()
+            .find(|r| r.scenario_id == id)
+            .unwrap_or_else(|| panic!("diffed row for {id} present"))
+            .class
+    }
+
+    /// A contradiction the prior report also held stays `contradicted`
+    /// — never the `current` the rank comparison alone would produce.
+    /// The diff never retires a live failure: the row counts as
+    /// contradicted and the exit contract still fails the run
+    /// (specodelic-f1by).
+    #[test]
+    fn sustained_contradiction_stays_contradicted_and_fails_the_run() {
+        let prior = diff_fixture_report(
+            "digest",
+            &[("wrong", AuditClass::Contradicted, Verdict::Forbidden)],
+        );
+        let current = diff_fixture_report(
+            "digest",
+            &[("wrong", AuditClass::Contradicted, Verdict::Forbidden)],
+        );
+        let diffed = diff_with_prior(current, &prior).expect("same digest diffs");
+        assert_eq!(diffed_class(&diffed, "wrong"), AuditClass::Contradicted);
+        assert_eq!(diffed.class_counts.get("contradicted"), Some(&1));
+        assert_eq!(exit_code(&diffed, false), 1);
+    }
+
+    /// A contradiction the prior report never saw stays `contradicted`,
+    /// never `new`: a missing prior row cannot downgrade live evidence
+    /// into a non-failing currency label (specodelic-f1by).
+    #[test]
+    fn unseen_contradiction_stays_contradicted_not_new() {
+        let prior = diff_fixture_report(
+            "digest",
+            &[("happy", AuditClass::Current, Verdict::Permitted)],
+        );
+        let current = diff_fixture_report(
+            "digest",
+            &[
+                ("happy", AuditClass::Current, Verdict::Permitted),
+                ("wrong", AuditClass::Contradicted, Verdict::Forbidden),
+            ],
+        );
+        let diffed = diff_with_prior(current, &prior).expect("same digest diffs");
+        assert_eq!(diffed_class(&diffed, "wrong"), AuditClass::Contradicted);
+        assert_eq!(diffed.class_counts.get("new"), None);
+        assert_eq!(diffed.class_counts.get("contradicted"), Some(&1));
+        assert_eq!(exit_code(&diffed, false), 1);
+    }
+
+    /// A resolved contradiction is a currency question again: prior
+    /// `contradicted` → current `current` diffs to `current`, and the
+    /// run passes — only a still-contradicted row fails.
+    #[test]
+    fn resolved_contradiction_is_current_and_passes() {
+        let prior = diff_fixture_report(
+            "digest",
+            &[("wrong", AuditClass::Contradicted, Verdict::Forbidden)],
+        );
+        let current = diff_fixture_report(
+            "digest",
+            &[("wrong", AuditClass::Current, Verdict::Permitted)],
+        );
+        let diffed = diff_with_prior(current, &prior).expect("same digest diffs");
+        assert_eq!(diffed_class(&diffed, "wrong"), AuditClass::Current);
+        assert_eq!(diffed.class_counts.get("current"), Some(&1));
+        assert_eq!(exit_code(&diffed, false), 0);
+    }
+
+    /// The currency semantics for non-contradiction rows are untouched
+    /// by the contradiction preservation: current → unchecked still
+    /// becomes `stale`, and a held `unchecked` still becomes `current`.
+    #[test]
+    fn non_contradiction_rows_keep_the_currency_overlay() {
+        let prior = diff_fixture_report(
+            "digest",
+            &[
+                ("drift", AuditClass::Current, Verdict::Permitted),
+                ("gap", AuditClass::Unchecked, Verdict::Underspecified),
+            ],
+        );
+        let current = diff_fixture_report(
+            "digest",
+            &[
+                ("drift", AuditClass::Unchecked, Verdict::Underspecified),
+                ("gap", AuditClass::Unchecked, Verdict::Underspecified),
+            ],
+        );
+        let diffed = diff_with_prior(current, &prior).expect("same digest diffs");
+        assert_eq!(diffed_class(&diffed, "drift"), AuditClass::Stale);
+        assert_eq!(diffed_class(&diffed, "gap"), AuditClass::Current);
+        assert_eq!(diffed.class_counts.get("stale"), Some(&1));
+        assert_eq!(diffed.class_counts.get("current"), Some(&1));
     }
 }
 

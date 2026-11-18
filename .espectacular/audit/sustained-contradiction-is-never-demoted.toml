@@ -1,0 +1,12 @@
+id = "sustained-contradiction-is-never-demoted"
+description = "A record `contradicted` in the prior report and `contradicted` in the current run against the same corpus stays `contradicted` — never `current` — the class counts include it, and the run exits 1 (audit / Evidence diff across reports)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of fix-audit-before-contradiction (specodelic-f1by) — binds the landed CLI
+# test for this scenario: baseline report, then the same run with --before.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "before_sustained_contradiction_exits_1_and_stays_contradicted"

@@ -1,0 +1,12 @@
+id = "worsening-into-a-contradiction-stays-contradicted"
+description = "A record `current` in the prior report and `contradicted` in the current run is `contradicted`, never `stale`, and the run exits 1 — the currency label never displaces live contradictory evidence (audit / Evidence diff across reports)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of fix-audit-before-contradiction (specodelic-f1by) — binds the landed
+# library pin that diffs a fresh contradiction against a current prior row.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "worsened_class_is_stale_and_a_fresh_contradiction_stays_contradicted"

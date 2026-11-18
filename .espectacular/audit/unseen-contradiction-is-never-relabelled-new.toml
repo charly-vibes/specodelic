@@ -1,0 +1,12 @@
+id = "unseen-contradiction-is-never-relabelled-new"
+description = "A record `contradicted` in the current run whose prior report carries no row is `contradicted`, not `new`, and the run exits 1 (audit / Evidence diff across reports)."
+# Provenance (specodelic-sqgv, 2026-11-18): authored at the companion archive
+# of fix-audit-before-contradiction (specodelic-f1by) — binds the landed CLI
+# test that strips the record from the baseline envelope before diffing.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "before_unseen_contradiction_exits_1_and_stays_contradicted_not_new"

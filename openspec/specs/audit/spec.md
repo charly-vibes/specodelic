@@ -19,6 +19,7 @@ results, fragment/claim bindings, and prior audit reports.
 | reuse_walk        | invariant | `classification reuses conform's walk machinery and artifact gate unchanged — a second trace evaluator is never introduced`                      | [[audit]] |
 | closed_classes    | invariant | `∀ evidence row: exactly one audit class from {current, stale, unchecked, contradicted, binds_nothing, new}, each record also carrying the underlying conform verdict with its reason — none or two is impossible` | [[audit]] |
 | digest_bound_diff | invariant | `--before diffing refuses labeled on a scope-digest mismatch between reports, with zero classification emitted — cross-corpus-version diffs are impossible` | [[audit]] |
+| contradiction_survives_diff | invariant | `the prior-report overlay never retires a contradiction: a row contradicted in the current run keeps the class contradicted whatever the prior report said about it — held, graded differently, or unseen — so a currency label (current, stale, new) never replaces live contradictory evidence, so the exit predicate still fails the run` | [[audit]] |
 | honesty_channels  | invariant | `unchecked and binds_nothing ride the warnings channel and never affect the exit code — unchecked evidence is countable, never a pass, and never a failure` | [[audit]] |
 | binds_respect_sparse | invariant | `binds_nothing requires that the fragment or claim cites no declared model element — legitimately sparse models with declared elements are never flagged` | [[audit]] |
 | rung_derived      | invariant | `the summary's ladder rung is derived at report time from evidence actually present and never exceeds it — a rung without its evidence is impossible` | [[audit]] |
@@ -41,7 +42,7 @@ results, fragment/claim bindings, and prior audit reports.
 |-----------|------------|------------|--------------------------------------------------------------|
 | classify  | gated      | classified | [[audit.reuse_walk]] ∧ [[audit.closed_classes]]   |
 | merge     | classified | merged     | [[audit.row_keys_unique]] ∧ [[audit.disambiguation_deterministic]]   |
-| diff      | merged     | diffed     | [[audit.digest_bound_diff]]                             |
+| diff      | merged     | diffed     | [[audit.digest_bound_diff]] ∧ [[audit.contradiction_survives_diff]]   |
 | report    | diffed     | reported   | [[audit.rung_derived]] ∧ [[audit.honesty_channels]] ∧ [[audit.read_only]] |
 
 ## Properties
@@ -50,6 +51,7 @@ results, fragment/claim bindings, and prior audit reports.
 |---------------|------|-------------------------------------|------------------------------|--------------------------------------------------------------|
 | p_classes     | unit | [[audit.closed_classes]]      | `arbitrary_evidence_corpus()` | `every row carries exactly one class ∧ an underlying verdict` |
 | p_diff        | unit | [[audit.digest_bound_diff]]   | `arbitrary_report_pair()`    | `digest match ⇒ diff; mismatch ⇒ labeled refusal ∧ zero rows` |
+| p_contradiction_kept | unit | [[audit.contradiction_survives_diff]] | `arbitrary_report_pair()` | `current contradicted ⇒ diffed contradicted (held or unseen) ∧ exit 1` |
 | p_honesty     | unit | [[audit.honesty_channels]]    | `arbitrary_row_mix()`        | `unchecked/binds_nothing ⇒ exit 0 ∧ counts surfaced`          |
 | p_sparse      | unit | [[audit.binds_respect_sparse]] | `sparse_phase_model()`      | `declared-element model ⇒ no binds_nothing flag`              |
 | p_rung        | unit | [[audit.rung_derived]]        | `arbitrary_evidence_mix()`   | `rung == highest evidence-backed rung ∧ never exceeds it`     |
@@ -85,15 +87,37 @@ machinery and artifact gate unchanged.
 ### Requirement: Evidence diff across reports
 
 `spk audit --before <report.json>` SHALL compare per-row verdict classes
-against the prior report, classifying dropped or worsened rows as `stale`,
-unseen rows as `new`, and refusing labeled when the two reports carry
-different scope digests — never silently diffing across corpus versions.
+against the prior report — dropped or worsened ⇒ `stale`, unseen ⇒ `new` —
+refusing labeled when the two reports carry different scope digests, and
+SHALL never retire a contradiction: a row `contradicted` in the current run
+stays `contradicted` whatever the prior report said about it, contradiction
+outranking every currency label.
 
 #### Scenario: Dropped class is stale
 
-- **WHEN** a record was `current` in the prior report and is `unchecked` or
-  worse in the current run
+- **WHEN** a record was `current` in the prior report and is `unchecked` in
+  the current run
 - **THEN** the row is `stale`, naming both classes
+
+#### Scenario: Sustained contradiction is never demoted
+
+- **WHEN** a record is `contradicted` in the prior report and `contradicted`
+  in the current run against the same corpus
+- **THEN** the diffed row stays `contradicted` — never `current` — the
+  class counts include it, and the run exits 1
+
+#### Scenario: Worsening into a contradiction stays contradicted
+
+- **WHEN** a record was `current` in the prior report and is `contradicted`
+  in the current run
+- **THEN** the row is `contradicted`, never `stale`, and the run exits 1 —
+  the currency label never displaces live contradictory evidence
+
+#### Scenario: Unseen contradiction is never relabelled new
+
+- **WHEN** a record is `contradicted` in the current run and the prior
+  report carries no row for it
+- **THEN** the diffed row is `contradicted`, not `new`, and the run exits 1
 
 #### Scenario: Corpus-version mismatch refused
 

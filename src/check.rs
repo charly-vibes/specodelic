@@ -215,17 +215,18 @@ fn model_refusal(gate: &ModelGateState) -> Option<ConformError> {
     }
 }
 
-/// A judged report plus its exit code: the code is decided before the
-/// prior-report overlay relabels rows (`contradicted` otherwise collapses
-/// into `current` when the same contradiction persists), so a diff run
-/// still fails on live contradictory evidence.
+/// A judged report plus its exit code: the code is decided on the
+/// PRE-overlay evidence classes, so a diff run fails on live contradictory
+/// evidence rather than on a currency label. `audit::diff_with_prior`
+/// preserves `contradicted` too (it never retires a failure), so the two
+/// readings agree — the pre-overlay count is what the exit predicate rests
+/// on.
 pub struct Judgement {
     pub report: AuditReport,
     pub exit: i32,
     /// The contradicted rows classified BEFORE the prior-report overlay:
-    /// the exit predicate and its message both rest on this count, so a
-    /// sustained contradiction is named even when the overlay relabels
-    /// the row's currency class.
+    /// the exit predicate and its message both rest on this evidence count,
+    /// never on the overlay's currency label.
     pub contradicted: usize,
 }
 
