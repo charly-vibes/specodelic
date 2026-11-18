@@ -123,12 +123,16 @@ surface exists, the full goal does not), **direction** (ratified in the
 Nov 11 decision, not implemented), **resolved** (design settled, not built),
 **open** (decision still pending).
 
+**Amended 2026-11-18:** the G2, G4, and G15 wordings were corrected against
+the meth research; see `openspec/decisions/2026-11-18-goal-wording-amendments.md`.
+Every other row is unchanged from the 2026-11-16 synthesis.
+
 | # | Goal | Meaning | Status |
 |---|---|---|---|
 | G1 | **One authority per claim** | Exactly one normative home per behavioral claim; everything else is a projection or evidence. Not one file — one owner per claim. | direction |
-| G2 | **Independence** | Evidence must not be derived from the thing it judges. Contract suite authored against intent/oracle, run through DI adapters; `origin` separates `authored-from-intent` from `characterizing-observed`. | direction |
+| G2 | **Independence** | Evidence must not be derived from the thing it judges. Independence is **structural and lineage-scoped**: different author, different lineage, intent before code. `origin` separates `authored-from-intent`, `characterizing-observed`, and `authored-from-same-agent` — an agent authored the same way as the implementation is a copy, not a second authority. The untested probe is implementation-blind, cross-family authoring. (amended 2026-11-18: M1 v2 C12/C13; M7 C13; M2) | direction |
 | G3 | **Honest evidence limits** | Closed verdict taxonomy, scope digests, staleness, first-class `unknown`/`underspecified`; never a vacuous pass. | partly shipped (`verify`, `conform`, `audit`) |
-| G4 | **Drift impossible by construction** | No derived spec layer, no dual-format mirror, one-way citations; the artifact never has two authoritative copies. | direction |
+| G4 | **Drift mechanically visible or refused** | No derived spec layer, no dual-format mirror, one-way citations; no second authoritative copy, and every copy's acceptance is revision-bound to the authority's revision. "Impossible" overclaims: the enforceable claim is that drift is made visible or refused. (amended 2026-11-18: M2 K10/G4) | direction |
 | G5 | **Compositional typed structure** | Contracts bind components; typed references; closures/blast radius; a computed graph over those references. The four-primitive vocabulary (`Reference/Relation/Observation/Assessment`) is a Nov 2 candidate, not adopted. | open (D-1); graph/ACSet partly shipped |
 | G6 | **Specs where meaning is authoritative; bindings near code** | External behavior lives in independent specs; local obligations live code-adjacent. | open (Nov 2 principle) |
 | G7 | **Architecture/C4 realization** | Components and realization edges; views generated from one snapshot; structure derived from source facts — never hand-drawn. | open (D-4, D-6, D-8) |
@@ -139,7 +143,7 @@ Nov 11 decision, not implemented), **resolved** (design settled, not built),
 | G12 | **Reviewability** | Markdown tier keeps EARS + scenarios + Model as reviewed intent; proposals carry rationale + markdown delta + contract diff, explicitly separated. | partly shipped (corpus/openspec) |
 | G13 | **Agent loop** | One binary + markdown: `spk new`, `check --draft`, `graph`; instant structural verdict and impact; no toolchain needed to sketch. | partly shipped (`new`, `lint`, `graph`; `check` not built) |
 | G14 | **Small surface** | Three verbs: `check` (judge), `graph` (relate), `doctor` (advise); fuse, don't accrete. | resolved |
-| G15 | **Migration safety** | Preservation floor; in-flight work consumed, never abandoned; demotion earned by measured coverage, never a vote. | direction; step 1/5 |
+| G15 | **Migration safety** | Preservation floor; in-flight work consumed, never abandoned; demotion gated on **behavioural-guarantee preservation** — mutation score, seeded-bug replay, differential execution — never on a coverage number and never a vote. Coverage is not an adequacy measure. (amended 2026-11-18: M7 C5 5/6; M6 C9 5/5; M5) | direction; step 1/5 |
 
 ### 2.3 What "single source of truth" does and does not mean
 
