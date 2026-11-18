@@ -1,0 +1,110 @@
+schema: spec-driven
+
+context: |
+  specodelic implements the Specodelic specification format (formerly
+  `spec-format`) and ships the `specodelic` CLI (alias `spk`) that operates on
+  it. One markdown file yields four things at once: human-readable intent (EARS
+  statements), machine-lintable constraints, a simulatable state model, and
+  PBT-style properties — parsed from frontmatter and fixed-schema tables only;
+  prose is never inspected.
+
+  The corpus at `openspec/specs/` is self-hosting (specodelic-jf1): it is
+  written in Specodelic itself and `spk lint` dogfoods the tool against the
+  format's own files. `openspec/specs/specodelic/spec.md` is the single source
+  of truth for the format; `openspec/STATUS.md` §1 is the primer.
+
+  Relation to openspec: openspec manages the engineering change workflow
+  (proposals → tasks → archive); Specodelic is a domain spec format this repo
+  also implements tooling for. They share requirement content through the
+  dual-format protocol:
+
+  - Deployed capability specs (`openspec/specs/<cap>/spec.md`) are dual-format
+    files — YAML frontmatter plus `## Constraints` / `## Model` /
+    `## Properties` tables (specodelic) alongside `## Purpose` +
+    `## Requirements` (openspec). Deployed specs carry no delta sections.
+  - Dual-format files carry their REAL id, derived by the naming law: a
+    `spec.md` takes its id from its parent directory name (`-` ⇔ `.`;
+    `openspec/specs/ge-cli/spec.md` → `id: ge.cli`). There is no `id: spec`;
+    refs resolve corpus-wide, and duplicate intent ids are refused
+    (`duplicate_corpus_identity`).
+  - A change delta under `openspec/changes/` is a PLAIN openspec delta — no
+    frontmatter, no specodelic tables, no `## Requirements` mirror.
+    `openspec validate` is its gate; `spk lint` parse-skips it. The specodelic
+    layer travels in a sibling `layer.md` sidecar whose id is the parent
+    directory plus `.layer` (Revision 19).
+  - Every capability spec under `openspec/specs/<cap>/spec.md` MUST be
+    dual-format; `just sync-sections` fails CI on a frontmatter-less or
+    table-less capability spec.
+  - Verification is bounded model checking of invariants a spec opts into
+    (`**rust:**` fragments); prose-only invariants stay explicitly unchecked.
+    It is never proof of application correctness.
+  - Archive recipe: `openspec archive <id> --skip-specs`, then copy each
+    dual-format delta verbatim into `openspec/specs/<cap>/spec.md`;
+    `just archive-change id=<id>` does both. Archived deltas under
+    `openspec/changes/archive/` are exempt from the capability-format check.
+
+  Stack: Rust 2024 (stable), clap 4 derive, genesis-vibes for envelope output,
+  serde/serde_json/serde_yaml/toml, bd in no-db mode (`.beads/issues.jsonl` is
+  the source of truth, tracked), just (`just ci` = fmt-check + clippy + tests +
+  release build).
+
+  Conventions: every source file carries a Purpose / Responsibilities /
+  Rationale header; domain logic lives in the library (`src/lib.rs` modules
+  `spec`, `ears`, `lint`, `graph`); `main.rs` stays thin; errors always carry a
+  remediation hint; every command emits through `genesis::guide::Output::emit`
+  (JSON envelope by default, `--human` for TTYs); the naming law is
+  non-negotiable; reference typing is structural (advisory/effect constraints
+  can never gate a transition).
+
+  Testing: unit tests per module; integration tests (`tests/cli.rs`) run the
+  binary against the repo's own `specs/` corpus; synthetic specs in tempdirs
+  cover failure shapes; known corpus gaps are tracked as beads issues, never
+  silenced in tests. Trunk-based on `main`; work is not complete until push
+  succeeds (`bd ready` → `bd update <id> --claim` → work → `bd close <id>`;
+  keep `.beads/issues.jsonl` committed).
+
+  Domain pointers: the five schema objects (Intent, Constraint, State,
+  Transition, Property) and the reference typing table live in
+  `openspec/specs/specodelic/spec.md`, sub-kind shapes in
+  `openspec/specs/kinds/spec.md`; the lifecycle is draft → parsed → linted →
+  compiled → model_checked → verified, driven by
+  `openspec/specs/orchestrate/spec.md`; checker semantics are one file per
+  check (`specs/linter-*.md`) — read the check's spec before implementing it.
+  The corpus was renamed from `spec-format` to `specodelic` on import; never
+  reintroduce `spec-format`.
+
+  Constraints: never weaken lint rules to make the corpus pass; pipeline
+  semantics (`compile`, `model_check`, `verify`, `rename`, `merge`, `refactor`,
+  `orchestrate`) are fully specced but unimplemented, and stubs must keep
+  exiting non-zero with hints. genesis-vibes is the only upstream dependency
+  boundary: cross-cutting pieces go upstream, domain logic stays here.
+
+rules:
+  proposal:
+    - Name the capability spec under openspec/specs/ the change lands in, and
+      state what is out of scope
+    - State whether the change touches the dual-format protocol or the lint
+      rules, and which checkers or specs encode the new behavior
+  specs:
+    - Deployed capability specs are dual-format — frontmatter with the real id
+      from the naming law, Constraints/Model/Properties tables, and no delta
+      sections
+    - Change deltas stay plain openspec (no frontmatter or specodelic tables);
+      carry the specodelic layer in a sibling layer.md sidecar
+  design:
+    - Cite the spec row ids the design satisfies; semantics outside the corpus
+      are referenced by prose path, never by wiki-link
+  tasks:
+    - Map each implementation task to a spec row and a red→green→refactor cycle
+
+operations:
+  apply:
+    guidance:
+      - Read the checker's spec file before implementing it; the implementation
+        must match the spec's constraints, not a reinterpretation
+      - Run `just ci` (or the narrowest gate) before claiming a task done
+  archive:
+    guidance:
+      - Use `just archive-change id=<id>` so the dual-format layer is copied
+        verbatim instead of regenerated by the archiver
+      - Summarize the archive outcome before finishing
