@@ -84,13 +84,13 @@ def table(rows: list[str]) -> str:
 def synced_docs() -> str:
     """A docs table exactly matching the CONFORM/AUDIT fixtures."""
     return table([
-        "| `permitted` | run status | `src/conform.rs` `Verdict` | implemented | `→ current` | — |",
-        "| `forbidden` | run status | `src/conform.rs` `Verdict` | implemented | `→ stale` | — |",
-        "| `underspecified` | spec defect | `src/conform.rs` `Verdict` | implemented | `→ unchecked` | — |",
-        "| `unknown` | knowledge absence | `src/conform.rs` `Verdict` | implemented | `→ unchecked` | — |",
-        "| `current` | currency | `src/audit.rs` `AuditClass` | implemented | — | — |",
-        "| `stale` | currency | `src/audit.rs` `AuditClass` | implemented | — | — |",
-        "| `unchecked` | knowledge absence | `src/audit.rs` `AuditClass` | implemented | — | — |",
+        "| `permitted` | run status | `src/conform.rs` | implemented | `→ current` | — |",
+        "| `forbidden` | run status | `src/conform.rs` | implemented | `→ stale` | — |",
+        "| `underspecified` | spec defect | `src/conform.rs` | implemented | `→ unchecked` | — |",
+        "| `unknown` | knowledge absence | `src/conform.rs` | implemented | `→ unchecked` | — |",
+        "| `current` | currency | `src/audit.rs` | implemented | — | — |",
+        "| `stale` | currency | `src/audit.rs` | implemented | — | — |",
+        "| `unchecked` | knowledge absence | `src/audit.rs` | implemented | — | — |",
         "| `inconclusive` | run status | `ITU-T X.290 3.3.124` | reserved | — | D-10 check fusion |",
         "| `origin` | annotation field | design only | reserved | — | annotation-syntax change |",
     ])
@@ -131,9 +131,10 @@ class EvidenceAxesTest(unittest.TestCase):
                 "| `unknown` | knowledge absence", "| `zzz` | knowledge absence"),
         })
         problems, _ = cea.check(root)
-        self.assertEqual(len(problems), 1, problems)
-        self.assertIn("'unknown'", problems[0])
-        self.assertIn("src/conform.rs", problems[0])
+        # One edit drifts both directions: the stale row AND the missing
+        # code value are both named — the guard must name the variant.
+        self.assertTrue(any("'unknown'" in p and "no axis-table row" in p
+                            for p in problems), problems)
         return None
 
     # 1.3 — an implemented row with no code counterpart is named.
@@ -145,9 +146,8 @@ class EvidenceAxesTest(unittest.TestCase):
                 "| `permitted` | run status", "| `ghost` | run status"),
         })
         problems, _ = cea.check(root)
-        self.assertEqual(len(problems), 1, problems)
-        self.assertIn("'ghost'", problems[0])
-        self.assertIn("implemented", problems[0])
+        self.assertTrue(any("'ghost'" in p and "implemented" in p
+                            for p in problems), problems)
         return None
 
     # 1.4 — a documented mapping that disagrees with the of() arm is named
@@ -157,8 +157,8 @@ class EvidenceAxesTest(unittest.TestCase):
             "src/conform.rs": CONFORM,
             "src/audit.rs": AUDIT,
             "docs/src/graded-evidence.md": synced_docs().replace(
-                "`permitted` | run status | `src/conform.rs` `Verdict` | implemented | `→ current`",
-                "`permitted` | run status | `src/conform.rs` `Verdict` | implemented | `→ unchecked`"),
+                "`permitted` | run status | `src/conform.rs` | implemented | `→ current`",
+                "`permitted` | run status | `src/conform.rs` | implemented | `→ unchecked`"),
         })
         problems, _ = cea.check(root)
         self.assertEqual(len(problems), 1, problems)
@@ -210,7 +210,7 @@ class EvidenceAxesTest(unittest.TestCase):
 
     # Delta scenario: every value appears exactly once — duplicates fail.
     def test_duplicate_row_fails(self):
-        dup = ("| `current` | currency | `src/audit.rs` `AuditClass` "
+        dup = ("| `current` | currency | `src/audit.rs` "
                "| implemented | — | — |")
         root = self.write({
             "src/conform.rs": CONFORM,
@@ -218,8 +218,8 @@ class EvidenceAxesTest(unittest.TestCase):
             "docs/src/graded-evidence.md": synced_docs() + dup,
         })
         problems, _ = cea.check(root)
-        self.assertTrue(any("'current'" in p and "twice" in p for p in problems),
-                        problems)
+        self.assertTrue(any("'current'" in p and "appears 2 times" in p
+                            for p in problems), problems)
         return None
 
     # Delta scenario: unparseable docs table fails closed with a hint.
