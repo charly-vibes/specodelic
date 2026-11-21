@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-21-specodelic-1izc-merge-add-add-order-asymmetry-fix, pipeline-step:quality-ledger]
+---
+
+QUALITY LEDGER specodelic-1izc: VERIFIED — RED: cargo test --test hegel_properties merge_verdict_symmetry_add_add failed at main.rs:590 with exactly the ticketed asymmetry (ba = ab + relint_failure). GREEN: same test + 6 sibling merge laws/guards 7/7 ok; just test-smart 1589 selected all pass. FIX-REVIEW: textual_conflict_dedup unit RED(2 flags)→GREEN(1); hegel merge_ 7/7 ok; cargo fmt clean; clippy --all-targets -D warnings clean. REVIEW — RO5U: 0 critical, 0 high; M1 fixed with test; M2 deferred (prose-only, pre-existing tip-model limitation, recorded at closure); L1 accepted, L2 n/a. RISKS — known: (a) unparsable-base copy still classifies conflict prose as add/add (no verdict effect); (b) union pick for contested paths remains positional but is unobservable (relint skips + textual_conflict forces failed). NEXT — step 9 ship-close: just ci full gate, beads export+commit+push, close 1izc.
