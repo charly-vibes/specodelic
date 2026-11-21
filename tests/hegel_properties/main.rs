@@ -11,8 +11,9 @@
 //! crate, not about the generator.
 //!
 //! Oracle validity (bb98): the red-triaged law
-//! (`merge_verdict_symmetry_add_add`, `#[ignore]`d) is the seeded-defect
-//! exhibit — it fires on HEAD's add/add asymmetry and stays green under
+//! (`merge_verdict_symmetry_add_add`, enabled after the specodelic-1izc
+//! fix) is the seeded-defect exhibit — it fired on HEAD's add/add
+//! asymmetry and stays green under
 //! a no-op product mutation. The remaining properties were predicted
 //! green from source and are executed here; the two guards
 //! (`*_reachable`) fail the suite if the generator never reaches the
@@ -556,18 +557,12 @@ fn merge_needs_review_reachable_guard(tc: TestCase) {
     );
 }
 
-/// merge-verdict-symmetry: RED at HEAD — triaged per the bb98
-/// sequencing as the explicit red test for the add/add asymmetry
-/// (specodelic-1izc).
-///
-/// Law: for every (base, a, b), `merge::run(base, a, b)` and
-/// `merge::run(base, b, a)` return the same verdict and the same finding
-/// kind multiset. The counterexample below is deterministic, so a plain
-/// `#[test]` carries it; flip `#[ignore]` off once the add/add hole is
-/// fixed (its fix — flag add/add of differing text as a conflict before
-/// union_tree picks a side — is the ticket's proposed remedy).
+/// merge-verdict-symmetry: RED at HEAD (specodelic-1izc); enabled once
+/// the add/add hole is fixed — the ticket's remedy: flag differing-text
+/// add/add as a conflict before union_tree picks a side, and keep the
+/// relint off the contested paths so the finding set cannot inherit
+/// the silent choice.
 #[test]
-#[ignore = "RED at HEAD: add/add asymmetry — specodelic-1izc; deterministic counterexample, enable after the fix"]
 fn merge_verdict_symmetry_add_add() {
     // Empty ancestor; both branches create demo-x.md with the same intent
     // id; branch b's copy carries a dangling [[ghost]] trace. Filenames

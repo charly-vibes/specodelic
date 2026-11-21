@@ -157,11 +157,11 @@ pub fn run(
     }
 
     collision_findings(&tip_base, &tip_a, &tip_b, &mut findings);
-    textual_conflict_findings(&tip_base, &tip_a, &tip_b, &mut findings);
+    let contested = textual_conflict_findings(a, b, &tip_base, &mut findings);
     blast_radius_findings(&tip_a, &tip_b, &tip_base, &mut findings);
     rename_replay_findings(&tip_base, &tip_a, &tip_b, &mut findings);
     let merged = union_tree(a, b, &tip_base, &mut findings);
-    relint_findings(&merged, &mut findings);
+    relint_findings(&merged, &contested, &mut findings);
 
     let verdict = if findings.iter().any(|f| {
         matches!(
@@ -220,29 +220,50 @@ fn collision_findings(tip_base: &Tip, tip_a: &Tip, tip_b: &Tip, findings: &mut V
 }
 
 /// Textual conflicts: git marks these; surfaced for completeness.
+/// Covers both-edited (base present, both tips changed the file away
+/// from it) AND add/add (no base entry, both tips created the file)
+/// with differing text — computed over the RAW trees, not the parsed
+/// tips, so a broken side cannot dodge the flag either. Returns the
+/// contested paths: the union tree still picks a side for them, but
+/// the pick is unobservable because the relint skips contested paths
+/// (specodelic-1izc — otherwise the finding set inherits the pick and
+/// flips with the argument order).
 fn textual_conflict_findings(
+    a: &[(String, String)],
+    b: &[(String, String)],
     tip_base: &Tip,
-    tip_a: &Tip,
-    tip_b: &Tip,
     findings: &mut Vec<Finding>,
-) {
-    for (path, a_text) in &tip_a.texts {
-        if let (Some(b_text), Some(base_text)) = (
-            tip_b.texts.get(path.as_str()),
-            tip_base.texts.get(path.as_str()),
-        ) && a_text.as_str() != base_text.as_str()
-            && b_text.as_str() != base_text.as_str()
-            && a_text != b_text
-        {
+) -> BTreeSet<String> {
+    let mut contested = BTreeSet::new();
+    for (path, a_text) in a {
+        let Some((_, b_text)) = b.iter().find(|(p, _)| p == path) else {
+            continue;
+        };
+        if a_text == b_text {
+            continue; // agreeing content is not a conflict in any shape
+        }
+        let base_text = tip_base.texts.get(path.as_str());
+        let add_add = base_text.is_none();
+        let both_edited = matches!(base_text, Some(base) if base != a_text && base != b_text);
+        if (add_add || both_edited) && contested.insert(path.clone()) {
+            // insert-then-check: a path repeated within one tree slice
+            // (the input contract is a set) still yields one flag —
+            // specodelic-1izc fix-review M1.
+            let why = if add_add {
+                "was created on both branches with different content"
+            } else {
+                "was edited on both branches"
+            };
             findings.push(Finding {
                 kind: "textual_conflict".into(),
                 message: format!(
-                    "{path} was edited on both branches — git will mark this \
-                     conflict; resolve it, then re-run the check"
+                    "{path} {why} — git will mark this conflict; resolve it, \
+                     then re-run the check"
                 ),
             });
         }
     }
+    contested
 }
 
 /// blast_radii_recorded_pre_merge + intersection → needs_review.
@@ -307,6 +328,10 @@ fn rename_replay_findings(tip_base: &Tip, tip_a: &Tip, tip_b: &Tip, findings: &m
 /// a modify/delete conflict (git marks it too) — the edited version
 /// stays in the merged tree for the relint and the conflict is flagged
 /// so the verdict can never be a false clean `merged`.
+/// For content-contested paths (both-edited or add/add with differing
+/// text, flagged by textual_conflict_findings) the positional pick
+/// below is deliberately unobservable: the relint skips those paths,
+/// so neither order's finding set can inherit the choice.
 fn union_tree(
     a: &[(String, String)],
     b: &[(String, String)],
@@ -379,10 +404,22 @@ fn union_tree(
 
 /// The merged tree must re-lint clean (linter.referential_integrity via
 /// zero dangling + full corpus lint) before merge is reported passed.
-fn relint_findings(merged: &BTreeMap<String, String>, findings: &mut Vec<Finding>) {
+fn relint_findings(
+    merged: &BTreeMap<String, String>,
+    contested: &BTreeSet<String>,
+    findings: &mut Vec<Finding>,
+) {
     let mut details: Vec<String> = vec![];
     let mut merged_specs: Vec<Spec> = vec![];
     for (rel, text) in merged {
+        if contested.contains(rel) {
+            // Contested content: neither side's text is the merge
+            // outcome, so relinting the picked side would let the
+            // union tree's silent choice shape the finding set
+            // (specodelic-1izc). The textual_conflict flag already
+            // fails the verdict; resolution is human work.
+            continue;
+        }
         match parse_str(text) {
             Ok(mut s) => {
                 s.path = Some(PathBuf::from(rel));
@@ -391,7 +428,7 @@ fn relint_findings(merged: &BTreeMap<String, String>, findings: &mut Vec<Finding
             Err(e) => details.push(format!("{rel}: merged tree does not parse: {e}")),
         }
     }
-    if details.is_empty() && !merged.is_empty() {
+    if details.is_empty() && !merged_specs.is_empty() {
         let report = lint::lint_corpus(&merged_specs);
         for issue in &report.issues {
             details.push(format!(
@@ -489,6 +526,39 @@ statement: "observes the shared effect and traces to b"
         assert_eq!(
             queried, expected,
             "the query-derived blast radius must reproduce the pre-migration walk"
+        );
+    }
+}
+
+#[cfg(test)]
+mod textual_conflict_dedup {
+    //! specodelic-1izc fix-review M1: the raw-tree conflict scan must
+    //! flag a contested path exactly once even when a caller's tree
+    //! slice repeats the path (the documented input is a SET of
+    //! (path, text); the old parsed-tip walk deduped implicitly, the
+    //! raw walk must dedup explicitly).
+
+    use crate::merge::run;
+
+    #[test]
+    fn duplicate_path_in_tree_flags_textual_conflict_once() {
+        let p = "demo-x.md".to_string();
+        let x = "branch a text".to_string();
+        let y = "branch b text".to_string();
+        let rep = run(
+            &[],
+            &[(p.clone(), x.clone()), (p.clone(), x)],
+            &[(p.clone(), y)],
+        );
+        let flagged = rep
+            .findings
+            .iter()
+            .filter(|f| f.kind == "textual_conflict" && f.message.contains(p.as_str()))
+            .count();
+        assert_eq!(
+            flagged, 1,
+            "one contested path, one flag: {:?}",
+            rep.findings
         );
     }
 }
