@@ -2,11 +2,13 @@
 
 ### Requirement: Components are declared as first-class rows
 
-The format SHALL define a `component` row kind with the closed field set
-`{id, kind, level, realizes, notes}` where `level` is drawn from the closed
-set `{context, container}` and `realizes` is a list of typed targets — and
-`spk lint` SHALL accept a spec file whose Model declares component rows
-alongside its Constraints and Properties.
+The format SHALL define a `component` row kind — carried in a `## Components`
+top-level section of a spec file, under the next free Revision heading of the
+format doc — with the closed field set `{id, kind, level, scope, realizes}`
+where `level` is drawn from the closed set `{context, container}`, `scope` is
+drawn from the closed set `{internal, external}`, and `realizes` is a typed
+reference column; and `spk lint` SHALL accept a spec file whose `## Components`
+section declares component rows.
 
 #### Scenario: A component row parses
 
@@ -18,6 +20,11 @@ alongside its Constraints and Properties.
 - **WHEN** a component row carries `level: code`
 - **THEN** the lint fails naming the row, the offending value, the closed set `{context, container}`, and the stale-levels remediation (levels 3–4 go stale — M4 K7/K9)
 
+#### Scenario: A scope outside the closed set is rejected
+
+- **WHEN** a component row carries `scope: shared`
+- **THEN** the lint fails naming the row, the offending value, and the closed set `{internal, external}` — the format defines no bool column type, so externality is a named variant, not a flag
+
 #### Scenario: A component row with an undeclared field is rejected
 
 - **WHEN** a component row carries a field outside the closed field set
@@ -25,12 +32,11 @@ alongside its Constraints and Properties.
 
 ### Requirement: Realization edges resolve and stay structural
 
-The `realizes` relation SHALL be a typed reference resolved corpus-wide:
-every target must resolve to a real row of a kind-compatible type, a
-component SHALL NOT reference itself, and the component graph formed by
-`realizes` edges SHALL contain no cycle — each failure reported as its
-existing rule family's finding (`total_refs`, `ref_kind_compatible`,
-`no_self_ref`, `acyclic`) naming the edge.
+The `realizes` relation SHALL be a typed reference declared in the format doc's
+Reference Typing table with source kind `Component` and target kinds
+`Constraint` or `Intent`: every target SHALL resolve to a real row of a
+kind-compatible type anywhere in the corpus, a component SHALL NOT reference
+itself, and the graph formed by `realizes` edges SHALL contain no cycle.
 
 #### Scenario: A dangling realization target fails
 
@@ -39,7 +45,7 @@ existing rule family's finding (`total_refs`, `ref_kind_compatible`,
 
 #### Scenario: A kind-incompatible target fails typing
 
-- **WHEN** a component realizes a target kind the Reference Typing table excludes (e.g. a State row)
+- **WHEN** a component realizes a target kind the Reference Typing row excludes (e.g. a State row)
 - **THEN** the lint fails with a `ref_kind_compatible` finding naming the edge and the compatible kinds
 
 #### Scenario: A realization cycle fails
@@ -47,20 +53,25 @@ existing rule family's finding (`total_refs`, `ref_kind_compatible`,
 - **WHEN** two components realize each other through `realizes` edges
 - **THEN** the lint fails with an `acyclic` finding naming the cycle's members
 
-### Requirement: Every component is realized or marked external
+### Requirement: Every container component is realized or marked external
 
 `spk lint` SHALL report a finding when a `container` component has no
-`realizes` edge and carries no explicit `external: true` marker, so a
-declared part that nothing realizes is visible — never silent machinery.
+`realizes` edge and its `scope` is not `external`, so a declared part that
+nothing realizes is visible — never silent machinery.
 
 #### Scenario: An unrealized container component is flagged
 
-- **WHEN** a container component declares no `realizes` target and no external marker
-- **THEN** the lint reports the completeness finding naming the component and both remediations (add a `realizes` edge, or mark it `external`)
+- **WHEN** a container component declares no `realizes` target and its scope is `internal`
+- **THEN** the lint reports the completeness finding naming the component and both remediations (add a `realizes` edge, or set `scope: external`)
 
-#### Scenario: A context actor marked external passes
+#### Scenario: A container marked external passes
 
-- **WHEN** a `context` component carries `external: true` and no `realizes` edge
+- **WHEN** a `container` component carries `scope: external` and no `realizes` edge
+- **THEN** the lint reports no completeness finding for it
+
+#### Scenario: A context component needs no realization
+
+- **WHEN** a `context` component declares no `realizes` edge
 - **THEN** the lint reports no completeness finding for it
 
 ### Requirement: Views are derived, digest-stamped, and bounded
@@ -75,7 +86,7 @@ conformance, freshness beyond its digest, or code-level structure.
 #### Scenario: The view names its snapshot
 
 - **WHEN** the C4 view is rendered
-- **THEN** it carries the digest of the graph artifact it was derived from, and re-rendering over an unchanged corpus is byte-identical
+- **THEN** it carries the digest of the graph artifact it was derived from, and re-rendering over an unchanged graph artifact is byte-identical
 
 #### Scenario: An unrealized component appears annotated in the view
 
@@ -85,4 +96,4 @@ conformance, freshness beyond its digest, or code-level structure.
 #### Scenario: A levels-3–4 request is refused
 
 - **WHEN** a view consumer requests level 3 or level 4 rendering
-- **THEN** the renderer refuses with a remediation naming the closed level set `{context, container}` and the advisory lane that owns code-level structure
+- **THEN** the renderer refuses with a remediation naming the closed level set `{context, container}` — a level that cannot be checked must not be declarable
