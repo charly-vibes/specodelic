@@ -62,7 +62,7 @@ An unchecked claim is knowledge absence. The exit contract
 (`check.exit_contract`) is already explicit that exit 2 means "no judgement
 was emitted" and that unchecked evidence never gates. The coverage section
 must not become a back door to exit 1: a run whose evidence rows are all
-current and which happens to declare twenty uncovered claims still exits 0,
+current and which happens to declare twenty unchecked claims still exits 0,
 with the count visible.
 
 The section's value is *visibility*, not enforcement: it makes the gap

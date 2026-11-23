@@ -62,9 +62,11 @@
 6.2 `scripts/check_evidence_axes.py` — passes with no new value row (assert
     in the change's own gate run).
 6.3 `just ci` — fmt, clippy `-D warnings`, tests, release build.
-6.4 `spk lint openspec` — the corpus lints clean; the change's layer
-    sidecar lints clean on its own (`spk lint
-    openspec/changes/add-check-claim-coverage/specs/check/layer.md`).
+6.4 `spk lint openspec` — the corpus lints clean, and the change's layer
+    sidecar resolves within that tree (the sidecar alone cannot pass:
+    `total_refs` resolves against the linted set only, so linting
+    `layer.md` by itself reports dangling cross-file references by
+    construction — always lint the containing tree).
 
 ## 7. Archive readiness
 

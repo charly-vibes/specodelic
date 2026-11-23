@@ -24,6 +24,12 @@ slug, or similarity, and no binding outside the corpus is read: the coverage
 section is a statement about the judged file, not a claim about anyone
 else's suite.
 
+<!-- Error labels are file-id-namespaced (error-contract): an error
+(effect) Constraint's expr reads `<owning-file-id>.<variant_head>(field, …)`
+and the owning id is THIS file's own id — `check.layer.` — so a failure label
+here reads `check.layer.<variant_head>(field, …)`. The archive companion re-keys
+that namespace to the deployed spec id when it attaches the layer. -->
+
 ## Constraints
 
 | id                  | kind      | expr                                                                                                                                                                                                                   | traces_to |
@@ -42,7 +48,7 @@ else's suite.
 | claim_key_file_qualified | invariant | `every judged claim is named by its file-qualified claim id — <file id>.<claim id> — the form the corpus already guarantees unique corpus-wide; a report row never abbreviates a claim to its bare id, and no claim is matched by name, slug, or similarity` | [[check.layer]] |
 | claim_coverage_listed | invariant | `every declared invariant claim of the judged file appears in the report's claim-coverage section carrying exactly one audit class from audit's existing closed set {current, stale, unchecked, contradicted, binds_nothing, new}; a claim with no evidence row carries unchecked — knowledge absence — and is never absent from the section, never reported as evidence it does not have, and never given a new vocabulary value` | [[check.layer]] |
 | claim_coverage_non_gating | invariant | `the claim-coverage section is countable and never gates the exit code — an uncovered claim is knowledge absence, not a contradiction, and its count is surfaced in every output view alongside the existing evidence counts` | [[check.layer]] |
-| evidence_unavailable | effect   | `check.evidence_unavailable(detail) — the run could not obtain evidence to judge because detail; the refusal rides the errors capability's published contract (envelope kind, exit code, remediation hint)`             | [[check.layer]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
+| evidence_unavailable | effect   | `check.layer.evidence_unavailable(detail) — the run could not obtain evidence to judge because detail; the refusal rides the errors capability's published contract (envelope kind, exit code, remediation hint)`             | [[check.layer]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
 

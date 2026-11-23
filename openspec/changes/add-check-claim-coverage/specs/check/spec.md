@@ -59,3 +59,10 @@ affect the exit code: an unchecked claim is not a contradiction.
 - **WHEN** the same inputs are judged twice
 - **THEN** the coverage section lists the same claims in the same order with
   the same classes — the report remains byte-identical
+
+#### Scenario: A row that places no claim is accounted for
+
+- **WHEN** the run produces an evidence row that corresponds to no declared
+  claim of the judged file (for example a model-level row)
+- **THEN** the coverage section accounts for that row in its residual bucket
+  rather than dropping it, using the existing class set
