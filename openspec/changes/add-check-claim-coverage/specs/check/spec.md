@@ -21,6 +21,27 @@ row, nor match a claim by name, slug, filename, or similarity.
 - **THEN** no row is attributed to that claim, and the resemblance produces no
   row of any kind
 
+### Requirement: An evidence row places a claim only by the declared placement rule
+
+`spk check` SHALL place a declared claim only when an evidence row names that
+claim directly or names a property whose `derives_from` names that claim, and
+SHALL account for every row that places no claim in the coverage section's
+residual bucket.
+
+#### Scenario: A row places a claim through the property it derives from
+
+- **WHEN** an evidence row names a property whose `derives_from` names a
+  declared invariant claim of the judged file
+- **THEN** the claim-coverage section lists that claim, and the row places no
+  other claim
+
+#### Scenario: A row that places no claim is not attributed to one
+
+- **WHEN** an evidence row names neither a declared claim nor a property that
+  derives from one
+- **THEN** the row appears in the section's residual bucket and no claim
+  carries it
+
 ### Requirement: Claim coverage is listed and never gates
 
 `spk check` SHALL list every declared invariant claim of the judged file in
@@ -66,3 +87,43 @@ affect the exit code: an unchecked claim is not a contradiction.
   claim of the judged file (for example a model-level row)
 - **THEN** the coverage section accounts for that row in its residual bucket
   rather than dropping it, using the existing class set
+
+### Requirement: A claim's coverage class is the strongest class among the rows that place it
+
+`spk check` SHALL give a claim exactly one coverage class: the strongest class
+among the rows that place it, ordered `contradicted`, then `current`, then
+`binds_nothing`, then `unchecked`. A claim placed by no row SHALL carry
+`unchecked`.
+
+#### Scenario: A claim with several rows takes the strongest class
+
+- **WHEN** a declared claim is placed by a current row and by a contradicted
+  row
+- **THEN** the coverage section lists that claim once, with class
+  `contradicted`
+
+#### Scenario: A vacuous placement is not an unchecked claim
+
+- **WHEN** a declared claim is placed only by a row whose text cites no
+  declared id
+- **THEN** the coverage section lists that claim with class `binds_nothing`,
+  not with class `unchecked`
+
+### Requirement: The coverage section states its scope and leaves the audit report untouched
+
+`spk check` SHALL state that the coverage section's classes describe the
+evidence the run's own producers produced, and SHALL materialize the section in
+the check envelope without changing the audit report's schema version or field
+set.
+
+#### Scenario: The section says which evidence it describes
+
+- **WHEN** the report renders the claim-coverage section
+- **THEN** the section states that its classes describe the evidence this run's
+  producers produced, so `unchecked` is never read as "no evidence exists"
+
+#### Scenario: The section leaves the audit report untouched
+
+- **WHEN** the report is emitted
+- **THEN** the audit report's schema version and field set are unchanged, and
+  the coverage section is carried by the check envelope

@@ -22,8 +22,19 @@ Two measurements from this repo settle the second point:
   appears in 21 files. Any join key derived from a name is ambiguous by
   construction.
 - The workspace carries **643 sidecar files**, and only **5** of their ids
-  match any constraint's slug at all. The join that exists today is by
+  match any **constraint's** slug at all. The join that exists today is by
   *test name*, not by claim.
+  The full measurement, both readings, is in
+  `reviews/2026-11-24-rule-of-5.md` (M3–M6): 5 of 613 distinct sidecar ids
+  match a constraint slug, 296 match a **property** slug, and 301 of the 643
+  sidecar files name a *property* of their own capability while only 4 name
+  a constraint of it. The external surface speaks in **properties** — the
+  corpus titles its scenarios by property id
+  (`openspec/specs/compile/spec.md:264`, `#### Scenario:
+  precondition_violation_rejected`, with `- **VERIFIES**
+  [[compile.precondition_violation_rejected]]`) — which is why the placement
+  rule (design D8) resolves a property to its claim through the corpus's
+  declared `derives_from` edge, and why the key (D1) is a claim key at all.
 
 So a claim has no citable name, and the binding between "what we said should
 happen" and "what was actually checked" is carried in whatever artefact
@@ -31,10 +42,25 @@ happens to sit next to it — prose in one consumer, a test name in another.
 When the pin dies, nothing notices: the run stays green because a green run
 measures the evidence that exists, never the evidence that is missing.
 
-Baseline, stated so the first run reads honestly: today most declared claims
-have no evidence rows at all, so a first report lists most claims as
-`unchecked` and still exits 0. That is the point — the count makes the gap
-visible, and a falling `unchecked` count is progress a reader can see.
+Baseline, stated so the first run reads honestly, and measured rather than
+assumed (2026-11-24):
+
+- Of the corpus's **408 invariant claims**, **76 (19%)** are placeable by
+  this repo's own producers, and **202 (50%)** are reachable through the
+  sibling contract surface the tool may not read — so `unchecked` means "no
+  evidence from this run", never "no evidence exists" (design D2).
+- **470 of the corpus's 572 properties are still `todo_predicate!` stubs**,
+  and `spk check` currently judges **0 of the 50** corpus capability files
+  (19 refuse at `artifact_gate` because the isolated lint cannot resolve
+  cross-file references, 31 at `verify_model` for an absent model-check
+  report). The section's first appearance is therefore one capability at a
+  time, and the gate wiring it depends on is tracked as a precondition
+  (design D10, tasks §0).
+
+A first report is consequently a small, honest list — most of it `unchecked` —
+and it counts rather than blocks (D4). That is the point: the count makes
+the gap visible, and a falling `unchecked` count is progress a reader can
+see.
 
 The `check` verb is the right place to close this, because `check` is
 already the judge over the evidence a revision actually has
@@ -56,6 +82,16 @@ attached to evidence *units*, never to *claims*.
   `binds_nothing`, `new`). A claim with no evidence row carries `unchecked`
   — the class the vocabulary already reserves for knowledge absence —
   listed, counted, and never silently absent.
+- **The placement rule is decided**: a row places a claim when it names the
+  claim directly (a model row) or names a property whose `derives_from` names
+  the claim; a claim's class is the strongest class among the rows that
+  place it (`contradicted` > `current` > `binds_nothing` > `unchecked`).
+  Without this, two conforming implementations would disagree — and scope B
+  would inherit the ambiguity instead of inheriting a decision.
+- **The section says what it is about**: it describes the evidence *this
+  run's* producers produced; evidence outside this run's authority is not
+  read. It lives in the check envelope, not in the audit report, so the
+  report's schema version and field set stay untouched.
 - **The section never gates.** An unchecked claim is knowledge absence, not a
   contradiction: the exit code stays the one the evidence rows alone
   determine, and the count is surfaced next to the existing counts.
@@ -88,12 +124,20 @@ not lose the knowledge".
 
 ## Impact
 
-- `openspec/specs/check/spec.md` — two ADDED requirements; the layer
-  sidecar carries three new constraints and three new properties.
+- `openspec/specs/check/spec.md` — five ADDED requirements; the layer
+  sidecar carries four new constraints and four new properties.
 - `src/check.rs` — report assembly gains the coverage section; no new
-  verdict, no new audit class, no exit-code change.
+  verdict, no new audit class, no exit-code change. The section is
+  materialized in the check envelope; `AuditReport` and its schema version
+  are untouched.
 - `docs/src/graded-evidence.md` — one row per new status mapping (the
   coverage section reuses the existing class set; the drift gate
   `scripts/check_evidence_axes.py` must agree).
 - `spk check --help` — no new flag; the section is part of the report.
 - No change to `verify`, `conform`, `audit`, `model-check`, or the compiler.
+- **Precondition, tracked separately**: `spk check` cannot yet judge a
+  corpus capability file (its artifact gate lints the file in isolation —
+  `src/check.rs:242` calls the corpus-less `conform::gate`, while the
+  corpus-aware `conform::gate_in_corpus` is wired for `spk conform` only,
+  `src/commands/corpus.rs:888-925`). The change does not fix that; its
+  self-hosting exercise does.

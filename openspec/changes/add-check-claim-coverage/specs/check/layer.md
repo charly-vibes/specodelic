@@ -1,7 +1,7 @@
 ---
 id: check.layer
 kind: intent
-statement: "WHEN a lint-clean spec file with current compiled artifacts is judged by one invocation, THE check capability SHALL compose the existing evidence producers — conform's gate and trace walk, verify's both-gates evaluation, audit's classification and ladder derivation — into one row layer carrying exactly one existing verdict and one existing audit class per row, one audit-shaped report, and one exit contract in which 0 and 1 mean a judgement was emitted and 2 means none was — and SHALL name every judged claim by its file-qualified claim id and SHALL list every declared invariant claim of the judged file with its evidence status, so an uncovered expected behaviour is countable rather than invisible."
+statement: "WHEN a lint-clean spec file with current compiled artifacts is judged by one invocation, THE check capability SHALL compose the existing evidence producers — conform's gate and trace walk, verify's both-gates evaluation, audit's classification and ladder derivation — into one row layer carrying exactly one existing verdict and one existing audit class per row, one audit-shaped report, and one exit contract in which 0 and 1 mean a judgement was emitted and 2 means none was — and SHALL name every judged claim by its file-qualified claim id and SHALL list every declared invariant claim of the judged file with its evidence status, placed only by the declared placement rule, so an uncovered expected behaviour is countable rather than invisible."
 ---
 
 # check — dual-format layer (sidecar)
@@ -19,10 +19,12 @@ It also names what it judged. Every claim a row carries is named by its
 file-qualified claim id — the form the corpus already guarantees unique
 corpus-wide — and every declared invariant claim of the judged file is listed
 with its evidence status, so an expected behaviour with no evidence behind it
-is countable in the report instead of invisible. Nothing is matched by name,
+is countable in the report instead of invisible. A row places a claim only by
+naming it or by naming a property that derives from it, and a claim placed by
+several rows carries the strongest class among them. Nothing is matched by name,
 slug, or similarity, and no binding outside the corpus is read: the coverage
-section is a statement about the judged file, not a claim about anyone
-else's suite.
+section is a statement about the judged file in this run, not a claim about
+anyone else's suite.
 
 <!-- Error labels are file-id-namespaced (error-contract): an error
 (effect) Constraint's expr reads `<owning-file-id>.<variant_head>(field, …)`
@@ -46,8 +48,9 @@ that namespace to the deployed spec id when it attaches the layer. -->
 | evidence_read_only  | invariant | `check writes no evidence artifact, never compiles, never rewrites the model-check report, and leaves the spec and the compiled artifacts byte-identical on every refusal`                                              | [[check.layer]] |
 | no_foreign_authority | invariant | `check never executes a consumer's contract suite, instantiate an adapter or registry, read sidecar bindings, demote the corpus, or claim independence for agent-authored evidence — scope B stays demand-gated and untouched` | [[check.layer]] |
 | claim_key_file_qualified | invariant | `every judged claim is named by its file-qualified claim id — <file id>.<claim id> — the form the corpus already guarantees unique corpus-wide; a report row never abbreviates a claim to its bare id, and no claim is matched by name, slug, or similarity` | [[check.layer]] |
-| claim_coverage_listed | invariant | `every declared invariant claim of the judged file appears in the report's claim-coverage section carrying exactly one audit class from audit's existing closed set {current, stale, unchecked, contradicted, binds_nothing, new}; a claim with no evidence row carries unchecked — knowledge absence — and is never absent from the section, never reported as evidence it does not have, and never given a new vocabulary value` | [[check.layer]] |
-| claim_coverage_non_gating | invariant | `the claim-coverage section is countable and never gates the exit code — an uncovered claim is knowledge absence, not a contradiction, and its count is surfaced in every output view alongside the existing evidence counts` | [[check.layer]] |
+| claim_placement_declared | invariant | `an evidence row places a declared claim only when it names that claim directly or names a property whose derives_from names that claim — the corpus's declared edge — and a row that places no claim belongs to the section's residual bucket, never to a claim` | [[check.layer]] |
+| claim_coverage_listed | invariant | `every declared invariant claim of the judged file appears in the report's claim-coverage section carrying exactly one audit class from audit's existing closed set {current, stale, unchecked, contradicted, binds_nothing, new}; a claim with no placing row carries unchecked — knowledge absence in this run — and is never absent from the section, never reported as evidence it does not have, and never given a new vocabulary value; a claim placed by several rows carries the strongest class in the order contradicted > current > binds_nothing > unchecked; the section is materialized in the check envelope and leaves the audit report's schema version and field set unchanged` | [[check.layer]] |
+| claim_coverage_non_gating | invariant | `the claim-coverage section is countable and never gates the exit code — an uncovered claim is knowledge absence, not a contradiction, and its count is surfaced in every output view alongside the existing evidence counts and on the verdict line` | [[check.layer]] |
 | evidence_unavailable | effect   | `check.layer.evidence_unavailable(detail) — the run could not obtain evidence to judge because detail; the refusal rides the errors capability's published contract (envelope kind, exit code, remediation hint)`             | [[check.layer]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
@@ -84,8 +87,9 @@ that namespace to the deployed spec id when it attaches the layer. -->
 | p_read_only   | unit | [[check.layer.evidence_read_only]]        | `refused_run()`                    | `spec and artifacts byte-identical ∧ zero records ∧ no artifact written`                                            |
 | p_scope       | unit | [[check.layer.no_foreign_authority]]      | `foreign_suite_offered()`          | `no adapter or registry path exists ∧ no independence claim emitted`                                               |
 | p_claim_key   | unit | [[check.layer.claim_key_file_qualified]]  | `two_files_declaring_the_same_claim_id()` | `the two rows carry distinct keys ∧ each key resolves to its own file's claim ∧ no key is derived from a name or slug` |
-| p_coverage_listed | unit | [[check.layer.claim_coverage_listed]] | `declared_claim_with_no_evidence_row()` | `the claim is listed with class unchecked ∧ the section counts it ∧ no row claims evidence for it ∧ no new vocabulary value appears`          |
-| p_coverage_non_gating | unit | [[check.layer.claim_coverage_non_gating]] | `run_with_an_unchecked_claim()`  | `the exit code is unchanged ∧ the unchecked-claim count is surfaced in every output view`                              |
+| p_placement   | unit | [[check.layer.claim_placement_declared]] | `row_naming_a_property_derives_from_a_claim()` | `the claim that property derives from is listed ∧ no other claim is listed for that row ∧ a row placing no claim lands in the residual bucket` |
+| p_coverage_listed | unit | [[check.layer.claim_coverage_listed]] | `declared_claim_with_no_evidence_row()` | `the claim is listed with class unchecked ∧ the section counts it ∧ no row claims evidence for it ∧ no new vocabulary value appears ∧ the section states that its classes describe this run's producers ∧ the audit report's schema version and field set are unchanged` |
+| p_coverage_non_gating | unit | [[check.layer.claim_coverage_non_gating]] | `run_with_an_unchecked_claim()`  | `the exit code is unchanged ∧ the unchecked-claim count is surfaced in every output view ∧ the count appears on the verdict line` |
 | p_label       | unit | [[check.layer.evidence_unavailable]]      | `evidence_unavailable_raised()`    | `error_label == "check.evidence_unavailable"`                                                                      |
 
 ## Requirements

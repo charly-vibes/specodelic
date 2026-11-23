@@ -10,10 +10,16 @@ Rejected:
   and 28 kebab-style slugs collide across files (`process-lifecycle` appears
   in 21 capability files). A bare id is ambiguous by construction.
 - **A slug or filename, matched by similarity.** Refuted by measurement: of
-  643 sidecar files in this workspace, only 5 ids match any constraint slug
-  at all, and where they do the match is a coincidence of naming, not a
+  643 sidecar files in this workspace, only 5 ids match any **constraint**
+  slug at all (613 distinct ids; 5 match a constraint slug, 296 match a
+  **property** slug, and only 4 contract files name a constraint of their own
+  capability), and where they do the match is a coincidence of naming, not a
   declared relation. Inference by similarity is a guess; a guess that binds
-  evidence to a claim is worse than no binding.
+  evidence to a claim is worse than no binding. (The measurement is stated in
+  full, both readings, in `reviews/2026-11-24-rule-of-5.md` M3–M6 — the
+  narrow "5" is true only for the Constraints table, and the surface it
+  describes speaks in *properties*, which is why D8 resolves the property to
+  its claim through the corpus's declared `derives_from` edge.)
 - **A new generated claim uid (a `uid:` column, a hash).** It would be
   unique, but it would be a *second* name for a claim the corpus already
   names uniquely — and every external binder would have to learn the
@@ -43,6 +49,28 @@ Rejected: a coverage-specific status set (new vocabulary), and a boolean
 "covered" flag (a stored boolean the corpus forbids — `no_boolean_columns`:
 superseded-ness and every other such fact is derived, never stored).
 
+**`unchecked` means "no evidence from THIS RUN's producers" — not "no evidence
+exists".** The two are different facts, and scope A deliberately collapses them:
+`check.no_foreign_authority` forbids reading a consumer's bindings, so a claim
+whose evidence lives in the sibling contract surface (301 of the 643 sibling
+contract files name a property of their own capability;
+202 of the corpus's 408 invariant claims are reachable that way — measured,
+see `reviews/2026-11-24-rule-of-5.md` M5/M6) is reported as `unchecked` by a
+run that cannot read that evidence. The class is therefore a statement about
+the run, not about the world, and the report says so (D10). Sibling precedent:
+`dont` keeps the two absences apart — claim status `unverified` (never
+verified) versus evidence outcome `unchecked` (evidence present, not
+checkable) — but `check.one_vocabulary` forbids specodelic the same split, so
+the honest, vocabulary-free form is one class plus an explicit scope
+statement.
+
+**Only `invariant` claims are listed.** The corpus also declares 39 `effect`,
+2 `advisory` and 3 `extension_point` constraints; they assert emissions and
+judgements rather than behaviours that evidence can contradict, and no
+producer can place an evidence row on them. Narrowing is stated here so the
+delta's "declared invariant claim" is not read as an accident — and so a
+future change that wants effect claims says so explicitly.
+
 ## D3: The section is derived at report time, from the rows the run produced
 
 The section is not a new producer and not a new file. It is a projection of
@@ -68,6 +96,17 @@ with the count visible.
 The section's value is *visibility*, not enforcement: it makes the gap
 countable so a reader can act on it. If the gap should gate, that is a
 different decision with a different owner.
+
+Grounding, both directions: `dont`'s `prime` counts claims by status and
+exits 1 only on the blocking (doubted) ones — absence is visible, contradiction
+is fatal, which is this design's shape (`dont/src/main.rs:4856-4960`). The
+sibling `espectacular` gates the opposite way: a scenario with no declared
+test is a finding that blocks execution
+(`espectacular/src/check/structural.rs`, finding kind `no-tests-declared`).
+That divergence is deliberate here and is a consequence of
+`check.one_vocabulary`: specodelic has no "no-evidence" finding kind to
+gate with, so the gap is counted instead. The count must therefore be
+unmissable — D10 puts it on the verdict line.
 
 ## D5: Rows are re-keyed by claim id, not re-spelled
 
@@ -95,6 +134,8 @@ being silently dropped — the section accounts for every row it did not place.
 - **No independence claim.** A claim covered by evidence this repo produced
   itself is not independently evidenced; the section says nothing about
   independence and must not be read as saying it.
+- **No claim-count verdict.** The section counts; it never decides. The exit
+  code remains the one the evidence rows alone determine (D4).
 - **No derivation of claims.** Claims are declared, never inferred from tests
   or prose.
 
@@ -108,10 +149,107 @@ being silently dropped — the section accounts for every row it did not place.
 - The report stays byte-stable for identical inputs — the section's ordering
   is the corpus's declaration order, never a hash-map iteration order.
 - Self-hosting: the change lands with the corpus unchanged, and the section
-  is exercised against this repo's own capabilities (a file with claims that
-  have no evidence rows is the natural fixture — most corpus files today
-  would be `unchecked` for most of their claims, which is the honest reading
-  and the reason this change is worth making).
+  is exercised against this repo's own capabilities. **Measured baseline
+  (2026-11-24, review M7–M10):** of the corpus's 408 invariant claims, 76
+  (19%) are placeable by this repo's own producers and 202 (50%) are
+  reachable through the sibling contract surface the tool may not read; 470
+  of the corpus's 572 properties are still `todo_predicate!` stubs, and
+  `spk check` currently judges 0 of the 50 capability files (see D10's
+  precondition). The first report therefore covers one capability at a
+  time, and a first report for a capability whose properties are stubs is a
+  refusal, not a coverage list — the honest reading, and the reason the
+  precondition is tracked rather than assumed.
+
+## D8: The placement rule — which row places which claim (decided)
+
+**Chosen:** a row places a claim when it names the claim directly, or names a
+**property** whose `derives_from` names the claim. Nothing else places
+anything.
+
+- A **model row** names the claim directly: `src/check.rs:123` emits
+  `verify:model:<claim-id>` for a claim the model gate could not verify.
+- A **property row** names a property, not a claim: `src/check.rs:60-70` sets
+  the row's `claims` field to the property id (`verify:prop:<property-id>`),
+  so the placement hop is the property's own `derives_from` column — the
+  corpus's declared edge from a property to the constraint it derives from
+  (`linter.coverage` guarantees every property derives from at least one
+  constraint).
+- A **vacuous-binding row** names its owner directly: `src/audit.rs:629-641`
+  keys it `bind:<invariant-id>`, the owner being the claim itself.
+
+Why this matters: the external surface speaks in **properties**. The corpus
+titles its scenarios by property id (`openspec/specs/compile/spec.md:264`,
+`#### Scenario: precondition_violation_rejected`, with
+`- **VERIFIES** [[compile.precondition_violation_rejected]]`), and 301 of the
+643 sibling contract files name a property of their own capability — while
+only 4 of 643 name a constraint of their own capability, and only 5 of 613
+contract ids match any constraint slug at all (measured: review M3–M6). A
+rule that stopped at "the row names a property" would leave every claim
+unplaced; a rule that guessed from names would bind evidence to the wrong
+claim. The one-hop `derives_from` resolution is the corpus's own declared
+edge, so it is neither a guess nor a new vocabulary.
+
+Rejected: matching a row to a claim by name, slug or similarity (D1's
+measurement refutes it); reading a binding kind (`binding_kind`/`origin` stay
+reserved — `specodelic-yfib`, `specodelic-30s5`); and inferring claims from
+tests or prose (the anti-goal).
+
+## D9: The fold — several rows, one class (decided)
+
+**Chosen:** a claim's class is the strongest class among the rows that place
+it, in the order `contradicted` > `current` > `binds_nothing` > `unchecked`.
+A claim with no placing row is `unchecked`; a row that places no claim
+belongs to the residual bucket, not to the section's class set.
+
+- `contradicted` outranks everything: a claim-level contradiction (a model
+  row naming the claim) beats a property-level pass.
+- `current` is the ordinary case: a placing row that passed.
+- `binds_nothing` is a *vacuous* placement — the row exists but its text
+  cites no declared id (`src/audit.rs:653`), so nothing was checked. It
+  ranks below `current` and above `unchecked`: the claim was looked at and
+  found vacuous, which is not the same as never being looked at.
+- `unchecked` is the floor: no placing row.
+
+`stale` and `new` are reachable only in a `--before` run (`src/check.rs:270`
+diffs the prior report: same class ⇒ current, worsened ⇒ stale, absent ⇒
+new); they are listed in the mapping with their producer path so a reader
+does not look for a class that cannot occur in a default run.
+
+Rejected: first-row-wins (order is an implementation detail, and the corpus's
+declaration order is not evidence strength); a claim carrying a *set* of
+classes (the requirement says exactly one); and a separate
+"contradicted-beats-stale" vocabulary.
+
+## D10: Where the section lives, and what it says about itself (decided)
+
+**Chosen:** the claim-coverage section is materialized in the **check
+envelope**, beside the report — not as a field of `AuditReport`.
+`check.report_interop` freezes the report's schema version and field set so
+that either verb's report is accepted as the other's prior; a new field on
+`AuditReport` would change that field set and would touch `spk audit` too.
+The section is check's own addition to the envelope.
+
+**Chosen:** the section carries a scope statement — "classes describe the
+evidence THIS RUN's producers produced; evidence outside this run's authority
+is not read" — because `unchecked` otherwise reads as "no evidence exists"
+where it means "no evidence in this run" (D2). The statement is part of the
+section, not a footnote.
+
+**Chosen:** the section appears in every output view (JSON envelope and human
+view), with the class counts surfaced **on the verdict line** of the human
+view — a trailing summary block is a block a reader misses, and a missed
+count is the same as no count.
+
+**Precondition (measured 2026-11-24):** the change cannot be exercised
+against this repo's own capabilities until `spk check` can judge a corpus
+capability file at all. Today it cannot: `src/check.rs:242` calls the
+corpus-less `conform::gate`, while the corpus-aware `conform::gate_in_corpus`
+is wired only for `spk conform` (`src/commands/corpus.rs:888-925`). Measured
+over the 50 corpus capability files: 19 refuse at `artifact_gate` (the
+isolated lint cannot resolve cross-file references) and 31 at `verify_model`
+(no model-check report) — **0 of 50 judged**. The gate wiring is tracked
+separately (see the change's tasks §0) and this change's self-hosting claim
+depends on it; the section is not expected to make the corpus judgeable.
 
 ## Research lineage
 
