@@ -7,7 +7,7 @@
 ## 0. Preconditions (not this change's work — the change depends on them)
 
 0.1 `spk check` must be able to judge a corpus capability file at all.
-    Measured 2026-11-24: 0 of 50 corpus capability files are judged — 19
+    Measured 2026-11-23: 0 of 50 corpus capability files are judged — 19
     refuse at `artifact_gate` (`src/check.rs:242` calls the corpus-less
     `conform::gate`; the corpus-aware `conform::gate_in_corpus` is wired for
     `spk conform` only, `src/commands/corpus.rs:888-925`), and 31 refuse at

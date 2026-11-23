@@ -16,7 +16,7 @@ Rejected:
   capability), and where they do the match is a coincidence of naming, not a
   declared relation. Inference by similarity is a guess; a guess that binds
   evidence to a claim is worse than no binding. (The measurement is stated in
-  full, both readings, in `reviews/2026-11-24-rule-of-5.md` M3–M6 — the
+  full, both readings, in `reviews/2026-11-23-rule-of-5.md` M3–M6 — the
   narrow "5" is true only for the Constraints table, and the surface it
   describes speaks in *properties*, which is why D8 resolves the property to
   its claim through the corpus's declared `derives_from` edge.)
@@ -55,7 +55,7 @@ exists".** The two are different facts, and scope A deliberately collapses them:
 whose evidence lives in the sibling contract surface (301 of the 643 sibling
 contract files name a property of their own capability;
 202 of the corpus's 408 invariant claims are reachable that way — measured,
-see `reviews/2026-11-24-rule-of-5.md` M5/M6) is reported as `unchecked` by a
+see `reviews/2026-11-23-rule-of-5.md` M5/M6) is reported as `unchecked` by a
 run that cannot read that evidence. The class is therefore a statement about
 the run, not about the world, and the report says so (D10). Sibling precedent:
 `dont` keeps the two absences apart — claim status `unverified` (never
@@ -150,7 +150,7 @@ being silently dropped — the section accounts for every row it did not place.
   is the corpus's declaration order, never a hash-map iteration order.
 - Self-hosting: the change lands with the corpus unchanged, and the section
   is exercised against this repo's own capabilities. **Measured baseline
-  (2026-11-24, review M7–M10):** of the corpus's 408 invariant claims, 76
+  (2026-11-23, review M7–M10):** of the corpus's 408 invariant claims, 76
   (19%) are placeable by this repo's own producers and 202 (50%) are
   reachable through the sibling contract surface the tool may not read; 470
   of the corpus's 572 properties are still `todo_predicate!` stubs, and
@@ -240,7 +240,7 @@ view), with the class counts surfaced **on the verdict line** of the human
 view — a trailing summary block is a block a reader misses, and a missed
 count is the same as no count.
 
-**Precondition (measured 2026-11-24):** the change cannot be exercised
+**Precondition (measured 2026-11-23):** the change cannot be exercised
 against this repo's own capabilities until `spk check` can judge a corpus
 capability file at all. Today it cannot: `src/check.rs:242` calls the
 corpus-less `conform::gate`, while the corpus-aware `conform::gate_in_corpus`

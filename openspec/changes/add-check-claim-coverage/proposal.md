@@ -25,7 +25,7 @@ Two measurements from this repo settle the second point:
   match any **constraint's** slug at all. The join that exists today is by
   *test name*, not by claim.
   The full measurement, both readings, is in
-  `reviews/2026-11-24-rule-of-5.md` (M3–M6): 5 of 613 distinct sidecar ids
+  `reviews/2026-11-23-rule-of-5.md` (M3–M6): 5 of 613 distinct sidecar ids
   match a constraint slug, 296 match a **property** slug, and 301 of the 643
   sidecar files name a *property* of their own capability while only 4 name
   a constraint of it. The external surface speaks in **properties** — the
@@ -43,7 +43,7 @@ When the pin dies, nothing notices: the run stays green because a green run
 measures the evidence that exists, never the evidence that is missing.
 
 Baseline, stated so the first run reads honestly, and measured rather than
-assumed (2026-11-24):
+assumed (2026-11-23):
 
 - Of the corpus's **408 invariant claims**, **76 (19%)** are placeable by
   this repo's own producers, and **202 (50%)** are reachable through the
