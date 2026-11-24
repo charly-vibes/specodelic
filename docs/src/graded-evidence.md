@@ -285,6 +285,45 @@ tutorial.
 | `1` | any `contradicted` row; or any `stale` row when the `--before` baseline was recorded with `--declare-expectation` |
 | `2` | invocation error or gate refusal (lint-dirty file, stale artifacts, digest mismatch, zero records — an audit over no evidence is never a pass) |
 
+## The claim-coverage section — what check judged, and what it did not
+
+`spk check`'s envelope carries one section `spk audit`'s does not: the
+**claim-coverage** section, materialized beside the report (the report's
+schema version and field set are untouched — a check envelope still parses as
+an audit `--before` prior).
+
+The section lists **every declared invariant claim of the judged file** by its
+**file-qualified claim id** — `<file id>.<claim id>`, the form the corpus
+guarantees unique corpus-wide — each carrying exactly one class from audit's
+closed set:
+
+- An evidence row **places** a claim when it names the claim directly (a model
+  row's `verify:model:<claim>` key, an oracle row's evaluated claims, a binding
+  row's owner) or names a **property whose `derives_from` names the claim** —
+  the corpus's declared edge, one hop. Nothing is matched by name, slug,
+  filename or similarity: a resemblance produces no placement, ever.
+- A claim placed by several rows carries the **strongest** class among them,
+  ordered `contradicted` > `stale` > `current` > `new` > `binds_nothing` >
+  `unchecked`. A claim placed by no row carries `unchecked`.
+- A row that places no claim (for example the bare model-level row) is
+  **accounted for** in the section's residual bucket — never dropped, never
+  attached to a claim.
+
+The section's classes describe **this run's evidence only**: the scope field
+(`scope.id: "this_run_producers"`) is machine-readable, and the statement
+beside it says the same thing for readers — `unchecked` means "no evidence
+from this run", never "no evidence exists". The counts ride the verdict line
+of the human view and sit beside the evidence counts in JSON, and the section
+**never gates**: the exit code is what the evidence rows alone determine.
+
+Two properties worth knowing when extending the producers: the key-shape table
+above is closed (`verify:prop:*`, `verify:model*`, `bind:*`, plus oracle rows'
+`evaluated_claim_ids`) — a future producer whose row key matches none of them
+lands in the residual bucket, which is safe-by-default (an unplaced row is
+visible, never misattributed); and only `invariant` claims are listed, because
+effect/advisory/extension_point constraints assert emissions and judgements
+that no evidence row can contradict.
+
 ## Known limitations
 
 Each limitation below cites a runnable command; run it yourself — the

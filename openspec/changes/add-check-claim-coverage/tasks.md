@@ -131,9 +131,9 @@
 
 ## 7. Archive readiness
 
-7.1 The plain delta (`specs/check/spec.md`) carries the two ADDED
-    requirements; the layer sidecar (`specs/check/layer.md`) carries the three
-    new constraints and three new properties.
+7.1 The plain delta (`specs/check/spec.md`) carries the five ADDED
+    requirements; the layer sidecar (`specs/check/layer.md`) carries the four
+    new constraints and four new properties.
 7.2 `just archive-change id=add-check-claim-coverage` deploys the layer
     verbatim and fail-closes if the sidecar is missing.
 7.3 The `## Requirements` layer-sidecar contract requirement is present in

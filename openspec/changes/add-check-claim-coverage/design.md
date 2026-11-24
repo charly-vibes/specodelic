@@ -197,9 +197,21 @@ tests or prose (the anti-goal).
 ## D9: The fold — several rows, one class (decided)
 
 **Chosen:** a claim's class is the strongest class among the rows that place
-it, in the order `contradicted` > `current` > `binds_nothing` > `unchecked`.
-A claim with no placing row is `unchecked`; a row that places no claim
-belongs to the residual bucket, not to the section's class set.
+it, in the order `contradicted` > `stale` > `current` > `new` >
+`binds_nothing` > `unchecked`. A claim with no placing row is `unchecked`; a
+row that places no claim belongs to the residual bucket, not to the section's
+class set.
+
+**Amended during implementation (2026-11-24, tdd-ro5 green step):** the
+original order listed only `contradicted > current > binds_nothing >
+unchecked`, noting that `stale` and `new` "are reachable only in a `--before`
+run" without ranking them — an unranked class would make the fold
+order-dependent (two implementations could disagree by fold order), the same
+two-implementations shape CORR-002 named. The fold ranks the full closed set:
+a non-current currency label outranks `current` (a regression is stronger
+evidence about the claim than an agreement), `new` outranks `binds_nothing`
+but sits below `current` (a novelty label is weaker than an actual
+agreement), and a contradiction still outranks everything.
 
 - `contradicted` outranks everything: a claim-level contradiction (a model
   row naming the claim) beats a property-level pass.

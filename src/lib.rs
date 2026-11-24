@@ -19,6 +19,7 @@ pub mod blocks;
 pub mod check;
 pub mod checklist;
 pub mod citation_corpus;
+pub mod claim_coverage;
 pub mod compile;
 pub mod conform;
 pub mod doctor;

@@ -91,9 +91,9 @@ affect the exit code: an unchecked claim is not a contradiction.
 ### Requirement: A claim's coverage class is the strongest class among the rows that place it
 
 `spk check` SHALL give a claim exactly one coverage class: the strongest class
-among the rows that place it, ordered `contradicted`, then `current`, then
-`binds_nothing`, then `unchecked`. A claim placed by no row SHALL carry
-`unchecked`.
+among the rows that place it, ordered `contradicted`, then `stale`, then
+`current`, then `new`, then `binds_nothing`, then `unchecked`. A claim placed
+by no row SHALL carry `unchecked`.
 
 #### Scenario: A claim with several rows takes the strongest class
 

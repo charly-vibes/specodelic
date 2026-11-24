@@ -23,8 +23,10 @@
 use std::io::Write;
 
 use genesis::guide::{Output, OutputFormat, Verbosity};
+use serde::{Deserialize, Serialize};
 
 use crate::audit::{self, AuditClass, AuditRecord, AuditReport};
+use crate::claim_coverage::{self, ClaimCoverage};
 use crate::conform::{self, ConformError, Verdict};
 use crate::model_check::Outcome;
 use crate::spec::Spec;
@@ -230,6 +232,41 @@ pub struct Judgement {
     pub contradicted: usize,
 }
 
+/// The check envelope's payload: the audit report UNCHANGED — flattened, so
+/// the report's field set stays exactly audit's and a check report still
+/// parses as audit's `--before` prior — with the claim-coverage section
+/// beside it as the one sibling key.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckPayload {
+    /// The audit report, flattened into the payload beside the section.
+    #[serde(flatten)]
+    pub report: AuditReport,
+    /// The claim-coverage section: every declared invariant claim of the
+    /// judged file with its class.
+    pub claim_coverage: ClaimCoverage,
+}
+
+/// The check envelope's payload for one judged file: the report plus the
+/// claim-coverage section derived from it.
+pub fn payload(spec: &Spec, report: &AuditReport) -> CheckPayload {
+    CheckPayload {
+        report: report.clone(),
+        claim_coverage: claim_coverage::coverage(spec, report),
+    }
+}
+
+/// The check verb's human view: the audit report's view, with the
+/// claim-coverage counts on the verdict line and the section's own lines
+/// before the record detail.
+pub fn human_view(payload: &CheckPayload) -> String {
+    audit::human_view_labelled_extended(
+        "check",
+        &payload.report,
+        &claim_coverage::verdict_summary(&payload.claim_coverage),
+        &claim_coverage::section_lines(&payload.claim_coverage),
+    )
+}
+
 /// The judging pass: gate, verify stage, oracle walk (optional), row fold,
 /// rung derivation, prior diff. Every refusal returns Err with zero rows.
 pub fn run(
@@ -387,11 +424,12 @@ fn class_count(report: &AuditReport, class: AuditClass) -> usize {
     report.records.iter().filter(|r| r.class == class).count()
 }
 
-/// Render a judged report: exit 1 rides the findings envelope with the
-/// report attached; exit 0 carries the binds-nothing advisory. Both views
-/// render the same report values through audit's one rendering path.
+/// Render a judged payload: exit 1 rides the findings envelope with the
+/// payload attached; exit 0 carries the binds-nothing advisory. Both views
+/// render the same payload values through the check verb's one rendering
+/// path.
 fn emit_judged(
-    report: &AuditReport,
+    payload: &CheckPayload,
     exit: i32,
     contradicted: usize,
     format: OutputFormat,
@@ -411,7 +449,7 @@ fn emit_judged(
         return 2;
     }
     if exit == 1 {
-        let stale = class_count(report, AuditClass::Stale);
+        let stale = class_count(&payload.report, AuditClass::Stale);
         let message = if contradicted > 0 {
             format!(
                 "{contradicted} contradicted record(s) — the current evidence contradicts a declared claim"
@@ -421,13 +459,13 @@ fn emit_judged(
                 "{stale} stale record(s) under a declared expectation — the prior baseline no longer holds against this revision"
             )
         };
-        let out = audit::findings_failure(Output::success(report.clone()), message).with_next_step(
+        let out = audit::findings_failure(Output::success(payload.clone()), message).with_next_step(
             "fix the model or re-record the affected evidence; re-declare the baseline with --declare-expectation",
         );
-        audit::emit_output_labelled(out, "check", format, verbosity, stdout, stderr).ok();
+        emit_payload(out, format, verbosity, stdout, stderr).ok();
         return 1;
     }
-    let binds = class_count(report, AuditClass::BindsNothing);
+    let binds = class_count(&payload.report, AuditClass::BindsNothing);
     let warnings = if binds > 0 {
         vec![format!(
             "{binds} binds_nothing row(s) — evidence citing no declared model element (vacuous binding); warnings-channel advisory, never a failure"
@@ -435,8 +473,34 @@ fn emit_judged(
     } else {
         Vec::new()
     };
-    audit::emit_report_labelled(report, warnings, "check", format, verbosity, stdout, stderr).ok();
+    let mut out = Output::success(payload.clone());
+    out.warnings.extend(warnings);
+    emit_payload(out, format, verbosity, stdout, stderr).ok();
     0
+}
+
+/// The check verb's rendering path: the human view above the suppressed
+/// data dump for `--human`, the JSON envelope otherwise — the convention
+/// the audit verb follows, over the check payload.
+fn emit_payload(
+    out: Output<CheckPayload>,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl Write,
+    stderr: &mut impl Write,
+) -> std::io::Result<()> {
+    if format == OutputFormat::Human {
+        writeln!(stdout, "{}", human_view(&out.data))?;
+        out.with_verbosity(Verbosity::MAX + 1).emit(
+            env!("CARGO_PKG_VERSION"),
+            format,
+            verbosity,
+            stdout,
+            stderr,
+        )
+    } else {
+        out.emit(env!("CARGO_PKG_VERSION"), format, verbosity, stdout, stderr)
+    }
 }
 
 /// `spk check <spec-file> [--oracle <corpus.jsonl>] [...]`: the single
@@ -475,7 +539,7 @@ pub fn cmd_check(
     };
     match run(&spec, &target, oracle.as_deref(), prior.as_ref()) {
         Ok(judgement) => emit_judged(
-            &judgement.report,
+            &payload(&spec, &judgement.report),
             judgement.exit,
             judgement.contradicted,
             format,

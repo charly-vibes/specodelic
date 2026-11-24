@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-24-claim-coverage, pipeline-step:fix-review]
+---
+
+RO5U-FIXES: (tdd-ro5 step 7, from reviews/2026-11-24-ro5u-claim-coverage-scope-a-tdd-ro5-step-6.md, verdict READY 0 CRITICAL / 0 HIGH / 2 LOW). CLAR-001 LOW fixed: rewrapped the 'strongest class' SHALL sentence in openspec/changes/add-check-claim-coverage/specs/check/spec.md ('A claim placed by no row SHALL carry unchecked.' on one logical line); openspec validate add-check-claim-coverage --strict still green after the edit. EXCL-001 LOW deferred WITH REASON: documenting named_ids' safe-by-default property (unknown producer key shapes land in the residual bucket, never a wrong placement) belongs in docs/src/graded-evidence.md, which is task 6.1 of the change — it will be covered when that task lands in this same run's ship step; not a diff defect. EXCL-002 LOW: no action (one clone per CLI invocation, fine at scale). No behavior-impacting fixes, so no new tests; tests re-run after fixes: cargo test --test check_claim_coverage 12/12 green.

@@ -902,6 +902,21 @@ pub fn human_view(report: &AuditReport) -> String {
 /// the same report through the same formatter, so the two verbs cannot
 /// tell different stories about one report shape.
 pub fn human_view_labelled(label: &str, report: &AuditReport) -> String {
+    human_view_labelled_extended(label, report, "", &[])
+}
+
+/// [`human_view_labelled`] with two additions the check verb's
+/// claim-coverage section needs: a summary that rides the VERDICT line
+/// (a trailing block is a block a reader misses), and the section's own
+/// lines, inserted before the record detail so the coverage picture is
+/// read before the rows it summarizes. One formatter, one set of report
+/// values — the two views cannot drift.
+pub fn human_view_labelled_extended(
+    label: &str,
+    report: &AuditReport,
+    verdict_summary: &str,
+    section: &[String],
+) -> String {
     let mut classes: Vec<String> = Vec::new();
     for (class, count) in &report.class_counts {
         classes.push(format!("{class} {count}"));
@@ -911,6 +926,9 @@ pub fn human_view_labelled(label: &str, report: &AuditReport) -> String {
         report.records.len(),
         classes.join(", ")
     );
+    if !verdict_summary.is_empty() {
+        out.push_str(&format!(" | {verdict_summary}"));
+    }
     out.push_str(&format!("\n  evidence_scope: {}", report.evidence_scope));
     out.push_str(&format!("\n  scope_sha256: {}", report.scope_sha256));
     out.push_str(&format!(
@@ -923,6 +941,10 @@ pub fn human_view_labelled(label: &str, report: &AuditReport) -> String {
         "\n  ladder_rung: {} — {}",
         report.ladder_rung.rung, report.ladder_rung.basis
     ));
+    for line in section {
+        out.push('\n');
+        out.push_str(line);
+    }
     for record in &report.records {
         out.push_str(&format!(
             "\n  {}: {} ({}) — {}",
