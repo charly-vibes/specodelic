@@ -1,0 +1,12 @@
+id = "a-claim-with-several-rows-takes-the-strongest-class"
+description = "A claim placed by both a current and a contradicted row is listed once, with the strongest class `contradicted` (check / coverage-class fold)."
+# Provenance (specodelic-xrh6, 2026-11-24): authored at the companion archive
+# of add-check-claim-coverage — the fold unit pins contradiction outranking a
+# pass among the claim's placing rows.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "a_claim_carries_the_strongest_class_among_its_rows"

@@ -1,7 +1,7 @@
 ---
 id: check
 kind: intent
-statement: "WHEN a lint-clean spec file with current compiled artifacts is judged by one invocation, THE check capability SHALL compose the existing evidence producers — conform's gate and trace walk, verify's both-gates evaluation, audit's classification and ladder derivation — into one row layer carrying exactly one existing verdict and one existing audit class per row, one audit-shaped report, and one exit contract in which 0 and 1 mean a judgement was emitted and 2 means none was."
+statement: "WHEN a lint-clean spec file with current compiled artifacts is judged by one invocation, THE check capability SHALL compose the existing evidence producers — conform's gate and trace walk, verify's both-gates evaluation, audit's classification and ladder derivation — into one row layer carrying exactly one existing verdict and one existing audit class per row, one audit-shaped report, and one exit contract in which 0 and 1 mean a judgement was emitted and 2 means none was — and SHALL name every judged claim by its file-qualified claim id and SHALL list every declared invariant claim of the judged file with its evidence status, placed only by the declared placement rule, so an uncovered expected behaviour is countable rather than invisible."
 ---
 
 # check Specification
@@ -30,6 +30,10 @@ verb G13/G14 name, built by fusion rather than accretion.
 | report_interop      | invariant | `the report is the audit report's shape — same schema version, field set, row keys and evidence-scope discipline — so either verb's report is accepted as the other's prior; identical inputs serialize byte-identically, and check writes no persisted evidence artifact` | [[check]] |
 | evidence_read_only  | invariant | `check writes no evidence artifact, never compiles, never rewrites the model-check report, and leaves the spec and the compiled artifacts byte-identical on every refusal`                                              | [[check]] |
 | no_foreign_authority | invariant | `check never executes a consumer's contract suite, instantiate an adapter or registry, read sidecar bindings, demote the corpus, or claim independence for agent-authored evidence — scope B stays demand-gated and untouched` | [[check]] |
+| claim_key_file_qualified | invariant | `every judged claim is named by its file-qualified claim id — <file id>.<claim id> — the form the corpus already guarantees unique corpus-wide; a report row never abbreviates a claim to its bare id, and no claim is matched by name, slug, or similarity` | [[check]] |
+| claim_placement_declared | invariant | `an evidence row places a declared claim only when it names that claim directly or names a property whose derives_from names that claim — the corpus's declared edge — and a row that places no claim belongs to the section's residual bucket, never to a claim` | [[check]] |
+| claim_coverage_listed | invariant | `every declared invariant claim of the judged file appears in the report's claim-coverage section carrying exactly one audit class from audit's existing closed set {current, stale, unchecked, contradicted, binds_nothing, new}; a claim with no placing row carries unchecked — knowledge absence in this run — and is never absent from the section, never reported as evidence it does not have, and never given a new vocabulary value; a claim placed by several rows carries the strongest class in the order contradicted > stale > current > new > binds_nothing > unchecked; the section is materialized in the check envelope and leaves the audit report's schema version and field set unchanged` | [[check]] |
+| claim_coverage_non_gating | invariant | `the claim-coverage section is countable and never gates the exit code — an uncovered claim is knowledge absence, not a contradiction, and its count is surfaced in every output view alongside the existing evidence counts and on the verdict line` | [[check]] |
 | evidence_unavailable | effect   | `check.evidence_unavailable(detail) — the run could not obtain evidence to judge because detail; the refusal rides the errors capability's published contract (envelope kind, exit code, remediation hint)`             | [[check]] | [[errors.envelope_error_kind]] ∧ [[errors.exit_code_mapping]] ∧ [[errors.remediation_hint_present]] |
 
 ## Model
@@ -65,6 +69,10 @@ verb G13/G14 name, built by fusion rather than accretion.
 | p_interop     | unit | [[check.report_interop]]            | `check_report_bytes()`             | `audit's prior-report parser accepts it ∧ rows diff by key ∧ rerun byte-identical`                                  |
 | p_read_only   | unit | [[check.evidence_read_only]]        | `refused_run()`                    | `spec and artifacts byte-identical ∧ zero records ∧ no artifact written`                                            |
 | p_scope       | unit | [[check.no_foreign_authority]]      | `foreign_suite_offered()`          | `no adapter or registry path exists ∧ no independence claim emitted`                                               |
+| p_claim_key   | unit | [[check.claim_key_file_qualified]]  | `two_files_declaring_the_same_claim_id()` | `the two rows carry distinct keys ∧ each key resolves to its own file's claim ∧ no key is derived from a name or slug` |
+| p_placement   | unit | [[check.claim_placement_declared]] | `row_naming_a_property_derives_from_a_claim()` | `the claim that property derives from is listed ∧ no other claim is listed for that row ∧ a row placing no claim lands in the residual bucket` |
+| p_coverage_listed | unit | [[check.claim_coverage_listed]] | `declared_claim_with_no_evidence_row()` | `the claim is listed with class unchecked ∧ the section counts it ∧ no row claims evidence for it ∧ no new vocabulary value appears ∧ the section states that its classes describe this run's producers ∧ the audit report's schema version and field set are unchanged` |
+| p_coverage_non_gating | unit | [[check.claim_coverage_non_gating]] | `run_with_an_unchecked_claim()`  | `the exit code is unchanged ∧ the unchecked-claim count is surfaced in every output view ∧ the count appears on the verdict line` |
 | p_label       | unit | [[check.evidence_unavailable]]      | `evidence_unavailable_raised()`    | `error_label == "check.evidence_unavailable"`                                                                      |
 
 ## Requirements
@@ -341,3 +349,131 @@ unchanged by this verb.
 - **WHEN** the change lands
 - **THEN** `verify`, `conform`, and `audit` keep their status strings, report
   schemas and exit codes unchanged
+
+### Requirement: Judged claims are named by their file-qualified claim id
+
+`spk check` SHALL name every judged claim by its file-qualified claim id —
+`<file id>.<claim id>`, the form the corpus already guarantees unique
+corpus-wide — and SHALL never abbreviate a claim to its bare id in a report
+row, nor match a claim by name, slug, filename, or similarity.
+
+#### Scenario: Two files declaring the same claim id stay distinguishable
+
+- **WHEN** `spk check demo.md` judges a file whose claim id also appears in
+  another capability file
+- **THEN** the report's rows carry the file-qualified form, each row resolves
+  to the claim of the file it names, and neither claim borrows the other's id
+
+#### Scenario: A claim is never matched by name or slug
+
+- **WHEN** a claim id, file name, or sidecar-style slug resembles a claim
+  without being it
+- **THEN** no row is attributed to that claim, and the resemblance produces no
+  row of any kind
+
+### Requirement: An evidence row places a claim only by the declared placement rule
+
+`spk check` SHALL place a declared claim only when an evidence row names that
+claim directly or names a property whose `derives_from` names that claim, and
+SHALL account for every row that places no claim in the coverage section's
+residual bucket.
+
+#### Scenario: A row places a claim through the property it derives from
+
+- **WHEN** an evidence row names a property whose `derives_from` names a
+  declared invariant claim of the judged file
+- **THEN** the claim-coverage section lists that claim, and the row places no
+  other claim
+
+#### Scenario: A row that places no claim is not attributed to one
+
+- **WHEN** an evidence row names neither a declared claim nor a property that
+  derives from one
+- **THEN** the row appears in the section's residual bucket and no claim
+  carries it
+
+### Requirement: Claim coverage is listed and never gates
+
+`spk check` SHALL list every declared invariant claim of the judged file in
+the report's claim-coverage section, each carrying exactly one audit class
+from audit's existing closed set, and SHALL count the classes in every output
+view. A claim with no evidence row SHALL carry `unchecked` — the class the
+vocabulary already reserves for knowledge absence. The section SHALL NOT
+affect the exit code: an unchecked claim is not a contradiction.
+
+#### Scenario: A claim with no evidence is listed as unchecked
+
+- **WHEN** a declared invariant claim of the judged file has no evidence row
+- **THEN** the coverage section lists that claim with class `unchecked`, the
+  count is surfaced, and no row claims evidence on its behalf
+
+#### Scenario: An unchecked claim does not fail the run
+
+- **WHEN** a run's rows are all current and one declared claim is unchecked
+- **THEN** the exit code is the one the evidence rows alone determine, and the
+  unchecked-claim count is reported next to the other counts
+
+#### Scenario: A contradicted claim is listed as contradicted
+
+- **WHEN** a declared invariant claim's evidence row is contradicted
+- **THEN** the coverage section lists that claim with class `contradicted`,
+  and the run's exit code is unchanged by the section itself
+
+#### Scenario: The section adds no vocabulary value
+
+- **WHEN** the change lands
+- **THEN** `scripts/check_evidence_axes.py` passes with no new value row: the
+  coverage section reuses audit's existing closed set unchanged
+
+#### Scenario: The section is countable and stable
+
+- **WHEN** the same inputs are judged twice
+- **THEN** the coverage section lists the same claims in the same order with
+  the same classes — the report remains byte-identical
+
+#### Scenario: A row that places no claim is accounted for
+
+- **WHEN** the run produces an evidence row that corresponds to no declared
+  claim of the judged file (for example a model-level row)
+- **THEN** the coverage section accounts for that row in its residual bucket
+  rather than dropping it, using the existing class set
+
+### Requirement: A claim's coverage class is the strongest class among the rows that place it
+
+`spk check` SHALL give a claim exactly one coverage class: the strongest class
+among the rows that place it, ordered `contradicted`, then `stale`, then
+`current`, then `new`, then `binds_nothing`, then `unchecked`. A claim placed
+by no row SHALL carry `unchecked`.
+
+#### Scenario: A claim with several rows takes the strongest class
+
+- **WHEN** a declared claim is placed by a current row and by a contradicted
+  row
+- **THEN** the coverage section lists that claim once, with class
+  `contradicted`
+
+#### Scenario: A vacuous placement is not an unchecked claim
+
+- **WHEN** a declared claim is placed only by a row whose text cites no
+  declared id
+- **THEN** the coverage section lists that claim with class `binds_nothing`,
+  not with class `unchecked`
+
+### Requirement: The coverage section states its scope and leaves the audit report untouched
+
+`spk check` SHALL state that the coverage section's classes describe the
+evidence the run's own producers produced, and SHALL materialize the section in
+the check envelope without changing the audit report's schema version or field
+set.
+
+#### Scenario: The section says which evidence it describes
+
+- **WHEN** the report renders the claim-coverage section
+- **THEN** the section states that its classes describe the evidence this run's
+  producers produced, so `unchecked` is never read as "no evidence exists"
+
+#### Scenario: The section leaves the audit report untouched
+
+- **WHEN** the report is emitted
+- **THEN** the audit report's schema version and field set are unchanged, and
+  the coverage section is carried by the check envelope

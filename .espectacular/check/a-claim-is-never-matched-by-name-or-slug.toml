@@ -1,0 +1,12 @@
+id = "a-claim-is-never-matched-by-name-or-slug"
+description = "A claim id, file name, or slug that merely resembles a claim places no row on it — resemblance is never a placement (check / declared placement rule, near-miss)."
+# Provenance (specodelic-xrh6, 2026-11-24): authored at the companion archive
+# of add-check-claim-coverage — the unit pins the near-miss path: a row named
+# `alphaish` places nothing and lands in the residual bucket.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "a_near_miss_name_places_no_claim"

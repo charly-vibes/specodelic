@@ -1,0 +1,12 @@
+id = "a-row-that-places-no-claim-is-accounted-for"
+description = "An evidence row matching no declared claim of the judged file (for example a model-level row) is accounted for in the coverage section's residual bucket, never dropped (check / residual accounting)."
+# Provenance (specodelic-xrh6, 2026-11-24): authored at the companion archive
+# of add-check-claim-coverage — the residual unit pins the model-level row
+# landing in the bucket by key.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "a_row_that_places_no_claim_lands_in_the_residual_bucket"

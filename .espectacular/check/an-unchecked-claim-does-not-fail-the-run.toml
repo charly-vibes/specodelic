@@ -1,0 +1,12 @@
+id = "an-unchecked-claim-does-not-fail-the-run"
+description = "With every evidence row current and one declared claim unchecked, the exit code is what the evidence rows alone determine and the unchecked count rides the counts (check / listed and never gates)."
+# Provenance (specodelic-xrh6, 2026-11-24): authored at the companion archive
+# of add-check-claim-coverage — the non-gating unit pins exit_code()==0 with
+# the unevidenced claim listed and counted.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "an_unchecked_claim_does_not_fail_the_run"

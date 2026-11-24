@@ -1,0 +1,12 @@
+id = "two-files-declaring-the-same-claim-id-stay-distinguishable"
+description = "Two files declaring the same claim id produce distinct file-qualified coverage rows — each row resolves to the claim of the file it names, and neither borrows the other's id (check / file-qualified claim ids)."
+# Provenance (specodelic-xrh6, 2026-11-24): authored at the companion archive
+# of add-check-claim-coverage — the file-qualified-id unit runs the same rows
+# against two parsed fixtures and pins both id spellings.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "claims_are_named_by_their_file_qualified_id"

@@ -1,0 +1,12 @@
+id = "the-section-adds-no-vocabulary-value"
+description = "The coverage section reuses audit's existing closed class set unchanged — no new value row enters the evidence-axes vocabulary (check / closed vocabulary)."
+# Provenance (specodelic-xrh6, 2026-11-24): authored at the companion archive
+# of add-check-claim-coverage — the closed-set unit asserts every emitted class
+# is in audit's six-value CLOSED set.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "the_section_uses_only_audits_closed_class_set"

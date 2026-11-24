@@ -1,0 +1,12 @@
+id = "a-row-that-places-no-claim-is-not-attributed-to-one"
+description = "A row naming neither a declared claim nor a property that derives from one appears in the residual bucket and no claim carries it (check / declared placement rule)."
+# Provenance (specodelic-xrh6, 2026-11-24): authored at the companion archive
+# of add-check-claim-coverage — the residual unit pins both halves: the bucket
+# entry and the unplaced claim staying unchecked.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "a_row_that_places_no_claim_lands_in_the_residual_bucket"

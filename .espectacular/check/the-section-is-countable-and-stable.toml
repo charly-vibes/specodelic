@@ -1,0 +1,12 @@
+id = "the-section-is-countable-and-stable"
+description = "The same inputs judged twice list the same claims in the same order with the same classes — the section is byte-identical across runs (check / determinism)."
+# Provenance (specodelic-xrh6, 2026-11-24): authored at the companion archive
+# of add-check-claim-coverage — the byte-stability unit pins serialized
+# equality plus declaration-order listing.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "the_section_is_byte_identical_across_runs"

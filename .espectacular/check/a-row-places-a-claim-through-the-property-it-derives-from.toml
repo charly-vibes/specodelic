@@ -1,0 +1,12 @@
+id = "a-row-places-a-claim-through-the-property-it-derives-from"
+description = "An evidence row names a property whose `derives_from` names a declared invariant claim: the claim is listed and the row places no other claim (check / declared placement rule)."
+# Provenance (specodelic-xrh6, 2026-11-24): authored at the companion archive
+# of add-check-claim-coverage — the property-row unit pins the derives_from
+# placement path and the sibling claim staying unchecked.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "a_property_row_places_the_claim_it_derives_from"

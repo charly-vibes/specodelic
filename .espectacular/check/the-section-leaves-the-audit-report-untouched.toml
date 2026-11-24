@@ -1,0 +1,12 @@
+id = "the-section-leaves-the-audit-report-untouched"
+description = "The audit report's schema version and field set are unchanged: the coverage section rides the check envelope as its one sibling and the report still round-trips as an audit prior (check / materialization site)."
+# Provenance (specodelic-xrh6, 2026-11-24): authored at the companion archive
+# of add-check-claim-coverage — the envelope unit pins the exact payload key
+# set and the AuditReport round-trip.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "the_section_rides_the_check_envelope_beside_an_unchanged_report"

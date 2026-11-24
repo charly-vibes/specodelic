@@ -1,0 +1,15 @@
+id = "a-contradicted-claim-is-listed-as-contradicted"
+description = "A declared claim whose evidence row is contradicted is listed `contradicted`, and the section leaves the run's exit code unchanged (check / contradicted listing, non-gating)."
+# Provenance (specodelic-xrh6, 2026-11-24): authored at the companion archive
+# of add-check-claim-coverage — the direct-naming unit pins the contradicted
+# listing; the non-gating unit pins the exit code the section never touches.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "a_model_row_places_the_claim_it_names"
+
+[[tests.cargo]]
+flags = "an_unchecked_claim_does_not_fail_the_run"

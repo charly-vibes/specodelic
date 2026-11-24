@@ -1,0 +1,12 @@
+id = "a-vacuous-placement-is-not-an-unchecked-claim"
+description = "A claim placed only by a row whose text cites no declared id carries `binds_nothing`, not `unchecked` (check / vacuous placement fold)."
+# Provenance (specodelic-xrh6, 2026-11-24): authored at the companion archive
+# of add-check-claim-coverage — the fold unit pins the vacuous row's class
+# distinction from knowledge absence.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "a_claim_carries_the_strongest_class_among_its_rows"

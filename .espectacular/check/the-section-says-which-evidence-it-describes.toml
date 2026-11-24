@@ -1,0 +1,12 @@
+id = "the-section-says-which-evidence-it-describes"
+description = "The section states its scope — machine-readable id `this_run_producers` plus a human statement — so `unchecked` is never read as \"no evidence exists\" (check / scope statement)."
+# Provenance (specodelic-xrh6, 2026-11-24): authored at the companion archive
+# of add-check-claim-coverage — the scope unit pins the scope id and the
+# this-run statement.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "the_section_carries_a_machine_readable_scope"

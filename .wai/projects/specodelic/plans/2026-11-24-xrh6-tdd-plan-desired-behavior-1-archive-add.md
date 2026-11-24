@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-24-xrh6-archive-add-check-claim-coverage-via-companion-recipe-14-per-scenario-contract-tomls, pipeline-step:plan]
+---
+
+xrh6 TDD plan — desired behavior: (1) archive add-check-claim-coverage via 'just archive-change id=add-check-claim-coverage' (companion deploys plain delta to openspec/specs/check/spec.md, re-attaches layer.md verbatim, fail-closed; never stock archive); (2) author 14 per-scenario contract TOMLs in .espectacular/check/ for the new scenarios, each binding existing test fns from tests/check_claim_coverage.rs (12 tests green at impl HEAD; some TOMLs bind 2 tests, ids taken from ah check findings verbatim). Out of scope: production code edits, self-hosting task 6.5 (blocked on specodelic-qbox), stock openspec archive, tasks 5-7 of s8fg. RED: ah check reports 14 no-toml findings post-archive. GREEN: ah check clean. Narrow: ah_check tool (+ cargo test --test check_claim_coverage for bound fns). Full: just ci. Files: openspec/specs/check/spec.md + openspec/changes/archive/... (recipe-written), .espectacular/check/*.toml x14 (authored).

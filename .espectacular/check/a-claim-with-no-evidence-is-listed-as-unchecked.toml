@@ -1,0 +1,15 @@
+id = "a-claim-with-no-evidence-is-listed-as-unchecked"
+description = "A declared invariant claim with no evidence row is listed `unchecked` with its count surfaced, and no row claims evidence on its behalf (check / claim-coverage listing)."
+# Provenance (specodelic-xrh6, 2026-11-24): authored at the companion archive
+# of add-check-claim-coverage — the fold unit pins the unchecked listing and
+# count; the human-view unit pins the count being surfaced on the verdict line.
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "an_unchecked_claim_does_not_fail_the_run"
+
+[[tests.cargo]]
+flags = "the_human_view_carries_the_coverage_counts_on_the_verdict_line"
