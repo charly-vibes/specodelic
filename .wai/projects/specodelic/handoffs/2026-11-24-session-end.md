@@ -35,7 +35,7 @@ phase: research
 ### git_status
 
 ```
- M .wai/pipeline-runs/tdd-ro5-2026-11-24-4yve-just-archive-change-accepts-the-id-id-invocation-form.yml
+ M .wai/pipeline-runs/tdd-ro5-2026-11-24-qbox-artifact-gate-lints-the-judged-file-in-corpus.yml
 ?? .dont/
 ?? .wai/projects/specodelic/.pending-resume
 ?? .wai/resources/research/2026-11-18-quint-fvt-tools-grading.md
@@ -46,7 +46,6 @@ phase: research
 
 ```
 ○ specodelic-an79 P1 Research: shift-left ledger — does spec-first discipline reduce back/forth?
-○ specodelic-qbox P2 [bug] check: artifact gate must lint the judged file within its corpus (today 0 of 50 corpus files can be judged)
 ○ specodelic-v64i P2 Fleet compliance: bd-hooks chaining in lefthook + root CHANGELOG.md
 ○ specodelic-zbzq P2 [bug] docs: book pages for USAGE/STATUS/theory/CHANGELOG 404 on the deployed site
 ○ specodelic-0xnd P3 import acset.generic as openspec change — schema-parametric incidence core, benchmark-first (external handoff, at/arltificial/renzi)
@@ -77,7 +76,7 @@ phase: research
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 30 issues (30 open, 0 in progress)
+Total: 29 issues (29 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)
