@@ -35,10 +35,9 @@ phase: research
 ### git_status
 
 ```
- M .wai/pipeline-runs/tdd-ro5-2026-11-24-xrh6-archive-add-check-claim-coverage-via-companion-recipe-14-per-scenario-contract-tomls.yml
+ M .wai/pipeline-runs/tdd-ro5-2026-11-24-4yve-just-archive-change-accepts-the-id-id-invocation-form.yml
 ?? .dont/
 ?? .wai/projects/specodelic/.pending-resume
-?? .wai/resources/pipelines/.last-run
 ?? .wai/resources/research/2026-11-18-quint-fvt-tools-grading.md
 ?? openspec/changes/add-kani-proof-harnesses/
 ```
@@ -56,7 +55,6 @@ phase: research
 ○ specodelic-2fp1 P3 docs: preservation recipe — conform twice + verdict diff (simplification review)
 ○ specodelic-30s5 P3 origin field — authoring-lineage annotation syntax (reserved trigger, add-evidence-record-axes)
 ○ specodelic-3xc P3 decide: fan-in multiplicity rule — state_view counts (source,field) pairs, traceability_view counts distinct sources (B3)
-○ specodelic-4yve P3 just archive-change: 'id=<id>' invocation form passes the literal string 'id=<id>' to the companion (just treats it as a positional); docs and task texts use the id= form — either fix the recipe to strip an 'id=' prefix or correct the docs to the bare positional form. Fail-closed today (companion refuses, ChangeNotFound with the literal in the message), so benign but confusing. Found 2026-11-24 at specodelic-xrh6.
 ○ specodelic-5tm7 P3 experiment E3: composition — state growth inlined vs hand-factored
 ○ specodelic-7e7b P3 decide: meter spk orchestrate wall-clock before changed-scoping work
 ○ specodelic-b3nv P3 warrant probe: seeded-defect replay on one module — do the tool's drift classes change when known defects are injected? (decision 2026-11-18 section 5.1.5, optional)
@@ -79,7 +77,7 @@ phase: research
 ○ specodelic-mngq P4 [bug] investigate ah auto-report issue #12: exit-1 error report with no error text (gh-12)
 
 --------------------------------------------------------------------------------
-Total: 31 issues (31 open, 0 in progress)
+Total: 30 issues (30 open, 0 in progress)
 
 Status: ○ open  ◐ in_progress  ● blocked  ✓ closed  ❄ deferred
 Priority: P0–P4 (label only; not a status icon)

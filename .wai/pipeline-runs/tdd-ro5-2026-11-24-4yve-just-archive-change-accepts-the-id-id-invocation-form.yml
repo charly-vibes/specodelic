@@ -2,7 +2,7 @@ run_id: tdd-ro5-2026-11-24-4yve-just-archive-change-accepts-the-id-id-invocation
 pipeline: tdd-ro5
 topic: '4yve: just archive-change accepts the id=<id> invocation form'
 created_at: '2026-11-24T19:41:52.305113351+00:00'
-current_step: 8
+current_step: 9
 approvals: {}
 epic: null
 child_issues: []
