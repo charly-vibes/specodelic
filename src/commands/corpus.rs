@@ -807,6 +807,52 @@ fn discover_openspec_root(spec_path: &str) -> Option<std::path::PathBuf> {
     }
 }
 
+/// The corpus context for a spec file, discovered from the file's own
+/// location (gh-17 friction 1) and parsed with the SAME batch machinery
+/// the lint command uses — never a second walker. Shared by conform's
+/// input gate and check's artifact gate (specodelic-qbox) so both gate
+/// the same corpus the same way.
+///
+/// Returns the context (None when no corpus root was discovered — the
+/// labeled isolated-file fallback) and the warnings the run must carry:
+/// the partial-corpus fact when some siblings failed to parse. The
+/// isolation label itself is the library's (`conform::ISOLATED_GATE_WARNING`),
+/// so every verb words it once.
+pub(crate) fn corpus_context_for(
+    spec_path: &str,
+    verbosity: Verbosity,
+) -> (Option<conform::CorpusContext>, Vec<String>) {
+    match discover_openspec_root(spec_path) {
+        Some(root) => {
+            let root_str = root.to_string_lossy().to_string();
+            let (corpus_specs, _cl, _notes, corpus_parse_errors) =
+                parse_batch(std::slice::from_ref(&root_str), verbosity);
+            let mut warnings = Vec::new();
+            if !corpus_parse_errors.is_empty() {
+                // Labeled partial-corpus fact (invariant 3): the corpus
+                // lint resolves refs against a partial corpus, so
+                // referential findings may be false — surfaced on the
+                // existing warnings channel, never silent.
+                warnings.push(conform::partial_corpus_warning(
+                    corpus_parse_errors.len(),
+                    &corpus_parse_errors,
+                ));
+            }
+            (
+                Some(conform::CorpusContext {
+                    specs: corpus_specs,
+                    parse_error_notes: corpus_parse_errors,
+                }),
+                warnings,
+            )
+        }
+        // The labeled isolated-file fallback (gh-17): the gate lints the
+        // single-spec slice — cross-file refs may dangle; labeled, never
+        // an error. The label rides the warnings channel.
+        None => (None, Vec::new()),
+    }
+}
+
 /// `spk conform <spec-path> --oracle <scenarios.jsonl>` (add-conform
 /// phase 4): the READ-ONLY external-oracle evaluation over
 /// `conform::run_with` — the artifact gate (design D5) linted in the
@@ -885,45 +931,14 @@ pub(crate) fn cmd_conform(
     // root the file belongs to and parse it with the SAME batch
     // machinery the lint command uses — never a second walker. The gate
     // verdict keys on THIS file's findings within that corpus lint.
-    let (corpus_ctx, gate_warnings): (Option<conform::CorpusContext>, Vec<String>) =
-        match discover_openspec_root(spec_path) {
-            Some(root) => {
-                let root_str = root.to_string_lossy().to_string();
-                let (corpus_specs, _cl, _notes, corpus_parse_errors) =
-                    parse_batch(std::slice::from_ref(&root_str), verbosity);
-                let mut warnings = Vec::new();
-                if !corpus_parse_errors.is_empty() {
-                    // Labeled partial-corpus fact (invariant 3): the
-                    // corpus lint resolves refs against a partial corpus,
-                    // so referential findings may be false — surfaced on
-                    // the existing warnings channel, never silent.
-                    warnings.push(format!(
-                        "conform's input gate linted a PARTIAL corpus: {} sibling file(s) failed to parse — referential findings may be false ({})",
-                        corpus_parse_errors.len(),
-                        corpus_parse_errors.join("; ")
-                    ));
-                }
-                (
-                    Some(conform::CorpusContext {
-                        specs: corpus_specs,
-                        parse_error_notes: corpus_parse_errors,
-                    }),
-                    warnings,
-                )
-            }
-            None => {
-                // The labeled isolated-file fallback (gh-17): the gate
-                // lints the single-spec slice — cross-file refs may
-                // dangle; labeled, never an error.
-                (
-                    None,
-                    vec![
-                        "no corpus root discovered — the input gate linted the file in ISOLATION; cross-file references may dangle (pass the file inside its openspec tree, or run: spk lint <corpus-root>)"
-                            .to_string(),
-                    ],
-                )
-            }
-        };
+    let (corpus_ctx, mut gate_warnings): (Option<conform::CorpusContext>, Vec<String>) =
+        corpus_context_for(spec_path, verbosity);
+    if corpus_ctx.is_none() {
+        // The labeled isolated-file fallback (gh-17): the gate lints the
+        // single-spec slice — cross-file refs may dangle; labeled, never
+        // an error.
+        gate_warnings.push(conform::ISOLATED_GATE_WARNING.to_string());
+    }
     match conform::run_with(
         &specs[0],
         std::path::Path::new(&out_dir),

@@ -1056,7 +1056,36 @@ pub(crate) fn emit_refusal(
     stdout: &mut impl Write,
     stderr: &mut impl Write,
 ) {
-    let out: Output<serde_json::Value> = Output::failure(stage_and_message).with_next_step(hint);
+    emit_refusal_with_warnings(
+        stage_and_message,
+        hint,
+        &[],
+        format,
+        verbosity,
+        stdout,
+        stderr,
+    )
+}
+
+/// The refusal envelope with the run's warnings channel carried along
+/// (specodelic-qbox): a refusal reached under a labeled fact — an
+/// isolated-file gate, a partially parsed corpus — must not lose that
+/// fact on the way out. The refusal shape is unchanged: the message
+/// leads, the hint names the remediation, zero records.
+pub(crate) fn emit_refusal_with_warnings(
+    stage_and_message: String,
+    hint: &str,
+    warnings: &[String],
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl Write,
+    stderr: &mut impl Write,
+) {
+    let mut out: Output<serde_json::Value> =
+        Output::failure(stage_and_message).with_next_step(hint);
+    for w in warnings {
+        out = out.with_warning(w.clone());
+    }
     if format == OutputFormat::Human {
         out.with_verbosity(Verbosity::MAX + 1)
             .emit(env!("CARGO_PKG_VERSION"), format, verbosity, stdout, stderr)

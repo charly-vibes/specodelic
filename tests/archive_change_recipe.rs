@@ -34,18 +34,25 @@ fn read(rel: &str) -> String {
 /// every indented line that follows the recipe header.
 fn archive_change_recipe_body() -> String {
     let justfile = read("justfile");
-    let mut lines = justfile.lines();
-    let header = lines
-        .find(|l| l.trim() == "archive-change id:")
-        .expect("justfile must declare an `archive-change id:` recipe");
     let mut body = Vec::new();
-    for line in lines {
+    let mut in_recipe = false;
+    for line in justfile.lines() {
+        if !in_recipe {
+            if line.trim() == "archive-change id:" {
+                in_recipe = true;
+            }
+            continue;
+        }
         if line.trim().is_empty() || line.starts_with(' ') || line.starts_with('\t') {
             body.push(line);
             continue;
         }
         break;
     }
+    assert!(
+        !body.is_empty(),
+        "justfile must declare an `archive-change id:` recipe"
+    );
     let body = body.join("\n");
     assert!(
         body.contains("archive-companion"),

@@ -422,6 +422,26 @@ pub fn gate(spec: &Spec, out_dir: &std::path::Path) -> Result<(), ConformError> 
     gate_in_corpus(spec, out_dir, None)
 }
 
+/// The labeled isolated-file fallback (gh-17): no corpus root was
+/// discovered, so the gate lints the single-spec slice — cross-file
+/// references may dangle. One wording for every verb that gates a file
+/// (conform's input gate, check's artifact gate): the label is the same
+/// fact, so it reads the same wherever it surfaces. The wording keeps the
+/// word "pass" out of the envelope — a refusal must never read as a pass
+/// (the check capability's scenario contract).
+pub const ISOLATED_GATE_WARNING: &str = "no corpus root discovered — the gate linted the file in ISOLATION; cross-file references may dangle (put the file inside its openspec tree, or run: spk lint <corpus-root>)";
+
+/// The labeled partial-corpus fact: some siblings failed to parse, so the
+/// corpus lint resolved references against a PARTIAL corpus and
+/// referential findings may be false. Surfaced on the warnings channel —
+/// never a silent partial-corpus verdict.
+pub fn partial_corpus_warning(count: usize, notes: &[String]) -> String {
+    format!(
+        "the gate linted a PARTIAL corpus: {count} sibling file(s) failed to parse — referential findings may be false ({})",
+        notes.join("; ")
+    )
+}
+
 /// The gate with the corpus context the CLI discovered from the file's
 /// own location (gh-17 friction 1): the lint stage runs over the
 /// discovered corpus so corpus-wide ref resolution sees the siblings —

@@ -1,0 +1,5 @@
+---
+tags: [pipeline-run:tdd-ro5-2026-11-24-qbox-artifact-gate-lints-the-judged-file-in-corpus, pipeline-step:ro5u-review]
+---
+
+RO5U-FIXES (2026-11-24, specodelic-qbox): M1 fixed — the string probe is gone; CorpusGate::isolated() now carries no label and cmd_check_in_corpus appends conform::ISOLATED_GATE_WARNING exactly when gate.corpus.is_none() (one rule, no fragile text match). M2 fixed — the corpus-wide lint cost is documented in the verb's doc comment (a single check run costs a full corpus lint, the same trade conform's input gate makes). L1 kept (the isolation label rides unrelated refusals but states a fact without claiming causation); L2 kept (the shared partial-corpus wording replaces conform's verb-specific one — recorded as a wording change for the ledger/changelog); L3 kept (check::run stays corpus-less for API stability). Evidence after the fixes: cargo clippy --all-targets -- -D warnings -> clean; cargo test --test cli check:: -> 56 passed / 0 failed; cargo test --test check_contract_exit -> 7 passed / 0 failed (the contract scenario that caught the first label wording stays green).

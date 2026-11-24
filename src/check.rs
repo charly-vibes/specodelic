@@ -269,14 +269,33 @@ pub fn human_view(payload: &CheckPayload) -> String {
 
 /// The judging pass: gate, verify stage, oracle walk (optional), row fold,
 /// rung derivation, prior diff. Every refusal returns Err with zero rows.
+///
+/// The gate lints the judged file in ISOLATION (no corpus context) — the
+/// documented fallback; `run_in_corpus` is the corpus-aware form the CLI
+/// uses (specodelic-qbox).
 pub fn run(
     spec: &Spec,
     target: &CheckTarget,
     oracle: Option<&[u8]>,
     prior: Option<&AuditReport>,
 ) -> Result<Judgement, ConformError> {
+    run_in_corpus(spec, target, oracle, prior, None)
+}
+
+/// The judging pass with the corpus context the CLI discovered from the
+/// file's own location: the artifact gate lints the judged file WITHIN
+/// that corpus, so its cross-file references resolve against their
+/// siblings (specodelic-qbox). `None` is the labeled isolated-file
+/// fallback — the same slice the corpus-less `run` lints.
+pub fn run_in_corpus(
+    spec: &Spec,
+    target: &CheckTarget,
+    oracle: Option<&[u8]>,
+    prior: Option<&AuditReport>,
+    corpus: Option<&conform::CorpusContext>,
+) -> Result<Judgement, ConformError> {
     let out_dir = std::path::Path::new(&target.out_dir);
-    conform::gate(spec, out_dir)?;
+    conform::gate_in_corpus(spec, out_dir, corpus)?;
     let runner = verify::CargoRunner {
         timeout_secs: (target.timeout_secs > 0).then_some(target.timeout_secs),
     };
@@ -430,17 +449,20 @@ fn class_count(report: &AuditReport, class: AuditClass) -> usize {
 /// path.
 fn emit_judged(
     payload: &CheckPayload,
-    exit: i32,
-    contradicted: usize,
+    judgement: &Judgement,
+    corpus_warnings: &[String],
     format: OutputFormat,
     verbosity: Verbosity,
     stdout: &mut impl Write,
     stderr: &mut impl Write,
 ) -> i32 {
+    let exit = judgement.exit;
+    let contradicted = judgement.contradicted;
     if exit == 2 {
-        audit::emit_refusal(
+        audit::emit_refusal_with_warnings(
             "zero_records: the judged file produced zero evidence rows — an evidence-less pass is impossible".to_string(),
             "add an oracle corpus (--oracle) or compiled property evidence",
+            corpus_warnings,
             format,
             verbosity,
             stdout,
@@ -459,20 +481,21 @@ fn emit_judged(
                 "{stale} stale record(s) under a declared expectation — the prior baseline no longer holds against this revision"
             )
         };
-        let out = audit::findings_failure(Output::success(payload.clone()), message).with_next_step(
-            "fix the model or re-record the affected evidence; re-declare the baseline with --declare-expectation",
-        );
+        let mut out = audit::findings_failure(Output::success(payload.clone()), message)
+            .with_next_step(
+                "fix the model or re-record the affected evidence; re-declare the baseline with --declare-expectation",
+            );
+        out.warnings.extend(corpus_warnings.iter().cloned());
         emit_payload(out, format, verbosity, stdout, stderr).ok();
         return 1;
     }
     let binds = class_count(&payload.report, AuditClass::BindsNothing);
-    let warnings = if binds > 0 {
-        vec![format!(
+    let mut warnings: Vec<String> = corpus_warnings.to_vec();
+    if binds > 0 {
+        warnings.push(format!(
             "{binds} binds_nothing row(s) — evidence citing no declared model element (vacuous binding); warnings-channel advisory, never a failure"
-        )]
-    } else {
-        Vec::new()
-    };
+        ));
+    }
     let mut out = Output::success(payload.clone());
     out.warnings.extend(warnings);
     emit_payload(out, format, verbosity, stdout, stderr).ok();
@@ -503,9 +526,43 @@ fn emit_payload(
     }
 }
 
+/// The corpus context the CLI discovered for a judged file, with the
+/// labeled facts the run must carry (specodelic-qbox). Bundled into one
+/// argument so the corpus-aware path reads as one thing.
+#[derive(Default)]
+pub struct CorpusGate {
+    /// The discovered corpus. `None` means no corpus root was found — the
+    /// labeled isolated-file fallback (the gate lints the file alone).
+    pub corpus: Option<conform::CorpusContext>,
+    /// The labeled facts the run must carry on its warnings channel (a
+    /// partially parsed corpus, …). Never silent.
+    pub warnings: Vec<String>,
+}
+
+impl CorpusGate {
+    /// The gate for a run with no corpus context: the isolation label is
+    /// added by the run itself (the corpus is absent), so the gate carries
+    /// no warning of its own.
+    pub fn isolated() -> Self {
+        Self {
+            corpus: None,
+            warnings: Vec::new(),
+        }
+    }
+}
+
 /// `spk check <spec-file> [--oracle <corpus.jsonl>] [...]`: the single
 /// judge verb. Exit 0/1 mean a judgement was emitted; exit 2 means none
 /// was — every refusal path emits zero records and a remediation hint.
+///
+/// The corpus-less form: the artifact gate lints the judged file in
+/// ISOLATION and the envelope says so (labeled, never silent).
+///
+/// The corpus-aware form (`cmd_check_in_corpus`) lints the judged file
+/// WITHIN the corpus discovered from the file's own location — the price
+/// is a corpus-wide lint per invocation (the same trade conform's input
+/// gate makes): over this repo's 50-file corpus a single check run costs
+/// a full corpus lint.
 pub fn cmd_check(
     spec_path: &str,
     target: CheckTarget,
@@ -514,21 +571,58 @@ pub fn cmd_check(
     stdout: &mut impl Write,
     stderr: &mut impl Write,
 ) -> i32 {
+    cmd_check_in_corpus(
+        spec_path,
+        target,
+        CorpusGate::isolated(),
+        format,
+        verbosity,
+        stdout,
+        stderr,
+    )
+}
+
+/// The check verb with the corpus context the CLI discovered from the
+/// file's own location (specodelic-qbox): the artifact gate lints the
+/// judged file WITHIN that corpus, so its cross-file references resolve
+/// against their siblings instead of dangling. A gate with no corpus is
+/// the labeled isolated-file fallback — the envelope names the isolation
+/// on the warnings channel (never a silent partial verdict), and a
+/// partially parsed corpus carries its own labeled warning.
+pub fn cmd_check_in_corpus(
+    spec_path: &str,
+    target: CheckTarget,
+    gate: CorpusGate,
+    format: OutputFormat,
+    verbosity: Verbosity,
+    stdout: &mut impl Write,
+    stderr: &mut impl Write,
+) -> i32 {
+    let mut warnings = gate.warnings;
+    if gate.corpus.is_none() {
+        // The labeled isolated-file fallback: no corpus was discovered, so
+        // the gate linted the file alone — the fact rides the warnings
+        // channel (never a silent partial verdict).
+        warnings.push(conform::ISOLATED_GATE_WARNING.to_string());
+    }
     let (oracle, prior) = match read_inputs(&target) {
         Ok(inputs) => inputs,
         Err((message, hint)) => {
-            audit::emit_refusal(message, &hint, format, verbosity, stdout, stderr);
+            audit::emit_refusal_with_warnings(
+                message, &hint, &warnings, format, verbosity, stdout, stderr,
+            );
             return 2;
         }
     };
     let spec = match crate::parse::parse_file(std::path::Path::new(spec_path)) {
         Ok(spec) => spec,
         Err(e) => {
-            audit::emit_refusal(
+            audit::emit_refusal_with_warnings(
                 format!(
                     "the spec file failed to parse: {e} — check verdicts are never derived from an unparsed file"
                 ),
                 "fix the frontmatter/tables named in the parse error",
+                &warnings,
                 format,
                 verbosity,
                 stdout,
@@ -537,11 +631,17 @@ pub fn cmd_check(
             return 2;
         }
     };
-    match run(&spec, &target, oracle.as_deref(), prior.as_ref()) {
+    match run_in_corpus(
+        &spec,
+        &target,
+        oracle.as_deref(),
+        prior.as_ref(),
+        gate.corpus.as_ref(),
+    ) {
         Ok(judgement) => emit_judged(
             &payload(&spec, &judgement.report),
-            judgement.exit,
-            judgement.contradicted,
+            &judgement,
+            &warnings,
             format,
             verbosity,
             stdout,
@@ -549,9 +649,10 @@ pub fn cmd_check(
         ),
         Err(e) => {
             let hint = hint_for(&e);
-            audit::emit_refusal(
+            audit::emit_refusal_with_warnings(
                 format!("{}: {}", e.stage, e.message),
                 hint,
+                &warnings,
                 format,
                 verbosity,
                 stdout,

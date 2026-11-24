@@ -901,7 +901,18 @@ fn cmd_check_command(
         out_dir: out_dir.clone(),
         timeout_secs: *timeout_secs,
     };
-    specodelic::check::cmd_check(spec_path, target, format, verbosity, stdout, stderr)
+    // The gate's corpus context (specodelic-qbox): the same discovery and
+    // the same batch parse conform uses — the judged file is linted
+    // WITHIN its corpus, so its cross-file references resolve instead of
+    // dangling. No corpus root means the labeled isolated-file fallback.
+    let (corpus_ctx, corpus_warnings) = commands::corpus::corpus_context_for(spec_path, verbosity);
+    let gate = specodelic::check::CorpusGate {
+        corpus: corpus_ctx,
+        warnings: corpus_warnings,
+    };
+    specodelic::check::cmd_check_in_corpus(
+        spec_path, target, gate, format, verbosity, stdout, stderr,
+    )
 }
 
 fn run(
