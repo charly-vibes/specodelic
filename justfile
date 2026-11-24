@@ -278,7 +278,13 @@ archive-change id:
     # deltas, fail-closed on any delta lacking the dual-format layer.
     # cargo run (not PATH spk) so the recipe can never hit a stale
     # installed binary lacking the subcommand.
-    cargo run -q -- archive-companion "{{id}}"
+    #
+    # `just` treats `id=<value>` as a positional value, so the corpus's
+    # documented form (`just archive-change id=<change-id>`) arrives with the
+    # literal `id=` prefix attached; the normalizer strips it before the
+    # companion sees it (specodelic-4yve).
+    change_id="$("{{justfile_directory()}}/scripts/archive_change_id.sh" "{{id}}")"
+    cargo run -q -- archive-companion "$change_id"
 
 # Derived graph views (add-graph-views D6, tasks 3.1–3.3): regenerate the
 # Mermaid includes in docs/src/views/ from this repo's own corpus. The
