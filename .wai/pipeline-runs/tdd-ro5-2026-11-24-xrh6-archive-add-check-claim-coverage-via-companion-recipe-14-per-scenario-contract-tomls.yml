@@ -2,7 +2,7 @@ run_id: tdd-ro5-2026-11-24-xrh6-archive-add-check-claim-coverage-via-companion-r
 pipeline: tdd-ro5
 topic: 'xrh6: archive add-check-claim-coverage via companion recipe + 14 per-scenario contract TOMLs'
 created_at: '2026-11-24T18:39:47.858319150+00:00'
-current_step: 8
+current_step: 9
 approvals: {}
 epic: null
 child_issues: []

@@ -35,8 +35,10 @@ phase: research
 ### git_status
 
 ```
- M .wai/pipeline-runs/tdd-ro5-2026-11-24-claim-coverage.yml
+ M .wai/pipeline-runs/tdd-ro5-2026-11-24-xrh6-archive-add-check-claim-coverage-via-companion-recipe-14-per-scenario-contract-tomls.yml
 ?? .dont/
+?? .wai/projects/specodelic/.pending-resume
+?? .wai/resources/pipelines/.last-run
 ?? .wai/resources/research/2026-11-18-quint-fvt-tools-grading.md
 ?? openspec/changes/add-kani-proof-harnesses/
 ```
@@ -47,7 +49,6 @@ phase: research
 ○ specodelic-an79 P1 Research: shift-left ledger — does spec-first discipline reduce back/forth?
 ○ specodelic-qbox P2 [bug] check: artifact gate must lint the judged file within its corpus (today 0 of 50 corpus files can be judged)
 ○ specodelic-v64i P2 Fleet compliance: bd-hooks chaining in lefthook + root CHANGELOG.md
-○ specodelic-xrh6 P2 archive add-check-claim-coverage via the companion recipe; per-scenario contract TOMLs for the 14 new check scenarios (sequenced espectacular follow-up)
 ○ specodelic-zbzq P2 [bug] docs: book pages for USAGE/STATUS/theory/CHANGELOG 404 on the deployed site
 ○ specodelic-0xnd P3 import acset.generic as openspec change — schema-parametric incidence core, benchmark-first (external handoff, at/arltificial/renzi)
 ○ specodelic-20q3 P3 Oracle-validity probes for espectacular contract tests — a green contract test proves scenarios, not that tests would notice a violation (vacuous-pass check)
@@ -55,6 +56,7 @@ phase: research
 ○ specodelic-2fp1 P3 docs: preservation recipe — conform twice + verdict diff (simplification review)
 ○ specodelic-30s5 P3 origin field — authoring-lineage annotation syntax (reserved trigger, add-evidence-record-axes)
 ○ specodelic-3xc P3 decide: fan-in multiplicity rule — state_view counts (source,field) pairs, traceability_view counts distinct sources (B3)
+○ specodelic-4yve P3 just archive-change: 'id=<id>' invocation form passes the literal string 'id=<id>' to the companion (just treats it as a positional); docs and task texts use the id= form — either fix the recipe to strip an 'id=' prefix or correct the docs to the bare positional form. Fail-closed today (companion refuses, ChangeNotFound with the literal in the message), so benign but confusing. Found 2026-11-24 at specodelic-xrh6.
 ○ specodelic-5tm7 P3 experiment E3: composition — state growth inlined vs hand-factored
 ○ specodelic-7e7b P3 decide: meter spk orchestrate wall-clock before changed-scoping work
 ○ specodelic-b3nv P3 warrant probe: seeded-defect replay on one module — do the tool's drift classes change when known defects are injected? (decision 2026-11-18 section 5.1.5, optional)
