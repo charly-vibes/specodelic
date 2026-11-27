@@ -1,0 +1,9 @@
+id = "a-foreign-extension-point-is-an-unverified-claim"
+description = "A row's satisfies link pointing at a foreign extension_point is listed in unverified_claims with kind foreign_extension_point and never in assumed — the corpus checks no conformance, so it is asserted, not trusted (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "foreign_extension_point_is_unverified_claim"

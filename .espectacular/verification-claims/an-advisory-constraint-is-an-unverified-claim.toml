@@ -1,0 +1,9 @@
+id = "an-advisory-constraint-is-an-unverified-claim"
+description = "A file declaring an advisory Constraint — declared, shape-checked, gating nothing — is listed in unverified_claims with kind advisory_constraint (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "advisory_constraint_is_unverified_claim"

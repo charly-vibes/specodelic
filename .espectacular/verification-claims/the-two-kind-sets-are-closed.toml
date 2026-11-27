@@ -1,0 +1,9 @@
+id = "the-two-kind-sets-are-closed"
+description = "Every unverified_claims entry's kind is one of prose_only_invariant, foreign_extension_point, advisory_constraint and every assumed entry's kind is prose_only_guard — the partition is enforced by one shared kind table (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "kind_table_partitions_every_kind_once"

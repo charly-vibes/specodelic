@@ -1,0 +1,12 @@
+id = "an-empty-trust-base-is-a-positive-statement"
+description = "An empty trust base is always serialized — empty object, both arrays present — and says only that the corpus declares no unchecked claim and no machine-uninterpreted guard, never anything about a claim's verification status (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "empty_trust_base_is_serialized_never_omitted"
+
+[[tests.cargo]]
+flags = "empty_trust_base_serializes_both_arrays"

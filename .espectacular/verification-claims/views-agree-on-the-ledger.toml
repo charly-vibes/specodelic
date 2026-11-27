@@ -1,0 +1,9 @@
+id = "views-agree-on-the-ledger"
+description = "CLI JSON, human output, and the persisted report name the same trust-base members with the same kinds — no view reports an empty ledger while another names an entry (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "trust_ledger_rides_every_view_and_the_persisted_report"

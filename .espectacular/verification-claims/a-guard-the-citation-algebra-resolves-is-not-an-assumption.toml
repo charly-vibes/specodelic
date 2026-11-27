@@ -1,0 +1,12 @@
+id = "a-guard-the-citation-algebra-resolves-is-not-an-assumption"
+description = "A transition whose guard cites an evaluable constraint, or is a State has-reached progress marker, is absent from assumed — only a guard with no resolvable condition is relied upon without checking (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "resolved_guards_are_not_assumptions"
+
+[[tests.cargo]]
+flags = "guard_classification_reads_the_model_ir"

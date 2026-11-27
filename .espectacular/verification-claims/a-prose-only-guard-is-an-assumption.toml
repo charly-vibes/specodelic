@@ -1,0 +1,9 @@
+id = "a-prose-only-guard-is-an-assumption"
+description = "A transition whose guard is prose and cites no evaluable constraint — no citation expression, no kernel binding, no executable invariant — is listed in assumed with kind prose_only_guard (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "guard_classification_reads_the_model_ir"

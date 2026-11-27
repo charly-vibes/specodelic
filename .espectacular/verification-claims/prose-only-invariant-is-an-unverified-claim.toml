@@ -1,0 +1,9 @@
+id = "prose-only-invariant-is-an-unverified-claim"
+description = "A prose-only invariant Constraint is listed in unverified_claims with kind prose_only_invariant and never in assumed — derived from the same source as the unchecked set, so the two never disagree (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "prose_only_invariants_match_unchecked_set"

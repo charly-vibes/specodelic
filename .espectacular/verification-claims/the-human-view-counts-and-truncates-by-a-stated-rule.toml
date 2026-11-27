@@ -1,0 +1,9 @@
+id = "the-human-view-counts-and-truncates-by-a-stated-rule"
+description = "The human view names the member count per kind and the first ten members in the deterministic (kind, source file id, row id) order, stating truncation; the JSON keeps every member (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "human_view_counts_per_kind_and_truncates_over_ten_members"

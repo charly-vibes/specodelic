@@ -1,0 +1,9 @@
+id = "run-limits-are-metadata-not-trust"
+description = "The model-check bound and the artifact digest ride as run metadata beside the verdict and appear in neither trust array — the ledger is a function of the corpus, never of the run's parameters (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "run_bound_and_digest_stay_out_of_the_ledger"

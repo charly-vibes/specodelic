@@ -1,0 +1,9 @@
+id = "a-report-without-a-trust-base-is-stale"
+description = "A stored report carrying no trust base, or an unrecognized trust_base_schema_version, is refused as stale with the rerun hint — an absent ledger is never read as an empty one (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "stored_report_without_trust_base_is_stale_with_rerun_hint"

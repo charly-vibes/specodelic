@@ -1,0 +1,9 @@
+id = "the-stored-ledger-is-never-the-source-of-truth"
+description = "A stored report carrying a trust base no recomputation could have produced fails with a rerun hint and is never silently re-scored or rewritten (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "ledger_mismatch_is_refused_and_report_unmodified"

@@ -1,0 +1,9 @@
+id = "the-two-surfaces-agree"
+description = "The model-check report and the verify verdict for the same corpus carry trust bases with the same members, kinds, and order — one derivation, two carriers, attached at the one write-side seam (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "trust_ledger_rides_every_view_and_the_persisted_report"

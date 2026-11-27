@@ -1,0 +1,9 @@
+id = "reordering-does-not-change-the-ledger"
+description = "The same corpus presented in a different file order yields an identical ledger member for member and a byte-identical persisted report (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "reordered_corpus_yields_byte_identical_reports_and_ledger"

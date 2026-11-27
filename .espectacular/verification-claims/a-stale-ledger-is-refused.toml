@@ -1,0 +1,9 @@
+id = "a-stale-ledger-is-refused"
+description = "A stored report whose trust base disagrees with the live recomputation is refused as a ledger mismatch with the unchecked-set rerun hint, and the stored report is left unmodified (add-verification-trust-ledger)"
+archetype = "PF"
+status = "active"
+superseded_by = ""
+authored_with = "0.12.3"
+
+[[tests.cargo]]
+flags = "ledger_mismatch_is_refused_and_report_unmodified"
