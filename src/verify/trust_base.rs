@@ -159,16 +159,15 @@ fn guard_resolves(
     })
 }
 
+/// A corpus-qualified id: (file id, row id) — the shape the citation
+/// algebra's evaluable-constraint and State sets use.
+type QualifiedSet = std::collections::BTreeSet<(String, String)>;
+
 /// The evaluable-constraint ids and the State ids of the whole corpus,
 /// qualified by file — the same sets the model-check backend's citation
 /// algebra reads off the ModelIr (slice 3: the classification reads the
 /// compiled IR, not the guard's text).
-fn evaluable_and_states(
-    specs: &[crate::spec::Spec],
-) -> (
-    std::collections::BTreeSet<(String, String)>,
-    std::collections::BTreeSet<(String, String)>,
-) {
+fn evaluable_and_states(specs: &[crate::spec::Spec]) -> (QualifiedSet, QualifiedSet) {
     let mut evaluable = std::collections::BTreeSet::new();
     let mut states = std::collections::BTreeSet::new();
     for spec in specs {
@@ -219,14 +218,14 @@ fn corpus_members(
             }
             if let Some((target_file, _row, kind)) =
                 trust_resolve_target(specs, &file, &link.target)
+                && target_file != file
+                && kind == "extension_point"
             {
-                if target_file != file && kind == "extension_point" {
-                    members.push(TrustMember {
-                        id: link.source.clone(),
-                        kind: TrustMemberKind::ForeignExtensionPoint,
-                        source: file.clone(),
-                    });
-                }
+                members.push(TrustMember {
+                    id: link.source.clone(),
+                    kind: TrustMemberKind::ForeignExtensionPoint,
+                    source: file.clone(),
+                });
             }
         }
         for transition in &spec.transitions {
