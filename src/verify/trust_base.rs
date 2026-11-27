@@ -259,6 +259,10 @@ pub fn derive_trust_base(specs: &[crate::spec::Spec]) -> TrustBase {
             b.id.as_str(),
         ))
     });
+    // dedup_by drops only CONSECUTIVE equal members; the sort above is
+    // total on (kind, source, id), so equal members are guaranteed
+    // adjacent. A row with several satisfies links to foreign extension
+    // points emits duplicate members pre-dedup — exactly one survives.
     members.dedup_by(|a, b| a.id == b.id && a.kind == b.kind && a.source == b.source);
     let mut base = TrustBase {
         trust_base_schema_version: TRUST_BASE_SCHEMA_VERSION,

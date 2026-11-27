@@ -265,7 +265,7 @@ fn trust_base_lines(entry: &serde_json::Value) -> String {
     let assumed = tb["assumed"].as_array().map_or(&[][..], |a| a);
     let members: Vec<&serde_json::Value> = unverified.iter().chain(assumed.iter()).collect();
     if members.is_empty() {
-        return "\n    trust base: 0 unverified claim(s), 0 assumed — the corpus declares no unchecked claim and no machine-uninterpreted guard".to_string();
+        return "\n    trust base: 0 unverified claim(s), 0 assumed — the checked scope declares no unchecked claim and no machine-uninterpreted guard".to_string();
     }
     let mut out = format!(
         "\n    trust base: {} unverified claim(s), {} assumed",
