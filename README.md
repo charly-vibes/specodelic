@@ -240,6 +240,15 @@ spec explicitly opts into, plus execution of the compiled property blocks — it
 is not a substitute for the application's own test suite, and no proof of
 application correctness is inferred from a `verified` verdict.
 
+Every verification/model-check verdict carries a trust base naming what was
+NOT checked: unverified claims (prose-only invariants, foreign
+extension-point conformance, advisory constraints) and assumed facts
+(prose-only guards that cite no evaluable constraint). A non-empty ledger
+reports information about the corpus; it never blocks or grants `verified`.
+An empty ledger says only that the corpus declares no unchecked claim and no
+machine-uninterpreted guard. Neither an empty nor a non-empty ledger says
+anything about the implementation's behaviour.
+
 ## Development
 
 ```console

@@ -174,6 +174,23 @@ pub struct ModelIr {
     pub guard_kernel: BTreeMap<String, String>,
 }
 
+impl ModelIr {
+    /// The evaluable-constraint ids of this IR — the invariant rows that
+    /// opted into one of the three evaluators (executable fragment,
+    /// citation expression, kernel binding). This is the ONE definition
+    /// the model-check backend's citation algebra evaluates
+    /// (`citation_statuses` reads the same three maps) and the trust
+    /// ledger's guard classification consults — "evaluable" is never
+    /// re-derived per surface.
+    pub fn evaluable_constraint_ids(&self) -> impl Iterator<Item = &str> {
+        self.invariants
+            .iter()
+            .map(|i| i.id.as_str())
+            .chain(self.guard_citations.keys().map(String::as_str))
+            .chain(self.guard_kernel.keys().map(String::as_str))
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Guard citation algebra (slice 1, specodelic-txo — approach-02 increment)
 // ---------------------------------------------------------------------------

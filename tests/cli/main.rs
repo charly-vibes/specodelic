@@ -66,6 +66,7 @@ mod parse_dual;
 mod parse_misc;
 mod skill_install;
 mod tlc_observability;
+mod trust_base;
 
 fn write_parse_fixture(path: &std::path::Path, id: &str) {
     std::fs::write(

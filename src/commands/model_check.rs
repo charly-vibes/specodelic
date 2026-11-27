@@ -163,6 +163,7 @@ pub(crate) fn cmd_model_check(
                         "claims": c.claims,
                         "expected_claim_ids": c.expected_claim_ids,
                         "unchecked_claim_ids": c.unchecked_claim_ids,
+                        "trust_base": c.trust_base,
                         "violated_invariant_id": c.report.violated_invariant_id,
                         "trace": c.report.trace,
                         "states_explored": c.report.states_explored,
@@ -417,6 +418,11 @@ pub(crate) fn cmd_verify(
     };
     let mut verified: Vec<serde_json::Value> = vec![];
     let mut blocked: Vec<serde_json::Value> = vec![];
+    // ONE derivation: the corpus ledger the model-check reports carried
+    // rides every verify entry too — one derivation, every view
+    // (trust_base_views_agree).
+    let trust_base =
+        serde_json::to_value(verify::derive_trust_base(&specs)).expect("the ledger serializes");
     // The ONE both-gates evaluation loop (design D4): the native CLI and
     // the orchestrate stage share this exact path — same gate evaluation,
     // same verdict — so the aggregate verdict cannot drift between report
@@ -432,6 +438,7 @@ pub(crate) fn cmd_verify(
             "hint": v.hint,
             "properties": props_gate_json(&fv.properties),
             "model": model_gate_json(&fv.model),
+            "trust_base": trust_base,
         });
         if v.status == "verified" {
             verified.push(entry);

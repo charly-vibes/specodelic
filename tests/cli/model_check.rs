@@ -677,7 +677,13 @@ fn doctor_skips_currency_check_with_note_on_unreadable_corpus() {
 /// A lint-clean claim fixture: verbatim constraint rows plus one
 /// coverage property per row, the transition guard citing `guard_row`
 /// (the kernel_corpus.rs fixture shape).
-fn write_claim_spec(path: &std::path::Path, id: &str, rows: &str, props: &str, guard_row: &str) {
+pub(crate) fn write_claim_spec(
+    path: &std::path::Path,
+    id: &str,
+    rows: &str,
+    props: &str,
+    guard_row: &str,
+) {
     std::fs::write(
         path,
         format!(
@@ -704,7 +710,7 @@ fn write_claim_spec(path: &std::path::Path, id: &str, rows: &str, props: &str, g
 }
 
 /// The coverage property rows for the named constraint rows.
-fn claim_props(id: &str, rows: &[&str]) -> String {
+pub(crate) fn claim_props(id: &str, rows: &[&str]) -> String {
     rows.iter()
         .map(|r| {
             format!("| p_{r} | unit | [[{id}.{r}]] | `word()` | `**rust:** v0.len() >= 1` |\n")
@@ -712,7 +718,7 @@ fn claim_props(id: &str, rows: &[&str]) -> String {
         .collect()
 }
 
-fn claim_compile(spec: &str, out: &std::path::Path) {
+pub(crate) fn claim_compile(spec: &str, out: &std::path::Path) {
     spk()
         .args(["compile", spec, "--out-dir", out.to_str().unwrap_p()])
         .assert()
@@ -720,7 +726,7 @@ fn claim_compile(spec: &str, out: &std::path::Path) {
 }
 
 /// Run model-check over one spec and return (exit code, parsed envelope).
-fn claim_mc_json(spec: &str, out: &std::path::Path) -> (Option<i32>, serde_json::Value) {
+pub(crate) fn claim_mc_json(spec: &str, out: &std::path::Path) -> (Option<i32>, serde_json::Value) {
     let result = spk()
         .args([
             "model-check",
@@ -736,7 +742,10 @@ fn claim_mc_json(spec: &str, out: &std::path::Path) -> (Option<i32>, serde_json:
 }
 
 /// Run verify over one spec and return (exit code, parsed envelope).
-fn claim_verify_json(spec: &str, out: &std::path::Path) -> (Option<i32>, serde_json::Value) {
+pub(crate) fn claim_verify_json(
+    spec: &str,
+    out: &std::path::Path,
+) -> (Option<i32>, serde_json::Value) {
     let result = spk()
         .args([
             "verify",
@@ -752,7 +761,7 @@ fn claim_verify_json(spec: &str, out: &std::path::Path) -> (Option<i32>, serde_j
 }
 
 /// The persisted run report for one stem.
-fn claim_report(out: &std::path::Path, stem: &str) -> serde_json::Value {
+pub(crate) fn claim_report(out: &std::path::Path, stem: &str) -> serde_json::Value {
     serde_json::from_str(
         &std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap_p(),
     )
@@ -1325,7 +1334,7 @@ fn write_scope_spec(path: &std::path::Path, id: &str, rows: &str, props: &str) {
 
 /// A two-file ordinary corpus, each file verified clean — the starting
 /// point for every scope-freshness fixture.
-fn write_scope_pair(dir: &std::path::Path) -> (String, String) {
+pub(crate) fn write_scope_pair(dir: &std::path::Path) -> (String, String) {
     let a = dir.join("scp_a.md");
     let b = dir.join("scp_b.md");
     write_scope_spec(
@@ -1348,7 +1357,7 @@ fn write_scope_pair(dir: &std::path::Path) -> (String, String) {
 
 /// Compile a batch into `out` (model-check consumes compile's output —
 /// it never re-compiles).
-fn scope_compile(specs: &[&str], out: &std::path::Path) {
+pub(crate) fn scope_compile(specs: &[&str], out: &std::path::Path) {
     let mut args = vec!["compile".to_string()];
     args.extend(specs.iter().map(|s| s.to_string()));
     args.push("--out-dir".to_string());
@@ -1360,13 +1369,13 @@ fn scope_compile(specs: &[&str], out: &std::path::Path) {
 /// Remove the compiled props artifacts so verify's properties gate is
 /// deterministically `missing_artifact` (never a real cargo run) — the
 /// freshness fixtures pin the model gate, not the properties gate.
-fn drop_props(out: &std::path::Path, stems: &[&str]) {
+pub(crate) fn drop_props(out: &std::path::Path, stems: &[&str]) {
     for stem in stems {
         let _ = std::fs::remove_file(out.join(format!("{stem}_props.rs")));
     }
 }
 
-fn mc_batch(specs: &[&str], out: &std::path::Path) -> (Option<i32>, serde_json::Value) {
+pub(crate) fn mc_batch(specs: &[&str], out: &std::path::Path) -> (Option<i32>, serde_json::Value) {
     let mut args = vec!["model-check".to_string()];
     args.extend(specs.iter().map(|s| s.to_string()));
     args.extend([
@@ -1383,7 +1392,10 @@ fn mc_batch(specs: &[&str], out: &std::path::Path) -> (Option<i32>, serde_json::
 }
 
 /// Verify a batch, returning (exit code, parsed envelope).
-fn verify_batch(specs: &[&str], out: &std::path::Path) -> (Option<i32>, serde_json::Value) {
+pub(crate) fn verify_batch(
+    specs: &[&str],
+    out: &std::path::Path,
+) -> (Option<i32>, serde_json::Value) {
     let mut args = vec!["verify".to_string()];
     args.extend(specs.iter().map(|s| s.to_string()));
     args.extend([
@@ -1397,14 +1409,14 @@ fn verify_batch(specs: &[&str], out: &std::path::Path) -> (Option<i32>, serde_js
 }
 
 /// The persisted run report for the given stem.
-fn read_check_report(out: &std::path::Path, stem: &str) -> serde_json::Value {
+pub(crate) fn read_check_report(out: &std::path::Path, stem: &str) -> serde_json::Value {
     serde_json::from_str(
         &std::fs::read_to_string(out.join(format!("{stem}.check.json"))).unwrap_p(),
     )
     .unwrap_p()
 }
 
-fn write_check_report(out: &std::path::Path, stem: &str, report: &serde_json::Value) {
+pub(crate) fn write_check_report(out: &std::path::Path, stem: &str, report: &serde_json::Value) {
     std::fs::write(
         out.join(format!("{stem}.check.json")),
         serde_json::to_string_pretty(report).unwrap_p(),

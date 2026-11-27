@@ -382,6 +382,13 @@ pub fn evaluate_model_gate(
             };
         }
     }
+    // Trust base version gate (trust_base_versioned): an absent or
+    // unrecognized-version ledger is stale, never read as empty — see
+    // `gate::stored_trust_base_gate`.
+    let stored_trust_base = match gate::stored_trust_base_gate(&raw) {
+        Ok(stored_trust_base) => stored_trust_base,
+        Err(detail) => return ModelGateState::Stale { detail },
+    };
     // Scope fingerprint (D3): recompute the digest from the live parsed
     // inputs and the current compiled artifacts — the stored value is
     // never trusted.
@@ -390,28 +397,10 @@ pub fn evaluate_model_gate(
             detail: "the stored report carries no scope fingerprint — rerun model-check so the evidence binds the current inputs".to_string(),
         };
     };
-    let mut artifacts: std::collections::BTreeMap<String, String> =
-        std::collections::BTreeMap::new();
-    for s in specs {
-        let sstem = artifact_stem(s);
-        let tla_path = artifact_paths(
-            &citation_corpus::routed_artifact_dir(s, specs, out_dir),
-            &sstem,
-        )
-        .tla;
-        let tla = match fs::read(&tla_path) {
-            Ok(b) => b,
-            Err(e) => {
-                return ModelGateState::Stale {
-                    detail: format!(
-                        "compiled module unreadable/missing at {}: {e} — the invocation scope cannot be recomputed",
-                        tla_path.display()
-                    ),
-                };
-            }
-        };
-        artifacts.insert(s.intent.id.clone(), model_check::artifact_sha256(&tla));
-    }
+    let artifacts = match live_artifact_digests(specs, out_dir) {
+        Ok(artifacts) => artifacts,
+        Err(detail) => return ModelGateState::Stale { detail },
+    };
     let current_scope = scope_digest(specs, &artifacts);
     if stored_scope != current_scope {
         return ModelGateState::Stale {
@@ -506,6 +495,11 @@ pub fn evaluate_model_gate(
             detail: "the stored unchecked_claim_ids do not match the live unchecked set — rerun model-check over the same file set".to_string(),
         };
     }
+    // The trust ledger folds into the SAME agreement comparison
+    // (`assurance_views_agree`): see `gate::stored_trust_base_agrees`.
+    if let Err(detail) = gate::stored_trust_base_agrees(stored_trust_base, specs) {
+        return ModelGateState::Stale { detail };
+    }
     // Artifact staleness key: the report records the SHA-256 of the .tla
     // it consumed; the on-disk module must still match (belt and braces —
     // the scope digest binds the same module).
@@ -529,6 +523,35 @@ pub fn evaluate_model_gate(
             unchecked_claim_ids,
         },
     }
+}
+
+/// The invocation scope's compiled-artifact digests, re-read from disk —
+/// the D3 scope fingerprint's input; the stored values are never trusted.
+fn live_artifact_digests(
+    specs: &[crate::spec::Spec],
+    out_dir: &Path,
+) -> Result<std::collections::BTreeMap<String, String>, String> {
+    let mut artifacts: std::collections::BTreeMap<String, String> =
+        std::collections::BTreeMap::new();
+    for s in specs {
+        let sstem = artifact_stem(s);
+        let tla_path = artifact_paths(
+            &citation_corpus::routed_artifact_dir(s, specs, out_dir),
+            &sstem,
+        )
+        .tla;
+        let tla = match fs::read(&tla_path) {
+            Ok(b) => b,
+            Err(e) => {
+                return Err(format!(
+                    "compiled module unreadable/missing at {}: {e} — the invocation scope cannot be recomputed",
+                    tla_path.display()
+                ));
+            }
+        };
+        artifacts.insert(s.intent.id.clone(), model_check::artifact_sha256(&tla));
+    }
+    Ok(artifacts)
 }
 
 /// The stored report's claim view for a not-clean model gate (design D5
@@ -718,7 +741,12 @@ pub fn claim_classification(spec: &crate::spec::Spec) -> ClaimClassification {
     class.unchecked.sort();
     class
 }
-
+mod gate;
+pub use gate::fresh_report_json;
+mod trust_base;
+pub use trust_base::{
+    TRUST_BASE_SCHEMA_VERSION, TrustBase, TrustMember, TrustMemberKind, derive_trust_base,
+};
 /// The canonical scope digest (D3): SHA-256 over a deterministic
 /// serialization — its encoding version bound to CLAIM_SCHEMA_VERSION —
 /// of every parsed file's structured content plus the compiled artifact
@@ -804,44 +832,6 @@ pub fn report_claim_fields(
         .collect();
     let expected = class.required.iter().map(|req| req.id.clone()).collect();
     (claims, expected, class.unchecked.clone())
-}
-
-/// The write-side report shape (D3): the run report's serialized JSON with
-/// the claim-freshness fields injected — `claim_schema_version`, qualified
-/// `claims`, `expected_claim_ids`, `unchecked_claim_ids`, and
-/// `scope_sha256`. The ONE place these fields are attached to a persisted
-/// report (the field values themselves come from [`report_claim_fields`]);
-/// verify recomputes all of them from the live inputs and never trusts
-/// the stored values.
-pub fn fresh_report_json(
-    report: &RunReport,
-    claims: &[QualifiedClaim],
-    expected_claim_ids: &[String],
-    unchecked_claim_ids: &[String],
-    scope_sha256: &str,
-) -> serde_json::Value {
-    let mut json = serde_json::to_value(report).expect("RunReport serializes");
-    let obj = json
-        .as_object_mut()
-        .expect("RunReport serializes to an object");
-    obj.insert(
-        "claim_schema_version".into(),
-        serde_json::json!(CLAIM_SCHEMA_VERSION),
-    );
-    obj.insert(
-        "claims".into(),
-        serde_json::to_value(claims).expect("claims serialize"),
-    );
-    obj.insert(
-        "expected_claim_ids".into(),
-        serde_json::json!(expected_claim_ids),
-    );
-    obj.insert(
-        "unchecked_claim_ids".into(),
-        serde_json::json!(unchecked_claim_ids),
-    );
-    obj.insert("scope_sha256".into(), serde_json::json!(scope_sha256));
-    json
 }
 
 // ---------------------------------------------------------------------------
@@ -1416,6 +1406,7 @@ mod tests {
             &expected,
             &unchecked,
             &scope_digest(std::slice::from_ref(spec), &artifacts),
+            &derive_trust_base(std::slice::from_ref(spec)),
         );
         std::fs::write(
             dir.join("vfix.check.json"),

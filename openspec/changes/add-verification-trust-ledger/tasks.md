@@ -12,51 +12,51 @@ Scope anchors (spec rows): `trust_base_partitioned`, `trust_base_derived`,
 
 ## Slice 1 — the ledger model and its derivation (`src/verify.rs`)
 
-- [ ] 1.1 Red: a corpus with one prose-only invariant and one prose-only
+- [x] 1.1 Red: a corpus with one prose-only invariant and one prose-only
       guard — the verdict carries `trust_base.unverified_claims` (the
       prose-only invariant, kind `prose_only_invariant`) and
       `trust_base.assumed` (the guard, kind `prose_only_guard`); a member
       never appears in both.
       → `trust_base_partitioned`
-- [ ] 1.2 Red: the unchecked set and the `prose_only_invariant` members are
+- [x] 1.2 Red: the unchecked set and the `prose_only_invariant` members are
       derived from one source — the two never disagree.
       → `trust_base_derived`
-- [ ] 1.3 Green: the ledger types (`TrustBase`, `TrustMember`, the two
+- [x] 1.3 Green: the ledger types (`TrustBase`, `TrustMember`, the two
       closed kind sets) and the derivation from parsed rows; always
       serialized, empty included.
-- [ ] 1.4 Refactor: extract the derivation into a pure function of the
+- [x] 1.4 Refactor: extract the derivation into a pure function of the
       corpus rows (no CLI state, no filesystem access) so the sort order
       `(kind, source file id, row id)` is testable in isolation — the
       analogue of `report_claim_fields` (`src/verify.rs:810`).
 
 ## Slice 2 — the remaining kinds, and keeping run limits out
 
-- [ ] 2.1 Red: a row with `satisfies` pointing at a foreign
+- [x] 2.1 Red: a row with `satisfies` pointing at a foreign
       `extension_point` — listed in `unverified_claims` with kind
       `foreign_extension_point`, never in `assumed`.
-- [ ] 2.2 Red: a file with an `advisory` Constraint — listed in
+- [x] 2.2 Red: a file with an `advisory` Constraint — listed in
       `unverified_claims` with kind `advisory_constraint`.
-- [ ] 2.3 Red: a bounded model-check run — the bound and the artifact digest
+- [x] 2.3 Red: a bounded model-check run — the bound and the artifact digest
       ride as run metadata and appear in neither array.
       → `run_limits_excluded`
-- [ ] 2.4 Red: a member coming from another file in the scope carries that
+- [x] 2.4 Red: a member coming from another file in the scope carries that
       file's id, and the ledger follows the corpus.
       → `trust_base_corpus_scoped`
-- [ ] 2.5 Green: extend the kind sets and the derivation; carry the bound
+- [x] 2.5 Green: extend the kind sets and the derivation; carry the bound
       and digest into the model-check report payload beside the verdict.
 - [ ] 2.6 Refactor: one kind-set table shared by the derivation, the JSON
       serializer, and the human renderer — no per-view kind lists.
 
 ## Slice 3 — guards the citation algebra can resolve
 
-- [ ] 3.1 Red: a transition whose guard cites an evaluable constraint, or is
+- [x] 3.1 Red: a transition whose guard cites an evaluable constraint, or is
       a State "has reached state X" progress marker — absent from `assumed`.
       A guard that is prose and cites nothing evaluable is present.
       Ground the check on `ModelIr::guard_citations` / `guard_kernel` /
       `invariants` (`src/compile.rs:138-170`).
-- [ ] 3.2 Green: the guard classification reads the compiled model IR, not
+- [x] 3.2 Green: the guard classification reads the compiled model IR, not
       the guard's text.
-- [ ] 3.3 Refactor: share the guard classification with the model-check
+- [x] 3.3 Refactor: share the guard classification with the model-check
       backend's citation algebra instead of re-deriving "evaluable" here.
 
 ## Slice 4 — version, scope binding, and the three views
@@ -97,7 +97,7 @@ Scope anchors (spec rows): `trust_base_partitioned`, `trust_base_derived`,
 
 ## Slice 5 — docs and the layer sidecar
 
-- [ ] 5.1 The release assurance wording names the trust base: what a
+- [x] 5.1 The release assurance wording names the trust base: what a
       non-empty ledger reports, that it never blocks or grants `verified`,
       that an empty ledger says the corpus declares no unchecked claim and no
       machine-uninterpreted guard, and that neither says anything about the

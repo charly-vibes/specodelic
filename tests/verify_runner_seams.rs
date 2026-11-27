@@ -368,7 +368,8 @@ const CURRENT_SCHEMA_REPORT: &str = r#"{
   "artifact_sha256": "00",
   "states_explored": 1,
   "claim_schema_version": 1,
-  "scope_sha256": "stale"
+  "scope_sha256": "stale",
+  "trust_base": {"trust_base_schema_version": 1, "unverified_claims": [], "assumed": []}
 }"#;
 
 #[test]

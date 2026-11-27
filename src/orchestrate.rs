@@ -377,6 +377,10 @@ pub struct CheckedFile {
     pub expected_claim_ids: Vec<String>,
     /// The explicitly unchecked invariant ids.
     pub unchecked_claim_ids: Vec<String>,
+    /// The derived trust base (add-verification-trust-ledger): ONE
+    /// derivation over the corpus, carried by the persisted report, the
+    /// CLI checked entry, and the orchestrate stage entry alike.
+    pub trust_base: serde_json::Value,
     pub written: String,
 }
 
@@ -443,6 +447,12 @@ pub fn run_claim_gated_model_check(
         })
         .collect();
     let scope_sha256 = verify::scope_digest(specs, &artifact_hashes);
+    // ONE derivation (trust_base_shared_derivation): the corpus ledger
+    // is derived once here and rides every carrier — the persisted
+    // report through fresh_report_json, and both stage surfaces through
+    // CheckedFile.
+    let ledger = verify::derive_trust_base(specs);
+    let trust_base = serde_json::to_value(&ledger).expect("the ledger serializes");
     runs.into_iter()
         .enumerate()
         .map(|(idx, run)| {
@@ -491,6 +501,7 @@ pub fn run_claim_gated_model_check(
                         &expected_claim_ids,
                         &unchecked_claim_ids,
                         &scope_sha256,
+                        &ledger,
                     );
                     // The persisted report follows the SAME shared
                     // routing decision (gh-13): next to the `.tla` the
@@ -508,6 +519,7 @@ pub fn run_claim_gated_model_check(
                             claims,
                             expected_claim_ids,
                             unchecked_claim_ids,
+                            trust_base: trust_base.clone(),
                             written: report_path.display().to_string(),
                         }),
                         Err(e) => Err((
@@ -560,6 +572,7 @@ fn run_model_check_stage(
                     "claims": c.claims,
                     "expected_claim_ids": c.expected_claim_ids,
                     "unchecked_claim_ids": c.unchecked_claim_ids,
+                    "trust_base": c.trust_base,
                     "states_explored": c.report.states_explored,
                     "written": c.written,
                 }));
@@ -594,6 +607,10 @@ fn run_model_check_stage(
 fn run_verify_stage(specs: &[Spec], out_dir: &str) -> Stage {
     let runner = verify::CargoRunner::default();
     let dir = std::path::Path::new(out_dir);
+    // ONE derivation: the same corpus ledger the model_check stage just
+    // derived rides every verify entry (trust_base_views_agree).
+    let trust_base =
+        serde_json::to_value(verify::derive_trust_base(specs)).expect("the ledger serializes");
     let mut verified: Vec<serde_json::Value> = vec![];
     let mut blocked: Vec<serde_json::Value> = vec![];
     // The stage rides the ONE both-gates evaluation loop (design D4) —
@@ -605,6 +622,7 @@ fn run_verify_stage(specs: &[Spec], out_dir: &str) -> Stage {
             "id": fv.id,
             "status": fv.verdict.status,
             "message": fv.verdict.message,
+            "trust_base": trust_base,
         });
         if fv.verdict.status == "verified" {
             verified.push(entry);

@@ -174,6 +174,7 @@ pub fn model_check(payload: &serde_json::Value) -> String {
                 c["written"].as_str().unwrap_or("?")
             ));
             out.push_str(&claims_lines(c));
+            out.push_str(&trust_base_lines(c));
         }
     }
     if let Some(list) = payload["failed"].as_array() {
@@ -248,6 +249,58 @@ fn claims_lines(entry: &serde_json::Value) -> String {
     out
 }
 
+/// The trust-base lines for one entry (add-verification-trust-ledger,
+/// trust_base_views_agree + the stated truncation rule): the member
+/// count per kind and the first ten members in the ledger's
+/// deterministic order, with truncation stated when more than ten —
+/// the JSON keeps every member. Payload-driven: kinds and counts are
+/// read from the envelope value, never a per-view kind list. Renders
+/// nothing when the entry carries no trust base.
+fn trust_base_lines(entry: &serde_json::Value) -> String {
+    const HUMAN_MEMBER_CAP: usize = 10;
+    let Some(tb) = entry.get("trust_base").filter(|tb| tb.is_object()) else {
+        return String::new();
+    };
+    let unverified = tb["unverified_claims"].as_array().map_or(&[][..], |a| a);
+    let assumed = tb["assumed"].as_array().map_or(&[][..], |a| a);
+    let members: Vec<&serde_json::Value> = unverified.iter().chain(assumed.iter()).collect();
+    if members.is_empty() {
+        return "\n    trust base: 0 unverified claim(s), 0 assumed — the corpus declares no unchecked claim and no machine-uninterpreted guard".to_string();
+    }
+    let mut out = format!(
+        "\n    trust base: {} unverified claim(s), {} assumed",
+        unverified.len(),
+        assumed.len()
+    );
+    // The per-kind counts, in the ledger's kind order (the members are
+    // already kind-sorted, so first-seen order is the deterministic one).
+    let mut counts: Vec<(&str, usize)> = Vec::new();
+    for m in &members {
+        let kind = m["kind"].as_str().unwrap_or("?");
+        match counts.iter_mut().find(|(k, _)| *k == kind) {
+            Some((_, n)) => *n += 1,
+            None => counts.push((kind, 1)),
+        }
+    }
+    let kinds: Vec<String> = counts.iter().map(|(k, n)| format!("{k}: {n}")).collect();
+    out.push_str(&format!(" — {}", kinds.join(", ")));
+    for m in members.iter().take(HUMAN_MEMBER_CAP) {
+        out.push_str(&format!(
+            "\n      {}: {} ({})",
+            m["kind"].as_str().unwrap_or("?"),
+            m["id"].as_str().unwrap_or("?"),
+            m["source"].as_str().unwrap_or("?")
+        ));
+    }
+    if members.len() > HUMAN_MEMBER_CAP {
+        out.push_str(&format!(
+            "\n      … {} more member(s) truncated — the JSON and the persisted report keep every member",
+            members.len() - HUMAN_MEMBER_CAP
+        ));
+    }
+    out
+}
+
 /// `spk verify` — per-file verdict; blocked files carry the blocking
 /// stage message.
 pub fn merge(report: &crate::merge::MergeReport) -> String {
@@ -283,6 +336,10 @@ pub fn verify(payload: &serde_json::Value) -> String {
                 // same blocking/unchecked ids the model-check views name.
                 out.push_str(&claims_lines(&e["model"]));
             }
+            // The ledger rides every entry, verified or blocked
+            // (trust_base_views_agree): the same members the JSON and
+            // the persisted report name.
+            out.push_str(&trust_base_lines(e));
         }
     };
     if let Some(list) = payload["verified"].as_array() {
@@ -606,6 +663,84 @@ mod tests {
         let text = doctor(&d_payload);
         assert!(text.contains("doctor: mode self_hosting"), "{text}");
         assert!(text.contains("\n  specs/ directory: ok"), "{text}");
+    }
+
+    #[test]
+    fn trust_base_lines_count_per_kind_and_truncate() {
+        // 4.6: per-kind counts, the first ten members in the ledger's
+        // deterministic order, truncation stated; the JSON keeps every
+        // member and the renderer only ever reads the envelope value.
+        let mut members = vec![];
+        for i in 1..=11 {
+            members.push(
+                json!({"id": format!("adv{i:02}"), "kind": "advisory_constraint", "source": "tlt"}),
+            );
+        }
+        members.push(json!({"id": "t", "kind": "prose_only_guard", "source": "tlt"}));
+        let payload = json!({
+            "files_checked": 1,
+            "files_failed": 0,
+            "checked": [{
+                "file": "a.md", "id": "a.x", "outcome": "exploration_only",
+                "states_explored": 1, "written": "a.check.json",
+                "trust_base": {"trust_base_schema_version": 1, "unverified_claims": members, "assumed": []},
+            }],
+        });
+        let text = model_check(&payload);
+        assert!(text.contains("advisory_constraint: 11"), "{text}");
+        assert!(text.contains("prose_only_guard: 1"), "{text}");
+        assert!(text.contains("truncated"), "states the truncation: {text}");
+        for i in 1..=10 {
+            assert!(text.contains(&format!("adv{i:02}")), "adv{i:02}: {text}");
+        }
+        assert!(
+            !text.contains("adv11"),
+            "only the first ten members render: {text}"
+        );
+    }
+
+    #[test]
+    fn trust_base_lines_render_the_empty_ledger_and_small_lists() {
+        // 4.8/4.5: an empty ledger still renders (never omitted), and a
+        // small mixed ledger is not truncated — verify's entry view
+        // renders the same way.
+        let empty = json!({
+            "files_checked": 1, "files_failed": 0,
+            "checked": [{"file": "a.md", "id": "a.x", "outcome": "no_counterexample", "states_explored": 1, "written": "a.check.json",
+                "trust_base": {"trust_base_schema_version": 1, "unverified_claims": [], "assumed": []}}],
+        });
+        let text = model_check(&empty);
+        assert!(text.contains("trust base"), "{text}");
+        assert!(
+            !text.contains("truncated"),
+            "no truncation under the cap: {text}"
+        );
+
+        let small = json!({
+            "files_checked": 1, "files_failed": 0,
+            "checked": [{"file": "a.md", "id": "a.x", "outcome": "no_counterexample", "states_explored": 1, "written": "a.check.json",
+                "trust_base": {"trust_base_schema_version": 1,
+                    "unverified_claims": [{"id": "kp", "kind": "prose_only_invariant", "source": "tlv"}],
+                    "assumed": [{"id": "t", "kind": "prose_only_guard", "source": "tlv"}]}}],
+        });
+        let text = model_check(&small);
+        assert!(text.contains("prose_only_invariant: kp"), "{text}");
+        assert!(text.contains("prose_only_guard: t"), "{text}");
+        assert!(!text.contains("truncated"), "{text}");
+
+        let v_payload = json!({
+            "files_verified": 0, "files_blocked": 1,
+            "verified": [],
+            "blocked": [{"file": "a.md", "id": "a.x", "status": "model_not_clean", "message": "m",
+                "trust_base": {"trust_base_schema_version": 1,
+                    "unverified_claims": [{"id": "kp", "kind": "prose_only_invariant", "source": "tlv"}],
+                    "assumed": []}}],
+        });
+        let v_text = verify(&v_payload);
+        assert!(
+            v_text.contains("prose_only_invariant: kp"),
+            "verify's human view names the member: {v_text}"
+        );
     }
 
     #[test]

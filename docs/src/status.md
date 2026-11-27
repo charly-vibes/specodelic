@@ -8,7 +8,7 @@
 |---|---|---|
 | `spk` (specodelic) | beta | lints, compiles, verifies, refactors markdown specs (alias `spk`) |
 | spec format | beta | frontmatter, Constraints, state Model, Properties tables |
-| verification claims | beta | every opted-in invariant claim (Rust, kernel, citation) must verify before a file verifies; prose-only invariants stay unchecked; claim reports are versioned and scope-bound — JSON, human, and persisted views name the same blockers |
+| verification claims | beta | every opted-in invariant claim (Rust, kernel, citation) must verify before a file verifies; prose-only invariants stay unchecked; claim reports are versioned and scope-bound — JSON, human, and persisted views name the same blockers; every verdict carries a trust base naming what was not checked, reported as information about the corpus that never blocks or grants `verified` |
 
 ## In progress
 
