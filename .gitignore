@@ -78,3 +78,6 @@ __pycache__/
 # Hegel property engine failure database (tests/hegel_properties.rs) —
 # shrunk counterexample blobs, written on failure only
 .hegel/
+
+# dont — drift-signal state (suite gate "dont check" reads it; per-machine)
+.dont/

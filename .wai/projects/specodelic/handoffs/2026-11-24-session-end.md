@@ -8,27 +8,56 @@ phase: research
 
 ## What Was Done
 
-<!-- Summary of completed work -->
+qbox session (2026-11-24, tdd-ro5 pipeline): fixed specodelic-qbox — check's
+artifact gate lints the judged file within its corpus
+(discover_openspec_root + parse_batch, labeled isolated-file fallback), so
+corpus capabilities reach verify_model instead of refusing at
+artifact_gate. Shipped as 23ebc98b; handoff scaffold committed as 326cbb8b;
+pushed (f0748a23 was the run's HEAD at the after-qbox entry). Exhibits: 4
+contracts in tests/cli/check.rs (56 passed), clippy clean, just ci exit 0,
+ah check --run-tests 758/0.
+
+Post-qbox: authored openspec change add-kani-proof-harnesses (Kani harness
+suite over verdict-deciding internals; quint.sh FVT grading 2026-11,
+research doc .wai/resources/research/2026-11-18-quint-fvt-tools-grading.md)
+— left UNCOMMITTED at session end; committed 2026-11-27 with ticket
+specodelic-i9th.
 
 ## Key Decisions
 
-<!-- Decisions made and rationale -->
+- Kani over Verus/Prusti/Creusot: cargo-native, MIT, harness shape fits the
+  pure-function internals without a forked toolchain (grading: Kani A/A,
+  Stateright A+/A+).
+- `just kani` explicitly NOT in `just ci` — Kani runtimes too slow for the
+  per-commit gate; run points are pre-push/nightly (design D4/D6).
+- Zero-production-change stance: a red harness counterexample is a finding
+  to file, not something to silently fix inside this change.
 
 ## Gotchas & Surprises
 
-<!-- What behaved unexpectedly? Non-obvious requirements? Hidden dependencies? -->
+- The wai close scaffold was committed with placeholder prose sections
+  unfilled — filled 2026-11-27 during housekeeping; the stale
+  `.wai/pipeline-runs/tdd-ro5-2026-11-24-qbox-*.yml` "modified" line in the
+  auto git_status had already shipped as 23ebc98b + 326cbb8b.
 
 ## What Took Longer Than Expected
 
-<!-- Steps that needed multiple attempts. Commands that failed before the right one. -->
+(2026-11-24 session ran clean; no multi-attempt steps recorded in the
+branch notes for qbox.)
 
 ## Open Questions
 
-<!-- Unresolved questions -->
+- None blocking. Backlog hygiene ticket specodelic-cgfm remains the
+  standing cleanup decision point.
 
 ## Next Steps
 
-<!-- Prioritized list of what to do next -->
+1. specodelic-rzwg (P1, parked 2026-11-25T14:52Z): trust-ledger change
+   authored + Rule-of-5 reviewed + committed (20c7ab53, 681d8cac);
+   implementation NOT started — tasks.md Slice 1 (`src/verify.rs`:
+   TrustBase derivation) is the next action.
+2. specodelic-i9th: implement add-kani-proof-harnesses (tasks.md Slice 1:
+   separation property first, then `just kani` wiring).
 
 ## Context
 
