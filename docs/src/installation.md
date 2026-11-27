@@ -26,7 +26,7 @@ Installs two binaries: `specodelic` and its alias `spk`.
 
 ## Quick start
 
-All output below was captured verbatim from `specodelic 0.12.0`. On a TTY
+All output below was captured verbatim from `specodelic 0.14.0`. On a TTY
 the tool prints human-readable text (shown here); when stdout is piped it
 emits a JSON envelope instead.
 
@@ -109,6 +109,9 @@ model-check: 1 checked, 0 failed
   order.cancel.md [order.cancel]: exploration_only (1 states explored) → specodelic/order.cancel.check.json
     claims: 0 evaluated, 1 unchecked, 0 blocking
       unchecked: c1
+    trust base: 1 unverified claim(s), 1 assumed — prose_only_invariant: 1, prose_only_guard: 1
+      prose_only_invariant: c1 (order.cancel)
+      prose_only_guard: t1 (order.cancel)
 → Run: specodelic verify (consumes the *.check.json reports)
 ```
 

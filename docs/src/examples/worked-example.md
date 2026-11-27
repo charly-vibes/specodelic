@@ -4,7 +4,7 @@ This page builds one small spec from nothing: a reservation service for a
 web shop. You will see the whole four-layer journey — **Intent →
 Constraints → Model → Properties** — and then the part most tutorials
 skip: the mistakes. Every lint finding below is real output from
-`specodelic 0.13.0` on the file as it stood at that moment; the fixes are
+`specodelic 0.14.0` on the file as it stands now; the fixes are
 the fixes that were actually made. The finished spec lives at
 [`examples/reservation-order.md`](reservation-order.md) and lints clean —
 you can check that yourself with `spk lint docs/src/examples/reservation-order.md`
@@ -359,6 +359,18 @@ model-check: 1 checked, 0 failed
   reservation-order.md [reservation.order]: exploration_only (7 states explored) → specodelic/reservation-order.check.json
     claims: 0 evaluated, 7 unchecked, 0 blocking
       unchecked: all_or_nothing, cancel_refunds_exactly_charged, charge_iff_fulfilled, expiry_releases_holds, held_or_converted, reject_reason_surfaced, release_is_total
+    trust base: 7 unverified claim(s), 7 assumed — prose_only_invariant: 7, prose_only_guard: 7
+      prose_only_invariant: all_or_nothing (reservation.order)
+      prose_only_invariant: cancel_refunds_exactly_charged (reservation.order)
+      prose_only_invariant: charge_iff_fulfilled (reservation.order)
+      prose_only_invariant: expiry_releases_holds (reservation.order)
+      prose_only_invariant: held_or_converted (reservation.order)
+      prose_only_invariant: reject_reason_surfaced (reservation.order)
+      prose_only_invariant: release_is_total (reservation.order)
+      prose_only_guard: accept (reservation.order)
+      prose_only_guard: cancel_paid (reservation.order)
+      prose_only_guard: cancel_unpaid (reservation.order)
+      … 4 more member(s) truncated — the JSON and the persisted report keep every member
 → Run: specodelic verify (consumes the *.check.json reports)
 ```
 
@@ -419,6 +431,18 @@ model-check: 1 checked, 0 failed
     claims: 1 evaluated, 7 unchecked, 1 blocking
       blocking: reserve_never_fails (rust, counterexample)
       unchecked: all_or_nothing, cancel_refunds_exactly_charged, charge_iff_fulfilled, expiry_releases_holds, held_or_converted, reject_reason_surfaced, release_is_total
+    trust base: 7 unverified claim(s), 7 assumed — prose_only_invariant: 7, prose_only_guard: 7
+      prose_only_invariant: all_or_nothing (reservation.order)
+      prose_only_invariant: cancel_refunds_exactly_charged (reservation.order)
+      prose_only_invariant: charge_iff_fulfilled (reservation.order)
+      prose_only_invariant: expiry_releases_holds (reservation.order)
+      prose_only_invariant: held_or_converted (reservation.order)
+      prose_only_invariant: reject_reason_surfaced (reservation.order)
+      prose_only_invariant: release_is_total (reservation.order)
+      prose_only_guard: accept (reservation.order)
+      prose_only_guard: cancel_paid (reservation.order)
+      prose_only_guard: cancel_unpaid (reservation.order)
+      … 4 more member(s) truncated — the JSON and the persisted report keep every member
 model-check findings: the claim aggregate is not clean (see .data.checked)
 → Run: fix the refuted claim(s) named in .data.checked — verify's model gate accepts only a no_counterexample aggregate
 ```
@@ -470,6 +494,18 @@ spk verify reservation-order.md
 verify: 0 verified, 1 blocked
   reservation-order.md [reservation.order]: properties_failed — 8 of 8 compiled blocks failed — a partial pass is a failure of the property
       unchecked: all_or_nothing, cancel_refunds_exactly_charged, charge_iff_fulfilled, expiry_releases_holds, held_or_converted, reject_reason_surfaced, release_is_total
+    trust base: 7 unverified claim(s), 7 assumed — prose_only_invariant: 7, prose_only_guard: 7
+      prose_only_invariant: all_or_nothing (reservation.order)
+      prose_only_invariant: cancel_refunds_exactly_charged (reservation.order)
+      prose_only_invariant: charge_iff_fulfilled (reservation.order)
+      prose_only_invariant: expiry_releases_holds (reservation.order)
+      prose_only_invariant: held_or_converted (reservation.order)
+      prose_only_invariant: reject_reason_surfaced (reservation.order)
+      prose_only_invariant: release_is_total (reservation.order)
+      prose_only_guard: accept (reservation.order)
+      prose_only_guard: cancel_paid (reservation.order)
+      prose_only_guard: cancel_unpaid (reservation.order)
+      … 4 more member(s) truncated — the JSON and the persisted report keep every member
 verify blocked — the blocking gate, message and hint ride .data.blocked
 → Run: fix the failing predicates (see each block's detail for the shrunk failing input)
 ```
