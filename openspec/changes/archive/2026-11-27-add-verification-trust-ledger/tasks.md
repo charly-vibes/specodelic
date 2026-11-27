@@ -44,7 +44,7 @@ Scope anchors (spec rows): `trust_base_partitioned`, `trust_base_derived`,
       → `trust_base_corpus_scoped`
 - [x] 2.5 Green: extend the kind sets and the derivation; carry the bound
       and digest into the model-check report payload beside the verdict.
-- [ ] 2.6 Refactor: one kind-set table shared by the derivation, the JSON
+- [x] 2.6 Refactor: one kind-set table shared by the derivation, the JSON
       serializer, and the human renderer — no per-view kind lists.
 
 ## Slice 3 — guards the citation algebra can resolve
@@ -61,35 +61,35 @@ Scope anchors (spec rows): `trust_base_partitioned`, `trust_base_derived`,
 
 ## Slice 4 — version, scope binding, and the three views
 
-- [ ] 4.1 Red: a stored report with **no** trust base — verify refuses it
+- [x] 4.1 Red: a stored report with **no** trust base — verify refuses it
       as stale with a rerun hint; it is never read as an empty ledger, and
       `claim_schema_version` stays 1.
       → `trust_base_versioned`
-- [ ] 4.2 Red: a stored report whose `trust_base_schema_version` is
+- [x] 4.2 Red: a stored report whose `trust_base_schema_version` is
       unrecognized — refused as stale, same hint.
-- [ ] 4.3 Red: a stored report whose trust base disagrees with the
+- [x] 4.3 Red: a stored report whose trust base disagrees with the
       recomputation — refused as a ledger mismatch, with the same rerun
       hint the unchecked-set comparison uses (`src/verify.rs:495-506`); the
       stored report is left unmodified.
       → `trust_base_derived`
-- [ ] 4.4 Red: the same corpus presented in a different file order — the
+- [x] 4.4 Red: the same corpus presented in a different file order — the
       recomputed ledger is identical member for member and the persisted
       report is byte-identical.
-- [ ] 4.5 Red: CLI JSON, human output, and the saved report name the same
+- [x] 4.5 Red: CLI JSON, human output, and the saved report name the same
       members with the same kinds; no view reports an empty trust base while
       another names an entry.
       → `trust_base_views_agree`
-- [ ] 4.6 Red: more than ten members — the human output names the count per
+- [x] 4.6 Red: more than ten members — the human output names the count per
       kind and the first ten members in the deterministic order, and says the
       list is truncated; the JSON keeps every member.
-- [ ] 4.7 Green: recompute-and-compare in `src/verify.rs`; the version gate
+- [x] 4.7 Green: recompute-and-compare in `src/verify.rs`; the version gate
       beside the existing claim-schema gate (`src/verify.rs:369-379`); the
       ledger attached at the one write-side seam (`fresh_report_json`,
       `src/verify.rs:810-830`); human rendering in `src/human.rs`.
-- [ ] 4.8 Red→Green: an empty trust base is serialized as an empty object,
+- [x] 4.8 Red→Green: an empty trust base is serialized as an empty object,
       never omitted — an omitted ledger is not an empty one.
       → `empty_trust_base_meaning`
-- [ ] 4.9 Refactor: fold the ledger into the existing
+- [x] 4.9 Refactor: fold the ledger into the existing
       `assurance_views_agree` comparison rather than adding a second
       agreement check; the model-check report and the verify verdict read the
       same derivation, never two.

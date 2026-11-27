@@ -1,7 +1,7 @@
 ---
 id: verification.claims
 kind: intent
-statement: "THE verifier SHALL accept only complete current evidence for every required invariant claim."
+statement: "WHEN a verification or model-check verdict is reported, THE verifier SHALL name its trust base as two disjoint sets — unverified claims and assumed facts — and SHALL exclude run limits from both."
 ---
 
 # Verification claims
@@ -18,6 +18,14 @@ THE verifier SHALL accept only complete current evidence for every required inva
 | aggregate | invariant | nonempty required claims must all verify and property blocks must all pass | [[verification.claims]] |
 | freshness | invariant | reports bind a versioned claim set to current structured scope and artifacts | [[verification.claims]] |
 | visible_scope | invariant | all report views and release docs state the same assurance scope | [[verification.claims]] |
+| trust_base_partitioned | invariant | `every verdict's trust base is partitioned into exactly two disjoint arrays — unverified_claims (kinds {prose_only_invariant, foreign_extension_point, advisory_constraint}) and assumed (kind {prose_only_guard}) — each entry naming its id, its kind, and its source file, and an entry appearing in at most one array` | [[verification.claims]] |
+| trust_base_derived | invariant | `the trust base is recomputed from the current corpus and the current artifacts at report time and is never accepted from a stored report without that recomputation; a stored ledger that disagrees with the recomputation is refused with a rerun hint` | [[verification.claims]] |
+| trust_base_versioned | invariant | `the persisted report's trust base carries trust_base_schema_version 1, and a stored report whose trust base is absent or carries an unrecognized version is refused as stale — an absent trust base is never read as an empty one, and the claim schema version is left untouched` | [[verification.claims]] |
+| run_limits_excluded | invariant | `the model-check bound and the artifact digest are run metadata reported beside the verdict and appear in neither trust array — a ledger is a function of the corpus, never of the run's parameters` | [[verification.claims]] |
+| trust_base_views_agree | invariant | `CLI JSON, human output, and the persisted report name the same trust base members with the same kinds — no view reports an empty trust base while another names an entry` | [[verification.claims]] |
+| empty_trust_base_meaning | invariant | `an empty trust base means the corpus declares no unchecked claim and no machine-uninterpreted guard, and it is always serialized — the emptiness says nothing about a claim's verification status, which the verdict reports separately as checked, unknown, or refuted` | [[verification.claims]] |
+| trust_base_corpus_scoped | invariant | `the trust base is corpus-scoped: a member may come from any file in the scope and names its source file — so a foreign extension point appearing or disappearing changes the ledger of the files that cite it` | [[verification.claims]] |
+| trust_base_shared_derivation | invariant | `the trust base is derived once from the corpus rows and carried by both the model-check report and the verify verdict — one derivation, two carriers, never two implementations` | [[verification.claims]] |
 
 ## Model
 
@@ -33,7 +41,7 @@ THE verifier SHALL accept only complete current evidence for every required inva
 |----|------|----|-------|
 | approve | proposed | approved | [[verification.claims.process_lifecycle]] ∧ maintainer approves this proposal  |
 | implement | approved | implemented | [[verification.claims.process_lifecycle]] ∧ every constraint has passing behavioral evidence  |
-| deploy | implemented | deployed | [[verification.claims.process_lifecycle]] ∧ required gates pass and the companion re-attachment preserves every requirement  |
+| deploy | implemented | deployed | [[verification.claims.process_lifecycle]] ∧ required gates pass and the companion re-attachment preserves every requirement ∧ [[verification.claims.trust_base_derived]] ∧ [[verification.claims.trust_base_versioned]] ∧ [[verification.claims.trust_base_views_agree]] |
 
 ## Properties
 
@@ -44,6 +52,14 @@ THE verifier SHALL accept only complete current evidence for every required inva
 | aggregate_checked | unit | [[verification.claims.aggregate]] | mixed_claim_statuses() | false and unknown claims cannot yield verified |
 | freshness_checked | unit | [[verification.claims.freshness]] | changed_scope_or_legacy_report() | verify rejects stale or incomplete evidence with a rerun hint |
 | visible_scope_checked | unit | [[verification.claims.visible_scope]] | report_and_docs_fixture() | claim counts agree and pending features are not advertised as implemented |
+| trust_base_partitioned_checked | unit | [[verification.claims.trust_base_partitioned]] | `mixed_trust_base_corpus()` | `every member appears in exactly one array with a kind from that array's closed set` |
+| trust_base_derived_checked | unit | [[verification.claims.trust_base_derived]] | `changed_scope_ledger_fixture()` | `a stored ledger that disagrees with the recomputation is refused with a rerun hint` |
+| trust_base_versioned_checked | unit | [[verification.claims.trust_base_versioned]] | `ledger_less_report_fixture()` | `a stored report without a trust base is stale, never an empty one, and the claim schema version is unchanged` |
+| run_limits_excluded_checked | unit | [[verification.claims.run_limits_excluded]] | `bounded_run_fixture()` | `the bound and the artifact digest appear in neither trust array` |
+| trust_base_views_agree_checked | unit | [[verification.claims.trust_base_views_agree]] | `three_view_fixture()` | `JSON, human, and persisted reports name the same members with the same kinds` |
+| empty_trust_base_meaning_checked | unit | [[verification.claims.empty_trust_base_meaning]] | `fully_checked_corpus()` | `an empty trust base ⇒ no unchecked claim and no machine-uninterpreted guard, the field is present, and the emptiness says nothing about a claim's verification status` |
+| trust_base_corpus_scoped_checked | unit | [[verification.claims.trust_base_corpus_scoped]] | `cross_file_extension_point_corpus()` | `a member from a foreign file appears with its source file, and the ledger follows the corpus` |
+| trust_base_shared_derivation_checked | unit | [[verification.claims.trust_base_shared_derivation]] | `two_surface_fixture()` | `the model-check report and the verify verdict carry the same members, kinds, and order` |
 
 ## Requirements
 
@@ -124,3 +140,119 @@ without presenting them as implemented.
 #### Scenario: Capability and release metadata stay current
 - **WHEN** the documentation is built for a release
 - **THEN** its version derives from Cargo metadata and its examples distinguish implemented behavior from pending proposals
+
+### Requirement: A verdict names its trust base
+
+Every verification or model-check verdict SHALL carry a `trust_base` object
+partitioned into exactly two disjoint arrays: `unverified_claims` (asserted
+but unchecked) and `assumed` (relied upon but unchecked). Each entry SHALL
+name its id, its kind, and its source file, and SHALL appear in at most one
+array. The ledger SHALL be corpus-scoped: a member may come from any file in
+the scope and names its source file.
+
+#### Scenario: The two kind sets are closed
+
+- **WHEN** a verdict's trust base is read
+- **THEN** every `unverified_claims` entry's kind is one of `prose_only_invariant`, `foreign_extension_point`, `advisory_constraint`, and every `assumed` entry's kind is `prose_only_guard`
+
+#### Scenario: Prose-only invariant is an unverified claim
+
+- **WHEN** a file declares a prose-only invariant Constraint
+- **THEN** the verdict's `unverified_claims` lists that Constraint with kind `prose_only_invariant`, and it does not appear in `assumed`
+
+#### Scenario: A prose-only guard is an assumption
+
+- **WHEN** a transition's guard is prose and cites no evaluable constraint — no citation expression, no kernel binding, no executable invariant
+- **THEN** the verdict's `assumed` lists that transition with kind `prose_only_guard`, and the guard's condition is absent from the model report's checked invariants, which name only the constraints actually checked
+
+#### Scenario: A guard the citation algebra resolves is not an assumption
+
+- **WHEN** a transition's guard cites an evaluable constraint, or is a State "has reached state X" progress marker
+- **THEN** that transition is absent from `assumed` — only a guard with no resolvable condition is relied upon without checking
+
+#### Scenario: A foreign extension point is an unverified claim
+
+- **WHEN** a row claims conformance to a foreign `extension_point`
+- **THEN** the verdict's `unverified_claims` lists that row with kind `foreign_extension_point`, never in `assumed` — nothing in the corpus checks the conformance, so it is asserted, not trusted
+
+#### Scenario: An advisory constraint is an unverified claim
+
+- **WHEN** a file declares an `advisory` Constraint, which no gate enforces
+- **THEN** the verdict's `unverified_claims` lists it with kind `advisory_constraint`
+
+#### Scenario: Run limits are metadata, not trust
+
+- **WHEN** a model-check run used a depth cap, a state cap, or a timeout
+- **THEN** the bound and the artifact digest appear as run metadata and appear in neither trust array
+
+#### Scenario: An empty trust base is a positive statement
+
+- **WHEN** both trust arrays are empty
+- **THEN** the corpus declares no unchecked claim and no machine-uninterpreted guard, and the empty ledger is still serialized — the emptiness says nothing about a claim's verification status, which the verdict reports separately as checked, unknown, or refuted
+
+### Requirement: The trust base is derived, versioned, and scope-bound
+
+The trust base SHALL be recomputed from the current corpus and artifacts at
+report time and SHALL never be accepted from a stored report without that
+recomputation. The persisted report SHALL carry `trust_base_schema_version`
+1; a stored report whose trust base is absent or unrecognized SHALL be
+refused as stale, never read as an empty trust base. Membership and order
+SHALL be a pure function of the corpus rows, so the same corpus in a
+different file order yields an identical ledger.
+
+#### Scenario: A report without a trust base is stale
+
+- **WHEN** a stored report carries no trust base, or carries a `trust_base_schema_version` the tool does not support
+- **THEN** verify refuses the report as stale and names the rerun command — an absent trust base is never an empty one, and the claim schema version is left untouched
+
+#### Scenario: A stale ledger is refused
+
+- **WHEN** a stored report's trust base disagrees with the recomputation
+- **THEN** verify refuses the report as a ledger mismatch, with the same rerun hint the unchecked-set comparison uses, and never silently re-scores the stored ledger
+
+#### Scenario: Reordering does not change the ledger
+
+- **WHEN** the same corpus is presented in a different file order
+- **THEN** the recomputed trust base is identical member for member, and the persisted report is byte-identical
+
+#### Scenario: The stored ledger is never the source of truth
+
+- **WHEN** a stored report carries a trust base that no recomputation could have produced
+- **THEN** the run fails with a rerun hint and the stored report is left unmodified
+
+### Requirement: Both report surfaces carry the same trust base
+
+The model-check report and the verify verdict SHALL carry the same trust
+base, derived once from the same corpus rows. The two surfaces SHALL NOT
+derive the ledger independently, and the write-side seam that attaches the
+claim fields SHALL attach the trust base in the same place.
+
+#### Scenario: The two surfaces agree
+
+- **WHEN** a model-check report and the verify verdict for the same corpus are compared
+- **THEN** their trust bases carry the same members with the same kinds and the same order
+
+### Requirement: The trust base is visible in every view
+
+CLI JSON, human output, and the persisted report SHALL agree on the trust
+base's membership and kinds: no view may report an empty trust base while
+another names an entry. The human view SHALL report the member count per
+kind and the first ten members in the ledger's deterministic order, naming
+the file each member comes from. Release documentation SHALL describe the
+trust base as information about the corpus, never as a statement about
+application correctness.
+
+#### Scenario: Views agree on the ledger
+
+- **WHEN** a run has one prose-only guard and one prose-only invariant
+- **THEN** CLI JSON, human output, and the saved report name the same two entries with the same kinds
+
+#### Scenario: The human view counts and truncates by a stated rule
+
+- **WHEN** a run's trust base holds more than ten members
+- **THEN** the human output names the count per kind and the first ten members in the deterministic order, and states that the list is truncated — the JSON keeps every member
+
+#### Scenario: The ledger is not a verdict
+
+- **WHEN** the release documentation describes the trust base
+- **THEN** it states that a non-empty ledger reports what was not checked, that it never blocks or grants `verified`, and that neither an empty nor a non-empty ledger says anything about the implementation's behaviour
