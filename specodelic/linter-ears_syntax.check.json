@@ -14,6 +14,1628 @@
   "outcome": "exploration_only",
   "scope_sha256": "c6a9d445a9429efbd4448336e84986aec5544fa7b3b711eca4cbd1a197e671e0",
   "states_explored": 6,
+  "trust_base": {
+    "assumed": [
+      {
+        "id": "accept",
+        "kind": "prose_only_guard",
+        "source": "compile"
+      },
+      {
+        "id": "begin",
+        "kind": "prose_only_guard",
+        "source": "compile"
+      },
+      {
+        "id": "extract_fail",
+        "kind": "prose_only_guard",
+        "source": "compile"
+      },
+      {
+        "id": "extract_ok",
+        "kind": "prose_only_guard",
+        "source": "compile"
+      },
+      {
+        "id": "reject",
+        "kind": "prose_only_guard",
+        "source": "compile"
+      },
+      {
+        "id": "publish",
+        "kind": "prose_only_guard",
+        "source": "errors"
+      },
+      {
+        "id": "extract_fail",
+        "kind": "prose_only_guard",
+        "source": "graph"
+      },
+      {
+        "id": "extract_ok",
+        "kind": "prose_only_guard",
+        "source": "graph"
+      },
+      {
+        "id": "invalidate",
+        "kind": "prose_only_guard",
+        "source": "graph"
+      },
+      {
+        "id": "publish",
+        "kind": "prose_only_guard",
+        "source": "graph"
+      },
+      {
+        "id": "accept",
+        "kind": "prose_only_guard",
+        "source": "kinds"
+      },
+      {
+        "id": "assign_fail",
+        "kind": "prose_only_guard",
+        "source": "kinds"
+      },
+      {
+        "id": "assign_ok",
+        "kind": "prose_only_guard",
+        "source": "kinds"
+      },
+      {
+        "id": "begin",
+        "kind": "prose_only_guard",
+        "source": "kinds"
+      },
+      {
+        "id": "reject",
+        "kind": "prose_only_guard",
+        "source": "kinds"
+      },
+      {
+        "id": "accept",
+        "kind": "prose_only_guard",
+        "source": "linter.coverage"
+      },
+      {
+        "id": "begin",
+        "kind": "prose_only_guard",
+        "source": "linter.coverage"
+      },
+      {
+        "id": "count_fail",
+        "kind": "prose_only_guard",
+        "source": "linter.coverage"
+      },
+      {
+        "id": "count_ok",
+        "kind": "prose_only_guard",
+        "source": "linter.coverage"
+      },
+      {
+        "id": "reject",
+        "kind": "prose_only_guard",
+        "source": "linter.coverage"
+      },
+      {
+        "id": "accept",
+        "kind": "prose_only_guard",
+        "source": "linter.ears_syntax"
+      },
+      {
+        "id": "begin",
+        "kind": "prose_only_guard",
+        "source": "linter.ears_syntax"
+      },
+      {
+        "id": "pattern_fail",
+        "kind": "prose_only_guard",
+        "source": "linter.ears_syntax"
+      },
+      {
+        "id": "pattern_ok",
+        "kind": "prose_only_guard",
+        "source": "linter.ears_syntax"
+      },
+      {
+        "id": "reject",
+        "kind": "prose_only_guard",
+        "source": "linter.ears_syntax"
+      },
+      {
+        "id": "accept",
+        "kind": "prose_only_guard",
+        "source": "linter.external_completeness"
+      },
+      {
+        "id": "check_fail",
+        "kind": "prose_only_guard",
+        "source": "linter.external_completeness"
+      },
+      {
+        "id": "check_mapping",
+        "kind": "prose_only_guard",
+        "source": "linter.external_completeness"
+      },
+      {
+        "id": "load",
+        "kind": "prose_only_guard",
+        "source": "linter.external_completeness"
+      },
+      {
+        "id": "load_fail",
+        "kind": "prose_only_guard",
+        "source": "linter.external_completeness"
+      },
+      {
+        "id": "reject",
+        "kind": "prose_only_guard",
+        "source": "linter.external_completeness"
+      },
+      {
+        "id": "accept",
+        "kind": "prose_only_guard",
+        "source": "linter.failure_shape"
+      },
+      {
+        "id": "begin",
+        "kind": "prose_only_guard",
+        "source": "linter.failure_shape"
+      },
+      {
+        "id": "reject",
+        "kind": "prose_only_guard",
+        "source": "linter.failure_shape"
+      },
+      {
+        "id": "accept",
+        "kind": "prose_only_guard",
+        "source": "linter.frontmatter"
+      },
+      {
+        "id": "begin",
+        "kind": "prose_only_guard",
+        "source": "linter.frontmatter"
+      },
+      {
+        "id": "reject",
+        "kind": "prose_only_guard",
+        "source": "linter.frontmatter"
+      },
+      {
+        "id": "accept",
+        "kind": "prose_only_guard",
+        "source": "linter.graph_shape"
+      },
+      {
+        "id": "build_graph",
+        "kind": "prose_only_guard",
+        "source": "linter.graph_shape"
+      },
+      {
+        "id": "reject",
+        "kind": "prose_only_guard",
+        "source": "linter.graph_shape"
+      },
+      {
+        "id": "traverse",
+        "kind": "prose_only_guard",
+        "source": "linter.graph_shape"
+      },
+      {
+        "id": "accept",
+        "kind": "prose_only_guard",
+        "source": "linter.model_shape"
+      },
+      {
+        "id": "check_pairing",
+        "kind": "prose_only_guard",
+        "source": "linter.model_shape"
+      },
+      {
+        "id": "pairing_fail",
+        "kind": "prose_only_guard",
+        "source": "linter.model_shape"
+      },
+      {
+        "id": "pairing_ok",
+        "kind": "prose_only_guard",
+        "source": "linter.model_shape"
+      },
+      {
+        "id": "reject",
+        "kind": "prose_only_guard",
+        "source": "linter.model_shape"
+      },
+      {
+        "id": "scan_effects",
+        "kind": "prose_only_guard",
+        "source": "linter.observability"
+      },
+      {
+        "id": "warn_unobserved",
+        "kind": "prose_only_guard",
+        "source": "linter.observability"
+      },
+      {
+        "id": "accept",
+        "kind": "prose_only_guard",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "build_index",
+        "kind": "prose_only_guard",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "index_fail",
+        "kind": "prose_only_guard",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "index_ok",
+        "kind": "prose_only_guard",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "reject",
+        "kind": "prose_only_guard",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "resolve_refs",
+        "kind": "prose_only_guard",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "accept",
+        "kind": "prose_only_guard",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "begin",
+        "kind": "prose_only_guard",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "diff_fail",
+        "kind": "prose_only_guard",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "diff_ok",
+        "kind": "prose_only_guard",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "diff_skip",
+        "kind": "prose_only_guard",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "kind_fail",
+        "kind": "prose_only_guard",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "kind_ok",
+        "kind": "prose_only_guard",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "reject",
+        "kind": "prose_only_guard",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "accept",
+        "kind": "prose_only_guard",
+        "source": "merge"
+      },
+      {
+        "id": "auto_proceed",
+        "kind": "prose_only_guard",
+        "source": "merge"
+      },
+      {
+        "id": "check_collisions",
+        "kind": "prose_only_guard",
+        "source": "merge"
+      },
+      {
+        "id": "collision_fail",
+        "kind": "prose_only_guard",
+        "source": "merge"
+      },
+      {
+        "id": "flag_review",
+        "kind": "prose_only_guard",
+        "source": "merge"
+      },
+      {
+        "id": "reject",
+        "kind": "prose_only_guard",
+        "source": "merge"
+      },
+      {
+        "id": "resolved",
+        "kind": "prose_only_guard",
+        "source": "merge"
+      },
+      {
+        "id": "reverify",
+        "kind": "prose_only_guard",
+        "source": "merge"
+      },
+      {
+        "id": "reverify_fail",
+        "kind": "prose_only_guard",
+        "source": "merge"
+      },
+      {
+        "id": "begin",
+        "kind": "prose_only_guard",
+        "source": "model_check"
+      },
+      {
+        "id": "finish_clean",
+        "kind": "prose_only_guard",
+        "source": "model_check"
+      },
+      {
+        "id": "finish_exploration",
+        "kind": "prose_only_guard",
+        "source": "model_check"
+      },
+      {
+        "id": "finish_timeout",
+        "kind": "prose_only_guard",
+        "source": "model_check"
+      },
+      {
+        "id": "finish_violation",
+        "kind": "prose_only_guard",
+        "source": "model_check"
+      },
+      {
+        "id": "compile_fail",
+        "kind": "prose_only_guard",
+        "source": "orchestrate"
+      },
+      {
+        "id": "compile_ok",
+        "kind": "prose_only_guard",
+        "source": "orchestrate"
+      },
+      {
+        "id": "lint_fail",
+        "kind": "prose_only_guard",
+        "source": "orchestrate"
+      },
+      {
+        "id": "lint_ok",
+        "kind": "prose_only_guard",
+        "source": "orchestrate"
+      },
+      {
+        "id": "model_check_fail",
+        "kind": "prose_only_guard",
+        "source": "orchestrate"
+      },
+      {
+        "id": "model_check_ok",
+        "kind": "prose_only_guard",
+        "source": "orchestrate"
+      },
+      {
+        "id": "verify_fail",
+        "kind": "prose_only_guard",
+        "source": "orchestrate"
+      },
+      {
+        "id": "verify_ok",
+        "kind": "prose_only_guard",
+        "source": "orchestrate"
+      },
+      {
+        "id": "deprecate",
+        "kind": "prose_only_guard",
+        "source": "packs"
+      },
+      {
+        "id": "publish",
+        "kind": "prose_only_guard",
+        "source": "packs"
+      },
+      {
+        "id": "clear",
+        "kind": "prose_only_guard",
+        "source": "refactor"
+      },
+      {
+        "id": "flag",
+        "kind": "prose_only_guard",
+        "source": "refactor"
+      },
+      {
+        "id": "accept",
+        "kind": "prose_only_guard",
+        "source": "rename"
+      },
+      {
+        "id": "apply",
+        "kind": "prose_only_guard",
+        "source": "rename"
+      },
+      {
+        "id": "apply_fail",
+        "kind": "prose_only_guard",
+        "source": "rename"
+      },
+      {
+        "id": "apply_ok",
+        "kind": "prose_only_guard",
+        "source": "rename"
+      },
+      {
+        "id": "reject",
+        "kind": "prose_only_guard",
+        "source": "rename"
+      },
+      {
+        "id": "validate",
+        "kind": "prose_only_guard",
+        "source": "rename"
+      },
+      {
+        "id": "validate_fail",
+        "kind": "prose_only_guard",
+        "source": "rename"
+      },
+      {
+        "id": "verify",
+        "kind": "prose_only_guard",
+        "source": "rename"
+      },
+      {
+        "id": "lint",
+        "kind": "prose_only_guard",
+        "source": "specodelic"
+      },
+      {
+        "id": "model_check",
+        "kind": "prose_only_guard",
+        "source": "specodelic"
+      },
+      {
+        "id": "parse",
+        "kind": "prose_only_guard",
+        "source": "specodelic"
+      },
+      {
+        "id": "verify",
+        "kind": "prose_only_guard",
+        "source": "specodelic"
+      },
+      {
+        "id": "accept",
+        "kind": "prose_only_guard",
+        "source": "verify"
+      },
+      {
+        "id": "begin",
+        "kind": "prose_only_guard",
+        "source": "verify"
+      },
+      {
+        "id": "evaluate",
+        "kind": "prose_only_guard",
+        "source": "verify"
+      },
+      {
+        "id": "reject",
+        "kind": "prose_only_guard",
+        "source": "verify"
+      },
+      {
+        "id": "route",
+        "kind": "prose_only_guard",
+        "source": "verify"
+      }
+    ],
+    "trust_base_schema_version": 1,
+    "unverified_claims": [
+      {
+        "id": "artifact_stem_unique",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "compile_is_total",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "compile_preserves_ids",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "constraint_table_to_toml",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "fragment_guard_rejected",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "fragment_hygiene",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "fragment_language_closed",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "fragment_law_rejected",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "fragments_section_opaque",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "helper_collision_labeled",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "helper_cycle_labeled",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "helper_hygiene_inherited",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "helper_reference_resolves",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "invariant_fragment_opt_in",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "kernel_binding_opaque",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "kernel_expr_opt_in",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "mention_not_extraction",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "model_to_tla",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "no_emitter_labeled_failure",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "no_semantic_drift",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "precondition_satisfied",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "predicate_fragment_opt_in",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "properties_to_proptest",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "rust_back_compat",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "scope_refusal_envelope",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "shared_fragment_defs",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "unknown_tag_rejected",
+        "kind": "prose_only_invariant",
+        "source": "compile"
+      },
+      {
+        "id": "contract_published",
+        "kind": "prose_only_invariant",
+        "source": "errors"
+      },
+      {
+        "id": "enforcement_routed",
+        "kind": "prose_only_invariant",
+        "source": "errors"
+      },
+      {
+        "id": "error_expr_shape",
+        "kind": "prose_only_invariant",
+        "source": "errors"
+      },
+      {
+        "id": "error_property_names_label",
+        "kind": "prose_only_invariant",
+        "source": "errors"
+      },
+      {
+        "id": "failure_class_is_state",
+        "kind": "prose_only_invariant",
+        "source": "errors"
+      },
+      {
+        "id": "failure_state_emits",
+        "kind": "prose_only_invariant",
+        "source": "errors"
+      },
+      {
+        "id": "guard_negation_typed",
+        "kind": "prose_only_invariant",
+        "source": "errors"
+      },
+      {
+        "id": "single_labeled_failure",
+        "kind": "prose_only_invariant",
+        "source": "errors"
+      },
+      {
+        "id": "blast_radius_is_transitive_closure",
+        "kind": "prose_only_invariant",
+        "source": "graph"
+      },
+      {
+        "id": "deterministic_derivation",
+        "kind": "prose_only_invariant",
+        "source": "graph"
+      },
+      {
+        "id": "edge_kind_matches_typing",
+        "kind": "prose_only_invariant",
+        "source": "graph"
+      },
+      {
+        "id": "external_boundary_derived",
+        "kind": "prose_only_invariant",
+        "source": "graph"
+      },
+      {
+        "id": "graph_is_derived_not_authored",
+        "kind": "prose_only_invariant",
+        "source": "graph"
+      },
+      {
+        "id": "stale_graph_detected",
+        "kind": "prose_only_invariant",
+        "source": "graph"
+      },
+      {
+        "id": "total_extraction",
+        "kind": "prose_only_invariant",
+        "source": "graph"
+      },
+      {
+        "id": "constraint_row_shape",
+        "kind": "prose_only_invariant",
+        "source": "kinds"
+      },
+      {
+        "id": "intent_row_shape",
+        "kind": "prose_only_invariant",
+        "source": "kinds"
+      },
+      {
+        "id": "kind_enum_closed",
+        "kind": "prose_only_invariant",
+        "source": "kinds"
+      },
+      {
+        "id": "kind_field_extensible",
+        "kind": "prose_only_invariant",
+        "source": "kinds"
+      },
+      {
+        "id": "property_row_shape",
+        "kind": "prose_only_invariant",
+        "source": "kinds"
+      },
+      {
+        "id": "state_row_shape",
+        "kind": "prose_only_invariant",
+        "source": "kinds"
+      },
+      {
+        "id": "transition_row_shape",
+        "kind": "prose_only_invariant",
+        "source": "kinds"
+      },
+      {
+        "id": "coverage_is_computable",
+        "kind": "prose_only_invariant",
+        "source": "linter.coverage"
+      },
+      {
+        "id": "every_constraint_covered",
+        "kind": "prose_only_invariant",
+        "source": "linter.coverage"
+      },
+      {
+        "id": "every_law_has_cases",
+        "kind": "prose_only_invariant",
+        "source": "linter.coverage"
+      },
+      {
+        "id": "no_orphan_property",
+        "kind": "prose_only_invariant",
+        "source": "linter.coverage"
+      },
+      {
+        "id": "ears_pattern_match",
+        "kind": "prose_only_invariant",
+        "source": "linter.ears_syntax"
+      },
+      {
+        "id": "has_shall",
+        "kind": "prose_only_invariant",
+        "source": "linter.ears_syntax"
+      },
+      {
+        "id": "no_conjoined_id",
+        "kind": "prose_only_invariant",
+        "source": "linter.ears_syntax"
+      },
+      {
+        "id": "no_universal_in_id",
+        "kind": "prose_only_invariant",
+        "source": "linter.ears_syntax"
+      },
+      {
+        "id": "checklist_well_formed",
+        "kind": "prose_only_invariant",
+        "source": "linter.external_completeness"
+      },
+      {
+        "id": "covered_maps_resolve",
+        "kind": "prose_only_invariant",
+        "source": "linter.external_completeness"
+      },
+      {
+        "id": "every_item_accounted",
+        "kind": "prose_only_invariant",
+        "source": "linter.external_completeness"
+      },
+      {
+        "id": "no_duplicate_claim",
+        "kind": "prose_only_invariant",
+        "source": "linter.external_completeness"
+      },
+      {
+        "id": "waiver_has_rationale",
+        "kind": "prose_only_invariant",
+        "source": "linter.external_completeness"
+      },
+      {
+        "id": "error_labels_unique",
+        "kind": "prose_only_invariant",
+        "source": "linter.failure_shape"
+      },
+      {
+        "id": "guard_negation_total",
+        "kind": "prose_only_invariant",
+        "source": "linter.failure_shape"
+      },
+      {
+        "id": "terminal_states_emit",
+        "kind": "prose_only_invariant",
+        "source": "linter.failure_shape"
+      },
+      {
+        "id": "has_id",
+        "kind": "prose_only_invariant",
+        "source": "linter.frontmatter"
+      },
+      {
+        "id": "has_kind",
+        "kind": "prose_only_invariant",
+        "source": "linter.frontmatter"
+      },
+      {
+        "id": "has_statement",
+        "kind": "prose_only_invariant",
+        "source": "linter.frontmatter"
+      },
+      {
+        "id": "id_matches_file",
+        "kind": "prose_only_invariant",
+        "source": "linter.frontmatter"
+      },
+      {
+        "id": "acyclic",
+        "kind": "prose_only_invariant",
+        "source": "linter.graph_shape"
+      },
+      {
+        "id": "no_self_ref",
+        "kind": "prose_only_invariant",
+        "source": "linter.graph_shape"
+      },
+      {
+        "id": "single_root_reachable",
+        "kind": "prose_only_invariant",
+        "source": "linter.graph_shape"
+      },
+      {
+        "id": "supersedes_dag",
+        "kind": "prose_only_invariant",
+        "source": "linter.graph_shape"
+      },
+      {
+        "id": "every_state_used",
+        "kind": "prose_only_invariant",
+        "source": "linter.model_shape"
+      },
+      {
+        "id": "every_transition_valid",
+        "kind": "prose_only_invariant",
+        "source": "linter.model_shape"
+      },
+      {
+        "id": "guard_present",
+        "kind": "prose_only_invariant",
+        "source": "linter.model_shape"
+      },
+      {
+        "id": "model_sections_paired",
+        "kind": "prose_only_invariant",
+        "source": "linter.model_shape"
+      },
+      {
+        "id": "no_bool_state_field",
+        "kind": "prose_only_invariant",
+        "source": "linter.model_shape"
+      },
+      {
+        "id": "advisory_severity",
+        "kind": "prose_only_invariant",
+        "source": "linter.observability"
+      },
+      {
+        "id": "dangling_observes_is_referential",
+        "kind": "prose_only_invariant",
+        "source": "linter.observability"
+      },
+      {
+        "id": "no_waivers_in_v1",
+        "kind": "prose_only_invariant",
+        "source": "linter.observability"
+      },
+      {
+        "id": "observation_universe",
+        "kind": "prose_only_invariant",
+        "source": "linter.observability"
+      },
+      {
+        "id": "self_observation_not_counted",
+        "kind": "prose_only_invariant",
+        "source": "linter.observability"
+      },
+      {
+        "id": "corpus_stays_green",
+        "kind": "prose_only_invariant",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "dangling_is_total_refs",
+        "kind": "prose_only_invariant",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "from_to_not_duplicated",
+        "kind": "prose_only_invariant",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "member_arm_types_row",
+        "kind": "prose_only_invariant",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "ref_kind_compatible",
+        "kind": "prose_only_invariant",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "ref_resolves",
+        "kind": "prose_only_invariant",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "schema_is_decision",
+        "kind": "prose_only_invariant",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "severity_error",
+        "kind": "prose_only_invariant",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "typed_columns_only",
+        "kind": "prose_only_invariant",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "unique_across_repo",
+        "kind": "prose_only_invariant",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "unique_within_file",
+        "kind": "prose_only_invariant",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "uses_types_frontmatter",
+        "kind": "prose_only_invariant",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "constraint_kind_closed",
+        "kind": "prose_only_invariant",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "id_set_grows_only",
+        "kind": "prose_only_invariant",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "id_set_order_stable",
+        "kind": "prose_only_invariant",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "no_prose_field_parsed",
+        "kind": "prose_only_invariant",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "property_kind_closed",
+        "kind": "prose_only_invariant",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "prose_field_passthrough",
+        "kind": "prose_only_invariant",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "blast_radii_recorded_pre_merge",
+        "kind": "prose_only_invariant",
+        "source": "merge"
+      },
+      {
+        "id": "graph_reused_not_rederived",
+        "kind": "prose_only_invariant",
+        "source": "merge"
+      },
+      {
+        "id": "no_new_id_collision",
+        "kind": "prose_only_invariant",
+        "source": "merge"
+      },
+      {
+        "id": "post_merge_relint_required",
+        "kind": "prose_only_invariant",
+        "source": "merge"
+      },
+      {
+        "id": "rename_replayed_onto_foreign_edits",
+        "kind": "prose_only_invariant",
+        "source": "merge"
+      },
+      {
+        "id": "semantic_conflict_iff_blast_radius_intersects",
+        "kind": "prose_only_invariant",
+        "source": "merge"
+      },
+      {
+        "id": "sequential_number_reassigned_on_conflict",
+        "kind": "prose_only_invariant",
+        "source": "merge"
+      },
+      {
+        "id": "backend_identified",
+        "kind": "prose_only_invariant",
+        "source": "model_check"
+      },
+      {
+        "id": "checker_invoked",
+        "kind": "prose_only_invariant",
+        "source": "model_check"
+      },
+      {
+        "id": "claim_aggregate_governs",
+        "kind": "prose_only_invariant",
+        "source": "model_check"
+      },
+      {
+        "id": "claim_report_schema",
+        "kind": "prose_only_invariant",
+        "source": "model_check"
+      },
+      {
+        "id": "corpus_identity_scope",
+        "kind": "prose_only_invariant",
+        "source": "model_check"
+      },
+      {
+        "id": "counterexample_is_minimal",
+        "kind": "prose_only_invariant",
+        "source": "model_check"
+      },
+      {
+        "id": "counterexample_names_violated_invariant",
+        "kind": "prose_only_invariant",
+        "source": "model_check"
+      },
+      {
+        "id": "executable_invariants_execute",
+        "kind": "prose_only_invariant",
+        "source": "model_check"
+      },
+      {
+        "id": "exhaustive_within_bound",
+        "kind": "prose_only_invariant",
+        "source": "model_check"
+      },
+      {
+        "id": "invariant_totality",
+        "kind": "prose_only_invariant",
+        "source": "model_check"
+      },
+      {
+        "id": "no_counterexample_feeds_verify",
+        "kind": "prose_only_invariant",
+        "source": "model_check"
+      },
+      {
+        "id": "required_claims_classified",
+        "kind": "prose_only_invariant",
+        "source": "model_check"
+      },
+      {
+        "id": "rerun_on_model_change",
+        "kind": "prose_only_invariant",
+        "source": "model_check"
+      },
+      {
+        "id": "compile_gate_matches_coverage",
+        "kind": "prose_only_invariant",
+        "source": "orchestrate"
+      },
+      {
+        "id": "dependency_respecting_skip",
+        "kind": "prose_only_invariant",
+        "source": "orchestrate"
+      },
+      {
+        "id": "deterministic_rerun",
+        "kind": "prose_only_invariant",
+        "source": "orchestrate"
+      },
+      {
+        "id": "external_completeness_never_gating",
+        "kind": "prose_only_invariant",
+        "source": "orchestrate"
+      },
+      {
+        "id": "independent_branches_run_regardless",
+        "kind": "prose_only_invariant",
+        "source": "orchestrate"
+      },
+      {
+        "id": "lint_gate_matches_checker_ownership",
+        "kind": "prose_only_invariant",
+        "source": "orchestrate"
+      },
+      {
+        "id": "stage_order_fixed",
+        "kind": "prose_only_invariant",
+        "source": "orchestrate"
+      },
+      {
+        "id": "advisory_first_opt_in",
+        "kind": "prose_only_invariant",
+        "source": "packs"
+      },
+      {
+        "id": "append_only_packs",
+        "kind": "prose_only_invariant",
+        "source": "packs"
+      },
+      {
+        "id": "base_closed_sets_frozen",
+        "kind": "prose_only_invariant",
+        "source": "packs"
+      },
+      {
+        "id": "discovery_corpus_scan",
+        "kind": "prose_only_invariant",
+        "source": "packs"
+      },
+      {
+        "id": "honest_empty",
+        "kind": "prose_only_invariant",
+        "source": "packs"
+      },
+      {
+        "id": "lifecycle_labeled",
+        "kind": "prose_only_invariant",
+        "source": "packs"
+      },
+      {
+        "id": "manifest_six_tables",
+        "kind": "prose_only_invariant",
+        "source": "packs"
+      },
+      {
+        "id": "namespaced_vocabulary",
+        "kind": "prose_only_invariant",
+        "source": "packs"
+      },
+      {
+        "id": "orphan_vocabulary_labeled",
+        "kind": "prose_only_invariant",
+        "source": "packs"
+      },
+      {
+        "id": "pack_is_profile_file",
+        "kind": "prose_only_invariant",
+        "source": "packs"
+      },
+      {
+        "id": "pack_self_exempt",
+        "kind": "prose_only_invariant",
+        "source": "packs"
+      },
+      {
+        "id": "skew_advisory",
+        "kind": "prose_only_invariant",
+        "source": "packs"
+      },
+      {
+        "id": "uses_is_outbound_leaf",
+        "kind": "prose_only_invariant",
+        "source": "packs"
+      },
+      {
+        "id": "fan_in_read_from_graph",
+        "kind": "prose_only_invariant",
+        "source": "refactor"
+      },
+      {
+        "id": "narrow_diff_heuristic",
+        "kind": "prose_only_invariant",
+        "source": "refactor"
+      },
+      {
+        "id": "threshold_is_per_repo_setting",
+        "kind": "prose_only_invariant",
+        "source": "refactor"
+      },
+      {
+        "id": "unrelated_fan_in_defined",
+        "kind": "prose_only_invariant",
+        "source": "refactor"
+      },
+      {
+        "id": "atomic_operation",
+        "kind": "prose_only_invariant",
+        "source": "rename"
+      },
+      {
+        "id": "kind_unchanged",
+        "kind": "prose_only_invariant",
+        "source": "rename"
+      },
+      {
+        "id": "new_id_available",
+        "kind": "prose_only_invariant",
+        "source": "rename"
+      },
+      {
+        "id": "new_id_matches_filename",
+        "kind": "prose_only_invariant",
+        "source": "rename"
+      },
+      {
+        "id": "old_id_fully_replaced",
+        "kind": "prose_only_invariant",
+        "source": "rename"
+      },
+      {
+        "id": "prose_untouched_by_rename",
+        "kind": "prose_only_invariant",
+        "source": "rename"
+      },
+      {
+        "id": "acyclic_traces",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "append_only_variants",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "constraint_kind_closed",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "ears_statement",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "every_state_used",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "frontmatter_valid",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "guard_required",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "id_matches_file",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "law_requires_cases",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "model_present",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "no_boolean_columns",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "no_counterexample",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "one_capability_per_row",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "properties_pass",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "property_kind_closed",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "prose_untouched",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "ref_kind_compatible",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "single_root_reachable",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "unique_id",
+        "kind": "prose_only_invariant",
+        "source": "specodelic"
+      },
+      {
+        "id": "assurance_views_agree",
+        "kind": "prose_only_invariant",
+        "source": "verify"
+      },
+      {
+        "id": "blocks_run_to_completion",
+        "kind": "prose_only_invariant",
+        "source": "verify"
+      },
+      {
+        "id": "both_gates_required",
+        "kind": "prose_only_invariant",
+        "source": "verify"
+      },
+      {
+        "id": "bounded_wall_clock",
+        "kind": "prose_only_invariant",
+        "source": "verify"
+      },
+      {
+        "id": "evidence_scope_bound",
+        "kind": "prose_only_invariant",
+        "source": "verify"
+      },
+      {
+        "id": "failure_reports_shrunk_counterexample",
+        "kind": "prose_only_invariant",
+        "source": "verify"
+      },
+      {
+        "id": "law_cases_unexecuted",
+        "kind": "prose_only_invariant",
+        "source": "verify"
+      },
+      {
+        "id": "no_cross_file_evidence",
+        "kind": "prose_only_invariant",
+        "source": "verify"
+      },
+      {
+        "id": "properties_pass_reflects_latest_run",
+        "kind": "prose_only_invariant",
+        "source": "verify"
+      },
+      {
+        "id": "properties_scope_verdict",
+        "kind": "prose_only_invariant",
+        "source": "verify"
+      },
+      {
+        "id": "required_claims_govern_acceptance",
+        "kind": "prose_only_invariant",
+        "source": "verify"
+      },
+      {
+        "id": "routed_artifact_resolution",
+        "kind": "prose_only_invariant",
+        "source": "verify"
+      },
+      {
+        "id": "unique_stem_layout_stable",
+        "kind": "prose_only_invariant",
+        "source": "verify"
+      },
+      {
+        "id": "verify_is_idempotent",
+        "kind": "prose_only_invariant",
+        "source": "verify"
+      },
+      {
+        "id": "emission_failure",
+        "kind": "foreign_extension_point",
+        "source": "compile"
+      },
+      {
+        "id": "extraction_failure",
+        "kind": "foreign_extension_point",
+        "source": "compile"
+      },
+      {
+        "id": "extraction_failure",
+        "kind": "foreign_extension_point",
+        "source": "graph"
+      },
+      {
+        "id": "kind_assignment_failure",
+        "kind": "foreign_extension_point",
+        "source": "kinds"
+      },
+      {
+        "id": "shape_check_failure",
+        "kind": "foreign_extension_point",
+        "source": "kinds"
+      },
+      {
+        "id": "count_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.coverage"
+      },
+      {
+        "id": "law_case_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.coverage"
+      },
+      {
+        "id": "id_check_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.ears_syntax"
+      },
+      {
+        "id": "pattern_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.ears_syntax"
+      },
+      {
+        "id": "manifest_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.external_completeness"
+      },
+      {
+        "id": "mapping_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.external_completeness"
+      },
+      {
+        "id": "resolution_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.external_completeness"
+      },
+      {
+        "id": "check_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.failure_shape"
+      },
+      {
+        "id": "check_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.frontmatter"
+      },
+      {
+        "id": "check_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.graph_shape"
+      },
+      {
+        "id": "field_check_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.model_shape"
+      },
+      {
+        "id": "pairing_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.model_shape"
+      },
+      {
+        "id": "index_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "resolution_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.referential_integrity"
+      },
+      {
+        "id": "diff_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "kind_check_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "parser_audit_failure",
+        "kind": "foreign_extension_point",
+        "source": "linter.schema_shape"
+      },
+      {
+        "id": "collision_failure",
+        "kind": "foreign_extension_point",
+        "source": "merge"
+      },
+      {
+        "id": "merge_aborted",
+        "kind": "foreign_extension_point",
+        "source": "merge"
+      },
+      {
+        "id": "reverification_failure",
+        "kind": "foreign_extension_point",
+        "source": "merge"
+      },
+      {
+        "id": "compile_stage_failure",
+        "kind": "foreign_extension_point",
+        "source": "orchestrate"
+      },
+      {
+        "id": "lint_stage_failure",
+        "kind": "foreign_extension_point",
+        "source": "orchestrate"
+      },
+      {
+        "id": "model_check_stage_failure",
+        "kind": "foreign_extension_point",
+        "source": "orchestrate"
+      },
+      {
+        "id": "verify_stage_failure",
+        "kind": "foreign_extension_point",
+        "source": "orchestrate"
+      },
+      {
+        "id": "apply_failure",
+        "kind": "foreign_extension_point",
+        "source": "rename"
+      },
+      {
+        "id": "post_check_failure",
+        "kind": "foreign_extension_point",
+        "source": "rename"
+      },
+      {
+        "id": "validation_failure",
+        "kind": "foreign_extension_point",
+        "source": "rename"
+      },
+      {
+        "id": "verification_failure",
+        "kind": "foreign_extension_point",
+        "source": "verify"
+      },
+      {
+        "id": "dead_helper_warns",
+        "kind": "advisory_constraint",
+        "source": "compile"
+      }
+    ]
+  },
   "unchecked_claim_ids": [
     "ears_pattern_match",
     "has_shall",
