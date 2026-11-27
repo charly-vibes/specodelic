@@ -28,6 +28,12 @@ exclude = [
   "node_modules/**",
   "./node_modules/**",
   "**/*_generated.*",
+  # Generated proptest artifacts (spk compile writes <stem>_props.rs; the
+  # header says "edit there, not here"). The 0.12.0 unwrap-density check
+  # counts the generated unwrap_or* scaffolding (specodelic/compile_props.rs
+  # 72, specodelic_props.rs 62) — same class as **/*_generated.*, different
+  # naming (specodelic-5h9r / pretender-0.12.0 migration 2026-11-27).
+  "**/*_props.rs",
   "**/*.min.js",
 ]
 

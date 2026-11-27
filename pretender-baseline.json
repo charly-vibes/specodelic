@@ -1,12 +1,8 @@
 {
   "schema_version": 1,
-  "adopted_at": "2026-11-27T15:24:34Z",
+  "adopted_at": "2026-11-27T17:10:57Z",
   "finding_ids": [
     "scripts/test_check_format_summary.py::::void_mutator",
-    "specodelic/compile_props.rs::::unwraps",
-    "specodelic/kinds_props.rs::::unwraps",
-    "specodelic/packs_props.rs::::unwraps",
-    "specodelic/specodelic_props.rs::::unwraps",
     "src/acset/instance.rs::::void_mutator",
     "src/audit.rs::::bool_cluster",
     "src/audit.rs::::unwraps",
